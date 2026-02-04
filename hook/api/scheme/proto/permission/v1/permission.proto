@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package permission.v1;
+
+// PermissionService handles permission requests from Claude Code hooks.
+service PermissionService {
+  // RequestPermission sends a permission request to the interactive server
+  // and returns the user's decision.
+  rpc RequestPermission(PermissionRequest) returns (PermissionResponse);
+}
+
+// PermissionRequest contains the hook input from Claude Code.
+message PermissionRequest {
+  // The name of the hook being invoked (e.g., "PreToolUse", "PostToolUse").
+  string hook_name = 1;
+  // The name of the tool being used (e.g., "Bash", "Write", "Edit").
+  string tool_name = 2;
+  // The tool input as a JSON string.
+  string tool_input_json = 3;
+  // Session ID from Claude Code.
+  string session_id = 4;
+  // Message ID from Claude Code.
+  string message_id = 5;
+}
+
+// PermissionResponse contains the decision from the interactive server.
+message PermissionResponse {
+  // The decision made by the user.
+  Decision decision = 1;
+  // Optional reason for the decision (shown to Claude).
+  string reason = 2;
+}
+
+// Decision represents the possible permission decisions.
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  // Allow the tool to proceed.
+  DECISION_ALLOW = 1;
+  // Block the tool execution.
+  DECISION_BLOCK = 2;
+  // Allow this and similar future requests automatically.
+  DECISION_ALLOW_ALWAYS = 3;
+}
