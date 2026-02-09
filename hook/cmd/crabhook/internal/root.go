@@ -74,8 +74,8 @@ func runHookClient(cmd *cobra.Command, args []string) error {
 	}
 
 	req := &pb.PermissionRequest{
-		HookName:      input.HookName,
-		ToolName:      input.ToolName,
+		HookName:      string(input.HookName),
+		ToolName:      string(input.ToolName),
 		ToolInputJson: toolInputJSON,
 		SessionId:     input.SessionID,
 		MessageId:     input.MessageID,
@@ -89,7 +89,7 @@ func runHookClient(cmd *cobra.Command, args []string) error {
 
 	// Convert the response to hook output
 	output := model.HookOutput{
-		Decision: decisionToString(resp.Decision),
+		Decision: model.Decision(decisionToString(resp.Decision)),
 		Reason:   resp.Reason,
 	}
 
@@ -106,12 +106,12 @@ func runHookClient(cmd *cobra.Command, args []string) error {
 func decisionToString(d pb.Decision) string {
 	switch d {
 	case pb.Decision_DECISION_ALLOW:
-		return model.DecisionAllow
+		return string(model.DecisionAllow)
 	case pb.Decision_DECISION_BLOCK:
-		return model.DecisionBlock
+		return string(model.DecisionBlock)
 	case pb.Decision_DECISION_ALLOW_ALWAYS:
-		return model.DecisionAllowAlways
+		return string(model.DecisionAllowAlways)
 	default:
-		return model.DecisionBlock
+		return string(model.DecisionBlock)
 	}
 }
