@@ -21,59 +21,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Decision represents the possible permission decisions.
-type Decision int32
+// PermissionDecision represents the possible permission decisions.
+type PermissionDecision int32
 
 const (
-	Decision_DECISION_UNSPECIFIED Decision = 0
+	PermissionDecision_PERMISSION_DECISION_UNSPECIFIED PermissionDecision = 0
 	// Allow the tool to proceed.
-	Decision_DECISION_ALLOW Decision = 1
+	PermissionDecision_PERMISSION_DECISION_ALLOW PermissionDecision = 1
 	// Block the tool execution.
-	Decision_DECISION_BLOCK Decision = 2
-	// Allow this and similar future requests automatically.
-	Decision_DECISION_ALLOW_ALWAYS Decision = 3
+	PermissionDecision_PERMISSION_DECISION_DENY PermissionDecision = 2
+	// Prompt the user for confirmation.
+	PermissionDecision_PERMISSION_DECISION_ASK PermissionDecision = 3
 )
 
-// Enum value maps for Decision.
+// Enum value maps for PermissionDecision.
 var (
-	Decision_name = map[int32]string{
-		0: "DECISION_UNSPECIFIED",
-		1: "DECISION_ALLOW",
-		2: "DECISION_BLOCK",
-		3: "DECISION_ALLOW_ALWAYS",
+	PermissionDecision_name = map[int32]string{
+		0: "PERMISSION_DECISION_UNSPECIFIED",
+		1: "PERMISSION_DECISION_ALLOW",
+		2: "PERMISSION_DECISION_DENY",
+		3: "PERMISSION_DECISION_ASK",
 	}
-	Decision_value = map[string]int32{
-		"DECISION_UNSPECIFIED":  0,
-		"DECISION_ALLOW":        1,
-		"DECISION_BLOCK":        2,
-		"DECISION_ALLOW_ALWAYS": 3,
+	PermissionDecision_value = map[string]int32{
+		"PERMISSION_DECISION_UNSPECIFIED": 0,
+		"PERMISSION_DECISION_ALLOW":       1,
+		"PERMISSION_DECISION_DENY":        2,
+		"PERMISSION_DECISION_ASK":         3,
 	}
 )
 
-func (x Decision) Enum() *Decision {
-	p := new(Decision)
+func (x PermissionDecision) Enum() *PermissionDecision {
+	p := new(PermissionDecision)
 	*p = x
 	return p
 }
 
-func (x Decision) String() string {
+func (x PermissionDecision) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (Decision) Descriptor() protoreflect.EnumDescriptor {
+func (PermissionDecision) Descriptor() protoreflect.EnumDescriptor {
 	return file_permission_v1_permission_proto_enumTypes[0].Descriptor()
 }
 
-func (Decision) Type() protoreflect.EnumType {
+func (PermissionDecision) Type() protoreflect.EnumType {
 	return &file_permission_v1_permission_proto_enumTypes[0]
 }
 
-func (x Decision) Number() protoreflect.EnumNumber {
+func (x PermissionDecision) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use Decision.Descriptor instead.
-func (Decision) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use PermissionDecision.Descriptor instead.
+func (PermissionDecision) EnumDescriptor() ([]byte, []int) {
 	return file_permission_v1_permission_proto_rawDescGZIP(), []int{0}
 }
 
@@ -81,7 +81,7 @@ func (Decision) EnumDescriptor() ([]byte, []int) {
 type PermissionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the hook being invoked (e.g., "PreToolUse", "PostToolUse").
-	HookName string `protobuf:"bytes,1,opt,name=hook_name,json=hookName,proto3" json:"hook_name,omitempty"`
+	HookEventName string `protobuf:"bytes,1,opt,name=hook_event_name,json=hookEventName,proto3" json:"hook_event_name,omitempty"`
 	// The name of the tool being used (e.g., "Bash", "Write", "Edit").
 	ToolName string `protobuf:"bytes,2,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
 	// The tool input as a JSON string.
@@ -89,9 +89,13 @@ type PermissionRequest struct {
 	// Session ID from Claude Code.
 	SessionId string `protobuf:"bytes,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// Message ID from Claude Code.
-	MessageId     string `protobuf:"bytes,5,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MessageId string `protobuf:"bytes,5,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	// Current working directory.
+	Cwd string `protobuf:"bytes,6,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	// Path to conversation transcript.
+	TranscriptPath string `protobuf:"bytes,7,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PermissionRequest) Reset() {
@@ -124,9 +128,9 @@ func (*PermissionRequest) Descriptor() ([]byte, []int) {
 	return file_permission_v1_permission_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *PermissionRequest) GetHookName() string {
+func (x *PermissionRequest) GetHookEventName() string {
 	if x != nil {
-		return x.HookName
+		return x.HookEventName
 	}
 	return ""
 }
@@ -159,15 +163,35 @@ func (x *PermissionRequest) GetMessageId() string {
 	return ""
 }
 
+func (x *PermissionRequest) GetCwd() string {
+	if x != nil {
+		return x.Cwd
+	}
+	return ""
+}
+
+func (x *PermissionRequest) GetTranscriptPath() string {
+	if x != nil {
+		return x.TranscriptPath
+	}
+	return ""
+}
+
 // PermissionResponse contains the decision from the interactive server.
 type PermissionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The decision made by the user.
-	Decision Decision `protobuf:"varint,1,opt,name=decision,proto3,enum=permission.v1.Decision" json:"decision,omitempty"`
-	// Optional reason for the decision (shown to Claude).
-	Reason        string `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Whether the agent should continue after this hook (default: true).
+	ShouldContinue bool `protobuf:"varint,1,opt,name=should_continue,json=shouldContinue,proto3" json:"should_continue,omitempty"`
+	// Message shown when should_continue is false.
+	StopReason string `protobuf:"bytes,2,opt,name=stop_reason,json=stopReason,proto3" json:"stop_reason,omitempty"`
+	// Hide stdout from the transcript.
+	SuppressOutput bool `protobuf:"varint,3,opt,name=suppress_output,json=suppressOutput,proto3" json:"suppress_output,omitempty"`
+	// Message injected into the conversation for Claude to see.
+	SystemMessage string `protobuf:"bytes,4,opt,name=system_message,json=systemMessage,proto3" json:"system_message,omitempty"`
+	// The hook-specific output.
+	HookSpecificOutput *HookSpecificOutput `protobuf:"bytes,5,opt,name=hook_specific_output,json=hookSpecificOutput,proto3" json:"hook_specific_output,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *PermissionResponse) Reset() {
@@ -200,16 +224,119 @@ func (*PermissionResponse) Descriptor() ([]byte, []int) {
 	return file_permission_v1_permission_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *PermissionResponse) GetDecision() Decision {
+func (x *PermissionResponse) GetShouldContinue() bool {
 	if x != nil {
-		return x.Decision
+		return x.ShouldContinue
 	}
-	return Decision_DECISION_UNSPECIFIED
+	return false
 }
 
-func (x *PermissionResponse) GetReason() string {
+func (x *PermissionResponse) GetStopReason() string {
 	if x != nil {
-		return x.Reason
+		return x.StopReason
+	}
+	return ""
+}
+
+func (x *PermissionResponse) GetSuppressOutput() bool {
+	if x != nil {
+		return x.SuppressOutput
+	}
+	return false
+}
+
+func (x *PermissionResponse) GetSystemMessage() string {
+	if x != nil {
+		return x.SystemMessage
+	}
+	return ""
+}
+
+func (x *PermissionResponse) GetHookSpecificOutput() *HookSpecificOutput {
+	if x != nil {
+		return x.HookSpecificOutput
+	}
+	return nil
+}
+
+// HookSpecificOutput contains hook-specific output data.
+type HookSpecificOutput struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The hook event name this output is for.
+	HookEventName string `protobuf:"bytes,1,opt,name=hook_event_name,json=hookEventName,proto3" json:"hook_event_name,omitempty"`
+	// Permission decision: "allow", "deny", or "ask".
+	PermissionDecision PermissionDecision `protobuf:"varint,2,opt,name=permission_decision,json=permissionDecision,proto3,enum=permission.v1.PermissionDecision" json:"permission_decision,omitempty"`
+	// Explanation for the decision.
+	PermissionDecisionReason string `protobuf:"bytes,3,opt,name=permission_decision_reason,json=permissionDecisionReason,proto3" json:"permission_decision_reason,omitempty"`
+	// Modified tool input as a JSON string (requires permission_decision ALLOW).
+	UpdatedInputJson string `protobuf:"bytes,4,opt,name=updated_input_json,json=updatedInputJson,proto3" json:"updated_input_json,omitempty"`
+	// Context added to the conversation.
+	AdditionalContext string `protobuf:"bytes,5,opt,name=additional_context,json=additionalContext,proto3" json:"additional_context,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *HookSpecificOutput) Reset() {
+	*x = HookSpecificOutput{}
+	mi := &file_permission_v1_permission_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HookSpecificOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HookSpecificOutput) ProtoMessage() {}
+
+func (x *HookSpecificOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_permission_v1_permission_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HookSpecificOutput.ProtoReflect.Descriptor instead.
+func (*HookSpecificOutput) Descriptor() ([]byte, []int) {
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *HookSpecificOutput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
+func (x *HookSpecificOutput) GetPermissionDecision() PermissionDecision {
+	if x != nil {
+		return x.PermissionDecision
+	}
+	return PermissionDecision_PERMISSION_DECISION_UNSPECIFIED
+}
+
+func (x *HookSpecificOutput) GetPermissionDecisionReason() string {
+	if x != nil {
+		return x.PermissionDecisionReason
+	}
+	return ""
+}
+
+func (x *HookSpecificOutput) GetUpdatedInputJson() string {
+	if x != nil {
+		return x.UpdatedInputJson
+	}
+	return ""
+}
+
+func (x *HookSpecificOutput) GetAdditionalContext() string {
+	if x != nil {
+		return x.AdditionalContext
 	}
 	return ""
 }
@@ -218,23 +345,35 @@ var File_permission_v1_permission_proto protoreflect.FileDescriptor
 
 const file_permission_v1_permission_proto_rawDesc = "" +
 	"\n" +
-	"\x1epermission/v1/permission.proto\x12\rpermission.v1\"\xb3\x01\n" +
-	"\x11PermissionRequest\x12\x1b\n" +
-	"\thook_name\x18\x01 \x01(\tR\bhookName\x12\x1b\n" +
+	"\x1epermission/v1/permission.proto\x12\rpermission.v1\"\xf9\x01\n" +
+	"\x11PermissionRequest\x12&\n" +
+	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12&\n" +
 	"\x0ftool_input_json\x18\x03 \x01(\tR\rtoolInputJson\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x04 \x01(\tR\tsessionId\x12\x1d\n" +
 	"\n" +
-	"message_id\x18\x05 \x01(\tR\tmessageId\"a\n" +
-	"\x12PermissionResponse\x123\n" +
-	"\bdecision\x18\x01 \x01(\x0e2\x17.permission.v1.DecisionR\bdecision\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason*g\n" +
-	"\bDecision\x12\x18\n" +
-	"\x14DECISION_UNSPECIFIED\x10\x00\x12\x12\n" +
-	"\x0eDECISION_ALLOW\x10\x01\x12\x12\n" +
-	"\x0eDECISION_BLOCK\x10\x02\x12\x19\n" +
-	"\x15DECISION_ALLOW_ALWAYS\x10\x032m\n" +
+	"message_id\x18\x05 \x01(\tR\tmessageId\x12\x10\n" +
+	"\x03cwd\x18\x06 \x01(\tR\x03cwd\x12'\n" +
+	"\x0ftranscript_path\x18\a \x01(\tR\x0etranscriptPath\"\x83\x02\n" +
+	"\x12PermissionResponse\x12'\n" +
+	"\x0fshould_continue\x18\x01 \x01(\bR\x0eshouldContinue\x12\x1f\n" +
+	"\vstop_reason\x18\x02 \x01(\tR\n" +
+	"stopReason\x12'\n" +
+	"\x0fsuppress_output\x18\x03 \x01(\bR\x0esuppressOutput\x12%\n" +
+	"\x0esystem_message\x18\x04 \x01(\tR\rsystemMessage\x12S\n" +
+	"\x14hook_specific_output\x18\x05 \x01(\v2!.permission.v1.HookSpecificOutputR\x12hookSpecificOutput\"\xab\x02\n" +
+	"\x12HookSpecificOutput\x12&\n" +
+	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x12R\n" +
+	"\x13permission_decision\x18\x02 \x01(\x0e2!.permission.v1.PermissionDecisionR\x12permissionDecision\x12<\n" +
+	"\x1apermission_decision_reason\x18\x03 \x01(\tR\x18permissionDecisionReason\x12,\n" +
+	"\x12updated_input_json\x18\x04 \x01(\tR\x10updatedInputJson\x12-\n" +
+	"\x12additional_context\x18\x05 \x01(\tR\x11additionalContext*\x93\x01\n" +
+	"\x12PermissionDecision\x12#\n" +
+	"\x1fPERMISSION_DECISION_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19PERMISSION_DECISION_ALLOW\x10\x01\x12\x1c\n" +
+	"\x18PERMISSION_DECISION_DENY\x10\x02\x12\x1b\n" +
+	"\x17PERMISSION_DECISION_ASK\x10\x032m\n" +
 	"\x11PermissionService\x12X\n" +
 	"\x11RequestPermission\x12 .permission.v1.PermissionRequest\x1a!.permission.v1.PermissionResponseB\xc1\x01\n" +
 	"\x11com.permission.v1B\x0fPermissionProtoP\x01ZFgithub.com/ngicks/crabswarm/hook/api/gen/go/permission/v1;permissionv1\xa2\x02\x03PXX\xaa\x02\rPermission.V1\xca\x02\rPermission\\V1\xe2\x02\x19Permission\\V1\\GPBMetadata\xea\x02\x0ePermission::V1b\x06proto3"
@@ -252,21 +391,23 @@ func file_permission_v1_permission_proto_rawDescGZIP() []byte {
 }
 
 var file_permission_v1_permission_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_permission_v1_permission_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_permission_v1_permission_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_permission_v1_permission_proto_goTypes = []any{
-	(Decision)(0),              // 0: permission.v1.Decision
+	(PermissionDecision)(0),    // 0: permission.v1.PermissionDecision
 	(*PermissionRequest)(nil),  // 1: permission.v1.PermissionRequest
 	(*PermissionResponse)(nil), // 2: permission.v1.PermissionResponse
+	(*HookSpecificOutput)(nil), // 3: permission.v1.HookSpecificOutput
 }
 var file_permission_v1_permission_proto_depIdxs = []int32{
-	0, // 0: permission.v1.PermissionResponse.decision:type_name -> permission.v1.Decision
-	1, // 1: permission.v1.PermissionService.RequestPermission:input_type -> permission.v1.PermissionRequest
-	2, // 2: permission.v1.PermissionService.RequestPermission:output_type -> permission.v1.PermissionResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: permission.v1.PermissionResponse.hook_specific_output:type_name -> permission.v1.HookSpecificOutput
+	0, // 1: permission.v1.HookSpecificOutput.permission_decision:type_name -> permission.v1.PermissionDecision
+	1, // 2: permission.v1.PermissionService.RequestPermission:input_type -> permission.v1.PermissionRequest
+	2, // 3: permission.v1.PermissionService.RequestPermission:output_type -> permission.v1.PermissionResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_permission_v1_permission_proto_init() }
@@ -280,7 +421,7 @@ func file_permission_v1_permission_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_permission_v1_permission_proto_rawDesc), len(file_permission_v1_permission_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

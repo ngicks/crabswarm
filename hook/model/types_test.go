@@ -7,7 +7,7 @@ import (
 
 func TestHookInputParseBashInput(t *testing.T) {
 	input := &HookInput{
-		HookName:  HookEventPreToolUse,
+		HookEventName:  HookEventPreToolUse,
 		SessionID: "test-session",
 		ToolName:  ToolNameBash,
 		ToolInput: json.RawMessage(`{"command":"ls -la","description":"List files"}`),
@@ -33,7 +33,7 @@ func TestHookInputParseBashInput(t *testing.T) {
 
 func TestHookInputParseReadInput(t *testing.T) {
 	input := &HookInput{
-		HookName:  HookEventPreToolUse,
+		HookEventName:  HookEventPreToolUse,
 		SessionID: "test-session",
 		ToolName:  ToolNameRead,
 		ToolInput: json.RawMessage(`{"file_path":"/tmp/test.txt","offset":10,"limit":100}`),
@@ -57,7 +57,7 @@ func TestHookInputParseReadInput(t *testing.T) {
 
 func TestHookInputParseMCPInput(t *testing.T) {
 	input := &HookInput{
-		HookName:  HookEventPreToolUse,
+		HookEventName:  HookEventPreToolUse,
 		SessionID: "test-session",
 		ToolName:  ToolName("mcp__serena__find_symbol"),
 		ToolInput: json.RawMessage(`{"name_path":"Foo","relative_path":"src/main.go"}`),
@@ -179,7 +179,7 @@ func TestHookInputCategory(t *testing.T) {
 
 func TestHookInputParseNilToolInput(t *testing.T) {
 	input := &HookInput{
-		HookName:  HookEventPreToolUse,
+		HookEventName:  HookEventPreToolUse,
 		SessionID: "test-session",
 		ToolName:  ToolNameBash,
 		ToolInput: nil,

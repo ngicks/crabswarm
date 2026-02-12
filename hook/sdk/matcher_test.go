@@ -9,14 +9,14 @@ import (
 
 func TestMatcherRouting(t *testing.T) {
 	tests := []struct {
-		name         string
-		input        *model.HookInput
-		expectRoute  string
+		name        string
+		input       *model.HookInput
+		expectRoute string
 	}{
 		{
 			name: "Bash routes to Command",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolNameBash,
 				ToolInput: json.RawMessage(`{"command":"ls"}`),
 			},
@@ -25,7 +25,7 @@ func TestMatcherRouting(t *testing.T) {
 		{
 			name: "Read routes to FilePath",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolNameRead,
 				ToolInput: json.RawMessage(`{"file_path":"/tmp/test"}`),
 			},
@@ -34,7 +34,7 @@ func TestMatcherRouting(t *testing.T) {
 		{
 			name: "Write routes to FilePath",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolNameWrite,
 				ToolInput: json.RawMessage(`{"file_path":"/tmp/test","content":"hello"}`),
 			},
@@ -43,7 +43,7 @@ func TestMatcherRouting(t *testing.T) {
 		{
 			name: "WebFetch routes to Web",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolNameWebFetch,
 				ToolInput: json.RawMessage(`{"url":"https://example.com","prompt":"test"}`),
 			},
@@ -52,7 +52,7 @@ func TestMatcherRouting(t *testing.T) {
 		{
 			name: "Task routes to Task",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolNameTask,
 				ToolInput: json.RawMessage(`{"description":"test","prompt":"do something","subagent_type":"Bash"}`),
 			},
@@ -61,7 +61,7 @@ func TestMatcherRouting(t *testing.T) {
 		{
 			name: "AskUserQuestion routes to UserInteraction",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolNameAskUserQuestion,
 				ToolInput: json.RawMessage(`{"questions":[]}`),
 			},
@@ -70,16 +70,34 @@ func TestMatcherRouting(t *testing.T) {
 		{
 			name: "MCP tool routes to MCP",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolName("mcp__serena__find_symbol"),
 				ToolInput: json.RawMessage(`{"name_path":"Foo"}`),
 			},
 			expectRoute: "mcp",
 		},
 		{
+			name: "ExitPlanMode routes to PlanMode",
+			input: &model.HookInput{
+				HookEventName: model.HookEventPreToolUse,
+				ToolName:      model.ToolNameExitPlanMode,
+				ToolInput:     json.RawMessage(`{}`),
+			},
+			expectRoute: "planmode",
+		},
+		{
+			name: "EnterPlanMode routes to PlanMode",
+			input: &model.HookInput{
+				HookEventName: model.HookEventPreToolUse,
+				ToolName:      model.ToolNameEnterPlanMode,
+				ToolInput:     json.RawMessage(`{}`),
+			},
+			expectRoute: "planmode",
+		},
+		{
 			name: "Unknown tool routes to Other",
 			input: &model.HookInput{
-				HookName:  model.HookEventPreToolUse,
+				HookEventName:  model.HookEventPreToolUse,
 				ToolName:  model.ToolName("UnknownTool"),
 				ToolInput: json.RawMessage(`{}`),
 			},
@@ -88,7 +106,7 @@ func TestMatcherRouting(t *testing.T) {
 		{
 			name: "No tool routes to Other",
 			input: &model.HookInput{
-				HookName: model.HookEventSessionStart,
+				HookEventName: model.HookEventSessionStart,
 			},
 			expectRoute: "other",
 		},
@@ -99,31 +117,35 @@ func TestMatcherRouting(t *testing.T) {
 			var actualRoute string
 
 			matcher := NewMatcher().
-				WithCommand(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+				WithCommand(func(input *model.HookInput, toolInput any) model.HookOutput {
 					actualRoute = "command"
 					return model.Allow()
 				}).
-				WithFilePath(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+				WithFilePath(func(input *model.HookInput, toolInput any) model.HookOutput {
 					actualRoute = "filepath"
 					return model.Allow()
 				}).
-				WithWeb(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+				WithWeb(func(input *model.HookInput, toolInput any) model.HookOutput {
 					actualRoute = "web"
 					return model.Allow()
 				}).
-				WithTask(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+				WithTask(func(input *model.HookInput, toolInput any) model.HookOutput {
 					actualRoute = "task"
 					return model.Allow()
 				}).
-				WithUserInteraction(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+				WithUserInteraction(func(input *model.HookInput, toolInput any) model.HookOutput {
 					actualRoute = "userinteraction"
 					return model.Allow()
 				}).
-				WithMCP(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+				WithPlanMode(func(input *model.HookInput, toolInput any) model.HookOutput {
+					actualRoute = "planmode"
+					return model.Allow()
+				}).
+				WithMCP(func(input *model.HookInput, toolInput any) model.HookOutput {
 					actualRoute = "mcp"
 					return model.Allow()
 				}).
-				WithOther(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+				WithOther(func(input *model.HookInput, toolInput any) model.HookOutput {
 					actualRoute = "other"
 					return model.Allow()
 				})
@@ -141,29 +163,33 @@ func TestMatcherNilInput(t *testing.T) {
 	matcher := NewMatcher()
 	output := matcher.Handle(nil)
 
-	if output.Decision != model.DecisionAllow {
-		t.Errorf("Expected allow decision for nil input, got %s", output.Decision)
+	// Empty output (Allow) has nil HookSpecificOutput
+	if output.HookSpecificOutput != nil {
+		t.Errorf("Expected nil HookSpecificOutput for nil input")
 	}
 }
 
 func TestMatcherDefaultHandler(t *testing.T) {
 	matcher := NewMatcher().
-		WithDefault(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
-			return model.Block("blocked by default")
+		WithDefault(func(input *model.HookInput, toolInput any) model.HookOutput {
+			return model.Deny(input.HookEventName, "blocked by default")
 		})
 
 	input := &model.HookInput{
-		HookName: model.HookEventPreToolUse,
-		ToolName: model.ToolNameBash,
+		HookEventName: model.HookEventPreToolUse,
+		ToolName:      model.ToolNameBash,
 	}
 
 	output := matcher.Handle(input)
 
-	if output.Decision != model.DecisionBlock {
-		t.Errorf("Expected block decision, got %s", output.Decision)
+	if output.HookSpecificOutput == nil {
+		t.Fatal("Expected non-nil HookSpecificOutput")
 	}
-	if output.Reason != "blocked by default" {
-		t.Errorf("Expected reason 'blocked by default', got '%s'", output.Reason)
+	if output.HookSpecificOutput.PermissionDecision != model.PermissionDeny {
+		t.Errorf("Expected deny decision, got %s", output.HookSpecificOutput.PermissionDecision)
+	}
+	if output.HookSpecificOutput.PermissionDecisionReason != "blocked by default" {
+		t.Errorf("Expected reason 'blocked by default', got '%s'", output.HookSpecificOutput.PermissionDecisionReason)
 	}
 }
 
@@ -171,7 +197,7 @@ func TestMatcherParsedInput(t *testing.T) {
 	var receivedInput *model.BashInput
 
 	matcher := NewMatcher().
-		WithCommand(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+		WithCommand(func(input *model.HookInput, toolInput any) model.HookOutput {
 			if bi, ok := toolInput.(*model.BashInput); ok {
 				receivedInput = bi
 			}
@@ -179,7 +205,7 @@ func TestMatcherParsedInput(t *testing.T) {
 		})
 
 	hookInput := &model.HookInput{
-		HookName:  model.HookEventPreToolUse,
+		HookEventName:  model.HookEventPreToolUse,
 		ToolName:  model.ToolNameBash,
 		ToolInput: json.RawMessage(`{"command":"echo hello","description":"Print hello"}`),
 	}
@@ -236,7 +262,7 @@ func TestEventMatcherRouting(t *testing.T) {
 					return model.Allow()
 				})
 
-			em.Handle(&model.HookInput{HookName: tt.hookName})
+			em.Handle(&model.HookInput{HookEventName: tt.hookName})
 
 			if actualEvent != tt.expectEvent {
 				t.Errorf("Expected event %s, got %s", tt.expectEvent, actualEvent)
@@ -253,20 +279,20 @@ func TestCombinedMatcher(t *testing.T) {
 		handledBy = "session_event"
 		return model.Allow()
 	})
-	cm.Tools().WithCommand(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+	cm.Tools().WithCommand(func(input *model.HookInput, toolInput any) model.HookOutput {
 		handledBy = "command_tool"
 		return model.Allow()
 	})
 
 	// Test event handling
-	cm.Handle(&model.HookInput{HookName: model.HookEventSessionStart})
+	cm.Handle(&model.HookInput{HookEventName: model.HookEventSessionStart})
 	if handledBy != "session_event" {
 		t.Errorf("Expected session_event, got %s", handledBy)
 	}
 
 	// Test tool handling
 	cm.Handle(&model.HookInput{
-		HookName: model.HookEventPreToolUse,
+		HookEventName: model.HookEventPreToolUse,
 		ToolName: model.ToolNameBash,
 	})
 	if handledBy != "command_tool" {
@@ -278,18 +304,18 @@ func TestMatcherBuilder(t *testing.T) {
 	var routed string
 
 	matcher := NewMatcherBuilder().
-		OnCommand(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+		OnCommand(func(input *model.HookInput, toolInput any) model.HookOutput {
 			routed = "command"
 			return model.Allow()
 		}).
-		OnFilePath(func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+		OnFilePath(func(input *model.HookInput, toolInput any) model.HookOutput {
 			routed = "filepath"
 			return model.Allow()
 		}).
 		Build()
 
 	matcher.Handle(&model.HookInput{
-		HookName: model.HookEventPreToolUse,
+		HookEventName: model.HookEventPreToolUse,
 		ToolName: model.ToolNameBash,
 	})
 	if routed != "command" {
@@ -297,7 +323,7 @@ func TestMatcherBuilder(t *testing.T) {
 	}
 
 	matcher.Handle(&model.HookInput{
-		HookName: model.HookEventPreToolUse,
+		HookEventName: model.HookEventPreToolUse,
 		ToolName: model.ToolNameRead,
 	})
 	if routed != "filepath" {

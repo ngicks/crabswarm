@@ -67,6 +67,9 @@ const (
 	// CategoryUserInteraction represents user interaction tools (AskUserQuestion).
 	CategoryUserInteraction ToolCategory = "user_interaction"
 
+	// CategoryPlanMode represents plan mode tools (EnterPlanMode, ExitPlanMode).
+	CategoryPlanMode ToolCategory = "plan_mode"
+
 	// CategoryMCP represents MCP server tools (mcp__*).
 	CategoryMCP ToolCategory = "mcp"
 
@@ -87,6 +90,8 @@ func (t ToolName) Category() ToolCategory {
 		return CategoryTask
 	case ToolNameAskUserQuestion:
 		return CategoryUserInteraction
+	case ToolNameEnterPlanMode, ToolNameExitPlanMode:
+		return CategoryPlanMode
 	default:
 		if t.IsMCP() {
 			return CategoryMCP

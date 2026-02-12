@@ -12,7 +12,7 @@ service PermissionService {
 // PermissionRequest contains the hook input from Claude Code.
 message PermissionRequest {
   // The name of the hook being invoked (e.g., "PreToolUse", "PostToolUse").
-  string hook_name = 1;
+  string hook_event_name = 1;
   // The name of the tool being used (e.g., "Bash", "Write", "Edit").
   string tool_name = 2;
   // The tool input as a JSON string.
@@ -21,23 +21,47 @@ message PermissionRequest {
   string session_id = 4;
   // Message ID from Claude Code.
   string message_id = 5;
+  // Current working directory.
+  string cwd = 6;
+  // Path to conversation transcript.
+  string transcript_path = 7;
 }
 
 // PermissionResponse contains the decision from the interactive server.
 message PermissionResponse {
-  // The decision made by the user.
-  Decision decision = 1;
-  // Optional reason for the decision (shown to Claude).
-  string reason = 2;
+  // Whether the agent should continue after this hook (default: true).
+  bool should_continue = 1;
+  // Message shown when should_continue is false.
+  string stop_reason = 2;
+  // Hide stdout from the transcript.
+  bool suppress_output = 3;
+  // Message injected into the conversation for Claude to see.
+  string system_message = 4;
+  // The hook-specific output.
+  HookSpecificOutput hook_specific_output = 5;
 }
 
-// Decision represents the possible permission decisions.
-enum Decision {
-  DECISION_UNSPECIFIED = 0;
+// HookSpecificOutput contains hook-specific output data.
+message HookSpecificOutput {
+  // The hook event name this output is for.
+  string hook_event_name = 1;
+  // Permission decision: "allow", "deny", or "ask".
+  PermissionDecision permission_decision = 2;
+  // Explanation for the decision.
+  string permission_decision_reason = 3;
+  // Modified tool input as a JSON string (requires permission_decision ALLOW).
+  string updated_input_json = 4;
+  // Context added to the conversation.
+  string additional_context = 5;
+}
+
+// PermissionDecision represents the possible permission decisions.
+enum PermissionDecision {
+  PERMISSION_DECISION_UNSPECIFIED = 0;
   // Allow the tool to proceed.
-  DECISION_ALLOW = 1;
+  PERMISSION_DECISION_ALLOW = 1;
   // Block the tool execution.
-  DECISION_BLOCK = 2;
-  // Allow this and similar future requests automatically.
-  DECISION_ALLOW_ALWAYS = 3;
+  PERMISSION_DECISION_DENY = 2;
+  // Prompt the user for confirmation.
+  PERMISSION_DECISION_ASK = 3;
 }

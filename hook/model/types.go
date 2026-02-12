@@ -8,12 +8,19 @@ import (
 
 // HookInput represents the JSON input received from Claude Code via stdin.
 // This is the common structure for all hook types.
+// See https://platform.claude.com/docs/en/agent-sdk/hooks for the official protocol.
 type HookInput struct {
-	// HookName is the name of the hook being invoked (e.g., "PreToolUse", "PostToolUse").
-	HookName HookEventName `json:"hook_name"`
+	// HookEventName is the name of the hook being invoked (e.g., "PreToolUse", "PostToolUse").
+	HookEventName HookEventName `json:"hook_event_name"`
 
 	// SessionID is the unique identifier for the Claude Code session.
 	SessionID string `json:"session_id"`
+
+	// TranscriptPath is the path to the conversation transcript.
+	TranscriptPath string `json:"transcript_path,omitempty"`
+
+	// Cwd is the current working directory.
+	Cwd string `json:"cwd,omitempty"`
 
 	// MessageID is the unique identifier for the current message.
 	MessageID string `json:"message_id,omitempty"`
@@ -24,32 +31,53 @@ type HookInput struct {
 	// ToolInput contains the tool's input parameters as raw JSON.
 	ToolInput json.RawMessage `json:"tool_input,omitempty"`
 
-	// ToolOutput contains the tool's output (only for PostToolUse/PostToolUseFailure).
-	ToolOutput json.RawMessage `json:"tool_output,omitempty"`
+	// ToolResponse contains the tool's response (only for PostToolUse).
+	ToolResponse json.RawMessage `json:"tool_response,omitempty"`
 
-	// ToolError contains the error message (only for PostToolUseFailure).
-	ToolError string `json:"tool_error,omitempty"`
+	// Error contains the error message (only for PostToolUseFailure).
+	Error string `json:"error,omitempty"`
 
-	// SessionStartReason is the reason for SessionStart (startup, resume, clear, compact).
-	SessionStartReason SessionStartReason `json:"session_start_reason,omitempty"`
+	// IsInterrupt indicates whether the failure was caused by an interrupt (PostToolUseFailure).
+	IsInterrupt bool `json:"is_interrupt,omitempty"`
 
-	// SessionEndReason is the reason for SessionEnd (clear, logout, etc.).
-	SessionEndReason SessionEndReason `json:"session_end_reason,omitempty"`
+	// Source is the reason for SessionStart (startup, resume, clear, compact).
+	Source SessionStartReason `json:"source,omitempty"`
+
+	// Reason is the reason for SessionEnd (clear, logout, etc.).
+	Reason SessionEndReason `json:"reason,omitempty"`
 
 	// NotificationType is the type of notification (for Notification hook).
 	NotificationType NotificationType `json:"notification_type,omitempty"`
 
-	// CompactTrigger indicates what triggered compaction (for PreCompact hook).
-	CompactTrigger CompactTrigger `json:"compact_trigger,omitempty"`
+	// Message is the status message from the agent (for Notification hook).
+	Message string `json:"message,omitempty"`
 
-	// SubagentType is the type of subagent (for SubagentStart/SubagentStop).
-	SubagentType string `json:"subagent_type,omitempty"`
+	// Title is an optional title set by the agent (for Notification hook).
+	Title string `json:"title,omitempty"`
 
-	// SubagentID is the ID of the subagent (for SubagentStart/SubagentStop).
-	SubagentID string `json:"subagent_id,omitempty"`
+	// Trigger indicates what triggered compaction (for PreCompact hook).
+	Trigger CompactTrigger `json:"trigger,omitempty"`
 
-	// UserPrompt is the user's prompt text (for UserPromptSubmit).
-	UserPrompt string `json:"user_prompt,omitempty"`
+	// CustomInstructions contains custom instructions provided for compaction (for PreCompact hook).
+	CustomInstructions string `json:"custom_instructions,omitempty"`
+
+	// AgentType is the type of subagent (for SubagentStart/SubagentStop).
+	AgentType string `json:"agent_type,omitempty"`
+
+	// AgentID is the ID of the subagent (for SubagentStart/SubagentStop).
+	AgentID string `json:"agent_id,omitempty"`
+
+	// AgentTranscriptPath is the path to the subagent's conversation transcript (for SubagentStop).
+	AgentTranscriptPath string `json:"agent_transcript_path,omitempty"`
+
+	// StopHookActive indicates whether a stop hook is currently processing (for Stop/SubagentStop).
+	StopHookActive bool `json:"stop_hook_active,omitempty"`
+
+	// Prompt is the user's prompt text (for UserPromptSubmit).
+	Prompt string `json:"prompt,omitempty"`
+
+	// PermissionSuggestions contains suggested permission updates (for PermissionRequest).
+	PermissionSuggestions json.RawMessage `json:"permission_suggestions,omitempty"`
 
 	// StopReason indicates why Claude stopped (for Stop hook).
 	StopReason string `json:"stop_reason,omitempty"`
@@ -67,12 +95,12 @@ func (h *HookInput) Category() ToolCategory {
 // ParseToolInput parses the raw ToolInput JSON into a typed struct.
 // Returns nil if ToolInput is empty or parsing fails.
 // The returned type depends on the ToolName.
-func (h *HookInput) ParseToolInput() (interface{}, error) {
+func (h *HookInput) ParseToolInput() (any, error) {
 	if len(h.ToolInput) == 0 {
 		return nil, nil
 	}
 
-	var target interface{}
+	var target any
 
 	switch h.ToolName {
 	case ToolNameBash:
@@ -119,7 +147,7 @@ func (h *HookInput) ParseToolInput() (interface{}, error) {
 		// Check if it's an MCP tool
 		if h.ToolName.IsMCP() {
 			mcpInfo := h.ToolName.ParseMCP()
-			var params map[string]interface{}
+			var params map[string]any
 			if err := json.Unmarshal(h.ToolInput, &params); err != nil {
 				return nil, fmt.Errorf("failed to parse MCP tool input: %w", err)
 			}
@@ -130,7 +158,7 @@ func (h *HookInput) ParseToolInput() (interface{}, error) {
 			}, nil
 		}
 		// Unknown tool - return raw map
-		var raw map[string]interface{}
+		var raw map[string]any
 		if err := json.Unmarshal(h.ToolInput, &raw); err != nil {
 			return nil, fmt.Errorf("failed to parse unknown tool input: %w", err)
 		}
@@ -145,7 +173,7 @@ func (h *HookInput) ParseToolInput() (interface{}, error) {
 
 // MustParseToolInput parses the raw ToolInput JSON into a typed struct.
 // Panics if parsing fails.
-func (h *HookInput) MustParseToolInput() interface{} {
+func (h *HookInput) MustParseToolInput() any {
 	result, err := h.ParseToolInput()
 	if err != nil {
 		panic(err)

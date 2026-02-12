@@ -205,7 +205,7 @@ type TaskCreateInput struct {
 	// ActiveForm is present continuous form shown in spinner.
 	ActiveForm string `json:"activeForm,omitempty"`
 	// Metadata is arbitrary metadata to attach.
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // TaskUpdateInput represents the input for the TaskUpdate tool.
@@ -223,7 +223,7 @@ type TaskUpdateInput struct {
 	// Owner is the new owner.
 	Owner string `json:"owner,omitempty"`
 	// Metadata is metadata keys to merge.
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 	// AddBlocks are task IDs that this task blocks.
 	AddBlocks []string `json:"addBlocks,omitempty"`
 	// AddBlockedBy are task IDs that block this task.
@@ -274,5 +274,5 @@ type MCPToolInput struct {
 	// Tool is the MCP tool name (parsed from tool name).
 	Tool string `json:"-"`
 	// Parameters contains the raw MCP tool parameters.
-	Parameters map[string]interface{} `json:"-"`
+	Parameters map[string]any `json:"-"`
 }

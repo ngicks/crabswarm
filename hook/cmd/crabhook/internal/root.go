@@ -74,11 +74,13 @@ func runHookClient(cmd *cobra.Command, args []string) error {
 	}
 
 	req := &pb.PermissionRequest{
-		HookName:      string(input.HookName),
-		ToolName:      string(input.ToolName),
-		ToolInputJson: toolInputJSON,
-		SessionId:     input.SessionID,
-		MessageId:     input.MessageID,
+		HookEventName:  string(input.HookEventName),
+		ToolName:       string(input.ToolName),
+		ToolInputJson:  toolInputJSON,
+		SessionId:      input.SessionID,
+		MessageId:      input.MessageID,
+		Cwd:            input.Cwd,
+		TranscriptPath: input.TranscriptPath,
 	}
 
 	// Send the request
@@ -87,11 +89,8 @@ func runHookClient(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("permission request failed: %w", err)
 	}
 
-	// Convert the response to hook output
-	output := model.HookOutput{
-		Decision: model.Decision(decisionToString(resp.Decision)),
-		Reason:   resp.Reason,
-	}
+	// Convert the gRPC response to hook output
+	output := pbResponseToHookOutput(resp, input.HookEventName)
 
 	// Write the output to stdout
 	encoder := json.NewEncoder(os.Stdout)
@@ -102,16 +101,49 @@ func runHookClient(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// decisionToString converts a protobuf Decision to a string for the hook output.
-func decisionToString(d pb.Decision) string {
+// pbResponseToHookOutput converts a protobuf PermissionResponse to a model.HookOutput.
+func pbResponseToHookOutput(resp *pb.PermissionResponse, eventName model.HookEventName) model.HookOutput {
+	output := model.HookOutput{
+		SuppressOutput: resp.SuppressOutput,
+		SystemMessage:  resp.SystemMessage,
+	}
+
+	if !resp.ShouldContinue {
+		f := false
+		output.Continue = &f
+		output.StopReason = resp.StopReason
+	}
+
+	if hso := resp.HookSpecificOutput; hso != nil {
+		hookEventName := model.HookEventName(hso.HookEventName)
+		if hookEventName == "" {
+			hookEventName = eventName
+		}
+		specific := &model.HookSpecificOutput{
+			HookEventName:           hookEventName,
+			PermissionDecision:      pbDecisionToModel(hso.PermissionDecision),
+			PermissionDecisionReason: hso.PermissionDecisionReason,
+			AdditionalContext:       hso.AdditionalContext,
+		}
+		if hso.UpdatedInputJson != "" {
+			specific.UpdatedInput = json.RawMessage(hso.UpdatedInputJson)
+		}
+		output.HookSpecificOutput = specific
+	}
+
+	return output
+}
+
+// pbDecisionToModel converts a protobuf PermissionDecision to model.PermissionDecision.
+func pbDecisionToModel(d pb.PermissionDecision) model.PermissionDecision {
 	switch d {
-	case pb.Decision_DECISION_ALLOW:
-		return string(model.DecisionAllow)
-	case pb.Decision_DECISION_BLOCK:
-		return string(model.DecisionBlock)
-	case pb.Decision_DECISION_ALLOW_ALWAYS:
-		return string(model.DecisionAllowAlways)
+	case pb.PermissionDecision_PERMISSION_DECISION_ALLOW:
+		return model.PermissionAllow
+	case pb.PermissionDecision_PERMISSION_DECISION_DENY:
+		return model.PermissionDeny
+	case pb.PermissionDecision_PERMISSION_DECISION_ASK:
+		return model.PermissionAsk
 	default:
-		return string(model.DecisionBlock)
+		return model.PermissionDeny
 	}
 }

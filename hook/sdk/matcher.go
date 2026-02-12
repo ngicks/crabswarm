@@ -8,7 +8,7 @@ import (
 // ToolHandler is a function that handles a tool invocation.
 // It receives the hook input and the parsed tool input (may be nil).
 // Returns the hook output to send back to Claude Code.
-type ToolHandler func(input *model.HookInput, toolInput interface{}) model.HookOutput
+type ToolHandler func(input *model.HookInput, toolInput any) model.HookOutput
 
 // Matcher routes hook inputs to appropriate handlers based on tool category.
 type Matcher struct {
@@ -27,6 +27,9 @@ type Matcher struct {
 	// OnUserInteraction handles user interaction tools (AskUserQuestion).
 	OnUserInteraction ToolHandler
 
+	// OnPlanMode handles plan mode tools (EnterPlanMode, ExitPlanMode).
+	OnPlanMode ToolHandler
+
 	// OnMCP handles MCP server tools (mcp__*).
 	OnMCP ToolHandler
 
@@ -41,7 +44,7 @@ type Matcher struct {
 // NewMatcher creates a new Matcher with a default allow handler.
 func NewMatcher() *Matcher {
 	return &Matcher{
-		Default: func(input *model.HookInput, toolInput interface{}) model.HookOutput {
+		Default: func(input *model.HookInput, toolInput any) model.HookOutput {
 			return model.Allow()
 		},
 	}
@@ -54,7 +57,7 @@ func (m *Matcher) Handle(input *model.HookInput) model.HookOutput {
 	}
 
 	// Parse tool input if available
-	var toolInput interface{}
+	var toolInput any
 	var err error
 	if len(input.ToolInput) > 0 {
 		toolInput, err = input.ParseToolInput()
@@ -71,7 +74,7 @@ func (m *Matcher) Handle(input *model.HookInput) model.HookOutput {
 }
 
 // routeByCategory routes to the appropriate handler based on tool category.
-func (m *Matcher) routeByCategory(input *model.HookInput, toolInput interface{}, category model.ToolCategory) model.HookOutput {
+func (m *Matcher) routeByCategory(input *model.HookInput, toolInput any, category model.ToolCategory) model.HookOutput {
 	switch category {
 	case model.CategoryCommand:
 		if m.OnCommand != nil {
@@ -93,6 +96,10 @@ func (m *Matcher) routeByCategory(input *model.HookInput, toolInput interface{},
 		if m.OnUserInteraction != nil {
 			return m.OnUserInteraction(input, toolInput)
 		}
+	case model.CategoryPlanMode:
+		if m.OnPlanMode != nil {
+			return m.OnPlanMode(input, toolInput)
+		}
 	case model.CategoryMCP:
 		if m.OnMCP != nil {
 			return m.OnMCP(input, toolInput)
@@ -107,7 +114,7 @@ func (m *Matcher) routeByCategory(input *model.HookInput, toolInput interface{},
 }
 
 // handleDefault calls the default handler or returns Allow if none is set.
-func (m *Matcher) handleDefault(input *model.HookInput, toolInput interface{}) model.HookOutput {
+func (m *Matcher) handleDefault(input *model.HookInput, toolInput any) model.HookOutput {
 	if m.Default != nil {
 		return m.Default(input, toolInput)
 	}
@@ -141,6 +148,12 @@ func (m *Matcher) WithTask(handler ToolHandler) *Matcher {
 // WithUserInteraction sets the user interaction handler and returns the matcher for chaining.
 func (m *Matcher) WithUserInteraction(handler ToolHandler) *Matcher {
 	m.OnUserInteraction = handler
+	return m
+}
+
+// WithPlanMode sets the plan mode handler and returns the matcher for chaining.
+func (m *Matcher) WithPlanMode(handler ToolHandler) *Matcher {
+	m.OnPlanMode = handler
 	return m
 }
 
@@ -201,6 +214,12 @@ func (b *MatcherBuilder) OnTask(handler ToolHandler) *MatcherBuilder {
 // OnUserInteraction sets the user interaction handler.
 func (b *MatcherBuilder) OnUserInteraction(handler ToolHandler) *MatcherBuilder {
 	b.matcher.OnUserInteraction = handler
+	return b
+}
+
+// OnPlanMode sets the plan mode handler.
+func (b *MatcherBuilder) OnPlanMode(handler ToolHandler) *MatcherBuilder {
+	b.matcher.OnPlanMode = handler
 	return b
 }
 
@@ -328,7 +347,7 @@ func (m *EventMatcher) Handle(input *model.HookInput) model.HookOutput {
 		return model.Allow()
 	}
 
-	if handler, ok := m.handlers[input.HookName]; ok {
+	if handler, ok := m.handlers[input.HookEventName]; ok {
 		return handler(input)
 	}
 
@@ -369,12 +388,12 @@ func (m *CombinedMatcher) Handle(input *model.HookInput) model.HookOutput {
 	}
 
 	// Check if there's a specific event handler
-	if handler, ok := m.eventMatcher.handlers[input.HookName]; ok {
+	if handler, ok := m.eventMatcher.handlers[input.HookEventName]; ok {
 		return handler(input)
 	}
 
 	// For tool-related events, use the tool matcher
-	if input.HookName.IsToolRelated() && input.ToolName != "" {
+	if input.HookEventName.IsToolRelated() && input.ToolName != "" {
 		return m.toolMatcher.Handle(input)
 	}
 
