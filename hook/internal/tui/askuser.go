@@ -18,6 +18,7 @@ type askUserModel struct {
 	cursor     int
 	selected   map[int]bool // for multi-select
 	customMode bool
+	completed  bool
 	textInput  textinput.Model
 	width      int
 	height     int
@@ -50,6 +51,9 @@ func (m askUserModel) optionCount() int {
 }
 
 func (m askUserModel) Update(msg tea.Msg) (askUserModel, tea.Cmd) {
+	if m.completed {
+		return m, nil
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.customMode {
@@ -166,6 +170,7 @@ func (m askUserModel) advanceQuestion() (askUserModel, tea.Cmd) {
 	m.selected = make(map[int]bool)
 
 	if m.currentQ >= len(m.input.Questions) {
+		m.completed = true
 		// All questions answered, build response
 		resp, err := server.BuildAskUserResponse(m.req, m.input, m.answers)
 		if err != nil {
@@ -182,6 +187,11 @@ func (m askUserModel) advanceQuestion() (askUserModel, tea.Cmd) {
 }
 
 func (m askUserModel) View() string {
+	if m.completed {
+		return headerStyle.Render("AskUserQuestion") + "\n\n" +
+			progressStyle.Render("  Completing...") + "\n"
+	}
+
 	var b strings.Builder
 
 	// Header

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,6 +29,13 @@ func makeReq(toolName, toolInputJSON string) testReq {
 		},
 		readyCh: ch,
 	}
+}
+
+// initModel creates a rootModel and sends a WindowSizeMsg to initialize the viewport.
+func initModel(width, height int) rootModel {
+	m := rootModel{}
+	result, _ := m.Update(tea.WindowSizeMsg{Width: width, Height: height})
+	return result.(rootModel)
 }
 
 func TestRootModel_IdleState(t *testing.T) {
@@ -367,5 +375,132 @@ func TestAskUserModel_View(t *testing.T) {
 
 	if view == "" {
 		t.Error("view should not be empty")
+	}
+}
+
+func TestAskUserModel_ViewAfterComplete(t *testing.T) {
+	req := &pb.PermissionRequest{
+		HookEventName: "PreToolUse",
+		ToolName:      "AskUserQuestion",
+		ToolInputJson: `{"questions":[{"question":"Pick one?","header":"Q","options":[{"label":"A"},{"label":"B"}],"multiSelect":false}]}`,
+	}
+	input, err := server.ParseAskUserInput(req.ToolInputJson)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newAskUserModel(req, input, 80, 24)
+
+	// Select first option to complete the only question
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected command after enter")
+	}
+	if !m.completed {
+		t.Fatal("expected completed=true after answering all questions")
+	}
+
+	// View() must not panic and should contain "Completing"
+	view := m.View()
+	if !strings.Contains(view, "Completing") {
+		t.Errorf("expected view to contain 'Completing', got: %s", view)
+	}
+
+	// Update after completion should be a no-op
+	m, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Error("expected nil cmd after update on completed model")
+	}
+}
+
+func TestRootModel_AuditEventAppend(t *testing.T) {
+	m := initModel(80, 40)
+
+	if !m.vpReady {
+		t.Fatal("viewport should be ready after WindowSizeMsg")
+	}
+
+	// Send audit events
+	result, _ := m.Update(auditEventMsg{line: "[12:00:00] PreToolUse  tool=Bash  session=s1"})
+	m = result.(rootModel)
+
+	if len(m.logLines) != 1 {
+		t.Fatalf("logLines = %d, want 1", len(m.logLines))
+	}
+
+	result, _ = m.Update(auditEventMsg{line: "[12:00:01] PreToolUse  tool=Read  session=s1"})
+	m = result.(rootModel)
+
+	if len(m.logLines) != 2 {
+		t.Fatalf("logLines = %d, want 2", len(m.logLines))
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "Bash") {
+		t.Error("view should contain audit event with Bash")
+	}
+	if !strings.Contains(view, "Read") {
+		t.Error("view should contain audit event with Read")
+	}
+	if !strings.Contains(view, "Audit Log") {
+		t.Error("view should contain log panel header")
+	}
+}
+
+func TestRootModel_PgUpPgDown(t *testing.T) {
+	m := initModel(80, 20)
+
+	// Add many lines to exceed viewport
+	for i := 0; i < 50; i++ {
+		result, _ := m.Update(auditEventMsg{line: strings.Repeat("x", 10)})
+		m = result.(rootModel)
+	}
+
+	if len(m.logLines) != 50 {
+		t.Fatalf("logLines = %d, want 50", len(m.logLines))
+	}
+
+	// PgUp should not panic
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = result.(rootModel)
+
+	// PgDown should not panic
+	result, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = result.(rootModel)
+
+	// View should still render
+	view := m.View()
+	if view == "" {
+		t.Error("view should not be empty after PgUp/PgDn")
+	}
+}
+
+func TestRootModel_ViewportResizeOnStateChange(t *testing.T) {
+	m := initModel(80, 40)
+
+	idleHeight := m.viewport.Height
+	if idleHeight != 38 { // 40 - 2 (header + status)
+		t.Errorf("idle viewport height = %d, want 38", idleHeight)
+	}
+
+	// Activate a permission request
+	tr := makeReq("Bash", `{"command":"ls"}`)
+	result, _ := m.Update(tr.msg)
+	m = result.(rootModel)
+
+	activeHeight := m.viewport.Height
+	expectedActive := 40 - promptAreaHeight // 40 - 16 = 24
+	if activeHeight != expectedActive {
+		t.Errorf("active viewport height = %d, want %d", activeHeight, expectedActive)
+	}
+
+	// Complete the request → back to idle
+	result, _ = m.Update(promptCompleteMsg{
+		response: &pb.PermissionResponse{ShouldContinue: true},
+	})
+	m = result.(rootModel)
+
+	restoredHeight := m.viewport.Height
+	if restoredHeight != idleHeight {
+		t.Errorf("restored viewport height = %d, want %d", restoredHeight, idleHeight)
 	}
 }

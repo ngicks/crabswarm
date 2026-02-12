@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	PermissionService_RequestPermission_FullMethodName = "/permission.v1.PermissionService/RequestPermission"
+	PermissionService_Audit_FullMethodName             = "/permission.v1.PermissionService/Audit"
 )
 
 // PermissionServiceClient is the client API for PermissionService service.
@@ -31,6 +32,11 @@ type PermissionServiceClient interface {
 	// RequestPermission sends a permission request to the interactive server
 	// and returns the user's decision.
 	RequestPermission(ctx context.Context, in *PermissionRequest, opts ...grpc.CallOption) (*PermissionResponse, error)
+	// Audit receives a stream of audit events from hook clients.
+	// Each stream currently contains a single event from one hook invocation.
+	// Client-streaming is chosen over unary for future extensibility
+	// (e.g., a long-lived daemon client could reuse the stream).
+	Audit(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[AuditEvent, AuditResponse], error)
 }
 
 type permissionServiceClient struct {
@@ -51,6 +57,19 @@ func (c *permissionServiceClient) RequestPermission(ctx context.Context, in *Per
 	return out, nil
 }
 
+func (c *permissionServiceClient) Audit(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[AuditEvent, AuditResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &PermissionService_ServiceDesc.Streams[0], PermissionService_Audit_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[AuditEvent, AuditResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PermissionService_AuditClient = grpc.ClientStreamingClient[AuditEvent, AuditResponse]
+
 // PermissionServiceServer is the server API for PermissionService service.
 // All implementations must embed UnimplementedPermissionServiceServer
 // for forward compatibility.
@@ -60,6 +79,11 @@ type PermissionServiceServer interface {
 	// RequestPermission sends a permission request to the interactive server
 	// and returns the user's decision.
 	RequestPermission(context.Context, *PermissionRequest) (*PermissionResponse, error)
+	// Audit receives a stream of audit events from hook clients.
+	// Each stream currently contains a single event from one hook invocation.
+	// Client-streaming is chosen over unary for future extensibility
+	// (e.g., a long-lived daemon client could reuse the stream).
+	Audit(grpc.ClientStreamingServer[AuditEvent, AuditResponse]) error
 	mustEmbedUnimplementedPermissionServiceServer()
 }
 
@@ -72,6 +96,9 @@ type UnimplementedPermissionServiceServer struct{}
 
 func (UnimplementedPermissionServiceServer) RequestPermission(context.Context, *PermissionRequest) (*PermissionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestPermission not implemented")
+}
+func (UnimplementedPermissionServiceServer) Audit(grpc.ClientStreamingServer[AuditEvent, AuditResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method Audit not implemented")
 }
 func (UnimplementedPermissionServiceServer) mustEmbedUnimplementedPermissionServiceServer() {}
 func (UnimplementedPermissionServiceServer) testEmbeddedByValue()                           {}
@@ -112,6 +139,13 @@ func _PermissionService_RequestPermission_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PermissionService_Audit_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(PermissionServiceServer).Audit(&grpc.GenericServerStream[AuditEvent, AuditResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PermissionService_AuditServer = grpc.ClientStreamingServer[AuditEvent, AuditResponse]
+
 // PermissionService_ServiceDesc is the grpc.ServiceDesc for PermissionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -124,6 +158,12 @@ var PermissionService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PermissionService_RequestPermission_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Audit",
+			Handler:       _PermissionService_Audit_Handler,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "permission/v1/permission.proto",
 }

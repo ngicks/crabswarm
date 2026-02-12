@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -98,6 +100,9 @@ func runHookClient(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to encode hook output: %w", err)
 	}
 
+	// Send audit event (best-effort, failures only logged to stderr)
+	sendAuditEvent(client, req)
+
 	return nil
 }
 
@@ -145,5 +150,32 @@ func pbDecisionToModel(d pb.PermissionDecision) model.PermissionDecision {
 		return model.PermissionAsk
 	default:
 		return model.PermissionDeny
+	}
+}
+
+// sendAuditEvent sends a single audit event to the server. This is best-effort;
+// failures are logged to stderr but do not affect the hook outcome.
+func sendAuditEvent(client pb.PermissionServiceClient, req *pb.PermissionRequest) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	stream, err := client.Audit(ctx)
+	if err != nil {
+		slog.Warn("failed to open audit stream", "error", err)
+		return
+	}
+
+	event := &pb.AuditEvent{
+		Request:   req,
+		Timestamp: timestamppb.Now(),
+	}
+
+	if err := stream.Send(event); err != nil {
+		slog.Warn("failed to send audit event", "error", err)
+		return
+	}
+
+	if _, err := stream.CloseAndRecv(); err != nil {
+		slog.Warn("audit stream close error", "error", err)
 	}
 }

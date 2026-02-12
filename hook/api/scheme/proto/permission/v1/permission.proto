@@ -2,11 +2,19 @@ syntax = "proto3";
 
 package permission.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // PermissionService handles permission requests from Claude Code hooks.
 service PermissionService {
   // RequestPermission sends a permission request to the interactive server
   // and returns the user's decision.
   rpc RequestPermission(PermissionRequest) returns (PermissionResponse);
+
+  // Audit receives a stream of audit events from hook clients.
+  // Each stream currently contains a single event from one hook invocation.
+  // Client-streaming is chosen over unary for future extensibility
+  // (e.g., a long-lived daemon client could reuse the stream).
+  rpc Audit(stream AuditEvent) returns (AuditResponse);
 }
 
 // PermissionRequest contains the hook input from Claude Code.
@@ -64,4 +72,22 @@ enum PermissionDecision {
   PERMISSION_DECISION_DENY = 2;
   // Prompt the user for confirmation.
   PERMISSION_DECISION_ASK = 3;
+}
+
+// AuditEvent represents a hook invocation event for audit logging.
+message AuditEvent {
+  // The permission request data from the hook invocation.
+  PermissionRequest request = 1;
+  // The time the hook was invoked.
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+// AuditResponse is returned after processing all audit events in the stream.
+message AuditResponse {
+  // The number of events received in the stream.
+  int32 events_received = 1;
+  // Whether all events were processed successfully.
+  bool success = 2;
+  // Optional message with details about the processing result.
+  string message = 3;
 }

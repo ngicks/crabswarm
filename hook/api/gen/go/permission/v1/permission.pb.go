@@ -9,6 +9,7 @@ package permissionv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -341,11 +342,130 @@ func (x *HookSpecificOutput) GetAdditionalContext() string {
 	return ""
 }
 
+// AuditEvent represents a hook invocation event for audit logging.
+type AuditEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The permission request data from the hook invocation.
+	Request *PermissionRequest `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	// The time the hook was invoked.
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuditEvent) Reset() {
+	*x = AuditEvent{}
+	mi := &file_permission_v1_permission_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuditEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuditEvent) ProtoMessage() {}
+
+func (x *AuditEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_permission_v1_permission_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuditEvent.ProtoReflect.Descriptor instead.
+func (*AuditEvent) Descriptor() ([]byte, []int) {
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *AuditEvent) GetRequest() *PermissionRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+func (x *AuditEvent) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Timestamp
+	}
+	return nil
+}
+
+// AuditResponse is returned after processing all audit events in the stream.
+type AuditResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The number of events received in the stream.
+	EventsReceived int32 `protobuf:"varint,1,opt,name=events_received,json=eventsReceived,proto3" json:"events_received,omitempty"`
+	// Whether all events were processed successfully.
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Optional message with details about the processing result.
+	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuditResponse) Reset() {
+	*x = AuditResponse{}
+	mi := &file_permission_v1_permission_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuditResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuditResponse) ProtoMessage() {}
+
+func (x *AuditResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_permission_v1_permission_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuditResponse.ProtoReflect.Descriptor instead.
+func (*AuditResponse) Descriptor() ([]byte, []int) {
+	return file_permission_v1_permission_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AuditResponse) GetEventsReceived() int32 {
+	if x != nil {
+		return x.EventsReceived
+	}
+	return 0
+}
+
+func (x *AuditResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *AuditResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_permission_v1_permission_proto protoreflect.FileDescriptor
 
 const file_permission_v1_permission_proto_rawDesc = "" +
 	"\n" +
-	"\x1epermission/v1/permission.proto\x12\rpermission.v1\"\xf9\x01\n" +
+	"\x1epermission/v1/permission.proto\x12\rpermission.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf9\x01\n" +
 	"\x11PermissionRequest\x12&\n" +
 	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12&\n" +
@@ -368,14 +488,23 @@ const file_permission_v1_permission_proto_rawDesc = "" +
 	"\x13permission_decision\x18\x02 \x01(\x0e2!.permission.v1.PermissionDecisionR\x12permissionDecision\x12<\n" +
 	"\x1apermission_decision_reason\x18\x03 \x01(\tR\x18permissionDecisionReason\x12,\n" +
 	"\x12updated_input_json\x18\x04 \x01(\tR\x10updatedInputJson\x12-\n" +
-	"\x12additional_context\x18\x05 \x01(\tR\x11additionalContext*\x93\x01\n" +
+	"\x12additional_context\x18\x05 \x01(\tR\x11additionalContext\"\x82\x01\n" +
+	"\n" +
+	"AuditEvent\x12:\n" +
+	"\arequest\x18\x01 \x01(\v2 .permission.v1.PermissionRequestR\arequest\x128\n" +
+	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"l\n" +
+	"\rAuditResponse\x12'\n" +
+	"\x0fevents_received\x18\x01 \x01(\x05R\x0eeventsReceived\x12\x18\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage*\x93\x01\n" +
 	"\x12PermissionDecision\x12#\n" +
 	"\x1fPERMISSION_DECISION_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PERMISSION_DECISION_ALLOW\x10\x01\x12\x1c\n" +
 	"\x18PERMISSION_DECISION_DENY\x10\x02\x12\x1b\n" +
-	"\x17PERMISSION_DECISION_ASK\x10\x032m\n" +
+	"\x17PERMISSION_DECISION_ASK\x10\x032\xb1\x01\n" +
 	"\x11PermissionService\x12X\n" +
-	"\x11RequestPermission\x12 .permission.v1.PermissionRequest\x1a!.permission.v1.PermissionResponseB\xc1\x01\n" +
+	"\x11RequestPermission\x12 .permission.v1.PermissionRequest\x1a!.permission.v1.PermissionResponse\x12B\n" +
+	"\x05Audit\x12\x19.permission.v1.AuditEvent\x1a\x1c.permission.v1.AuditResponse(\x01B\xc1\x01\n" +
 	"\x11com.permission.v1B\x0fPermissionProtoP\x01ZFgithub.com/ngicks/crabswarm/hook/api/gen/go/permission/v1;permissionv1\xa2\x02\x03PXX\xaa\x02\rPermission.V1\xca\x02\rPermission\\V1\xe2\x02\x19Permission\\V1\\GPBMetadata\xea\x02\x0ePermission::V1b\x06proto3"
 
 var (
@@ -391,23 +520,30 @@ func file_permission_v1_permission_proto_rawDescGZIP() []byte {
 }
 
 var file_permission_v1_permission_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_permission_v1_permission_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_permission_v1_permission_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_permission_v1_permission_proto_goTypes = []any{
-	(PermissionDecision)(0),    // 0: permission.v1.PermissionDecision
-	(*PermissionRequest)(nil),  // 1: permission.v1.PermissionRequest
-	(*PermissionResponse)(nil), // 2: permission.v1.PermissionResponse
-	(*HookSpecificOutput)(nil), // 3: permission.v1.HookSpecificOutput
+	(PermissionDecision)(0),       // 0: permission.v1.PermissionDecision
+	(*PermissionRequest)(nil),     // 1: permission.v1.PermissionRequest
+	(*PermissionResponse)(nil),    // 2: permission.v1.PermissionResponse
+	(*HookSpecificOutput)(nil),    // 3: permission.v1.HookSpecificOutput
+	(*AuditEvent)(nil),            // 4: permission.v1.AuditEvent
+	(*AuditResponse)(nil),         // 5: permission.v1.AuditResponse
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
 }
 var file_permission_v1_permission_proto_depIdxs = []int32{
 	3, // 0: permission.v1.PermissionResponse.hook_specific_output:type_name -> permission.v1.HookSpecificOutput
 	0, // 1: permission.v1.HookSpecificOutput.permission_decision:type_name -> permission.v1.PermissionDecision
-	1, // 2: permission.v1.PermissionService.RequestPermission:input_type -> permission.v1.PermissionRequest
-	2, // 3: permission.v1.PermissionService.RequestPermission:output_type -> permission.v1.PermissionResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 2: permission.v1.AuditEvent.request:type_name -> permission.v1.PermissionRequest
+	6, // 3: permission.v1.AuditEvent.timestamp:type_name -> google.protobuf.Timestamp
+	1, // 4: permission.v1.PermissionService.RequestPermission:input_type -> permission.v1.PermissionRequest
+	4, // 5: permission.v1.PermissionService.Audit:input_type -> permission.v1.AuditEvent
+	2, // 6: permission.v1.PermissionService.RequestPermission:output_type -> permission.v1.PermissionResponse
+	5, // 7: permission.v1.PermissionService.Audit:output_type -> permission.v1.AuditResponse
+	6, // [6:8] is the sub-list for method output_type
+	4, // [4:6] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_permission_v1_permission_proto_init() }
@@ -421,7 +557,7 @@ func file_permission_v1_permission_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_permission_v1_permission_proto_rawDesc), len(file_permission_v1_permission_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -47,4 +47,13 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#7D56F4")).
 			Padding(1, 2)
+
+	logPanelHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#FAFAFA")).
+				Background(lipgloss.Color("#444444")).
+				Padding(0, 1)
+
+	logSeparatorStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#555555"))
 )

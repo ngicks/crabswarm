@@ -20,10 +20,11 @@ type Prompter interface {
 
 // Server is the interactive permission server.
 type Server struct {
-	prompter   Prompter
-	grpcServer *grpc.Server
-	listener   net.Listener
-	program    *tea.Program
+	prompter     Prompter
+	grpcServer   *grpc.Server
+	listener     net.Listener
+	program      *tea.Program
+	auditHandler AuditHandler
 }
 
 // Config holds the server configuration.
@@ -40,6 +41,8 @@ type Config struct {
 	Reader io.Reader
 	// Writer is the output destination for prompts (only used when Prompter is nil).
 	Writer io.Writer
+	// AuditHandler handles audit events. If nil, a NoOpAuditHandler is used.
+	AuditHandler AuditHandler
 }
 
 // New creates a new Server with the given configuration.
@@ -54,17 +57,23 @@ func New(cfg Config) (*Server, error) {
 		prompter = NewPlainPrompter(cfg.Reader, cfg.Writer)
 	}
 
+	auditHandler := cfg.AuditHandler
+	if auditHandler == nil {
+		auditHandler = &NoOpAuditHandler{}
+	}
+
 	grpcServer := grpc.NewServer()
 
 	server := &Server{
-		prompter:   prompter,
-		grpcServer: grpcServer,
-		listener:   listener,
-		program:    cfg.Program,
+		prompter:     prompter,
+		grpcServer:   grpcServer,
+		listener:     listener,
+		program:      cfg.Program,
+		auditHandler: auditHandler,
 	}
 
 	// Register the permission service
-	service := impl.NewService(server)
+	service := impl.NewService(server, server)
 	pb.RegisterPermissionServiceServer(grpcServer, service)
 
 	return server, nil
@@ -73,6 +82,11 @@ func New(cfg Config) (*Server, error) {
 // HandlePermissionRequest implements the impl.PermissionHandler interface.
 func (s *Server) HandlePermissionRequest(ctx context.Context, req *pb.PermissionRequest) (*pb.PermissionResponse, error) {
 	return s.prompter.Prompt(ctx, req)
+}
+
+// HandleAuditEvent implements the impl.AuditHandler interface.
+func (s *Server) HandleAuditEvent(ctx context.Context, event *pb.AuditEvent) error {
+	return s.auditHandler.HandleAuditEvent(ctx, event)
 }
 
 // Serve starts the server and blocks until stopped.
@@ -122,4 +136,5 @@ func (s *Server) Stop() {
 		s.program.Quit()
 	}
 	s.grpcServer.GracefulStop()
+	s.auditHandler.Close()
 }
