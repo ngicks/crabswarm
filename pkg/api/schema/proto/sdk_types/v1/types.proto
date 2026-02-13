@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package sdk_types.v1;
+
+import "sdk_types/v1/tool_input.proto";
+import "sdk_types/v1/permission.proto";
+import "sdk_types/v1/sandbox.proto";
+import "sdk_types/v1/other.proto";
+import "google/protobuf/struct.proto";
+
+// --- Moved from config.proto ---
+
+// PermissionResult represents the result of a permission check.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-result
+message PermissionResult {
+  oneof result {
+    AllowResult allow = 1;
+    DenyResult deny = 2;
+  }
+}
+
+// AllowResult represents an allowed permission result.
+message AllowResult {
+  ToolInput updated_input = 1;
+  repeated PermissionUpdate updated_permissions = 2;
+}
+
+// DenyResult represents a denied permission result.
+message DenyResult {
+  string message = 1;
+  optional bool interrupt = 2;
+}
+
+// McpServerConfig represents configuration for an MCP server.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-config
+message McpServerConfig {
+  oneof config {
+    McpStdioServerConfig stdio = 1;
+    McpSSEServerConfig sse = 2;
+    McpHttpServerConfig http = 3;
+  }
+}
+
+// McpStdioServerConfig represents configuration for an MCP server using stdio transport.
+message McpStdioServerConfig {
+  string command = 1;
+  repeated string args = 2;
+  map<string, string> env = 3;
+}
+
+// McpSSEServerConfig represents configuration for an MCP server using SSE transport.
+message McpSSEServerConfig {
+  string url = 1;
+  map<string, string> headers = 2;
+}
+
+// McpHttpServerConfig represents configuration for an MCP server using HTTP transport.
+message McpHttpServerConfig {
+  string url = 1;
+  map<string, string> headers = 2;
+}
+
+// SdkPluginConfig represents configuration for an SDK plugin.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-plugin-config
+message SdkPluginConfig {
+  string path = 1;
+}
+
+// --- New types from the "Types" section ---
+
+// SettingSource represents where a setting comes from.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#setting-source
+enum SettingSource {
+  SETTING_SOURCE_UNSPECIFIED = 0;
+  SETTING_SOURCE_USER = 1;
+  SETTING_SOURCE_PROJECT = 2;
+  SETTING_SOURCE_LOCAL = 3;
+}
+
+// AgentModel represents the model to use for an agent.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
+enum AgentModel {
+  AGENT_MODEL_UNSPECIFIED = 0;
+  AGENT_MODEL_SONNET = 1;
+  AGENT_MODEL_OPUS = 2;
+  AGENT_MODEL_HAIKU = 3;
+  AGENT_MODEL_INHERIT = 4;
+}
+
+// AgentDefinition represents the definition of a sub-agent.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
+message AgentDefinition {
+  string description = 1;
+  repeated string tools = 2;
+  string prompt = 3;
+  AgentModel model = 4;
+}
+
+// SystemPromptPreset represents a preset system prompt with appended text.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#system-prompt
+message SystemPromptPreset {
+  string append = 1;
+}
+
+// SystemPrompt represents the system prompt configuration.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#system-prompt
+message SystemPrompt {
+  oneof prompt {
+    string custom = 1;
+    SystemPromptPreset preset = 2;
+  }
+}
+
+// OutputFormat represents the output format configuration with a JSON schema.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#output-format
+message OutputFormat {
+  google.protobuf.Struct schema = 1;
+}
+
+// Options represents the configuration options for the SDK.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#options
+// Note: Runtime-only fields (abortController, canUseTool, stderr, hooks) are omitted.
+message Options {
+  repeated string additional_directories = 1;
+  map<string, AgentDefinition> agents = 2;
+  bool allow_dangerously_skip_permissions = 3;
+  repeated string allowed_tools = 4;
+  repeated SdkBeta betas = 5;
+  bool continue = 6;
+  string cwd = 7;
+  repeated string disallowed_tools = 8;
+  bool enable_file_checkpointing = 9;
+  map<string, string> env = 10;
+  string executable = 11;
+  repeated string executable_args = 12;
+  map<string, string> extra_args = 13;
+  string fallback_model = 14;
+  bool fork_session = 15;
+  bool include_partial_messages = 16;
+  optional double max_budget_usd = 17;
+  optional int32 max_thinking_tokens = 18;
+  optional int32 max_turns = 19;
+  map<string, McpServerConfig> mcp_servers = 20;
+  string model = 21;
+  optional OutputFormat output_format = 22;
+  string path_to_claude_code_executable = 23;
+  PermissionMode permission_mode = 24;
+  string permission_prompt_tool_name = 25;
+  repeated SdkPluginConfig plugins = 26;
+  string resume = 27;
+  string resume_session_at = 28;
+  optional SandboxSettings sandbox = 29;
+  repeated SettingSource setting_sources = 30;
+  bool strict_mcp_config = 31;
+  optional SystemPrompt system_prompt = 32;
+  repeated string tools_list = 33;
+  bool tools_preset = 34;
+}

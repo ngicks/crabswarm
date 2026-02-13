@@ -1,0 +1,377 @@
+syntax = "proto3";
+
+package sdk_types.v1;
+
+import "google/protobuf/struct.proto";
+import "sdk_types/v1/tool_input.proto";
+
+// ToolOutput is a union wrapper for all tool output types.
+message ToolOutput {
+  oneof output {
+    TaskOutput task = 1;
+    AskUserQuestionOutput ask_user_question = 2;
+    BashOutput bash = 3;
+    BashOutputToolOutput bash_output = 4;
+    EditOutput edit = 5;
+    ReadOutput read = 6;
+    WriteOutput write = 7;
+    GlobOutput glob = 8;
+    GrepOutput grep = 9;
+    KillBashOutput kill_bash = 10;
+    NotebookEditOutput notebook_edit = 11;
+    WebFetchOutput web_fetch = 12;
+    WebSearchOutput web_search = 13;
+    TodoWriteOutput todo_write = 14;
+    ExitPlanModeOutput exit_plan_mode = 15;
+    ListMcpResourcesOutput list_mcp_resources = 16;
+    ReadMcpResourceOutput read_mcp_resource = 17;
+    google.protobuf.Struct mcp_tool = 18;
+  }
+}
+
+// UsageInfo contains token usage statistics.
+message UsageInfo {
+  int32 input_tokens = 1;
+  int32 output_tokens = 2;
+  optional int32 cache_creation_input_tokens = 3;
+  optional int32 cache_read_input_tokens = 4;
+}
+
+// TaskOutput returns the final result from the subagent.
+message TaskOutput {
+  // Final result message from the subagent.
+  string result = 1;
+  // Token usage statistics.
+  UsageInfo usage = 2;
+  // Total cost in USD.
+  optional double total_cost_usd = 3;
+  // Execution duration in milliseconds.
+  optional int64 duration_ms = 4;
+}
+
+// AskUserQuestionOutput returns the questions asked and the user's answers.
+message AskUserQuestionOutput {
+  // The questions that were asked.
+  repeated Question questions = 1;
+  // The answers provided by the user.
+  map<string, string> answers = 2;
+}
+
+// BashOutput returns command output with exit status.
+message BashOutput {
+  // Combined stdout and stderr output.
+  string output = 1;
+  // Exit code of the command.
+  int32 exit_code = 2;
+  // Whether the command was killed due to timeout.
+  optional bool killed = 3;
+  // Shell ID for background processes.
+  optional string shell_id = 4;
+}
+
+// BashOutputStatus represents the status of a background shell.
+enum BashOutputStatus {
+  BASH_OUTPUT_STATUS_UNSPECIFIED = 0;
+  BASH_OUTPUT_STATUS_RUNNING = 1;
+  BASH_OUTPUT_STATUS_COMPLETED = 2;
+  BASH_OUTPUT_STATUS_FAILED = 3;
+}
+
+// BashOutputToolOutput returns incremental output from background shells.
+message BashOutputToolOutput {
+  // New output since last check.
+  string output = 1;
+  // Current shell status.
+  BashOutputStatus status = 2;
+  // Exit code (when completed).
+  optional int32 exit_code = 3;
+}
+
+// EditOutput returns confirmation of successful edits.
+message EditOutput {
+  // Confirmation message.
+  string message = 1;
+  // Number of replacements made.
+  int32 replacements = 2;
+  // File path that was edited.
+  string file_path = 3;
+}
+
+// TextFileOutput contains text file contents.
+message TextFileOutput {
+  // File contents with line numbers.
+  string content = 1;
+  // Total number of lines in file.
+  int32 total_lines = 2;
+  // Lines actually returned.
+  int32 lines_returned = 3;
+}
+
+// ImageFileOutput contains image file contents.
+message ImageFileOutput {
+  // Base64 encoded image data.
+  string image = 1;
+  // Image MIME type.
+  string mime_type = 2;
+  // File size in bytes.
+  int64 file_size = 3;
+}
+
+// PDFPageImage contains an image extracted from a PDF page.
+message PDFPageImage {
+  // Base64 encoded image data.
+  string image = 1;
+  // Image MIME type.
+  string mime_type = 2;
+}
+
+// PDFPage contains the contents of a single PDF page.
+message PDFPage {
+  // Page number.
+  int32 page_number = 1;
+  // Text content of the page.
+  optional string text = 2;
+  // Images extracted from the page.
+  repeated PDFPageImage images = 3;
+}
+
+// PDFFileOutput contains PDF file contents.
+message PDFFileOutput {
+  // Array of page contents.
+  repeated PDFPage pages = 1;
+  // Total number of pages.
+  int32 total_pages = 2;
+}
+
+// NotebookCell contains a single Jupyter notebook cell.
+message NotebookCell {
+  // Cell type (code or markdown).
+  string cell_type = 1;
+  // Cell source content.
+  string source = 2;
+  // Cell outputs as JSON.
+  repeated google.protobuf.Value outputs = 3;
+  // Execution count.
+  optional int32 execution_count = 4;
+}
+
+// NotebookFileOutput contains Jupyter notebook contents.
+message NotebookFileOutput {
+  // Jupyter notebook cells.
+  repeated NotebookCell cells = 1;
+  // Notebook metadata.
+  google.protobuf.Struct metadata = 2;
+}
+
+// ReadOutput returns file contents in format appropriate to file type.
+message ReadOutput {
+  oneof file {
+    TextFileOutput text_file = 1;
+    ImageFileOutput image_file = 2;
+    PDFFileOutput pdf_file = 3;
+    NotebookFileOutput notebook_file = 4;
+  }
+}
+
+// WriteOutput returns confirmation after writing a file.
+message WriteOutput {
+  // Success message.
+  string message = 1;
+  // Number of bytes written.
+  int64 bytes_written = 2;
+  // File path that was written.
+  string file_path = 3;
+}
+
+// GlobOutput returns file paths matching the glob pattern.
+message GlobOutput {
+  // Array of matching file paths.
+  repeated string matches = 1;
+  // Number of matches found.
+  int32 count = 2;
+  // Search directory used.
+  string search_path = 3;
+}
+
+// GrepMatch represents a single grep match with context.
+message GrepMatch {
+  // File containing the match.
+  string file = 1;
+  // Line number of the match.
+  optional int32 line_number = 2;
+  // Matching line content.
+  string line = 3;
+  // Lines before the match.
+  repeated string before_context = 4;
+  // Lines after the match.
+  repeated string after_context = 5;
+}
+
+// GrepContentOutput contains matching lines with context.
+message GrepContentOutput {
+  // Matching lines with context.
+  repeated GrepMatch matches = 1;
+  // Total number of matches.
+  int32 total_matches = 2;
+}
+
+// GrepFilesOutput contains files with matches.
+message GrepFilesOutput {
+  // Files containing matches.
+  repeated string files = 1;
+  // Number of files with matches.
+  int32 count = 2;
+}
+
+// GrepFileCount represents match counts for a single file.
+message GrepFileCount {
+  // File path.
+  string file = 1;
+  // Number of matches in this file.
+  int32 count = 2;
+}
+
+// GrepCountOutput contains match counts per file.
+message GrepCountOutput {
+  // Match counts per file.
+  repeated GrepFileCount counts = 1;
+  // Total matches across all files.
+  int32 total = 2;
+}
+
+// GrepOutput returns search results in the format specified by output_mode.
+message GrepOutput {
+  oneof result {
+    GrepContentOutput content = 1;
+    GrepFilesOutput files = 2;
+    GrepCountOutput count = 3;
+  }
+}
+
+// KillBashOutput returns confirmation after terminating a background shell.
+message KillBashOutput {
+  // Success message.
+  string message = 1;
+  // ID of the killed shell.
+  string shell_id = 2;
+}
+
+// NotebookEditType represents the type of edit performed on a notebook.
+enum NotebookEditType {
+  NOTEBOOK_EDIT_TYPE_UNSPECIFIED = 0;
+  NOTEBOOK_EDIT_TYPE_REPLACED = 1;
+  NOTEBOOK_EDIT_TYPE_INSERTED = 2;
+  NOTEBOOK_EDIT_TYPE_DELETED = 3;
+}
+
+// NotebookEditOutput returns confirmation after modifying a Jupyter notebook.
+message NotebookEditOutput {
+  // Success message.
+  string message = 1;
+  // Type of edit performed.
+  NotebookEditType edit_type = 2;
+  // Cell ID that was affected.
+  optional string cell_id = 3;
+  // Total cells in notebook after edit.
+  int32 total_cells = 4;
+}
+
+// WebFetchOutput returns the AI's analysis of fetched web content.
+message WebFetchOutput {
+  // AI model's response to the prompt.
+  string response = 1;
+  // URL that was fetched.
+  string url = 2;
+  // Final URL after redirects.
+  optional string final_url = 3;
+  // HTTP status code.
+  optional int32 status_code = 4;
+}
+
+// WebSearchResult represents a single web search result.
+message WebSearchResult {
+  // Result title.
+  string title = 1;
+  // Result URL.
+  string url = 2;
+  // Result snippet.
+  string snippet = 3;
+  // Additional metadata if available.
+  google.protobuf.Struct metadata = 4;
+}
+
+// WebSearchOutput returns formatted search results from the web.
+message WebSearchOutput {
+  // Search results.
+  repeated WebSearchResult results = 1;
+  // Total number of results.
+  int32 total_results = 2;
+  // The query that was searched.
+  string query = 3;
+}
+
+// TodoStats contains current task statistics.
+message TodoStats {
+  int32 total = 1;
+  int32 pending = 2;
+  int32 in_progress = 3;
+  int32 completed = 4;
+}
+
+// TodoWriteOutput returns confirmation with current task statistics.
+message TodoWriteOutput {
+  // Success message.
+  string message = 1;
+  // Current todo statistics.
+  TodoStats stats = 2;
+}
+
+// ExitPlanModeOutput returns confirmation after exiting plan mode.
+message ExitPlanModeOutput {
+  // Confirmation message.
+  string message = 1;
+  // Whether user approved the plan.
+  optional bool approved = 2;
+}
+
+// McpResource represents an available MCP resource.
+message McpResource {
+  // Resource URI.
+  string uri = 1;
+  // Resource name.
+  string name = 2;
+  // Resource description.
+  optional string description = 3;
+  // Resource MIME type.
+  optional string mime_type = 4;
+  // Server providing the resource.
+  string server = 5;
+}
+
+// ListMcpResourcesOutput returns a list of available MCP resources.
+message ListMcpResourcesOutput {
+  // Available resources.
+  repeated McpResource resources = 1;
+  // Total number of resources.
+  int32 total = 2;
+}
+
+// McpResourceContent contains the content of an MCP resource.
+message McpResourceContent {
+  // Resource URI.
+  string uri = 1;
+  // Resource MIME type.
+  optional string mime_type = 2;
+  // Text content.
+  optional string text = 3;
+  // Binary content as base64.
+  optional string blob = 4;
+}
+
+// ReadMcpResourceOutput returns the contents of the requested MCP resource.
+message ReadMcpResourceOutput {
+  // Resource contents.
+  repeated McpResourceContent contents = 1;
+  // Server that provided the resource.
+  string server = 2;
+}

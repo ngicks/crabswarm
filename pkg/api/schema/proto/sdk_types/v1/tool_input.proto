@@ -1,0 +1,261 @@
+syntax = "proto3";
+
+package sdk_types.v1;
+
+import "google/protobuf/struct.proto";
+
+// ToolInput is a union wrapper for all tool input types.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#tool-input-types
+message ToolInput {
+  oneof input {
+    AgentInput agent = 1;
+    AskUserQuestionInput ask_user_question = 2;
+    BashInput bash = 3;
+    BashOutputInput bash_output = 4;
+    FileEditInput file_edit = 5;
+    FileReadInput file_read = 6;
+    FileWriteInput file_write = 7;
+    GlobInput glob = 8;
+    GrepInput grep = 9;
+    KillShellInput kill_shell = 10;
+    NotebookEditInput notebook_edit = 11;
+    WebFetchInput web_fetch = 12;
+    WebSearchInput web_search = 13;
+    TodoWriteInput todo_write = 14;
+    ExitPlanModeInput exit_plan_mode = 15;
+    ListMcpResourcesInput list_mcp_resources = 16;
+    ReadMcpResourceInput read_mcp_resource = 17;
+    google.protobuf.Struct mcp_tool = 18;
+  }
+}
+
+// AgentInput is the input for the Task tool.
+// Launches a new agent to handle complex, multi-step tasks autonomously.
+message AgentInput {
+  // A short (3-5 word) description of the task.
+  string description = 1;
+  // The task for the agent to perform.
+  string prompt = 2;
+  // The type of specialized agent to use for this task.
+  string subagent_type = 3;
+}
+
+// QuestionOption represents a single choice option within a question.
+message QuestionOption {
+  // Display text for this option (1-5 words).
+  string label = 1;
+  // Explanation of what this option means.
+  string description = 2;
+}
+
+// Question represents a single question to ask the user.
+message Question {
+  // The complete question to ask the user.
+  string question = 1;
+  // Very short label displayed as a chip/tag (max 12 chars).
+  string header = 2;
+  // The available choices (2-4 options).
+  repeated QuestionOption options = 3;
+  // Set to true to allow multiple selections.
+  bool multi_select = 4;
+}
+
+// AskUserQuestionInput asks the user clarifying questions during execution.
+message AskUserQuestionInput {
+  // Questions to ask the user (1-4 questions).
+  repeated Question questions = 1;
+  // User answers populated by the permission system.
+  // Maps question text to selected option label(s).
+  map<string, string> answers = 2;
+}
+
+// BashInput executes bash commands in a persistent shell session.
+message BashInput {
+  // The command to execute.
+  string command = 1;
+  // Optional timeout in milliseconds (max 600000).
+  optional int32 timeout = 2;
+  // Clear, concise description of what this command does.
+  optional string description = 3;
+  // Set to true to run this command in the background.
+  optional bool run_in_background = 4;
+}
+
+// BashOutputInput retrieves output from a running or completed background bash shell.
+message BashOutputInput {
+  // The ID of the background shell to retrieve output from.
+  string bash_id = 1;
+  // Optional regex to filter output lines.
+  optional string filter = 2;
+}
+
+// FileEditInput performs exact string replacements in files.
+message FileEditInput {
+  // The absolute path to the file to modify.
+  string file_path = 1;
+  // The text to replace.
+  string old_string = 2;
+  // The text to replace it with (must be different from old_string).
+  string new_string = 3;
+  // Replace all occurrences of old_string (default false).
+  optional bool replace_all = 4;
+}
+
+// FileReadInput reads files from the local filesystem.
+message FileReadInput {
+  // The absolute path to the file to read.
+  string file_path = 1;
+  // The line number to start reading from.
+  optional int32 offset = 2;
+  // The number of lines to read.
+  optional int32 limit = 3;
+}
+
+// FileWriteInput writes a file to the local filesystem.
+message FileWriteInput {
+  // The absolute path to the file to write.
+  string file_path = 1;
+  // The content to write to the file.
+  string content = 2;
+}
+
+// GlobInput performs fast file pattern matching.
+message GlobInput {
+  // The glob pattern to match files against.
+  string pattern = 1;
+  // The directory to search in (defaults to cwd).
+  optional string path = 2;
+}
+
+// GrepOutputMode specifies the output format for grep results.
+enum GrepOutputMode {
+  GREP_OUTPUT_MODE_UNSPECIFIED = 0;
+  GREP_OUTPUT_MODE_CONTENT = 1;
+  GREP_OUTPUT_MODE_FILES_WITH_MATCHES = 2;
+  GREP_OUTPUT_MODE_COUNT = 3;
+}
+
+// GrepInput searches file contents using ripgrep with regex support.
+message GrepInput {
+  // The regular expression pattern to search for.
+  string pattern = 1;
+  // File or directory to search in (defaults to cwd).
+  optional string path = 2;
+  // Glob pattern to filter files (e.g. "*.js").
+  optional string glob = 3;
+  // File type to search (e.g. "js", "py", "rust").
+  optional string type = 4;
+  // Output mode.
+  GrepOutputMode output_mode = 5;
+  // Case insensitive search.
+  optional bool case_insensitive = 6;
+  // Show line numbers (for content mode).
+  optional bool show_line_numbers = 7;
+  // Lines to show before each match.
+  optional int32 before_context = 8;
+  // Lines to show after each match.
+  optional int32 after_context = 9;
+  // Lines to show before and after each match.
+  optional int32 context = 10;
+  // Limit output to first N lines/entries.
+  optional int32 head_limit = 11;
+  // Enable multiline mode.
+  optional bool multiline = 12;
+}
+
+// KillShellInput kills a running background bash shell by its ID.
+message KillShellInput {
+  // The ID of the background shell to kill.
+  string shell_id = 1;
+}
+
+// NotebookCellType specifies the type of a Jupyter notebook cell.
+enum NotebookCellType {
+  NOTEBOOK_CELL_TYPE_UNSPECIFIED = 0;
+  NOTEBOOK_CELL_TYPE_CODE = 1;
+  NOTEBOOK_CELL_TYPE_MARKDOWN = 2;
+}
+
+// NotebookEditMode specifies the type of edit to perform on a notebook cell.
+enum NotebookEditMode {
+  NOTEBOOK_EDIT_MODE_UNSPECIFIED = 0;
+  NOTEBOOK_EDIT_MODE_REPLACE = 1;
+  NOTEBOOK_EDIT_MODE_INSERT = 2;
+  NOTEBOOK_EDIT_MODE_DELETE = 3;
+}
+
+// NotebookEditInput edits cells in Jupyter notebook files.
+message NotebookEditInput {
+  // The absolute path to the Jupyter notebook file.
+  string notebook_path = 1;
+  // The ID of the cell to edit.
+  optional string cell_id = 2;
+  // The new source for the cell.
+  string new_source = 3;
+  // The type of the cell.
+  NotebookCellType cell_type = 4;
+  // The type of edit.
+  NotebookEditMode edit_mode = 5;
+}
+
+// WebFetchInput fetches content from a URL and processes it with an AI model.
+message WebFetchInput {
+  // The URL to fetch content from.
+  string url = 1;
+  // The prompt to run on the fetched content.
+  string prompt = 2;
+}
+
+// WebSearchInput searches the web and returns formatted results.
+message WebSearchInput {
+  // The search query to use.
+  string query = 1;
+  // Only include results from these domains.
+  repeated string allowed_domains = 2;
+  // Never include results from these domains.
+  repeated string blocked_domains = 3;
+}
+
+// TodoStatus specifies the status of a todo item.
+enum TodoStatus {
+  TODO_STATUS_UNSPECIFIED = 0;
+  TODO_STATUS_PENDING = 1;
+  TODO_STATUS_IN_PROGRESS = 2;
+  TODO_STATUS_COMPLETED = 3;
+}
+
+// TodoItem represents a single task in the todo list.
+message TodoItem {
+  // The task description.
+  string content = 1;
+  // The task status.
+  TodoStatus status = 2;
+  // Active form of the task description.
+  string active_form = 3;
+}
+
+// TodoWriteInput creates and manages a structured task list.
+message TodoWriteInput {
+  // The updated todo list.
+  repeated TodoItem todos = 1;
+}
+
+// ExitPlanModeInput exits planning mode and prompts the user to approve the plan.
+message ExitPlanModeInput {
+  // The plan to run by the user for approval.
+  string plan = 1;
+}
+
+// ListMcpResourcesInput lists available MCP resources from connected servers.
+message ListMcpResourcesInput {
+  // Optional server name to filter resources by.
+  optional string server = 1;
+}
+
+// ReadMcpResourceInput reads a specific MCP resource from a server.
+message ReadMcpResourceInput {
+  // The MCP server name.
+  string server = 1;
+  // The resource URI to read.
+  string uri = 2;
+}

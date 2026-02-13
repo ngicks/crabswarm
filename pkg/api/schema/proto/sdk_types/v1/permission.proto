@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package sdk_types.v1;
+
+// PermissionMode represents the permission mode for the SDK.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
+enum PermissionMode {
+  PERMISSION_MODE_UNSPECIFIED = 0;
+  PERMISSION_MODE_DEFAULT = 1;
+  PERMISSION_MODE_ACCEPT_EDITS = 2;
+  PERMISSION_MODE_BYPASS_PERMISSIONS = 3;
+  PERMISSION_MODE_PLAN = 4;
+}
+
+// PermissionBehavior represents the behavior for a permission rule.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+enum PermissionBehavior {
+  PERMISSION_BEHAVIOR_UNSPECIFIED = 0;
+  PERMISSION_BEHAVIOR_ALLOW = 1;
+  PERMISSION_BEHAVIOR_DENY = 2;
+  PERMISSION_BEHAVIOR_ASK = 3;
+}
+
+// PermissionUpdateDestination represents the destination for a permission update.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+enum PermissionUpdateDestination {
+  PERMISSION_UPDATE_DESTINATION_UNSPECIFIED = 0;
+  PERMISSION_UPDATE_DESTINATION_USER_SETTINGS = 1;
+  PERMISSION_UPDATE_DESTINATION_PROJECT_SETTINGS = 2;
+  PERMISSION_UPDATE_DESTINATION_LOCAL_SETTINGS = 3;
+  PERMISSION_UPDATE_DESTINATION_SESSION = 4;
+}
+
+// PermissionRuleValue represents a single permission rule.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+message PermissionRuleValue {
+  string tool_name = 1;
+  optional string rule_content = 2;
+}
+
+// PermissionUpdate represents a permission update operation.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+message PermissionUpdate {
+  oneof update {
+    AddRulesUpdate add_rules = 1;
+    ReplaceRulesUpdate replace_rules = 2;
+    RemoveRulesUpdate remove_rules = 3;
+    SetModeUpdate set_mode = 4;
+    AddDirectoriesUpdate add_directories = 5;
+    RemoveDirectoriesUpdate remove_directories = 6;
+  }
+}
+
+// AddRulesUpdate adds permission rules.
+message AddRulesUpdate {
+  repeated PermissionRuleValue rules = 1;
+  PermissionBehavior behavior = 2;
+  PermissionUpdateDestination destination = 3;
+}
+
+// ReplaceRulesUpdate replaces permission rules.
+message ReplaceRulesUpdate {
+  repeated PermissionRuleValue rules = 1;
+  PermissionBehavior behavior = 2;
+  PermissionUpdateDestination destination = 3;
+}
+
+// RemoveRulesUpdate removes permission rules.
+message RemoveRulesUpdate {
+  repeated PermissionRuleValue rules = 1;
+  PermissionBehavior behavior = 2;
+  PermissionUpdateDestination destination = 3;
+}
+
+// SetModeUpdate sets the permission mode.
+message SetModeUpdate {
+  PermissionMode mode = 1;
+  PermissionUpdateDestination destination = 2;
+}
+
+// AddDirectoriesUpdate adds directories to the allowed list.
+message AddDirectoriesUpdate {
+  repeated string directories = 1;
+  PermissionUpdateDestination destination = 2;
+}
+
+// RemoveDirectoriesUpdate removes directories from the allowed list.
+message RemoveDirectoriesUpdate {
+  repeated string directories = 1;
+  PermissionUpdateDestination destination = 2;
+}
