@@ -549,6 +549,41 @@ func TestTmuxPaneIndex(t *testing.T) {
 	}
 }
 
+func TestTmuxNewInstallsHooks(t *testing.T) {
+	tmuxPath(t)
+	cfg := testConfig(t, "hooksess")
+	ctx := context.Background()
+
+	_, err := New(ctx, cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() {
+		e := newExecutor(cfg.TmuxPath, cfg.SocketName)
+		_, _ = e.run(context.Background(), "kill-server")
+	})
+
+	exec := newExecutor(cfg.TmuxPath, cfg.SocketName)
+	out, err := exec.run(ctx, "show-hooks", "-t", cfg.Name)
+	if err != nil {
+		t.Fatalf("show-hooks: %v", err)
+	}
+
+	for _, hook := range []string{"client-attached[100]", "client-detached[100]"} {
+		if !strings.Contains(out, hook) {
+			t.Errorf("hook %q not found in show-hooks output:\n%s", hook, out)
+		}
+	}
+
+	// Verify the hook command references the session name and select-layout.
+	if !strings.Contains(out, "select-layout") {
+		t.Errorf("hook command missing select-layout in show-hooks output:\n%s", out)
+	}
+	if !strings.Contains(out, "list-windows") {
+		t.Errorf("hook command missing list-windows in show-hooks output:\n%s", out)
+	}
+}
+
 func TestTmuxPaneClose(t *testing.T) {
 	sess := newTestSession(t)
 	ctx := context.Background()

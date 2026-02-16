@@ -1,10 +1,12 @@
-# Fix uneven pane sizes on client attach/detach via tmux hooks
+# Fix uneven pane sizes on client attach/detach via tmux hooks + simplify split targeting
 
 ## Context
 
 When `Split` runs on a detached tmux session, tmux uses `default-size` (80x24). When a real client attaches, the window resizes to the client's terminal dimensions, but pane proportions get distorted (e.g. 85:19 instead of 50:50). The split algorithm itself is correct — the issue is tmux's layout reflow on resize.
 
-The fix: install persistent tmux hooks at session creation that run `select-layout -t <window> tiled` for **every window** in the session on `client-attached` and `client-detached` events.
+Two changes:
+1. Install persistent tmux hooks at session creation that run `select-layout -t <window> tiled` for **every window** in the session on `client-attached` and `client-detached` events.
+2. Change `splitTargetPaneIndex` to always target the **last pane** (highest index), so pane IDs grow monotonically with pane indices. The direction alternation (horizontal/vertical per round) is kept.
 
 ## Why `client-attached`/`client-detached` and not `after-resize-window`
 
@@ -89,6 +91,34 @@ func shellQuote(s string) string {
 ### `pkg/mux/tmux/tmux_test.go` — Add `TestTmuxNewInstallsHooks`
 
 Use `show-hooks -t <session>` to verify `client-attached[100]` and `client-detached[100]` are present. Hooks won't fire in tests (no real client attach), but registration can be verified.
+
+### `pkg/mux/tmux/window.go` — Simplify split targeting
+
+Remove `splitTargetPaneIndex` entirely and the `math/bits` import. In `Split`, always split the last pane horizontally (`-h`):
+
+```go
+func (w *window) Split(ctx context.Context, n int) error {
+    paneIDs, err := w.listPaneIDs(ctx)
+    if err != nil {
+        return err
+    }
+    numPane := len(paneIDs)
+    for range n {
+        if numPane == 0 {
+            return fmt.Errorf("tmux: window %s has no panes", w.id)
+        }
+        _, err = w.exec.run(ctx, "split-window", "-h", "-t",
+            w.sessionName+":"+w.id+"."+strconv.Itoa(numPane-1))
+        if err != nil {
+            return err
+        }
+        numPane++
+    }
+    return nil
+}
+```
+
+Delete `splitTargetPaneIndex` function. Delete `window_test.go` (`Test_splitTargetPaneIndex`).
 
 ## Verification
 

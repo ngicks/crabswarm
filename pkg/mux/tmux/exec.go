@@ -43,3 +43,18 @@ func (e *executor) buildArgs(args []string) []string {
 	}
 	return args
 }
+
+// socketFlag returns the "-L <name> " flag string for use in shell commands,
+// or "" if no socket is configured.
+func (e *executor) socketFlag() string {
+	if e.socketName != "" {
+		return "-L " + shellQuote(e.socketName) + " "
+	}
+	return ""
+}
+
+// shellQuote wraps a string in single quotes, escaping any embedded single quotes.
+// This is safe for embedding in sh(1) commands.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}

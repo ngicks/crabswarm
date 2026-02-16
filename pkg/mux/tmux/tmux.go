@@ -3,6 +3,7 @@ package tmux
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/ngicks/crabswarm/pkg/mux"
@@ -46,13 +47,25 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 		exec: exec,
 	}
 
-	// Install a hook so that when a client attaches (causing a window resize),
-	// tmux automatically rebalances all panes with tiled layout.
-	// This is needed because splits done on a detached session use default-size
-	// (80x24) and get distorted when the client's real terminal size is applied.
-	_, err = exec.run(ctx, "set-hook", "-t", cfg.Name, "after-resize-window", "select-layout tiled")
-	if err != nil {
-		return nil, err
+	// Install hooks to rebalance all window panes on client attach/detach.
+	// Splits done on detached sessions use default-size (80x24) and get
+	// distorted when the window resizes to the real terminal dimensions.
+	// Using run-shell to iterate all windows so every window is rebalanced.
+	// Array index [100] avoids clobbering user-defined hooks.
+	//
+	// NOTE: ## escapes # for tmux format expansion in run-shell.
+	// All dynamic values are shell-quoted with shellQuote() to prevent injection.
+	rebalanceCmd := fmt.Sprintf(
+		"run-shell 'for w in $(%s %slist-windows -t %s -F \"##{window_id}\"); do %s %sselect-layout -t \"$w\" tiled; done'",
+		shellQuote(exec.tmuxPath), exec.socketFlag(),
+		shellQuote(cfg.Name),
+		shellQuote(exec.tmuxPath), exec.socketFlag(),
+	)
+	for _, hook := range []string{"client-attached[100]", "client-detached[100]"} {
+		_, err = exec.run(ctx, "set-hook", "-t", cfg.Name, hook, rebalanceCmd)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return sess, nil

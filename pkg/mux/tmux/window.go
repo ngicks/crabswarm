@@ -3,7 +3,6 @@ package tmux
 import (
 	"context"
 	"fmt"
-	"math/bits"
 	"strconv"
 
 	"github.com/ngicks/crabswarm/pkg/mux"
@@ -70,21 +69,6 @@ func (w *window) Split(ctx context.Context, n int) error {
 		numPane++
 	}
 	return nil
-}
-
-func splitTargetPaneIndex(numPane int) (string, int) {
-	// Compute round and step from pane count.
-	r := bits.Len(uint(numPane)) - 1 // floor(log2(P))
-	s := numPane - (1 << r)          // step within round
-
-	// Direction: even round → horizontal, odd round → vertical.
-	dir := "-h"
-	if r%2 != 0 {
-		dir = "-v"
-	}
-
-	// Target pane is at visual position 2*s.
-	return dir, 2 * s
 }
 
 func (w *window) List(ctx context.Context) ([]mux.Pane, error) {
