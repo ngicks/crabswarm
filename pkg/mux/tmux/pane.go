@@ -10,8 +10,10 @@ import (
 
 // pane implements mux.Pane for a tmux pane.
 type pane struct {
-	id   string
-	exec *executor
+	id        string
+	sessionID string
+	windowID  string
+	exec      *executor
 }
 
 var _ mux.Pane = (*pane)(nil)
@@ -37,8 +39,10 @@ func (p *pane) Name(ctx context.Context) (string, error) {
 }
 
 // SendKeys sends each key string as a separate tmux send-keys invocation.
+// Placeholders (#{SESSION_ID}, #{WINDOW_ID}, #{PANE_ID}, #{INJECT_META}) are
+// interpolated before sending. Use ##{...} to produce a literal #{...}.
 func (p *pane) SendKeys(ctx context.Context, keys []string) error {
-	for _, key := range keys {
+	for key := range interpolateKeys(keys, p.sessionID, p.windowID, p.id) {
 		_, err := p.exec.run(ctx, "send-keys", "-t", p.id, key)
 		if err != nil {
 			return err

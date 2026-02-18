@@ -4,7 +4,9 @@ package tmux
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
+	"sync"
 
 	"github.com/ngicks/crabswarm/pkg/mux"
 )
@@ -17,6 +19,11 @@ type Config struct {
 	TmuxPath string
 	// SocketName is the tmux socket name (-L flag). Empty uses the default socket.
 	SocketName string
+	// StartupKeys are sent to every new pane created in this session.
+	// These are sent before any window-level startup keys.
+	// Supported placeholders: #{SESSION_ID}, #{WINDOW_ID}, #{PANE_ID}, #{INJECT_META}.
+	// Use ##{...} to produce a literal #{...}.
+	StartupKeys []string
 }
 
 // Session is a tmux session implementing mux.Session.
@@ -24,16 +31,21 @@ type Session struct {
 	id   string
 	name string
 	exec *executor
+
+	mu          sync.RWMutex
+	startupKeys []string            // session-level, defensively copied from Config
+	windowKeys     map[string][]string // window ID → window-level startup keys
 }
 
 // Verify interface compliance.
 var _ mux.Session = (*Session)(nil)
 
 // New creates a new detached tmux session with the given config.
+// If Config.StartupKeys is non-empty, the keys are sent to the initial pane.
 func New(ctx context.Context, cfg Config) (*Session, error) {
 	exec := newExecutor(cfg.TmuxPath, cfg.SocketName)
 
-	out, err := exec.run(ctx, "new-session", "-d", "-s", cfg.Name, "-P", "-F", "#{session_id}")
+	out, err := exec.run(ctx, "new-session", "-d", "-s", cfg.Name, "-P", "-F", "#{session_id}\t#{window_id}\t#{pane_id}")
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate session") {
 			return nil, mux.ErrSessionExists
@@ -41,10 +53,18 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 		return nil, err
 	}
 
+	parts := strings.SplitN(strings.TrimSpace(out), "\t", 3)
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("tmux: unexpected new-session output: %q", out)
+	}
+	sessionID, initialWindowID, initialPaneID := parts[0], parts[1], parts[2]
+
 	sess := &Session{
-		id:   strings.TrimSpace(out),
-		name: cfg.Name,
-		exec: exec,
+		id:          sessionID,
+		name:        cfg.Name,
+		exec:        exec,
+		startupKeys: slices.Clone(cfg.StartupKeys),
+		windowKeys:  make(map[string][]string),
 	}
 
 	// Install hooks to rebalance all window panes on client attach/detach.
@@ -66,6 +86,11 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Send session-level startup keys to the initial pane.
+	if err := sendStartupKeys(ctx, exec, initialPaneID, sessionID, initialWindowID, sess.startupKeys, nil); err != nil {
+		return nil, err
 	}
 
 	return sess, nil
@@ -91,9 +116,11 @@ func Attach(ctx context.Context, cfg Config) (*Session, error) {
 	}
 
 	return &Session{
-		id:   strings.TrimSpace(out),
-		name: cfg.Name,
-		exec: exec,
+		id:          strings.TrimSpace(out),
+		name:        cfg.Name,
+		exec:        exec,
+		startupKeys: slices.Clone(cfg.StartupKeys),
+		windowKeys:  make(map[string][]string),
 	}, nil
 }
 
@@ -109,16 +136,48 @@ func (s *Session) Name(ctx context.Context) (string, error) {
 	return out, nil
 }
 
-func (s *Session) NewWindow(ctx context.Context, name string) (mux.Window, error) {
-	out, err := s.exec.run(ctx, "new-window", "-t", s.name, "-n", name, "-P", "-F", "#{window_id}")
+// StartupKeys returns session-level keys sent to every new pane before window-level keys.
+func (s *Session) StartupKeys() []string {
+	return slices.Clone(s.startupKeys)
+}
+
+// NewWindow creates a new window and sends session-level + window-level
+// startup keys to its initial pane. Window-level keys are persisted so that
+// panes created later via Split also receive them. Pass nil for no window-level keys.
+func (s *Session) NewWindow(ctx context.Context, name string, startupKeys []string) (mux.Window, error) {
+	out, err := s.exec.run(ctx, "new-window", "-t", s.name, "-n", name, "-P", "-F", "#{window_id}\t#{pane_id}")
 	if err != nil {
 		return nil, err
 	}
-	return &window{
-		id:          strings.TrimSpace(out),
-		sessionName: s.name,
-		exec:        s.exec,
-	}, nil
+
+	parts := strings.SplitN(strings.TrimSpace(out), "\t", 2)
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("tmux: unexpected new-window output: %q", out)
+	}
+	windowID, paneID := parts[0], parts[1]
+
+	// Store window-level keys under lock.
+	s.mu.Lock()
+	if len(startupKeys) > 0 {
+		s.windowKeys[windowID] = slices.Clone(startupKeys)
+	}
+	s.mu.Unlock()
+
+	w := &window{
+		id:                 windowID,
+		sessionID:          s.id,
+		sessionName:        s.name,
+		exec:               s.exec,
+		sessionStartupKeys: s.startupKeys,
+		startupKeys:        slices.Clone(startupKeys),
+	}
+
+	// Send session + window startup keys to the initial pane.
+	if err := sendStartupKeys(ctx, s.exec, paneID, s.id, windowID, s.startupKeys, startupKeys); err != nil {
+		return nil, err
+	}
+
+	return w, nil
 }
 
 func (s *Session) List(ctx context.Context) ([]mux.Window, error) {
@@ -126,7 +185,9 @@ func (s *Session) List(ctx context.Context) ([]mux.Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseWindows(out, s.name, s.exec), nil
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return parseWindows(out, s.name, s.exec, s.startupKeys, s.windowKeys, s.id), nil
 }
 
 func (s *Session) GetAt(ctx context.Context, i int) (mux.Window, error) {

@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -9,7 +10,8 @@ import (
 )
 
 // parseWindows parses tmux list-windows output formatted as "#{window_id}\t#{window_index}\t#{window_name}".
-func parseWindows(out string, sessionName string, exec *executor) []mux.Window {
+// sessionStartupKeys and windowKeys are injected into each constructed window.
+func parseWindows(out string, sessionName string, exec *executor, sessionStartupKeys []string, windowKeys map[string][]string, sessionID string) []mux.Window {
 	if out == "" {
 		return nil
 	}
@@ -20,17 +22,24 @@ func parseWindows(out string, sessionName string, exec *executor) []mux.Window {
 		if len(parts) < 3 {
 			continue
 		}
-		windows = append(windows, &window{
-			id:          parts[0],
-			sessionName: sessionName,
-			exec:        exec,
-		})
+		wid := parts[0]
+		w := &window{
+			id:                 wid,
+			sessionID:          sessionID,
+			sessionName:        sessionName,
+			exec:               exec,
+			sessionStartupKeys: sessionStartupKeys,
+		}
+		if wk, ok := windowKeys[wid]; ok {
+			w.startupKeys = slices.Clone(wk)
+		}
+		windows = append(windows, w)
 	}
 	return windows
 }
 
 // parsePanes parses tmux list-panes output formatted as "#{pane_id}\t#{pane_index}".
-func parsePanes(out string, windowTarget string, exec *executor) []mux.Pane {
+func parsePanes(out string, sessionID, windowID string, exec *executor) []mux.Pane {
 	if out == "" {
 		return nil
 	}
@@ -42,8 +51,10 @@ func parsePanes(out string, windowTarget string, exec *executor) []mux.Pane {
 			continue
 		}
 		panes = append(panes, &pane{
-			id:   id,
-			exec: exec,
+			id:        id,
+			sessionID: sessionID,
+			windowID:  windowID,
+			exec:      exec,
 		})
 	}
 	return panes

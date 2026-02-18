@@ -147,7 +147,7 @@ func TestParseWindows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseWindows(tt.out, "test-session", exec)
+			got := parseWindows(tt.out, "test-session", exec, nil, nil, "$0")
 			if len(got) != tt.wantLen {
 				t.Fatalf("len = %d, want %d", len(got), tt.wantLen)
 			}
@@ -190,7 +190,7 @@ func TestParsePanes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parsePanes(tt.out, "test:@0", exec)
+			got := parsePanes(tt.out, "$0", "@0", exec)
 			if len(got) != tt.wantLen {
 				t.Fatalf("len = %d, want %d", len(got), tt.wantLen)
 			}
