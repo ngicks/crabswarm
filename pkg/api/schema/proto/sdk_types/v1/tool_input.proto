@@ -127,15 +127,8 @@ message GlobInput {
   optional string path = 2;
 }
 
-// GrepOutputMode specifies the output format for grep results.
-enum GrepOutputMode {
-  GREP_OUTPUT_MODE_UNSPECIFIED = 0;
-  GREP_OUTPUT_MODE_CONTENT = 1;
-  GREP_OUTPUT_MODE_FILES_WITH_MATCHES = 2;
-  GREP_OUTPUT_MODE_COUNT = 3;
-}
-
 // GrepInput searches file contents using ripgrep with regex support.
+// See https://platform.claude.com/docs/en/agent-sdk/typescript#grep-input
 message GrepInput {
   // The regular expression pattern to search for.
   string pattern = 1;
@@ -145,8 +138,9 @@ message GrepInput {
   optional string glob = 3;
   // File type to search (e.g. "js", "py", "rust").
   optional string type = 4;
-  // Output mode.
-  GrepOutputMode output_mode = 5;
+  // Possible values: "content", "files_with_matches", "count"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#grep-input
+  string output_mode = 5;
   // Case insensitive search.
   optional bool case_insensitive = 6;
   // Show line numbers (for content mode).
@@ -169,22 +163,8 @@ message KillShellInput {
   string shell_id = 1;
 }
 
-// NotebookCellType specifies the type of a Jupyter notebook cell.
-enum NotebookCellType {
-  NOTEBOOK_CELL_TYPE_UNSPECIFIED = 0;
-  NOTEBOOK_CELL_TYPE_CODE = 1;
-  NOTEBOOK_CELL_TYPE_MARKDOWN = 2;
-}
-
-// NotebookEditMode specifies the type of edit to perform on a notebook cell.
-enum NotebookEditMode {
-  NOTEBOOK_EDIT_MODE_UNSPECIFIED = 0;
-  NOTEBOOK_EDIT_MODE_REPLACE = 1;
-  NOTEBOOK_EDIT_MODE_INSERT = 2;
-  NOTEBOOK_EDIT_MODE_DELETE = 3;
-}
-
 // NotebookEditInput edits cells in Jupyter notebook files.
+// See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
 message NotebookEditInput {
   // The absolute path to the Jupyter notebook file.
   string notebook_path = 1;
@@ -192,10 +172,12 @@ message NotebookEditInput {
   optional string cell_id = 2;
   // The new source for the cell.
   string new_source = 3;
-  // The type of the cell.
-  NotebookCellType cell_type = 4;
-  // The type of edit.
-  NotebookEditMode edit_mode = 5;
+  // Possible values: "code", "markdown"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
+  string cell_type = 4;
+  // Possible values: "replace", "insert", "delete"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
+  string edit_mode = 5;
 }
 
 // WebFetchInput fetches content from a URL and processes it with an AI model.
@@ -216,20 +198,14 @@ message WebSearchInput {
   repeated string blocked_domains = 3;
 }
 
-// TodoStatus specifies the status of a todo item.
-enum TodoStatus {
-  TODO_STATUS_UNSPECIFIED = 0;
-  TODO_STATUS_PENDING = 1;
-  TODO_STATUS_IN_PROGRESS = 2;
-  TODO_STATUS_COMPLETED = 3;
-}
-
 // TodoItem represents a single task in the todo list.
+// See https://platform.claude.com/docs/en/agent-sdk/typescript#todo-write-input
 message TodoItem {
   // The task description.
   string content = 1;
-  // The task status.
-  TodoStatus status = 2;
+  // Possible values: "pending", "in_progress", "completed"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#todo-write-input
+  string status = 2;
   // Active form of the task description.
   string active_form = 3;
 }

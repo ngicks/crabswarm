@@ -96,7 +96,7 @@ type GrepInput struct {
 	Path            *string        `json:"path,omitempty"`
 	Glob            *string        `json:"glob,omitempty"`
 	Type            *string        `json:"type,omitempty"`
-	OutputMode      GrepOutputMode `json:"output_mode"`
+	OutputMode      string         `json:"output_mode"`
 	CaseInsensitive *bool          `json:"case_insensitive,omitempty"`
 	ShowLineNumbers *bool          `json:"show_line_numbers,omitempty"`
 	BeforeContext   *int32         `json:"before_context,omitempty"`
@@ -116,8 +116,8 @@ type NotebookEditInput struct {
 	NotebookPath string           `json:"notebook_path"`
 	CellID       *string          `json:"cell_id,omitempty"`
 	NewSource    string           `json:"new_source"`
-	CellType     NotebookCellType `json:"cell_type"`
-	EditMode     NotebookEditMode `json:"edit_mode"`
+	CellType     string           `json:"cell_type"`
+	EditMode     string           `json:"edit_mode"`
 }
 
 // WebFetchInput represents input for the web-fetch tool.
@@ -136,7 +136,7 @@ type WebSearchInput struct {
 // TodoItem represents a todo item.
 type TodoItem struct {
 	Content    string     `json:"content"`
-	Status     TodoStatus `json:"status"`
+	Status     string     `json:"status"`
 	ActiveForm string     `json:"active_form"`
 }
 

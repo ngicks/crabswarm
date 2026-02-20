@@ -22,9 +22,9 @@ type McpServerInfo struct {
 
 // McpServerStatus represents the status of an MCP server.
 type McpServerStatus struct {
-	Name       string                    `json:"name"`
-	Status     McpServerConnectionStatus `json:"status"`
-	ServerInfo *McpServerInfo            `json:"server_info,omitempty"`
+	Name       string         `json:"name"`
+	Status     string         `json:"status"`
+	ServerInfo *McpServerInfo `json:"server_info,omitempty"`
 }
 
 // AccountInfo represents account information.
@@ -65,8 +65,8 @@ type Usage struct {
 
 // CallToolResultContent represents content in a call tool result.
 type CallToolResultContent struct {
-	Type CallToolResultContentType `json:"type"`
-	Data map[string]any            `json:"data,omitempty"`
+	Type string         `json:"type"`
+	Data map[string]any `json:"data,omitempty"`
 }
 
 // CallToolResult represents the result of a tool call.

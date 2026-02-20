@@ -58,7 +58,7 @@ type SessionStartHookInput struct {
 	TranscriptPath string             `json:"transcript_path"`
 	Cwd            string             `json:"cwd"`
 	PermissionMode *string            `json:"permission_mode,omitempty"`
-	Source         SessionStartSource `json:"source"`
+	Source         string             `json:"source"`
 }
 
 // SessionEndHookInput represents input for the session-end hook.
@@ -104,7 +104,7 @@ type PreCompactHookInput struct {
 	TranscriptPath     string            `json:"transcript_path"`
 	Cwd                string            `json:"cwd"`
 	PermissionMode     *string           `json:"permission_mode,omitempty"`
-	Trigger            PreCompactTrigger `json:"trigger"`
+	Trigger            string            `json:"trigger"`
 	CustomInstructions *string           `json:"custom_instructions,omitempty"`
 }
 

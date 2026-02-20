@@ -22,276 +22,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ApiKeySource represents the source of an API key.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#api-key-source
-type ApiKeySource int32
-
-const (
-	ApiKeySource_API_KEY_SOURCE_UNSPECIFIED ApiKeySource = 0
-	ApiKeySource_API_KEY_SOURCE_USER        ApiKeySource = 1
-	ApiKeySource_API_KEY_SOURCE_PROJECT     ApiKeySource = 2
-	ApiKeySource_API_KEY_SOURCE_ORG         ApiKeySource = 3
-	ApiKeySource_API_KEY_SOURCE_TEMPORARY   ApiKeySource = 4
-)
-
-// Enum value maps for ApiKeySource.
-var (
-	ApiKeySource_name = map[int32]string{
-		0: "API_KEY_SOURCE_UNSPECIFIED",
-		1: "API_KEY_SOURCE_USER",
-		2: "API_KEY_SOURCE_PROJECT",
-		3: "API_KEY_SOURCE_ORG",
-		4: "API_KEY_SOURCE_TEMPORARY",
-	}
-	ApiKeySource_value = map[string]int32{
-		"API_KEY_SOURCE_UNSPECIFIED": 0,
-		"API_KEY_SOURCE_USER":        1,
-		"API_KEY_SOURCE_PROJECT":     2,
-		"API_KEY_SOURCE_ORG":         3,
-		"API_KEY_SOURCE_TEMPORARY":   4,
-	}
-)
-
-func (x ApiKeySource) Enum() *ApiKeySource {
-	p := new(ApiKeySource)
-	*p = x
-	return p
-}
-
-func (x ApiKeySource) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ApiKeySource) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_other_proto_enumTypes[0].Descriptor()
-}
-
-func (ApiKeySource) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_other_proto_enumTypes[0]
-}
-
-func (x ApiKeySource) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ApiKeySource.Descriptor instead.
-func (ApiKeySource) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_other_proto_rawDescGZIP(), []int{0}
-}
-
-// SdkBeta represents available SDK beta features.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-beta
-type SdkBeta int32
-
-const (
-	SdkBeta_SDK_BETA_UNSPECIFIED           SdkBeta = 0
-	SdkBeta_SDK_BETA_CONTEXT_1M_2025_08_07 SdkBeta = 1
-)
-
-// Enum value maps for SdkBeta.
-var (
-	SdkBeta_name = map[int32]string{
-		0: "SDK_BETA_UNSPECIFIED",
-		1: "SDK_BETA_CONTEXT_1M_2025_08_07",
-	}
-	SdkBeta_value = map[string]int32{
-		"SDK_BETA_UNSPECIFIED":           0,
-		"SDK_BETA_CONTEXT_1M_2025_08_07": 1,
-	}
-)
-
-func (x SdkBeta) Enum() *SdkBeta {
-	p := new(SdkBeta)
-	*p = x
-	return p
-}
-
-func (x SdkBeta) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SdkBeta) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_other_proto_enumTypes[1].Descriptor()
-}
-
-func (SdkBeta) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_other_proto_enumTypes[1]
-}
-
-func (x SdkBeta) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use SdkBeta.Descriptor instead.
-func (SdkBeta) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_other_proto_rawDescGZIP(), []int{1}
-}
-
-// ConfigScope represents the scope of a configuration setting.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#config-scope
-type ConfigScope int32
-
-const (
-	ConfigScope_CONFIG_SCOPE_UNSPECIFIED ConfigScope = 0
-	ConfigScope_CONFIG_SCOPE_LOCAL       ConfigScope = 1
-	ConfigScope_CONFIG_SCOPE_USER        ConfigScope = 2
-	ConfigScope_CONFIG_SCOPE_PROJECT     ConfigScope = 3
-)
-
-// Enum value maps for ConfigScope.
-var (
-	ConfigScope_name = map[int32]string{
-		0: "CONFIG_SCOPE_UNSPECIFIED",
-		1: "CONFIG_SCOPE_LOCAL",
-		2: "CONFIG_SCOPE_USER",
-		3: "CONFIG_SCOPE_PROJECT",
-	}
-	ConfigScope_value = map[string]int32{
-		"CONFIG_SCOPE_UNSPECIFIED": 0,
-		"CONFIG_SCOPE_LOCAL":       1,
-		"CONFIG_SCOPE_USER":        2,
-		"CONFIG_SCOPE_PROJECT":     3,
-	}
-)
-
-func (x ConfigScope) Enum() *ConfigScope {
-	p := new(ConfigScope)
-	*p = x
-	return p
-}
-
-func (x ConfigScope) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ConfigScope) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_other_proto_enumTypes[2].Descriptor()
-}
-
-func (ConfigScope) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_other_proto_enumTypes[2]
-}
-
-func (x ConfigScope) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ConfigScope.Descriptor instead.
-func (ConfigScope) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_other_proto_rawDescGZIP(), []int{2}
-}
-
-// McpServerConnectionStatus represents the connection status of an MCP server.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-status
-type McpServerConnectionStatus int32
-
-const (
-	McpServerConnectionStatus_MCP_SERVER_CONNECTION_STATUS_UNSPECIFIED McpServerConnectionStatus = 0
-	McpServerConnectionStatus_MCP_SERVER_CONNECTION_STATUS_CONNECTED   McpServerConnectionStatus = 1
-	McpServerConnectionStatus_MCP_SERVER_CONNECTION_STATUS_FAILED      McpServerConnectionStatus = 2
-	McpServerConnectionStatus_MCP_SERVER_CONNECTION_STATUS_NEEDS_AUTH  McpServerConnectionStatus = 3
-	McpServerConnectionStatus_MCP_SERVER_CONNECTION_STATUS_PENDING     McpServerConnectionStatus = 4
-)
-
-// Enum value maps for McpServerConnectionStatus.
-var (
-	McpServerConnectionStatus_name = map[int32]string{
-		0: "MCP_SERVER_CONNECTION_STATUS_UNSPECIFIED",
-		1: "MCP_SERVER_CONNECTION_STATUS_CONNECTED",
-		2: "MCP_SERVER_CONNECTION_STATUS_FAILED",
-		3: "MCP_SERVER_CONNECTION_STATUS_NEEDS_AUTH",
-		4: "MCP_SERVER_CONNECTION_STATUS_PENDING",
-	}
-	McpServerConnectionStatus_value = map[string]int32{
-		"MCP_SERVER_CONNECTION_STATUS_UNSPECIFIED": 0,
-		"MCP_SERVER_CONNECTION_STATUS_CONNECTED":   1,
-		"MCP_SERVER_CONNECTION_STATUS_FAILED":      2,
-		"MCP_SERVER_CONNECTION_STATUS_NEEDS_AUTH":  3,
-		"MCP_SERVER_CONNECTION_STATUS_PENDING":     4,
-	}
-)
-
-func (x McpServerConnectionStatus) Enum() *McpServerConnectionStatus {
-	p := new(McpServerConnectionStatus)
-	*p = x
-	return p
-}
-
-func (x McpServerConnectionStatus) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (McpServerConnectionStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_other_proto_enumTypes[3].Descriptor()
-}
-
-func (McpServerConnectionStatus) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_other_proto_enumTypes[3]
-}
-
-func (x McpServerConnectionStatus) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use McpServerConnectionStatus.Descriptor instead.
-func (McpServerConnectionStatus) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_other_proto_rawDescGZIP(), []int{3}
-}
-
-// CallToolResultContentType represents the type of content in a tool result.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#call-tool-result
-type CallToolResultContentType int32
-
-const (
-	CallToolResultContentType_CALL_TOOL_RESULT_CONTENT_TYPE_UNSPECIFIED CallToolResultContentType = 0
-	CallToolResultContentType_CALL_TOOL_RESULT_CONTENT_TYPE_TEXT        CallToolResultContentType = 1
-	CallToolResultContentType_CALL_TOOL_RESULT_CONTENT_TYPE_IMAGE       CallToolResultContentType = 2
-	CallToolResultContentType_CALL_TOOL_RESULT_CONTENT_TYPE_RESOURCE    CallToolResultContentType = 3
-)
-
-// Enum value maps for CallToolResultContentType.
-var (
-	CallToolResultContentType_name = map[int32]string{
-		0: "CALL_TOOL_RESULT_CONTENT_TYPE_UNSPECIFIED",
-		1: "CALL_TOOL_RESULT_CONTENT_TYPE_TEXT",
-		2: "CALL_TOOL_RESULT_CONTENT_TYPE_IMAGE",
-		3: "CALL_TOOL_RESULT_CONTENT_TYPE_RESOURCE",
-	}
-	CallToolResultContentType_value = map[string]int32{
-		"CALL_TOOL_RESULT_CONTENT_TYPE_UNSPECIFIED": 0,
-		"CALL_TOOL_RESULT_CONTENT_TYPE_TEXT":        1,
-		"CALL_TOOL_RESULT_CONTENT_TYPE_IMAGE":       2,
-		"CALL_TOOL_RESULT_CONTENT_TYPE_RESOURCE":    3,
-	}
-)
-
-func (x CallToolResultContentType) Enum() *CallToolResultContentType {
-	p := new(CallToolResultContentType)
-	*p = x
-	return p
-}
-
-func (x CallToolResultContentType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (CallToolResultContentType) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_other_proto_enumTypes[4].Descriptor()
-}
-
-func (CallToolResultContentType) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_other_proto_enumTypes[4]
-}
-
-func (x CallToolResultContentType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use CallToolResultContentType.Descriptor instead.
-func (CallToolResultContentType) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_other_proto_rawDescGZIP(), []int{4}
-}
-
 // SlashCommand represents a slash command available to the user.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#slash-command
 type SlashCommand struct {
@@ -473,10 +203,12 @@ func (x *McpServerInfo) GetVersion() string {
 // McpServerStatus represents the status of an MCP server connection.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-status
 type McpServerStatus struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Name          string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Status        McpServerConnectionStatus `protobuf:"varint,2,opt,name=status,proto3,enum=sdk_types.v1.McpServerConnectionStatus" json:"status,omitempty"`
-	ServerInfo    *McpServerInfo            `protobuf:"bytes,3,opt,name=server_info,json=serverInfo,proto3,oneof" json:"server_info,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Possible values: "connected", "failed", "needs-auth", "pending"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-status
+	Status        string         `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	ServerInfo    *McpServerInfo `protobuf:"bytes,3,opt,name=server_info,json=serverInfo,proto3,oneof" json:"server_info,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -518,11 +250,11 @@ func (x *McpServerStatus) GetName() string {
 	return ""
 }
 
-func (x *McpServerStatus) GetStatus() McpServerConnectionStatus {
+func (x *McpServerStatus) GetStatus() string {
 	if x != nil {
 		return x.Status
 	}
-	return McpServerConnectionStatus_MCP_SERVER_CONNECTION_STATUS_UNSPECIFIED
+	return ""
 }
 
 func (x *McpServerStatus) GetServerInfo() *McpServerInfo {
@@ -847,8 +579,10 @@ func (x *Usage) GetCacheReadInputTokens() int64 {
 // CallToolResultContent represents a single content item in a tool result.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#call-tool-result
 type CallToolResultContent struct {
-	state protoimpl.MessageState    `protogen:"open.v1"`
-	Type  CallToolResultContentType `protobuf:"varint,1,opt,name=type,proto3,enum=sdk_types.v1.CallToolResultContentType" json:"type,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Possible values: "text", "image", "resource"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#call-tool-result
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
 	// Additional fields vary by content type; represented as a struct.
 	Data          *structpb.Struct `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -885,11 +619,11 @@ func (*CallToolResultContent) Descriptor() ([]byte, []int) {
 	return file_sdk_types_v1_other_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *CallToolResultContent) GetType() CallToolResultContentType {
+func (x *CallToolResultContent) GetType() string {
 	if x != nil {
 		return x.Type
 	}
-	return CallToolResultContentType_CALL_TOOL_RESULT_CONTENT_TYPE_UNSPECIFIED
+	return ""
 }
 
 func (x *CallToolResultContent) GetData() *structpb.Struct {
@@ -968,10 +702,10 @@ const file_sdk_types_v1_other_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\"=\n" +
 	"\rMcpServerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\"\xb9\x01\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\"\x90\x01\n" +
 	"\x0fMcpServerStatus\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12?\n" +
-	"\x06status\x18\x02 \x01(\x0e2'.sdk_types.v1.McpServerConnectionStatusR\x06status\x12A\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12A\n" +
 	"\vserver_info\x18\x03 \x01(\v2\x1b.sdk_types.v1.McpServerInfoH\x00R\n" +
 	"serverInfo\x88\x01\x01B\x0e\n" +
 	"\f_server_info\"\xab\x02\n" +
@@ -1010,39 +744,14 @@ const file_sdk_types_v1_other_proto_rawDesc = "" +
 	"\r_input_tokensB\x10\n" +
 	"\x0e_output_tokensB\x1e\n" +
 	"\x1c_cache_creation_input_tokensB\x1a\n" +
-	"\x18_cache_read_input_tokens\"\x81\x01\n" +
-	"\x15CallToolResultContent\x12;\n" +
-	"\x04type\x18\x01 \x01(\x0e2'.sdk_types.v1.CallToolResultContentTypeR\x04type\x12+\n" +
+	"\x18_cache_read_input_tokens\"X\n" +
+	"\x15CallToolResultContent\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12+\n" +
 	"\x04data\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x04data\"|\n" +
 	"\x0eCallToolResult\x12=\n" +
 	"\acontent\x18\x01 \x03(\v2#.sdk_types.v1.CallToolResultContentR\acontent\x12\x1e\n" +
 	"\bis_error\x18\x02 \x01(\bH\x00R\aisError\x88\x01\x01B\v\n" +
-	"\t_is_error*\x99\x01\n" +
-	"\fApiKeySource\x12\x1e\n" +
-	"\x1aAPI_KEY_SOURCE_UNSPECIFIED\x10\x00\x12\x17\n" +
-	"\x13API_KEY_SOURCE_USER\x10\x01\x12\x1a\n" +
-	"\x16API_KEY_SOURCE_PROJECT\x10\x02\x12\x16\n" +
-	"\x12API_KEY_SOURCE_ORG\x10\x03\x12\x1c\n" +
-	"\x18API_KEY_SOURCE_TEMPORARY\x10\x04*G\n" +
-	"\aSdkBeta\x12\x18\n" +
-	"\x14SDK_BETA_UNSPECIFIED\x10\x00\x12\"\n" +
-	"\x1eSDK_BETA_CONTEXT_1M_2025_08_07\x10\x01*t\n" +
-	"\vConfigScope\x12\x1c\n" +
-	"\x18CONFIG_SCOPE_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12CONFIG_SCOPE_LOCAL\x10\x01\x12\x15\n" +
-	"\x11CONFIG_SCOPE_USER\x10\x02\x12\x18\n" +
-	"\x14CONFIG_SCOPE_PROJECT\x10\x03*\xf5\x01\n" +
-	"\x19McpServerConnectionStatus\x12,\n" +
-	"(MCP_SERVER_CONNECTION_STATUS_UNSPECIFIED\x10\x00\x12*\n" +
-	"&MCP_SERVER_CONNECTION_STATUS_CONNECTED\x10\x01\x12'\n" +
-	"#MCP_SERVER_CONNECTION_STATUS_FAILED\x10\x02\x12+\n" +
-	"'MCP_SERVER_CONNECTION_STATUS_NEEDS_AUTH\x10\x03\x12(\n" +
-	"$MCP_SERVER_CONNECTION_STATUS_PENDING\x10\x04*\xc7\x01\n" +
-	"\x19CallToolResultContentType\x12-\n" +
-	")CALL_TOOL_RESULT_CONTENT_TYPE_UNSPECIFIED\x10\x00\x12&\n" +
-	"\"CALL_TOOL_RESULT_CONTENT_TYPE_TEXT\x10\x01\x12'\n" +
-	"#CALL_TOOL_RESULT_CONTENT_TYPE_IMAGE\x10\x02\x12*\n" +
-	"&CALL_TOOL_RESULT_CONTENT_TYPE_RESOURCE\x10\x03B\xb6\x01\n" +
+	"\t_is_errorB\xb6\x01\n" +
 	"\x10com.sdk_types.v1B\n" +
 	"OtherProtoP\x01ZIgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1\xa2\x02\x03SXX\xaa\x02\vSdkTypes.V1\xca\x02\vSdkTypes\\V1\xe2\x02\x17SdkTypes\\V1\\GPBMetadata\xea\x02\fSdkTypes::V1b\x06proto3"
 
@@ -1058,37 +767,29 @@ func file_sdk_types_v1_other_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_other_proto_rawDescData
 }
 
-var file_sdk_types_v1_other_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
 var file_sdk_types_v1_other_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_sdk_types_v1_other_proto_goTypes = []any{
-	(ApiKeySource)(0),              // 0: sdk_types.v1.ApiKeySource
-	(SdkBeta)(0),                   // 1: sdk_types.v1.SdkBeta
-	(ConfigScope)(0),               // 2: sdk_types.v1.ConfigScope
-	(McpServerConnectionStatus)(0), // 3: sdk_types.v1.McpServerConnectionStatus
-	(CallToolResultContentType)(0), // 4: sdk_types.v1.CallToolResultContentType
-	(*SlashCommand)(nil),           // 5: sdk_types.v1.SlashCommand
-	(*ModelInfo)(nil),              // 6: sdk_types.v1.ModelInfo
-	(*McpServerInfo)(nil),          // 7: sdk_types.v1.McpServerInfo
-	(*McpServerStatus)(nil),        // 8: sdk_types.v1.McpServerStatus
-	(*AccountInfo)(nil),            // 9: sdk_types.v1.AccountInfo
-	(*ModelUsage)(nil),             // 10: sdk_types.v1.ModelUsage
-	(*NonNullableUsage)(nil),       // 11: sdk_types.v1.NonNullableUsage
-	(*Usage)(nil),                  // 12: sdk_types.v1.Usage
-	(*CallToolResultContent)(nil),  // 13: sdk_types.v1.CallToolResultContent
-	(*CallToolResult)(nil),         // 14: sdk_types.v1.CallToolResult
-	(*structpb.Struct)(nil),        // 15: google.protobuf.Struct
+	(*SlashCommand)(nil),          // 0: sdk_types.v1.SlashCommand
+	(*ModelInfo)(nil),             // 1: sdk_types.v1.ModelInfo
+	(*McpServerInfo)(nil),         // 2: sdk_types.v1.McpServerInfo
+	(*McpServerStatus)(nil),       // 3: sdk_types.v1.McpServerStatus
+	(*AccountInfo)(nil),           // 4: sdk_types.v1.AccountInfo
+	(*ModelUsage)(nil),            // 5: sdk_types.v1.ModelUsage
+	(*NonNullableUsage)(nil),      // 6: sdk_types.v1.NonNullableUsage
+	(*Usage)(nil),                 // 7: sdk_types.v1.Usage
+	(*CallToolResultContent)(nil), // 8: sdk_types.v1.CallToolResultContent
+	(*CallToolResult)(nil),        // 9: sdk_types.v1.CallToolResult
+	(*structpb.Struct)(nil),       // 10: google.protobuf.Struct
 }
 var file_sdk_types_v1_other_proto_depIdxs = []int32{
-	3,  // 0: sdk_types.v1.McpServerStatus.status:type_name -> sdk_types.v1.McpServerConnectionStatus
-	7,  // 1: sdk_types.v1.McpServerStatus.server_info:type_name -> sdk_types.v1.McpServerInfo
-	4,  // 2: sdk_types.v1.CallToolResultContent.type:type_name -> sdk_types.v1.CallToolResultContentType
-	15, // 3: sdk_types.v1.CallToolResultContent.data:type_name -> google.protobuf.Struct
-	13, // 4: sdk_types.v1.CallToolResult.content:type_name -> sdk_types.v1.CallToolResultContent
-	5,  // [5:5] is the sub-list for method output_type
-	5,  // [5:5] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	2,  // 0: sdk_types.v1.McpServerStatus.server_info:type_name -> sdk_types.v1.McpServerInfo
+	10, // 1: sdk_types.v1.CallToolResultContent.data:type_name -> google.protobuf.Struct
+	8,  // 2: sdk_types.v1.CallToolResult.content:type_name -> sdk_types.v1.CallToolResultContent
+	3,  // [3:3] is the sub-list for method output_type
+	3,  // [3:3] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_other_proto_init() }
@@ -1106,14 +807,13 @@ func file_sdk_types_v1_other_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_other_proto_rawDesc), len(file_sdk_types_v1_other_proto_rawDesc)),
-			NumEnums:      5,
+			NumEnums:      0,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sdk_types_v1_other_proto_goTypes,
 		DependencyIndexes: file_sdk_types_v1_other_proto_depIdxs,
-		EnumInfos:         file_sdk_types_v1_other_proto_enumTypes,
 		MessageInfos:      file_sdk_types_v1_other_proto_msgTypes,
 	}.Build()
 	File_sdk_types_v1_other_proto = out.File

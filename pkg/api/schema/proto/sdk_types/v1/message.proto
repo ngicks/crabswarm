@@ -2,10 +2,9 @@ syntax = "proto3";
 
 package sdk_types.v1;
 
-import "sdk_types/v1/tool_input.proto";
-import "sdk_types/v1/other.proto";
-import "sdk_types/v1/permission.proto";
 import "google/protobuf/struct.proto";
+import "sdk_types/v1/other.proto";
+import "sdk_types/v1/tool_input.proto";
 
 // SDKAssistantMessage represents an assistant message in the SDK message stream.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-assistant-message
@@ -37,17 +36,6 @@ message SDKUserMessageReplay {
   optional string parent_tool_use_id = 4;
 }
 
-// SDKResultSubtype represents the subtype of a result message.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
-enum SDKResultSubtype {
-  SDK_RESULT_SUBTYPE_UNSPECIFIED = 0;
-  SDK_RESULT_SUBTYPE_SUCCESS = 1;
-  SDK_RESULT_SUBTYPE_ERROR_MAX_TURNS = 2;
-  SDK_RESULT_SUBTYPE_ERROR_DURING_EXECUTION = 3;
-  SDK_RESULT_SUBTYPE_ERROR_MAX_BUDGET_USD = 4;
-  SDK_RESULT_SUBTYPE_ERROR_MAX_STRUCTURED_OUTPUT_RETRIES = 5;
-}
-
 // SDKPermissionDenial represents a permission denial event.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
 message SDKPermissionDenial {
@@ -59,7 +47,9 @@ message SDKPermissionDenial {
 // SDKResultMessage represents the final result of an SDK session.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
 message SDKResultMessage {
-  SDKResultSubtype subtype = 1;
+  // Possible values: "success", "error_max_turns", "error_during_execution", "error_max_budget_usd", "error_max_structured_output_retries"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
+  string subtype = 1;
   string uuid = 2;
   string session_id = 3;
   int64 duration_ms = 4;
@@ -89,12 +79,16 @@ message SDKSystemMcpServer {
 message SDKSystemMessage {
   string uuid = 1;
   string session_id = 2;
-  ApiKeySource api_key_source = 3;
+  // Possible values: "user", "project", "org", "temporary"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#api-key-source
+  string api_key_source = 3;
   string cwd = 4;
   repeated string tools = 5;
   repeated SDKSystemMcpServer mcp_servers = 6;
   string model = 7;
-  PermissionMode permission_mode = 8;
+  // Possible values: "default", "acceptEdits", "bypassPermissions", "plan"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
+  string permission_mode = 8;
   repeated string slash_commands = 9;
   string output_style = 10;
 }

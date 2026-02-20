@@ -21,195 +21,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// HookEvent represents the type of hook event.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#hook-event
-type HookEvent int32
-
-const (
-	HookEvent_HOOK_EVENT_UNSPECIFIED           HookEvent = 0
-	HookEvent_HOOK_EVENT_PRE_TOOL_USE          HookEvent = 1
-	HookEvent_HOOK_EVENT_POST_TOOL_USE         HookEvent = 2
-	HookEvent_HOOK_EVENT_POST_TOOL_USE_FAILURE HookEvent = 3
-	HookEvent_HOOK_EVENT_NOTIFICATION          HookEvent = 4
-	HookEvent_HOOK_EVENT_USER_PROMPT_SUBMIT    HookEvent = 5
-	HookEvent_HOOK_EVENT_SESSION_START         HookEvent = 6
-	HookEvent_HOOK_EVENT_SESSION_END           HookEvent = 7
-	HookEvent_HOOK_EVENT_STOP                  HookEvent = 8
-	HookEvent_HOOK_EVENT_SUBAGENT_START        HookEvent = 9
-	HookEvent_HOOK_EVENT_SUBAGENT_STOP         HookEvent = 10
-	HookEvent_HOOK_EVENT_PRE_COMPACT           HookEvent = 11
-	HookEvent_HOOK_EVENT_PERMISSION_REQUEST    HookEvent = 12
-)
-
-// Enum value maps for HookEvent.
-var (
-	HookEvent_name = map[int32]string{
-		0:  "HOOK_EVENT_UNSPECIFIED",
-		1:  "HOOK_EVENT_PRE_TOOL_USE",
-		2:  "HOOK_EVENT_POST_TOOL_USE",
-		3:  "HOOK_EVENT_POST_TOOL_USE_FAILURE",
-		4:  "HOOK_EVENT_NOTIFICATION",
-		5:  "HOOK_EVENT_USER_PROMPT_SUBMIT",
-		6:  "HOOK_EVENT_SESSION_START",
-		7:  "HOOK_EVENT_SESSION_END",
-		8:  "HOOK_EVENT_STOP",
-		9:  "HOOK_EVENT_SUBAGENT_START",
-		10: "HOOK_EVENT_SUBAGENT_STOP",
-		11: "HOOK_EVENT_PRE_COMPACT",
-		12: "HOOK_EVENT_PERMISSION_REQUEST",
-	}
-	HookEvent_value = map[string]int32{
-		"HOOK_EVENT_UNSPECIFIED":           0,
-		"HOOK_EVENT_PRE_TOOL_USE":          1,
-		"HOOK_EVENT_POST_TOOL_USE":         2,
-		"HOOK_EVENT_POST_TOOL_USE_FAILURE": 3,
-		"HOOK_EVENT_NOTIFICATION":          4,
-		"HOOK_EVENT_USER_PROMPT_SUBMIT":    5,
-		"HOOK_EVENT_SESSION_START":         6,
-		"HOOK_EVENT_SESSION_END":           7,
-		"HOOK_EVENT_STOP":                  8,
-		"HOOK_EVENT_SUBAGENT_START":        9,
-		"HOOK_EVENT_SUBAGENT_STOP":         10,
-		"HOOK_EVENT_PRE_COMPACT":           11,
-		"HOOK_EVENT_PERMISSION_REQUEST":    12,
-	}
-)
-
-func (x HookEvent) Enum() *HookEvent {
-	p := new(HookEvent)
-	*p = x
-	return p
-}
-
-func (x HookEvent) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (HookEvent) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_hook_proto_enumTypes[0].Descriptor()
-}
-
-func (HookEvent) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_hook_proto_enumTypes[0]
-}
-
-func (x HookEvent) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use HookEvent.Descriptor instead.
-func (HookEvent) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{0}
-}
-
-// SessionStartSource represents the source of a session start event.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
-type SessionStartSource int32
-
-const (
-	SessionStartSource_SESSION_START_SOURCE_UNSPECIFIED SessionStartSource = 0
-	SessionStartSource_SESSION_START_SOURCE_STARTUP     SessionStartSource = 1
-	SessionStartSource_SESSION_START_SOURCE_RESUME      SessionStartSource = 2
-	SessionStartSource_SESSION_START_SOURCE_CLEAR       SessionStartSource = 3
-	SessionStartSource_SESSION_START_SOURCE_COMPACT     SessionStartSource = 4
-)
-
-// Enum value maps for SessionStartSource.
-var (
-	SessionStartSource_name = map[int32]string{
-		0: "SESSION_START_SOURCE_UNSPECIFIED",
-		1: "SESSION_START_SOURCE_STARTUP",
-		2: "SESSION_START_SOURCE_RESUME",
-		3: "SESSION_START_SOURCE_CLEAR",
-		4: "SESSION_START_SOURCE_COMPACT",
-	}
-	SessionStartSource_value = map[string]int32{
-		"SESSION_START_SOURCE_UNSPECIFIED": 0,
-		"SESSION_START_SOURCE_STARTUP":     1,
-		"SESSION_START_SOURCE_RESUME":      2,
-		"SESSION_START_SOURCE_CLEAR":       3,
-		"SESSION_START_SOURCE_COMPACT":     4,
-	}
-)
-
-func (x SessionStartSource) Enum() *SessionStartSource {
-	p := new(SessionStartSource)
-	*p = x
-	return p
-}
-
-func (x SessionStartSource) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SessionStartSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_hook_proto_enumTypes[1].Descriptor()
-}
-
-func (SessionStartSource) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_hook_proto_enumTypes[1]
-}
-
-func (x SessionStartSource) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use SessionStartSource.Descriptor instead.
-func (SessionStartSource) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{1}
-}
-
-// PreCompactTrigger represents the trigger for a pre-compact event.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
-type PreCompactTrigger int32
-
-const (
-	PreCompactTrigger_PRE_COMPACT_TRIGGER_UNSPECIFIED PreCompactTrigger = 0
-	PreCompactTrigger_PRE_COMPACT_TRIGGER_MANUAL      PreCompactTrigger = 1
-	PreCompactTrigger_PRE_COMPACT_TRIGGER_AUTO        PreCompactTrigger = 2
-)
-
-// Enum value maps for PreCompactTrigger.
-var (
-	PreCompactTrigger_name = map[int32]string{
-		0: "PRE_COMPACT_TRIGGER_UNSPECIFIED",
-		1: "PRE_COMPACT_TRIGGER_MANUAL",
-		2: "PRE_COMPACT_TRIGGER_AUTO",
-	}
-	PreCompactTrigger_value = map[string]int32{
-		"PRE_COMPACT_TRIGGER_UNSPECIFIED": 0,
-		"PRE_COMPACT_TRIGGER_MANUAL":      1,
-		"PRE_COMPACT_TRIGGER_AUTO":        2,
-	}
-)
-
-func (x PreCompactTrigger) Enum() *PreCompactTrigger {
-	p := new(PreCompactTrigger)
-	*p = x
-	return p
-}
-
-func (x PreCompactTrigger) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PreCompactTrigger) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_hook_proto_enumTypes[2].Descriptor()
-}
-
-func (PreCompactTrigger) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_hook_proto_enumTypes[2]
-}
-
-func (x PreCompactTrigger) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PreCompactTrigger.Descriptor instead.
-func (PreCompactTrigger) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{2}
-}
-
 // PreToolUseHookInput represents input for the pre-tool-use hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-tool-use-hook-input
 type PreToolUseHookInput struct {
@@ -664,9 +475,11 @@ type SessionStartHookInput struct {
 	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	Source         SessionStartSource     `protobuf:"varint,5,opt,name=source,proto3,enum=sdk_types.v1.SessionStartSource" json:"source,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Possible values: "startup", "resume", "clear", "compact"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
+	Source        string `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionStartHookInput) Reset() {
@@ -727,11 +540,11 @@ func (x *SessionStartHookInput) GetPermissionMode() string {
 	return ""
 }
 
-func (x *SessionStartHookInput) GetSource() SessionStartSource {
+func (x *SessionStartHookInput) GetSource() string {
 	if x != nil {
 		return x.Source
 	}
-	return SessionStartSource_SESSION_START_SOURCE_UNSPECIFIED
+	return ""
 }
 
 // SessionEndHookInput represents input for the session-end hook.
@@ -1057,13 +870,15 @@ func (x *SubagentStopHookInput) GetStopHookActive() bool {
 // PreCompactHookInput represents input for the pre-compact hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
 type PreCompactHookInput struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	SessionId          string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath     string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
-	Cwd                string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode     *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	Trigger            PreCompactTrigger      `protobuf:"varint,5,opt,name=trigger,proto3,enum=sdk_types.v1.PreCompactTrigger" json:"trigger,omitempty"`
-	CustomInstructions *string                `protobuf:"bytes,6,opt,name=custom_instructions,json=customInstructions,proto3,oneof" json:"custom_instructions,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
+	// Possible values: "manual", "auto"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
+	Trigger            string  `protobuf:"bytes,5,opt,name=trigger,proto3" json:"trigger,omitempty"`
+	CustomInstructions *string `protobuf:"bytes,6,opt,name=custom_instructions,json=customInstructions,proto3,oneof" json:"custom_instructions,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1126,11 +941,11 @@ func (x *PreCompactHookInput) GetPermissionMode() string {
 	return ""
 }
 
-func (x *PreCompactHookInput) GetTrigger() PreCompactTrigger {
+func (x *PreCompactHookInput) GetTrigger() string {
 	if x != nil {
 		return x.Trigger
 	}
-	return PreCompactTrigger_PRE_COMPACT_TRIGGER_UNSPECIFIED
+	return ""
 }
 
 func (x *PreCompactHookInput) GetCustomInstructions() string {
@@ -2022,7 +1837,7 @@ var File_sdk_types_v1_hook_proto protoreflect.FileDescriptor
 
 const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\n" +
-	"\x17sdk_types/v1/hook.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x1esdk_types/v1/tool_output.proto\x1a\x1dsdk_types/v1/permission.proto\"\x86\x02\n" +
+	"\x17sdk_types/v1/hook.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/permission.proto\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x1esdk_types/v1/tool_output.proto\"\x86\x02\n" +
 	"\x13PreToolUseHookInput\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
@@ -2074,14 +1889,14 @@ const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
 	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x16\n" +
 	"\x06prompt\x18\x05 \x01(\tR\x06promptB\x12\n" +
-	"\x10_permission_mode\"\xed\x01\n" +
+	"\x10_permission_mode\"\xcb\x01\n" +
 	"\x15SessionStartHookInput\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
 	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
 	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x128\n" +
-	"\x06source\x18\x05 \x01(\x0e2 .sdk_types.v1.SessionStartSourceR\x06sourceB\x12\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x16\n" +
+	"\x06source\x18\x05 \x01(\tR\x06sourceB\x12\n" +
 	"\x10_permission_mode\"\xc9\x01\n" +
 	"\x13SessionEndHookInput\x12\x1d\n" +
 	"\n" +
@@ -2116,14 +1931,14 @@ const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
 	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12(\n" +
 	"\x10stop_hook_active\x18\x05 \x01(\bR\x0estopHookActiveB\x12\n" +
-	"\x10_permission_mode\"\xba\x02\n" +
+	"\x10_permission_mode\"\x99\x02\n" +
 	"\x13PreCompactHookInput\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
 	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
 	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x129\n" +
-	"\atrigger\x18\x05 \x01(\x0e2\x1f.sdk_types.v1.PreCompactTriggerR\atrigger\x124\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x18\n" +
+	"\atrigger\x18\x05 \x01(\tR\atrigger\x124\n" +
 	"\x13custom_instructions\x18\x06 \x01(\tH\x01R\x12customInstructions\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\x16\n" +
 	"\x14_custom_instructions\"\xe4\x02\n" +
@@ -2202,32 +2017,7 @@ const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\fasync_output\x18\x01 \x01(\v2!.sdk_types.v1.AsyncHookJSONOutputH\x00R\vasyncOutput\x12C\n" +
 	"\vsync_output\x18\x02 \x01(\v2 .sdk_types.v1.SyncHookJSONOutputH\x00R\n" +
 	"syncOutputB\b\n" +
-	"\x06output*\x93\x03\n" +
-	"\tHookEvent\x12\x1a\n" +
-	"\x16HOOK_EVENT_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17HOOK_EVENT_PRE_TOOL_USE\x10\x01\x12\x1c\n" +
-	"\x18HOOK_EVENT_POST_TOOL_USE\x10\x02\x12$\n" +
-	" HOOK_EVENT_POST_TOOL_USE_FAILURE\x10\x03\x12\x1b\n" +
-	"\x17HOOK_EVENT_NOTIFICATION\x10\x04\x12!\n" +
-	"\x1dHOOK_EVENT_USER_PROMPT_SUBMIT\x10\x05\x12\x1c\n" +
-	"\x18HOOK_EVENT_SESSION_START\x10\x06\x12\x1a\n" +
-	"\x16HOOK_EVENT_SESSION_END\x10\a\x12\x13\n" +
-	"\x0fHOOK_EVENT_STOP\x10\b\x12\x1d\n" +
-	"\x19HOOK_EVENT_SUBAGENT_START\x10\t\x12\x1c\n" +
-	"\x18HOOK_EVENT_SUBAGENT_STOP\x10\n" +
-	"\x12\x1a\n" +
-	"\x16HOOK_EVENT_PRE_COMPACT\x10\v\x12!\n" +
-	"\x1dHOOK_EVENT_PERMISSION_REQUEST\x10\f*\xbf\x01\n" +
-	"\x12SessionStartSource\x12$\n" +
-	" SESSION_START_SOURCE_UNSPECIFIED\x10\x00\x12 \n" +
-	"\x1cSESSION_START_SOURCE_STARTUP\x10\x01\x12\x1f\n" +
-	"\x1bSESSION_START_SOURCE_RESUME\x10\x02\x12\x1e\n" +
-	"\x1aSESSION_START_SOURCE_CLEAR\x10\x03\x12 \n" +
-	"\x1cSESSION_START_SOURCE_COMPACT\x10\x04*v\n" +
-	"\x11PreCompactTrigger\x12#\n" +
-	"\x1fPRE_COMPACT_TRIGGER_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aPRE_COMPACT_TRIGGER_MANUAL\x10\x01\x12\x1c\n" +
-	"\x18PRE_COMPACT_TRIGGER_AUTO\x10\x02B\xb5\x01\n" +
+	"\x06outputB\xb5\x01\n" +
 	"\x10com.sdk_types.v1B\tHookProtoP\x01ZIgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1\xa2\x02\x03SXX\xaa\x02\vSdkTypes.V1\xca\x02\vSdkTypes\\V1\xe2\x02\x17SdkTypes\\V1\\GPBMetadata\xea\x02\fSdkTypes::V1b\x06proto3"
 
 var (
@@ -2242,71 +2032,65 @@ func file_sdk_types_v1_hook_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_hook_proto_rawDescData
 }
 
-var file_sdk_types_v1_hook_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_sdk_types_v1_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_sdk_types_v1_hook_proto_goTypes = []any{
-	(HookEvent)(0),                             // 0: sdk_types.v1.HookEvent
-	(SessionStartSource)(0),                    // 1: sdk_types.v1.SessionStartSource
-	(PreCompactTrigger)(0),                     // 2: sdk_types.v1.PreCompactTrigger
-	(*PreToolUseHookInput)(nil),                // 3: sdk_types.v1.PreToolUseHookInput
-	(*PostToolUseHookInput)(nil),               // 4: sdk_types.v1.PostToolUseHookInput
-	(*PostToolUseFailureHookInput)(nil),        // 5: sdk_types.v1.PostToolUseFailureHookInput
-	(*NotificationHookInput)(nil),              // 6: sdk_types.v1.NotificationHookInput
-	(*UserPromptSubmitHookInput)(nil),          // 7: sdk_types.v1.UserPromptSubmitHookInput
-	(*SessionStartHookInput)(nil),              // 8: sdk_types.v1.SessionStartHookInput
-	(*SessionEndHookInput)(nil),                // 9: sdk_types.v1.SessionEndHookInput
-	(*StopHookInput)(nil),                      // 10: sdk_types.v1.StopHookInput
-	(*SubagentStartHookInput)(nil),             // 11: sdk_types.v1.SubagentStartHookInput
-	(*SubagentStopHookInput)(nil),              // 12: sdk_types.v1.SubagentStopHookInput
-	(*PreCompactHookInput)(nil),                // 13: sdk_types.v1.PreCompactHookInput
-	(*PermissionRequestHookInput)(nil),         // 14: sdk_types.v1.PermissionRequestHookInput
-	(*HookInput)(nil),                          // 15: sdk_types.v1.HookInput
-	(*AsyncHookJSONOutput)(nil),                // 16: sdk_types.v1.AsyncHookJSONOutput
-	(*PreToolUseHookSpecificOutput)(nil),       // 17: sdk_types.v1.PreToolUseHookSpecificOutput
-	(*UserPromptSubmitHookSpecificOutput)(nil), // 18: sdk_types.v1.UserPromptSubmitHookSpecificOutput
-	(*SessionStartHookSpecificOutput)(nil),     // 19: sdk_types.v1.SessionStartHookSpecificOutput
-	(*PostToolUseHookSpecificOutput)(nil),      // 20: sdk_types.v1.PostToolUseHookSpecificOutput
-	(*HookSpecificOutput)(nil),                 // 21: sdk_types.v1.HookSpecificOutput
-	(*SyncHookJSONOutput)(nil),                 // 22: sdk_types.v1.SyncHookJSONOutput
-	(*HookJSONOutput)(nil),                     // 23: sdk_types.v1.HookJSONOutput
-	(*ToolInput)(nil),                          // 24: sdk_types.v1.ToolInput
-	(*ToolOutput)(nil),                         // 25: sdk_types.v1.ToolOutput
-	(*PermissionUpdate)(nil),                   // 26: sdk_types.v1.PermissionUpdate
+	(*PreToolUseHookInput)(nil),                // 0: sdk_types.v1.PreToolUseHookInput
+	(*PostToolUseHookInput)(nil),               // 1: sdk_types.v1.PostToolUseHookInput
+	(*PostToolUseFailureHookInput)(nil),        // 2: sdk_types.v1.PostToolUseFailureHookInput
+	(*NotificationHookInput)(nil),              // 3: sdk_types.v1.NotificationHookInput
+	(*UserPromptSubmitHookInput)(nil),          // 4: sdk_types.v1.UserPromptSubmitHookInput
+	(*SessionStartHookInput)(nil),              // 5: sdk_types.v1.SessionStartHookInput
+	(*SessionEndHookInput)(nil),                // 6: sdk_types.v1.SessionEndHookInput
+	(*StopHookInput)(nil),                      // 7: sdk_types.v1.StopHookInput
+	(*SubagentStartHookInput)(nil),             // 8: sdk_types.v1.SubagentStartHookInput
+	(*SubagentStopHookInput)(nil),              // 9: sdk_types.v1.SubagentStopHookInput
+	(*PreCompactHookInput)(nil),                // 10: sdk_types.v1.PreCompactHookInput
+	(*PermissionRequestHookInput)(nil),         // 11: sdk_types.v1.PermissionRequestHookInput
+	(*HookInput)(nil),                          // 12: sdk_types.v1.HookInput
+	(*AsyncHookJSONOutput)(nil),                // 13: sdk_types.v1.AsyncHookJSONOutput
+	(*PreToolUseHookSpecificOutput)(nil),       // 14: sdk_types.v1.PreToolUseHookSpecificOutput
+	(*UserPromptSubmitHookSpecificOutput)(nil), // 15: sdk_types.v1.UserPromptSubmitHookSpecificOutput
+	(*SessionStartHookSpecificOutput)(nil),     // 16: sdk_types.v1.SessionStartHookSpecificOutput
+	(*PostToolUseHookSpecificOutput)(nil),      // 17: sdk_types.v1.PostToolUseHookSpecificOutput
+	(*HookSpecificOutput)(nil),                 // 18: sdk_types.v1.HookSpecificOutput
+	(*SyncHookJSONOutput)(nil),                 // 19: sdk_types.v1.SyncHookJSONOutput
+	(*HookJSONOutput)(nil),                     // 20: sdk_types.v1.HookJSONOutput
+	(*ToolInput)(nil),                          // 21: sdk_types.v1.ToolInput
+	(*ToolOutput)(nil),                         // 22: sdk_types.v1.ToolOutput
+	(*PermissionUpdate)(nil),                   // 23: sdk_types.v1.PermissionUpdate
 }
 var file_sdk_types_v1_hook_proto_depIdxs = []int32{
-	24, // 0: sdk_types.v1.PreToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	24, // 1: sdk_types.v1.PostToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	25, // 2: sdk_types.v1.PostToolUseHookInput.tool_response:type_name -> sdk_types.v1.ToolOutput
-	24, // 3: sdk_types.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	1,  // 4: sdk_types.v1.SessionStartHookInput.source:type_name -> sdk_types.v1.SessionStartSource
-	2,  // 5: sdk_types.v1.PreCompactHookInput.trigger:type_name -> sdk_types.v1.PreCompactTrigger
-	24, // 6: sdk_types.v1.PermissionRequestHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	26, // 7: sdk_types.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdk_types.v1.PermissionUpdate
-	3,  // 8: sdk_types.v1.HookInput.pre_tool_use:type_name -> sdk_types.v1.PreToolUseHookInput
-	4,  // 9: sdk_types.v1.HookInput.post_tool_use:type_name -> sdk_types.v1.PostToolUseHookInput
-	5,  // 10: sdk_types.v1.HookInput.post_tool_use_failure:type_name -> sdk_types.v1.PostToolUseFailureHookInput
-	6,  // 11: sdk_types.v1.HookInput.notification:type_name -> sdk_types.v1.NotificationHookInput
-	7,  // 12: sdk_types.v1.HookInput.user_prompt_submit:type_name -> sdk_types.v1.UserPromptSubmitHookInput
-	8,  // 13: sdk_types.v1.HookInput.session_start:type_name -> sdk_types.v1.SessionStartHookInput
-	9,  // 14: sdk_types.v1.HookInput.session_end:type_name -> sdk_types.v1.SessionEndHookInput
-	10, // 15: sdk_types.v1.HookInput.stop:type_name -> sdk_types.v1.StopHookInput
-	11, // 16: sdk_types.v1.HookInput.subagent_start:type_name -> sdk_types.v1.SubagentStartHookInput
-	12, // 17: sdk_types.v1.HookInput.subagent_stop:type_name -> sdk_types.v1.SubagentStopHookInput
-	13, // 18: sdk_types.v1.HookInput.pre_compact:type_name -> sdk_types.v1.PreCompactHookInput
-	14, // 19: sdk_types.v1.HookInput.permission_request:type_name -> sdk_types.v1.PermissionRequestHookInput
-	24, // 20: sdk_types.v1.PreToolUseHookSpecificOutput.updated_input:type_name -> sdk_types.v1.ToolInput
-	17, // 21: sdk_types.v1.HookSpecificOutput.pre_tool_use:type_name -> sdk_types.v1.PreToolUseHookSpecificOutput
-	18, // 22: sdk_types.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdk_types.v1.UserPromptSubmitHookSpecificOutput
-	19, // 23: sdk_types.v1.HookSpecificOutput.session_start:type_name -> sdk_types.v1.SessionStartHookSpecificOutput
-	20, // 24: sdk_types.v1.HookSpecificOutput.post_tool_use:type_name -> sdk_types.v1.PostToolUseHookSpecificOutput
-	21, // 25: sdk_types.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdk_types.v1.HookSpecificOutput
-	16, // 26: sdk_types.v1.HookJSONOutput.async_output:type_name -> sdk_types.v1.AsyncHookJSONOutput
-	22, // 27: sdk_types.v1.HookJSONOutput.sync_output:type_name -> sdk_types.v1.SyncHookJSONOutput
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	21, // 0: sdk_types.v1.PreToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	21, // 1: sdk_types.v1.PostToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	22, // 2: sdk_types.v1.PostToolUseHookInput.tool_response:type_name -> sdk_types.v1.ToolOutput
+	21, // 3: sdk_types.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	21, // 4: sdk_types.v1.PermissionRequestHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	23, // 5: sdk_types.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdk_types.v1.PermissionUpdate
+	0,  // 6: sdk_types.v1.HookInput.pre_tool_use:type_name -> sdk_types.v1.PreToolUseHookInput
+	1,  // 7: sdk_types.v1.HookInput.post_tool_use:type_name -> sdk_types.v1.PostToolUseHookInput
+	2,  // 8: sdk_types.v1.HookInput.post_tool_use_failure:type_name -> sdk_types.v1.PostToolUseFailureHookInput
+	3,  // 9: sdk_types.v1.HookInput.notification:type_name -> sdk_types.v1.NotificationHookInput
+	4,  // 10: sdk_types.v1.HookInput.user_prompt_submit:type_name -> sdk_types.v1.UserPromptSubmitHookInput
+	5,  // 11: sdk_types.v1.HookInput.session_start:type_name -> sdk_types.v1.SessionStartHookInput
+	6,  // 12: sdk_types.v1.HookInput.session_end:type_name -> sdk_types.v1.SessionEndHookInput
+	7,  // 13: sdk_types.v1.HookInput.stop:type_name -> sdk_types.v1.StopHookInput
+	8,  // 14: sdk_types.v1.HookInput.subagent_start:type_name -> sdk_types.v1.SubagentStartHookInput
+	9,  // 15: sdk_types.v1.HookInput.subagent_stop:type_name -> sdk_types.v1.SubagentStopHookInput
+	10, // 16: sdk_types.v1.HookInput.pre_compact:type_name -> sdk_types.v1.PreCompactHookInput
+	11, // 17: sdk_types.v1.HookInput.permission_request:type_name -> sdk_types.v1.PermissionRequestHookInput
+	21, // 18: sdk_types.v1.PreToolUseHookSpecificOutput.updated_input:type_name -> sdk_types.v1.ToolInput
+	14, // 19: sdk_types.v1.HookSpecificOutput.pre_tool_use:type_name -> sdk_types.v1.PreToolUseHookSpecificOutput
+	15, // 20: sdk_types.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdk_types.v1.UserPromptSubmitHookSpecificOutput
+	16, // 21: sdk_types.v1.HookSpecificOutput.session_start:type_name -> sdk_types.v1.SessionStartHookSpecificOutput
+	17, // 22: sdk_types.v1.HookSpecificOutput.post_tool_use:type_name -> sdk_types.v1.PostToolUseHookSpecificOutput
+	18, // 23: sdk_types.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdk_types.v1.HookSpecificOutput
+	13, // 24: sdk_types.v1.HookJSONOutput.async_output:type_name -> sdk_types.v1.AsyncHookJSONOutput
+	19, // 25: sdk_types.v1.HookJSONOutput.sync_output:type_name -> sdk_types.v1.SyncHookJSONOutput
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_hook_proto_init() }
@@ -2314,9 +2098,9 @@ func file_sdk_types_v1_hook_proto_init() {
 	if File_sdk_types_v1_hook_proto != nil {
 		return
 	}
+	file_sdk_types_v1_permission_proto_init()
 	file_sdk_types_v1_tool_input_proto_init()
 	file_sdk_types_v1_tool_output_proto_init()
-	file_sdk_types_v1_permission_proto_init()
 	file_sdk_types_v1_hook_proto_msgTypes[0].OneofWrappers = []any{}
 	file_sdk_types_v1_hook_proto_msgTypes[1].OneofWrappers = []any{}
 	file_sdk_types_v1_hook_proto_msgTypes[2].OneofWrappers = []any{}
@@ -2364,14 +2148,13 @@ func file_sdk_types_v1_hook_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_hook_proto_rawDesc), len(file_sdk_types_v1_hook_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      0,
 			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sdk_types_v1_hook_proto_goTypes,
 		DependencyIndexes: file_sdk_types_v1_hook_proto_depIdxs,
-		EnumInfos:         file_sdk_types_v1_hook_proto_enumTypes,
 		MessageInfos:      file_sdk_types_v1_hook_proto_msgTypes,
 	}.Build()
 	File_sdk_types_v1_hook_proto = out.File

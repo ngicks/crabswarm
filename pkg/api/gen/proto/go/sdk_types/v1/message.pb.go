@@ -22,66 +22,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SDKResultSubtype represents the subtype of a result message.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
-type SDKResultSubtype int32
-
-const (
-	SDKResultSubtype_SDK_RESULT_SUBTYPE_UNSPECIFIED                         SDKResultSubtype = 0
-	SDKResultSubtype_SDK_RESULT_SUBTYPE_SUCCESS                             SDKResultSubtype = 1
-	SDKResultSubtype_SDK_RESULT_SUBTYPE_ERROR_MAX_TURNS                     SDKResultSubtype = 2
-	SDKResultSubtype_SDK_RESULT_SUBTYPE_ERROR_DURING_EXECUTION              SDKResultSubtype = 3
-	SDKResultSubtype_SDK_RESULT_SUBTYPE_ERROR_MAX_BUDGET_USD                SDKResultSubtype = 4
-	SDKResultSubtype_SDK_RESULT_SUBTYPE_ERROR_MAX_STRUCTURED_OUTPUT_RETRIES SDKResultSubtype = 5
-)
-
-// Enum value maps for SDKResultSubtype.
-var (
-	SDKResultSubtype_name = map[int32]string{
-		0: "SDK_RESULT_SUBTYPE_UNSPECIFIED",
-		1: "SDK_RESULT_SUBTYPE_SUCCESS",
-		2: "SDK_RESULT_SUBTYPE_ERROR_MAX_TURNS",
-		3: "SDK_RESULT_SUBTYPE_ERROR_DURING_EXECUTION",
-		4: "SDK_RESULT_SUBTYPE_ERROR_MAX_BUDGET_USD",
-		5: "SDK_RESULT_SUBTYPE_ERROR_MAX_STRUCTURED_OUTPUT_RETRIES",
-	}
-	SDKResultSubtype_value = map[string]int32{
-		"SDK_RESULT_SUBTYPE_UNSPECIFIED":                         0,
-		"SDK_RESULT_SUBTYPE_SUCCESS":                             1,
-		"SDK_RESULT_SUBTYPE_ERROR_MAX_TURNS":                     2,
-		"SDK_RESULT_SUBTYPE_ERROR_DURING_EXECUTION":              3,
-		"SDK_RESULT_SUBTYPE_ERROR_MAX_BUDGET_USD":                4,
-		"SDK_RESULT_SUBTYPE_ERROR_MAX_STRUCTURED_OUTPUT_RETRIES": 5,
-	}
-)
-
-func (x SDKResultSubtype) Enum() *SDKResultSubtype {
-	p := new(SDKResultSubtype)
-	*p = x
-	return p
-}
-
-func (x SDKResultSubtype) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SDKResultSubtype) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_message_proto_enumTypes[0].Descriptor()
-}
-
-func (SDKResultSubtype) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_message_proto_enumTypes[0]
-}
-
-func (x SDKResultSubtype) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use SDKResultSubtype.Descriptor instead.
-func (SDKResultSubtype) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_message_proto_rawDescGZIP(), []int{0}
-}
-
 // SDKAssistantMessage represents an assistant message in the SDK message stream.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-assistant-message
 type SDKAssistantMessage struct {
@@ -360,8 +300,10 @@ func (x *SDKPermissionDenial) GetToolInput() *ToolInput {
 // SDKResultMessage represents the final result of an SDK session.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
 type SDKResultMessage struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Subtype           SDKResultSubtype       `protobuf:"varint,1,opt,name=subtype,proto3,enum=sdk_types.v1.SDKResultSubtype" json:"subtype,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Possible values: "success", "error_max_turns", "error_during_execution", "error_max_budget_usd", "error_max_structured_output_retries"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
+	Subtype           string                 `protobuf:"bytes,1,opt,name=subtype,proto3" json:"subtype,omitempty"`
 	Uuid              string                 `protobuf:"bytes,2,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	SessionId         string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	DurationMs        int64                  `protobuf:"varint,4,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
@@ -411,11 +353,11 @@ func (*SDKResultMessage) Descriptor() ([]byte, []int) {
 	return file_sdk_types_v1_message_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *SDKResultMessage) GetSubtype() SDKResultSubtype {
+func (x *SDKResultMessage) GetSubtype() string {
 	if x != nil {
 		return x.Subtype
 	}
-	return SDKResultSubtype_SDK_RESULT_SUBTYPE_UNSPECIFIED
+	return ""
 }
 
 func (x *SDKResultMessage) GetUuid() string {
@@ -566,17 +508,21 @@ func (x *SDKSystemMcpServer) GetStatus() string {
 // SDKSystemMessage represents the system message at session start.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-system-message
 type SDKSystemMessage struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Uuid           string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	SessionId      string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	ApiKeySource   ApiKeySource           `protobuf:"varint,3,opt,name=api_key_source,json=apiKeySource,proto3,enum=sdk_types.v1.ApiKeySource" json:"api_key_source,omitempty"`
-	Cwd            string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Tools          []string               `protobuf:"bytes,5,rep,name=tools,proto3" json:"tools,omitempty"`
-	McpServers     []*SDKSystemMcpServer  `protobuf:"bytes,6,rep,name=mcp_servers,json=mcpServers,proto3" json:"mcp_servers,omitempty"`
-	Model          string                 `protobuf:"bytes,7,opt,name=model,proto3" json:"model,omitempty"`
-	PermissionMode PermissionMode         `protobuf:"varint,8,opt,name=permission_mode,json=permissionMode,proto3,enum=sdk_types.v1.PermissionMode" json:"permission_mode,omitempty"`
-	SlashCommands  []string               `protobuf:"bytes,9,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
-	OutputStyle    string                 `protobuf:"bytes,10,opt,name=output_style,json=outputStyle,proto3" json:"output_style,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Uuid      string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Possible values: "user", "project", "org", "temporary"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#api-key-source
+	ApiKeySource string                `protobuf:"bytes,3,opt,name=api_key_source,json=apiKeySource,proto3" json:"api_key_source,omitempty"`
+	Cwd          string                `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Tools        []string              `protobuf:"bytes,5,rep,name=tools,proto3" json:"tools,omitempty"`
+	McpServers   []*SDKSystemMcpServer `protobuf:"bytes,6,rep,name=mcp_servers,json=mcpServers,proto3" json:"mcp_servers,omitempty"`
+	Model        string                `protobuf:"bytes,7,opt,name=model,proto3" json:"model,omitempty"`
+	// Possible values: "default", "acceptEdits", "bypassPermissions", "plan"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
+	PermissionMode string   `protobuf:"bytes,8,opt,name=permission_mode,json=permissionMode,proto3" json:"permission_mode,omitempty"`
+	SlashCommands  []string `protobuf:"bytes,9,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
+	OutputStyle    string   `protobuf:"bytes,10,opt,name=output_style,json=outputStyle,proto3" json:"output_style,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -625,11 +571,11 @@ func (x *SDKSystemMessage) GetSessionId() string {
 	return ""
 }
 
-func (x *SDKSystemMessage) GetApiKeySource() ApiKeySource {
+func (x *SDKSystemMessage) GetApiKeySource() string {
 	if x != nil {
 		return x.ApiKeySource
 	}
-	return ApiKeySource_API_KEY_SOURCE_UNSPECIFIED
+	return ""
 }
 
 func (x *SDKSystemMessage) GetCwd() string {
@@ -660,11 +606,11 @@ func (x *SDKSystemMessage) GetModel() string {
 	return ""
 }
 
-func (x *SDKSystemMessage) GetPermissionMode() PermissionMode {
+func (x *SDKSystemMessage) GetPermissionMode() string {
 	if x != nil {
 		return x.PermissionMode
 	}
-	return PermissionMode_PERMISSION_MODE_UNSPECIFIED
+	return ""
 }
 
 func (x *SDKSystemMessage) GetSlashCommands() []string {
@@ -1036,7 +982,7 @@ var File_sdk_types_v1_message_proto protoreflect.FileDescriptor
 
 const file_sdk_types_v1_message_proto_rawDesc = "" +
 	"\n" +
-	"\x1asdk_types/v1/message.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1dsdk_types/v1/permission.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xc4\x01\n" +
+	"\x1asdk_types/v1/message.proto\x12\fsdk_types.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1dsdk_types/v1/tool_input.proto\"\xc4\x01\n" +
 	"\x13SDKAssistantMessage\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1d\n" +
 	"\n" +
@@ -1063,9 +1009,9 @@ const file_sdk_types_v1_message_proto_rawDesc = "" +
 	"\ttool_name\x18\x01 \x01(\tR\btoolName\x12\x1e\n" +
 	"\vtool_use_id\x18\x02 \x01(\tR\ttoolUseId\x126\n" +
 	"\n" +
-	"tool_input\x18\x03 \x01(\v2\x17.sdk_types.v1.ToolInputR\ttoolInput\"\xf8\x05\n" +
-	"\x10SDKResultMessage\x128\n" +
-	"\asubtype\x18\x01 \x01(\x0e2\x1e.sdk_types.v1.SDKResultSubtypeR\asubtype\x12\x12\n" +
+	"tool_input\x18\x03 \x01(\v2\x17.sdk_types.v1.ToolInputR\ttoolInput\"\xd8\x05\n" +
+	"\x10SDKResultMessage\x12\x18\n" +
+	"\asubtype\x18\x01 \x01(\tR\asubtype\x12\x12\n" +
 	"\x04uuid\x18\x02 \x01(\tR\x04uuid\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x03 \x01(\tR\tsessionId\x12\x1f\n" +
@@ -1090,18 +1036,18 @@ const file_sdk_types_v1_message_proto_rawDesc = "" +
 	"\x12_structured_output\"@\n" +
 	"\x12SDKSystemMcpServer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\"\x99\x03\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\"\xdf\x02\n" +
 	"\x10SDKSystemMessage\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x12@\n" +
-	"\x0eapi_key_source\x18\x03 \x01(\x0e2\x1a.sdk_types.v1.ApiKeySourceR\fapiKeySource\x12\x10\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12$\n" +
+	"\x0eapi_key_source\x18\x03 \x01(\tR\fapiKeySource\x12\x10\n" +
 	"\x03cwd\x18\x04 \x01(\tR\x03cwd\x12\x14\n" +
 	"\x05tools\x18\x05 \x03(\tR\x05tools\x12A\n" +
 	"\vmcp_servers\x18\x06 \x03(\v2 .sdk_types.v1.SDKSystemMcpServerR\n" +
 	"mcpServers\x12\x14\n" +
-	"\x05model\x18\a \x01(\tR\x05model\x12E\n" +
-	"\x0fpermission_mode\x18\b \x01(\x0e2\x1c.sdk_types.v1.PermissionModeR\x0epermissionMode\x12%\n" +
+	"\x05model\x18\a \x01(\tR\x05model\x12'\n" +
+	"\x0fpermission_mode\x18\b \x01(\tR\x0epermissionMode\x12%\n" +
 	"\x0eslash_commands\x18\t \x03(\tR\rslashCommands\x12!\n" +
 	"\foutput_style\x18\n" +
 	" \x01(\tR\voutputStyle\"\xc7\x01\n" +
@@ -1131,14 +1077,7 @@ const file_sdk_types_v1_message_proto_rawDesc = "" +
 	"\x06system\x18\x05 \x01(\v2\x1e.sdk_types.v1.SDKSystemMessageH\x00R\x06system\x12D\n" +
 	"\apartial\x18\x06 \x01(\v2(.sdk_types.v1.SDKPartialAssistantMessageH\x00R\apartial\x12T\n" +
 	"\x10compact_boundary\x18\a \x01(\v2'.sdk_types.v1.SDKCompactBoundaryMessageH\x00R\x0fcompactBoundaryB\t\n" +
-	"\amessage*\x96\x02\n" +
-	"\x10SDKResultSubtype\x12\"\n" +
-	"\x1eSDK_RESULT_SUBTYPE_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aSDK_RESULT_SUBTYPE_SUCCESS\x10\x01\x12&\n" +
-	"\"SDK_RESULT_SUBTYPE_ERROR_MAX_TURNS\x10\x02\x12-\n" +
-	")SDK_RESULT_SUBTYPE_ERROR_DURING_EXECUTION\x10\x03\x12+\n" +
-	"'SDK_RESULT_SUBTYPE_ERROR_MAX_BUDGET_USD\x10\x04\x12:\n" +
-	"6SDK_RESULT_SUBTYPE_ERROR_MAX_STRUCTURED_OUTPUT_RETRIES\x10\x05B\xb8\x01\n" +
+	"\amessageB\xb8\x01\n" +
 	"\x10com.sdk_types.v1B\fMessageProtoP\x01ZIgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1\xa2\x02\x03SXX\xaa\x02\vSdkTypes.V1\xca\x02\vSdkTypes\\V1\xe2\x02\x17SdkTypes\\V1\\GPBMetadata\xea\x02\fSdkTypes::V1b\x06proto3"
 
 var (
@@ -1153,58 +1092,51 @@ func file_sdk_types_v1_message_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_message_proto_rawDescData
 }
 
-var file_sdk_types_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_sdk_types_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_sdk_types_v1_message_proto_goTypes = []any{
-	(SDKResultSubtype)(0),              // 0: sdk_types.v1.SDKResultSubtype
-	(*SDKAssistantMessage)(nil),        // 1: sdk_types.v1.SDKAssistantMessage
-	(*SDKUserMessage)(nil),             // 2: sdk_types.v1.SDKUserMessage
-	(*SDKUserMessageReplay)(nil),       // 3: sdk_types.v1.SDKUserMessageReplay
-	(*SDKPermissionDenial)(nil),        // 4: sdk_types.v1.SDKPermissionDenial
-	(*SDKResultMessage)(nil),           // 5: sdk_types.v1.SDKResultMessage
-	(*SDKSystemMcpServer)(nil),         // 6: sdk_types.v1.SDKSystemMcpServer
-	(*SDKSystemMessage)(nil),           // 7: sdk_types.v1.SDKSystemMessage
-	(*SDKPartialAssistantMessage)(nil), // 8: sdk_types.v1.SDKPartialAssistantMessage
-	(*CompactMetadata)(nil),            // 9: sdk_types.v1.CompactMetadata
-	(*SDKCompactBoundaryMessage)(nil),  // 10: sdk_types.v1.SDKCompactBoundaryMessage
-	(*SDKMessage)(nil),                 // 11: sdk_types.v1.SDKMessage
-	nil,                                // 12: sdk_types.v1.SDKResultMessage.ModelUsageEntry
-	(*structpb.Struct)(nil),            // 13: google.protobuf.Struct
-	(*ToolInput)(nil),                  // 14: sdk_types.v1.ToolInput
-	(*NonNullableUsage)(nil),           // 15: sdk_types.v1.NonNullableUsage
-	(*structpb.Value)(nil),             // 16: google.protobuf.Value
-	(ApiKeySource)(0),                  // 17: sdk_types.v1.ApiKeySource
-	(PermissionMode)(0),                // 18: sdk_types.v1.PermissionMode
-	(*ModelUsage)(nil),                 // 19: sdk_types.v1.ModelUsage
+	(*SDKAssistantMessage)(nil),        // 0: sdk_types.v1.SDKAssistantMessage
+	(*SDKUserMessage)(nil),             // 1: sdk_types.v1.SDKUserMessage
+	(*SDKUserMessageReplay)(nil),       // 2: sdk_types.v1.SDKUserMessageReplay
+	(*SDKPermissionDenial)(nil),        // 3: sdk_types.v1.SDKPermissionDenial
+	(*SDKResultMessage)(nil),           // 4: sdk_types.v1.SDKResultMessage
+	(*SDKSystemMcpServer)(nil),         // 5: sdk_types.v1.SDKSystemMcpServer
+	(*SDKSystemMessage)(nil),           // 6: sdk_types.v1.SDKSystemMessage
+	(*SDKPartialAssistantMessage)(nil), // 7: sdk_types.v1.SDKPartialAssistantMessage
+	(*CompactMetadata)(nil),            // 8: sdk_types.v1.CompactMetadata
+	(*SDKCompactBoundaryMessage)(nil),  // 9: sdk_types.v1.SDKCompactBoundaryMessage
+	(*SDKMessage)(nil),                 // 10: sdk_types.v1.SDKMessage
+	nil,                                // 11: sdk_types.v1.SDKResultMessage.ModelUsageEntry
+	(*structpb.Struct)(nil),            // 12: google.protobuf.Struct
+	(*ToolInput)(nil),                  // 13: sdk_types.v1.ToolInput
+	(*NonNullableUsage)(nil),           // 14: sdk_types.v1.NonNullableUsage
+	(*structpb.Value)(nil),             // 15: google.protobuf.Value
+	(*ModelUsage)(nil),                 // 16: sdk_types.v1.ModelUsage
 }
 var file_sdk_types_v1_message_proto_depIdxs = []int32{
-	13, // 0: sdk_types.v1.SDKAssistantMessage.message:type_name -> google.protobuf.Struct
-	13, // 1: sdk_types.v1.SDKUserMessage.message:type_name -> google.protobuf.Struct
-	13, // 2: sdk_types.v1.SDKUserMessageReplay.message:type_name -> google.protobuf.Struct
-	14, // 3: sdk_types.v1.SDKPermissionDenial.tool_input:type_name -> sdk_types.v1.ToolInput
-	0,  // 4: sdk_types.v1.SDKResultMessage.subtype:type_name -> sdk_types.v1.SDKResultSubtype
-	15, // 5: sdk_types.v1.SDKResultMessage.usage:type_name -> sdk_types.v1.NonNullableUsage
-	12, // 6: sdk_types.v1.SDKResultMessage.model_usage:type_name -> sdk_types.v1.SDKResultMessage.ModelUsageEntry
-	4,  // 7: sdk_types.v1.SDKResultMessage.permission_denials:type_name -> sdk_types.v1.SDKPermissionDenial
-	16, // 8: sdk_types.v1.SDKResultMessage.structured_output:type_name -> google.protobuf.Value
-	17, // 9: sdk_types.v1.SDKSystemMessage.api_key_source:type_name -> sdk_types.v1.ApiKeySource
-	6,  // 10: sdk_types.v1.SDKSystemMessage.mcp_servers:type_name -> sdk_types.v1.SDKSystemMcpServer
-	18, // 11: sdk_types.v1.SDKSystemMessage.permission_mode:type_name -> sdk_types.v1.PermissionMode
-	13, // 12: sdk_types.v1.SDKPartialAssistantMessage.event:type_name -> google.protobuf.Struct
-	9,  // 13: sdk_types.v1.SDKCompactBoundaryMessage.compact_metadata:type_name -> sdk_types.v1.CompactMetadata
-	1,  // 14: sdk_types.v1.SDKMessage.assistant:type_name -> sdk_types.v1.SDKAssistantMessage
-	2,  // 15: sdk_types.v1.SDKMessage.user:type_name -> sdk_types.v1.SDKUserMessage
-	3,  // 16: sdk_types.v1.SDKMessage.user_replay:type_name -> sdk_types.v1.SDKUserMessageReplay
-	5,  // 17: sdk_types.v1.SDKMessage.result:type_name -> sdk_types.v1.SDKResultMessage
-	7,  // 18: sdk_types.v1.SDKMessage.system:type_name -> sdk_types.v1.SDKSystemMessage
-	8,  // 19: sdk_types.v1.SDKMessage.partial:type_name -> sdk_types.v1.SDKPartialAssistantMessage
-	10, // 20: sdk_types.v1.SDKMessage.compact_boundary:type_name -> sdk_types.v1.SDKCompactBoundaryMessage
-	19, // 21: sdk_types.v1.SDKResultMessage.ModelUsageEntry.value:type_name -> sdk_types.v1.ModelUsage
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	12, // 0: sdk_types.v1.SDKAssistantMessage.message:type_name -> google.protobuf.Struct
+	12, // 1: sdk_types.v1.SDKUserMessage.message:type_name -> google.protobuf.Struct
+	12, // 2: sdk_types.v1.SDKUserMessageReplay.message:type_name -> google.protobuf.Struct
+	13, // 3: sdk_types.v1.SDKPermissionDenial.tool_input:type_name -> sdk_types.v1.ToolInput
+	14, // 4: sdk_types.v1.SDKResultMessage.usage:type_name -> sdk_types.v1.NonNullableUsage
+	11, // 5: sdk_types.v1.SDKResultMessage.model_usage:type_name -> sdk_types.v1.SDKResultMessage.ModelUsageEntry
+	3,  // 6: sdk_types.v1.SDKResultMessage.permission_denials:type_name -> sdk_types.v1.SDKPermissionDenial
+	15, // 7: sdk_types.v1.SDKResultMessage.structured_output:type_name -> google.protobuf.Value
+	5,  // 8: sdk_types.v1.SDKSystemMessage.mcp_servers:type_name -> sdk_types.v1.SDKSystemMcpServer
+	12, // 9: sdk_types.v1.SDKPartialAssistantMessage.event:type_name -> google.protobuf.Struct
+	8,  // 10: sdk_types.v1.SDKCompactBoundaryMessage.compact_metadata:type_name -> sdk_types.v1.CompactMetadata
+	0,  // 11: sdk_types.v1.SDKMessage.assistant:type_name -> sdk_types.v1.SDKAssistantMessage
+	1,  // 12: sdk_types.v1.SDKMessage.user:type_name -> sdk_types.v1.SDKUserMessage
+	2,  // 13: sdk_types.v1.SDKMessage.user_replay:type_name -> sdk_types.v1.SDKUserMessageReplay
+	4,  // 14: sdk_types.v1.SDKMessage.result:type_name -> sdk_types.v1.SDKResultMessage
+	6,  // 15: sdk_types.v1.SDKMessage.system:type_name -> sdk_types.v1.SDKSystemMessage
+	7,  // 16: sdk_types.v1.SDKMessage.partial:type_name -> sdk_types.v1.SDKPartialAssistantMessage
+	9,  // 17: sdk_types.v1.SDKMessage.compact_boundary:type_name -> sdk_types.v1.SDKCompactBoundaryMessage
+	16, // 18: sdk_types.v1.SDKResultMessage.ModelUsageEntry.value:type_name -> sdk_types.v1.ModelUsage
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_message_proto_init() }
@@ -1212,9 +1144,8 @@ func file_sdk_types_v1_message_proto_init() {
 	if File_sdk_types_v1_message_proto != nil {
 		return
 	}
-	file_sdk_types_v1_tool_input_proto_init()
 	file_sdk_types_v1_other_proto_init()
-	file_sdk_types_v1_permission_proto_init()
+	file_sdk_types_v1_tool_input_proto_init()
 	file_sdk_types_v1_message_proto_msgTypes[0].OneofWrappers = []any{}
 	file_sdk_types_v1_message_proto_msgTypes[1].OneofWrappers = []any{}
 	file_sdk_types_v1_message_proto_msgTypes[2].OneofWrappers = []any{}
@@ -1234,14 +1165,13 @@ func file_sdk_types_v1_message_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_message_proto_rawDesc), len(file_sdk_types_v1_message_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sdk_types_v1_message_proto_goTypes,
 		DependencyIndexes: file_sdk_types_v1_message_proto_depIdxs,
-		EnumInfos:         file_sdk_types_v1_message_proto_enumTypes,
 		MessageInfos:      file_sdk_types_v1_message_proto_msgTypes,
 	}.Build()
 	File_sdk_types_v1_message_proto = out.File

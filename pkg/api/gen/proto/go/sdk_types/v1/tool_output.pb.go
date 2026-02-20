@@ -22,112 +22,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// BashOutputStatus represents the status of a background shell.
-type BashOutputStatus int32
-
-const (
-	BashOutputStatus_BASH_OUTPUT_STATUS_UNSPECIFIED BashOutputStatus = 0
-	BashOutputStatus_BASH_OUTPUT_STATUS_RUNNING     BashOutputStatus = 1
-	BashOutputStatus_BASH_OUTPUT_STATUS_COMPLETED   BashOutputStatus = 2
-	BashOutputStatus_BASH_OUTPUT_STATUS_FAILED      BashOutputStatus = 3
-)
-
-// Enum value maps for BashOutputStatus.
-var (
-	BashOutputStatus_name = map[int32]string{
-		0: "BASH_OUTPUT_STATUS_UNSPECIFIED",
-		1: "BASH_OUTPUT_STATUS_RUNNING",
-		2: "BASH_OUTPUT_STATUS_COMPLETED",
-		3: "BASH_OUTPUT_STATUS_FAILED",
-	}
-	BashOutputStatus_value = map[string]int32{
-		"BASH_OUTPUT_STATUS_UNSPECIFIED": 0,
-		"BASH_OUTPUT_STATUS_RUNNING":     1,
-		"BASH_OUTPUT_STATUS_COMPLETED":   2,
-		"BASH_OUTPUT_STATUS_FAILED":      3,
-	}
-)
-
-func (x BashOutputStatus) Enum() *BashOutputStatus {
-	p := new(BashOutputStatus)
-	*p = x
-	return p
-}
-
-func (x BashOutputStatus) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (BashOutputStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_tool_output_proto_enumTypes[0].Descriptor()
-}
-
-func (BashOutputStatus) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_tool_output_proto_enumTypes[0]
-}
-
-func (x BashOutputStatus) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use BashOutputStatus.Descriptor instead.
-func (BashOutputStatus) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_tool_output_proto_rawDescGZIP(), []int{0}
-}
-
-// NotebookEditType represents the type of edit performed on a notebook.
-type NotebookEditType int32
-
-const (
-	NotebookEditType_NOTEBOOK_EDIT_TYPE_UNSPECIFIED NotebookEditType = 0
-	NotebookEditType_NOTEBOOK_EDIT_TYPE_REPLACED    NotebookEditType = 1
-	NotebookEditType_NOTEBOOK_EDIT_TYPE_INSERTED    NotebookEditType = 2
-	NotebookEditType_NOTEBOOK_EDIT_TYPE_DELETED     NotebookEditType = 3
-)
-
-// Enum value maps for NotebookEditType.
-var (
-	NotebookEditType_name = map[int32]string{
-		0: "NOTEBOOK_EDIT_TYPE_UNSPECIFIED",
-		1: "NOTEBOOK_EDIT_TYPE_REPLACED",
-		2: "NOTEBOOK_EDIT_TYPE_INSERTED",
-		3: "NOTEBOOK_EDIT_TYPE_DELETED",
-	}
-	NotebookEditType_value = map[string]int32{
-		"NOTEBOOK_EDIT_TYPE_UNSPECIFIED": 0,
-		"NOTEBOOK_EDIT_TYPE_REPLACED":    1,
-		"NOTEBOOK_EDIT_TYPE_INSERTED":    2,
-		"NOTEBOOK_EDIT_TYPE_DELETED":     3,
-	}
-)
-
-func (x NotebookEditType) Enum() *NotebookEditType {
-	p := new(NotebookEditType)
-	*p = x
-	return p
-}
-
-func (x NotebookEditType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (NotebookEditType) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_tool_output_proto_enumTypes[1].Descriptor()
-}
-
-func (NotebookEditType) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_tool_output_proto_enumTypes[1]
-}
-
-func (x NotebookEditType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use NotebookEditType.Descriptor instead.
-func (NotebookEditType) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_tool_output_proto_rawDescGZIP(), []int{1}
-}
-
 // ToolOutput is a union wrapper for all tool output types.
 type ToolOutput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -738,12 +632,14 @@ func (x *BashOutput) GetShellId() string {
 }
 
 // BashOutputToolOutput returns incremental output from background shells.
+// See https://platform.claude.com/docs/en/agent-sdk/typescript#bash-output-tool-output
 type BashOutputToolOutput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// New output since last check.
 	Output string `protobuf:"bytes,1,opt,name=output,proto3" json:"output,omitempty"`
-	// Current shell status.
-	Status BashOutputStatus `protobuf:"varint,2,opt,name=status,proto3,enum=sdk_types.v1.BashOutputStatus" json:"status,omitempty"`
+	// Possible values: "running", "completed", "failed"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#bash-output-tool-output
+	Status string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
 	// Exit code (when completed).
 	ExitCode      *int32 `protobuf:"varint,3,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -787,11 +683,11 @@ func (x *BashOutputToolOutput) GetOutput() string {
 	return ""
 }
 
-func (x *BashOutputToolOutput) GetStatus() BashOutputStatus {
+func (x *BashOutputToolOutput) GetStatus() string {
 	if x != nil {
 		return x.Status
 	}
-	return BashOutputStatus_BASH_OUTPUT_STATUS_UNSPECIFIED
+	return ""
 }
 
 func (x *BashOutputToolOutput) GetExitCode() int32 {
@@ -1995,12 +1891,14 @@ func (x *KillBashOutput) GetShellId() string {
 }
 
 // NotebookEditOutput returns confirmation after modifying a Jupyter notebook.
+// See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-output
 type NotebookEditOutput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Success message.
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	// Type of edit performed.
-	EditType NotebookEditType `protobuf:"varint,2,opt,name=edit_type,json=editType,proto3,enum=sdk_types.v1.NotebookEditType" json:"edit_type,omitempty"`
+	// Possible values: "replaced", "inserted", "deleted"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-output
+	EditType string `protobuf:"bytes,2,opt,name=edit_type,json=editType,proto3" json:"edit_type,omitempty"`
 	// Cell ID that was affected.
 	CellId *string `protobuf:"bytes,3,opt,name=cell_id,json=cellId,proto3,oneof" json:"cell_id,omitempty"`
 	// Total cells in notebook after edit.
@@ -2046,11 +1944,11 @@ func (x *NotebookEditOutput) GetMessage() string {
 	return ""
 }
 
-func (x *NotebookEditOutput) GetEditType() NotebookEditType {
+func (x *NotebookEditOutput) GetEditType() string {
 	if x != nil {
 		return x.EditType
 	}
-	return NotebookEditType_NOTEBOOK_EDIT_TYPE_UNSPECIFIED
+	return ""
 }
 
 func (x *NotebookEditOutput) GetCellId() string {
@@ -2780,10 +2678,10 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"\x06killed\x18\x03 \x01(\bH\x00R\x06killed\x88\x01\x01\x12\x1e\n" +
 	"\bshell_id\x18\x04 \x01(\tH\x01R\ashellId\x88\x01\x01B\t\n" +
 	"\a_killedB\v\n" +
-	"\t_shell_id\"\x96\x01\n" +
+	"\t_shell_id\"v\n" +
 	"\x14BashOutputToolOutput\x12\x16\n" +
-	"\x06output\x18\x01 \x01(\tR\x06output\x126\n" +
-	"\x06status\x18\x02 \x01(\x0e2\x1e.sdk_types.v1.BashOutputStatusR\x06status\x12 \n" +
+	"\x06output\x18\x01 \x01(\tR\x06output\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12 \n" +
 	"\texit_code\x18\x03 \x01(\x05H\x00R\bexitCode\x88\x01\x01B\f\n" +
 	"\n" +
 	"_exit_code\"g\n" +
@@ -2869,10 +2767,10 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"\x06result\"E\n" +
 	"\x0eKillBashOutput\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x19\n" +
-	"\bshell_id\x18\x02 \x01(\tR\ashellId\"\xb6\x01\n" +
+	"\bshell_id\x18\x02 \x01(\tR\ashellId\"\x96\x01\n" +
 	"\x12NotebookEditOutput\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12;\n" +
-	"\tedit_type\x18\x02 \x01(\x0e2\x1e.sdk_types.v1.NotebookEditTypeR\beditType\x12\x1c\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12\x1b\n" +
+	"\tedit_type\x18\x02 \x01(\tR\beditType\x12\x1c\n" +
 	"\acell_id\x18\x03 \x01(\tH\x00R\x06cellId\x88\x01\x01\x12\x1f\n" +
 	"\vtotal_cells\x18\x04 \x01(\x05R\n" +
 	"totalCellsB\n" +
@@ -2932,17 +2830,7 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"\x05_blob\"m\n" +
 	"\x15ReadMcpResourceOutput\x12<\n" +
 	"\bcontents\x18\x01 \x03(\v2 .sdk_types.v1.McpResourceContentR\bcontents\x12\x16\n" +
-	"\x06server\x18\x02 \x01(\tR\x06server*\x97\x01\n" +
-	"\x10BashOutputStatus\x12\"\n" +
-	"\x1eBASH_OUTPUT_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aBASH_OUTPUT_STATUS_RUNNING\x10\x01\x12 \n" +
-	"\x1cBASH_OUTPUT_STATUS_COMPLETED\x10\x02\x12\x1d\n" +
-	"\x19BASH_OUTPUT_STATUS_FAILED\x10\x03*\x98\x01\n" +
-	"\x10NotebookEditType\x12\"\n" +
-	"\x1eNOTEBOOK_EDIT_TYPE_UNSPECIFIED\x10\x00\x12\x1f\n" +
-	"\x1bNOTEBOOK_EDIT_TYPE_REPLACED\x10\x01\x12\x1f\n" +
-	"\x1bNOTEBOOK_EDIT_TYPE_INSERTED\x10\x02\x12\x1e\n" +
-	"\x1aNOTEBOOK_EDIT_TYPE_DELETED\x10\x03B\xbb\x01\n" +
+	"\x06server\x18\x02 \x01(\tR\x06serverB\xbb\x01\n" +
 	"\x10com.sdk_types.v1B\x0fToolOutputProtoP\x01ZIgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1\xa2\x02\x03SXX\xaa\x02\vSdkTypes.V1\xca\x02\vSdkTypes\\V1\xe2\x02\x17SdkTypes\\V1\\GPBMetadata\xea\x02\fSdkTypes::V1b\x06proto3"
 
 var (
@@ -2957,99 +2845,94 @@ func file_sdk_types_v1_tool_output_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_tool_output_proto_rawDescData
 }
 
-var file_sdk_types_v1_tool_output_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_sdk_types_v1_tool_output_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_sdk_types_v1_tool_output_proto_goTypes = []any{
-	(BashOutputStatus)(0),          // 0: sdk_types.v1.BashOutputStatus
-	(NotebookEditType)(0),          // 1: sdk_types.v1.NotebookEditType
-	(*ToolOutput)(nil),             // 2: sdk_types.v1.ToolOutput
-	(*UsageInfo)(nil),              // 3: sdk_types.v1.UsageInfo
-	(*TaskOutput)(nil),             // 4: sdk_types.v1.TaskOutput
-	(*AskUserQuestionOutput)(nil),  // 5: sdk_types.v1.AskUserQuestionOutput
-	(*BashOutput)(nil),             // 6: sdk_types.v1.BashOutput
-	(*BashOutputToolOutput)(nil),   // 7: sdk_types.v1.BashOutputToolOutput
-	(*EditOutput)(nil),             // 8: sdk_types.v1.EditOutput
-	(*TextFileOutput)(nil),         // 9: sdk_types.v1.TextFileOutput
-	(*ImageFileOutput)(nil),        // 10: sdk_types.v1.ImageFileOutput
-	(*PDFPageImage)(nil),           // 11: sdk_types.v1.PDFPageImage
-	(*PDFPage)(nil),                // 12: sdk_types.v1.PDFPage
-	(*PDFFileOutput)(nil),          // 13: sdk_types.v1.PDFFileOutput
-	(*NotebookCell)(nil),           // 14: sdk_types.v1.NotebookCell
-	(*NotebookFileOutput)(nil),     // 15: sdk_types.v1.NotebookFileOutput
-	(*ReadOutput)(nil),             // 16: sdk_types.v1.ReadOutput
-	(*WriteOutput)(nil),            // 17: sdk_types.v1.WriteOutput
-	(*GlobOutput)(nil),             // 18: sdk_types.v1.GlobOutput
-	(*GrepMatch)(nil),              // 19: sdk_types.v1.GrepMatch
-	(*GrepContentOutput)(nil),      // 20: sdk_types.v1.GrepContentOutput
-	(*GrepFilesOutput)(nil),        // 21: sdk_types.v1.GrepFilesOutput
-	(*GrepFileCount)(nil),          // 22: sdk_types.v1.GrepFileCount
-	(*GrepCountOutput)(nil),        // 23: sdk_types.v1.GrepCountOutput
-	(*GrepOutput)(nil),             // 24: sdk_types.v1.GrepOutput
-	(*KillBashOutput)(nil),         // 25: sdk_types.v1.KillBashOutput
-	(*NotebookEditOutput)(nil),     // 26: sdk_types.v1.NotebookEditOutput
-	(*WebFetchOutput)(nil),         // 27: sdk_types.v1.WebFetchOutput
-	(*WebSearchResult)(nil),        // 28: sdk_types.v1.WebSearchResult
-	(*WebSearchOutput)(nil),        // 29: sdk_types.v1.WebSearchOutput
-	(*TodoStats)(nil),              // 30: sdk_types.v1.TodoStats
-	(*TodoWriteOutput)(nil),        // 31: sdk_types.v1.TodoWriteOutput
-	(*ExitPlanModeOutput)(nil),     // 32: sdk_types.v1.ExitPlanModeOutput
-	(*McpResource)(nil),            // 33: sdk_types.v1.McpResource
-	(*ListMcpResourcesOutput)(nil), // 34: sdk_types.v1.ListMcpResourcesOutput
-	(*McpResourceContent)(nil),     // 35: sdk_types.v1.McpResourceContent
-	(*ReadMcpResourceOutput)(nil),  // 36: sdk_types.v1.ReadMcpResourceOutput
-	nil,                            // 37: sdk_types.v1.AskUserQuestionOutput.AnswersEntry
-	(*structpb.Struct)(nil),        // 38: google.protobuf.Struct
-	(*Question)(nil),               // 39: sdk_types.v1.Question
-	(*structpb.Value)(nil),         // 40: google.protobuf.Value
+	(*ToolOutput)(nil),             // 0: sdk_types.v1.ToolOutput
+	(*UsageInfo)(nil),              // 1: sdk_types.v1.UsageInfo
+	(*TaskOutput)(nil),             // 2: sdk_types.v1.TaskOutput
+	(*AskUserQuestionOutput)(nil),  // 3: sdk_types.v1.AskUserQuestionOutput
+	(*BashOutput)(nil),             // 4: sdk_types.v1.BashOutput
+	(*BashOutputToolOutput)(nil),   // 5: sdk_types.v1.BashOutputToolOutput
+	(*EditOutput)(nil),             // 6: sdk_types.v1.EditOutput
+	(*TextFileOutput)(nil),         // 7: sdk_types.v1.TextFileOutput
+	(*ImageFileOutput)(nil),        // 8: sdk_types.v1.ImageFileOutput
+	(*PDFPageImage)(nil),           // 9: sdk_types.v1.PDFPageImage
+	(*PDFPage)(nil),                // 10: sdk_types.v1.PDFPage
+	(*PDFFileOutput)(nil),          // 11: sdk_types.v1.PDFFileOutput
+	(*NotebookCell)(nil),           // 12: sdk_types.v1.NotebookCell
+	(*NotebookFileOutput)(nil),     // 13: sdk_types.v1.NotebookFileOutput
+	(*ReadOutput)(nil),             // 14: sdk_types.v1.ReadOutput
+	(*WriteOutput)(nil),            // 15: sdk_types.v1.WriteOutput
+	(*GlobOutput)(nil),             // 16: sdk_types.v1.GlobOutput
+	(*GrepMatch)(nil),              // 17: sdk_types.v1.GrepMatch
+	(*GrepContentOutput)(nil),      // 18: sdk_types.v1.GrepContentOutput
+	(*GrepFilesOutput)(nil),        // 19: sdk_types.v1.GrepFilesOutput
+	(*GrepFileCount)(nil),          // 20: sdk_types.v1.GrepFileCount
+	(*GrepCountOutput)(nil),        // 21: sdk_types.v1.GrepCountOutput
+	(*GrepOutput)(nil),             // 22: sdk_types.v1.GrepOutput
+	(*KillBashOutput)(nil),         // 23: sdk_types.v1.KillBashOutput
+	(*NotebookEditOutput)(nil),     // 24: sdk_types.v1.NotebookEditOutput
+	(*WebFetchOutput)(nil),         // 25: sdk_types.v1.WebFetchOutput
+	(*WebSearchResult)(nil),        // 26: sdk_types.v1.WebSearchResult
+	(*WebSearchOutput)(nil),        // 27: sdk_types.v1.WebSearchOutput
+	(*TodoStats)(nil),              // 28: sdk_types.v1.TodoStats
+	(*TodoWriteOutput)(nil),        // 29: sdk_types.v1.TodoWriteOutput
+	(*ExitPlanModeOutput)(nil),     // 30: sdk_types.v1.ExitPlanModeOutput
+	(*McpResource)(nil),            // 31: sdk_types.v1.McpResource
+	(*ListMcpResourcesOutput)(nil), // 32: sdk_types.v1.ListMcpResourcesOutput
+	(*McpResourceContent)(nil),     // 33: sdk_types.v1.McpResourceContent
+	(*ReadMcpResourceOutput)(nil),  // 34: sdk_types.v1.ReadMcpResourceOutput
+	nil,                            // 35: sdk_types.v1.AskUserQuestionOutput.AnswersEntry
+	(*structpb.Struct)(nil),        // 36: google.protobuf.Struct
+	(*Question)(nil),               // 37: sdk_types.v1.Question
+	(*structpb.Value)(nil),         // 38: google.protobuf.Value
 }
 var file_sdk_types_v1_tool_output_proto_depIdxs = []int32{
-	4,  // 0: sdk_types.v1.ToolOutput.task:type_name -> sdk_types.v1.TaskOutput
-	5,  // 1: sdk_types.v1.ToolOutput.ask_user_question:type_name -> sdk_types.v1.AskUserQuestionOutput
-	6,  // 2: sdk_types.v1.ToolOutput.bash:type_name -> sdk_types.v1.BashOutput
-	7,  // 3: sdk_types.v1.ToolOutput.bash_output:type_name -> sdk_types.v1.BashOutputToolOutput
-	8,  // 4: sdk_types.v1.ToolOutput.edit:type_name -> sdk_types.v1.EditOutput
-	16, // 5: sdk_types.v1.ToolOutput.read:type_name -> sdk_types.v1.ReadOutput
-	17, // 6: sdk_types.v1.ToolOutput.write:type_name -> sdk_types.v1.WriteOutput
-	18, // 7: sdk_types.v1.ToolOutput.glob:type_name -> sdk_types.v1.GlobOutput
-	24, // 8: sdk_types.v1.ToolOutput.grep:type_name -> sdk_types.v1.GrepOutput
-	25, // 9: sdk_types.v1.ToolOutput.kill_bash:type_name -> sdk_types.v1.KillBashOutput
-	26, // 10: sdk_types.v1.ToolOutput.notebook_edit:type_name -> sdk_types.v1.NotebookEditOutput
-	27, // 11: sdk_types.v1.ToolOutput.web_fetch:type_name -> sdk_types.v1.WebFetchOutput
-	29, // 12: sdk_types.v1.ToolOutput.web_search:type_name -> sdk_types.v1.WebSearchOutput
-	31, // 13: sdk_types.v1.ToolOutput.todo_write:type_name -> sdk_types.v1.TodoWriteOutput
-	32, // 14: sdk_types.v1.ToolOutput.exit_plan_mode:type_name -> sdk_types.v1.ExitPlanModeOutput
-	34, // 15: sdk_types.v1.ToolOutput.list_mcp_resources:type_name -> sdk_types.v1.ListMcpResourcesOutput
-	36, // 16: sdk_types.v1.ToolOutput.read_mcp_resource:type_name -> sdk_types.v1.ReadMcpResourceOutput
-	38, // 17: sdk_types.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
-	3,  // 18: sdk_types.v1.TaskOutput.usage:type_name -> sdk_types.v1.UsageInfo
-	39, // 19: sdk_types.v1.AskUserQuestionOutput.questions:type_name -> sdk_types.v1.Question
-	37, // 20: sdk_types.v1.AskUserQuestionOutput.answers:type_name -> sdk_types.v1.AskUserQuestionOutput.AnswersEntry
-	0,  // 21: sdk_types.v1.BashOutputToolOutput.status:type_name -> sdk_types.v1.BashOutputStatus
-	11, // 22: sdk_types.v1.PDFPage.images:type_name -> sdk_types.v1.PDFPageImage
-	12, // 23: sdk_types.v1.PDFFileOutput.pages:type_name -> sdk_types.v1.PDFPage
-	40, // 24: sdk_types.v1.NotebookCell.outputs:type_name -> google.protobuf.Value
-	14, // 25: sdk_types.v1.NotebookFileOutput.cells:type_name -> sdk_types.v1.NotebookCell
-	38, // 26: sdk_types.v1.NotebookFileOutput.metadata:type_name -> google.protobuf.Struct
-	9,  // 27: sdk_types.v1.ReadOutput.text_file:type_name -> sdk_types.v1.TextFileOutput
-	10, // 28: sdk_types.v1.ReadOutput.image_file:type_name -> sdk_types.v1.ImageFileOutput
-	13, // 29: sdk_types.v1.ReadOutput.pdf_file:type_name -> sdk_types.v1.PDFFileOutput
-	15, // 30: sdk_types.v1.ReadOutput.notebook_file:type_name -> sdk_types.v1.NotebookFileOutput
-	19, // 31: sdk_types.v1.GrepContentOutput.matches:type_name -> sdk_types.v1.GrepMatch
-	22, // 32: sdk_types.v1.GrepCountOutput.counts:type_name -> sdk_types.v1.GrepFileCount
-	20, // 33: sdk_types.v1.GrepOutput.content:type_name -> sdk_types.v1.GrepContentOutput
-	21, // 34: sdk_types.v1.GrepOutput.files:type_name -> sdk_types.v1.GrepFilesOutput
-	23, // 35: sdk_types.v1.GrepOutput.count:type_name -> sdk_types.v1.GrepCountOutput
-	1,  // 36: sdk_types.v1.NotebookEditOutput.edit_type:type_name -> sdk_types.v1.NotebookEditType
-	38, // 37: sdk_types.v1.WebSearchResult.metadata:type_name -> google.protobuf.Struct
-	28, // 38: sdk_types.v1.WebSearchOutput.results:type_name -> sdk_types.v1.WebSearchResult
-	30, // 39: sdk_types.v1.TodoWriteOutput.stats:type_name -> sdk_types.v1.TodoStats
-	33, // 40: sdk_types.v1.ListMcpResourcesOutput.resources:type_name -> sdk_types.v1.McpResource
-	35, // 41: sdk_types.v1.ReadMcpResourceOutput.contents:type_name -> sdk_types.v1.McpResourceContent
-	42, // [42:42] is the sub-list for method output_type
-	42, // [42:42] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	2,  // 0: sdk_types.v1.ToolOutput.task:type_name -> sdk_types.v1.TaskOutput
+	3,  // 1: sdk_types.v1.ToolOutput.ask_user_question:type_name -> sdk_types.v1.AskUserQuestionOutput
+	4,  // 2: sdk_types.v1.ToolOutput.bash:type_name -> sdk_types.v1.BashOutput
+	5,  // 3: sdk_types.v1.ToolOutput.bash_output:type_name -> sdk_types.v1.BashOutputToolOutput
+	6,  // 4: sdk_types.v1.ToolOutput.edit:type_name -> sdk_types.v1.EditOutput
+	14, // 5: sdk_types.v1.ToolOutput.read:type_name -> sdk_types.v1.ReadOutput
+	15, // 6: sdk_types.v1.ToolOutput.write:type_name -> sdk_types.v1.WriteOutput
+	16, // 7: sdk_types.v1.ToolOutput.glob:type_name -> sdk_types.v1.GlobOutput
+	22, // 8: sdk_types.v1.ToolOutput.grep:type_name -> sdk_types.v1.GrepOutput
+	23, // 9: sdk_types.v1.ToolOutput.kill_bash:type_name -> sdk_types.v1.KillBashOutput
+	24, // 10: sdk_types.v1.ToolOutput.notebook_edit:type_name -> sdk_types.v1.NotebookEditOutput
+	25, // 11: sdk_types.v1.ToolOutput.web_fetch:type_name -> sdk_types.v1.WebFetchOutput
+	27, // 12: sdk_types.v1.ToolOutput.web_search:type_name -> sdk_types.v1.WebSearchOutput
+	29, // 13: sdk_types.v1.ToolOutput.todo_write:type_name -> sdk_types.v1.TodoWriteOutput
+	30, // 14: sdk_types.v1.ToolOutput.exit_plan_mode:type_name -> sdk_types.v1.ExitPlanModeOutput
+	32, // 15: sdk_types.v1.ToolOutput.list_mcp_resources:type_name -> sdk_types.v1.ListMcpResourcesOutput
+	34, // 16: sdk_types.v1.ToolOutput.read_mcp_resource:type_name -> sdk_types.v1.ReadMcpResourceOutput
+	36, // 17: sdk_types.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
+	1,  // 18: sdk_types.v1.TaskOutput.usage:type_name -> sdk_types.v1.UsageInfo
+	37, // 19: sdk_types.v1.AskUserQuestionOutput.questions:type_name -> sdk_types.v1.Question
+	35, // 20: sdk_types.v1.AskUserQuestionOutput.answers:type_name -> sdk_types.v1.AskUserQuestionOutput.AnswersEntry
+	9,  // 21: sdk_types.v1.PDFPage.images:type_name -> sdk_types.v1.PDFPageImage
+	10, // 22: sdk_types.v1.PDFFileOutput.pages:type_name -> sdk_types.v1.PDFPage
+	38, // 23: sdk_types.v1.NotebookCell.outputs:type_name -> google.protobuf.Value
+	12, // 24: sdk_types.v1.NotebookFileOutput.cells:type_name -> sdk_types.v1.NotebookCell
+	36, // 25: sdk_types.v1.NotebookFileOutput.metadata:type_name -> google.protobuf.Struct
+	7,  // 26: sdk_types.v1.ReadOutput.text_file:type_name -> sdk_types.v1.TextFileOutput
+	8,  // 27: sdk_types.v1.ReadOutput.image_file:type_name -> sdk_types.v1.ImageFileOutput
+	11, // 28: sdk_types.v1.ReadOutput.pdf_file:type_name -> sdk_types.v1.PDFFileOutput
+	13, // 29: sdk_types.v1.ReadOutput.notebook_file:type_name -> sdk_types.v1.NotebookFileOutput
+	17, // 30: sdk_types.v1.GrepContentOutput.matches:type_name -> sdk_types.v1.GrepMatch
+	20, // 31: sdk_types.v1.GrepCountOutput.counts:type_name -> sdk_types.v1.GrepFileCount
+	18, // 32: sdk_types.v1.GrepOutput.content:type_name -> sdk_types.v1.GrepContentOutput
+	19, // 33: sdk_types.v1.GrepOutput.files:type_name -> sdk_types.v1.GrepFilesOutput
+	21, // 34: sdk_types.v1.GrepOutput.count:type_name -> sdk_types.v1.GrepCountOutput
+	36, // 35: sdk_types.v1.WebSearchResult.metadata:type_name -> google.protobuf.Struct
+	26, // 36: sdk_types.v1.WebSearchOutput.results:type_name -> sdk_types.v1.WebSearchResult
+	28, // 37: sdk_types.v1.TodoWriteOutput.stats:type_name -> sdk_types.v1.TodoStats
+	31, // 38: sdk_types.v1.ListMcpResourcesOutput.resources:type_name -> sdk_types.v1.McpResource
+	33, // 39: sdk_types.v1.ReadMcpResourceOutput.contents:type_name -> sdk_types.v1.McpResourceContent
+	40, // [40:40] is the sub-list for method output_type
+	40, // [40:40] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_tool_output_proto_init() }
@@ -3106,14 +2989,13 @@ func file_sdk_types_v1_tool_output_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_tool_output_proto_rawDesc), len(file_sdk_types_v1_tool_output_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      0,
 			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sdk_types_v1_tool_output_proto_goTypes,
 		DependencyIndexes: file_sdk_types_v1_tool_output_proto_depIdxs,
-		EnumInfos:         file_sdk_types_v1_tool_output_proto_enumTypes,
 		MessageInfos:      file_sdk_types_v1_tool_output_proto_msgTypes,
 	}.Build()
 	File_sdk_types_v1_tool_output_proto = out.File

@@ -18,39 +18,39 @@ type PermissionUpdate struct {
 
 // AddRulesUpdate represents an add-rules permission update.
 type AddRulesUpdate struct {
-	Rules       []*PermissionRuleValue      `json:"rules,omitempty"`
-	Behavior    PermissionBehavior          `json:"behavior"`
-	Destination PermissionUpdateDestination `json:"destination"`
+	Rules       []*PermissionRuleValue `json:"rules,omitempty"`
+	Behavior    string                 `json:"behavior"`
+	Destination string                 `json:"destination"`
 }
 
 // ReplaceRulesUpdate represents a replace-rules permission update.
 type ReplaceRulesUpdate struct {
-	Rules       []*PermissionRuleValue      `json:"rules,omitempty"`
-	Behavior    PermissionBehavior          `json:"behavior"`
-	Destination PermissionUpdateDestination `json:"destination"`
+	Rules       []*PermissionRuleValue `json:"rules,omitempty"`
+	Behavior    string                 `json:"behavior"`
+	Destination string                 `json:"destination"`
 }
 
 // RemoveRulesUpdate represents a remove-rules permission update.
 type RemoveRulesUpdate struct {
-	Rules       []*PermissionRuleValue      `json:"rules,omitempty"`
-	Behavior    PermissionBehavior          `json:"behavior"`
-	Destination PermissionUpdateDestination `json:"destination"`
+	Rules       []*PermissionRuleValue `json:"rules,omitempty"`
+	Behavior    string                 `json:"behavior"`
+	Destination string                 `json:"destination"`
 }
 
 // SetModeUpdate represents a set-mode permission update.
 type SetModeUpdate struct {
-	Mode        PermissionMode              `json:"mode"`
-	Destination PermissionUpdateDestination `json:"destination"`
+	Mode        string `json:"mode"`
+	Destination string `json:"destination"`
 }
 
 // AddDirectoriesUpdate represents an add-directories permission update.
 type AddDirectoriesUpdate struct {
-	Directories []string                    `json:"directories,omitempty"`
-	Destination PermissionUpdateDestination `json:"destination"`
+	Directories []string `json:"directories,omitempty"`
+	Destination string   `json:"destination"`
 }
 
 // RemoveDirectoriesUpdate represents a remove-directories permission update.
 type RemoveDirectoriesUpdate struct {
-	Directories []string                    `json:"directories,omitempty"`
-	Destination PermissionUpdateDestination `json:"destination"`
+	Directories []string `json:"directories,omitempty"`
+	Destination string   `json:"destination"`
 }

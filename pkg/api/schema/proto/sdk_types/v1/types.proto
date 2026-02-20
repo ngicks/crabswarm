@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package sdk_types.v1;
 
-import "sdk_types/v1/tool_input.proto";
+import "google/protobuf/struct.proto";
+import "sdk_types/v1/other.proto";
 import "sdk_types/v1/permission.proto";
 import "sdk_types/v1/sandbox.proto";
-import "sdk_types/v1/other.proto";
-import "google/protobuf/struct.proto";
+import "sdk_types/v1/tool_input.proto";
 
 // --- Moved from config.proto ---
 
@@ -68,32 +68,15 @@ message SdkPluginConfig {
 
 // --- New types from the "Types" section ---
 
-// SettingSource represents where a setting comes from.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#setting-source
-enum SettingSource {
-  SETTING_SOURCE_UNSPECIFIED = 0;
-  SETTING_SOURCE_USER = 1;
-  SETTING_SOURCE_PROJECT = 2;
-  SETTING_SOURCE_LOCAL = 3;
-}
-
-// AgentModel represents the model to use for an agent.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
-enum AgentModel {
-  AGENT_MODEL_UNSPECIFIED = 0;
-  AGENT_MODEL_SONNET = 1;
-  AGENT_MODEL_OPUS = 2;
-  AGENT_MODEL_HAIKU = 3;
-  AGENT_MODEL_INHERIT = 4;
-}
-
 // AgentDefinition represents the definition of a sub-agent.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
 message AgentDefinition {
   string description = 1;
   repeated string tools = 2;
   string prompt = 3;
-  AgentModel model = 4;
+  // Possible values: "sonnet", "opus", "haiku", "inherit"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
+  string model = 4;
 }
 
 // SystemPromptPreset represents a preset system prompt with appended text.
@@ -125,7 +108,9 @@ message Options {
   map<string, AgentDefinition> agents = 2;
   bool allow_dangerously_skip_permissions = 3;
   repeated string allowed_tools = 4;
-  repeated SdkBeta betas = 5;
+  // Possible values: "context-1m-2025-08-07"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-beta
+  repeated string betas = 5;
   bool continue = 6;
   string cwd = 7;
   repeated string disallowed_tools = 8;
@@ -144,13 +129,17 @@ message Options {
   string model = 21;
   optional OutputFormat output_format = 22;
   string path_to_claude_code_executable = 23;
-  PermissionMode permission_mode = 24;
+  // Possible values: "default", "acceptEdits", "bypassPermissions", "plan"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
+  string permission_mode = 24;
   string permission_prompt_tool_name = 25;
   repeated SdkPluginConfig plugins = 26;
   string resume = 27;
   string resume_session_at = 28;
   optional SandboxSettings sandbox = 29;
-  repeated SettingSource setting_sources = 30;
+  // Possible values: "user", "project", "local"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#setting-source
+  repeated string setting_sources = 30;
   bool strict_mcp_config = 31;
   optional SystemPrompt system_prompt = 32;
   repeated string tools_list = 33;

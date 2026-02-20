@@ -55,7 +55,7 @@ type BashOutput struct {
 // BashOutputToolOutput represents output from the bash-output tool.
 type BashOutputToolOutput struct {
 	Output   string           `json:"output"`
-	Status   BashOutputStatus `json:"status"`
+	Status   string           `json:"status"`
 	ExitCode *int32           `json:"exit_code,omitempty"`
 }
 
@@ -184,7 +184,7 @@ type KillBashOutput struct {
 // NotebookEditOutput represents output from the notebook-edit tool.
 type NotebookEditOutput struct {
 	Message    string           `json:"message"`
-	EditType   NotebookEditType `json:"edit_type"`
+	EditType   string           `json:"edit_type"`
 	CellID     *string          `json:"cell_id,omitempty"`
 	TotalCells int32            `json:"total_cells"`
 }

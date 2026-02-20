@@ -51,10 +51,10 @@ type SdkPluginConfig struct {
 
 // AgentDefinition represents the definition of an agent.
 type AgentDefinition struct {
-	Description string     `json:"description"`
-	Tools       []string   `json:"tools,omitempty"`
-	Prompt      string     `json:"prompt"`
-	Model       AgentModel `json:"model"`
+	Description string   `json:"description"`
+	Tools       []string `json:"tools,omitempty"`
+	Prompt      string   `json:"prompt"`
+	Model       string   `json:"model"`
 }
 
 // SystemPromptPreset represents a system prompt preset.
@@ -105,7 +105,7 @@ type Options struct {
 	Agents                         map[string]*AgentDefinition `json:"agents,omitempty"`
 	AllowDangerouslySkipPermissions bool                       `json:"allow_dangerously_skip_permissions"`
 	AllowedTools                   []string                    `json:"allowed_tools,omitempty"`
-	Betas                          []SdkBeta                   `json:"betas,omitempty"`
+	Betas                          []string                    `json:"betas,omitempty"`
 	Continue                       bool                        `json:"continue"`
 	Cwd                            string                      `json:"cwd"`
 	DisallowedTools                []string                    `json:"disallowed_tools,omitempty"`
@@ -124,13 +124,13 @@ type Options struct {
 	Model                          string                      `json:"model"`
 	OutputFormat                   *OutputFormat               `json:"output_format,omitempty"`
 	PathToClaudeCodeExecutable     string                      `json:"path_to_claude_code_executable"`
-	PermissionMode                 PermissionMode              `json:"permission_mode"`
+	PermissionMode                 string                      `json:"permission_mode"`
 	PermissionPromptToolName       string                      `json:"permission_prompt_tool_name"`
 	Plugins                        []*SdkPluginConfig          `json:"plugins,omitempty"`
 	Resume                         string                      `json:"resume"`
 	ResumeSessionAt                string                      `json:"resume_session_at"`
 	Sandbox                        *SandboxSettings            `json:"sandbox,omitempty"`
-	SettingSources                 []SettingSource             `json:"setting_sources,omitempty"`
+	SettingSources                 []string                    `json:"setting_sources,omitempty"`
 	StrictMcpConfig                bool                        `json:"strict_mcp_config"`
 	SystemPrompt                   *SystemPrompt               `json:"system_prompt,omitempty"`
 	ToolsList                      []string                    `json:"tools_list,omitempty"`

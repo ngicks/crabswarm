@@ -2,27 +2,9 @@ syntax = "proto3";
 
 package sdk_types.v1;
 
+import "sdk_types/v1/permission.proto";
 import "sdk_types/v1/tool_input.proto";
 import "sdk_types/v1/tool_output.proto";
-import "sdk_types/v1/permission.proto";
-
-// HookEvent represents the type of hook event.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#hook-event
-enum HookEvent {
-  HOOK_EVENT_UNSPECIFIED = 0;
-  HOOK_EVENT_PRE_TOOL_USE = 1;
-  HOOK_EVENT_POST_TOOL_USE = 2;
-  HOOK_EVENT_POST_TOOL_USE_FAILURE = 3;
-  HOOK_EVENT_NOTIFICATION = 4;
-  HOOK_EVENT_USER_PROMPT_SUBMIT = 5;
-  HOOK_EVENT_SESSION_START = 6;
-  HOOK_EVENT_SESSION_END = 7;
-  HOOK_EVENT_STOP = 8;
-  HOOK_EVENT_SUBAGENT_START = 9;
-  HOOK_EVENT_SUBAGENT_STOP = 10;
-  HOOK_EVENT_PRE_COMPACT = 11;
-  HOOK_EVENT_PERMISSION_REQUEST = 12;
-}
 
 // PreToolUseHookInput represents input for the pre-tool-use hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-tool-use-hook-input
@@ -81,16 +63,6 @@ message UserPromptSubmitHookInput {
   string prompt = 5;
 }
 
-// SessionStartSource represents the source of a session start event.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
-enum SessionStartSource {
-  SESSION_START_SOURCE_UNSPECIFIED = 0;
-  SESSION_START_SOURCE_STARTUP = 1;
-  SESSION_START_SOURCE_RESUME = 2;
-  SESSION_START_SOURCE_CLEAR = 3;
-  SESSION_START_SOURCE_COMPACT = 4;
-}
-
 // SessionStartHookInput represents input for the session-start hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
 message SessionStartHookInput {
@@ -98,7 +70,9 @@ message SessionStartHookInput {
   string transcript_path = 2;
   string cwd = 3;
   optional string permission_mode = 4;
-  SessionStartSource source = 5;
+  // Possible values: "startup", "resume", "clear", "compact"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
+  string source = 5;
 }
 
 // SessionEndHookInput represents input for the session-end hook.
@@ -142,14 +116,6 @@ message SubagentStopHookInput {
   bool stop_hook_active = 5;
 }
 
-// PreCompactTrigger represents the trigger for a pre-compact event.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
-enum PreCompactTrigger {
-  PRE_COMPACT_TRIGGER_UNSPECIFIED = 0;
-  PRE_COMPACT_TRIGGER_MANUAL = 1;
-  PRE_COMPACT_TRIGGER_AUTO = 2;
-}
-
 // PreCompactHookInput represents input for the pre-compact hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
 message PreCompactHookInput {
@@ -157,7 +123,9 @@ message PreCompactHookInput {
   string transcript_path = 2;
   string cwd = 3;
   optional string permission_mode = 4;
-  PreCompactTrigger trigger = 5;
+  // Possible values: "manual", "auto"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
+  string trigger = 5;
   optional string custom_instructions = 6;
 }
 

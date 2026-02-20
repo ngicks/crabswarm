@@ -33,7 +33,7 @@ type SDKPermissionDenial struct {
 
 // SDKResultMessage represents a result message.
 type SDKResultMessage struct {
-	Subtype            SDKResultSubtype       `json:"subtype"`
+	Subtype            string                 `json:"subtype"`
 	UUID               string                 `json:"uuid"`
 	SessionID          string                 `json:"session_id"`
 	DurationMs         int64                  `json:"duration_ms"`
@@ -59,12 +59,12 @@ type SDKSystemMcpServer struct {
 type SDKSystemMessage struct {
 	UUID           string                `json:"uuid"`
 	SessionID      string                `json:"session_id"`
-	ApiKeySource   ApiKeySource          `json:"api_key_source"`
+	ApiKeySource   string                `json:"api_key_source"`
 	Cwd            string                `json:"cwd"`
 	Tools          []string              `json:"tools,omitempty"`
 	McpServers     []*SDKSystemMcpServer `json:"mcp_servers,omitempty"`
 	Model          string                `json:"model"`
-	PermissionMode PermissionMode        `json:"permission_mode"`
+	PermissionMode string                `json:"permission_mode"`
 	SlashCommands  []string              `json:"slash_commands,omitempty"`
 	OutputStyle    string                `json:"output_style"`
 }

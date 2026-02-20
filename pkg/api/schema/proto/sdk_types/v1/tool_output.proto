@@ -69,20 +69,14 @@ message BashOutput {
   optional string shell_id = 4;
 }
 
-// BashOutputStatus represents the status of a background shell.
-enum BashOutputStatus {
-  BASH_OUTPUT_STATUS_UNSPECIFIED = 0;
-  BASH_OUTPUT_STATUS_RUNNING = 1;
-  BASH_OUTPUT_STATUS_COMPLETED = 2;
-  BASH_OUTPUT_STATUS_FAILED = 3;
-}
-
 // BashOutputToolOutput returns incremental output from background shells.
+// See https://platform.claude.com/docs/en/agent-sdk/typescript#bash-output-tool-output
 message BashOutputToolOutput {
   // New output since last check.
   string output = 1;
-  // Current shell status.
-  BashOutputStatus status = 2;
+  // Possible values: "running", "completed", "failed"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#bash-output-tool-output
+  string status = 2;
   // Exit code (when completed).
   optional int32 exit_code = 3;
 }
@@ -256,20 +250,14 @@ message KillBashOutput {
   string shell_id = 2;
 }
 
-// NotebookEditType represents the type of edit performed on a notebook.
-enum NotebookEditType {
-  NOTEBOOK_EDIT_TYPE_UNSPECIFIED = 0;
-  NOTEBOOK_EDIT_TYPE_REPLACED = 1;
-  NOTEBOOK_EDIT_TYPE_INSERTED = 2;
-  NOTEBOOK_EDIT_TYPE_DELETED = 3;
-}
-
 // NotebookEditOutput returns confirmation after modifying a Jupyter notebook.
+// See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-output
 message NotebookEditOutput {
   // Success message.
   string message = 1;
-  // Type of edit performed.
-  NotebookEditType edit_type = 2;
+  // Possible values: "replaced", "inserted", "deleted"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-output
+  string edit_type = 2;
   // Cell ID that was affected.
   optional string cell_id = 3;
   // Total cells in notebook after edit.

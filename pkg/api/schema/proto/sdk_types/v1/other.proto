@@ -4,32 +4,6 @@ package sdk_types.v1;
 
 import "google/protobuf/struct.proto";
 
-// ApiKeySource represents the source of an API key.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#api-key-source
-enum ApiKeySource {
-  API_KEY_SOURCE_UNSPECIFIED = 0;
-  API_KEY_SOURCE_USER = 1;
-  API_KEY_SOURCE_PROJECT = 2;
-  API_KEY_SOURCE_ORG = 3;
-  API_KEY_SOURCE_TEMPORARY = 4;
-}
-
-// SdkBeta represents available SDK beta features.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-beta
-enum SdkBeta {
-  SDK_BETA_UNSPECIFIED = 0;
-  SDK_BETA_CONTEXT_1M_2025_08_07 = 1;
-}
-
-// ConfigScope represents the scope of a configuration setting.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#config-scope
-enum ConfigScope {
-  CONFIG_SCOPE_UNSPECIFIED = 0;
-  CONFIG_SCOPE_LOCAL = 1;
-  CONFIG_SCOPE_USER = 2;
-  CONFIG_SCOPE_PROJECT = 3;
-}
-
 // SlashCommand represents a slash command available to the user.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#slash-command
 message SlashCommand {
@@ -46,16 +20,6 @@ message ModelInfo {
   string description = 3;
 }
 
-// McpServerConnectionStatus represents the connection status of an MCP server.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-status
-enum McpServerConnectionStatus {
-  MCP_SERVER_CONNECTION_STATUS_UNSPECIFIED = 0;
-  MCP_SERVER_CONNECTION_STATUS_CONNECTED = 1;
-  MCP_SERVER_CONNECTION_STATUS_FAILED = 2;
-  MCP_SERVER_CONNECTION_STATUS_NEEDS_AUTH = 3;
-  MCP_SERVER_CONNECTION_STATUS_PENDING = 4;
-}
-
 // McpServerInfo represents basic information about an MCP server.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-status
 message McpServerInfo {
@@ -67,7 +31,9 @@ message McpServerInfo {
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-status
 message McpServerStatus {
   string name = 1;
-  McpServerConnectionStatus status = 2;
+  // Possible values: "connected", "failed", "needs-auth", "pending"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-status
+  string status = 2;
   optional McpServerInfo server_info = 3;
 }
 
@@ -111,19 +77,12 @@ message Usage {
   optional int64 cache_read_input_tokens = 4;
 }
 
-// CallToolResultContentType represents the type of content in a tool result.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#call-tool-result
-enum CallToolResultContentType {
-  CALL_TOOL_RESULT_CONTENT_TYPE_UNSPECIFIED = 0;
-  CALL_TOOL_RESULT_CONTENT_TYPE_TEXT = 1;
-  CALL_TOOL_RESULT_CONTENT_TYPE_IMAGE = 2;
-  CALL_TOOL_RESULT_CONTENT_TYPE_RESOURCE = 3;
-}
-
 // CallToolResultContent represents a single content item in a tool result.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#call-tool-result
 message CallToolResultContent {
-  CallToolResultContentType type = 1;
+  // Possible values: "text", "image", "resource"
+  // See https://platform.claude.com/docs/en/agent-sdk/typescript#call-tool-result
+  string type = 1;
   // Additional fields vary by content type; represented as a struct.
   google.protobuf.Struct data = 2;
 }

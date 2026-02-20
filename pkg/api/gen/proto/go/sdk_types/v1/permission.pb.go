@@ -21,174 +21,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// PermissionMode represents the permission mode for the SDK.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
-type PermissionMode int32
-
-const (
-	PermissionMode_PERMISSION_MODE_UNSPECIFIED        PermissionMode = 0
-	PermissionMode_PERMISSION_MODE_DEFAULT            PermissionMode = 1
-	PermissionMode_PERMISSION_MODE_ACCEPT_EDITS       PermissionMode = 2
-	PermissionMode_PERMISSION_MODE_BYPASS_PERMISSIONS PermissionMode = 3
-	PermissionMode_PERMISSION_MODE_PLAN               PermissionMode = 4
-)
-
-// Enum value maps for PermissionMode.
-var (
-	PermissionMode_name = map[int32]string{
-		0: "PERMISSION_MODE_UNSPECIFIED",
-		1: "PERMISSION_MODE_DEFAULT",
-		2: "PERMISSION_MODE_ACCEPT_EDITS",
-		3: "PERMISSION_MODE_BYPASS_PERMISSIONS",
-		4: "PERMISSION_MODE_PLAN",
-	}
-	PermissionMode_value = map[string]int32{
-		"PERMISSION_MODE_UNSPECIFIED":        0,
-		"PERMISSION_MODE_DEFAULT":            1,
-		"PERMISSION_MODE_ACCEPT_EDITS":       2,
-		"PERMISSION_MODE_BYPASS_PERMISSIONS": 3,
-		"PERMISSION_MODE_PLAN":               4,
-	}
-)
-
-func (x PermissionMode) Enum() *PermissionMode {
-	p := new(PermissionMode)
-	*p = x
-	return p
-}
-
-func (x PermissionMode) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PermissionMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_permission_proto_enumTypes[0].Descriptor()
-}
-
-func (PermissionMode) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_permission_proto_enumTypes[0]
-}
-
-func (x PermissionMode) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PermissionMode.Descriptor instead.
-func (PermissionMode) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_permission_proto_rawDescGZIP(), []int{0}
-}
-
-// PermissionBehavior represents the behavior for a permission rule.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
-type PermissionBehavior int32
-
-const (
-	PermissionBehavior_PERMISSION_BEHAVIOR_UNSPECIFIED PermissionBehavior = 0
-	PermissionBehavior_PERMISSION_BEHAVIOR_ALLOW       PermissionBehavior = 1
-	PermissionBehavior_PERMISSION_BEHAVIOR_DENY        PermissionBehavior = 2
-	PermissionBehavior_PERMISSION_BEHAVIOR_ASK         PermissionBehavior = 3
-)
-
-// Enum value maps for PermissionBehavior.
-var (
-	PermissionBehavior_name = map[int32]string{
-		0: "PERMISSION_BEHAVIOR_UNSPECIFIED",
-		1: "PERMISSION_BEHAVIOR_ALLOW",
-		2: "PERMISSION_BEHAVIOR_DENY",
-		3: "PERMISSION_BEHAVIOR_ASK",
-	}
-	PermissionBehavior_value = map[string]int32{
-		"PERMISSION_BEHAVIOR_UNSPECIFIED": 0,
-		"PERMISSION_BEHAVIOR_ALLOW":       1,
-		"PERMISSION_BEHAVIOR_DENY":        2,
-		"PERMISSION_BEHAVIOR_ASK":         3,
-	}
-)
-
-func (x PermissionBehavior) Enum() *PermissionBehavior {
-	p := new(PermissionBehavior)
-	*p = x
-	return p
-}
-
-func (x PermissionBehavior) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PermissionBehavior) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_permission_proto_enumTypes[1].Descriptor()
-}
-
-func (PermissionBehavior) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_permission_proto_enumTypes[1]
-}
-
-func (x PermissionBehavior) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PermissionBehavior.Descriptor instead.
-func (PermissionBehavior) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_permission_proto_rawDescGZIP(), []int{1}
-}
-
-// PermissionUpdateDestination represents the destination for a permission update.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
-type PermissionUpdateDestination int32
-
-const (
-	PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_UNSPECIFIED      PermissionUpdateDestination = 0
-	PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_USER_SETTINGS    PermissionUpdateDestination = 1
-	PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_PROJECT_SETTINGS PermissionUpdateDestination = 2
-	PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_LOCAL_SETTINGS   PermissionUpdateDestination = 3
-	PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_SESSION          PermissionUpdateDestination = 4
-)
-
-// Enum value maps for PermissionUpdateDestination.
-var (
-	PermissionUpdateDestination_name = map[int32]string{
-		0: "PERMISSION_UPDATE_DESTINATION_UNSPECIFIED",
-		1: "PERMISSION_UPDATE_DESTINATION_USER_SETTINGS",
-		2: "PERMISSION_UPDATE_DESTINATION_PROJECT_SETTINGS",
-		3: "PERMISSION_UPDATE_DESTINATION_LOCAL_SETTINGS",
-		4: "PERMISSION_UPDATE_DESTINATION_SESSION",
-	}
-	PermissionUpdateDestination_value = map[string]int32{
-		"PERMISSION_UPDATE_DESTINATION_UNSPECIFIED":      0,
-		"PERMISSION_UPDATE_DESTINATION_USER_SETTINGS":    1,
-		"PERMISSION_UPDATE_DESTINATION_PROJECT_SETTINGS": 2,
-		"PERMISSION_UPDATE_DESTINATION_LOCAL_SETTINGS":   3,
-		"PERMISSION_UPDATE_DESTINATION_SESSION":          4,
-	}
-)
-
-func (x PermissionUpdateDestination) Enum() *PermissionUpdateDestination {
-	p := new(PermissionUpdateDestination)
-	*p = x
-	return p
-}
-
-func (x PermissionUpdateDestination) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PermissionUpdateDestination) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_permission_proto_enumTypes[2].Descriptor()
-}
-
-func (PermissionUpdateDestination) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_permission_proto_enumTypes[2]
-}
-
-func (x PermissionUpdateDestination) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PermissionUpdateDestination.Descriptor instead.
-func (PermissionUpdateDestination) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_permission_proto_rawDescGZIP(), []int{2}
-}
-
 // PermissionRuleValue represents a single permission rule.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
 type PermissionRuleValue struct {
@@ -393,10 +225,14 @@ func (*PermissionUpdate_RemoveDirectories) isPermissionUpdate_Update() {}
 
 // AddRulesUpdate adds permission rules.
 type AddRulesUpdate struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	Rules         []*PermissionRuleValue      `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
-	Behavior      PermissionBehavior          `protobuf:"varint,2,opt,name=behavior,proto3,enum=sdk_types.v1.PermissionBehavior" json:"behavior,omitempty"`
-	Destination   PermissionUpdateDestination `protobuf:"varint,3,opt,name=destination,proto3,enum=sdk_types.v1.PermissionUpdateDestination" json:"destination,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Rules []*PermissionRuleValue `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	// Possible values: "allow", "deny", "ask"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Behavior string `protobuf:"bytes,2,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// Possible values: "userSettings", "projectSettings", "localSettings", "session"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Destination   string `protobuf:"bytes,3,opt,name=destination,proto3" json:"destination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -438,26 +274,30 @@ func (x *AddRulesUpdate) GetRules() []*PermissionRuleValue {
 	return nil
 }
 
-func (x *AddRulesUpdate) GetBehavior() PermissionBehavior {
+func (x *AddRulesUpdate) GetBehavior() string {
 	if x != nil {
 		return x.Behavior
 	}
-	return PermissionBehavior_PERMISSION_BEHAVIOR_UNSPECIFIED
+	return ""
 }
 
-func (x *AddRulesUpdate) GetDestination() PermissionUpdateDestination {
+func (x *AddRulesUpdate) GetDestination() string {
 	if x != nil {
 		return x.Destination
 	}
-	return PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_UNSPECIFIED
+	return ""
 }
 
 // ReplaceRulesUpdate replaces permission rules.
 type ReplaceRulesUpdate struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	Rules         []*PermissionRuleValue      `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
-	Behavior      PermissionBehavior          `protobuf:"varint,2,opt,name=behavior,proto3,enum=sdk_types.v1.PermissionBehavior" json:"behavior,omitempty"`
-	Destination   PermissionUpdateDestination `protobuf:"varint,3,opt,name=destination,proto3,enum=sdk_types.v1.PermissionUpdateDestination" json:"destination,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Rules []*PermissionRuleValue `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	// Possible values: "allow", "deny", "ask"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Behavior string `protobuf:"bytes,2,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// Possible values: "userSettings", "projectSettings", "localSettings", "session"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Destination   string `protobuf:"bytes,3,opt,name=destination,proto3" json:"destination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -499,26 +339,30 @@ func (x *ReplaceRulesUpdate) GetRules() []*PermissionRuleValue {
 	return nil
 }
 
-func (x *ReplaceRulesUpdate) GetBehavior() PermissionBehavior {
+func (x *ReplaceRulesUpdate) GetBehavior() string {
 	if x != nil {
 		return x.Behavior
 	}
-	return PermissionBehavior_PERMISSION_BEHAVIOR_UNSPECIFIED
+	return ""
 }
 
-func (x *ReplaceRulesUpdate) GetDestination() PermissionUpdateDestination {
+func (x *ReplaceRulesUpdate) GetDestination() string {
 	if x != nil {
 		return x.Destination
 	}
-	return PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_UNSPECIFIED
+	return ""
 }
 
 // RemoveRulesUpdate removes permission rules.
 type RemoveRulesUpdate struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	Rules         []*PermissionRuleValue      `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
-	Behavior      PermissionBehavior          `protobuf:"varint,2,opt,name=behavior,proto3,enum=sdk_types.v1.PermissionBehavior" json:"behavior,omitempty"`
-	Destination   PermissionUpdateDestination `protobuf:"varint,3,opt,name=destination,proto3,enum=sdk_types.v1.PermissionUpdateDestination" json:"destination,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Rules []*PermissionRuleValue `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	// Possible values: "allow", "deny", "ask"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Behavior string `protobuf:"bytes,2,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// Possible values: "userSettings", "projectSettings", "localSettings", "session"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Destination   string `protobuf:"bytes,3,opt,name=destination,proto3" json:"destination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -560,25 +404,29 @@ func (x *RemoveRulesUpdate) GetRules() []*PermissionRuleValue {
 	return nil
 }
 
-func (x *RemoveRulesUpdate) GetBehavior() PermissionBehavior {
+func (x *RemoveRulesUpdate) GetBehavior() string {
 	if x != nil {
 		return x.Behavior
 	}
-	return PermissionBehavior_PERMISSION_BEHAVIOR_UNSPECIFIED
+	return ""
 }
 
-func (x *RemoveRulesUpdate) GetDestination() PermissionUpdateDestination {
+func (x *RemoveRulesUpdate) GetDestination() string {
 	if x != nil {
 		return x.Destination
 	}
-	return PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_UNSPECIFIED
+	return ""
 }
 
 // SetModeUpdate sets the permission mode.
 type SetModeUpdate struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	Mode          PermissionMode              `protobuf:"varint,1,opt,name=mode,proto3,enum=sdk_types.v1.PermissionMode" json:"mode,omitempty"`
-	Destination   PermissionUpdateDestination `protobuf:"varint,2,opt,name=destination,proto3,enum=sdk_types.v1.PermissionUpdateDestination" json:"destination,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Possible values: "default", "acceptEdits", "bypassPermissions", "plan"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
+	Mode string `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"`
+	// Possible values: "userSettings", "projectSettings", "localSettings", "session"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Destination   string `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -613,25 +461,27 @@ func (*SetModeUpdate) Descriptor() ([]byte, []int) {
 	return file_sdk_types_v1_permission_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *SetModeUpdate) GetMode() PermissionMode {
+func (x *SetModeUpdate) GetMode() string {
 	if x != nil {
 		return x.Mode
 	}
-	return PermissionMode_PERMISSION_MODE_UNSPECIFIED
+	return ""
 }
 
-func (x *SetModeUpdate) GetDestination() PermissionUpdateDestination {
+func (x *SetModeUpdate) GetDestination() string {
 	if x != nil {
 		return x.Destination
 	}
-	return PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_UNSPECIFIED
+	return ""
 }
 
 // AddDirectoriesUpdate adds directories to the allowed list.
 type AddDirectoriesUpdate struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	Directories   []string                    `protobuf:"bytes,1,rep,name=directories,proto3" json:"directories,omitempty"`
-	Destination   PermissionUpdateDestination `protobuf:"varint,2,opt,name=destination,proto3,enum=sdk_types.v1.PermissionUpdateDestination" json:"destination,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Directories []string               `protobuf:"bytes,1,rep,name=directories,proto3" json:"directories,omitempty"`
+	// Possible values: "userSettings", "projectSettings", "localSettings", "session"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Destination   string `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -673,18 +523,20 @@ func (x *AddDirectoriesUpdate) GetDirectories() []string {
 	return nil
 }
 
-func (x *AddDirectoriesUpdate) GetDestination() PermissionUpdateDestination {
+func (x *AddDirectoriesUpdate) GetDestination() string {
 	if x != nil {
 		return x.Destination
 	}
-	return PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_UNSPECIFIED
+	return ""
 }
 
 // RemoveDirectoriesUpdate removes directories from the allowed list.
 type RemoveDirectoriesUpdate struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	Directories   []string                    `protobuf:"bytes,1,rep,name=directories,proto3" json:"directories,omitempty"`
-	Destination   PermissionUpdateDestination `protobuf:"varint,2,opt,name=destination,proto3,enum=sdk_types.v1.PermissionUpdateDestination" json:"destination,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Directories []string               `protobuf:"bytes,1,rep,name=directories,proto3" json:"directories,omitempty"`
+	// Possible values: "userSettings", "projectSettings", "localSettings", "session"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-types
+	Destination   string `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -726,11 +578,11 @@ func (x *RemoveDirectoriesUpdate) GetDirectories() []string {
 	return nil
 }
 
-func (x *RemoveDirectoriesUpdate) GetDestination() PermissionUpdateDestination {
+func (x *RemoveDirectoriesUpdate) GetDestination() string {
 	if x != nil {
 		return x.Destination
 	}
-	return PermissionUpdateDestination_PERMISSION_UPDATE_DESTINATION_UNSPECIFIED
+	return ""
 }
 
 var File_sdk_types_v1_permission_proto protoreflect.FileDescriptor
@@ -749,45 +601,28 @@ const file_sdk_types_v1_permission_proto_rawDesc = "" +
 	"\bset_mode\x18\x04 \x01(\v2\x1b.sdk_types.v1.SetModeUpdateH\x00R\asetMode\x12M\n" +
 	"\x0fadd_directories\x18\x05 \x01(\v2\".sdk_types.v1.AddDirectoriesUpdateH\x00R\x0eaddDirectories\x12V\n" +
 	"\x12remove_directories\x18\x06 \x01(\v2%.sdk_types.v1.RemoveDirectoriesUpdateH\x00R\x11removeDirectoriesB\b\n" +
-	"\x06update\"\xd4\x01\n" +
+	"\x06update\"\x87\x01\n" +
 	"\x0eAddRulesUpdate\x127\n" +
-	"\x05rules\x18\x01 \x03(\v2!.sdk_types.v1.PermissionRuleValueR\x05rules\x12<\n" +
-	"\bbehavior\x18\x02 \x01(\x0e2 .sdk_types.v1.PermissionBehaviorR\bbehavior\x12K\n" +
-	"\vdestination\x18\x03 \x01(\x0e2).sdk_types.v1.PermissionUpdateDestinationR\vdestination\"\xd8\x01\n" +
+	"\x05rules\x18\x01 \x03(\v2!.sdk_types.v1.PermissionRuleValueR\x05rules\x12\x1a\n" +
+	"\bbehavior\x18\x02 \x01(\tR\bbehavior\x12 \n" +
+	"\vdestination\x18\x03 \x01(\tR\vdestination\"\x8b\x01\n" +
 	"\x12ReplaceRulesUpdate\x127\n" +
-	"\x05rules\x18\x01 \x03(\v2!.sdk_types.v1.PermissionRuleValueR\x05rules\x12<\n" +
-	"\bbehavior\x18\x02 \x01(\x0e2 .sdk_types.v1.PermissionBehaviorR\bbehavior\x12K\n" +
-	"\vdestination\x18\x03 \x01(\x0e2).sdk_types.v1.PermissionUpdateDestinationR\vdestination\"\xd7\x01\n" +
+	"\x05rules\x18\x01 \x03(\v2!.sdk_types.v1.PermissionRuleValueR\x05rules\x12\x1a\n" +
+	"\bbehavior\x18\x02 \x01(\tR\bbehavior\x12 \n" +
+	"\vdestination\x18\x03 \x01(\tR\vdestination\"\x8a\x01\n" +
 	"\x11RemoveRulesUpdate\x127\n" +
-	"\x05rules\x18\x01 \x03(\v2!.sdk_types.v1.PermissionRuleValueR\x05rules\x12<\n" +
-	"\bbehavior\x18\x02 \x01(\x0e2 .sdk_types.v1.PermissionBehaviorR\bbehavior\x12K\n" +
-	"\vdestination\x18\x03 \x01(\x0e2).sdk_types.v1.PermissionUpdateDestinationR\vdestination\"\x8e\x01\n" +
-	"\rSetModeUpdate\x120\n" +
-	"\x04mode\x18\x01 \x01(\x0e2\x1c.sdk_types.v1.PermissionModeR\x04mode\x12K\n" +
-	"\vdestination\x18\x02 \x01(\x0e2).sdk_types.v1.PermissionUpdateDestinationR\vdestination\"\x85\x01\n" +
+	"\x05rules\x18\x01 \x03(\v2!.sdk_types.v1.PermissionRuleValueR\x05rules\x12\x1a\n" +
+	"\bbehavior\x18\x02 \x01(\tR\bbehavior\x12 \n" +
+	"\vdestination\x18\x03 \x01(\tR\vdestination\"E\n" +
+	"\rSetModeUpdate\x12\x12\n" +
+	"\x04mode\x18\x01 \x01(\tR\x04mode\x12 \n" +
+	"\vdestination\x18\x02 \x01(\tR\vdestination\"Z\n" +
 	"\x14AddDirectoriesUpdate\x12 \n" +
-	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x12K\n" +
-	"\vdestination\x18\x02 \x01(\x0e2).sdk_types.v1.PermissionUpdateDestinationR\vdestination\"\x88\x01\n" +
+	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x12 \n" +
+	"\vdestination\x18\x02 \x01(\tR\vdestination\"]\n" +
 	"\x17RemoveDirectoriesUpdate\x12 \n" +
-	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x12K\n" +
-	"\vdestination\x18\x02 \x01(\x0e2).sdk_types.v1.PermissionUpdateDestinationR\vdestination*\xb2\x01\n" +
-	"\x0ePermissionMode\x12\x1f\n" +
-	"\x1bPERMISSION_MODE_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17PERMISSION_MODE_DEFAULT\x10\x01\x12 \n" +
-	"\x1cPERMISSION_MODE_ACCEPT_EDITS\x10\x02\x12&\n" +
-	"\"PERMISSION_MODE_BYPASS_PERMISSIONS\x10\x03\x12\x18\n" +
-	"\x14PERMISSION_MODE_PLAN\x10\x04*\x93\x01\n" +
-	"\x12PermissionBehavior\x12#\n" +
-	"\x1fPERMISSION_BEHAVIOR_UNSPECIFIED\x10\x00\x12\x1d\n" +
-	"\x19PERMISSION_BEHAVIOR_ALLOW\x10\x01\x12\x1c\n" +
-	"\x18PERMISSION_BEHAVIOR_DENY\x10\x02\x12\x1b\n" +
-	"\x17PERMISSION_BEHAVIOR_ASK\x10\x03*\x8e\x02\n" +
-	"\x1bPermissionUpdateDestination\x12-\n" +
-	")PERMISSION_UPDATE_DESTINATION_UNSPECIFIED\x10\x00\x12/\n" +
-	"+PERMISSION_UPDATE_DESTINATION_USER_SETTINGS\x10\x01\x122\n" +
-	".PERMISSION_UPDATE_DESTINATION_PROJECT_SETTINGS\x10\x02\x120\n" +
-	",PERMISSION_UPDATE_DESTINATION_LOCAL_SETTINGS\x10\x03\x12)\n" +
-	"%PERMISSION_UPDATE_DESTINATION_SESSION\x10\x04B\xbb\x01\n" +
+	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x12 \n" +
+	"\vdestination\x18\x02 \x01(\tR\vdestinationB\xbb\x01\n" +
 	"\x10com.sdk_types.v1B\x0fPermissionProtoP\x01ZIgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1\xa2\x02\x03SXX\xaa\x02\vSdkTypes.V1\xca\x02\vSdkTypes\\V1\xe2\x02\x17SdkTypes\\V1\\GPBMetadata\xea\x02\fSdkTypes::V1b\x06proto3"
 
 var (
@@ -802,46 +637,32 @@ func file_sdk_types_v1_permission_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_permission_proto_rawDescData
 }
 
-var file_sdk_types_v1_permission_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_sdk_types_v1_permission_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_sdk_types_v1_permission_proto_goTypes = []any{
-	(PermissionMode)(0),              // 0: sdk_types.v1.PermissionMode
-	(PermissionBehavior)(0),          // 1: sdk_types.v1.PermissionBehavior
-	(PermissionUpdateDestination)(0), // 2: sdk_types.v1.PermissionUpdateDestination
-	(*PermissionRuleValue)(nil),      // 3: sdk_types.v1.PermissionRuleValue
-	(*PermissionUpdate)(nil),         // 4: sdk_types.v1.PermissionUpdate
-	(*AddRulesUpdate)(nil),           // 5: sdk_types.v1.AddRulesUpdate
-	(*ReplaceRulesUpdate)(nil),       // 6: sdk_types.v1.ReplaceRulesUpdate
-	(*RemoveRulesUpdate)(nil),        // 7: sdk_types.v1.RemoveRulesUpdate
-	(*SetModeUpdate)(nil),            // 8: sdk_types.v1.SetModeUpdate
-	(*AddDirectoriesUpdate)(nil),     // 9: sdk_types.v1.AddDirectoriesUpdate
-	(*RemoveDirectoriesUpdate)(nil),  // 10: sdk_types.v1.RemoveDirectoriesUpdate
+	(*PermissionRuleValue)(nil),     // 0: sdk_types.v1.PermissionRuleValue
+	(*PermissionUpdate)(nil),        // 1: sdk_types.v1.PermissionUpdate
+	(*AddRulesUpdate)(nil),          // 2: sdk_types.v1.AddRulesUpdate
+	(*ReplaceRulesUpdate)(nil),      // 3: sdk_types.v1.ReplaceRulesUpdate
+	(*RemoveRulesUpdate)(nil),       // 4: sdk_types.v1.RemoveRulesUpdate
+	(*SetModeUpdate)(nil),           // 5: sdk_types.v1.SetModeUpdate
+	(*AddDirectoriesUpdate)(nil),    // 6: sdk_types.v1.AddDirectoriesUpdate
+	(*RemoveDirectoriesUpdate)(nil), // 7: sdk_types.v1.RemoveDirectoriesUpdate
 }
 var file_sdk_types_v1_permission_proto_depIdxs = []int32{
-	5,  // 0: sdk_types.v1.PermissionUpdate.add_rules:type_name -> sdk_types.v1.AddRulesUpdate
-	6,  // 1: sdk_types.v1.PermissionUpdate.replace_rules:type_name -> sdk_types.v1.ReplaceRulesUpdate
-	7,  // 2: sdk_types.v1.PermissionUpdate.remove_rules:type_name -> sdk_types.v1.RemoveRulesUpdate
-	8,  // 3: sdk_types.v1.PermissionUpdate.set_mode:type_name -> sdk_types.v1.SetModeUpdate
-	9,  // 4: sdk_types.v1.PermissionUpdate.add_directories:type_name -> sdk_types.v1.AddDirectoriesUpdate
-	10, // 5: sdk_types.v1.PermissionUpdate.remove_directories:type_name -> sdk_types.v1.RemoveDirectoriesUpdate
-	3,  // 6: sdk_types.v1.AddRulesUpdate.rules:type_name -> sdk_types.v1.PermissionRuleValue
-	1,  // 7: sdk_types.v1.AddRulesUpdate.behavior:type_name -> sdk_types.v1.PermissionBehavior
-	2,  // 8: sdk_types.v1.AddRulesUpdate.destination:type_name -> sdk_types.v1.PermissionUpdateDestination
-	3,  // 9: sdk_types.v1.ReplaceRulesUpdate.rules:type_name -> sdk_types.v1.PermissionRuleValue
-	1,  // 10: sdk_types.v1.ReplaceRulesUpdate.behavior:type_name -> sdk_types.v1.PermissionBehavior
-	2,  // 11: sdk_types.v1.ReplaceRulesUpdate.destination:type_name -> sdk_types.v1.PermissionUpdateDestination
-	3,  // 12: sdk_types.v1.RemoveRulesUpdate.rules:type_name -> sdk_types.v1.PermissionRuleValue
-	1,  // 13: sdk_types.v1.RemoveRulesUpdate.behavior:type_name -> sdk_types.v1.PermissionBehavior
-	2,  // 14: sdk_types.v1.RemoveRulesUpdate.destination:type_name -> sdk_types.v1.PermissionUpdateDestination
-	0,  // 15: sdk_types.v1.SetModeUpdate.mode:type_name -> sdk_types.v1.PermissionMode
-	2,  // 16: sdk_types.v1.SetModeUpdate.destination:type_name -> sdk_types.v1.PermissionUpdateDestination
-	2,  // 17: sdk_types.v1.AddDirectoriesUpdate.destination:type_name -> sdk_types.v1.PermissionUpdateDestination
-	2,  // 18: sdk_types.v1.RemoveDirectoriesUpdate.destination:type_name -> sdk_types.v1.PermissionUpdateDestination
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	2, // 0: sdk_types.v1.PermissionUpdate.add_rules:type_name -> sdk_types.v1.AddRulesUpdate
+	3, // 1: sdk_types.v1.PermissionUpdate.replace_rules:type_name -> sdk_types.v1.ReplaceRulesUpdate
+	4, // 2: sdk_types.v1.PermissionUpdate.remove_rules:type_name -> sdk_types.v1.RemoveRulesUpdate
+	5, // 3: sdk_types.v1.PermissionUpdate.set_mode:type_name -> sdk_types.v1.SetModeUpdate
+	6, // 4: sdk_types.v1.PermissionUpdate.add_directories:type_name -> sdk_types.v1.AddDirectoriesUpdate
+	7, // 5: sdk_types.v1.PermissionUpdate.remove_directories:type_name -> sdk_types.v1.RemoveDirectoriesUpdate
+	0, // 6: sdk_types.v1.AddRulesUpdate.rules:type_name -> sdk_types.v1.PermissionRuleValue
+	0, // 7: sdk_types.v1.ReplaceRulesUpdate.rules:type_name -> sdk_types.v1.PermissionRuleValue
+	0, // 8: sdk_types.v1.RemoveRulesUpdate.rules:type_name -> sdk_types.v1.PermissionRuleValue
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_permission_proto_init() }
@@ -863,14 +684,13 @@ func file_sdk_types_v1_permission_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_permission_proto_rawDesc), len(file_sdk_types_v1_permission_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      0,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sdk_types_v1_permission_proto_goTypes,
 		DependencyIndexes: file_sdk_types_v1_permission_proto_depIdxs,
-		EnumInfos:         file_sdk_types_v1_permission_proto_enumTypes,
 		MessageInfos:      file_sdk_types_v1_permission_proto_msgTypes,
 	}.Build()
 	File_sdk_types_v1_permission_proto = out.File

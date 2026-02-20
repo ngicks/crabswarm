@@ -22,117 +22,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SettingSource represents where a setting comes from.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#setting-source
-type SettingSource int32
-
-const (
-	SettingSource_SETTING_SOURCE_UNSPECIFIED SettingSource = 0
-	SettingSource_SETTING_SOURCE_USER        SettingSource = 1
-	SettingSource_SETTING_SOURCE_PROJECT     SettingSource = 2
-	SettingSource_SETTING_SOURCE_LOCAL       SettingSource = 3
-)
-
-// Enum value maps for SettingSource.
-var (
-	SettingSource_name = map[int32]string{
-		0: "SETTING_SOURCE_UNSPECIFIED",
-		1: "SETTING_SOURCE_USER",
-		2: "SETTING_SOURCE_PROJECT",
-		3: "SETTING_SOURCE_LOCAL",
-	}
-	SettingSource_value = map[string]int32{
-		"SETTING_SOURCE_UNSPECIFIED": 0,
-		"SETTING_SOURCE_USER":        1,
-		"SETTING_SOURCE_PROJECT":     2,
-		"SETTING_SOURCE_LOCAL":       3,
-	}
-)
-
-func (x SettingSource) Enum() *SettingSource {
-	p := new(SettingSource)
-	*p = x
-	return p
-}
-
-func (x SettingSource) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SettingSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_types_proto_enumTypes[0].Descriptor()
-}
-
-func (SettingSource) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_types_proto_enumTypes[0]
-}
-
-func (x SettingSource) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use SettingSource.Descriptor instead.
-func (SettingSource) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{0}
-}
-
-// AgentModel represents the model to use for an agent.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
-type AgentModel int32
-
-const (
-	AgentModel_AGENT_MODEL_UNSPECIFIED AgentModel = 0
-	AgentModel_AGENT_MODEL_SONNET      AgentModel = 1
-	AgentModel_AGENT_MODEL_OPUS        AgentModel = 2
-	AgentModel_AGENT_MODEL_HAIKU       AgentModel = 3
-	AgentModel_AGENT_MODEL_INHERIT     AgentModel = 4
-)
-
-// Enum value maps for AgentModel.
-var (
-	AgentModel_name = map[int32]string{
-		0: "AGENT_MODEL_UNSPECIFIED",
-		1: "AGENT_MODEL_SONNET",
-		2: "AGENT_MODEL_OPUS",
-		3: "AGENT_MODEL_HAIKU",
-		4: "AGENT_MODEL_INHERIT",
-	}
-	AgentModel_value = map[string]int32{
-		"AGENT_MODEL_UNSPECIFIED": 0,
-		"AGENT_MODEL_SONNET":      1,
-		"AGENT_MODEL_OPUS":        2,
-		"AGENT_MODEL_HAIKU":       3,
-		"AGENT_MODEL_INHERIT":     4,
-	}
-)
-
-func (x AgentModel) Enum() *AgentModel {
-	p := new(AgentModel)
-	*p = x
-	return p
-}
-
-func (x AgentModel) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (AgentModel) Descriptor() protoreflect.EnumDescriptor {
-	return file_sdk_types_v1_types_proto_enumTypes[1].Descriptor()
-}
-
-func (AgentModel) Type() protoreflect.EnumType {
-	return &file_sdk_types_v1_types_proto_enumTypes[1]
-}
-
-func (x AgentModel) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use AgentModel.Descriptor instead.
-func (AgentModel) EnumDescriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{1}
-}
-
 // PermissionResult represents the result of a permission check.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-result
 type PermissionResult struct {
@@ -639,11 +528,13 @@ func (x *SdkPluginConfig) GetPath() string {
 // AgentDefinition represents the definition of a sub-agent.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
 type AgentDefinition struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Description   string                 `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
-	Tools         []string               `protobuf:"bytes,2,rep,name=tools,proto3" json:"tools,omitempty"`
-	Prompt        string                 `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	Model         AgentModel             `protobuf:"varint,4,opt,name=model,proto3,enum=sdk_types.v1.AgentModel" json:"model,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Description string                 `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
+	Tools       []string               `protobuf:"bytes,2,rep,name=tools,proto3" json:"tools,omitempty"`
+	Prompt      string                 `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// Possible values: "sonnet", "opus", "haiku", "inherit"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#agent-definition
+	Model         string `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -699,11 +590,11 @@ func (x *AgentDefinition) GetPrompt() string {
 	return ""
 }
 
-func (x *AgentDefinition) GetModel() AgentModel {
+func (x *AgentDefinition) GetModel() string {
 	if x != nil {
 		return x.Model
 	}
-	return AgentModel_AGENT_MODEL_UNSPECIFIED
+	return ""
 }
 
 // SystemPromptPreset represents a preset system prompt with appended text.
@@ -891,38 +782,44 @@ type Options struct {
 	Agents                          map[string]*AgentDefinition `protobuf:"bytes,2,rep,name=agents,proto3" json:"agents,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	AllowDangerouslySkipPermissions bool                        `protobuf:"varint,3,opt,name=allow_dangerously_skip_permissions,json=allowDangerouslySkipPermissions,proto3" json:"allow_dangerously_skip_permissions,omitempty"`
 	AllowedTools                    []string                    `protobuf:"bytes,4,rep,name=allowed_tools,json=allowedTools,proto3" json:"allowed_tools,omitempty"`
-	Betas                           []SdkBeta                   `protobuf:"varint,5,rep,packed,name=betas,proto3,enum=sdk_types.v1.SdkBeta" json:"betas,omitempty"`
-	Continue                        bool                        `protobuf:"varint,6,opt,name=continue,proto3" json:"continue,omitempty"`
-	Cwd                             string                      `protobuf:"bytes,7,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	DisallowedTools                 []string                    `protobuf:"bytes,8,rep,name=disallowed_tools,json=disallowedTools,proto3" json:"disallowed_tools,omitempty"`
-	EnableFileCheckpointing         bool                        `protobuf:"varint,9,opt,name=enable_file_checkpointing,json=enableFileCheckpointing,proto3" json:"enable_file_checkpointing,omitempty"`
-	Env                             map[string]string           `protobuf:"bytes,10,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Executable                      string                      `protobuf:"bytes,11,opt,name=executable,proto3" json:"executable,omitempty"`
-	ExecutableArgs                  []string                    `protobuf:"bytes,12,rep,name=executable_args,json=executableArgs,proto3" json:"executable_args,omitempty"`
-	ExtraArgs                       map[string]string           `protobuf:"bytes,13,rep,name=extra_args,json=extraArgs,proto3" json:"extra_args,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	FallbackModel                   string                      `protobuf:"bytes,14,opt,name=fallback_model,json=fallbackModel,proto3" json:"fallback_model,omitempty"`
-	ForkSession                     bool                        `protobuf:"varint,15,opt,name=fork_session,json=forkSession,proto3" json:"fork_session,omitempty"`
-	IncludePartialMessages          bool                        `protobuf:"varint,16,opt,name=include_partial_messages,json=includePartialMessages,proto3" json:"include_partial_messages,omitempty"`
-	MaxBudgetUsd                    *float64                    `protobuf:"fixed64,17,opt,name=max_budget_usd,json=maxBudgetUsd,proto3,oneof" json:"max_budget_usd,omitempty"`
-	MaxThinkingTokens               *int32                      `protobuf:"varint,18,opt,name=max_thinking_tokens,json=maxThinkingTokens,proto3,oneof" json:"max_thinking_tokens,omitempty"`
-	MaxTurns                        *int32                      `protobuf:"varint,19,opt,name=max_turns,json=maxTurns,proto3,oneof" json:"max_turns,omitempty"`
-	McpServers                      map[string]*McpServerConfig `protobuf:"bytes,20,rep,name=mcp_servers,json=mcpServers,proto3" json:"mcp_servers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Model                           string                      `protobuf:"bytes,21,opt,name=model,proto3" json:"model,omitempty"`
-	OutputFormat                    *OutputFormat               `protobuf:"bytes,22,opt,name=output_format,json=outputFormat,proto3,oneof" json:"output_format,omitempty"`
-	PathToClaudeCodeExecutable      string                      `protobuf:"bytes,23,opt,name=path_to_claude_code_executable,json=pathToClaudeCodeExecutable,proto3" json:"path_to_claude_code_executable,omitempty"`
-	PermissionMode                  PermissionMode              `protobuf:"varint,24,opt,name=permission_mode,json=permissionMode,proto3,enum=sdk_types.v1.PermissionMode" json:"permission_mode,omitempty"`
-	PermissionPromptToolName        string                      `protobuf:"bytes,25,opt,name=permission_prompt_tool_name,json=permissionPromptToolName,proto3" json:"permission_prompt_tool_name,omitempty"`
-	Plugins                         []*SdkPluginConfig          `protobuf:"bytes,26,rep,name=plugins,proto3" json:"plugins,omitempty"`
-	Resume                          string                      `protobuf:"bytes,27,opt,name=resume,proto3" json:"resume,omitempty"`
-	ResumeSessionAt                 string                      `protobuf:"bytes,28,opt,name=resume_session_at,json=resumeSessionAt,proto3" json:"resume_session_at,omitempty"`
-	Sandbox                         *SandboxSettings            `protobuf:"bytes,29,opt,name=sandbox,proto3,oneof" json:"sandbox,omitempty"`
-	SettingSources                  []SettingSource             `protobuf:"varint,30,rep,packed,name=setting_sources,json=settingSources,proto3,enum=sdk_types.v1.SettingSource" json:"setting_sources,omitempty"`
-	StrictMcpConfig                 bool                        `protobuf:"varint,31,opt,name=strict_mcp_config,json=strictMcpConfig,proto3" json:"strict_mcp_config,omitempty"`
-	SystemPrompt                    *SystemPrompt               `protobuf:"bytes,32,opt,name=system_prompt,json=systemPrompt,proto3,oneof" json:"system_prompt,omitempty"`
-	ToolsList                       []string                    `protobuf:"bytes,33,rep,name=tools_list,json=toolsList,proto3" json:"tools_list,omitempty"`
-	ToolsPreset                     bool                        `protobuf:"varint,34,opt,name=tools_preset,json=toolsPreset,proto3" json:"tools_preset,omitempty"`
-	unknownFields                   protoimpl.UnknownFields
-	sizeCache                       protoimpl.SizeCache
+	// Possible values: "context-1m-2025-08-07"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-beta
+	Betas                      []string                    `protobuf:"bytes,5,rep,name=betas,proto3" json:"betas,omitempty"`
+	Continue                   bool                        `protobuf:"varint,6,opt,name=continue,proto3" json:"continue,omitempty"`
+	Cwd                        string                      `protobuf:"bytes,7,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	DisallowedTools            []string                    `protobuf:"bytes,8,rep,name=disallowed_tools,json=disallowedTools,proto3" json:"disallowed_tools,omitempty"`
+	EnableFileCheckpointing    bool                        `protobuf:"varint,9,opt,name=enable_file_checkpointing,json=enableFileCheckpointing,proto3" json:"enable_file_checkpointing,omitempty"`
+	Env                        map[string]string           `protobuf:"bytes,10,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Executable                 string                      `protobuf:"bytes,11,opt,name=executable,proto3" json:"executable,omitempty"`
+	ExecutableArgs             []string                    `protobuf:"bytes,12,rep,name=executable_args,json=executableArgs,proto3" json:"executable_args,omitempty"`
+	ExtraArgs                  map[string]string           `protobuf:"bytes,13,rep,name=extra_args,json=extraArgs,proto3" json:"extra_args,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	FallbackModel              string                      `protobuf:"bytes,14,opt,name=fallback_model,json=fallbackModel,proto3" json:"fallback_model,omitempty"`
+	ForkSession                bool                        `protobuf:"varint,15,opt,name=fork_session,json=forkSession,proto3" json:"fork_session,omitempty"`
+	IncludePartialMessages     bool                        `protobuf:"varint,16,opt,name=include_partial_messages,json=includePartialMessages,proto3" json:"include_partial_messages,omitempty"`
+	MaxBudgetUsd               *float64                    `protobuf:"fixed64,17,opt,name=max_budget_usd,json=maxBudgetUsd,proto3,oneof" json:"max_budget_usd,omitempty"`
+	MaxThinkingTokens          *int32                      `protobuf:"varint,18,opt,name=max_thinking_tokens,json=maxThinkingTokens,proto3,oneof" json:"max_thinking_tokens,omitempty"`
+	MaxTurns                   *int32                      `protobuf:"varint,19,opt,name=max_turns,json=maxTurns,proto3,oneof" json:"max_turns,omitempty"`
+	McpServers                 map[string]*McpServerConfig `protobuf:"bytes,20,rep,name=mcp_servers,json=mcpServers,proto3" json:"mcp_servers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Model                      string                      `protobuf:"bytes,21,opt,name=model,proto3" json:"model,omitempty"`
+	OutputFormat               *OutputFormat               `protobuf:"bytes,22,opt,name=output_format,json=outputFormat,proto3,oneof" json:"output_format,omitempty"`
+	PathToClaudeCodeExecutable string                      `protobuf:"bytes,23,opt,name=path_to_claude_code_executable,json=pathToClaudeCodeExecutable,proto3" json:"path_to_claude_code_executable,omitempty"`
+	// Possible values: "default", "acceptEdits", "bypassPermissions", "plan"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
+	PermissionMode           string             `protobuf:"bytes,24,opt,name=permission_mode,json=permissionMode,proto3" json:"permission_mode,omitempty"`
+	PermissionPromptToolName string             `protobuf:"bytes,25,opt,name=permission_prompt_tool_name,json=permissionPromptToolName,proto3" json:"permission_prompt_tool_name,omitempty"`
+	Plugins                  []*SdkPluginConfig `protobuf:"bytes,26,rep,name=plugins,proto3" json:"plugins,omitempty"`
+	Resume                   string             `protobuf:"bytes,27,opt,name=resume,proto3" json:"resume,omitempty"`
+	ResumeSessionAt          string             `protobuf:"bytes,28,opt,name=resume_session_at,json=resumeSessionAt,proto3" json:"resume_session_at,omitempty"`
+	Sandbox                  *SandboxSettings   `protobuf:"bytes,29,opt,name=sandbox,proto3,oneof" json:"sandbox,omitempty"`
+	// Possible values: "user", "project", "local"
+	// See https://platform.claude.com/docs/en/agent-sdk/typescript#setting-source
+	SettingSources  []string      `protobuf:"bytes,30,rep,name=setting_sources,json=settingSources,proto3" json:"setting_sources,omitempty"`
+	StrictMcpConfig bool          `protobuf:"varint,31,opt,name=strict_mcp_config,json=strictMcpConfig,proto3" json:"strict_mcp_config,omitempty"`
+	SystemPrompt    *SystemPrompt `protobuf:"bytes,32,opt,name=system_prompt,json=systemPrompt,proto3,oneof" json:"system_prompt,omitempty"`
+	ToolsList       []string      `protobuf:"bytes,33,rep,name=tools_list,json=toolsList,proto3" json:"tools_list,omitempty"`
+	ToolsPreset     bool          `protobuf:"varint,34,opt,name=tools_preset,json=toolsPreset,proto3" json:"tools_preset,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Options) Reset() {
@@ -983,7 +880,7 @@ func (x *Options) GetAllowedTools() []string {
 	return nil
 }
 
-func (x *Options) GetBetas() []SdkBeta {
+func (x *Options) GetBetas() []string {
 	if x != nil {
 		return x.Betas
 	}
@@ -1116,11 +1013,11 @@ func (x *Options) GetPathToClaudeCodeExecutable() string {
 	return ""
 }
 
-func (x *Options) GetPermissionMode() PermissionMode {
+func (x *Options) GetPermissionMode() string {
 	if x != nil {
 		return x.PermissionMode
 	}
-	return PermissionMode_PERMISSION_MODE_UNSPECIFIED
+	return ""
 }
 
 func (x *Options) GetPermissionPromptToolName() string {
@@ -1158,7 +1055,7 @@ func (x *Options) GetSandbox() *SandboxSettings {
 	return nil
 }
 
-func (x *Options) GetSettingSources() []SettingSource {
+func (x *Options) GetSettingSources() []string {
 	if x != nil {
 		return x.SettingSources
 	}
@@ -1197,7 +1094,7 @@ var File_sdk_types_v1_types_proto protoreflect.FileDescriptor
 
 const file_sdk_types_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"\x18sdk_types/v1/types.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x1dsdk_types/v1/permission.proto\x1a\x1asdk_types/v1/sandbox.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x7f\n" +
+	"\x18sdk_types/v1/types.proto\x12\fsdk_types.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1dsdk_types/v1/permission.proto\x1a\x1asdk_types/v1/sandbox.proto\x1a\x1dsdk_types/v1/tool_input.proto\"\x7f\n" +
 	"\x10PermissionResult\x121\n" +
 	"\x05allow\x18\x01 \x01(\v2\x19.sdk_types.v1.AllowResultH\x00R\x05allow\x12.\n" +
 	"\x04deny\x18\x02 \x01(\v2\x18.sdk_types.v1.DenyResultH\x00R\x04denyB\b\n" +
@@ -1236,12 +1133,12 @@ const file_sdk_types_v1_types_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"%\n" +
 	"\x0fSdkPluginConfig\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"\x91\x01\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"w\n" +
 	"\x0fAgentDefinition\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x14\n" +
 	"\x05tools\x18\x02 \x03(\tR\x05tools\x12\x16\n" +
-	"\x06prompt\x18\x03 \x01(\tR\x06prompt\x12.\n" +
-	"\x05model\x18\x04 \x01(\x0e2\x18.sdk_types.v1.AgentModelR\x05model\",\n" +
+	"\x06prompt\x18\x03 \x01(\tR\x06prompt\x12\x14\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\",\n" +
 	"\x12SystemPromptPreset\x12\x16\n" +
 	"\x06append\x18\x01 \x01(\tR\x06append\"n\n" +
 	"\fSystemPrompt\x12\x18\n" +
@@ -1249,13 +1146,13 @@ const file_sdk_types_v1_types_proto_rawDesc = "" +
 	"\x06preset\x18\x02 \x01(\v2 .sdk_types.v1.SystemPromptPresetH\x00R\x06presetB\b\n" +
 	"\x06prompt\"?\n" +
 	"\fOutputFormat\x12/\n" +
-	"\x06schema\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06schema\"\xaf\x10\n" +
+	"\x06schema\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06schema\"\xdd\x0f\n" +
 	"\aOptions\x125\n" +
 	"\x16additional_directories\x18\x01 \x03(\tR\x15additionalDirectories\x129\n" +
 	"\x06agents\x18\x02 \x03(\v2!.sdk_types.v1.Options.AgentsEntryR\x06agents\x12K\n" +
 	"\"allow_dangerously_skip_permissions\x18\x03 \x01(\bR\x1fallowDangerouslySkipPermissions\x12#\n" +
-	"\rallowed_tools\x18\x04 \x03(\tR\fallowedTools\x12+\n" +
-	"\x05betas\x18\x05 \x03(\x0e2\x15.sdk_types.v1.SdkBetaR\x05betas\x12\x1a\n" +
+	"\rallowed_tools\x18\x04 \x03(\tR\fallowedTools\x12\x14\n" +
+	"\x05betas\x18\x05 \x03(\tR\x05betas\x12\x1a\n" +
 	"\bcontinue\x18\x06 \x01(\bR\bcontinue\x12\x10\n" +
 	"\x03cwd\x18\a \x01(\tR\x03cwd\x12)\n" +
 	"\x10disallowed_tools\x18\b \x03(\tR\x0fdisallowedTools\x12:\n" +
@@ -1278,14 +1175,14 @@ const file_sdk_types_v1_types_proto_rawDesc = "" +
 	"mcpServers\x12\x14\n" +
 	"\x05model\x18\x15 \x01(\tR\x05model\x12D\n" +
 	"\routput_format\x18\x16 \x01(\v2\x1a.sdk_types.v1.OutputFormatH\x03R\foutputFormat\x88\x01\x01\x12B\n" +
-	"\x1epath_to_claude_code_executable\x18\x17 \x01(\tR\x1apathToClaudeCodeExecutable\x12E\n" +
-	"\x0fpermission_mode\x18\x18 \x01(\x0e2\x1c.sdk_types.v1.PermissionModeR\x0epermissionMode\x12=\n" +
+	"\x1epath_to_claude_code_executable\x18\x17 \x01(\tR\x1apathToClaudeCodeExecutable\x12'\n" +
+	"\x0fpermission_mode\x18\x18 \x01(\tR\x0epermissionMode\x12=\n" +
 	"\x1bpermission_prompt_tool_name\x18\x19 \x01(\tR\x18permissionPromptToolName\x127\n" +
 	"\aplugins\x18\x1a \x03(\v2\x1d.sdk_types.v1.SdkPluginConfigR\aplugins\x12\x16\n" +
 	"\x06resume\x18\x1b \x01(\tR\x06resume\x12*\n" +
 	"\x11resume_session_at\x18\x1c \x01(\tR\x0fresumeSessionAt\x12<\n" +
-	"\asandbox\x18\x1d \x01(\v2\x1d.sdk_types.v1.SandboxSettingsH\x04R\asandbox\x88\x01\x01\x12D\n" +
-	"\x0fsetting_sources\x18\x1e \x03(\x0e2\x1b.sdk_types.v1.SettingSourceR\x0esettingSources\x12*\n" +
+	"\asandbox\x18\x1d \x01(\v2\x1d.sdk_types.v1.SandboxSettingsH\x04R\asandbox\x88\x01\x01\x12'\n" +
+	"\x0fsetting_sources\x18\x1e \x03(\tR\x0esettingSources\x12*\n" +
 	"\x11strict_mcp_config\x18\x1f \x01(\bR\x0fstrictMcpConfig\x12D\n" +
 	"\rsystem_prompt\x18  \x01(\v2\x1a.sdk_types.v1.SystemPromptH\x05R\fsystemPrompt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
@@ -1310,19 +1207,7 @@ const file_sdk_types_v1_types_proto_rawDesc = "" +
 	"\x0e_output_formatB\n" +
 	"\n" +
 	"\b_sandboxB\x10\n" +
-	"\x0e_system_prompt*~\n" +
-	"\rSettingSource\x12\x1e\n" +
-	"\x1aSETTING_SOURCE_UNSPECIFIED\x10\x00\x12\x17\n" +
-	"\x13SETTING_SOURCE_USER\x10\x01\x12\x1a\n" +
-	"\x16SETTING_SOURCE_PROJECT\x10\x02\x12\x18\n" +
-	"\x14SETTING_SOURCE_LOCAL\x10\x03*\x87\x01\n" +
-	"\n" +
-	"AgentModel\x12\x1b\n" +
-	"\x17AGENT_MODEL_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12AGENT_MODEL_SONNET\x10\x01\x12\x14\n" +
-	"\x10AGENT_MODEL_OPUS\x10\x02\x12\x15\n" +
-	"\x11AGENT_MODEL_HAIKU\x10\x03\x12\x17\n" +
-	"\x13AGENT_MODEL_INHERIT\x10\x04B\xb6\x01\n" +
+	"\x0e_system_promptB\xb6\x01\n" +
 	"\x10com.sdk_types.v1B\n" +
 	"TypesProtoP\x01ZIgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1\xa2\x02\x03SXX\xaa\x02\vSdkTypes.V1\xca\x02\vSdkTypes\\V1\xe2\x02\x17SdkTypes\\V1\\GPBMetadata\xea\x02\fSdkTypes::V1b\x06proto3"
 
@@ -1338,70 +1223,61 @@ func file_sdk_types_v1_types_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_types_proto_rawDescData
 }
 
-var file_sdk_types_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_sdk_types_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_sdk_types_v1_types_proto_goTypes = []any{
-	(SettingSource)(0),           // 0: sdk_types.v1.SettingSource
-	(AgentModel)(0),              // 1: sdk_types.v1.AgentModel
-	(*PermissionResult)(nil),     // 2: sdk_types.v1.PermissionResult
-	(*AllowResult)(nil),          // 3: sdk_types.v1.AllowResult
-	(*DenyResult)(nil),           // 4: sdk_types.v1.DenyResult
-	(*McpServerConfig)(nil),      // 5: sdk_types.v1.McpServerConfig
-	(*McpStdioServerConfig)(nil), // 6: sdk_types.v1.McpStdioServerConfig
-	(*McpSSEServerConfig)(nil),   // 7: sdk_types.v1.McpSSEServerConfig
-	(*McpHttpServerConfig)(nil),  // 8: sdk_types.v1.McpHttpServerConfig
-	(*SdkPluginConfig)(nil),      // 9: sdk_types.v1.SdkPluginConfig
-	(*AgentDefinition)(nil),      // 10: sdk_types.v1.AgentDefinition
-	(*SystemPromptPreset)(nil),   // 11: sdk_types.v1.SystemPromptPreset
-	(*SystemPrompt)(nil),         // 12: sdk_types.v1.SystemPrompt
-	(*OutputFormat)(nil),         // 13: sdk_types.v1.OutputFormat
-	(*Options)(nil),              // 14: sdk_types.v1.Options
-	nil,                          // 15: sdk_types.v1.McpStdioServerConfig.EnvEntry
-	nil,                          // 16: sdk_types.v1.McpSSEServerConfig.HeadersEntry
-	nil,                          // 17: sdk_types.v1.McpHttpServerConfig.HeadersEntry
-	nil,                          // 18: sdk_types.v1.Options.AgentsEntry
-	nil,                          // 19: sdk_types.v1.Options.EnvEntry
-	nil,                          // 20: sdk_types.v1.Options.ExtraArgsEntry
-	nil,                          // 21: sdk_types.v1.Options.McpServersEntry
-	(*ToolInput)(nil),            // 22: sdk_types.v1.ToolInput
-	(*PermissionUpdate)(nil),     // 23: sdk_types.v1.PermissionUpdate
-	(*structpb.Struct)(nil),      // 24: google.protobuf.Struct
-	(SdkBeta)(0),                 // 25: sdk_types.v1.SdkBeta
-	(PermissionMode)(0),          // 26: sdk_types.v1.PermissionMode
-	(*SandboxSettings)(nil),      // 27: sdk_types.v1.SandboxSettings
+	(*PermissionResult)(nil),     // 0: sdk_types.v1.PermissionResult
+	(*AllowResult)(nil),          // 1: sdk_types.v1.AllowResult
+	(*DenyResult)(nil),           // 2: sdk_types.v1.DenyResult
+	(*McpServerConfig)(nil),      // 3: sdk_types.v1.McpServerConfig
+	(*McpStdioServerConfig)(nil), // 4: sdk_types.v1.McpStdioServerConfig
+	(*McpSSEServerConfig)(nil),   // 5: sdk_types.v1.McpSSEServerConfig
+	(*McpHttpServerConfig)(nil),  // 6: sdk_types.v1.McpHttpServerConfig
+	(*SdkPluginConfig)(nil),      // 7: sdk_types.v1.SdkPluginConfig
+	(*AgentDefinition)(nil),      // 8: sdk_types.v1.AgentDefinition
+	(*SystemPromptPreset)(nil),   // 9: sdk_types.v1.SystemPromptPreset
+	(*SystemPrompt)(nil),         // 10: sdk_types.v1.SystemPrompt
+	(*OutputFormat)(nil),         // 11: sdk_types.v1.OutputFormat
+	(*Options)(nil),              // 12: sdk_types.v1.Options
+	nil,                          // 13: sdk_types.v1.McpStdioServerConfig.EnvEntry
+	nil,                          // 14: sdk_types.v1.McpSSEServerConfig.HeadersEntry
+	nil,                          // 15: sdk_types.v1.McpHttpServerConfig.HeadersEntry
+	nil,                          // 16: sdk_types.v1.Options.AgentsEntry
+	nil,                          // 17: sdk_types.v1.Options.EnvEntry
+	nil,                          // 18: sdk_types.v1.Options.ExtraArgsEntry
+	nil,                          // 19: sdk_types.v1.Options.McpServersEntry
+	(*ToolInput)(nil),            // 20: sdk_types.v1.ToolInput
+	(*PermissionUpdate)(nil),     // 21: sdk_types.v1.PermissionUpdate
+	(*structpb.Struct)(nil),      // 22: google.protobuf.Struct
+	(*SandboxSettings)(nil),      // 23: sdk_types.v1.SandboxSettings
 }
 var file_sdk_types_v1_types_proto_depIdxs = []int32{
-	3,  // 0: sdk_types.v1.PermissionResult.allow:type_name -> sdk_types.v1.AllowResult
-	4,  // 1: sdk_types.v1.PermissionResult.deny:type_name -> sdk_types.v1.DenyResult
-	22, // 2: sdk_types.v1.AllowResult.updated_input:type_name -> sdk_types.v1.ToolInput
-	23, // 3: sdk_types.v1.AllowResult.updated_permissions:type_name -> sdk_types.v1.PermissionUpdate
-	6,  // 4: sdk_types.v1.McpServerConfig.stdio:type_name -> sdk_types.v1.McpStdioServerConfig
-	7,  // 5: sdk_types.v1.McpServerConfig.sse:type_name -> sdk_types.v1.McpSSEServerConfig
-	8,  // 6: sdk_types.v1.McpServerConfig.http:type_name -> sdk_types.v1.McpHttpServerConfig
-	15, // 7: sdk_types.v1.McpStdioServerConfig.env:type_name -> sdk_types.v1.McpStdioServerConfig.EnvEntry
-	16, // 8: sdk_types.v1.McpSSEServerConfig.headers:type_name -> sdk_types.v1.McpSSEServerConfig.HeadersEntry
-	17, // 9: sdk_types.v1.McpHttpServerConfig.headers:type_name -> sdk_types.v1.McpHttpServerConfig.HeadersEntry
-	1,  // 10: sdk_types.v1.AgentDefinition.model:type_name -> sdk_types.v1.AgentModel
-	11, // 11: sdk_types.v1.SystemPrompt.preset:type_name -> sdk_types.v1.SystemPromptPreset
-	24, // 12: sdk_types.v1.OutputFormat.schema:type_name -> google.protobuf.Struct
-	18, // 13: sdk_types.v1.Options.agents:type_name -> sdk_types.v1.Options.AgentsEntry
-	25, // 14: sdk_types.v1.Options.betas:type_name -> sdk_types.v1.SdkBeta
-	19, // 15: sdk_types.v1.Options.env:type_name -> sdk_types.v1.Options.EnvEntry
-	20, // 16: sdk_types.v1.Options.extra_args:type_name -> sdk_types.v1.Options.ExtraArgsEntry
-	21, // 17: sdk_types.v1.Options.mcp_servers:type_name -> sdk_types.v1.Options.McpServersEntry
-	13, // 18: sdk_types.v1.Options.output_format:type_name -> sdk_types.v1.OutputFormat
-	26, // 19: sdk_types.v1.Options.permission_mode:type_name -> sdk_types.v1.PermissionMode
-	9,  // 20: sdk_types.v1.Options.plugins:type_name -> sdk_types.v1.SdkPluginConfig
-	27, // 21: sdk_types.v1.Options.sandbox:type_name -> sdk_types.v1.SandboxSettings
-	0,  // 22: sdk_types.v1.Options.setting_sources:type_name -> sdk_types.v1.SettingSource
-	12, // 23: sdk_types.v1.Options.system_prompt:type_name -> sdk_types.v1.SystemPrompt
-	10, // 24: sdk_types.v1.Options.AgentsEntry.value:type_name -> sdk_types.v1.AgentDefinition
-	5,  // 25: sdk_types.v1.Options.McpServersEntry.value:type_name -> sdk_types.v1.McpServerConfig
-	26, // [26:26] is the sub-list for method output_type
-	26, // [26:26] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	1,  // 0: sdk_types.v1.PermissionResult.allow:type_name -> sdk_types.v1.AllowResult
+	2,  // 1: sdk_types.v1.PermissionResult.deny:type_name -> sdk_types.v1.DenyResult
+	20, // 2: sdk_types.v1.AllowResult.updated_input:type_name -> sdk_types.v1.ToolInput
+	21, // 3: sdk_types.v1.AllowResult.updated_permissions:type_name -> sdk_types.v1.PermissionUpdate
+	4,  // 4: sdk_types.v1.McpServerConfig.stdio:type_name -> sdk_types.v1.McpStdioServerConfig
+	5,  // 5: sdk_types.v1.McpServerConfig.sse:type_name -> sdk_types.v1.McpSSEServerConfig
+	6,  // 6: sdk_types.v1.McpServerConfig.http:type_name -> sdk_types.v1.McpHttpServerConfig
+	13, // 7: sdk_types.v1.McpStdioServerConfig.env:type_name -> sdk_types.v1.McpStdioServerConfig.EnvEntry
+	14, // 8: sdk_types.v1.McpSSEServerConfig.headers:type_name -> sdk_types.v1.McpSSEServerConfig.HeadersEntry
+	15, // 9: sdk_types.v1.McpHttpServerConfig.headers:type_name -> sdk_types.v1.McpHttpServerConfig.HeadersEntry
+	9,  // 10: sdk_types.v1.SystemPrompt.preset:type_name -> sdk_types.v1.SystemPromptPreset
+	22, // 11: sdk_types.v1.OutputFormat.schema:type_name -> google.protobuf.Struct
+	16, // 12: sdk_types.v1.Options.agents:type_name -> sdk_types.v1.Options.AgentsEntry
+	17, // 13: sdk_types.v1.Options.env:type_name -> sdk_types.v1.Options.EnvEntry
+	18, // 14: sdk_types.v1.Options.extra_args:type_name -> sdk_types.v1.Options.ExtraArgsEntry
+	19, // 15: sdk_types.v1.Options.mcp_servers:type_name -> sdk_types.v1.Options.McpServersEntry
+	11, // 16: sdk_types.v1.Options.output_format:type_name -> sdk_types.v1.OutputFormat
+	7,  // 17: sdk_types.v1.Options.plugins:type_name -> sdk_types.v1.SdkPluginConfig
+	23, // 18: sdk_types.v1.Options.sandbox:type_name -> sdk_types.v1.SandboxSettings
+	10, // 19: sdk_types.v1.Options.system_prompt:type_name -> sdk_types.v1.SystemPrompt
+	8,  // 20: sdk_types.v1.Options.AgentsEntry.value:type_name -> sdk_types.v1.AgentDefinition
+	3,  // 21: sdk_types.v1.Options.McpServersEntry.value:type_name -> sdk_types.v1.McpServerConfig
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_types_proto_init() }
@@ -1409,10 +1285,10 @@ func file_sdk_types_v1_types_proto_init() {
 	if File_sdk_types_v1_types_proto != nil {
 		return
 	}
-	file_sdk_types_v1_tool_input_proto_init()
+	file_sdk_types_v1_other_proto_init()
 	file_sdk_types_v1_permission_proto_init()
 	file_sdk_types_v1_sandbox_proto_init()
-	file_sdk_types_v1_other_proto_init()
+	file_sdk_types_v1_tool_input_proto_init()
 	file_sdk_types_v1_types_proto_msgTypes[0].OneofWrappers = []any{
 		(*PermissionResult_Allow)(nil),
 		(*PermissionResult_Deny)(nil),
@@ -1433,14 +1309,13 @@ func file_sdk_types_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_types_proto_rawDesc), len(file_sdk_types_v1_types_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      0,
 			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sdk_types_v1_types_proto_goTypes,
 		DependencyIndexes: file_sdk_types_v1_types_proto_depIdxs,
-		EnumInfos:         file_sdk_types_v1_types_proto_enumTypes,
 		MessageInfos:      file_sdk_types_v1_types_proto_msgTypes,
 	}.Build()
 	File_sdk_types_v1_types_proto = out.File
