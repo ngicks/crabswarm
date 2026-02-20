@@ -31,10 +31,10 @@ message ToolOutput {
 
 // UsageInfo contains token usage statistics.
 message UsageInfo {
-  int32 input_tokens = 1;
-  int32 output_tokens = 2;
-  optional int32 cache_creation_input_tokens = 3;
-  optional int32 cache_read_input_tokens = 4;
+  int32 input_tokens = 1 [json_name = "input_tokens"];
+  int32 output_tokens = 2 [json_name = "output_tokens"];
+  optional int32 cache_creation_input_tokens = 3 [json_name = "cache_creation_input_tokens"];
+  optional int32 cache_read_input_tokens = 4 [json_name = "cache_read_input_tokens"];
 }
 
 // TaskOutput returns the final result from the subagent.
@@ -44,9 +44,9 @@ message TaskOutput {
   // Token usage statistics.
   UsageInfo usage = 2;
   // Total cost in USD.
-  optional double total_cost_usd = 3;
+  optional double total_cost_usd = 3 [json_name = "total_cost_usd"];
   // Execution duration in milliseconds.
-  optional int64 duration_ms = 4;
+  optional int64 duration_ms = 4 [json_name = "duration_ms"];
 }
 
 // AskUserQuestionOutput returns the questions asked and the user's answers.
@@ -88,7 +88,7 @@ message EditOutput {
   // Number of replacements made.
   int32 replacements = 2;
   // File path that was edited.
-  string file_path = 3;
+  string file_path = 3 [json_name = "file_path"];
 }
 
 // TextFileOutput contains text file contents.
@@ -96,9 +96,9 @@ message TextFileOutput {
   // File contents with line numbers.
   string content = 1;
   // Total number of lines in file.
-  int32 total_lines = 2;
+  int32 total_lines = 2 [json_name = "total_lines"];
   // Lines actually returned.
-  int32 lines_returned = 3;
+  int32 lines_returned = 3 [json_name = "lines_returned"];
 }
 
 // ImageFileOutput contains image file contents.
@@ -106,9 +106,9 @@ message ImageFileOutput {
   // Base64 encoded image data.
   string image = 1;
   // Image MIME type.
-  string mime_type = 2;
+  string mime_type = 2 [json_name = "mime_type"];
   // File size in bytes.
-  int64 file_size = 3;
+  int64 file_size = 3 [json_name = "file_size"];
 }
 
 // PDFPageImage contains an image extracted from a PDF page.
@@ -116,13 +116,13 @@ message PDFPageImage {
   // Base64 encoded image data.
   string image = 1;
   // Image MIME type.
-  string mime_type = 2;
+  string mime_type = 2 [json_name = "mime_type"];
 }
 
 // PDFPage contains the contents of a single PDF page.
 message PDFPage {
   // Page number.
-  int32 page_number = 1;
+  int32 page_number = 1 [json_name = "page_number"];
   // Text content of the page.
   optional string text = 2;
   // Images extracted from the page.
@@ -134,19 +134,19 @@ message PDFFileOutput {
   // Array of page contents.
   repeated PDFPage pages = 1;
   // Total number of pages.
-  int32 total_pages = 2;
+  int32 total_pages = 2 [json_name = "total_pages"];
 }
 
 // NotebookCell contains a single Jupyter notebook cell.
 message NotebookCell {
   // Cell type (code or markdown).
-  string cell_type = 1;
+  string cell_type = 1 [json_name = "cell_type"];
   // Cell source content.
   string source = 2;
   // Cell outputs as JSON.
   repeated google.protobuf.Value outputs = 3;
   // Execution count.
-  optional int32 execution_count = 4;
+  optional int32 execution_count = 4 [json_name = "execution_count"];
 }
 
 // NotebookFileOutput contains Jupyter notebook contents.
@@ -172,9 +172,9 @@ message WriteOutput {
   // Success message.
   string message = 1;
   // Number of bytes written.
-  int64 bytes_written = 2;
+  int64 bytes_written = 2 [json_name = "bytes_written"];
   // File path that was written.
-  string file_path = 3;
+  string file_path = 3 [json_name = "file_path"];
 }
 
 // GlobOutput returns file paths matching the glob pattern.
@@ -184,7 +184,7 @@ message GlobOutput {
   // Number of matches found.
   int32 count = 2;
   // Search directory used.
-  string search_path = 3;
+  string search_path = 3 [json_name = "search_path"];
 }
 
 // GrepMatch represents a single grep match with context.
@@ -192,13 +192,13 @@ message GrepMatch {
   // File containing the match.
   string file = 1;
   // Line number of the match.
-  optional int32 line_number = 2;
+  optional int32 line_number = 2 [json_name = "line_number"];
   // Matching line content.
   string line = 3;
   // Lines before the match.
-  repeated string before_context = 4;
+  repeated string before_context = 4 [json_name = "before_context"];
   // Lines after the match.
-  repeated string after_context = 5;
+  repeated string after_context = 5 [json_name = "after_context"];
 }
 
 // GrepContentOutput contains matching lines with context.
@@ -206,7 +206,7 @@ message GrepContentOutput {
   // Matching lines with context.
   repeated GrepMatch matches = 1;
   // Total number of matches.
-  int32 total_matches = 2;
+  int32 total_matches = 2 [json_name = "total_matches"];
 }
 
 // GrepFilesOutput contains files with matches.
@@ -247,7 +247,7 @@ message KillBashOutput {
   // Success message.
   string message = 1;
   // ID of the killed shell.
-  string shell_id = 2;
+  string shell_id = 2 [json_name = "shell_id"];
 }
 
 // NotebookEditOutput returns confirmation after modifying a Jupyter notebook.
@@ -257,11 +257,11 @@ message NotebookEditOutput {
   string message = 1;
   // Possible values: "replaced", "inserted", "deleted"
   // See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-output
-  string edit_type = 2;
+  string edit_type = 2 [json_name = "edit_type"];
   // Cell ID that was affected.
-  optional string cell_id = 3;
+  optional string cell_id = 3 [json_name = "cell_id"];
   // Total cells in notebook after edit.
-  int32 total_cells = 4;
+  int32 total_cells = 4 [json_name = "total_cells"];
 }
 
 // WebFetchOutput returns the AI's analysis of fetched web content.
@@ -271,9 +271,9 @@ message WebFetchOutput {
   // URL that was fetched.
   string url = 2;
   // Final URL after redirects.
-  optional string final_url = 3;
+  optional string final_url = 3 [json_name = "final_url"];
   // HTTP status code.
-  optional int32 status_code = 4;
+  optional int32 status_code = 4 [json_name = "status_code"];
 }
 
 // WebSearchResult represents a single web search result.
@@ -293,7 +293,7 @@ message WebSearchOutput {
   // Search results.
   repeated WebSearchResult results = 1;
   // Total number of results.
-  int32 total_results = 2;
+  int32 total_results = 2 [json_name = "total_results"];
   // The query that was searched.
   string query = 3;
 }
@@ -302,7 +302,7 @@ message WebSearchOutput {
 message TodoStats {
   int32 total = 1;
   int32 pending = 2;
-  int32 in_progress = 3;
+  int32 in_progress = 3 [json_name = "in_progress"];
   int32 completed = 4;
 }
 

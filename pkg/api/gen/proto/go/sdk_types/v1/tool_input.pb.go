@@ -371,7 +371,7 @@ type AgentInput struct {
 	// The task for the agent to perform.
 	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// The type of specialized agent to use for this task.
-	SubagentType  string `protobuf:"bytes,3,opt,name=subagent_type,json=subagentType,proto3" json:"subagent_type,omitempty"`
+	SubagentType  string `protobuf:"bytes,3,opt,name=subagent_type,proto3" json:"subagent_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -621,7 +621,7 @@ type BashInput struct {
 	// Clear, concise description of what this command does.
 	Description *string `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// Set to true to run this command in the background.
-	RunInBackground *bool `protobuf:"varint,4,opt,name=run_in_background,json=runInBackground,proto3,oneof" json:"run_in_background,omitempty"`
+	RunInBackground *bool `protobuf:"varint,4,opt,name=run_in_background,proto3,oneof" json:"run_in_background,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -688,7 +688,7 @@ func (x *BashInput) GetRunInBackground() bool {
 type BashOutputInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The ID of the background shell to retrieve output from.
-	BashId string `protobuf:"bytes,1,opt,name=bash_id,json=bashId,proto3" json:"bash_id,omitempty"`
+	BashId string `protobuf:"bytes,1,opt,name=bash_id,proto3" json:"bash_id,omitempty"`
 	// Optional regex to filter output lines.
 	Filter        *string `protobuf:"bytes,2,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -743,13 +743,13 @@ func (x *BashOutputInput) GetFilter() string {
 type FileEditInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The absolute path to the file to modify.
-	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath string `protobuf:"bytes,1,opt,name=file_path,proto3" json:"file_path,omitempty"`
 	// The text to replace.
-	OldString string `protobuf:"bytes,2,opt,name=old_string,json=oldString,proto3" json:"old_string,omitempty"`
+	OldString string `protobuf:"bytes,2,opt,name=old_string,proto3" json:"old_string,omitempty"`
 	// The text to replace it with (must be different from old_string).
-	NewString string `protobuf:"bytes,3,opt,name=new_string,json=newString,proto3" json:"new_string,omitempty"`
+	NewString string `protobuf:"bytes,3,opt,name=new_string,proto3" json:"new_string,omitempty"`
 	// Replace all occurrences of old_string (default false).
-	ReplaceAll    *bool `protobuf:"varint,4,opt,name=replace_all,json=replaceAll,proto3,oneof" json:"replace_all,omitempty"`
+	ReplaceAll    *bool `protobuf:"varint,4,opt,name=replace_all,proto3,oneof" json:"replace_all,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -816,7 +816,7 @@ func (x *FileEditInput) GetReplaceAll() bool {
 type FileReadInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The absolute path to the file to read.
-	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath string `protobuf:"bytes,1,opt,name=file_path,proto3" json:"file_path,omitempty"`
 	// The line number to start reading from.
 	Offset *int32 `protobuf:"varint,2,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
 	// The number of lines to read.
@@ -880,7 +880,7 @@ func (x *FileReadInput) GetLimit() int32 {
 type FileWriteInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The absolute path to the file to write.
-	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath string `protobuf:"bytes,1,opt,name=file_path,proto3" json:"file_path,omitempty"`
 	// The content to write to the file.
 	Content       string `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1000,19 +1000,19 @@ type GrepInput struct {
 	Type *string `protobuf:"bytes,4,opt,name=type,proto3,oneof" json:"type,omitempty"`
 	// Possible values: "content", "files_with_matches", "count"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#grep-input
-	OutputMode string `protobuf:"bytes,5,opt,name=output_mode,json=outputMode,proto3" json:"output_mode,omitempty"`
-	// Case insensitive search.
-	CaseInsensitive *bool `protobuf:"varint,6,opt,name=case_insensitive,json=caseInsensitive,proto3,oneof" json:"case_insensitive,omitempty"`
-	// Show line numbers (for content mode).
-	ShowLineNumbers *bool `protobuf:"varint,7,opt,name=show_line_numbers,json=showLineNumbers,proto3,oneof" json:"show_line_numbers,omitempty"`
-	// Lines to show before each match.
-	BeforeContext *int32 `protobuf:"varint,8,opt,name=before_context,json=beforeContext,proto3,oneof" json:"before_context,omitempty"`
-	// Lines to show after each match.
-	AfterContext *int32 `protobuf:"varint,9,opt,name=after_context,json=afterContext,proto3,oneof" json:"after_context,omitempty"`
-	// Lines to show before and after each match.
-	Context *int32 `protobuf:"varint,10,opt,name=context,proto3,oneof" json:"context,omitempty"`
+	OutputMode string `protobuf:"bytes,5,opt,name=output_mode,proto3" json:"output_mode,omitempty"`
+	// Case insensitive search. TS SDK uses "-i" as JSON key.
+	CaseInsensitive *bool `protobuf:"varint,6,opt,name=case_insensitive,json=-i,proto3,oneof" json:"case_insensitive,omitempty"`
+	// Show line numbers (for content mode). TS SDK uses "-n" as JSON key.
+	ShowLineNumbers *bool `protobuf:"varint,7,opt,name=show_line_numbers,json=-n,proto3,oneof" json:"show_line_numbers,omitempty"`
+	// Lines to show before each match. TS SDK uses "-B" as JSON key.
+	BeforeContext *int32 `protobuf:"varint,8,opt,name=before_context,json=-B,proto3,oneof" json:"before_context,omitempty"`
+	// Lines to show after each match. TS SDK uses "-A" as JSON key.
+	AfterContext *int32 `protobuf:"varint,9,opt,name=after_context,json=-A,proto3,oneof" json:"after_context,omitempty"`
+	// Lines to show before and after each match. TS SDK uses "-C" as JSON key.
+	Context *int32 `protobuf:"varint,10,opt,name=context,json=-C,proto3,oneof" json:"context,omitempty"`
 	// Limit output to first N lines/entries.
-	HeadLimit *int32 `protobuf:"varint,11,opt,name=head_limit,json=headLimit,proto3,oneof" json:"head_limit,omitempty"`
+	HeadLimit *int32 `protobuf:"varint,11,opt,name=head_limit,proto3,oneof" json:"head_limit,omitempty"`
 	// Enable multiline mode.
 	Multiline     *bool `protobuf:"varint,12,opt,name=multiline,proto3,oneof" json:"multiline,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1184,17 +1184,17 @@ func (x *KillShellInput) GetShellId() string {
 type NotebookEditInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The absolute path to the Jupyter notebook file.
-	NotebookPath string `protobuf:"bytes,1,opt,name=notebook_path,json=notebookPath,proto3" json:"notebook_path,omitempty"`
+	NotebookPath string `protobuf:"bytes,1,opt,name=notebook_path,proto3" json:"notebook_path,omitempty"`
 	// The ID of the cell to edit.
-	CellId *string `protobuf:"bytes,2,opt,name=cell_id,json=cellId,proto3,oneof" json:"cell_id,omitempty"`
+	CellId *string `protobuf:"bytes,2,opt,name=cell_id,proto3,oneof" json:"cell_id,omitempty"`
 	// The new source for the cell.
-	NewSource string `protobuf:"bytes,3,opt,name=new_source,json=newSource,proto3" json:"new_source,omitempty"`
+	NewSource string `protobuf:"bytes,3,opt,name=new_source,proto3" json:"new_source,omitempty"`
 	// Possible values: "code", "markdown"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
-	CellType string `protobuf:"bytes,4,opt,name=cell_type,json=cellType,proto3" json:"cell_type,omitempty"`
+	CellType string `protobuf:"bytes,4,opt,name=cell_type,proto3" json:"cell_type,omitempty"`
 	// Possible values: "replace", "insert", "delete"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
-	EditMode      string `protobuf:"bytes,5,opt,name=edit_mode,json=editMode,proto3" json:"edit_mode,omitempty"`
+	EditMode      string `protobuf:"bytes,5,opt,name=edit_mode,proto3" json:"edit_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1325,9 +1325,9 @@ type WebSearchInput struct {
 	// The search query to use.
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	// Only include results from these domains.
-	AllowedDomains []string `protobuf:"bytes,2,rep,name=allowed_domains,json=allowedDomains,proto3" json:"allowed_domains,omitempty"`
+	AllowedDomains []string `protobuf:"bytes,2,rep,name=allowed_domains,proto3" json:"allowed_domains,omitempty"`
 	// Never include results from these domains.
-	BlockedDomains []string `protobuf:"bytes,3,rep,name=blocked_domains,json=blockedDomains,proto3" json:"blocked_domains,omitempty"`
+	BlockedDomains []string `protobuf:"bytes,3,rep,name=blocked_domains,proto3" json:"blocked_domains,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1672,12 +1672,12 @@ const file_sdk_types_v1_tool_input_proto_rawDesc = "" +
 	"\x12list_mcp_resources\x18\x10 \x01(\v2#.sdk_types.v1.ListMcpResourcesInputH\x00R\x10listMcpResources\x12P\n" +
 	"\x11read_mcp_resource\x18\x11 \x01(\v2\".sdk_types.v1.ReadMcpResourceInputH\x00R\x0freadMcpResource\x124\n" +
 	"\bmcp_tool\x18\x12 \x01(\v2\x17.google.protobuf.StructH\x00R\amcpToolB\a\n" +
-	"\x05input\"k\n" +
+	"\x05input\"l\n" +
 	"\n" +
 	"AgentInput\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x16\n" +
-	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12#\n" +
-	"\rsubagent_type\x18\x03 \x01(\tR\fsubagentType\"H\n" +
+	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12$\n" +
+	"\rsubagent_type\x18\x03 \x01(\tR\rsubagent_type\"H\n" +
 	"\x0eQuestionOption\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x99\x01\n" +
@@ -1691,57 +1691,58 @@ const file_sdk_types_v1_tool_input_proto_rawDesc = "" +
 	"\aanswers\x18\x02 \x03(\v2/.sdk_types.v1.AskUserQuestionInput.AnswersEntryR\aanswers\x1a:\n" +
 	"\fAnswersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xce\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd0\x01\n" +
 	"\tBashInput\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\tR\acommand\x12\x1d\n" +
 	"\atimeout\x18\x02 \x01(\x05H\x00R\atimeout\x88\x01\x01\x12%\n" +
-	"\vdescription\x18\x03 \x01(\tH\x01R\vdescription\x88\x01\x01\x12/\n" +
-	"\x11run_in_background\x18\x04 \x01(\bH\x02R\x0frunInBackground\x88\x01\x01B\n" +
+	"\vdescription\x18\x03 \x01(\tH\x01R\vdescription\x88\x01\x01\x121\n" +
+	"\x11run_in_background\x18\x04 \x01(\bH\x02R\x11run_in_background\x88\x01\x01B\n" +
 	"\n" +
 	"\b_timeoutB\x0e\n" +
 	"\f_descriptionB\x14\n" +
-	"\x12_run_in_background\"R\n" +
-	"\x0fBashOutputInput\x12\x17\n" +
-	"\abash_id\x18\x01 \x01(\tR\x06bashId\x12\x1b\n" +
+	"\x12_run_in_background\"S\n" +
+	"\x0fBashOutputInput\x12\x18\n" +
+	"\abash_id\x18\x01 \x01(\tR\abash_id\x12\x1b\n" +
 	"\x06filter\x18\x02 \x01(\tH\x00R\x06filter\x88\x01\x01B\t\n" +
-	"\a_filter\"\xa0\x01\n" +
-	"\rFileEditInput\x12\x1b\n" +
-	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x1d\n" +
+	"\a_filter\"\xa4\x01\n" +
+	"\rFileEditInput\x12\x1c\n" +
+	"\tfile_path\x18\x01 \x01(\tR\tfile_path\x12\x1e\n" +
 	"\n" +
-	"old_string\x18\x02 \x01(\tR\toldString\x12\x1d\n" +
+	"old_string\x18\x02 \x01(\tR\n" +
+	"old_string\x12\x1e\n" +
 	"\n" +
-	"new_string\x18\x03 \x01(\tR\tnewString\x12$\n" +
-	"\vreplace_all\x18\x04 \x01(\bH\x00R\n" +
-	"replaceAll\x88\x01\x01B\x0e\n" +
-	"\f_replace_all\"y\n" +
-	"\rFileReadInput\x12\x1b\n" +
-	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x1b\n" +
+	"new_string\x18\x03 \x01(\tR\n" +
+	"new_string\x12%\n" +
+	"\vreplace_all\x18\x04 \x01(\bH\x00R\vreplace_all\x88\x01\x01B\x0e\n" +
+	"\f_replace_all\"z\n" +
+	"\rFileReadInput\x12\x1c\n" +
+	"\tfile_path\x18\x01 \x01(\tR\tfile_path\x12\x1b\n" +
 	"\x06offset\x18\x02 \x01(\x05H\x00R\x06offset\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x03 \x01(\x05H\x01R\x05limit\x88\x01\x01B\t\n" +
 	"\a_offsetB\b\n" +
-	"\x06_limit\"G\n" +
-	"\x0eFileWriteInput\x12\x1b\n" +
-	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x18\n" +
+	"\x06_limit\"H\n" +
+	"\x0eFileWriteInput\x12\x1c\n" +
+	"\tfile_path\x18\x01 \x01(\tR\tfile_path\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\"G\n" +
 	"\tGlobInput\x12\x18\n" +
 	"\apattern\x18\x01 \x01(\tR\apattern\x12\x17\n" +
 	"\x04path\x18\x02 \x01(\tH\x00R\x04path\x88\x01\x01B\a\n" +
-	"\x05_path\"\xc2\x04\n" +
+	"\x05_path\"\x90\x04\n" +
 	"\tGrepInput\x12\x18\n" +
 	"\apattern\x18\x01 \x01(\tR\apattern\x12\x17\n" +
 	"\x04path\x18\x02 \x01(\tH\x00R\x04path\x88\x01\x01\x12\x17\n" +
 	"\x04glob\x18\x03 \x01(\tH\x01R\x04glob\x88\x01\x01\x12\x17\n" +
-	"\x04type\x18\x04 \x01(\tH\x02R\x04type\x88\x01\x01\x12\x1f\n" +
-	"\voutput_mode\x18\x05 \x01(\tR\n" +
-	"outputMode\x12.\n" +
-	"\x10case_insensitive\x18\x06 \x01(\bH\x03R\x0fcaseInsensitive\x88\x01\x01\x12/\n" +
-	"\x11show_line_numbers\x18\a \x01(\bH\x04R\x0fshowLineNumbers\x88\x01\x01\x12*\n" +
-	"\x0ebefore_context\x18\b \x01(\x05H\x05R\rbeforeContext\x88\x01\x01\x12(\n" +
-	"\rafter_context\x18\t \x01(\x05H\x06R\fafterContext\x88\x01\x01\x12\x1d\n" +
+	"\x04type\x18\x04 \x01(\tH\x02R\x04type\x88\x01\x01\x12 \n" +
+	"\voutput_mode\x18\x05 \x01(\tR\voutput_mode\x12!\n" +
+	"\x10case_insensitive\x18\x06 \x01(\bH\x03R\x02-i\x88\x01\x01\x12\"\n" +
+	"\x11show_line_numbers\x18\a \x01(\bH\x04R\x02-n\x88\x01\x01\x12\x1f\n" +
+	"\x0ebefore_context\x18\b \x01(\x05H\x05R\x02-B\x88\x01\x01\x12\x1e\n" +
+	"\rafter_context\x18\t \x01(\x05H\x06R\x02-A\x88\x01\x01\x12\x18\n" +
 	"\acontext\x18\n" +
-	" \x01(\x05H\aR\acontext\x88\x01\x01\x12\"\n" +
+	" \x01(\x05H\aR\x02-C\x88\x01\x01\x12#\n" +
 	"\n" +
-	"head_limit\x18\v \x01(\x05H\bR\theadLimit\x88\x01\x01\x12!\n" +
+	"head_limit\x18\v \x01(\x05H\bR\n" +
+	"head_limit\x88\x01\x01\x12!\n" +
 	"\tmultiline\x18\f \x01(\bH\tR\tmultiline\x88\x01\x01B\a\n" +
 	"\x05_pathB\a\n" +
 	"\x05_globB\a\n" +
@@ -1756,23 +1757,24 @@ const file_sdk_types_v1_tool_input_proto_rawDesc = "" +
 	"\n" +
 	"_multiline\"+\n" +
 	"\x0eKillShellInput\x12\x19\n" +
-	"\bshell_id\x18\x01 \x01(\tR\ashellId\"\xbb\x01\n" +
-	"\x11NotebookEditInput\x12#\n" +
-	"\rnotebook_path\x18\x01 \x01(\tR\fnotebookPath\x12\x1c\n" +
-	"\acell_id\x18\x02 \x01(\tH\x00R\x06cellId\x88\x01\x01\x12\x1d\n" +
+	"\bshell_id\x18\x01 \x01(\tR\ashellId\"\xc0\x01\n" +
+	"\x11NotebookEditInput\x12$\n" +
+	"\rnotebook_path\x18\x01 \x01(\tR\rnotebook_path\x12\x1d\n" +
+	"\acell_id\x18\x02 \x01(\tH\x00R\acell_id\x88\x01\x01\x12\x1e\n" +
 	"\n" +
-	"new_source\x18\x03 \x01(\tR\tnewSource\x12\x1b\n" +
-	"\tcell_type\x18\x04 \x01(\tR\bcellType\x12\x1b\n" +
-	"\tedit_mode\x18\x05 \x01(\tR\beditModeB\n" +
+	"new_source\x18\x03 \x01(\tR\n" +
+	"new_source\x12\x1c\n" +
+	"\tcell_type\x18\x04 \x01(\tR\tcell_type\x12\x1c\n" +
+	"\tedit_mode\x18\x05 \x01(\tR\tedit_modeB\n" +
 	"\n" +
 	"\b_cell_id\"9\n" +
 	"\rWebFetchInput\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x16\n" +
-	"\x06prompt\x18\x02 \x01(\tR\x06prompt\"x\n" +
+	"\x06prompt\x18\x02 \x01(\tR\x06prompt\"z\n" +
 	"\x0eWebSearchInput\x12\x14\n" +
-	"\x05query\x18\x01 \x01(\tR\x05query\x12'\n" +
-	"\x0fallowed_domains\x18\x02 \x03(\tR\x0eallowedDomains\x12'\n" +
-	"\x0fblocked_domains\x18\x03 \x03(\tR\x0eblockedDomains\"]\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12(\n" +
+	"\x0fallowed_domains\x18\x02 \x03(\tR\x0fallowed_domains\x12(\n" +
+	"\x0fblocked_domains\x18\x03 \x03(\tR\x0fblocked_domains\"]\n" +
 	"\bTodoItem\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1f\n" +

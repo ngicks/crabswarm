@@ -9,136 +9,160 @@ import "sdk_types/v1/tool_output.proto";
 // PreToolUseHookInput represents input for the pre-tool-use hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-tool-use-hook-input
 message PreToolUseHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
-  string tool_name = 5;
-  ToolInput tool_input = 6;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  string tool_name = 5 [json_name = "tool_name"];
+  ToolInput tool_input = 6 [json_name = "tool_input"];
+  // hook_event_name discriminator. Value must be "PreToolUse".
+  string hook_event_name = 7 [json_name = "hook_event_name"];
 }
 
 // PostToolUseHookInput represents input for the post-tool-use hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-hook-input
 message PostToolUseHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
-  string tool_name = 5;
-  ToolInput tool_input = 6;
-  ToolOutput tool_response = 7;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  string tool_name = 5 [json_name = "tool_name"];
+  ToolInput tool_input = 6 [json_name = "tool_input"];
+  ToolOutput tool_response = 7 [json_name = "tool_response"];
+  // hook_event_name discriminator. Value must be "PostToolUse".
+  string hook_event_name = 8 [json_name = "hook_event_name"];
 }
 
 // PostToolUseFailureHookInput represents input for the post-tool-use-failure hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-failure-hook-input
 message PostToolUseFailureHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
-  string tool_name = 5;
-  ToolInput tool_input = 6;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  string tool_name = 5 [json_name = "tool_name"];
+  ToolInput tool_input = 6 [json_name = "tool_input"];
   string error = 7;
-  optional bool is_interrupt = 8;
+  optional bool is_interrupt = 8 [json_name = "is_interrupt"];
+  // hook_event_name discriminator. Value must be "PostToolUseFailure".
+  string hook_event_name = 9 [json_name = "hook_event_name"];
 }
 
 // NotificationHookInput represents input for the notification hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#notification-hook-input
 message NotificationHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
   string message = 5;
   optional string title = 6;
+  // hook_event_name discriminator. Value must be "Notification".
+  string hook_event_name = 7 [json_name = "hook_event_name"];
 }
 
 // UserPromptSubmitHookInput represents input for the user-prompt-submit hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#user-prompt-submit-hook-input
 message UserPromptSubmitHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
   string prompt = 5;
+  // hook_event_name discriminator. Value must be "UserPromptSubmit".
+  string hook_event_name = 6 [json_name = "hook_event_name"];
 }
 
 // SessionStartHookInput represents input for the session-start hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
 message SessionStartHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
   // Possible values: "startup", "resume", "clear", "compact"
   // See https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
   string source = 5;
+  // hook_event_name discriminator. Value must be "SessionStart".
+  string hook_event_name = 6 [json_name = "hook_event_name"];
 }
 
 // SessionEndHookInput represents input for the session-end hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-end-hook-input
 message SessionEndHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
   string reason = 5;
+  // hook_event_name discriminator. Value must be "SessionEnd".
+  string hook_event_name = 6 [json_name = "hook_event_name"];
 }
 
 // StopHookInput represents input for the stop hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#stop-hook-input
 message StopHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
-  bool stop_hook_active = 5;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  bool stop_hook_active = 5 [json_name = "stop_hook_active"];
+  // hook_event_name discriminator. Value must be "Stop".
+  string hook_event_name = 6 [json_name = "hook_event_name"];
 }
 
 // SubagentStartHookInput represents input for the subagent-start hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#subagent-start-hook-input
 message SubagentStartHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
-  string agent_id = 5;
-  string agent_type = 6;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  string agent_id = 5 [json_name = "agent_id"];
+  string agent_type = 6 [json_name = "agent_type"];
+  // hook_event_name discriminator. Value must be "SubagentStart".
+  string hook_event_name = 7 [json_name = "hook_event_name"];
 }
 
 // SubagentStopHookInput represents input for the subagent-stop hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#subagent-stop-hook-input
 message SubagentStopHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
-  bool stop_hook_active = 5;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  bool stop_hook_active = 5 [json_name = "stop_hook_active"];
+  // hook_event_name discriminator. Value must be "SubagentStop".
+  string hook_event_name = 6 [json_name = "hook_event_name"];
 }
 
 // PreCompactHookInput represents input for the pre-compact hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
 message PreCompactHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
   // Possible values: "manual", "auto"
   // See https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
   string trigger = 5;
-  optional string custom_instructions = 6;
+  optional string custom_instructions = 6 [json_name = "custom_instructions"];
+  // hook_event_name discriminator. Value must be "PreCompact".
+  string hook_event_name = 7 [json_name = "hook_event_name"];
 }
 
 // PermissionRequestHookInput represents input for the permission-request hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-request-hook-input
 message PermissionRequestHookInput {
-  string session_id = 1;
-  string transcript_path = 2;
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
-  optional string permission_mode = 4;
-  string tool_name = 5;
-  ToolInput tool_input = 6;
-  repeated PermissionUpdate permission_suggestions = 7;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  string tool_name = 5 [json_name = "tool_name"];
+  ToolInput tool_input = 6 [json_name = "tool_input"];
+  repeated PermissionUpdate permission_suggestions = 7 [json_name = "permission_suggestions"];
+  // hook_event_name discriminator. Value must be "PermissionRequest".
+  string hook_event_name = 8 [json_name = "hook_event_name"];
 }
 
 // HookInput is a union wrapper for all hook input types.

@@ -364,10 +364,10 @@ func (*ToolOutput_McpTool) isToolOutput_Output() {}
 // UsageInfo contains token usage statistics.
 type UsageInfo struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
-	InputTokens              int32                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens,proto3" json:"input_tokens,omitempty"`
-	OutputTokens             int32                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens,proto3" json:"output_tokens,omitempty"`
-	CacheCreationInputTokens *int32                 `protobuf:"varint,3,opt,name=cache_creation_input_tokens,json=cacheCreationInputTokens,proto3,oneof" json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     *int32                 `protobuf:"varint,4,opt,name=cache_read_input_tokens,json=cacheReadInputTokens,proto3,oneof" json:"cache_read_input_tokens,omitempty"`
+	InputTokens              int32                  `protobuf:"varint,1,opt,name=input_tokens,proto3" json:"input_tokens,omitempty"`
+	OutputTokens             int32                  `protobuf:"varint,2,opt,name=output_tokens,proto3" json:"output_tokens,omitempty"`
+	CacheCreationInputTokens *int32                 `protobuf:"varint,3,opt,name=cache_creation_input_tokens,proto3,oneof" json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     *int32                 `protobuf:"varint,4,opt,name=cache_read_input_tokens,proto3,oneof" json:"cache_read_input_tokens,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -438,9 +438,9 @@ type TaskOutput struct {
 	// Token usage statistics.
 	Usage *UsageInfo `protobuf:"bytes,2,opt,name=usage,proto3" json:"usage,omitempty"`
 	// Total cost in USD.
-	TotalCostUsd *float64 `protobuf:"fixed64,3,opt,name=total_cost_usd,json=totalCostUsd,proto3,oneof" json:"total_cost_usd,omitempty"`
+	TotalCostUsd *float64 `protobuf:"fixed64,3,opt,name=total_cost_usd,proto3,oneof" json:"total_cost_usd,omitempty"`
 	// Execution duration in milliseconds.
-	DurationMs    *int64 `protobuf:"varint,4,opt,name=duration_ms,json=durationMs,proto3,oneof" json:"duration_ms,omitempty"`
+	DurationMs    *int64 `protobuf:"varint,4,opt,name=duration_ms,proto3,oneof" json:"duration_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -705,7 +705,7 @@ type EditOutput struct {
 	// Number of replacements made.
 	Replacements int32 `protobuf:"varint,2,opt,name=replacements,proto3" json:"replacements,omitempty"`
 	// File path that was edited.
-	FilePath      string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath      string `protobuf:"bytes,3,opt,name=file_path,proto3" json:"file_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -767,9 +767,9 @@ type TextFileOutput struct {
 	// File contents with line numbers.
 	Content string `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
 	// Total number of lines in file.
-	TotalLines int32 `protobuf:"varint,2,opt,name=total_lines,json=totalLines,proto3" json:"total_lines,omitempty"`
+	TotalLines int32 `protobuf:"varint,2,opt,name=total_lines,proto3" json:"total_lines,omitempty"`
 	// Lines actually returned.
-	LinesReturned int32 `protobuf:"varint,3,opt,name=lines_returned,json=linesReturned,proto3" json:"lines_returned,omitempty"`
+	LinesReturned int32 `protobuf:"varint,3,opt,name=lines_returned,proto3" json:"lines_returned,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -831,9 +831,9 @@ type ImageFileOutput struct {
 	// Base64 encoded image data.
 	Image string `protobuf:"bytes,1,opt,name=image,proto3" json:"image,omitempty"`
 	// Image MIME type.
-	MimeType string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	MimeType string `protobuf:"bytes,2,opt,name=mime_type,proto3" json:"mime_type,omitempty"`
 	// File size in bytes.
-	FileSize      int64 `protobuf:"varint,3,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
+	FileSize      int64 `protobuf:"varint,3,opt,name=file_size,proto3" json:"file_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -895,7 +895,7 @@ type PDFPageImage struct {
 	// Base64 encoded image data.
 	Image string `protobuf:"bytes,1,opt,name=image,proto3" json:"image,omitempty"`
 	// Image MIME type.
-	MimeType      string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	MimeType      string `protobuf:"bytes,2,opt,name=mime_type,proto3" json:"mime_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -948,7 +948,7 @@ func (x *PDFPageImage) GetMimeType() string {
 type PDFPage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Page number.
-	PageNumber int32 `protobuf:"varint,1,opt,name=page_number,json=pageNumber,proto3" json:"page_number,omitempty"`
+	PageNumber int32 `protobuf:"varint,1,opt,name=page_number,proto3" json:"page_number,omitempty"`
 	// Text content of the page.
 	Text *string `protobuf:"bytes,2,opt,name=text,proto3,oneof" json:"text,omitempty"`
 	// Images extracted from the page.
@@ -1014,7 +1014,7 @@ type PDFFileOutput struct {
 	// Array of page contents.
 	Pages []*PDFPage `protobuf:"bytes,1,rep,name=pages,proto3" json:"pages,omitempty"`
 	// Total number of pages.
-	TotalPages    int32 `protobuf:"varint,2,opt,name=total_pages,json=totalPages,proto3" json:"total_pages,omitempty"`
+	TotalPages    int32 `protobuf:"varint,2,opt,name=total_pages,proto3" json:"total_pages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1067,13 +1067,13 @@ func (x *PDFFileOutput) GetTotalPages() int32 {
 type NotebookCell struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Cell type (code or markdown).
-	CellType string `protobuf:"bytes,1,opt,name=cell_type,json=cellType,proto3" json:"cell_type,omitempty"`
+	CellType string `protobuf:"bytes,1,opt,name=cell_type,proto3" json:"cell_type,omitempty"`
 	// Cell source content.
 	Source string `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
 	// Cell outputs as JSON.
 	Outputs []*structpb.Value `protobuf:"bytes,3,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// Execution count.
-	ExecutionCount *int32 `protobuf:"varint,4,opt,name=execution_count,json=executionCount,proto3,oneof" json:"execution_count,omitempty"`
+	ExecutionCount *int32 `protobuf:"varint,4,opt,name=execution_count,proto3,oneof" json:"execution_count,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1312,9 +1312,9 @@ type WriteOutput struct {
 	// Success message.
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	// Number of bytes written.
-	BytesWritten int64 `protobuf:"varint,2,opt,name=bytes_written,json=bytesWritten,proto3" json:"bytes_written,omitempty"`
+	BytesWritten int64 `protobuf:"varint,2,opt,name=bytes_written,proto3" json:"bytes_written,omitempty"`
 	// File path that was written.
-	FilePath      string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath      string `protobuf:"bytes,3,opt,name=file_path,proto3" json:"file_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1378,7 +1378,7 @@ type GlobOutput struct {
 	// Number of matches found.
 	Count int32 `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
 	// Search directory used.
-	SearchPath    string `protobuf:"bytes,3,opt,name=search_path,json=searchPath,proto3" json:"search_path,omitempty"`
+	SearchPath    string `protobuf:"bytes,3,opt,name=search_path,proto3" json:"search_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1440,13 +1440,13 @@ type GrepMatch struct {
 	// File containing the match.
 	File string `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
 	// Line number of the match.
-	LineNumber *int32 `protobuf:"varint,2,opt,name=line_number,json=lineNumber,proto3,oneof" json:"line_number,omitempty"`
+	LineNumber *int32 `protobuf:"varint,2,opt,name=line_number,proto3,oneof" json:"line_number,omitempty"`
 	// Matching line content.
 	Line string `protobuf:"bytes,3,opt,name=line,proto3" json:"line,omitempty"`
 	// Lines before the match.
-	BeforeContext []string `protobuf:"bytes,4,rep,name=before_context,json=beforeContext,proto3" json:"before_context,omitempty"`
+	BeforeContext []string `protobuf:"bytes,4,rep,name=before_context,proto3" json:"before_context,omitempty"`
 	// Lines after the match.
-	AfterContext  []string `protobuf:"bytes,5,rep,name=after_context,json=afterContext,proto3" json:"after_context,omitempty"`
+	AfterContext  []string `protobuf:"bytes,5,rep,name=after_context,proto3" json:"after_context,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1522,7 +1522,7 @@ type GrepContentOutput struct {
 	// Matching lines with context.
 	Matches []*GrepMatch `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
 	// Total number of matches.
-	TotalMatches  int32 `protobuf:"varint,2,opt,name=total_matches,json=totalMatches,proto3" json:"total_matches,omitempty"`
+	TotalMatches  int32 `protobuf:"varint,2,opt,name=total_matches,proto3" json:"total_matches,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1841,7 +1841,7 @@ type KillBashOutput struct {
 	// Success message.
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	// ID of the killed shell.
-	ShellId       string `protobuf:"bytes,2,opt,name=shell_id,json=shellId,proto3" json:"shell_id,omitempty"`
+	ShellId       string `protobuf:"bytes,2,opt,name=shell_id,proto3" json:"shell_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1898,11 +1898,11 @@ type NotebookEditOutput struct {
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	// Possible values: "replaced", "inserted", "deleted"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-output
-	EditType string `protobuf:"bytes,2,opt,name=edit_type,json=editType,proto3" json:"edit_type,omitempty"`
+	EditType string `protobuf:"bytes,2,opt,name=edit_type,proto3" json:"edit_type,omitempty"`
 	// Cell ID that was affected.
-	CellId *string `protobuf:"bytes,3,opt,name=cell_id,json=cellId,proto3,oneof" json:"cell_id,omitempty"`
+	CellId *string `protobuf:"bytes,3,opt,name=cell_id,proto3,oneof" json:"cell_id,omitempty"`
 	// Total cells in notebook after edit.
-	TotalCells    int32 `protobuf:"varint,4,opt,name=total_cells,json=totalCells,proto3" json:"total_cells,omitempty"`
+	TotalCells    int32 `protobuf:"varint,4,opt,name=total_cells,proto3" json:"total_cells,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1973,9 +1973,9 @@ type WebFetchOutput struct {
 	// URL that was fetched.
 	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
 	// Final URL after redirects.
-	FinalUrl *string `protobuf:"bytes,3,opt,name=final_url,json=finalUrl,proto3,oneof" json:"final_url,omitempty"`
+	FinalUrl *string `protobuf:"bytes,3,opt,name=final_url,proto3,oneof" json:"final_url,omitempty"`
 	// HTTP status code.
-	StatusCode    *int32 `protobuf:"varint,4,opt,name=status_code,json=statusCode,proto3,oneof" json:"status_code,omitempty"`
+	StatusCode    *int32 `protobuf:"varint,4,opt,name=status_code,proto3,oneof" json:"status_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2117,7 +2117,7 @@ type WebSearchOutput struct {
 	// Search results.
 	Results []*WebSearchResult `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
 	// Total number of results.
-	TotalResults int32 `protobuf:"varint,2,opt,name=total_results,json=totalResults,proto3" json:"total_results,omitempty"`
+	TotalResults int32 `protobuf:"varint,2,opt,name=total_results,proto3" json:"total_results,omitempty"`
 	// The query that was searched.
 	Query         string `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2180,7 +2180,7 @@ type TodoStats struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
 	Pending       int32                  `protobuf:"varint,2,opt,name=pending,proto3" json:"pending,omitempty"`
-	InProgress    int32                  `protobuf:"varint,3,opt,name=in_progress,json=inProgress,proto3" json:"in_progress,omitempty"`
+	InProgress    int32                  `protobuf:"varint,3,opt,name=in_progress,proto3" json:"in_progress,omitempty"`
 	Completed     int32                  `protobuf:"varint,4,opt,name=completed,proto3" json:"completed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2648,21 +2648,20 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"\x12list_mcp_resources\x18\x10 \x01(\v2$.sdk_types.v1.ListMcpResourcesOutputH\x00R\x10listMcpResources\x12Q\n" +
 	"\x11read_mcp_resource\x18\x11 \x01(\v2#.sdk_types.v1.ReadMcpResourceOutputH\x00R\x0freadMcpResource\x124\n" +
 	"\bmcp_tool\x18\x12 \x01(\v2\x17.google.protobuf.StructH\x00R\amcpToolB\b\n" +
-	"\x06output\"\x8f\x02\n" +
-	"\tUsageInfo\x12!\n" +
-	"\finput_tokens\x18\x01 \x01(\x05R\vinputTokens\x12#\n" +
-	"\routput_tokens\x18\x02 \x01(\x05R\foutputTokens\x12B\n" +
-	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x05H\x00R\x18cacheCreationInputTokens\x88\x01\x01\x12:\n" +
-	"\x17cache_read_input_tokens\x18\x04 \x01(\x05H\x01R\x14cacheReadInputTokens\x88\x01\x01B\x1e\n" +
+	"\x06output\"\x97\x02\n" +
+	"\tUsageInfo\x12\"\n" +
+	"\finput_tokens\x18\x01 \x01(\x05R\finput_tokens\x12$\n" +
+	"\routput_tokens\x18\x02 \x01(\x05R\routput_tokens\x12E\n" +
+	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x05H\x00R\x1bcache_creation_input_tokens\x88\x01\x01\x12=\n" +
+	"\x17cache_read_input_tokens\x18\x04 \x01(\x05H\x01R\x17cache_read_input_tokens\x88\x01\x01B\x1e\n" +
 	"\x1c_cache_creation_input_tokensB\x1a\n" +
-	"\x18_cache_read_input_tokens\"\xc7\x01\n" +
+	"\x18_cache_read_input_tokens\"\xca\x01\n" +
 	"\n" +
 	"TaskOutput\x12\x16\n" +
 	"\x06result\x18\x01 \x01(\tR\x06result\x12-\n" +
-	"\x05usage\x18\x02 \x01(\v2\x17.sdk_types.v1.UsageInfoR\x05usage\x12)\n" +
-	"\x0etotal_cost_usd\x18\x03 \x01(\x01H\x00R\ftotalCostUsd\x88\x01\x01\x12$\n" +
-	"\vduration_ms\x18\x04 \x01(\x03H\x01R\n" +
-	"durationMs\x88\x01\x01B\x11\n" +
+	"\x05usage\x18\x02 \x01(\v2\x17.sdk_types.v1.UsageInfoR\x05usage\x12+\n" +
+	"\x0etotal_cost_usd\x18\x03 \x01(\x01H\x00R\x0etotal_cost_usd\x88\x01\x01\x12%\n" +
+	"\vduration_ms\x18\x04 \x01(\x03H\x01R\vduration_ms\x88\x01\x01B\x11\n" +
 	"\x0f_total_cost_usdB\x0e\n" +
 	"\f_duration_ms\"\xd5\x01\n" +
 	"\x15AskUserQuestionOutput\x124\n" +
@@ -2684,39 +2683,36 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12 \n" +
 	"\texit_code\x18\x03 \x01(\x05H\x00R\bexitCode\x88\x01\x01B\f\n" +
 	"\n" +
-	"_exit_code\"g\n" +
+	"_exit_code\"h\n" +
 	"\n" +
 	"EditOutput\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\"\n" +
-	"\freplacements\x18\x02 \x01(\x05R\freplacements\x12\x1b\n" +
-	"\tfile_path\x18\x03 \x01(\tR\bfilePath\"r\n" +
+	"\freplacements\x18\x02 \x01(\x05R\freplacements\x12\x1c\n" +
+	"\tfile_path\x18\x03 \x01(\tR\tfile_path\"t\n" +
 	"\x0eTextFileOutput\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +
-	"\vtotal_lines\x18\x02 \x01(\x05R\n" +
-	"totalLines\x12%\n" +
-	"\x0elines_returned\x18\x03 \x01(\x05R\rlinesReturned\"a\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent\x12 \n" +
+	"\vtotal_lines\x18\x02 \x01(\x05R\vtotal_lines\x12&\n" +
+	"\x0elines_returned\x18\x03 \x01(\x05R\x0elines_returned\"c\n" +
 	"\x0fImageFileOutput\x12\x14\n" +
-	"\x05image\x18\x01 \x01(\tR\x05image\x12\x1b\n" +
-	"\tmime_type\x18\x02 \x01(\tR\bmimeType\x12\x1b\n" +
-	"\tfile_size\x18\x03 \x01(\x03R\bfileSize\"A\n" +
+	"\x05image\x18\x01 \x01(\tR\x05image\x12\x1c\n" +
+	"\tmime_type\x18\x02 \x01(\tR\tmime_type\x12\x1c\n" +
+	"\tfile_size\x18\x03 \x01(\x03R\tfile_size\"B\n" +
 	"\fPDFPageImage\x12\x14\n" +
-	"\x05image\x18\x01 \x01(\tR\x05image\x12\x1b\n" +
-	"\tmime_type\x18\x02 \x01(\tR\bmimeType\"\x80\x01\n" +
-	"\aPDFPage\x12\x1f\n" +
-	"\vpage_number\x18\x01 \x01(\x05R\n" +
-	"pageNumber\x12\x17\n" +
+	"\x05image\x18\x01 \x01(\tR\x05image\x12\x1c\n" +
+	"\tmime_type\x18\x02 \x01(\tR\tmime_type\"\x81\x01\n" +
+	"\aPDFPage\x12 \n" +
+	"\vpage_number\x18\x01 \x01(\x05R\vpage_number\x12\x17\n" +
 	"\x04text\x18\x02 \x01(\tH\x00R\x04text\x88\x01\x01\x122\n" +
 	"\x06images\x18\x03 \x03(\v2\x1a.sdk_types.v1.PDFPageImageR\x06imagesB\a\n" +
-	"\x05_text\"]\n" +
+	"\x05_text\"^\n" +
 	"\rPDFFileOutput\x12+\n" +
-	"\x05pages\x18\x01 \x03(\v2\x15.sdk_types.v1.PDFPageR\x05pages\x12\x1f\n" +
-	"\vtotal_pages\x18\x02 \x01(\x05R\n" +
-	"totalPages\"\xb7\x01\n" +
-	"\fNotebookCell\x12\x1b\n" +
-	"\tcell_type\x18\x01 \x01(\tR\bcellType\x12\x16\n" +
+	"\x05pages\x18\x01 \x03(\v2\x15.sdk_types.v1.PDFPageR\x05pages\x12 \n" +
+	"\vtotal_pages\x18\x02 \x01(\x05R\vtotal_pages\"\xb9\x01\n" +
+	"\fNotebookCell\x12\x1c\n" +
+	"\tcell_type\x18\x01 \x01(\tR\tcell_type\x12\x16\n" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x120\n" +
-	"\aoutputs\x18\x03 \x03(\v2\x16.google.protobuf.ValueR\aoutputs\x12,\n" +
-	"\x0fexecution_count\x18\x04 \x01(\x05H\x00R\x0eexecutionCount\x88\x01\x01B\x12\n" +
+	"\aoutputs\x18\x03 \x03(\v2\x16.google.protobuf.ValueR\aoutputs\x12-\n" +
+	"\x0fexecution_count\x18\x04 \x01(\x05H\x00R\x0fexecution_count\x88\x01\x01B\x12\n" +
 	"\x10_execution_count\"{\n" +
 	"\x12NotebookFileOutput\x120\n" +
 	"\x05cells\x18\x01 \x03(\v2\x1a.sdk_types.v1.NotebookCellR\x05cells\x123\n" +
@@ -2728,28 +2724,26 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"image_file\x18\x02 \x01(\v2\x1d.sdk_types.v1.ImageFileOutputH\x00R\timageFile\x128\n" +
 	"\bpdf_file\x18\x03 \x01(\v2\x1b.sdk_types.v1.PDFFileOutputH\x00R\apdfFile\x12G\n" +
 	"\rnotebook_file\x18\x04 \x01(\v2 .sdk_types.v1.NotebookFileOutputH\x00R\fnotebookFileB\x06\n" +
-	"\x04file\"i\n" +
+	"\x04file\"k\n" +
 	"\vWriteOutput\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12#\n" +
-	"\rbytes_written\x18\x02 \x01(\x03R\fbytesWritten\x12\x1b\n" +
-	"\tfile_path\x18\x03 \x01(\tR\bfilePath\"]\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12$\n" +
+	"\rbytes_written\x18\x02 \x01(\x03R\rbytes_written\x12\x1c\n" +
+	"\tfile_path\x18\x03 \x01(\tR\tfile_path\"^\n" +
 	"\n" +
 	"GlobOutput\x12\x18\n" +
 	"\amatches\x18\x01 \x03(\tR\amatches\x12\x14\n" +
-	"\x05count\x18\x02 \x01(\x05R\x05count\x12\x1f\n" +
-	"\vsearch_path\x18\x03 \x01(\tR\n" +
-	"searchPath\"\xb5\x01\n" +
+	"\x05count\x18\x02 \x01(\x05R\x05count\x12 \n" +
+	"\vsearch_path\x18\x03 \x01(\tR\vsearch_path\"\xb8\x01\n" +
 	"\tGrepMatch\x12\x12\n" +
-	"\x04file\x18\x01 \x01(\tR\x04file\x12$\n" +
-	"\vline_number\x18\x02 \x01(\x05H\x00R\n" +
-	"lineNumber\x88\x01\x01\x12\x12\n" +
-	"\x04line\x18\x03 \x01(\tR\x04line\x12%\n" +
-	"\x0ebefore_context\x18\x04 \x03(\tR\rbeforeContext\x12#\n" +
-	"\rafter_context\x18\x05 \x03(\tR\fafterContextB\x0e\n" +
-	"\f_line_number\"k\n" +
+	"\x04file\x18\x01 \x01(\tR\x04file\x12%\n" +
+	"\vline_number\x18\x02 \x01(\x05H\x00R\vline_number\x88\x01\x01\x12\x12\n" +
+	"\x04line\x18\x03 \x01(\tR\x04line\x12&\n" +
+	"\x0ebefore_context\x18\x04 \x03(\tR\x0ebefore_context\x12$\n" +
+	"\rafter_context\x18\x05 \x03(\tR\rafter_contextB\x0e\n" +
+	"\f_line_number\"l\n" +
 	"\x11GrepContentOutput\x121\n" +
-	"\amatches\x18\x01 \x03(\v2\x17.sdk_types.v1.GrepMatchR\amatches\x12#\n" +
-	"\rtotal_matches\x18\x02 \x01(\x05R\ftotalMatches\"=\n" +
+	"\amatches\x18\x01 \x03(\v2\x17.sdk_types.v1.GrepMatchR\amatches\x12$\n" +
+	"\rtotal_matches\x18\x02 \x01(\x05R\rtotal_matches\"=\n" +
 	"\x0fGrepFilesOutput\x12\x14\n" +
 	"\x05files\x18\x01 \x03(\tR\x05files\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x05R\x05count\"9\n" +
@@ -2764,24 +2758,22 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"\acontent\x18\x01 \x01(\v2\x1f.sdk_types.v1.GrepContentOutputH\x00R\acontent\x125\n" +
 	"\x05files\x18\x02 \x01(\v2\x1d.sdk_types.v1.GrepFilesOutputH\x00R\x05files\x125\n" +
 	"\x05count\x18\x03 \x01(\v2\x1d.sdk_types.v1.GrepCountOutputH\x00R\x05countB\b\n" +
-	"\x06result\"E\n" +
+	"\x06result\"F\n" +
 	"\x0eKillBashOutput\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12\x19\n" +
-	"\bshell_id\x18\x02 \x01(\tR\ashellId\"\x96\x01\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12\x1a\n" +
+	"\bshell_id\x18\x02 \x01(\tR\bshell_id\"\x99\x01\n" +
 	"\x12NotebookEditOutput\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12\x1b\n" +
-	"\tedit_type\x18\x02 \x01(\tR\beditType\x12\x1c\n" +
-	"\acell_id\x18\x03 \x01(\tH\x00R\x06cellId\x88\x01\x01\x12\x1f\n" +
-	"\vtotal_cells\x18\x04 \x01(\x05R\n" +
-	"totalCellsB\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12\x1c\n" +
+	"\tedit_type\x18\x02 \x01(\tR\tedit_type\x12\x1d\n" +
+	"\acell_id\x18\x03 \x01(\tH\x00R\acell_id\x88\x01\x01\x12 \n" +
+	"\vtotal_cells\x18\x04 \x01(\x05R\vtotal_cellsB\n" +
 	"\n" +
-	"\b_cell_id\"\xa4\x01\n" +
+	"\b_cell_id\"\xa6\x01\n" +
 	"\x0eWebFetchOutput\x12\x1a\n" +
 	"\bresponse\x18\x01 \x01(\tR\bresponse\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\x12 \n" +
-	"\tfinal_url\x18\x03 \x01(\tH\x00R\bfinalUrl\x88\x01\x01\x12$\n" +
-	"\vstatus_code\x18\x04 \x01(\x05H\x01R\n" +
-	"statusCode\x88\x01\x01B\f\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12!\n" +
+	"\tfinal_url\x18\x03 \x01(\tH\x00R\tfinal_url\x88\x01\x01\x12%\n" +
+	"\vstatus_code\x18\x04 \x01(\x05H\x01R\vstatus_code\x88\x01\x01B\f\n" +
 	"\n" +
 	"_final_urlB\x0e\n" +
 	"\f_status_code\"\x88\x01\n" +
@@ -2789,16 +2781,15 @@ const file_sdk_types_v1_tool_output_proto_rawDesc = "" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x18\n" +
 	"\asnippet\x18\x03 \x01(\tR\asnippet\x123\n" +
-	"\bmetadata\x18\x04 \x01(\v2\x17.google.protobuf.StructR\bmetadata\"\x85\x01\n" +
+	"\bmetadata\x18\x04 \x01(\v2\x17.google.protobuf.StructR\bmetadata\"\x86\x01\n" +
 	"\x0fWebSearchOutput\x127\n" +
-	"\aresults\x18\x01 \x03(\v2\x1d.sdk_types.v1.WebSearchResultR\aresults\x12#\n" +
-	"\rtotal_results\x18\x02 \x01(\x05R\ftotalResults\x12\x14\n" +
-	"\x05query\x18\x03 \x01(\tR\x05query\"z\n" +
+	"\aresults\x18\x01 \x03(\v2\x1d.sdk_types.v1.WebSearchResultR\aresults\x12$\n" +
+	"\rtotal_results\x18\x02 \x01(\x05R\rtotal_results\x12\x14\n" +
+	"\x05query\x18\x03 \x01(\tR\x05query\"{\n" +
 	"\tTodoStats\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x18\n" +
-	"\apending\x18\x02 \x01(\x05R\apending\x12\x1f\n" +
-	"\vin_progress\x18\x03 \x01(\x05R\n" +
-	"inProgress\x12\x1c\n" +
+	"\apending\x18\x02 \x01(\x05R\apending\x12 \n" +
+	"\vin_progress\x18\x03 \x01(\x05R\vin_progress\x12\x1c\n" +
 	"\tcompleted\x18\x04 \x01(\x05R\tcompleted\"Z\n" +
 	"\x0fTodoWriteOutput\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12-\n" +

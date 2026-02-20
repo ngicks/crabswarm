@@ -55,26 +55,27 @@ message ModelUsage {
   int64 cache_read_input_tokens = 3;
   int64 cache_creation_input_tokens = 4;
   int64 web_search_requests = 5;
-  double cost_usd = 6;
+  // TS SDK uses "costUSD" (not "costUsd") as JSON key.
+  double cost_usd = 6 [json_name = "costUSD"];
   int64 context_window = 7;
 }
 
 // NonNullableUsage represents usage information where all fields are guaranteed present.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#non-nullable-usage
 message NonNullableUsage {
-  int64 input_tokens = 1;
-  int64 output_tokens = 2;
-  optional int64 cache_creation_input_tokens = 3;
-  optional int64 cache_read_input_tokens = 4;
+  int64 input_tokens = 1 [json_name = "input_tokens"];
+  int64 output_tokens = 2 [json_name = "output_tokens"];
+  optional int64 cache_creation_input_tokens = 3 [json_name = "cache_creation_input_tokens"];
+  optional int64 cache_read_input_tokens = 4 [json_name = "cache_read_input_tokens"];
 }
 
 // Usage represents optional usage information.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#usage
 message Usage {
-  optional int64 input_tokens = 1;
-  optional int64 output_tokens = 2;
-  optional int64 cache_creation_input_tokens = 3;
-  optional int64 cache_read_input_tokens = 4;
+  optional int64 input_tokens = 1 [json_name = "input_tokens"];
+  optional int64 output_tokens = 2 [json_name = "output_tokens"];
+  optional int64 cache_creation_input_tokens = 3 [json_name = "cache_creation_input_tokens"];
+  optional int64 cache_read_input_tokens = 4 [json_name = "cache_read_input_tokens"];
 }
 
 // CallToolResultContent represents a single content item in a tool result.

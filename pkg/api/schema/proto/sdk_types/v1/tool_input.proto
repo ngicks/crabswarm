@@ -37,7 +37,7 @@ message AgentInput {
   // The task for the agent to perform.
   string prompt = 2;
   // The type of specialized agent to use for this task.
-  string subagent_type = 3;
+  string subagent_type = 3 [json_name = "subagent_type"];
 }
 
 // QuestionOption represents a single choice option within a question.
@@ -78,13 +78,13 @@ message BashInput {
   // Clear, concise description of what this command does.
   optional string description = 3;
   // Set to true to run this command in the background.
-  optional bool run_in_background = 4;
+  optional bool run_in_background = 4 [json_name = "run_in_background"];
 }
 
 // BashOutputInput retrieves output from a running or completed background bash shell.
 message BashOutputInput {
   // The ID of the background shell to retrieve output from.
-  string bash_id = 1;
+  string bash_id = 1 [json_name = "bash_id"];
   // Optional regex to filter output lines.
   optional string filter = 2;
 }
@@ -92,19 +92,19 @@ message BashOutputInput {
 // FileEditInput performs exact string replacements in files.
 message FileEditInput {
   // The absolute path to the file to modify.
-  string file_path = 1;
+  string file_path = 1 [json_name = "file_path"];
   // The text to replace.
-  string old_string = 2;
+  string old_string = 2 [json_name = "old_string"];
   // The text to replace it with (must be different from old_string).
-  string new_string = 3;
+  string new_string = 3 [json_name = "new_string"];
   // Replace all occurrences of old_string (default false).
-  optional bool replace_all = 4;
+  optional bool replace_all = 4 [json_name = "replace_all"];
 }
 
 // FileReadInput reads files from the local filesystem.
 message FileReadInput {
   // The absolute path to the file to read.
-  string file_path = 1;
+  string file_path = 1 [json_name = "file_path"];
   // The line number to start reading from.
   optional int32 offset = 2;
   // The number of lines to read.
@@ -114,7 +114,7 @@ message FileReadInput {
 // FileWriteInput writes a file to the local filesystem.
 message FileWriteInput {
   // The absolute path to the file to write.
-  string file_path = 1;
+  string file_path = 1 [json_name = "file_path"];
   // The content to write to the file.
   string content = 2;
 }
@@ -140,19 +140,19 @@ message GrepInput {
   optional string type = 4;
   // Possible values: "content", "files_with_matches", "count"
   // See https://platform.claude.com/docs/en/agent-sdk/typescript#grep-input
-  string output_mode = 5;
-  // Case insensitive search.
-  optional bool case_insensitive = 6;
-  // Show line numbers (for content mode).
-  optional bool show_line_numbers = 7;
-  // Lines to show before each match.
-  optional int32 before_context = 8;
-  // Lines to show after each match.
-  optional int32 after_context = 9;
-  // Lines to show before and after each match.
-  optional int32 context = 10;
+  string output_mode = 5 [json_name = "output_mode"];
+  // Case insensitive search. TS SDK uses "-i" as JSON key.
+  optional bool case_insensitive = 6 [json_name = "-i"];
+  // Show line numbers (for content mode). TS SDK uses "-n" as JSON key.
+  optional bool show_line_numbers = 7 [json_name = "-n"];
+  // Lines to show before each match. TS SDK uses "-B" as JSON key.
+  optional int32 before_context = 8 [json_name = "-B"];
+  // Lines to show after each match. TS SDK uses "-A" as JSON key.
+  optional int32 after_context = 9 [json_name = "-A"];
+  // Lines to show before and after each match. TS SDK uses "-C" as JSON key.
+  optional int32 context = 10 [json_name = "-C"];
   // Limit output to first N lines/entries.
-  optional int32 head_limit = 11;
+  optional int32 head_limit = 11 [json_name = "head_limit"];
   // Enable multiline mode.
   optional bool multiline = 12;
 }
@@ -167,17 +167,17 @@ message KillShellInput {
 // See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
 message NotebookEditInput {
   // The absolute path to the Jupyter notebook file.
-  string notebook_path = 1;
+  string notebook_path = 1 [json_name = "notebook_path"];
   // The ID of the cell to edit.
-  optional string cell_id = 2;
+  optional string cell_id = 2 [json_name = "cell_id"];
   // The new source for the cell.
-  string new_source = 3;
+  string new_source = 3 [json_name = "new_source"];
   // Possible values: "code", "markdown"
   // See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
-  string cell_type = 4;
+  string cell_type = 4 [json_name = "cell_type"];
   // Possible values: "replace", "insert", "delete"
   // See https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-input
-  string edit_mode = 5;
+  string edit_mode = 5 [json_name = "edit_mode"];
 }
 
 // WebFetchInput fetches content from a URL and processes it with an AI model.
@@ -193,9 +193,9 @@ message WebSearchInput {
   // The search query to use.
   string query = 1;
   // Only include results from these domains.
-  repeated string allowed_domains = 2;
+  repeated string allowed_domains = 2 [json_name = "allowed_domains"];
   // Never include results from these domains.
-  repeated string blocked_domains = 3;
+  repeated string blocked_domains = 3 [json_name = "blocked_domains"];
 }
 
 // TodoItem represents a single task in the todo list.

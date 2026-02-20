@@ -25,14 +25,16 @@ const (
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-tool-use-hook-input
 type PreToolUseHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	ToolName       string                 `protobuf:"bytes,5,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	ToolInput      *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,json=toolInput,proto3" json:"tool_input,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	ToolName       string                 `protobuf:"bytes,5,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
+	ToolInput      *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
+	// hook_event_name discriminator. Value must be "PreToolUse".
+	HookEventName string `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PreToolUseHookInput) Reset() {
@@ -107,19 +109,28 @@ func (x *PreToolUseHookInput) GetToolInput() *ToolInput {
 	return nil
 }
 
+func (x *PreToolUseHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // PostToolUseHookInput represents input for the post-tool-use hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-hook-input
 type PostToolUseHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	ToolName       string                 `protobuf:"bytes,5,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	ToolInput      *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,json=toolInput,proto3" json:"tool_input,omitempty"`
-	ToolResponse   *ToolOutput            `protobuf:"bytes,7,opt,name=tool_response,json=toolResponse,proto3" json:"tool_response,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	ToolName       string                 `protobuf:"bytes,5,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
+	ToolInput      *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
+	ToolResponse   *ToolOutput            `protobuf:"bytes,7,opt,name=tool_response,proto3" json:"tool_response,omitempty"`
+	// hook_event_name discriminator. Value must be "PostToolUse".
+	HookEventName string `protobuf:"bytes,8,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PostToolUseHookInput) Reset() {
@@ -201,20 +212,29 @@ func (x *PostToolUseHookInput) GetToolResponse() *ToolOutput {
 	return nil
 }
 
+func (x *PostToolUseHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // PostToolUseFailureHookInput represents input for the post-tool-use-failure hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-failure-hook-input
 type PostToolUseFailureHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	ToolName       string                 `protobuf:"bytes,5,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	ToolInput      *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,json=toolInput,proto3" json:"tool_input,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	ToolName       string                 `protobuf:"bytes,5,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
+	ToolInput      *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
 	Error          string                 `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
-	IsInterrupt    *bool                  `protobuf:"varint,8,opt,name=is_interrupt,json=isInterrupt,proto3,oneof" json:"is_interrupt,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	IsInterrupt    *bool                  `protobuf:"varint,8,opt,name=is_interrupt,proto3,oneof" json:"is_interrupt,omitempty"`
+	// hook_event_name discriminator. Value must be "PostToolUseFailure".
+	HookEventName string `protobuf:"bytes,9,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PostToolUseFailureHookInput) Reset() {
@@ -303,18 +323,27 @@ func (x *PostToolUseFailureHookInput) GetIsInterrupt() bool {
 	return false
 }
 
+func (x *PostToolUseFailureHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // NotificationHookInput represents input for the notification hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#notification-hook-input
 type NotificationHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
 	Message        string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
 	Title          *string                `protobuf:"bytes,6,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// hook_event_name discriminator. Value must be "Notification".
+	HookEventName string `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *NotificationHookInput) Reset() {
@@ -389,17 +418,26 @@ func (x *NotificationHookInput) GetTitle() string {
 	return ""
 }
 
+func (x *NotificationHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // UserPromptSubmitHookInput represents input for the user-prompt-submit hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#user-prompt-submit-hook-input
 type UserPromptSubmitHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
 	Prompt         string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// hook_event_name discriminator. Value must be "UserPromptSubmit".
+	HookEventName string `protobuf:"bytes,6,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UserPromptSubmitHookInput) Reset() {
@@ -467,17 +505,26 @@ func (x *UserPromptSubmitHookInput) GetPrompt() string {
 	return ""
 }
 
+func (x *UserPromptSubmitHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // SessionStartHookInput represents input for the session-start hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
 type SessionStartHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
 	// Possible values: "startup", "resume", "clear", "compact"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
-	Source        string `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`
+	Source string `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`
+	// hook_event_name discriminator. Value must be "SessionStart".
+	HookEventName string `protobuf:"bytes,6,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -547,17 +594,26 @@ func (x *SessionStartHookInput) GetSource() string {
 	return ""
 }
 
+func (x *SessionStartHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // SessionEndHookInput represents input for the session-end hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-end-hook-input
 type SessionEndHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
 	Reason         string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// hook_event_name discriminator. Value must be "SessionEnd".
+	HookEventName string `protobuf:"bytes,6,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionEndHookInput) Reset() {
@@ -625,17 +681,26 @@ func (x *SessionEndHookInput) GetReason() string {
 	return ""
 }
 
+func (x *SessionEndHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // StopHookInput represents input for the stop hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#stop-hook-input
 type StopHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	StopHookActive bool                   `protobuf:"varint,5,opt,name=stop_hook_active,json=stopHookActive,proto3" json:"stop_hook_active,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	StopHookActive bool                   `protobuf:"varint,5,opt,name=stop_hook_active,proto3" json:"stop_hook_active,omitempty"`
+	// hook_event_name discriminator. Value must be "Stop".
+	HookEventName string `protobuf:"bytes,6,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StopHookInput) Reset() {
@@ -703,18 +768,27 @@ func (x *StopHookInput) GetStopHookActive() bool {
 	return false
 }
 
+func (x *StopHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // SubagentStartHookInput represents input for the subagent-start hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#subagent-start-hook-input
 type SubagentStartHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	AgentId        string                 `protobuf:"bytes,5,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	AgentType      string                 `protobuf:"bytes,6,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	AgentId        string                 `protobuf:"bytes,5,opt,name=agent_id,proto3" json:"agent_id,omitempty"`
+	AgentType      string                 `protobuf:"bytes,6,opt,name=agent_type,proto3" json:"agent_type,omitempty"`
+	// hook_event_name discriminator. Value must be "SubagentStart".
+	HookEventName string `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubagentStartHookInput) Reset() {
@@ -789,17 +863,26 @@ func (x *SubagentStartHookInput) GetAgentType() string {
 	return ""
 }
 
+func (x *SubagentStartHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // SubagentStopHookInput represents input for the subagent-stop hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#subagent-stop-hook-input
 type SubagentStopHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	StopHookActive bool                   `protobuf:"varint,5,opt,name=stop_hook_active,json=stopHookActive,proto3" json:"stop_hook_active,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	StopHookActive bool                   `protobuf:"varint,5,opt,name=stop_hook_active,proto3" json:"stop_hook_active,omitempty"`
+	// hook_event_name discriminator. Value must be "SubagentStop".
+	HookEventName string `protobuf:"bytes,6,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubagentStopHookInput) Reset() {
@@ -867,20 +950,29 @@ func (x *SubagentStopHookInput) GetStopHookActive() bool {
 	return false
 }
 
+func (x *SubagentStopHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // PreCompactHookInput represents input for the pre-compact hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
 type PreCompactHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
 	// Possible values: "manual", "auto"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
 	Trigger            string  `protobuf:"bytes,5,opt,name=trigger,proto3" json:"trigger,omitempty"`
-	CustomInstructions *string `protobuf:"bytes,6,opt,name=custom_instructions,json=customInstructions,proto3,oneof" json:"custom_instructions,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	CustomInstructions *string `protobuf:"bytes,6,opt,name=custom_instructions,proto3,oneof" json:"custom_instructions,omitempty"`
+	// hook_event_name discriminator. Value must be "PreCompact".
+	HookEventName string `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PreCompactHookInput) Reset() {
@@ -955,19 +1047,28 @@ func (x *PreCompactHookInput) GetCustomInstructions() string {
 	return ""
 }
 
+func (x *PreCompactHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
 // PermissionRequestHookInput represents input for the permission-request hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-request-hook-input
 type PermissionRequestHookInput struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
-	SessionId             string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TranscriptPath        string                 `protobuf:"bytes,2,opt,name=transcript_path,json=transcriptPath,proto3" json:"transcript_path,omitempty"`
+	SessionId             string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath        string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
 	Cwd                   string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode        *string                `protobuf:"bytes,4,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
-	ToolName              string                 `protobuf:"bytes,5,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	ToolInput             *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,json=toolInput,proto3" json:"tool_input,omitempty"`
-	PermissionSuggestions []*PermissionUpdate    `protobuf:"bytes,7,rep,name=permission_suggestions,json=permissionSuggestions,proto3" json:"permission_suggestions,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	PermissionMode        *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	ToolName              string                 `protobuf:"bytes,5,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
+	ToolInput             *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
+	PermissionSuggestions []*PermissionUpdate    `protobuf:"bytes,7,rep,name=permission_suggestions,proto3" json:"permission_suggestions,omitempty"`
+	// hook_event_name discriminator. Value must be "PermissionRequest".
+	HookEventName string `protobuf:"bytes,8,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PermissionRequestHookInput) Reset() {
@@ -1047,6 +1148,13 @@ func (x *PermissionRequestHookInput) GetPermissionSuggestions() []*PermissionUpd
 		return x.PermissionSuggestions
 	}
 	return nil
+}
+
+func (x *PermissionRequestHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
 }
 
 // HookInput is a union wrapper for all hook input types.
@@ -1837,121 +1945,150 @@ var File_sdk_types_v1_hook_proto protoreflect.FileDescriptor
 
 const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\n" +
-	"\x17sdk_types/v1/hook.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/permission.proto\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x1esdk_types/v1/tool_output.proto\"\x86\x02\n" +
-	"\x13PreToolUseHookInput\x12\x1d\n" +
+	"\x17sdk_types/v1/hook.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/permission.proto\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x1esdk_types/v1/tool_output.proto\"\xb5\x02\n" +
+	"\x13PreToolUseHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x1b\n" +
-	"\ttool_name\x18\x05 \x01(\tR\btoolName\x126\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x1c\n" +
+	"\ttool_name\x18\x05 \x01(\tR\ttool_name\x127\n" +
 	"\n" +
-	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\ttoolInputB\x12\n" +
-	"\x10_permission_mode\"\xc6\x02\n" +
-	"\x14PostToolUseHookInput\x12\x1d\n" +
+	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\n" +
+	"tool_input\x12(\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\xf6\x02\n" +
+	"\x14PostToolUseHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x1b\n" +
-	"\ttool_name\x18\x05 \x01(\tR\btoolName\x126\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x1c\n" +
+	"\ttool_name\x18\x05 \x01(\tR\ttool_name\x127\n" +
 	"\n" +
-	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\ttoolInput\x12=\n" +
-	"\rtool_response\x18\a \x01(\v2\x18.sdk_types.v1.ToolOutputR\ftoolResponseB\x12\n" +
-	"\x10_permission_mode\"\xdd\x02\n" +
-	"\x1bPostToolUseFailureHookInput\x12\x1d\n" +
+	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\n" +
+	"tool_input\x12>\n" +
+	"\rtool_response\x18\a \x01(\v2\x18.sdk_types.v1.ToolOutputR\rtool_response\x12(\n" +
+	"\x0fhook_event_name\x18\b \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\x8d\x03\n" +
+	"\x1bPostToolUseFailureHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x1b\n" +
-	"\ttool_name\x18\x05 \x01(\tR\btoolName\x126\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x1c\n" +
+	"\ttool_name\x18\x05 \x01(\tR\ttool_name\x127\n" +
 	"\n" +
-	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\ttoolInput\x12\x14\n" +
-	"\x05error\x18\a \x01(\tR\x05error\x12&\n" +
-	"\fis_interrupt\x18\b \x01(\bH\x01R\visInterrupt\x88\x01\x01B\x12\n" +
+	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\n" +
+	"tool_input\x12\x14\n" +
+	"\x05error\x18\a \x01(\tR\x05error\x12'\n" +
+	"\fis_interrupt\x18\b \x01(\bH\x01R\fis_interrupt\x88\x01\x01\x12(\n" +
+	"\x0fhook_event_name\x18\t \x01(\tR\x0fhook_event_nameB\x12\n" +
 	"\x10_permission_modeB\x0f\n" +
-	"\r_is_interrupt\"\xf2\x01\n" +
-	"\x15NotificationHookInput\x12\x1d\n" +
+	"\r_is_interrupt\"\x9f\x02\n" +
+	"\x15NotificationHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x18\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x18\n" +
 	"\amessage\x18\x05 \x01(\tR\amessage\x12\x19\n" +
-	"\x05title\x18\x06 \x01(\tH\x01R\x05title\x88\x01\x01B\x12\n" +
+	"\x05title\x18\x06 \x01(\tH\x01R\x05title\x88\x01\x01\x12(\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_nameB\x12\n" +
 	"\x10_permission_modeB\b\n" +
-	"\x06_title\"\xcf\x01\n" +
-	"\x19UserPromptSubmitHookInput\x12\x1d\n" +
+	"\x06_title\"\xfc\x01\n" +
+	"\x19UserPromptSubmitHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x16\n" +
-	"\x06prompt\x18\x05 \x01(\tR\x06promptB\x12\n" +
-	"\x10_permission_mode\"\xcb\x01\n" +
-	"\x15SessionStartHookInput\x12\x1d\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x16\n" +
+	"\x06prompt\x18\x05 \x01(\tR\x06prompt\x12(\n" +
+	"\x0fhook_event_name\x18\x06 \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\xf8\x01\n" +
+	"\x15SessionStartHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x16\n" +
-	"\x06source\x18\x05 \x01(\tR\x06sourceB\x12\n" +
-	"\x10_permission_mode\"\xc9\x01\n" +
-	"\x13SessionEndHookInput\x12\x1d\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x16\n" +
+	"\x06source\x18\x05 \x01(\tR\x06source\x12(\n" +
+	"\x0fhook_event_name\x18\x06 \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\xf6\x01\n" +
+	"\x13SessionEndHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x16\n" +
-	"\x06reason\x18\x05 \x01(\tR\x06reasonB\x12\n" +
-	"\x10_permission_mode\"\xd5\x01\n" +
-	"\rStopHookInput\x12\x1d\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x12(\n" +
+	"\x0fhook_event_name\x18\x06 \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\x84\x02\n" +
+	"\rStopHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12(\n" +
-	"\x10stop_hook_active\x18\x05 \x01(\bR\x0estopHookActiveB\x12\n" +
-	"\x10_permission_mode\"\xee\x01\n" +
-	"\x16SubagentStartHookInput\x12\x1d\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12*\n" +
+	"\x10stop_hook_active\x18\x05 \x01(\bR\x10stop_hook_active\x12(\n" +
+	"\x0fhook_event_name\x18\x06 \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\x9d\x02\n" +
+	"\x16SubagentStartHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x19\n" +
-	"\bagent_id\x18\x05 \x01(\tR\aagentId\x12\x1d\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x1a\n" +
+	"\bagent_id\x18\x05 \x01(\tR\bagent_id\x12\x1e\n" +
 	"\n" +
-	"agent_type\x18\x06 \x01(\tR\tagentTypeB\x12\n" +
-	"\x10_permission_mode\"\xdd\x01\n" +
-	"\x15SubagentStopHookInput\x12\x1d\n" +
+	"agent_type\x18\x06 \x01(\tR\n" +
+	"agent_type\x12(\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\x8c\x02\n" +
+	"\x15SubagentStopHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12(\n" +
-	"\x10stop_hook_active\x18\x05 \x01(\bR\x0estopHookActiveB\x12\n" +
-	"\x10_permission_mode\"\x99\x02\n" +
-	"\x13PreCompactHookInput\x12\x1d\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12*\n" +
+	"\x10stop_hook_active\x18\x05 \x01(\bR\x10stop_hook_active\x12(\n" +
+	"\x0fhook_event_name\x18\x06 \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x10_permission_mode\"\xc7\x02\n" +
+	"\x13PreCompactHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x18\n" +
-	"\atrigger\x18\x05 \x01(\tR\atrigger\x124\n" +
-	"\x13custom_instructions\x18\x06 \x01(\tH\x01R\x12customInstructions\x88\x01\x01B\x12\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x18\n" +
+	"\atrigger\x18\x05 \x01(\tR\atrigger\x125\n" +
+	"\x13custom_instructions\x18\x06 \x01(\tH\x01R\x13custom_instructions\x88\x01\x01\x12(\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_nameB\x12\n" +
 	"\x10_permission_modeB\x16\n" +
-	"\x14_custom_instructions\"\xe4\x02\n" +
-	"\x1aPermissionRequestHookInput\x12\x1d\n" +
+	"\x14_custom_instructions\"\x94\x03\n" +
+	"\x1aPermissionRequestHookInput\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\x12'\n" +
-	"\x0ftranscript_path\x18\x02 \x01(\tR\x0etranscriptPath\x12\x10\n" +
-	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12,\n" +
-	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0epermissionMode\x88\x01\x01\x12\x1b\n" +
-	"\ttool_name\x18\x05 \x01(\tR\btoolName\x126\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x1c\n" +
+	"\ttool_name\x18\x05 \x01(\tR\ttool_name\x127\n" +
 	"\n" +
-	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\ttoolInput\x12U\n" +
-	"\x16permission_suggestions\x18\a \x03(\v2\x1e.sdk_types.v1.PermissionUpdateR\x15permissionSuggestionsB\x12\n" +
+	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\n" +
+	"tool_input\x12V\n" +
+	"\x16permission_suggestions\x18\a \x03(\v2\x1e.sdk_types.v1.PermissionUpdateR\x16permission_suggestions\x12(\n" +
+	"\x0fhook_event_name\x18\b \x01(\tR\x0fhook_event_nameB\x12\n" +
 	"\x10_permission_mode\"\xaa\a\n" +
 	"\tHookInput\x12E\n" +
 	"\fpre_tool_use\x18\x01 \x01(\v2!.sdk_types.v1.PreToolUseHookInputH\x00R\n" +

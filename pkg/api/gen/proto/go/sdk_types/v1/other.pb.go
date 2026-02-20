@@ -351,10 +351,11 @@ type ModelUsage struct {
 	CacheReadInputTokens     int64                  `protobuf:"varint,3,opt,name=cache_read_input_tokens,json=cacheReadInputTokens,proto3" json:"cache_read_input_tokens,omitempty"`
 	CacheCreationInputTokens int64                  `protobuf:"varint,4,opt,name=cache_creation_input_tokens,json=cacheCreationInputTokens,proto3" json:"cache_creation_input_tokens,omitempty"`
 	WebSearchRequests        int64                  `protobuf:"varint,5,opt,name=web_search_requests,json=webSearchRequests,proto3" json:"web_search_requests,omitempty"`
-	CostUsd                  float64                `protobuf:"fixed64,6,opt,name=cost_usd,json=costUsd,proto3" json:"cost_usd,omitempty"`
-	ContextWindow            int64                  `protobuf:"varint,7,opt,name=context_window,json=contextWindow,proto3" json:"context_window,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// TS SDK uses "costUSD" (not "costUsd") as JSON key.
+	CostUsd       float64 `protobuf:"fixed64,6,opt,name=cost_usd,json=costUSD,proto3" json:"cost_usd,omitempty"`
+	ContextWindow int64   `protobuf:"varint,7,opt,name=context_window,json=contextWindow,proto3" json:"context_window,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ModelUsage) Reset() {
@@ -440,10 +441,10 @@ func (x *ModelUsage) GetContextWindow() int64 {
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#non-nullable-usage
 type NonNullableUsage struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
-	InputTokens              int64                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens,proto3" json:"input_tokens,omitempty"`
-	OutputTokens             int64                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens,proto3" json:"output_tokens,omitempty"`
-	CacheCreationInputTokens *int64                 `protobuf:"varint,3,opt,name=cache_creation_input_tokens,json=cacheCreationInputTokens,proto3,oneof" json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     *int64                 `protobuf:"varint,4,opt,name=cache_read_input_tokens,json=cacheReadInputTokens,proto3,oneof" json:"cache_read_input_tokens,omitempty"`
+	InputTokens              int64                  `protobuf:"varint,1,opt,name=input_tokens,proto3" json:"input_tokens,omitempty"`
+	OutputTokens             int64                  `protobuf:"varint,2,opt,name=output_tokens,proto3" json:"output_tokens,omitempty"`
+	CacheCreationInputTokens *int64                 `protobuf:"varint,3,opt,name=cache_creation_input_tokens,proto3,oneof" json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     *int64                 `protobuf:"varint,4,opt,name=cache_read_input_tokens,proto3,oneof" json:"cache_read_input_tokens,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -510,10 +511,10 @@ func (x *NonNullableUsage) GetCacheReadInputTokens() int64 {
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#usage
 type Usage struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
-	InputTokens              *int64                 `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens,proto3,oneof" json:"input_tokens,omitempty"`
-	OutputTokens             *int64                 `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens,proto3,oneof" json:"output_tokens,omitempty"`
-	CacheCreationInputTokens *int64                 `protobuf:"varint,3,opt,name=cache_creation_input_tokens,json=cacheCreationInputTokens,proto3,oneof" json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     *int64                 `protobuf:"varint,4,opt,name=cache_read_input_tokens,json=cacheReadInputTokens,proto3,oneof" json:"cache_read_input_tokens,omitempty"`
+	InputTokens              *int64                 `protobuf:"varint,1,opt,name=input_tokens,proto3,oneof" json:"input_tokens,omitempty"`
+	OutputTokens             *int64                 `protobuf:"varint,2,opt,name=output_tokens,proto3,oneof" json:"output_tokens,omitempty"`
+	CacheCreationInputTokens *int64                 `protobuf:"varint,3,opt,name=cache_creation_input_tokens,proto3,oneof" json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     *int64                 `protobuf:"varint,4,opt,name=cache_read_input_tokens,proto3,oneof" json:"cache_read_input_tokens,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -727,20 +728,20 @@ const file_sdk_types_v1_other_proto_rawDesc = "" +
 	"\x17cache_read_input_tokens\x18\x03 \x01(\x03R\x14cacheReadInputTokens\x12=\n" +
 	"\x1bcache_creation_input_tokens\x18\x04 \x01(\x03R\x18cacheCreationInputTokens\x12.\n" +
 	"\x13web_search_requests\x18\x05 \x01(\x03R\x11webSearchRequests\x12\x19\n" +
-	"\bcost_usd\x18\x06 \x01(\x01R\acostUsd\x12%\n" +
-	"\x0econtext_window\x18\a \x01(\x03R\rcontextWindow\"\x96\x02\n" +
-	"\x10NonNullableUsage\x12!\n" +
-	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
-	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12B\n" +
-	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x03H\x00R\x18cacheCreationInputTokens\x88\x01\x01\x12:\n" +
-	"\x17cache_read_input_tokens\x18\x04 \x01(\x03H\x01R\x14cacheReadInputTokens\x88\x01\x01B\x1e\n" +
+	"\bcost_usd\x18\x06 \x01(\x01R\acostUSD\x12%\n" +
+	"\x0econtext_window\x18\a \x01(\x03R\rcontextWindow\"\x9e\x02\n" +
+	"\x10NonNullableUsage\x12\"\n" +
+	"\finput_tokens\x18\x01 \x01(\x03R\finput_tokens\x12$\n" +
+	"\routput_tokens\x18\x02 \x01(\x03R\routput_tokens\x12E\n" +
+	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x03H\x00R\x1bcache_creation_input_tokens\x88\x01\x01\x12=\n" +
+	"\x17cache_read_input_tokens\x18\x04 \x01(\x03H\x01R\x17cache_read_input_tokens\x88\x01\x01B\x1e\n" +
 	"\x1c_cache_creation_input_tokensB\x1a\n" +
-	"\x18_cache_read_input_tokens\"\xb8\x02\n" +
-	"\x05Usage\x12&\n" +
-	"\finput_tokens\x18\x01 \x01(\x03H\x00R\vinputTokens\x88\x01\x01\x12(\n" +
-	"\routput_tokens\x18\x02 \x01(\x03H\x01R\foutputTokens\x88\x01\x01\x12B\n" +
-	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x03H\x02R\x18cacheCreationInputTokens\x88\x01\x01\x12:\n" +
-	"\x17cache_read_input_tokens\x18\x04 \x01(\x03H\x03R\x14cacheReadInputTokens\x88\x01\x01B\x0f\n" +
+	"\x18_cache_read_input_tokens\"\xc0\x02\n" +
+	"\x05Usage\x12'\n" +
+	"\finput_tokens\x18\x01 \x01(\x03H\x00R\finput_tokens\x88\x01\x01\x12)\n" +
+	"\routput_tokens\x18\x02 \x01(\x03H\x01R\routput_tokens\x88\x01\x01\x12E\n" +
+	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x03H\x02R\x1bcache_creation_input_tokens\x88\x01\x01\x12=\n" +
+	"\x17cache_read_input_tokens\x18\x04 \x01(\x03H\x03R\x17cache_read_input_tokens\x88\x01\x01B\x0f\n" +
 	"\r_input_tokensB\x10\n" +
 	"\x0e_output_tokensB\x1e\n" +
 	"\x1c_cache_creation_input_tokensB\x1a\n" +

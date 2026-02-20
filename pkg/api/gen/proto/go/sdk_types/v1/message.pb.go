@@ -27,10 +27,10 @@ const (
 type SDKAssistantMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Uuid      string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,proto3" json:"session_id,omitempty"`
 	// APIAssistantMessage from the Anthropic SDK.
 	Message         *structpb.Struct `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,json=parentToolUseId,proto3,oneof" json:"parent_tool_use_id,omitempty"`
+	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,proto3,oneof" json:"parent_tool_use_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -98,10 +98,10 @@ func (x *SDKAssistantMessage) GetParentToolUseId() string {
 type SDKUserMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Uuid      *string                `protobuf:"bytes,1,opt,name=uuid,proto3,oneof" json:"uuid,omitempty"`
-	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,proto3" json:"session_id,omitempty"`
 	// APIUserMessage from the Anthropic SDK.
 	Message         *structpb.Struct `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,json=parentToolUseId,proto3,oneof" json:"parent_tool_use_id,omitempty"`
+	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,proto3,oneof" json:"parent_tool_use_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -169,10 +169,10 @@ func (x *SDKUserMessage) GetParentToolUseId() string {
 type SDKUserMessageReplay struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Uuid      string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,proto3" json:"session_id,omitempty"`
 	// APIUserMessage from the Anthropic SDK.
 	Message         *structpb.Struct `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,json=parentToolUseId,proto3,oneof" json:"parent_tool_use_id,omitempty"`
+	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,proto3,oneof" json:"parent_tool_use_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -239,9 +239,9 @@ func (x *SDKUserMessageReplay) GetParentToolUseId() string {
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
 type SDKPermissionDenial struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ToolName      string                 `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	ToolUseId     string                 `protobuf:"bytes,2,opt,name=tool_use_id,json=toolUseId,proto3" json:"tool_use_id,omitempty"`
-	ToolInput     *ToolInput             `protobuf:"bytes,3,opt,name=tool_input,json=toolInput,proto3" json:"tool_input,omitempty"`
+	ToolName      string                 `protobuf:"bytes,1,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
+	ToolUseId     string                 `protobuf:"bytes,2,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
+	ToolInput     *ToolInput             `protobuf:"bytes,3,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -305,18 +305,18 @@ type SDKResultMessage struct {
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#sdk-result-message
 	Subtype           string                 `protobuf:"bytes,1,opt,name=subtype,proto3" json:"subtype,omitempty"`
 	Uuid              string                 `protobuf:"bytes,2,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	SessionId         string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	DurationMs        int64                  `protobuf:"varint,4,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
-	DurationApiMs     int64                  `protobuf:"varint,5,opt,name=duration_api_ms,json=durationApiMs,proto3" json:"duration_api_ms,omitempty"`
-	IsError           bool                   `protobuf:"varint,6,opt,name=is_error,json=isError,proto3" json:"is_error,omitempty"`
-	NumTurns          int32                  `protobuf:"varint,7,opt,name=num_turns,json=numTurns,proto3" json:"num_turns,omitempty"`
-	TotalCostUsd      float64                `protobuf:"fixed64,8,opt,name=total_cost_usd,json=totalCostUsd,proto3" json:"total_cost_usd,omitempty"`
+	SessionId         string                 `protobuf:"bytes,3,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	DurationMs        int64                  `protobuf:"varint,4,opt,name=duration_ms,proto3" json:"duration_ms,omitempty"`
+	DurationApiMs     int64                  `protobuf:"varint,5,opt,name=duration_api_ms,proto3" json:"duration_api_ms,omitempty"`
+	IsError           bool                   `protobuf:"varint,6,opt,name=is_error,proto3" json:"is_error,omitempty"`
+	NumTurns          int32                  `protobuf:"varint,7,opt,name=num_turns,proto3" json:"num_turns,omitempty"`
+	TotalCostUsd      float64                `protobuf:"fixed64,8,opt,name=total_cost_usd,proto3" json:"total_cost_usd,omitempty"`
 	Usage             *NonNullableUsage      `protobuf:"bytes,9,opt,name=usage,proto3" json:"usage,omitempty"`
 	ModelUsage        map[string]*ModelUsage `protobuf:"bytes,10,rep,name=model_usage,json=modelUsage,proto3" json:"model_usage,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	PermissionDenials []*SDKPermissionDenial `protobuf:"bytes,11,rep,name=permission_denials,json=permissionDenials,proto3" json:"permission_denials,omitempty"`
+	PermissionDenials []*SDKPermissionDenial `protobuf:"bytes,11,rep,name=permission_denials,proto3" json:"permission_denials,omitempty"`
 	// Success-only fields.
 	Result           *string         `protobuf:"bytes,12,opt,name=result,proto3,oneof" json:"result,omitempty"`
-	StructuredOutput *structpb.Value `protobuf:"bytes,13,opt,name=structured_output,json=structuredOutput,proto3,oneof" json:"structured_output,omitempty"`
+	StructuredOutput *structpb.Value `protobuf:"bytes,13,opt,name=structured_output,proto3,oneof" json:"structured_output,omitempty"`
 	// Error-only fields.
 	Errors        []string `protobuf:"bytes,14,rep,name=errors,proto3" json:"errors,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -510,19 +510,19 @@ func (x *SDKSystemMcpServer) GetStatus() string {
 type SDKSystemMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Uuid      string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,proto3" json:"session_id,omitempty"`
 	// Possible values: "user", "project", "org", "temporary"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#api-key-source
 	ApiKeySource string                `protobuf:"bytes,3,opt,name=api_key_source,json=apiKeySource,proto3" json:"api_key_source,omitempty"`
 	Cwd          string                `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Tools        []string              `protobuf:"bytes,5,rep,name=tools,proto3" json:"tools,omitempty"`
-	McpServers   []*SDKSystemMcpServer `protobuf:"bytes,6,rep,name=mcp_servers,json=mcpServers,proto3" json:"mcp_servers,omitempty"`
+	McpServers   []*SDKSystemMcpServer `protobuf:"bytes,6,rep,name=mcp_servers,proto3" json:"mcp_servers,omitempty"`
 	Model        string                `protobuf:"bytes,7,opt,name=model,proto3" json:"model,omitempty"`
 	// Possible values: "default", "acceptEdits", "bypassPermissions", "plan"
 	// See https://platform.claude.com/docs/en/agent-sdk/typescript#permission-mode
 	PermissionMode string   `protobuf:"bytes,8,opt,name=permission_mode,json=permissionMode,proto3" json:"permission_mode,omitempty"`
-	SlashCommands  []string `protobuf:"bytes,9,rep,name=slash_commands,json=slashCommands,proto3" json:"slash_commands,omitempty"`
-	OutputStyle    string   `protobuf:"bytes,10,opt,name=output_style,json=outputStyle,proto3" json:"output_style,omitempty"`
+	SlashCommands  []string `protobuf:"bytes,9,rep,name=slash_commands,proto3" json:"slash_commands,omitempty"`
+	OutputStyle    string   `protobuf:"bytes,10,opt,name=output_style,proto3" json:"output_style,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -632,10 +632,10 @@ func (x *SDKSystemMessage) GetOutputStyle() string {
 type SDKPartialAssistantMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Uuid      string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionId string                 `protobuf:"bytes,2,opt,name=session_id,proto3" json:"session_id,omitempty"`
 	// RawMessageStreamEvent from the Anthropic SDK.
 	Event           *structpb.Struct `protobuf:"bytes,3,opt,name=event,proto3" json:"event,omitempty"`
-	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,json=parentToolUseId,proto3,oneof" json:"parent_tool_use_id,omitempty"`
+	ParentToolUseId *string          `protobuf:"bytes,4,opt,name=parent_tool_use_id,proto3,oneof" json:"parent_tool_use_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -703,7 +703,7 @@ func (x *SDKPartialAssistantMessage) GetParentToolUseId() string {
 type CompactMetadata struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Trigger       string                 `protobuf:"bytes,1,opt,name=trigger,proto3" json:"trigger,omitempty"`
-	PreTokens     int32                  `protobuf:"varint,2,opt,name=pre_tokens,json=preTokens,proto3" json:"pre_tokens,omitempty"`
+	PreTokens     int32                  `protobuf:"varint,2,opt,name=pre_tokens,proto3" json:"pre_tokens,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -757,8 +757,8 @@ func (x *CompactMetadata) GetPreTokens() int32 {
 type SDKCompactBoundaryMessage struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Uuid            string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	SessionId       string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	CompactMetadata *CompactMetadata       `protobuf:"bytes,3,opt,name=compact_metadata,json=compactMetadata,proto3" json:"compact_metadata,omitempty"`
+	SessionId       string                 `protobuf:"bytes,2,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	CompactMetadata *CompactMetadata       `protobuf:"bytes,3,opt,name=compact_metadata,proto3" json:"compact_metadata,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -982,52 +982,56 @@ var File_sdk_types_v1_message_proto protoreflect.FileDescriptor
 
 const file_sdk_types_v1_message_proto_rawDesc = "" +
 	"\n" +
-	"\x1asdk_types/v1/message.proto\x12\fsdk_types.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1dsdk_types/v1/tool_input.proto\"\xc4\x01\n" +
+	"\x1asdk_types/v1/message.proto\x12\fsdk_types.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1dsdk_types/v1/tool_input.proto\"\xc8\x01\n" +
 	"\x13SDKAssistantMessage\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1d\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x121\n" +
-	"\amessage\x18\x03 \x01(\v2\x17.google.protobuf.StructR\amessage\x120\n" +
-	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x00R\x0fparentToolUseId\x88\x01\x01B\x15\n" +
-	"\x13_parent_tool_use_id\"\xcd\x01\n" +
+	"session_id\x18\x02 \x01(\tR\n" +
+	"session_id\x121\n" +
+	"\amessage\x18\x03 \x01(\v2\x17.google.protobuf.StructR\amessage\x123\n" +
+	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x00R\x12parent_tool_use_id\x88\x01\x01B\x15\n" +
+	"\x13_parent_tool_use_id\"\xd1\x01\n" +
 	"\x0eSDKUserMessage\x12\x17\n" +
-	"\x04uuid\x18\x01 \x01(\tH\x00R\x04uuid\x88\x01\x01\x12\x1d\n" +
+	"\x04uuid\x18\x01 \x01(\tH\x00R\x04uuid\x88\x01\x01\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x121\n" +
-	"\amessage\x18\x03 \x01(\v2\x17.google.protobuf.StructR\amessage\x120\n" +
-	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x01R\x0fparentToolUseId\x88\x01\x01B\a\n" +
+	"session_id\x18\x02 \x01(\tR\n" +
+	"session_id\x121\n" +
+	"\amessage\x18\x03 \x01(\v2\x17.google.protobuf.StructR\amessage\x123\n" +
+	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x01R\x12parent_tool_use_id\x88\x01\x01B\a\n" +
 	"\x05_uuidB\x15\n" +
-	"\x13_parent_tool_use_id\"\xc5\x01\n" +
+	"\x13_parent_tool_use_id\"\xc9\x01\n" +
 	"\x14SDKUserMessageReplay\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1d\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x121\n" +
-	"\amessage\x18\x03 \x01(\v2\x17.google.protobuf.StructR\amessage\x120\n" +
-	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x00R\x0fparentToolUseId\x88\x01\x01B\x15\n" +
-	"\x13_parent_tool_use_id\"\x8a\x01\n" +
-	"\x13SDKPermissionDenial\x12\x1b\n" +
-	"\ttool_name\x18\x01 \x01(\tR\btoolName\x12\x1e\n" +
-	"\vtool_use_id\x18\x02 \x01(\tR\ttoolUseId\x126\n" +
+	"session_id\x18\x02 \x01(\tR\n" +
+	"session_id\x121\n" +
+	"\amessage\x18\x03 \x01(\v2\x17.google.protobuf.StructR\amessage\x123\n" +
+	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x00R\x12parent_tool_use_id\x88\x01\x01B\x15\n" +
+	"\x13_parent_tool_use_id\"\x8e\x01\n" +
+	"\x13SDKPermissionDenial\x12\x1c\n" +
+	"\ttool_name\x18\x01 \x01(\tR\ttool_name\x12 \n" +
+	"\vtool_use_id\x18\x02 \x01(\tR\vtool_use_id\x127\n" +
 	"\n" +
-	"tool_input\x18\x03 \x01(\v2\x17.sdk_types.v1.ToolInputR\ttoolInput\"\xd8\x05\n" +
+	"tool_input\x18\x03 \x01(\v2\x17.sdk_types.v1.ToolInputR\n" +
+	"tool_input\"\xe2\x05\n" +
 	"\x10SDKResultMessage\x12\x18\n" +
 	"\asubtype\x18\x01 \x01(\tR\asubtype\x12\x12\n" +
-	"\x04uuid\x18\x02 \x01(\tR\x04uuid\x12\x1d\n" +
+	"\x04uuid\x18\x02 \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x03 \x01(\tR\tsessionId\x12\x1f\n" +
-	"\vduration_ms\x18\x04 \x01(\x03R\n" +
-	"durationMs\x12&\n" +
-	"\x0fduration_api_ms\x18\x05 \x01(\x03R\rdurationApiMs\x12\x19\n" +
-	"\bis_error\x18\x06 \x01(\bR\aisError\x12\x1b\n" +
-	"\tnum_turns\x18\a \x01(\x05R\bnumTurns\x12$\n" +
-	"\x0etotal_cost_usd\x18\b \x01(\x01R\ftotalCostUsd\x124\n" +
+	"session_id\x18\x03 \x01(\tR\n" +
+	"session_id\x12 \n" +
+	"\vduration_ms\x18\x04 \x01(\x03R\vduration_ms\x12(\n" +
+	"\x0fduration_api_ms\x18\x05 \x01(\x03R\x0fduration_api_ms\x12\x1a\n" +
+	"\bis_error\x18\x06 \x01(\bR\bis_error\x12\x1c\n" +
+	"\tnum_turns\x18\a \x01(\x05R\tnum_turns\x12&\n" +
+	"\x0etotal_cost_usd\x18\b \x01(\x01R\x0etotal_cost_usd\x124\n" +
 	"\x05usage\x18\t \x01(\v2\x1e.sdk_types.v1.NonNullableUsageR\x05usage\x12O\n" +
 	"\vmodel_usage\x18\n" +
 	" \x03(\v2..sdk_types.v1.SDKResultMessage.ModelUsageEntryR\n" +
-	"modelUsage\x12P\n" +
-	"\x12permission_denials\x18\v \x03(\v2!.sdk_types.v1.SDKPermissionDenialR\x11permissionDenials\x12\x1b\n" +
-	"\x06result\x18\f \x01(\tH\x00R\x06result\x88\x01\x01\x12H\n" +
-	"\x11structured_output\x18\r \x01(\v2\x16.google.protobuf.ValueH\x01R\x10structuredOutput\x88\x01\x01\x12\x16\n" +
+	"modelUsage\x12Q\n" +
+	"\x12permission_denials\x18\v \x03(\v2!.sdk_types.v1.SDKPermissionDenialR\x12permission_denials\x12\x1b\n" +
+	"\x06result\x18\f \x01(\tH\x00R\x06result\x88\x01\x01\x12I\n" +
+	"\x11structured_output\x18\r \x01(\v2\x16.google.protobuf.ValueH\x01R\x11structured_output\x88\x01\x01\x12\x16\n" +
 	"\x06errors\x18\x0e \x03(\tR\x06errors\x1aW\n" +
 	"\x0fModelUsageEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
@@ -1036,37 +1040,40 @@ const file_sdk_types_v1_message_proto_rawDesc = "" +
 	"\x12_structured_output\"@\n" +
 	"\x12SDKSystemMcpServer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\"\xdf\x02\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\"\xe3\x02\n" +
 	"\x10SDKSystemMessage\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1d\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x12$\n" +
+	"session_id\x18\x02 \x01(\tR\n" +
+	"session_id\x12$\n" +
 	"\x0eapi_key_source\x18\x03 \x01(\tR\fapiKeySource\x12\x10\n" +
 	"\x03cwd\x18\x04 \x01(\tR\x03cwd\x12\x14\n" +
-	"\x05tools\x18\x05 \x03(\tR\x05tools\x12A\n" +
-	"\vmcp_servers\x18\x06 \x03(\v2 .sdk_types.v1.SDKSystemMcpServerR\n" +
-	"mcpServers\x12\x14\n" +
+	"\x05tools\x18\x05 \x03(\tR\x05tools\x12B\n" +
+	"\vmcp_servers\x18\x06 \x03(\v2 .sdk_types.v1.SDKSystemMcpServerR\vmcp_servers\x12\x14\n" +
 	"\x05model\x18\a \x01(\tR\x05model\x12'\n" +
-	"\x0fpermission_mode\x18\b \x01(\tR\x0epermissionMode\x12%\n" +
-	"\x0eslash_commands\x18\t \x03(\tR\rslashCommands\x12!\n" +
+	"\x0fpermission_mode\x18\b \x01(\tR\x0epermissionMode\x12&\n" +
+	"\x0eslash_commands\x18\t \x03(\tR\x0eslash_commands\x12\"\n" +
 	"\foutput_style\x18\n" +
-	" \x01(\tR\voutputStyle\"\xc7\x01\n" +
+	" \x01(\tR\foutput_style\"\xcb\x01\n" +
 	"\x1aSDKPartialAssistantMessage\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1d\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x12-\n" +
-	"\x05event\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05event\x120\n" +
-	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x00R\x0fparentToolUseId\x88\x01\x01B\x15\n" +
-	"\x13_parent_tool_use_id\"J\n" +
+	"session_id\x18\x02 \x01(\tR\n" +
+	"session_id\x12-\n" +
+	"\x05event\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05event\x123\n" +
+	"\x12parent_tool_use_id\x18\x04 \x01(\tH\x00R\x12parent_tool_use_id\x88\x01\x01B\x15\n" +
+	"\x13_parent_tool_use_id\"K\n" +
 	"\x0fCompactMetadata\x12\x18\n" +
-	"\atrigger\x18\x01 \x01(\tR\atrigger\x12\x1d\n" +
+	"\atrigger\x18\x01 \x01(\tR\atrigger\x12\x1e\n" +
 	"\n" +
-	"pre_tokens\x18\x02 \x01(\x05R\tpreTokens\"\x98\x01\n" +
+	"pre_tokens\x18\x02 \x01(\x05R\n" +
+	"pre_tokens\"\x9a\x01\n" +
 	"\x19SDKCompactBoundaryMessage\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1d\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x12H\n" +
-	"\x10compact_metadata\x18\x03 \x01(\v2\x1d.sdk_types.v1.CompactMetadataR\x0fcompactMetadata\"\xe5\x03\n" +
+	"session_id\x18\x02 \x01(\tR\n" +
+	"session_id\x12I\n" +
+	"\x10compact_metadata\x18\x03 \x01(\v2\x1d.sdk_types.v1.CompactMetadataR\x10compact_metadata\"\xe5\x03\n" +
 	"\n" +
 	"SDKMessage\x12A\n" +
 	"\tassistant\x18\x01 \x01(\v2!.sdk_types.v1.SDKAssistantMessageH\x00R\tassistant\x122\n" +
