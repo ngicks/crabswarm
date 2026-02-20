@@ -8,6 +8,7 @@ import (
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/claude_hook/v1"
 	sdktypes "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
+	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,7 +23,7 @@ func init() {
 // hookAuditCmd is the audit subcommand under hook.
 var hookAuditCmd = &cobra.Command{
 	Use:   "audit",
-	Short: "Audit hook events",
+	Short: "A hook for claude code's PreToolUse event. Sends all hook inputs to backend crabswarm server so we can audit them",
 	RunE:  runHookAuditCmd,
 }
 
@@ -60,5 +61,5 @@ func runHookAuditCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("sending audit event: %w", err)
 	}
 
-	return nil
+	return &handler.HandlerError{}
 }

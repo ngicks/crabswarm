@@ -1,4 +1,31 @@
-// Package handler defines handler for claude hook
+# Implement Claude Code Hook Handler
+
+## Context
+
+Claude Code hooks are shell commands that run at specific lifecycle points. A hook receives JSON on stdin and communicates results via exit codes and stdout/stderr:
+
+- **Exit 0**: success. Claude Code parses **stdout** for JSON decision fields.
+- **Exit 2**: blocking error. Claude Code reads **stderr** as plain text error message. Stdout is **ignored**.
+- **Other exit codes**: non-blocking error, stderr shown in verbose mode.
+
+These are two distinct paths:
+- JSON decision output (e.g. `{"decision":"block","reason":"..."}`) → **stdout, exit 0**
+- Blocking error (plain text) → **stderr, exit 2**
+
+We need a `HandlerError` type that hook subcommands return from cobra `RunE`. The `Execute` wrapper in `root.go` intercepts it and calls `Handle()`, which writes to the correct stream and exits with the correct code.
+
+## Files to modify
+
+- `pkg/claudehook/handler/handler.go` — `HandlerError`, `HookOutput`, typed constants, `Handle()`
+- `cmd/crabswarm/commands/root.go` — intercept `HandlerError`
+- `cmd/crabswarm/commands/hook.go` — set `SilenceErrors`/`SilenceUsage` on `hookCmd` only
+- `cmd/crabswarm/commands/hook_audit.go` — return `HandlerError` on success
+
+## Changes
+
+### 1. `pkg/claudehook/handler/handler.go`
+
+```go
 package handler
 
 import (
@@ -41,19 +68,19 @@ const (
 
 // PreToolUseOutput is the hookSpecificOutput for PreToolUse events.
 type PreToolUseOutput struct {
-	HookEventName            string             `json:"hookEventName"`
-	PermissionDecision       PermissionDecision `json:"permissionDecision,omitempty"`
-	PermissionDecisionReason string             `json:"permissionDecisionReason,omitempty"`
-	UpdatedInput             any                `json:"updatedInput,omitempty"`
-	AdditionalContext        string             `json:"additionalContext,omitempty"`
+	HookEventName          string             `json:"hookEventName"`
+	PermissionDecision     PermissionDecision `json:"permissionDecision,omitempty"`
+	PermissionDecisionReason string           `json:"permissionDecisionReason,omitempty"`
+	UpdatedInput           any                `json:"updatedInput,omitempty"`
+	AdditionalContext      string             `json:"additionalContext,omitempty"`
 }
 
 // PermissionRequestDecision is the nested decision object for PermissionRequest hookSpecificOutput.
 type PermissionRequestDecision struct {
-	Behavior     PermissionRequestBehavior `json:"behavior"`
-	UpdatedInput any                       `json:"updatedInput,omitempty"`
-	Message      string                    `json:"message,omitempty"`
-	Interrupt    *bool                     `json:"interrupt,omitempty"`
+	Behavior         PermissionRequestBehavior `json:"behavior"`
+	UpdatedInput     any                       `json:"updatedInput,omitempty"`
+	Message          string                    `json:"message,omitempty"`
+	Interrupt        *bool                     `json:"interrupt,omitempty"`
 }
 
 // PermissionRequestOutput is the hookSpecificOutput for PermissionRequest events.
@@ -163,3 +190,89 @@ func (e *HandlerError) Handle() {
 	fmt.Fprintln(os.Stdout, string(data))
 	os.Exit(0)
 }
+```
+
+### 2. `cmd/crabswarm/commands/root.go`
+
+Add `HandlerError` interception in `Execute`. Non-hook commands (e.g. `serve`) are unaffected — they return regular errors.
+
+```go
+package commands
+
+import (
+	"context"
+	"errors"
+
+	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
+	"github.com/spf13/cobra"
+)
+
+func Execute(ctx context.Context) error {
+	err := rootCmd.ExecuteContext(ctx)
+	if err != nil {
+		if he, ok := errors.AsType[*handler.HandlerError](err); ok {
+			he.Handle() // writes output, calls os.Exit
+		}
+	}
+	return err
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "crabswarm",
+	Short: "crabswarm CLI",
+	Long:  `crabswarm is a CLI tool for managing Claude Code hooks.`,
+}
+
+func init() {
+	rootCmd.PersistentFlags().String("sock", "", "Unix socket path")
+}
+```
+
+### 2b. `cmd/crabswarm/commands/hook.go`
+
+Silence cobra error/usage output **only for hook subcommands**, so `serve` and other commands retain normal cobra error behavior.
+
+```go
+package commands
+
+import (
+	"github.com/spf13/cobra"
+)
+
+func init() {
+	rootCmd.AddCommand(hookCmd)
+}
+
+var hookCmd = &cobra.Command{
+	Use:   "hook",
+	Short: "Hook management commands",
+	// Silence cobra output for hook commands — we control stdout/stderr via HandlerError.Handle().
+	SilenceErrors: true,
+	SilenceUsage:  true,
+}
+```
+
+### 3. `cmd/crabswarm/commands/hook_audit.go`
+
+Change the return from `return nil` to:
+
+```go
+return &handler.HandlerError{}
+```
+
+Add import: `"github.com/ngicks/crabswarm/pkg/claudehook/handler"`.
+
+The audit hook is observation-only — it sends the input to the backend and always allows (exit 0, no JSON output).
+
+## Design notes
+
+- **Success-via-error pattern**: Hook subcommands return `HandlerError` even on success. This is intentional — it ensures `Handle()` always runs for hook commands, giving us full control over exit codes and output streams. Non-hook commands (e.g. `serve`) return regular errors unaffected.
+- **`hookEventName` in output structs**: Required by the Claude Code spec. The JSON `hookSpecificOutput` object must include `hookEventName` set to the event name.
+- **`any` for `UpdatedInput` and `HookSpecificOutput`**: `UpdatedInput` varies per tool (Bash input vs Edit input vs ...). `HookSpecificOutput` on `HookOutput` uses `any` so callers pass typed structs (e.g. `PreToolUseOutput`, `PermissionRequestOutput`) which are marshaled correctly.
+- **Custom types instead of proto types for output**: The proto types (`SyncHookJSONOutput`, `HookSpecificOutput`) use oneof wrappers that serialize to a different JSON shape than Claude Code expects. Proto types produce `{"preToolUse": {...}}` while Claude Code expects `{"hookEventName": "PreToolUse", ...}`. Proto types are used for **input** parsing only.
+
+## Verification
+
+1. `go build ./...` — compiles
+2. `go vet ./...` — no issues
+3. `go test ./...` — passes
