@@ -2,9 +2,11 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+
+	sdk_typesv1 "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // --- Typed string constants ---
@@ -37,127 +39,35 @@ const (
 	PermissionRequestBehaviorDeny  PermissionRequestBehavior = "deny"
 )
 
-// --- Hook-specific output structs ---
-
-// PreToolUseOutput is the hookSpecificOutput for PreToolUse events.
-type PreToolUseOutput struct {
-	HookEventName            string             `json:"hookEventName"`
-	PermissionDecision       PermissionDecision `json:"permissionDecision,omitempty"`
-	PermissionDecisionReason string             `json:"permissionDecisionReason,omitempty"`
-	UpdatedInput             any                `json:"updatedInput,omitempty"`
-	AdditionalContext        string             `json:"additionalContext,omitempty"`
-}
-
-// PermissionRequestDecision is the nested decision object for PermissionRequest hookSpecificOutput.
-type PermissionRequestDecision struct {
-	Behavior     PermissionRequestBehavior `json:"behavior"`
-	UpdatedInput any                       `json:"updatedInput,omitempty"`
-	Message      string                    `json:"message,omitempty"`
-	Interrupt    *bool                     `json:"interrupt,omitempty"`
-}
-
-// PermissionRequestOutput is the hookSpecificOutput for PermissionRequest events.
-type PermissionRequestOutput struct {
-	HookEventName string                     `json:"hookEventName"`
-	Decision      *PermissionRequestDecision `json:"decision,omitempty"`
-}
-
-// SessionStartOutput is the hookSpecificOutput for SessionStart events.
-type SessionStartOutput struct {
-	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext,omitempty"`
-}
-
-// UserPromptSubmitOutput is the hookSpecificOutput for UserPromptSubmit events.
-type UserPromptSubmitOutput struct {
-	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext,omitempty"`
-}
-
-// PostToolUseOutput is the hookSpecificOutput for PostToolUse events.
-type PostToolUseOutput struct {
-	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext,omitempty"`
-}
-
-// PostToolUseFailureOutput is the hookSpecificOutput for PostToolUseFailure events.
-type PostToolUseFailureOutput struct {
-	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext,omitempty"`
-}
-
-// SubagentStartOutput is the hookSpecificOutput for SubagentStart events.
-type SubagentStartOutput struct {
-	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext,omitempty"`
-}
-
-// --- HookOutput ---
-
-// HookOutput is the JSON written to stdout on exit 0.
-// See https://code.claude.com/docs/en/hooks#json-output
-type HookOutput struct {
-	// Universal fields
-	Continue       *bool  `json:"continue,omitempty"`
-	SuppressOutput *bool  `json:"suppressOutput,omitempty"`
-	StopReason     string `json:"stopReason,omitempty"`
-	SystemMessage  string `json:"systemMessage,omitempty"`
-
-	// Top-level decision (for UserPromptSubmit, PostToolUse, PostToolUseFailure, Stop, SubagentStop, ConfigChange)
-	Decision HookDecision `json:"decision,omitempty"`
-	Reason   string       `json:"reason,omitempty"`
-
-	// Event-specific output
-	HookSpecificOutput any `json:"hookSpecificOutput,omitempty"`
-}
-
-// --- HandlerError ---
-
 // HandlerError is returned by hook subcommands to signal the hook result.
-// It implements error so cobra RunE can return it.
-//
-// Two modes:
-//   - Output != nil: marshal Output as JSON to stdout, exit 0.
-//     (Even "block" decisions go to stdout with exit 0 — Claude Code parses the JSON.)
-//   - BlockError != "": write BlockError to stderr, exit 2.
-//     (This is the "blocking error" path — no JSON, just plain text.)
-//   - Both nil/empty: exit 0, no output (allow).
+// It implements error as it requires special handling.
 type HandlerError struct {
 	// Output is the structured JSON to write to stdout on exit 0.
-	Output *HookOutput
-
-	// BlockError is a plain text message to write to stderr on exit 2.
-	// Mutually exclusive with Output.
-	BlockError string
+	Output *sdk_typesv1.SyncHookJSONOutput
 }
 
 func (e *HandlerError) Error() string {
-	if e.BlockError != "" {
-		return fmt.Sprintf("hook: block error: %s", e.BlockError)
-	}
-	if e.Output != nil && e.Output.Decision == HookDecisionBlock {
-		return fmt.Sprintf("hook: block: %s", e.Output.Reason)
+	if e.Output.GetDecision() == string(HookDecisionBlock) {
+		return fmt.Sprintf("hook: block: %s", e.Output.GetReason())
 	}
 	return "hook: allow"
 }
 
 // Handle writes output and exits the process.
 func (e *HandlerError) Handle() {
-	// Exit 2 path: plain text to stderr
-	if e.BlockError != "" {
-		fmt.Fprint(os.Stderr, e.BlockError)
-		os.Exit(2)
-	}
-
-	// No output: exit 0
 	if e.Output == nil {
 		os.Exit(0)
 	}
 
+	if e.Output.GetDecision() == string(HookDecisionBlock) {
+		fmt.Fprint(os.Stderr, e.Output.GetReason())
+		os.Exit(2)
+	}
+
 	// JSON output to stdout, exit 0
-	data, err := json.Marshal(e.Output)
+	data, err := protojson.Marshal(e.Output)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "hook: failed to marshal output: %v\n", err)
+		fmt.Fprintf(os.Stderr, "hook: marshaling SyncHookJSONOutput: protojson.Marshal: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Fprintln(os.Stdout, string(data))

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabhook",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh",
             "timeout": 300,
             "statusMessage": "Waiting for permission..."
           }

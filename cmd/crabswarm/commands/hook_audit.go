@@ -53,10 +53,14 @@ func runHookAuditCmd(cmd *cobra.Command, args []string) error {
 
 	client := pb.NewAuditServiceClient(conn)
 
-	_, err = client.SendAuditEvent(ctx, &pb.AuditRequest{
-		Input:     &input,
-		Timestamp: timestamppb.New(time.Now()),
-	})
+	_, err = client.SendAuditEvent(
+		ctx,
+		&pb.AuditRequest{
+			Input:     &input,
+			Timestamp: timestamppb.New(time.Now()),
+		},
+		grpc.WaitForReady(true),
+	)
 	if err != nil {
 		return fmt.Errorf("sending audit event: %w", err)
 	}
