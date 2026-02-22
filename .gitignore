@@ -7,3 +7,4 @@
 /crabswarm
 /splitpane
 /plugin/crabswarm/bin/crabswarm-*
+/hook_input.json*

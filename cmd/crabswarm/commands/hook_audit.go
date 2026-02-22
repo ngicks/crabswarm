@@ -2,18 +2,16 @@ package commands
 
 import (
 	"fmt"
-	"io"
+	"io/fs"
 	"os"
-	"time"
+	"path/filepath"
 
+	"github.com/ngicks/crabswarm/cmd/internal/stdiopipe"
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/claude_hook/v1"
-	sdktypes "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
-	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
+	"github.com/ngicks/crabswarm/pkg/crabswarm"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func init() {
@@ -30,17 +28,11 @@ var hookAuditCmd = &cobra.Command{
 func runHookAuditCmd(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
-	raw, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return fmt.Errorf("reading stdin: %w", err)
-	}
-
-	var input sdktypes.PreToolUseHookInput
-	if err := protojson.Unmarshal(raw, &input); err != nil {
-		return fmt.Errorf("parsing PreToolUseHookInput: %w", err)
-	}
+	reader := stdiopipe.Stdin(ctx)
+	defer reader.Close()
 
 	sockPath := resolveSocketPath(cmd)
+	_ = os.MkdirAll(filepath.Dir(sockPath), fs.ModePerm)
 
 	conn, err := grpc.NewClient(
 		"unix://"+sockPath,
@@ -53,17 +45,5 @@ func runHookAuditCmd(cmd *cobra.Command, args []string) error {
 
 	client := pb.NewAuditServiceClient(conn)
 
-	_, err = client.SendAuditEvent(
-		ctx,
-		&pb.AuditRequest{
-			Input:     &input,
-			Timestamp: timestamppb.New(time.Now()),
-		},
-		grpc.WaitForReady(true),
-	)
-	if err != nil {
-		return fmt.Errorf("sending audit event: %w", err)
-	}
-
-	return &handler.HandlerError{}
+	return crabswarm.HookAudit(ctx, reader, client)
 }

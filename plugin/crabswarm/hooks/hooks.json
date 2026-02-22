@@ -6,9 +6,14 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh hook audit",
             "timeout": 300,
             "statusMessage": "Waiting for permission..."
+          },
+          {
+            "type": "command",
+            "command": "tee >> hook_input.jsonl && echo \"\" >> hook_input.jsonl",
+            "statusMessage": "copying input"
           }
         ]
       }

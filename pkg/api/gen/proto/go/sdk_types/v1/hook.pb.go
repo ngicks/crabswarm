@@ -33,6 +33,7 @@ type PreToolUseHookInput struct {
 	ToolInput      *ToolInput             `protobuf:"bytes,6,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
 	// hook_event_name discriminator. Value must be "PreToolUse".
 	HookEventName string `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	ToolUseId     string `protobuf:"bytes,8,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -116,6 +117,13 @@ func (x *PreToolUseHookInput) GetHookEventName() string {
 	return ""
 }
 
+func (x *PreToolUseHookInput) GetToolUseId() string {
+	if x != nil {
+		return x.ToolUseId
+	}
+	return ""
+}
+
 // PostToolUseHookInput represents input for the post-tool-use hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-hook-input
 type PostToolUseHookInput struct {
@@ -129,6 +137,7 @@ type PostToolUseHookInput struct {
 	ToolResponse   *ToolOutput            `protobuf:"bytes,7,opt,name=tool_response,proto3" json:"tool_response,omitempty"`
 	// hook_event_name discriminator. Value must be "PostToolUse".
 	HookEventName string `protobuf:"bytes,8,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	ToolUseId     string `protobuf:"bytes,9,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -215,6 +224,13 @@ func (x *PostToolUseHookInput) GetToolResponse() *ToolOutput {
 func (x *PostToolUseHookInput) GetHookEventName() string {
 	if x != nil {
 		return x.HookEventName
+	}
+	return ""
+}
+
+func (x *PostToolUseHookInput) GetToolUseId() string {
+	if x != nil {
+		return x.ToolUseId
 	}
 	return ""
 }
@@ -1945,7 +1961,7 @@ var File_sdk_types_v1_hook_proto protoreflect.FileDescriptor
 
 const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\n" +
-	"\x17sdk_types/v1/hook.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/permission.proto\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x1esdk_types/v1/tool_output.proto\"\xb5\x02\n" +
+	"\x17sdk_types/v1/hook.proto\x12\fsdk_types.v1\x1a\x1dsdk_types/v1/permission.proto\x1a\x1dsdk_types/v1/tool_input.proto\x1a\x1esdk_types/v1/tool_output.proto\"\xd7\x02\n" +
 	"\x13PreToolUseHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -1957,8 +1973,9 @@ const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\n" +
 	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\n" +
 	"tool_input\x12(\n" +
-	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_nameB\x12\n" +
-	"\x10_permission_mode\"\xf6\x02\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12 \n" +
+	"\vtool_use_id\x18\b \x01(\tR\vtool_use_idB\x12\n" +
+	"\x10_permission_mode\"\x98\x03\n" +
 	"\x14PostToolUseHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -1971,7 +1988,8 @@ const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"tool_input\x18\x06 \x01(\v2\x17.sdk_types.v1.ToolInputR\n" +
 	"tool_input\x12>\n" +
 	"\rtool_response\x18\a \x01(\v2\x18.sdk_types.v1.ToolOutputR\rtool_response\x12(\n" +
-	"\x0fhook_event_name\x18\b \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x0fhook_event_name\x18\b \x01(\tR\x0fhook_event_name\x12 \n" +
+	"\vtool_use_id\x18\t \x01(\tR\vtool_use_idB\x12\n" +
 	"\x10_permission_mode\"\x8d\x03\n" +
 	"\x1bPostToolUseFailureHookInput\x12\x1e\n" +
 	"\n" +

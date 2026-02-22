@@ -17,6 +17,7 @@ message PreToolUseHookInput {
   ToolInput tool_input = 6 [json_name = "tool_input"];
   // hook_event_name discriminator. Value must be "PreToolUse".
   string hook_event_name = 7 [json_name = "hook_event_name"];
+  string tool_use_id = 8 [json_name = "tool_use_id"];
 }
 
 // PostToolUseHookInput represents input for the post-tool-use hook.
@@ -31,6 +32,7 @@ message PostToolUseHookInput {
   ToolOutput tool_response = 7 [json_name = "tool_response"];
   // hook_event_name discriminator. Value must be "PostToolUse".
   string hook_event_name = 8 [json_name = "hook_event_name"];
+  string tool_use_id = 9 [json_name = "tool_use_id"];
 }
 
 // PostToolUseFailureHookInput represents input for the post-tool-use-failure hook.

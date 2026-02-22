@@ -1,6 +1,5 @@
 {
   "name": "crabswarm",
   "version": "0.1.0",
-  "description": "Crabswarm Claude Code plugin",
-  "hooks": "./hooks/hooks.json"
+  "description": "Crabswarm Claude Code plugin"
 }
