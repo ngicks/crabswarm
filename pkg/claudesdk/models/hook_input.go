@@ -4,7 +4,6 @@ import "encoding/json"
 
 // PreToolUseHookInput represents input for the pre-tool-use hook.
 // ToolInput is kept as json.RawMessage because its schema depends on ToolName.
-// Use ParseToolInput to decode it into a concrete type.
 type PreToolUseHookInput struct {
 	SessionID      string          `json:"session_id"`
 	TranscriptPath string          `json:"transcript_path"`

@@ -12,8 +12,8 @@ import (
 
 var unmarshaler = protojson.UnmarshalOptions{DiscardUnknown: true}
 
-// PreToolUseHookInputToProto converts a model PreToolUseHookInput to its proto equivalent.
-func PreToolUseHookInputToProto(m *PreToolUseHookInput) (*pb.PreToolUseHookInput, error) {
+// ToProto converts the PreToolUseHookInput to its proto equivalent.
+func (m *PreToolUseHookInput) ToProto() (*pb.PreToolUseHookInput, error) {
 	ti, err := toolInputToProto(m.ToolName, m.ToolInput)
 	if err != nil {
 		return nil, fmt.Errorf("converting tool_input: %w", err)
@@ -32,24 +32,22 @@ func PreToolUseHookInputToProto(m *PreToolUseHookInput) (*pb.PreToolUseHookInput
 	return p, nil
 }
 
-// PreToolUseHookInputFromProto converts a proto PreToolUseHookInput to the model type.
-func PreToolUseHookInputFromProto(p *pb.PreToolUseHookInput) (*PreToolUseHookInput, error) {
+// FromProto populates the receiver's fields from a proto PreToolUseHookInput.
+func (m *PreToolUseHookInput) FromProto(p *pb.PreToolUseHookInput) error {
 	raw, err := toolInputFromProto(p.GetToolInput())
 	if err != nil {
-		return nil, fmt.Errorf("converting tool_input: %w", err)
+		return fmt.Errorf("converting tool_input: %w", err)
 	}
 
-	m := &PreToolUseHookInput{
-		SessionID:      p.GetSessionId(),
-		TranscriptPath: p.GetTranscriptPath(),
-		Cwd:            p.GetCwd(),
-		PermissionMode: p.PermissionMode,
-		ToolName:       p.GetToolName(),
-		ToolInput:      raw,
-		HookEventName:  p.GetHookEventName(),
-		ToolUseID:      p.GetToolUseId(),
-	}
-	return m, nil
+	m.SessionID = p.GetSessionId()
+	m.TranscriptPath = p.GetTranscriptPath()
+	m.Cwd = p.GetCwd()
+	m.PermissionMode = p.PermissionMode
+	m.ToolName = p.GetToolName()
+	m.ToolInput = raw
+	m.HookEventName = p.GetHookEventName()
+	m.ToolUseID = p.GetToolUseId()
+	return nil
 }
 
 // toolInputToProto converts raw JSON tool input + tool name to a proto ToolInput.

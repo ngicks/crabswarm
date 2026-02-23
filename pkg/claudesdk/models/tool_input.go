@@ -4,10 +4,6 @@
 // doesn't match what Claude Code sends/expects.
 package models
 
-import (
-	"encoding/json"
-	"fmt"
-)
 
 // AgentInput is the input for the Task tool.
 type AgentInput struct {
@@ -148,64 +144,3 @@ type ReadMcpResourceInput struct {
 	URI    string `json:"uri"`
 }
 
-// ParseToolInput unmarshals raw JSON tool_input into a concrete Go type
-// based on the tool_name discriminator. Returns the typed struct for known
-// tools, or map[string]any for unknown/MCP tools.
-func ParseToolInput(toolName string, raw json.RawMessage) (any, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-
-	var target any
-	switch toolName {
-	case "Read":
-		target = new(FileReadInput)
-	case "Write":
-		target = new(FileWriteInput)
-	case "Edit":
-		target = new(FileEditInput)
-	case "Bash":
-		target = new(BashInput)
-	case "Glob":
-		target = new(GlobInput)
-	case "Grep":
-		target = new(GrepInput)
-	case "Task":
-		target = new(AgentInput)
-	case "WebFetch":
-		target = new(WebFetchInput)
-	case "WebSearch":
-		target = new(WebSearchInput)
-	case "NotebookEdit":
-		target = new(NotebookEditInput)
-	case "AskUserQuestion":
-		target = new(AskUserQuestionInput)
-	case "ExitPlanMode":
-		target = new(ExitPlanModeInput)
-	case "EnterPlanMode":
-		// EnterPlanMode has no parameters.
-		return nil, nil
-	case "BashOutput", "TaskOutput":
-		target = new(BashOutputInput)
-	case "KillShell", "TaskStop":
-		target = new(KillShellInput)
-	case "TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet":
-		target = new(TodoWriteInput)
-	case "ListMcpResources":
-		target = new(ListMcpResourcesInput)
-	case "ReadMcpResource":
-		target = new(ReadMcpResourceInput)
-	default:
-		// Unknown or MCP tools: unmarshal into generic map.
-		var m map[string]any
-		if err := json.Unmarshal(raw, &m); err != nil {
-			return nil, fmt.Errorf("unmarshal unknown tool %q input: %w", toolName, err)
-		}
-		return m, nil
-	}
-
-	if err := json.Unmarshal(raw, target); err != nil {
-		return nil, fmt.Errorf("unmarshal %q tool input: %w", toolName, err)
-	}
-	return target, nil
-}

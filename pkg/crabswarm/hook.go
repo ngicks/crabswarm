@@ -26,7 +26,7 @@ func HookAudit(ctx context.Context, r io.Reader, client pb.AuditServiceClient) e
 		return fmt.Errorf("parsing PreToolUseHookInput: %w", err)
 	}
 
-	protoInput, err := models.PreToolUseHookInputToProto(&input)
+	protoInput, err := input.ToProto()
 	if err != nil {
 		return fmt.Errorf("converting to proto: %w", err)
 	}

@@ -71,68 +71,6 @@ func TestPreToolUseHookInput_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestParseToolInput_Read(t *testing.T) {
-	var m models.PreToolUseHookInput
-	err := json.Unmarshal([]byte(preToolUseReadJSON), &m)
-	assert.NilError(t, err)
-
-	parsed, err := models.ParseToolInput(m.ToolName, m.ToolInput)
-	assert.NilError(t, err)
-
-	ri, ok := parsed.(*models.FileReadInput)
-	assert.Assert(t, ok, "expected *FileReadInput, got %T", parsed)
-	assert.Equal(t, ri.FilePath, "/yay/buf.gen.yaml")
-	assert.Assert(t, ri.Offset == nil)
-	assert.Assert(t, ri.Limit == nil)
-}
-
-func TestParseToolInput_Write(t *testing.T) {
-	var m models.PreToolUseHookInput
-	err := json.Unmarshal([]byte(preToolUseWriteJSON), &m)
-	assert.NilError(t, err)
-
-	parsed, err := models.ParseToolInput(m.ToolName, m.ToolInput)
-	assert.NilError(t, err)
-
-	wi, ok := parsed.(*models.FileWriteInput)
-	assert.Assert(t, ok, "expected *FileWriteInput, got %T", parsed)
-	assert.Equal(t, wi.FilePath, "/root/.config/claude/plans/test.md")
-	assert.Equal(t, wi.Content, "# Test Plan")
-}
-
-func TestParseToolInput_Bash(t *testing.T) {
-	var m models.PreToolUseHookInput
-	err := json.Unmarshal([]byte(preToolUseBashJSON), &m)
-	assert.NilError(t, err)
-
-	parsed, err := models.ParseToolInput(m.ToolName, m.ToolInput)
-	assert.NilError(t, err)
-
-	bi, ok := parsed.(*models.BashInput)
-	assert.Assert(t, ok, "expected *BashInput, got %T", parsed)
-	assert.Equal(t, bi.Command, "ls -la")
-	assert.Equal(t, *bi.Timeout, int32(30000))
-	assert.Equal(t, *bi.Description, "List files")
-	assert.Assert(t, bi.RunInBackground == nil)
-}
-
-func TestParseToolInput_UnknownMCP(t *testing.T) {
-	raw := json.RawMessage(`{"custom_param": "value", "count": 42}`)
-	parsed, err := models.ParseToolInput("mcp__myserver__custom_tool", raw)
-	assert.NilError(t, err)
-
-	m, ok := parsed.(map[string]any)
-	assert.Assert(t, ok, "expected map[string]any, got %T", parsed)
-	assert.Equal(t, m["custom_param"], "value")
-	assert.Equal(t, m["count"], float64(42))
-}
-
-func TestParseToolInput_EnterPlanMode(t *testing.T) {
-	parsed, err := models.ParseToolInput("EnterPlanMode", json.RawMessage(`{}`))
-	assert.NilError(t, err)
-	assert.Assert(t, parsed == nil, "EnterPlanMode should return nil")
-}
-
 func TestPreToolUseHookInput_RoundTripJSON(t *testing.T) {
 	// Unmarshal from JSON
 	var m models.PreToolUseHookInput
@@ -153,12 +91,13 @@ func TestPreToolUseHookInput_RoundTripJSON(t *testing.T) {
 	assert.Equal(t, m.ToolUseID, m2.ToolUseID)
 	assert.Equal(t, m.Cwd, m2.Cwd)
 
-	// Verify tool_input is preserved
-	parsed1, err := models.ParseToolInput(m.ToolName, m.ToolInput)
+	// Verify tool_input is preserved (compare semantically, ignoring whitespace)
+	var ti1, ti2 map[string]any
+	err = json.Unmarshal(m.ToolInput, &ti1)
 	assert.NilError(t, err)
-	parsed2, err := models.ParseToolInput(m2.ToolName, m2.ToolInput)
+	err = json.Unmarshal(m2.ToolInput, &ti2)
 	assert.NilError(t, err)
-	assert.DeepEqual(t, parsed1, parsed2)
+	assert.DeepEqual(t, ti1, ti2)
 }
 
 func TestPreToolUseHookInput_ModelToProtoRoundTrip(t *testing.T) {
@@ -168,7 +107,7 @@ func TestPreToolUseHookInput_ModelToProtoRoundTrip(t *testing.T) {
 	assert.NilError(t, err)
 
 	// model -> proto
-	p, err := models.PreToolUseHookInputToProto(&m)
+	p, err := m.ToProto()
 	assert.NilError(t, err)
 	assert.Equal(t, p.GetSessionId(), "12345")
 	assert.Equal(t, p.GetToolName(), "Read")
@@ -177,17 +116,17 @@ func TestPreToolUseHookInput_ModelToProtoRoundTrip(t *testing.T) {
 	assert.Equal(t, p.GetToolInput().GetFileRead().GetFilePath(), "/yay/buf.gen.yaml")
 
 	// proto -> model
-	m2, err := models.PreToolUseHookInputFromProto(p)
+	var m2 models.PreToolUseHookInput
+	err = m2.FromProto(p)
 	assert.NilError(t, err)
 	assert.Equal(t, m2.SessionID, m.SessionID)
 	assert.Equal(t, m2.ToolName, m.ToolName)
 	assert.Equal(t, m2.ToolUseID, m.ToolUseID)
 
 	// Verify tool_input round-trips
-	parsed, err := models.ParseToolInput(m2.ToolName, m2.ToolInput)
+	var ri models.FileReadInput
+	err = json.Unmarshal(m2.ToolInput, &ri)
 	assert.NilError(t, err)
-	ri, ok := parsed.(*models.FileReadInput)
-	assert.Assert(t, ok)
 	assert.Equal(t, ri.FilePath, "/yay/buf.gen.yaml")
 }
 
