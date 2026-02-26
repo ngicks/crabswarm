@@ -22,196 +22,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// PermissionResult represents the result of a permission check.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-result
-type PermissionResult struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Result:
-	//
-	//	*PermissionResult_Allow
-	//	*PermissionResult_Deny
-	Result        isPermissionResult_Result `protobuf_oneof:"result"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PermissionResult) Reset() {
-	*x = PermissionResult{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PermissionResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PermissionResult) ProtoMessage() {}
-
-func (x *PermissionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PermissionResult.ProtoReflect.Descriptor instead.
-func (*PermissionResult) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *PermissionResult) GetResult() isPermissionResult_Result {
-	if x != nil {
-		return x.Result
-	}
-	return nil
-}
-
-func (x *PermissionResult) GetAllow() *AllowResult {
-	if x != nil {
-		if x, ok := x.Result.(*PermissionResult_Allow); ok {
-			return x.Allow
-		}
-	}
-	return nil
-}
-
-func (x *PermissionResult) GetDeny() *DenyResult {
-	if x != nil {
-		if x, ok := x.Result.(*PermissionResult_Deny); ok {
-			return x.Deny
-		}
-	}
-	return nil
-}
-
-type isPermissionResult_Result interface {
-	isPermissionResult_Result()
-}
-
-type PermissionResult_Allow struct {
-	Allow *AllowResult `protobuf:"bytes,1,opt,name=allow,proto3,oneof"`
-}
-
-type PermissionResult_Deny struct {
-	Deny *DenyResult `protobuf:"bytes,2,opt,name=deny,proto3,oneof"`
-}
-
-func (*PermissionResult_Allow) isPermissionResult_Result() {}
-
-func (*PermissionResult_Deny) isPermissionResult_Result() {}
-
-// AllowResult represents an allowed permission result.
-type AllowResult struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	UpdatedInput       *ToolInput             `protobuf:"bytes,1,opt,name=updated_input,json=updatedInput,proto3" json:"updated_input,omitempty"`
-	UpdatedPermissions []*PermissionUpdate    `protobuf:"bytes,2,rep,name=updated_permissions,json=updatedPermissions,proto3" json:"updated_permissions,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
-}
-
-func (x *AllowResult) Reset() {
-	*x = AllowResult{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AllowResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AllowResult) ProtoMessage() {}
-
-func (x *AllowResult) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AllowResult.ProtoReflect.Descriptor instead.
-func (*AllowResult) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *AllowResult) GetUpdatedInput() *ToolInput {
-	if x != nil {
-		return x.UpdatedInput
-	}
-	return nil
-}
-
-func (x *AllowResult) GetUpdatedPermissions() []*PermissionUpdate {
-	if x != nil {
-		return x.UpdatedPermissions
-	}
-	return nil
-}
-
-// DenyResult represents a denied permission result.
-type DenyResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	Interrupt     *bool                  `protobuf:"varint,2,opt,name=interrupt,proto3,oneof" json:"interrupt,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DenyResult) Reset() {
-	*x = DenyResult{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DenyResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DenyResult) ProtoMessage() {}
-
-func (x *DenyResult) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DenyResult.ProtoReflect.Descriptor instead.
-func (*DenyResult) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *DenyResult) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-func (x *DenyResult) GetInterrupt() bool {
-	if x != nil && x.Interrupt != nil {
-		return *x.Interrupt
-	}
-	return false
-}
-
 // McpServerConfig represents configuration for an MCP server.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-config
 type McpServerConfig struct {
@@ -228,7 +38,7 @@ type McpServerConfig struct {
 
 func (x *McpServerConfig) Reset() {
 	*x = McpServerConfig{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[3]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -240,7 +50,7 @@ func (x *McpServerConfig) String() string {
 func (*McpServerConfig) ProtoMessage() {}
 
 func (x *McpServerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[3]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -253,7 +63,7 @@ func (x *McpServerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpServerConfig.ProtoReflect.Descriptor instead.
 func (*McpServerConfig) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{3}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *McpServerConfig) GetConfig() isMcpServerConfig_Config {
@@ -324,7 +134,7 @@ type McpStdioServerConfig struct {
 
 func (x *McpStdioServerConfig) Reset() {
 	*x = McpStdioServerConfig{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[4]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -336,7 +146,7 @@ func (x *McpStdioServerConfig) String() string {
 func (*McpStdioServerConfig) ProtoMessage() {}
 
 func (x *McpStdioServerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[4]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -349,7 +159,7 @@ func (x *McpStdioServerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpStdioServerConfig.ProtoReflect.Descriptor instead.
 func (*McpStdioServerConfig) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{4}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *McpStdioServerConfig) GetCommand() string {
@@ -384,7 +194,7 @@ type McpSSEServerConfig struct {
 
 func (x *McpSSEServerConfig) Reset() {
 	*x = McpSSEServerConfig{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[5]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -396,7 +206,7 @@ func (x *McpSSEServerConfig) String() string {
 func (*McpSSEServerConfig) ProtoMessage() {}
 
 func (x *McpSSEServerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[5]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -409,7 +219,7 @@ func (x *McpSSEServerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpSSEServerConfig.ProtoReflect.Descriptor instead.
 func (*McpSSEServerConfig) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{5}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *McpSSEServerConfig) GetUrl() string {
@@ -437,7 +247,7 @@ type McpHttpServerConfig struct {
 
 func (x *McpHttpServerConfig) Reset() {
 	*x = McpHttpServerConfig{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[6]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -449,7 +259,7 @@ func (x *McpHttpServerConfig) String() string {
 func (*McpHttpServerConfig) ProtoMessage() {}
 
 func (x *McpHttpServerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[6]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -462,7 +272,7 @@ func (x *McpHttpServerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpHttpServerConfig.ProtoReflect.Descriptor instead.
 func (*McpHttpServerConfig) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{6}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *McpHttpServerConfig) GetUrl() string {
@@ -490,7 +300,7 @@ type SdkPluginConfig struct {
 
 func (x *SdkPluginConfig) Reset() {
 	*x = SdkPluginConfig{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[7]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -502,7 +312,7 @@ func (x *SdkPluginConfig) String() string {
 func (*SdkPluginConfig) ProtoMessage() {}
 
 func (x *SdkPluginConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[7]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -515,7 +325,7 @@ func (x *SdkPluginConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SdkPluginConfig.ProtoReflect.Descriptor instead.
 func (*SdkPluginConfig) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{7}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SdkPluginConfig) GetPath() string {
@@ -541,7 +351,7 @@ type AgentDefinition struct {
 
 func (x *AgentDefinition) Reset() {
 	*x = AgentDefinition{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[8]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +363,7 @@ func (x *AgentDefinition) String() string {
 func (*AgentDefinition) ProtoMessage() {}
 
 func (x *AgentDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[8]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,7 +376,7 @@ func (x *AgentDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentDefinition.ProtoReflect.Descriptor instead.
 func (*AgentDefinition) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{8}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AgentDefinition) GetDescription() string {
@@ -608,7 +418,7 @@ type SystemPromptPreset struct {
 
 func (x *SystemPromptPreset) Reset() {
 	*x = SystemPromptPreset{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[9]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -620,7 +430,7 @@ func (x *SystemPromptPreset) String() string {
 func (*SystemPromptPreset) ProtoMessage() {}
 
 func (x *SystemPromptPreset) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[9]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -633,7 +443,7 @@ func (x *SystemPromptPreset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemPromptPreset.ProtoReflect.Descriptor instead.
 func (*SystemPromptPreset) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{9}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SystemPromptPreset) GetAppend() string {
@@ -658,7 +468,7 @@ type SystemPrompt struct {
 
 func (x *SystemPrompt) Reset() {
 	*x = SystemPrompt{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[10]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +480,7 @@ func (x *SystemPrompt) String() string {
 func (*SystemPrompt) ProtoMessage() {}
 
 func (x *SystemPrompt) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[10]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +493,7 @@ func (x *SystemPrompt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemPrompt.ProtoReflect.Descriptor instead.
 func (*SystemPrompt) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{10}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SystemPrompt) GetPrompt() isSystemPrompt_Prompt {
@@ -738,7 +548,7 @@ type OutputFormat struct {
 
 func (x *OutputFormat) Reset() {
 	*x = OutputFormat{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[11]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -750,7 +560,7 @@ func (x *OutputFormat) String() string {
 func (*OutputFormat) ProtoMessage() {}
 
 func (x *OutputFormat) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[11]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -763,7 +573,7 @@ func (x *OutputFormat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutputFormat.ProtoReflect.Descriptor instead.
 func (*OutputFormat) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{11}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *OutputFormat) GetSchema() *structpb.Struct {
@@ -824,7 +634,7 @@ type Options struct {
 
 func (x *Options) Reset() {
 	*x = Options{}
-	mi := &file_sdk_types_v1_types_proto_msgTypes[12]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -836,7 +646,7 @@ func (x *Options) String() string {
 func (*Options) ProtoMessage() {}
 
 func (x *Options) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_types_proto_msgTypes[12]
+	mi := &file_sdk_types_v1_types_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -849,7 +659,7 @@ func (x *Options) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Options.ProtoReflect.Descriptor instead.
 func (*Options) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{12}
+	return file_sdk_types_v1_types_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Options) GetAdditionalDirectories() []string {
@@ -1094,20 +904,7 @@ var File_sdk_types_v1_types_proto protoreflect.FileDescriptor
 
 const file_sdk_types_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"\x18sdk_types/v1/types.proto\x12\fsdk_types.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1dsdk_types/v1/permission.proto\x1a\x1asdk_types/v1/sandbox.proto\x1a\x1dsdk_types/v1/tool_input.proto\"\x7f\n" +
-	"\x10PermissionResult\x121\n" +
-	"\x05allow\x18\x01 \x01(\v2\x19.sdk_types.v1.AllowResultH\x00R\x05allow\x12.\n" +
-	"\x04deny\x18\x02 \x01(\v2\x18.sdk_types.v1.DenyResultH\x00R\x04denyB\b\n" +
-	"\x06result\"\x9c\x01\n" +
-	"\vAllowResult\x12<\n" +
-	"\rupdated_input\x18\x01 \x01(\v2\x17.sdk_types.v1.ToolInputR\fupdatedInput\x12O\n" +
-	"\x13updated_permissions\x18\x02 \x03(\v2\x1e.sdk_types.v1.PermissionUpdateR\x12updatedPermissions\"W\n" +
-	"\n" +
-	"DenyResult\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12!\n" +
-	"\tinterrupt\x18\x02 \x01(\bH\x00R\tinterrupt\x88\x01\x01B\f\n" +
-	"\n" +
-	"_interrupt\"\xc6\x01\n" +
+	"\x18sdk_types/v1/types.proto\x12\fsdk_types.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18sdk_types/v1/other.proto\x1a\x1asdk_types/v1/sandbox.proto\"\xc6\x01\n" +
 	"\x0fMcpServerConfig\x12:\n" +
 	"\x05stdio\x18\x01 \x01(\v2\".sdk_types.v1.McpStdioServerConfigH\x00R\x05stdio\x124\n" +
 	"\x03sse\x18\x02 \x01(\v2 .sdk_types.v1.McpSSEServerConfigH\x00R\x03sse\x127\n" +
@@ -1223,61 +1020,52 @@ func file_sdk_types_v1_types_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_types_proto_rawDescData
 }
 
-var file_sdk_types_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_sdk_types_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_sdk_types_v1_types_proto_goTypes = []any{
-	(*PermissionResult)(nil),     // 0: sdk_types.v1.PermissionResult
-	(*AllowResult)(nil),          // 1: sdk_types.v1.AllowResult
-	(*DenyResult)(nil),           // 2: sdk_types.v1.DenyResult
-	(*McpServerConfig)(nil),      // 3: sdk_types.v1.McpServerConfig
-	(*McpStdioServerConfig)(nil), // 4: sdk_types.v1.McpStdioServerConfig
-	(*McpSSEServerConfig)(nil),   // 5: sdk_types.v1.McpSSEServerConfig
-	(*McpHttpServerConfig)(nil),  // 6: sdk_types.v1.McpHttpServerConfig
-	(*SdkPluginConfig)(nil),      // 7: sdk_types.v1.SdkPluginConfig
-	(*AgentDefinition)(nil),      // 8: sdk_types.v1.AgentDefinition
-	(*SystemPromptPreset)(nil),   // 9: sdk_types.v1.SystemPromptPreset
-	(*SystemPrompt)(nil),         // 10: sdk_types.v1.SystemPrompt
-	(*OutputFormat)(nil),         // 11: sdk_types.v1.OutputFormat
-	(*Options)(nil),              // 12: sdk_types.v1.Options
-	nil,                          // 13: sdk_types.v1.McpStdioServerConfig.EnvEntry
-	nil,                          // 14: sdk_types.v1.McpSSEServerConfig.HeadersEntry
-	nil,                          // 15: sdk_types.v1.McpHttpServerConfig.HeadersEntry
-	nil,                          // 16: sdk_types.v1.Options.AgentsEntry
-	nil,                          // 17: sdk_types.v1.Options.EnvEntry
-	nil,                          // 18: sdk_types.v1.Options.ExtraArgsEntry
-	nil,                          // 19: sdk_types.v1.Options.McpServersEntry
-	(*ToolInput)(nil),            // 20: sdk_types.v1.ToolInput
-	(*PermissionUpdate)(nil),     // 21: sdk_types.v1.PermissionUpdate
-	(*structpb.Struct)(nil),      // 22: google.protobuf.Struct
-	(*SandboxSettings)(nil),      // 23: sdk_types.v1.SandboxSettings
+	(*McpServerConfig)(nil),      // 0: sdk_types.v1.McpServerConfig
+	(*McpStdioServerConfig)(nil), // 1: sdk_types.v1.McpStdioServerConfig
+	(*McpSSEServerConfig)(nil),   // 2: sdk_types.v1.McpSSEServerConfig
+	(*McpHttpServerConfig)(nil),  // 3: sdk_types.v1.McpHttpServerConfig
+	(*SdkPluginConfig)(nil),      // 4: sdk_types.v1.SdkPluginConfig
+	(*AgentDefinition)(nil),      // 5: sdk_types.v1.AgentDefinition
+	(*SystemPromptPreset)(nil),   // 6: sdk_types.v1.SystemPromptPreset
+	(*SystemPrompt)(nil),         // 7: sdk_types.v1.SystemPrompt
+	(*OutputFormat)(nil),         // 8: sdk_types.v1.OutputFormat
+	(*Options)(nil),              // 9: sdk_types.v1.Options
+	nil,                          // 10: sdk_types.v1.McpStdioServerConfig.EnvEntry
+	nil,                          // 11: sdk_types.v1.McpSSEServerConfig.HeadersEntry
+	nil,                          // 12: sdk_types.v1.McpHttpServerConfig.HeadersEntry
+	nil,                          // 13: sdk_types.v1.Options.AgentsEntry
+	nil,                          // 14: sdk_types.v1.Options.EnvEntry
+	nil,                          // 15: sdk_types.v1.Options.ExtraArgsEntry
+	nil,                          // 16: sdk_types.v1.Options.McpServersEntry
+	(*structpb.Struct)(nil),      // 17: google.protobuf.Struct
+	(*SandboxSettings)(nil),      // 18: sdk_types.v1.SandboxSettings
 }
 var file_sdk_types_v1_types_proto_depIdxs = []int32{
-	1,  // 0: sdk_types.v1.PermissionResult.allow:type_name -> sdk_types.v1.AllowResult
-	2,  // 1: sdk_types.v1.PermissionResult.deny:type_name -> sdk_types.v1.DenyResult
-	20, // 2: sdk_types.v1.AllowResult.updated_input:type_name -> sdk_types.v1.ToolInput
-	21, // 3: sdk_types.v1.AllowResult.updated_permissions:type_name -> sdk_types.v1.PermissionUpdate
-	4,  // 4: sdk_types.v1.McpServerConfig.stdio:type_name -> sdk_types.v1.McpStdioServerConfig
-	5,  // 5: sdk_types.v1.McpServerConfig.sse:type_name -> sdk_types.v1.McpSSEServerConfig
-	6,  // 6: sdk_types.v1.McpServerConfig.http:type_name -> sdk_types.v1.McpHttpServerConfig
-	13, // 7: sdk_types.v1.McpStdioServerConfig.env:type_name -> sdk_types.v1.McpStdioServerConfig.EnvEntry
-	14, // 8: sdk_types.v1.McpSSEServerConfig.headers:type_name -> sdk_types.v1.McpSSEServerConfig.HeadersEntry
-	15, // 9: sdk_types.v1.McpHttpServerConfig.headers:type_name -> sdk_types.v1.McpHttpServerConfig.HeadersEntry
-	9,  // 10: sdk_types.v1.SystemPrompt.preset:type_name -> sdk_types.v1.SystemPromptPreset
-	22, // 11: sdk_types.v1.OutputFormat.schema:type_name -> google.protobuf.Struct
-	16, // 12: sdk_types.v1.Options.agents:type_name -> sdk_types.v1.Options.AgentsEntry
-	17, // 13: sdk_types.v1.Options.env:type_name -> sdk_types.v1.Options.EnvEntry
-	18, // 14: sdk_types.v1.Options.extra_args:type_name -> sdk_types.v1.Options.ExtraArgsEntry
-	19, // 15: sdk_types.v1.Options.mcp_servers:type_name -> sdk_types.v1.Options.McpServersEntry
-	11, // 16: sdk_types.v1.Options.output_format:type_name -> sdk_types.v1.OutputFormat
-	7,  // 17: sdk_types.v1.Options.plugins:type_name -> sdk_types.v1.SdkPluginConfig
-	23, // 18: sdk_types.v1.Options.sandbox:type_name -> sdk_types.v1.SandboxSettings
-	10, // 19: sdk_types.v1.Options.system_prompt:type_name -> sdk_types.v1.SystemPrompt
-	8,  // 20: sdk_types.v1.Options.AgentsEntry.value:type_name -> sdk_types.v1.AgentDefinition
-	3,  // 21: sdk_types.v1.Options.McpServersEntry.value:type_name -> sdk_types.v1.McpServerConfig
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	1,  // 0: sdk_types.v1.McpServerConfig.stdio:type_name -> sdk_types.v1.McpStdioServerConfig
+	2,  // 1: sdk_types.v1.McpServerConfig.sse:type_name -> sdk_types.v1.McpSSEServerConfig
+	3,  // 2: sdk_types.v1.McpServerConfig.http:type_name -> sdk_types.v1.McpHttpServerConfig
+	10, // 3: sdk_types.v1.McpStdioServerConfig.env:type_name -> sdk_types.v1.McpStdioServerConfig.EnvEntry
+	11, // 4: sdk_types.v1.McpSSEServerConfig.headers:type_name -> sdk_types.v1.McpSSEServerConfig.HeadersEntry
+	12, // 5: sdk_types.v1.McpHttpServerConfig.headers:type_name -> sdk_types.v1.McpHttpServerConfig.HeadersEntry
+	6,  // 6: sdk_types.v1.SystemPrompt.preset:type_name -> sdk_types.v1.SystemPromptPreset
+	17, // 7: sdk_types.v1.OutputFormat.schema:type_name -> google.protobuf.Struct
+	13, // 8: sdk_types.v1.Options.agents:type_name -> sdk_types.v1.Options.AgentsEntry
+	14, // 9: sdk_types.v1.Options.env:type_name -> sdk_types.v1.Options.EnvEntry
+	15, // 10: sdk_types.v1.Options.extra_args:type_name -> sdk_types.v1.Options.ExtraArgsEntry
+	16, // 11: sdk_types.v1.Options.mcp_servers:type_name -> sdk_types.v1.Options.McpServersEntry
+	8,  // 12: sdk_types.v1.Options.output_format:type_name -> sdk_types.v1.OutputFormat
+	4,  // 13: sdk_types.v1.Options.plugins:type_name -> sdk_types.v1.SdkPluginConfig
+	18, // 14: sdk_types.v1.Options.sandbox:type_name -> sdk_types.v1.SandboxSettings
+	7,  // 15: sdk_types.v1.Options.system_prompt:type_name -> sdk_types.v1.SystemPrompt
+	5,  // 16: sdk_types.v1.Options.AgentsEntry.value:type_name -> sdk_types.v1.AgentDefinition
+	0,  // 17: sdk_types.v1.Options.McpServersEntry.value:type_name -> sdk_types.v1.McpServerConfig
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_types_proto_init() }
@@ -1286,31 +1074,24 @@ func file_sdk_types_v1_types_proto_init() {
 		return
 	}
 	file_sdk_types_v1_other_proto_init()
-	file_sdk_types_v1_permission_proto_init()
 	file_sdk_types_v1_sandbox_proto_init()
-	file_sdk_types_v1_tool_input_proto_init()
 	file_sdk_types_v1_types_proto_msgTypes[0].OneofWrappers = []any{
-		(*PermissionResult_Allow)(nil),
-		(*PermissionResult_Deny)(nil),
-	}
-	file_sdk_types_v1_types_proto_msgTypes[2].OneofWrappers = []any{}
-	file_sdk_types_v1_types_proto_msgTypes[3].OneofWrappers = []any{
 		(*McpServerConfig_Stdio)(nil),
 		(*McpServerConfig_Sse)(nil),
 		(*McpServerConfig_Http)(nil),
 	}
-	file_sdk_types_v1_types_proto_msgTypes[10].OneofWrappers = []any{
+	file_sdk_types_v1_types_proto_msgTypes[7].OneofWrappers = []any{
 		(*SystemPrompt_Custom)(nil),
 		(*SystemPrompt_Preset)(nil),
 	}
-	file_sdk_types_v1_types_proto_msgTypes[12].OneofWrappers = []any{}
+	file_sdk_types_v1_types_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_types_proto_rawDesc), len(file_sdk_types_v1_types_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

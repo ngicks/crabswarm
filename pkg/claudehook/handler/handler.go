@@ -2,11 +2,11 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
-	sdk_typesv1 "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
-	"google.golang.org/protobuf/encoding/protojson"
+	"github.com/ngicks/crabswarm/pkg/claudesdk/models"
 )
 
 // --- Typed string constants ---
@@ -43,12 +43,16 @@ const (
 // It implements error as it requires special handling.
 type HandlerError struct {
 	// Output is the structured JSON to write to stdout on exit 0.
-	Output *sdk_typesv1.SyncHookJSONOutput
+	Output *models.SyncHookJSONOutput
 }
 
 func (e *HandlerError) Error() string {
-	if e.Output.GetDecision() == string(HookDecisionBlock) {
-		return fmt.Sprintf("hook: block: %s", e.Output.GetReason())
+	if e.Output != nil && e.Output.Decision != nil && *e.Output.Decision == string(HookDecisionBlock) {
+		reason := ""
+		if e.Output.Reason != nil {
+			reason = *e.Output.Reason
+		}
+		return fmt.Sprintf("hook: block: %s", reason)
 	}
 	return "hook: allow"
 }
@@ -59,17 +63,35 @@ func (e *HandlerError) Handle() {
 		os.Exit(0)
 	}
 
-	if e.Output.GetDecision() == string(HookDecisionBlock) {
-		fmt.Fprint(os.Stderr, e.Output.GetReason())
+	if e.Output.Decision != nil && *e.Output.Decision == string(HookDecisionBlock) {
+		if e.Output.Reason != nil {
+			fmt.Fprint(os.Stderr, *e.Output.Reason)
+		}
 		os.Exit(2)
 	}
 
 	// JSON output to stdout, exit 0
-	data, err := protojson.Marshal(e.Output)
+	data, err := json.Marshal(e.Output)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "hook: marshaling SyncHookJSONOutput: protojson.Marshal: %v\n", err)
+		fmt.Fprintf(os.Stderr, "hook: marshaling SyncHookJSONOutput: json.Marshal: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Fprintln(os.Stdout, string(data))
 	os.Exit(0)
+}
+
+// NewPermissionRequestAllowError creates a HandlerError that outputs a PermissionRequest
+// approval response (hookSpecificOutput with decision.behavior = "allow").
+func NewPermissionRequestAllowError() *HandlerError {
+	hookEventName := "PermissionRequest"
+	return &HandlerError{
+		Output: &models.SyncHookJSONOutput{
+			HookSpecificOutput: &models.HookSpecificOutput{
+				HookEventName: &hookEventName,
+				Decision: &models.PermissionRequestDecision{
+					Behavior: string(PermissionRequestBehaviorAllow),
+				},
+			},
+		},
+	}
 }

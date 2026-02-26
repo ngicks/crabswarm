@@ -186,6 +186,29 @@ message HookInput {
   }
 }
 
+// --- Permission Result Types (moved from types.proto) ---
+
+// PermissionResult represents the result of a permission check.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-result
+message PermissionResult {
+  oneof result {
+    AllowResult allow = 1;
+    DenyResult deny = 2;
+  }
+}
+
+// AllowResult represents an allowed permission result.
+message AllowResult {
+  ToolInput updated_input = 1;
+  repeated PermissionUpdate updated_permissions = 2;
+}
+
+// DenyResult represents a denied permission result.
+message DenyResult {
+  string message = 1;
+  optional bool interrupt = 2;
+}
+
 // --- Hook Output Types ---
 
 // AsyncHookJSONOutput represents the output of an async hook.
@@ -220,6 +243,14 @@ message PostToolUseHookSpecificOutput {
   optional string additional_context = 1;
 }
 
+// PermissionRequestHookSpecificOutput represents hook-specific output for permission-request hooks.
+// NOTE: This message does not have a corresponding definition in the TypeScript Agent SDK type definitions.
+// It is derived from the Claude Code hooks reference:
+// https://code.claude.com/docs/en/hooks#permissionrequest-decision-control
+message PermissionRequestHookSpecificOutput {
+  optional PermissionResult decision = 1;
+}
+
 // HookSpecificOutput is a union wrapper for hook-specific output types.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#hook-specific-output
 message HookSpecificOutput {
@@ -228,6 +259,7 @@ message HookSpecificOutput {
     UserPromptSubmitHookSpecificOutput user_prompt_submit = 2;
     SessionStartHookSpecificOutput session_start = 3;
     PostToolUseHookSpecificOutput post_tool_use = 4;
+    PermissionRequestHookSpecificOutput permission_request = 5;
   }
 }
 

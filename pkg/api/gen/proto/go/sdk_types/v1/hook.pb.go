@@ -1417,6 +1417,196 @@ func (*HookInput_PreCompact) isHookInput_Input() {}
 
 func (*HookInput_PermissionRequest) isHookInput_Input() {}
 
+// PermissionResult represents the result of a permission check.
+// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-result
+type PermissionResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Result:
+	//
+	//	*PermissionResult_Allow
+	//	*PermissionResult_Deny
+	Result        isPermissionResult_Result `protobuf_oneof:"result"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PermissionResult) Reset() {
+	*x = PermissionResult{}
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PermissionResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PermissionResult) ProtoMessage() {}
+
+func (x *PermissionResult) ProtoReflect() protoreflect.Message {
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PermissionResult.ProtoReflect.Descriptor instead.
+func (*PermissionResult) Descriptor() ([]byte, []int) {
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *PermissionResult) GetResult() isPermissionResult_Result {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+func (x *PermissionResult) GetAllow() *AllowResult {
+	if x != nil {
+		if x, ok := x.Result.(*PermissionResult_Allow); ok {
+			return x.Allow
+		}
+	}
+	return nil
+}
+
+func (x *PermissionResult) GetDeny() *DenyResult {
+	if x != nil {
+		if x, ok := x.Result.(*PermissionResult_Deny); ok {
+			return x.Deny
+		}
+	}
+	return nil
+}
+
+type isPermissionResult_Result interface {
+	isPermissionResult_Result()
+}
+
+type PermissionResult_Allow struct {
+	Allow *AllowResult `protobuf:"bytes,1,opt,name=allow,proto3,oneof"`
+}
+
+type PermissionResult_Deny struct {
+	Deny *DenyResult `protobuf:"bytes,2,opt,name=deny,proto3,oneof"`
+}
+
+func (*PermissionResult_Allow) isPermissionResult_Result() {}
+
+func (*PermissionResult_Deny) isPermissionResult_Result() {}
+
+// AllowResult represents an allowed permission result.
+type AllowResult struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	UpdatedInput       *ToolInput             `protobuf:"bytes,1,opt,name=updated_input,json=updatedInput,proto3" json:"updated_input,omitempty"`
+	UpdatedPermissions []*PermissionUpdate    `protobuf:"bytes,2,rep,name=updated_permissions,json=updatedPermissions,proto3" json:"updated_permissions,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *AllowResult) Reset() {
+	*x = AllowResult{}
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AllowResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AllowResult) ProtoMessage() {}
+
+func (x *AllowResult) ProtoReflect() protoreflect.Message {
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AllowResult.ProtoReflect.Descriptor instead.
+func (*AllowResult) Descriptor() ([]byte, []int) {
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *AllowResult) GetUpdatedInput() *ToolInput {
+	if x != nil {
+		return x.UpdatedInput
+	}
+	return nil
+}
+
+func (x *AllowResult) GetUpdatedPermissions() []*PermissionUpdate {
+	if x != nil {
+		return x.UpdatedPermissions
+	}
+	return nil
+}
+
+// DenyResult represents a denied permission result.
+type DenyResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Interrupt     *bool                  `protobuf:"varint,2,opt,name=interrupt,proto3,oneof" json:"interrupt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DenyResult) Reset() {
+	*x = DenyResult{}
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DenyResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DenyResult) ProtoMessage() {}
+
+func (x *DenyResult) ProtoReflect() protoreflect.Message {
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DenyResult.ProtoReflect.Descriptor instead.
+func (*DenyResult) Descriptor() ([]byte, []int) {
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *DenyResult) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *DenyResult) GetInterrupt() bool {
+	if x != nil && x.Interrupt != nil {
+		return *x.Interrupt
+	}
+	return false
+}
+
 // AsyncHookJSONOutput represents the output of an async hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#async-hook-json-output
 type AsyncHookJSONOutput struct {
@@ -1428,7 +1618,7 @@ type AsyncHookJSONOutput struct {
 
 func (x *AsyncHookJSONOutput) Reset() {
 	*x = AsyncHookJSONOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[13]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1440,7 +1630,7 @@ func (x *AsyncHookJSONOutput) String() string {
 func (*AsyncHookJSONOutput) ProtoMessage() {}
 
 func (x *AsyncHookJSONOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[13]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1453,7 +1643,7 @@ func (x *AsyncHookJSONOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AsyncHookJSONOutput.ProtoReflect.Descriptor instead.
 func (*AsyncHookJSONOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{13}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AsyncHookJSONOutput) GetAsyncTimeout() int32 {
@@ -1476,7 +1666,7 @@ type PreToolUseHookSpecificOutput struct {
 
 func (x *PreToolUseHookSpecificOutput) Reset() {
 	*x = PreToolUseHookSpecificOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[14]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1488,7 +1678,7 @@ func (x *PreToolUseHookSpecificOutput) String() string {
 func (*PreToolUseHookSpecificOutput) ProtoMessage() {}
 
 func (x *PreToolUseHookSpecificOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[14]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1501,7 +1691,7 @@ func (x *PreToolUseHookSpecificOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreToolUseHookSpecificOutput.ProtoReflect.Descriptor instead.
 func (*PreToolUseHookSpecificOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{14}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PreToolUseHookSpecificOutput) GetPermissionDecision() string {
@@ -1536,7 +1726,7 @@ type UserPromptSubmitHookSpecificOutput struct {
 
 func (x *UserPromptSubmitHookSpecificOutput) Reset() {
 	*x = UserPromptSubmitHookSpecificOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[15]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1548,7 +1738,7 @@ func (x *UserPromptSubmitHookSpecificOutput) String() string {
 func (*UserPromptSubmitHookSpecificOutput) ProtoMessage() {}
 
 func (x *UserPromptSubmitHookSpecificOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[15]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1561,7 +1751,7 @@ func (x *UserPromptSubmitHookSpecificOutput) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UserPromptSubmitHookSpecificOutput.ProtoReflect.Descriptor instead.
 func (*UserPromptSubmitHookSpecificOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{15}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UserPromptSubmitHookSpecificOutput) GetAdditionalContext() string {
@@ -1582,7 +1772,7 @@ type SessionStartHookSpecificOutput struct {
 
 func (x *SessionStartHookSpecificOutput) Reset() {
 	*x = SessionStartHookSpecificOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[16]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1594,7 +1784,7 @@ func (x *SessionStartHookSpecificOutput) String() string {
 func (*SessionStartHookSpecificOutput) ProtoMessage() {}
 
 func (x *SessionStartHookSpecificOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[16]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1607,7 +1797,7 @@ func (x *SessionStartHookSpecificOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStartHookSpecificOutput.ProtoReflect.Descriptor instead.
 func (*SessionStartHookSpecificOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{16}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SessionStartHookSpecificOutput) GetAdditionalContext() string {
@@ -1628,7 +1818,7 @@ type PostToolUseHookSpecificOutput struct {
 
 func (x *PostToolUseHookSpecificOutput) Reset() {
 	*x = PostToolUseHookSpecificOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[17]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1640,7 +1830,7 @@ func (x *PostToolUseHookSpecificOutput) String() string {
 func (*PostToolUseHookSpecificOutput) ProtoMessage() {}
 
 func (x *PostToolUseHookSpecificOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[17]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1653,7 +1843,7 @@ func (x *PostToolUseHookSpecificOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PostToolUseHookSpecificOutput.ProtoReflect.Descriptor instead.
 func (*PostToolUseHookSpecificOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{17}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *PostToolUseHookSpecificOutput) GetAdditionalContext() string {
@@ -1661,6 +1851,54 @@ func (x *PostToolUseHookSpecificOutput) GetAdditionalContext() string {
 		return *x.AdditionalContext
 	}
 	return ""
+}
+
+// PermissionRequestHookSpecificOutput represents hook-specific output for permission-request hooks.
+// NOTE: This message does not have a corresponding definition in the TypeScript Agent SDK type definitions.
+// It is derived from the Claude Code hooks reference:
+// https://code.claude.com/docs/en/hooks#permissionrequest-decision-control
+type PermissionRequestHookSpecificOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Decision      *PermissionResult      `protobuf:"bytes,1,opt,name=decision,proto3,oneof" json:"decision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PermissionRequestHookSpecificOutput) Reset() {
+	*x = PermissionRequestHookSpecificOutput{}
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PermissionRequestHookSpecificOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PermissionRequestHookSpecificOutput) ProtoMessage() {}
+
+func (x *PermissionRequestHookSpecificOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PermissionRequestHookSpecificOutput.ProtoReflect.Descriptor instead.
+func (*PermissionRequestHookSpecificOutput) Descriptor() ([]byte, []int) {
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *PermissionRequestHookSpecificOutput) GetDecision() *PermissionResult {
+	if x != nil {
+		return x.Decision
+	}
+	return nil
 }
 
 // HookSpecificOutput is a union wrapper for hook-specific output types.
@@ -1673,6 +1911,7 @@ type HookSpecificOutput struct {
 	//	*HookSpecificOutput_UserPromptSubmit
 	//	*HookSpecificOutput_SessionStart
 	//	*HookSpecificOutput_PostToolUse
+	//	*HookSpecificOutput_PermissionRequest
 	Output        isHookSpecificOutput_Output `protobuf_oneof:"output"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1680,7 +1919,7 @@ type HookSpecificOutput struct {
 
 func (x *HookSpecificOutput) Reset() {
 	*x = HookSpecificOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[18]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1692,7 +1931,7 @@ func (x *HookSpecificOutput) String() string {
 func (*HookSpecificOutput) ProtoMessage() {}
 
 func (x *HookSpecificOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[18]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1705,7 +1944,7 @@ func (x *HookSpecificOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutput.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{18}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *HookSpecificOutput) GetOutput() isHookSpecificOutput_Output {
@@ -1751,6 +1990,15 @@ func (x *HookSpecificOutput) GetPostToolUse() *PostToolUseHookSpecificOutput {
 	return nil
 }
 
+func (x *HookSpecificOutput) GetPermissionRequest() *PermissionRequestHookSpecificOutput {
+	if x != nil {
+		if x, ok := x.Output.(*HookSpecificOutput_PermissionRequest); ok {
+			return x.PermissionRequest
+		}
+	}
+	return nil
+}
+
 type isHookSpecificOutput_Output interface {
 	isHookSpecificOutput_Output()
 }
@@ -1771,6 +2019,10 @@ type HookSpecificOutput_PostToolUse struct {
 	PostToolUse *PostToolUseHookSpecificOutput `protobuf:"bytes,4,opt,name=post_tool_use,json=postToolUse,proto3,oneof"`
 }
 
+type HookSpecificOutput_PermissionRequest struct {
+	PermissionRequest *PermissionRequestHookSpecificOutput `protobuf:"bytes,5,opt,name=permission_request,json=permissionRequest,proto3,oneof"`
+}
+
 func (*HookSpecificOutput_PreToolUse) isHookSpecificOutput_Output() {}
 
 func (*HookSpecificOutput_UserPromptSubmit) isHookSpecificOutput_Output() {}
@@ -1778,6 +2030,8 @@ func (*HookSpecificOutput_UserPromptSubmit) isHookSpecificOutput_Output() {}
 func (*HookSpecificOutput_SessionStart) isHookSpecificOutput_Output() {}
 
 func (*HookSpecificOutput_PostToolUse) isHookSpecificOutput_Output() {}
+
+func (*HookSpecificOutput_PermissionRequest) isHookSpecificOutput_Output() {}
 
 // SyncHookJSONOutput represents the output of a synchronous hook.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sync-hook-json-output
@@ -1796,7 +2050,7 @@ type SyncHookJSONOutput struct {
 
 func (x *SyncHookJSONOutput) Reset() {
 	*x = SyncHookJSONOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[19]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1808,7 +2062,7 @@ func (x *SyncHookJSONOutput) String() string {
 func (*SyncHookJSONOutput) ProtoMessage() {}
 
 func (x *SyncHookJSONOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[19]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1821,7 +2075,7 @@ func (x *SyncHookJSONOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncHookJSONOutput.ProtoReflect.Descriptor instead.
 func (*SyncHookJSONOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{19}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SyncHookJSONOutput) GetContinue() bool {
@@ -1888,7 +2142,7 @@ type HookJSONOutput struct {
 
 func (x *HookJSONOutput) Reset() {
 	*x = HookJSONOutput{}
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[20]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1900,7 +2154,7 @@ func (x *HookJSONOutput) String() string {
 func (*HookJSONOutput) ProtoMessage() {}
 
 func (x *HookJSONOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdk_types_v1_hook_proto_msgTypes[20]
+	mi := &file_sdk_types_v1_hook_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1913,7 +2167,7 @@ func (x *HookJSONOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookJSONOutput.ProtoReflect.Descriptor instead.
 func (*HookJSONOutput) Descriptor() ([]byte, []int) {
-	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{20}
+	return file_sdk_types_v1_hook_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *HookJSONOutput) GetOutput() isHookJSONOutput_Output {
@@ -2125,7 +2379,20 @@ const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\vpre_compact\x18\v \x01(\v2!.sdk_types.v1.PreCompactHookInputH\x00R\n" +
 	"preCompact\x12Y\n" +
 	"\x12permission_request\x18\f \x01(\v2(.sdk_types.v1.PermissionRequestHookInputH\x00R\x11permissionRequestB\a\n" +
-	"\x05input\"Q\n" +
+	"\x05input\"\x7f\n" +
+	"\x10PermissionResult\x121\n" +
+	"\x05allow\x18\x01 \x01(\v2\x19.sdk_types.v1.AllowResultH\x00R\x05allow\x12.\n" +
+	"\x04deny\x18\x02 \x01(\v2\x18.sdk_types.v1.DenyResultH\x00R\x04denyB\b\n" +
+	"\x06result\"\x9c\x01\n" +
+	"\vAllowResult\x12<\n" +
+	"\rupdated_input\x18\x01 \x01(\v2\x17.sdk_types.v1.ToolInputR\fupdatedInput\x12O\n" +
+	"\x13updated_permissions\x18\x02 \x03(\v2\x1e.sdk_types.v1.PermissionUpdateR\x12updatedPermissions\"W\n" +
+	"\n" +
+	"DenyResult\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12!\n" +
+	"\tinterrupt\x18\x02 \x01(\bH\x00R\tinterrupt\x88\x01\x01B\f\n" +
+	"\n" +
+	"_interrupt\"Q\n" +
 	"\x13AsyncHookJSONOutput\x12(\n" +
 	"\rasync_timeout\x18\x01 \x01(\x05H\x00R\fasyncTimeout\x88\x01\x01B\x10\n" +
 	"\x0e_async_timeout\"\xa3\x02\n" +
@@ -2144,13 +2411,17 @@ const file_sdk_types_v1_hook_proto_rawDesc = "" +
 	"\x13_additional_context\"j\n" +
 	"\x1dPostToolUseHookSpecificOutput\x122\n" +
 	"\x12additional_context\x18\x01 \x01(\tH\x00R\x11additionalContext\x88\x01\x01B\x15\n" +
-	"\x13_additional_context\"\xf8\x02\n" +
+	"\x13_additional_context\"s\n" +
+	"#PermissionRequestHookSpecificOutput\x12?\n" +
+	"\bdecision\x18\x01 \x01(\v2\x1e.sdk_types.v1.PermissionResultH\x00R\bdecision\x88\x01\x01B\v\n" +
+	"\t_decision\"\xdc\x03\n" +
 	"\x12HookSpecificOutput\x12N\n" +
 	"\fpre_tool_use\x18\x01 \x01(\v2*.sdk_types.v1.PreToolUseHookSpecificOutputH\x00R\n" +
 	"preToolUse\x12`\n" +
 	"\x12user_prompt_submit\x18\x02 \x01(\v20.sdk_types.v1.UserPromptSubmitHookSpecificOutputH\x00R\x10userPromptSubmit\x12S\n" +
 	"\rsession_start\x18\x03 \x01(\v2,.sdk_types.v1.SessionStartHookSpecificOutputH\x00R\fsessionStart\x12Q\n" +
-	"\rpost_tool_use\x18\x04 \x01(\v2+.sdk_types.v1.PostToolUseHookSpecificOutputH\x00R\vpostToolUseB\b\n" +
+	"\rpost_tool_use\x18\x04 \x01(\v2+.sdk_types.v1.PostToolUseHookSpecificOutputH\x00R\vpostToolUse\x12b\n" +
+	"\x12permission_request\x18\x05 \x01(\v21.sdk_types.v1.PermissionRequestHookSpecificOutputH\x00R\x11permissionRequestB\b\n" +
 	"\x06output\"\xc1\x03\n" +
 	"\x12SyncHookJSONOutput\x12\x1f\n" +
 	"\bcontinue\x18\x01 \x01(\bH\x00R\bcontinue\x88\x01\x01\x12,\n" +
@@ -2187,40 +2458,44 @@ func file_sdk_types_v1_hook_proto_rawDescGZIP() []byte {
 	return file_sdk_types_v1_hook_proto_rawDescData
 }
 
-var file_sdk_types_v1_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_sdk_types_v1_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_sdk_types_v1_hook_proto_goTypes = []any{
-	(*PreToolUseHookInput)(nil),                // 0: sdk_types.v1.PreToolUseHookInput
-	(*PostToolUseHookInput)(nil),               // 1: sdk_types.v1.PostToolUseHookInput
-	(*PostToolUseFailureHookInput)(nil),        // 2: sdk_types.v1.PostToolUseFailureHookInput
-	(*NotificationHookInput)(nil),              // 3: sdk_types.v1.NotificationHookInput
-	(*UserPromptSubmitHookInput)(nil),          // 4: sdk_types.v1.UserPromptSubmitHookInput
-	(*SessionStartHookInput)(nil),              // 5: sdk_types.v1.SessionStartHookInput
-	(*SessionEndHookInput)(nil),                // 6: sdk_types.v1.SessionEndHookInput
-	(*StopHookInput)(nil),                      // 7: sdk_types.v1.StopHookInput
-	(*SubagentStartHookInput)(nil),             // 8: sdk_types.v1.SubagentStartHookInput
-	(*SubagentStopHookInput)(nil),              // 9: sdk_types.v1.SubagentStopHookInput
-	(*PreCompactHookInput)(nil),                // 10: sdk_types.v1.PreCompactHookInput
-	(*PermissionRequestHookInput)(nil),         // 11: sdk_types.v1.PermissionRequestHookInput
-	(*HookInput)(nil),                          // 12: sdk_types.v1.HookInput
-	(*AsyncHookJSONOutput)(nil),                // 13: sdk_types.v1.AsyncHookJSONOutput
-	(*PreToolUseHookSpecificOutput)(nil),       // 14: sdk_types.v1.PreToolUseHookSpecificOutput
-	(*UserPromptSubmitHookSpecificOutput)(nil), // 15: sdk_types.v1.UserPromptSubmitHookSpecificOutput
-	(*SessionStartHookSpecificOutput)(nil),     // 16: sdk_types.v1.SessionStartHookSpecificOutput
-	(*PostToolUseHookSpecificOutput)(nil),      // 17: sdk_types.v1.PostToolUseHookSpecificOutput
-	(*HookSpecificOutput)(nil),                 // 18: sdk_types.v1.HookSpecificOutput
-	(*SyncHookJSONOutput)(nil),                 // 19: sdk_types.v1.SyncHookJSONOutput
-	(*HookJSONOutput)(nil),                     // 20: sdk_types.v1.HookJSONOutput
-	(*ToolInput)(nil),                          // 21: sdk_types.v1.ToolInput
-	(*ToolOutput)(nil),                         // 22: sdk_types.v1.ToolOutput
-	(*PermissionUpdate)(nil),                   // 23: sdk_types.v1.PermissionUpdate
+	(*PreToolUseHookInput)(nil),                 // 0: sdk_types.v1.PreToolUseHookInput
+	(*PostToolUseHookInput)(nil),                // 1: sdk_types.v1.PostToolUseHookInput
+	(*PostToolUseFailureHookInput)(nil),         // 2: sdk_types.v1.PostToolUseFailureHookInput
+	(*NotificationHookInput)(nil),               // 3: sdk_types.v1.NotificationHookInput
+	(*UserPromptSubmitHookInput)(nil),           // 4: sdk_types.v1.UserPromptSubmitHookInput
+	(*SessionStartHookInput)(nil),               // 5: sdk_types.v1.SessionStartHookInput
+	(*SessionEndHookInput)(nil),                 // 6: sdk_types.v1.SessionEndHookInput
+	(*StopHookInput)(nil),                       // 7: sdk_types.v1.StopHookInput
+	(*SubagentStartHookInput)(nil),              // 8: sdk_types.v1.SubagentStartHookInput
+	(*SubagentStopHookInput)(nil),               // 9: sdk_types.v1.SubagentStopHookInput
+	(*PreCompactHookInput)(nil),                 // 10: sdk_types.v1.PreCompactHookInput
+	(*PermissionRequestHookInput)(nil),          // 11: sdk_types.v1.PermissionRequestHookInput
+	(*HookInput)(nil),                           // 12: sdk_types.v1.HookInput
+	(*PermissionResult)(nil),                    // 13: sdk_types.v1.PermissionResult
+	(*AllowResult)(nil),                         // 14: sdk_types.v1.AllowResult
+	(*DenyResult)(nil),                          // 15: sdk_types.v1.DenyResult
+	(*AsyncHookJSONOutput)(nil),                 // 16: sdk_types.v1.AsyncHookJSONOutput
+	(*PreToolUseHookSpecificOutput)(nil),        // 17: sdk_types.v1.PreToolUseHookSpecificOutput
+	(*UserPromptSubmitHookSpecificOutput)(nil),  // 18: sdk_types.v1.UserPromptSubmitHookSpecificOutput
+	(*SessionStartHookSpecificOutput)(nil),      // 19: sdk_types.v1.SessionStartHookSpecificOutput
+	(*PostToolUseHookSpecificOutput)(nil),       // 20: sdk_types.v1.PostToolUseHookSpecificOutput
+	(*PermissionRequestHookSpecificOutput)(nil), // 21: sdk_types.v1.PermissionRequestHookSpecificOutput
+	(*HookSpecificOutput)(nil),                  // 22: sdk_types.v1.HookSpecificOutput
+	(*SyncHookJSONOutput)(nil),                  // 23: sdk_types.v1.SyncHookJSONOutput
+	(*HookJSONOutput)(nil),                      // 24: sdk_types.v1.HookJSONOutput
+	(*ToolInput)(nil),                           // 25: sdk_types.v1.ToolInput
+	(*ToolOutput)(nil),                          // 26: sdk_types.v1.ToolOutput
+	(*PermissionUpdate)(nil),                    // 27: sdk_types.v1.PermissionUpdate
 }
 var file_sdk_types_v1_hook_proto_depIdxs = []int32{
-	21, // 0: sdk_types.v1.PreToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	21, // 1: sdk_types.v1.PostToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	22, // 2: sdk_types.v1.PostToolUseHookInput.tool_response:type_name -> sdk_types.v1.ToolOutput
-	21, // 3: sdk_types.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	21, // 4: sdk_types.v1.PermissionRequestHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
-	23, // 5: sdk_types.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdk_types.v1.PermissionUpdate
+	25, // 0: sdk_types.v1.PreToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	25, // 1: sdk_types.v1.PostToolUseHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	26, // 2: sdk_types.v1.PostToolUseHookInput.tool_response:type_name -> sdk_types.v1.ToolOutput
+	25, // 3: sdk_types.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	25, // 4: sdk_types.v1.PermissionRequestHookInput.tool_input:type_name -> sdk_types.v1.ToolInput
+	27, // 5: sdk_types.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdk_types.v1.PermissionUpdate
 	0,  // 6: sdk_types.v1.HookInput.pre_tool_use:type_name -> sdk_types.v1.PreToolUseHookInput
 	1,  // 7: sdk_types.v1.HookInput.post_tool_use:type_name -> sdk_types.v1.PostToolUseHookInput
 	2,  // 8: sdk_types.v1.HookInput.post_tool_use_failure:type_name -> sdk_types.v1.PostToolUseFailureHookInput
@@ -2233,19 +2508,25 @@ var file_sdk_types_v1_hook_proto_depIdxs = []int32{
 	9,  // 15: sdk_types.v1.HookInput.subagent_stop:type_name -> sdk_types.v1.SubagentStopHookInput
 	10, // 16: sdk_types.v1.HookInput.pre_compact:type_name -> sdk_types.v1.PreCompactHookInput
 	11, // 17: sdk_types.v1.HookInput.permission_request:type_name -> sdk_types.v1.PermissionRequestHookInput
-	21, // 18: sdk_types.v1.PreToolUseHookSpecificOutput.updated_input:type_name -> sdk_types.v1.ToolInput
-	14, // 19: sdk_types.v1.HookSpecificOutput.pre_tool_use:type_name -> sdk_types.v1.PreToolUseHookSpecificOutput
-	15, // 20: sdk_types.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdk_types.v1.UserPromptSubmitHookSpecificOutput
-	16, // 21: sdk_types.v1.HookSpecificOutput.session_start:type_name -> sdk_types.v1.SessionStartHookSpecificOutput
-	17, // 22: sdk_types.v1.HookSpecificOutput.post_tool_use:type_name -> sdk_types.v1.PostToolUseHookSpecificOutput
-	18, // 23: sdk_types.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdk_types.v1.HookSpecificOutput
-	13, // 24: sdk_types.v1.HookJSONOutput.async_output:type_name -> sdk_types.v1.AsyncHookJSONOutput
-	19, // 25: sdk_types.v1.HookJSONOutput.sync_output:type_name -> sdk_types.v1.SyncHookJSONOutput
-	26, // [26:26] is the sub-list for method output_type
-	26, // [26:26] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	14, // 18: sdk_types.v1.PermissionResult.allow:type_name -> sdk_types.v1.AllowResult
+	15, // 19: sdk_types.v1.PermissionResult.deny:type_name -> sdk_types.v1.DenyResult
+	25, // 20: sdk_types.v1.AllowResult.updated_input:type_name -> sdk_types.v1.ToolInput
+	27, // 21: sdk_types.v1.AllowResult.updated_permissions:type_name -> sdk_types.v1.PermissionUpdate
+	25, // 22: sdk_types.v1.PreToolUseHookSpecificOutput.updated_input:type_name -> sdk_types.v1.ToolInput
+	13, // 23: sdk_types.v1.PermissionRequestHookSpecificOutput.decision:type_name -> sdk_types.v1.PermissionResult
+	17, // 24: sdk_types.v1.HookSpecificOutput.pre_tool_use:type_name -> sdk_types.v1.PreToolUseHookSpecificOutput
+	18, // 25: sdk_types.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdk_types.v1.UserPromptSubmitHookSpecificOutput
+	19, // 26: sdk_types.v1.HookSpecificOutput.session_start:type_name -> sdk_types.v1.SessionStartHookSpecificOutput
+	20, // 27: sdk_types.v1.HookSpecificOutput.post_tool_use:type_name -> sdk_types.v1.PostToolUseHookSpecificOutput
+	21, // 28: sdk_types.v1.HookSpecificOutput.permission_request:type_name -> sdk_types.v1.PermissionRequestHookSpecificOutput
+	22, // 29: sdk_types.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdk_types.v1.HookSpecificOutput
+	16, // 30: sdk_types.v1.HookJSONOutput.async_output:type_name -> sdk_types.v1.AsyncHookJSONOutput
+	23, // 31: sdk_types.v1.HookJSONOutput.sync_output:type_name -> sdk_types.v1.SyncHookJSONOutput
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_sdk_types_v1_hook_proto_init() }
@@ -2282,19 +2563,26 @@ func file_sdk_types_v1_hook_proto_init() {
 		(*HookInput_PreCompact)(nil),
 		(*HookInput_PermissionRequest)(nil),
 	}
-	file_sdk_types_v1_hook_proto_msgTypes[13].OneofWrappers = []any{}
-	file_sdk_types_v1_hook_proto_msgTypes[14].OneofWrappers = []any{}
+	file_sdk_types_v1_hook_proto_msgTypes[13].OneofWrappers = []any{
+		(*PermissionResult_Allow)(nil),
+		(*PermissionResult_Deny)(nil),
+	}
 	file_sdk_types_v1_hook_proto_msgTypes[15].OneofWrappers = []any{}
 	file_sdk_types_v1_hook_proto_msgTypes[16].OneofWrappers = []any{}
 	file_sdk_types_v1_hook_proto_msgTypes[17].OneofWrappers = []any{}
-	file_sdk_types_v1_hook_proto_msgTypes[18].OneofWrappers = []any{
+	file_sdk_types_v1_hook_proto_msgTypes[18].OneofWrappers = []any{}
+	file_sdk_types_v1_hook_proto_msgTypes[19].OneofWrappers = []any{}
+	file_sdk_types_v1_hook_proto_msgTypes[20].OneofWrappers = []any{}
+	file_sdk_types_v1_hook_proto_msgTypes[21].OneofWrappers = []any{}
+	file_sdk_types_v1_hook_proto_msgTypes[22].OneofWrappers = []any{
 		(*HookSpecificOutput_PreToolUse)(nil),
 		(*HookSpecificOutput_UserPromptSubmit)(nil),
 		(*HookSpecificOutput_SessionStart)(nil),
 		(*HookSpecificOutput_PostToolUse)(nil),
+		(*HookSpecificOutput_PermissionRequest)(nil),
 	}
-	file_sdk_types_v1_hook_proto_msgTypes[19].OneofWrappers = []any{}
-	file_sdk_types_v1_hook_proto_msgTypes[20].OneofWrappers = []any{
+	file_sdk_types_v1_hook_proto_msgTypes[23].OneofWrappers = []any{}
+	file_sdk_types_v1_hook_proto_msgTypes[24].OneofWrappers = []any{
 		(*HookJSONOutput_AsyncOutput)(nil),
 		(*HookJSONOutput_SyncOutput)(nil),
 	}
@@ -2304,7 +2592,7 @@ func file_sdk_types_v1_hook_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdk_types_v1_hook_proto_rawDesc), len(file_sdk_types_v1_hook_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

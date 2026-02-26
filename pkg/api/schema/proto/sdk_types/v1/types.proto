@@ -4,32 +4,7 @@ package sdk_types.v1;
 
 import "google/protobuf/struct.proto";
 import "sdk_types/v1/other.proto";
-import "sdk_types/v1/permission.proto";
 import "sdk_types/v1/sandbox.proto";
-import "sdk_types/v1/tool_input.proto";
-
-// --- Moved from config.proto ---
-
-// PermissionResult represents the result of a permission check.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-result
-message PermissionResult {
-  oneof result {
-    AllowResult allow = 1;
-    DenyResult deny = 2;
-  }
-}
-
-// AllowResult represents an allowed permission result.
-message AllowResult {
-  ToolInput updated_input = 1;
-  repeated PermissionUpdate updated_permissions = 2;
-}
-
-// DenyResult represents a denied permission result.
-message DenyResult {
-  string message = 1;
-  optional bool interrupt = 2;
-}
 
 // McpServerConfig represents configuration for an MCP server.
 // Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#mcp-server-config

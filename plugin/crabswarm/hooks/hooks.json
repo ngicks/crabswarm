@@ -16,6 +16,30 @@
             "statusMessage": "copying input"
           }
         ]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh hook plan-callback --output-dir \"${CRABSWARM_PLAN_OUTPUT_DIR:-doc/plans}\" --callback-cmd \"${CRABSWARM_PLAN_CALLBACK_CMD}\"",
+            "timeout": 600,
+            "statusMessage": "Reviewing plan..."
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "^(Read|Write|Edit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh hook auto-approve --tool \"^(Read|Write|Edit)$\" --under \"${CLAUDE_PROJECT_DIR}/${CRABSWARM_PLAN_OUTPUT_DIR:-doc/plans}\"",
+            "timeout": 10,
+            "statusMessage": "Checking auto-approval..."
+          }
+        ]
       }
     ]
   }
