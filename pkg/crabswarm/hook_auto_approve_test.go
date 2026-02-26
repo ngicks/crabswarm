@@ -111,24 +111,21 @@ func TestHookAutoApprove_FileOutsideDir(t *testing.T) {
 }
 
 func TestHookAutoApprove_NoToolPatterns(t *testing.T) {
-	tmpDir := t.TempDir()
-	plansDir := filepath.Join(tmpDir, "plans")
-	assert.NilError(t, os.MkdirAll(plansDir, 0o755))
-
-	// With no tool patterns, any tool matches.
 	input := makePermissionRequestInput("Bash", map[string]any{
-		"file_path": filepath.Join(plansDir, "test.md"),
+		"file_path": "/tmp/test.md",
 	})
 
 	err := HookAutoApprove(context.Background(), strings.NewReader(input), AutoApproveConfig{
-		UnderDirs: []string{plansDir},
+		UnderDirs: []string{"/tmp"},
 	})
 
-	isApproval(t, err)
+	var he *handler.HandlerError
+	assert.Assert(t, !errors.As(err, &he))
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "--tool"))
 }
 
 func TestHookAutoApprove_NoUnderDirs(t *testing.T) {
-	// With no under dirs, only tool pattern is checked.
 	input := makePermissionRequestInput("Write", map[string]any{
 		"file_path": "/anywhere/file.md",
 		"content":   "x",
@@ -138,18 +135,22 @@ func TestHookAutoApprove_NoUnderDirs(t *testing.T) {
 		ToolPatterns: []string{`^Write$`},
 	})
 
-	isApproval(t, err)
+	var he *handler.HandlerError
+	assert.Assert(t, !errors.As(err, &he))
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "--under"))
 }
 
 func TestHookAutoApprove_NoConfig(t *testing.T) {
-	// With no config at all, everything is approved.
 	input := makePermissionRequestInput("Write", map[string]any{
 		"file_path": "/anywhere/file.md",
 	})
 
 	err := HookAutoApprove(context.Background(), strings.NewReader(input), AutoApproveConfig{})
 
-	isApproval(t, err)
+	var he *handler.HandlerError
+	assert.Assert(t, !errors.As(err, &he))
+	assert.Assert(t, err != nil)
 }
 
 func TestHookAutoApprove_NoFilePathInToolInput(t *testing.T) {
@@ -171,7 +172,13 @@ func TestHookAutoApprove_NoFilePathInToolInput(t *testing.T) {
 }
 
 func TestHookAutoApprove_InvalidJSON(t *testing.T) {
-	err := HookAutoApprove(context.Background(), strings.NewReader("not json"), AutoApproveConfig{})
+	tmpDir := t.TempDir()
+	assert.NilError(t, os.MkdirAll(tmpDir, 0o755))
+
+	err := HookAutoApprove(context.Background(), strings.NewReader("not json"), AutoApproveConfig{
+		ToolPatterns: []string{`.*`},
+		UnderDirs:    []string{tmpDir},
+	})
 
 	var he *handler.HandlerError
 	assert.Assert(t, !errors.As(err, &he))
@@ -179,12 +186,16 @@ func TestHookAutoApprove_InvalidJSON(t *testing.T) {
 }
 
 func TestHookAutoApprove_InvalidRegex(t *testing.T) {
+	tmpDir := t.TempDir()
+	assert.NilError(t, os.MkdirAll(tmpDir, 0o755))
+
 	input := makePermissionRequestInput("Write", map[string]any{
-		"file_path": "/foo/bar.md",
+		"file_path": filepath.Join(tmpDir, "bar.md"),
 	})
 
 	err := HookAutoApprove(context.Background(), strings.NewReader(input), AutoApproveConfig{
 		ToolPatterns: []string{`[invalid`},
+		UnderDirs:    []string{tmpDir},
 	})
 
 	var he *handler.HandlerError
@@ -194,13 +205,17 @@ func TestHookAutoApprove_InvalidRegex(t *testing.T) {
 }
 
 func TestHookAutoApprove_MultipleToolPatterns(t *testing.T) {
+	tmpDir := t.TempDir()
+	assert.NilError(t, os.MkdirAll(tmpDir, 0o755))
+
 	input := makePermissionRequestInput("Edit", map[string]any{
-		"file_path": "/foo/bar.md",
+		"file_path": filepath.Join(tmpDir, "bar.md"),
 	})
 
 	// First pattern doesn't match, second does.
 	err := HookAutoApprove(context.Background(), strings.NewReader(input), AutoApproveConfig{
 		ToolPatterns: []string{`^Read$`, `^Edit$`},
+		UnderDirs:    []string{tmpDir},
 	})
 
 	isApproval(t, err)

@@ -1,6 +1,10 @@
 package commands
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/ngicks/crabswarm/cmd/internal/stdiopipe"
 	"github.com/ngicks/crabswarm/pkg/crabswarm"
 	"github.com/spf13/cobra"
@@ -25,8 +29,23 @@ func runHookAutoApproveCmd(cmd *cobra.Command, args []string) error {
 	reader := stdiopipe.Stdin(ctx)
 	defer reader.Close()
 
-	toolPatterns, _ := cmd.Flags().GetStringSlice("tool")
-	underDirs, _ := cmd.Flags().GetStringSlice("under")
+	toolPatterns, err := cmd.Flags().GetStringSlice("tool")
+	if err != nil {
+		return err
+	}
+	underDirs, err := cmd.Flags().GetStringSlice("under")
+	if err != nil {
+		return err
+	}
+
+	// --under is always relative — join with CLAUDE_PROJECT_DIR.
+	projectDir := os.Getenv("CLAUDE_PROJECT_DIR")
+	if projectDir == "" {
+		panic(fmt.Errorf("CLAUDE_PROJECT_DIR environment variable is not set"))
+	}
+	for i, d := range underDirs {
+		underDirs[i] = filepath.Join(projectDir, d)
+	}
 
 	cfg := crabswarm.AutoApproveConfig{
 		ToolPatterns: toolPatterns,

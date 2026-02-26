@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ngicks/crabswarm/cmd/internal/stdiopipe"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/planreview"
+	"github.com/ngicks/crabswarm/pkg/crabswarm"
 	"github.com/spf13/cobra"
 )
 
@@ -59,7 +59,7 @@ func runHookPlanCallbackCmd(cmd *cobra.Command, args []string) error {
 	callbackArgs, _ := cmd.Flags().GetStringSlice("callback-arg")
 	callbackTimeout, _ := cmd.Flags().GetDuration("callback-timeout")
 
-	cfg := planreview.HookCallbackConfig{
+	cfg := crabswarm.HookCallbackConfig{
 		PlansDir:        plansDir,
 		OutputDir:       outputDir,
 		CallbackCmd:     callbackCmd,
@@ -67,7 +67,7 @@ func runHookPlanCallbackCmd(cmd *cobra.Command, args []string) error {
 		CallbackTimeout: callbackTimeout,
 	}
 
-	return planreview.HookPlanCallback(ctx, reader, cfg)
+	return crabswarm.HookPlanCallback(ctx, reader, cfg)
 }
 
 // resolvePlansDir returns the Claude plans directory.

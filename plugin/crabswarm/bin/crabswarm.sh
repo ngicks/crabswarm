@@ -4,8 +4,6 @@ dir=$(cd $(dirname $0) && pwd -P)
 
 os=$(uname -s)
 
-# well known, linux, darwin(Mac OS).
-# I'm not sure I will use other than those.
 case ${os} in
   "Linux")
     os="linux";;
@@ -13,7 +11,7 @@ case ${os} in
     os="darwin";;
   *)
     echo "unsupported os: ${os}: must be Linux or Darwin"
-    return 1
+    exit 1
     ;;
 esac
 
@@ -33,7 +31,7 @@ case ${arch} in
     arch="arm64";;
   *)
     echo "unsupported arch: ${arch}: must be one of x86_64, x86_64-AT386, aarch64_be, aarch64, armv8b or armv8l"
-    return 1
+    exit 1
     ;;
 esac
 

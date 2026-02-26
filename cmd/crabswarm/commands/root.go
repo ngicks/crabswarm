@@ -20,11 +20,21 @@ func Execute(ctx context.Context) error {
 	return err
 }
 
-// rootCmd is the root command for crabswarm.
+var k = &struct{}{}
+
 var rootCmd = &cobra.Command{
 	Use:   "crabswarm",
 	Short: "crabswarm CLI",
 	Long:  `crabswarm is a CLI tool for managing Claude Code hooks.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithCancel(cmd.Context())
+		ctx = context.WithValue(ctx, k, cancel)
+		cmd.SetContext(ctx)
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		cancel := cmd.Context().Value(k).(context.CancelFunc)
+		cancel()
+	},
 }
 
 func init() {

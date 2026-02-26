@@ -19,17 +19,16 @@ func TestIntermediateFileName(t *testing.T) {
 	tests := []struct {
 		name      string
 		iteration int
-		step      int
 		suffix    string
 		want      string
 	}{
-		{"first plan", 1, 0, "PLAN", "001_00_PLAN.md"},
-		{"first review", 1, 1, "REVIEW", "001_01_REVIEW.md"},
-		{"tenth plan", 10, 0, "PLAN", "010_00_PLAN.md"},
+		{"first plan", 1, "PLAN", "001_PLAN.md"},
+		{"first review", 1, "REVIEW", "001_REVIEW.md"},
+		{"tenth plan", 10, "PLAN", "010_PLAN.md"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IntermediateFileName(tt.iteration, tt.step, tt.suffix)
+			got := IntermediateFileName(tt.iteration, tt.suffix)
 			assert.Equal(t, got, tt.want)
 		})
 	}
@@ -193,9 +192,9 @@ func TestCountIterations(t *testing.T) {
 	assert.Equal(t, count, 0)
 
 	// Add some iteration files.
-	assert.NilError(t, os.WriteFile(filepath.Join(tmpDir, "001_00_PLAN.md"), []byte("plan1"), 0o644))
-	assert.NilError(t, os.WriteFile(filepath.Join(tmpDir, "001_01_REVIEW.md"), []byte("review1"), 0o644))
-	assert.NilError(t, os.WriteFile(filepath.Join(tmpDir, "002_00_PLAN.md"), []byte("plan2"), 0o644))
+	assert.NilError(t, os.WriteFile(filepath.Join(tmpDir, "001_PLAN.md"), []byte("plan1"), 0o644))
+	assert.NilError(t, os.WriteFile(filepath.Join(tmpDir, "001_REVIEW.md"), []byte("review1"), 0o644))
+	assert.NilError(t, os.WriteFile(filepath.Join(tmpDir, "002_PLAN.md"), []byte("plan2"), 0o644))
 
 	count, err = CountIterations(tmpDir)
 	assert.NilError(t, err)

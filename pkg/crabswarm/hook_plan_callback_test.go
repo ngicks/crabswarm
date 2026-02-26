@@ -1,4 +1,4 @@
-package planreview
+package crabswarm
 
 import (
 	"context"
@@ -103,7 +103,7 @@ func TestHookPlanCallback_CreatesIterationDir(t *testing.T) {
 
 	// Verify intermediate snapshot exists.
 	intermediateDir := filepath.Join(planDirPath, "_intermediate")
-	snapshot, err := os.ReadFile(filepath.Join(intermediateDir, "001_00_PLAN.md"))
+	snapshot, err := os.ReadFile(filepath.Join(intermediateDir, "001_PLAN.md"))
 	assert.NilError(t, err)
 	assert.Equal(t, string(snapshot), "# Test Plan\nDetails here.")
 }
@@ -141,7 +141,7 @@ func TestHookPlanCallback_WithCallback(t *testing.T) {
 	planDirPath := filepath.Join(outputDir, entries[0].Name())
 	intermediateDir := filepath.Join(planDirPath, "_intermediate")
 
-	review, err := os.ReadFile(filepath.Join(intermediateDir, "001_01_REVIEW.md"))
+	review, err := os.ReadFile(filepath.Join(intermediateDir, "001_REVIEW.md"))
 	assert.NilError(t, err)
 	assert.Assert(t, strings.Contains(string(review), "LGTM"))
 }
@@ -178,7 +178,7 @@ func TestHookPlanCallback_CallbackFailure(t *testing.T) {
 	entries, _ := os.ReadDir(outputDir)
 	assert.Assert(t, len(entries) == 1)
 	planDirPath := filepath.Join(outputDir, entries[0].Name())
-	review, err := os.ReadFile(filepath.Join(planDirPath, "_intermediate", "001_01_REVIEW.md"))
+	review, err := os.ReadFile(filepath.Join(planDirPath, "_intermediate", "001_REVIEW.md"))
 	assert.NilError(t, err)
 	assert.Assert(t, strings.Contains(string(review), "error-output"))
 }

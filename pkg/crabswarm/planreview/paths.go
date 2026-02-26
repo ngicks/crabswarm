@@ -17,10 +17,10 @@ func PlanDirName(t time.Time, planName string) string {
 	return t.Format(time.RFC3339) + "-" + planName
 }
 
-// IntermediateFileName returns the intermediate file name for a plan iteration step.
-// Format: {NNN}_{SS}_{suffix}.md
-func IntermediateFileName(iteration, step int, suffix string) string {
-	return fmt.Sprintf("%03d_%02d_%s.md", iteration, step, suffix)
+// IntermediateFileName returns the intermediate file name for a plan iteration.
+// Format: {NNN}_{suffix}.md
+func IntermediateFileName(iteration int, suffix string) string {
+	return fmt.Sprintf("%03d_%s.md", iteration, suffix)
 }
 
 var whitespaceRe = regexp.MustCompile(`\s+`)
@@ -105,7 +105,6 @@ func resolvePartial(path string) (string, error) {
 	for {
 		parent := filepath.Dir(current)
 		if parent == current {
-			// Reached root without finding existing path.
 			return path, nil
 		}
 		base := filepath.Base(current)
@@ -124,9 +123,9 @@ func resolvePartial(path string) (string, error) {
 }
 
 // CountIterations counts the number of plan iterations in an intermediate directory
-// by globbing for *_00_PLAN.md files.
+// by globbing for *_PLAN.md files.
 func CountIterations(intermediateDir string) (int, error) {
-	matches, err := filepath.Glob(filepath.Join(intermediateDir, "*_00_PLAN.md"))
+	matches, err := filepath.Glob(filepath.Join(intermediateDir, "*_PLAN.md"))
 	if err != nil {
 		return 0, fmt.Errorf("glob intermediate dir: %w", err)
 	}

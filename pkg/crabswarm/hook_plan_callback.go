@@ -1,10 +1,11 @@
-package planreview
+package crabswarm
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 	"github.com/ngicks/crabswarm/pkg/claudesdk/models"
+	"github.com/ngicks/crabswarm/pkg/crabswarm/planreview"
 )
 
 // HookCallbackConfig holds configuration for the plan-callback hook.
@@ -49,7 +51,7 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 	}
 
 	// Resolve the last plan file from the transcript.
-	planPath, err := ResolveLastPlanPath(input.TranscriptPath, cfg.PlansDir)
+	planPath, err := planreview.ResolveLastPlanPath(input.TranscriptPath, cfg.PlansDir)
 	if err != nil {
 		return fmt.Errorf("resolving last plan path: %w", err)
 	}
@@ -68,27 +70,27 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 	}
 
 	// Derive plan name and set up iteration directory.
-	planName, err := DerivePlanName(planPath)
+	planName, err := planreview.DerivePlanName(planPath)
 	if err != nil {
 		return fmt.Errorf("deriving plan name: %w", err)
 	}
-	planDirName := PlanDirName(time.Now(), planName)
+	planDirName := planreview.PlanDirName(time.Now(), planName)
 	planDir := filepath.Join(cfg.OutputDir, planDirName)
 	intermediateDir := filepath.Join(planDir, "_intermediate")
 
-	if err := EnsureDir(intermediateDir); err != nil {
+	if err := os.MkdirAll(intermediateDir, fs.ModePerm); err != nil {
 		return fmt.Errorf("creating intermediate dir: %w", err)
 	}
 
 	// Count existing iterations.
-	iteration, err := CountIterations(intermediateDir)
+	iteration, err := planreview.CountIterations(intermediateDir)
 	if err != nil {
 		return fmt.Errorf("counting iterations: %w", err)
 	}
 	iteration++ // Next iteration number.
 
 	// Write plan snapshot to intermediate directory.
-	planSnapshotPath := filepath.Join(intermediateDir, IntermediateFileName(iteration, 0, "PLAN"))
+	planSnapshotPath := filepath.Join(intermediateDir, planreview.IntermediateFileName(iteration, "PLAN"))
 	if err := os.WriteFile(planSnapshotPath, planContent, 0o644); err != nil {
 		return fmt.Errorf("writing plan snapshot: %w", err)
 	}
@@ -113,7 +115,7 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 		absWorkingFile, _ := filepath.Abs(planWorkingFile)
 		absSourceFile, _ := filepath.Abs(planPath)
 
-		stdout, stderr, err := RunCallback(callbackCtx, CallbackConfig{
+		stdout, stderr, err := planreview.RunCallback(callbackCtx, planreview.CallbackConfig{
 			Command:         cfg.CallbackCmd,
 			Args:            cfg.CallbackArgs,
 			PlanWorkingFile: absWorkingFile,
@@ -125,7 +127,7 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 		})
 
 		// Save review output regardless of error.
-		reviewPath := filepath.Join(intermediateDir, IntermediateFileName(iteration, 1, "REVIEW"))
+		reviewPath := filepath.Join(intermediateDir, planreview.IntermediateFileName(iteration, "REVIEW"))
 		reviewContent := stdout
 		if reviewContent == "" && stderr != "" {
 			reviewContent = stderr

@@ -18,9 +18,24 @@ type AutoApproveConfig struct {
 	UnderDirs    []string // directories — approve if file_path is under any
 }
 
+// Validate checks that both ToolPatterns and UnderDirs are populated.
+func (c AutoApproveConfig) Validate() error {
+	if len(c.ToolPatterns) == 0 {
+		return fmt.Errorf("at least one --tool pattern is required")
+	}
+	if len(c.UnderDirs) == 0 {
+		return fmt.Errorf("at least one --under directory is required")
+	}
+	return nil
+}
+
 // HookAutoApprove reads a PermissionRequestHookInput from r and auto-approves
-// if all configured conditions are met.
+// if all configured conditions are met. Both ToolPatterns and UnderDirs must be set.
 func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
 	raw, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("reading stdin: %w", err)
@@ -32,49 +47,40 @@ func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) erro
 	}
 
 	// Check tool name patterns.
-	if len(cfg.ToolPatterns) > 0 {
-		matched := false
-		for _, pattern := range cfg.ToolPatterns {
-			re, err := regexp.Compile(pattern)
-			if err != nil {
-				return fmt.Errorf("compiling tool pattern %q: %w", pattern, err)
-			}
-			if re.MatchString(input.ToolName) {
-				matched = true
-				break
-			}
+	matched := false
+	for _, pattern := range cfg.ToolPatterns {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return fmt.Errorf("compiling tool pattern %q: %w", pattern, err)
 		}
-		if !matched {
-			// Tool name doesn't match any pattern — pass through.
-			return &handler.HandlerError{}
+		if re.MatchString(input.ToolName) {
+			matched = true
+			break
 		}
+	}
+	if !matched {
+		return &handler.HandlerError{}
 	}
 
 	// Check directory containment.
-	if len(cfg.UnderDirs) > 0 {
-		// Extract file_path from tool_input.
-		filePath := extractFilePath(input.ToolInput)
-		if filePath == "" {
-			// No file_path in tool_input — pass through.
-			return &handler.HandlerError{}
-		}
+	filePath := extractFilePath(input.ToolInput)
+	if filePath == "" {
+		return &handler.HandlerError{}
+	}
 
-		underAny := false
-		for _, dir := range cfg.UnderDirs {
-			under, err := planreview.PathWithinDir(filePath, dir)
-			if err != nil {
-				// Can't verify containment — pass through.
-				return &handler.HandlerError{}
-			}
-			if under {
-				underAny = true
-				break
-			}
-		}
-		if !underAny {
-			// File not under any configured directory — pass through.
+	underAny := false
+	for _, dir := range cfg.UnderDirs {
+		under, err := planreview.PathWithinDir(filePath, dir)
+		if err != nil {
 			return &handler.HandlerError{}
 		}
+		if under {
+			underAny = true
+			break
+		}
+	}
+	if !underAny {
+		return &handler.HandlerError{}
 	}
 
 	// All conditions matched — auto-approve.
