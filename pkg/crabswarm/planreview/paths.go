@@ -3,10 +3,12 @@ package planreview
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -78,7 +80,7 @@ func PathWithinDir(filePath, dirPath string) (bool, error) {
 	}
 
 	// For filePath, resolve the longest existing ancestor then append the rest.
-	realFile, err := resolvePartial(absFile)
+	realFile, err := ResolvePartial(absFile)
 	if err != nil {
 		return false, fmt.Errorf("resolving file path: %w", err)
 	}
@@ -90,9 +92,9 @@ func PathWithinDir(filePath, dirPath string) (bool, error) {
 	return strings.HasPrefix(realFile, realDir+string(filepath.Separator)), nil
 }
 
-// resolvePartial resolves symlinks on the longest existing ancestor of path,
+// ResolvePartial resolves symlinks on the longest existing ancestor of path,
 // then appends the remaining suffix. This handles files that don't exist yet.
-func resolvePartial(path string) (string, error) {
+func ResolvePartial(path string) (string, error) {
 	// Try to resolve the full path first.
 	resolved, err := filepath.EvalSymlinks(path)
 	if err == nil {
@@ -135,4 +137,134 @@ func CountIterations(intermediateDir string) (int, error) {
 // EnsureDir creates the directory and all parents if it doesn't exist.
 func EnsureDir(path string) error {
 	return os.MkdirAll(path, 0o755)
+}
+
+// PlanDirState records metadata about a plan directory,
+// allowing it to be associated back to the original plan source file.
+type PlanDirState struct {
+	SourcePlanPath string `json:"source_plan_path"` // Canonicalized (absolute, symlink-resolved)
+}
+
+const stateName = "state.json"
+
+// WritePlanDirState writes a state.json file in planDir.
+func WritePlanDirState(planDir string, state PlanDirState) error {
+	data, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("marshal state: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(planDir, stateName), data, 0o644); err != nil {
+		return fmt.Errorf("write state.json: %w", err)
+	}
+	return nil
+}
+
+// ReadPlanDirState reads the state.json file from planDir.
+func ReadPlanDirState(planDir string) (PlanDirState, error) {
+	data, err := os.ReadFile(filepath.Join(planDir, stateName))
+	if err != nil {
+		return PlanDirState{}, fmt.Errorf("read state.json: %w", err)
+	}
+	var state PlanDirState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return PlanDirState{}, fmt.Errorf("unmarshal state.json: %w", err)
+	}
+	return state, nil
+}
+
+// FindExistingPlanDir searches outputDir for an existing plan directory
+// whose state.json records sourcePlanPath as the original plan source.
+// sourcePlanPath must already be canonicalized.
+// Searches at most 5 most recent directories (sorted reverse-lexicographic
+// by RFC3339 prefix). Returns the matching directory path, or "" if none found.
+func FindExistingPlanDir(outputDir, sourcePlanPath string) (string, error) {
+	entries, err := os.ReadDir(outputDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("read output dir: %w", err)
+	}
+
+	// Collect directory names and sort reverse-lexicographic (most recent first).
+	var dirs []string
+	for _, e := range entries {
+		if e.IsDir() {
+			dirs = append(dirs, e.Name())
+		}
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
+
+	limit := 5
+	if len(dirs) < limit {
+		limit = len(dirs)
+	}
+	for _, name := range dirs[:limit] {
+		dirPath := filepath.Join(outputDir, name)
+		state, err := ReadPlanDirState(dirPath)
+		if err != nil {
+			continue // no state.json or unreadable — skip
+		}
+		if state.SourcePlanPath == sourcePlanPath {
+			return dirPath, nil
+		}
+	}
+	return "", nil
+}
+
+// LastSnapshotContent reads the content of the highest-numbered *_PLAN.md
+// file in intermediateDir. Returns nil if no snapshots exist.
+func LastSnapshotContent(intermediateDir string) ([]byte, error) {
+	matches, err := filepath.Glob(filepath.Join(intermediateDir, "*_PLAN.md"))
+	if err != nil {
+		return nil, fmt.Errorf("glob plan files: %w", err)
+	}
+	if len(matches) == 0 {
+		return nil, nil
+	}
+	sort.Strings(matches)
+	last := matches[len(matches)-1]
+	data, err := os.ReadFile(last)
+	if err != nil {
+		return nil, fmt.Errorf("read last snapshot: %w", err)
+	}
+	return data, nil
+}
+
+// LastReviewExists checks if a *_REVIEW.md exists for the highest-numbered iteration.
+// Returns false if no snapshots exist or no corresponding review exists.
+func LastReviewExists(intermediateDir string) (bool, error) {
+	matches, err := filepath.Glob(filepath.Join(intermediateDir, "*_PLAN.md"))
+	if err != nil {
+		return false, fmt.Errorf("glob plan files: %w", err)
+	}
+	if len(matches) == 0 {
+		return false, nil
+	}
+	sort.Strings(matches)
+	last := matches[len(matches)-1]
+	// Derive corresponding review filename: replace _PLAN.md with _REVIEW.md
+	reviewPath := strings.TrimSuffix(last, "_PLAN.md") + "_REVIEW.md"
+	_, err = os.Stat(reviewPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat review file: %w", err)
+	}
+	return true, nil
+}
+
+// CanonicalizePath returns an absolute, symlink-resolved path.
+// Uses ResolvePartial to handle paths where the target file may not exist.
+func CanonicalizePath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("abs path: %w", err)
+	}
+	resolved, err := ResolvePartial(abs)
+	if err != nil {
+		return "", fmt.Errorf("resolve partial: %w", err)
+	}
+	return resolved, nil
 }

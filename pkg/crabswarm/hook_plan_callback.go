@@ -1,6 +1,7 @@
 package crabswarm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -69,17 +70,56 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 		return fmt.Errorf("plan file is empty: %s", planPath)
 	}
 
+	// Canonicalize planPath for stable identity comparison.
+	canonicalPlanPath, err := planreview.CanonicalizePath(planPath)
+	if err != nil {
+		return fmt.Errorf("canonicalizing plan path: %w", err)
+	}
+
 	// Derive plan name and set up iteration directory.
 	planName, err := planreview.DerivePlanName(planPath)
 	if err != nil {
 		return fmt.Errorf("deriving plan name: %w", err)
 	}
-	planDirName := planreview.PlanDirName(time.Now(), planName)
-	planDir := filepath.Join(cfg.OutputDir, planDirName)
+
+	// Try to find an existing plan directory for this source file.
+	planDir, err := planreview.FindExistingPlanDir(cfg.OutputDir, canonicalPlanPath)
+	if err != nil {
+		return fmt.Errorf("finding existing plan dir: %w", err)
+	}
+	if planDir == "" {
+		// No existing directory — create a new one.
+		planDirName := planreview.PlanDirName(time.Now(), planName)
+		planDir = filepath.Join(cfg.OutputDir, planDirName)
+	}
 	intermediateDir := filepath.Join(planDir, "_intermediate")
 
 	if err := os.MkdirAll(intermediateDir, fs.ModePerm); err != nil {
 		return fmt.Errorf("creating intermediate dir: %w", err)
+	}
+
+	// Write state.json so future invocations can find this directory.
+	if err := planreview.WritePlanDirState(planDir, planreview.PlanDirState{
+		SourcePlanPath: canonicalPlanPath,
+	}); err != nil {
+		return fmt.Errorf("writing plan dir state: %w", err)
+	}
+
+	// Dedup check: skip if content is identical to last snapshot AND the review exists.
+	lastContent, err := planreview.LastSnapshotContent(intermediateDir)
+	if err != nil {
+		return fmt.Errorf("reading last snapshot: %w", err)
+	}
+	if lastContent != nil && bytes.Equal(lastContent, planContent) {
+		reviewExists, err := planreview.LastReviewExists(intermediateDir)
+		if err != nil {
+			return fmt.Errorf("checking last review: %w", err)
+		}
+		if reviewExists {
+			// Content unchanged and previous callback succeeded — skip.
+			return &handler.HandlerError{}
+		}
+		// Content same but no review — retry (previous callback may have failed).
 	}
 
 	// Count existing iterations.
@@ -126,7 +166,16 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 			IntermediateDir: absIntermediateDir,
 		})
 
-		// Save review output regardless of error.
+		if err != nil {
+			// Don't write review on callback failure — enables retry on next invocation.
+			log.Printf("callback error: %v", err)
+			if stderr != "" {
+				log.Printf("callback stderr: %s", stderr)
+			}
+			return fmt.Errorf("callback failed: %w", err)
+		}
+
+		// Save review output only on success.
 		reviewPath := filepath.Join(intermediateDir, planreview.IntermediateFileName(iteration, "REVIEW"))
 		reviewContent := stdout
 		if reviewContent == "" && stderr != "" {
@@ -134,14 +183,6 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 		}
 		if writeErr := os.WriteFile(reviewPath, []byte(reviewContent), 0o644); writeErr != nil {
 			log.Printf("warning: failed to write review file: %v", writeErr)
-		}
-
-		if err != nil {
-			log.Printf("callback error: %v", err)
-			if stderr != "" {
-				log.Printf("callback stderr: %s", stderr)
-			}
-			return fmt.Errorf("callback failed: %w", err)
 		}
 	}
 

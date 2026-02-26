@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 )
 
@@ -40,7 +41,7 @@ func RunCallback(ctx context.Context, cfg CallbackConfig) (stdout, stderr string
 		"PLAN_NAME="+cfg.PlanName,
 		"PLAN_ITERATION="+strconv.Itoa(cfg.Iteration),
 		"PLAN_INTERMEDIATE_DIR="+cfg.IntermediateDir,
-		"PLAN_REVIEW_FILE="+fmt.Sprintf("%03d_REVIEW.md", cfg.Iteration),
+		"PLAN_REVIEW_FILE="+filepath.Join(cfg.IntermediateDir, fmt.Sprintf("%03d_REVIEW.md", cfg.Iteration)),
 	)
 
 	if err := cmd.Run(); err != nil {
