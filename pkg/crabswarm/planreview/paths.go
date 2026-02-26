@@ -2,9 +2,11 @@
 package planreview
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -21,10 +23,39 @@ func IntermediateFileName(iteration, step int, suffix string) string {
 	return fmt.Sprintf("%03d_%02d_%s.md", iteration, step, suffix)
 }
 
-// DerivePlanName extracts a plan name from a file path by taking the base name without .md extension.
-func DerivePlanName(filePath string) string {
-	base := filepath.Base(filePath)
-	return strings.TrimSuffix(base, ".md")
+var whitespaceRe = regexp.MustCompile(`\s+`)
+
+// DerivePlanName reads the plan file and derives a kebab-case name from its
+// first non-empty line. The line is lowercased, leading '#' markers are stripped,
+// and whitespace runs are replaced with '-'.
+// Returns an error if the file cannot be read or contains no non-empty lines.
+func DerivePlanName(filePath string) (string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("open plan file: %w", err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		// Strip leading markdown heading markers.
+		line = strings.TrimLeft(line, "#")
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		name := strings.ToLower(line)
+		name = whitespaceRe.ReplaceAllString(name, "-")
+		return name, nil
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("reading plan file: %w", err)
+	}
+	return "", fmt.Errorf("plan file has no non-empty lines: %s", filePath)
 }
 
 // PathWithinDir checks whether filePath is within dirPath after canonicalization.

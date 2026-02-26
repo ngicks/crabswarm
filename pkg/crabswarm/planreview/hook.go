@@ -68,7 +68,10 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 	}
 
 	// Derive plan name and set up iteration directory.
-	planName := DerivePlanName(planPath)
+	planName, err := DerivePlanName(planPath)
+	if err != nil {
+		return fmt.Errorf("deriving plan name: %w", err)
+	}
 	planDirName := PlanDirName(time.Now(), planName)
 	planDir := filepath.Join(cfg.OutputDir, planDirName)
 	intermediateDir := filepath.Join(planDir, "_intermediate")
