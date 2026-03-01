@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -155,7 +154,7 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 		absWorkingFile, _ := filepath.Abs(planWorkingFile)
 		absSourceFile, _ := filepath.Abs(planPath)
 
-		stdout, stderr, err := planreview.RunCallback(callbackCtx, planreview.CallbackConfig{
+		_, _, err := planreview.RunCallback(callbackCtx, planreview.CallbackConfig{
 			Command:         cfg.CallbackCmd,
 			Args:            cfg.CallbackArgs,
 			PlanWorkingFile: absWorkingFile,
@@ -165,24 +164,14 @@ func HookPlanCallback(ctx context.Context, r io.Reader, cfg HookCallbackConfig) 
 			Iteration:       iteration,
 			IntermediateDir: absIntermediateDir,
 		})
-
 		if err != nil {
+			// TODO: use audit server to log errors.
 			// Don't write review on callback failure — enables retry on next invocation.
-			log.Printf("callback error: %v", err)
-			if stderr != "" {
-				log.Printf("callback stderr: %s", stderr)
-			}
+			// log.Printf("callback error: %v", err)
+			// if stderr != "" {
+			// 	log.Printf("callback stderr: %s", stderr)
+			// }
 			return fmt.Errorf("callback failed: %w", err)
-		}
-
-		// Save review output only on success.
-		reviewPath := filepath.Join(intermediateDir, planreview.IntermediateFileName(iteration, "REVIEW"))
-		reviewContent := stdout
-		if reviewContent == "" && stderr != "" {
-			reviewContent = stderr
-		}
-		if writeErr := os.WriteFile(reviewPath, []byte(reviewContent), 0o644); writeErr != nil {
-			log.Printf("warning: failed to write review file: %v", writeErr)
 		}
 	}
 

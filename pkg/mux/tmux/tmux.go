@@ -24,6 +24,10 @@ type Config struct {
 	// Supported placeholders: #{SESSION_ID}, #{WINDOW_ID}, #{PANE_ID}, #{INJECT_META}.
 	// Use ##{...} to produce a literal #{...}.
 	StartupKeys []string
+	// DisallowReuse controls behavior when a session with the same name exists.
+	// If false (default), New attaches to the existing session instead of failing.
+	// If true, New returns mux.ErrSessionExists.
+	DisallowReuse bool
 }
 
 // Session is a tmux session implementing mux.Session.
@@ -48,7 +52,10 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 	out, err := exec.run(ctx, "new-session", "-d", "-s", cfg.Name, "-P", "-F", "#{session_id}\t#{window_id}\t#{pane_id}")
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate session") {
-			return nil, mux.ErrSessionExists
+			if cfg.DisallowReuse {
+				return nil, mux.ErrSessionExists
+			}
+			return Attach(ctx, cfg)
 		}
 		return nil, err
 	}

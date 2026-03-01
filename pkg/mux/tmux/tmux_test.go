@@ -89,10 +89,36 @@ func TestTmuxNew(t *testing.T) {
 		t.Errorf("session ID = %q, want prefix $", sess.Id())
 	}
 
-	// Duplicate session should return ErrSessionExists.
-	_, err = New(ctx, cfg)
+	// Duplicate session with DisallowReuse should return ErrSessionExists.
+	cfgDisallow := cfg
+	cfgDisallow.DisallowReuse = true
+	_, err = New(ctx, cfgDisallow)
 	if !errors.Is(err, mux.ErrSessionExists) {
-		t.Errorf("duplicate New: got %v, want %v", err, mux.ErrSessionExists)
+		t.Errorf("duplicate New (DisallowReuse): got %v, want %v", err, mux.ErrSessionExists)
+	}
+}
+
+func TestTmuxNewReuse(t *testing.T) {
+	tmuxPath(t)
+	cfg := testConfig(t, "reusesess")
+	ctx := context.Background()
+
+	sess, err := New(ctx, cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() {
+		e := newExecutor(cfg.TmuxPath, cfg.SocketName)
+		_, _ = e.run(context.Background(), "kill-server")
+	})
+
+	// Duplicate session with DisallowReuse=false (default) should succeed via attach.
+	sess2, err := New(ctx, cfg)
+	if err != nil {
+		t.Fatalf("duplicate New (reuse): %v", err)
+	}
+	if sess2.Id() != sess.Id() {
+		t.Errorf("reused session ID = %q, want %q", sess2.Id(), sess.Id())
 	}
 }
 

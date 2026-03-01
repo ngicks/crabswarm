@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/claude_hook/v1"
 	impl "github.com/ngicks/crabswarm/pkg/api/impl/proto/go/claude_hook/v1"
@@ -57,7 +58,18 @@ func (s *Server) listen() (net.Listener, error) {
 }
 
 func (s *Server) Serve(ctx context.Context) error {
-	var err error
+	// Acquire exclusive lock on <sockPath>.lock to prevent duplicate servers.
+	lockPath := s.sockPath + ".lock"
+	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("open lock file: %w", err)
+	}
+	defer lockFile.Close()
+
+	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return fmt.Errorf("server already running (lock held on %s)", lockPath)
+	}
+	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
 
 	lis, err := s.listen()
 	if err != nil {

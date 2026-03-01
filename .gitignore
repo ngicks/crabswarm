@@ -8,3 +8,4 @@
 /splitpane
 /plugin/crabswarm/bin/crabswarm-*
 /hook_input.json*
+/doc/plans/**/state.json
