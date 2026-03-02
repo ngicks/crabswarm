@@ -9,11 +9,6 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh hook audit",
             "timeout": 300,
             "statusMessage": "Waiting for permission..."
-          },
-          {
-            "type": "command",
-            "command": "tee >> hook_input.jsonl && echo \"\" >> hook_input.jsonl",
-            "statusMessage": "copying input"
           }
         ]
       },
@@ -22,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh hook plan-callback --output-dir \"${CRABSWARM_PLAN_OUTPUT_DIR:-doc/plans}\" --callback-cmd \"${CRABSWARM_PLAN_CALLBACK_CMD}\"",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/crabswarm.sh hook plan-callback --output-dir \"${CRABSWARM_PLAN_OUTPUT_DIR:-doc/plans}\" --callback-cmd \"${CRABSWARM_PLAN_CALLBACK_CMD:-${CLAUDE_PLUGIN_ROOT}/bin/codex-review.sh}\"",
             "timeout": 600,
             "statusMessage": "Reviewing plan..."
           }

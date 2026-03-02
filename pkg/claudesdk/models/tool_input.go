@@ -4,7 +4,6 @@
 // doesn't match what Claude Code sends/expects.
 package models
 
-
 // AgentInput is the input for the Task tool.
 type AgentInput struct {
 	Description  string `json:"description"`
@@ -34,24 +33,30 @@ type AskUserQuestionInput struct {
 
 // BashInput executes bash commands in a persistent shell session.
 type BashInput struct {
-	Command         string  `json:"command"`
-	Timeout         *int32  `json:"timeout,omitempty"`
-	Description     *string `json:"description,omitempty"`
-	RunInBackground *bool   `json:"run_in_background,omitempty"`
+	Command                   string  `json:"command"`
+	Timeout                   *int32  `json:"timeout,omitempty"`
+	Description               *string `json:"description,omitempty"`
+	RunInBackground           *bool   `json:"run_in_background,omitempty"`
+	DangerouslyDisableSandbox *bool   `json:"dangerouslyDisableSandbox,omitEmpty"`
+}
+
+type TaskOutputInput struct {
+	TaskId  string `json:"task_id"`
+	Block   bool   `json:"block"`
+	Timeout int32  `json:"timeout"`
+}
+
+type FileEditInput struct {
+	FilePath   string `json:"file_path"`
+	OldString  string `json:"old_string"`
+	NewString  string `json:"new_string"`
+	ReplaceAll *bool  `json:"replace_all"`
 }
 
 // BashOutputInput retrieves output from a running or completed background shell.
 type BashOutputInput struct {
 	BashID string  `json:"bash_id"`
 	Filter *string `json:"filter,omitempty"`
-}
-
-// FileEditInput performs exact string replacements in files.
-type FileEditInput struct {
-	FilePath   string `json:"file_path"`
-	OldString  string `json:"old_string"`
-	NewString  string `json:"new_string"`
-	ReplaceAll *bool  `json:"replace_all,omitempty"`
 }
 
 // FileReadInput reads files from the local filesystem.
@@ -89,6 +94,11 @@ type GrepInput struct {
 	Multiline       *bool   `json:"multiline,omitempty"`
 }
 
+type TaskStopInput struct {
+	TaskId  *string `json:"task_id,omitEmpty"`
+	ShellId *string `json:"shell_id"`
+}
+
 // KillShellInput kills a running background shell by its ID.
 type KillShellInput struct {
 	ShellID string `json:"shell_id"`
@@ -97,7 +107,7 @@ type KillShellInput struct {
 // NotebookEditInput edits cells in Jupyter notebook files.
 type NotebookEditInput struct {
 	NotebookPath string  `json:"notebook_path"`
-	CellID       *string `json:"cell_id,omitempty"`
+	CellId       *string `json:"cell_id,omitempty"`
 	NewSource    string  `json:"new_source"`
 	CellType     string  `json:"cell_type"`
 	EditMode     string  `json:"edit_mode"`
@@ -105,7 +115,7 @@ type NotebookEditInput struct {
 
 // WebFetchInput fetches content from a URL and processes it with an AI model.
 type WebFetchInput struct {
-	URL    string `json:"url"`
+	Url    string `json:"url"`
 	Prompt string `json:"prompt"`
 }
 
@@ -130,7 +140,13 @@ type TodoWriteInput struct {
 
 // ExitPlanModeInput exits planning mode and prompts the user to approve the plan.
 type ExitPlanModeInput struct {
-	Plan string `json:"plan"`
+	Plan           string          `json:"plan"`
+	AllowedPrompts []AllowedPrompt `json:"allowedPrompts,omitEmpty"`
+}
+
+type AllowedPrompt struct {
+	Tool   string `json:"tool"`
+	Prompt string `json:"prompt"`
 }
 
 // ListMcpResourcesInput lists available MCP resources from connected servers.
@@ -141,6 +157,14 @@ type ListMcpResourcesInput struct {
 // ReadMcpResourceInput reads a specific MCP resource from a server.
 type ReadMcpResourceInput struct {
 	Server string `json:"server"`
-	URI    string `json:"uri"`
+	Uri    string `json:"uri"`
 }
 
+type ConfigInput struct {
+	Settings string `json:"setting"`
+	Value    *any   `json:"value,omitEmpty"` // string | boolean | number;
+}
+
+type EnterWorktreeInput struct {
+	Name *string `json:"name,omitEmpty"`
+}
