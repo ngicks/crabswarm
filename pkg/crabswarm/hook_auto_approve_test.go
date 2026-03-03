@@ -245,14 +245,14 @@ func TestHookAutoApprove_MultipleUnderDirs(t *testing.T) {
 func TestExtractFilePath(t *testing.T) {
 	tests := []struct {
 		name  string
-		input json.RawMessage
+		input any
 		want  string
 	}{
-		{"with file_path", json.RawMessage(`{"file_path":"/foo/bar.md","content":"x"}`), "/foo/bar.md"},
-		{"without file_path", json.RawMessage(`{"command":"ls"}`), ""},
-		{"empty input", json.RawMessage(``), ""},
+		{"with file_path", map[string]any{"file_path": "/foo/bar.md", "content": "x"}, "/foo/bar.md"},
+		{"without file_path", map[string]any{"command": "ls"}, ""},
+		{"empty input", map[string]any{}, ""},
 		{"null input", nil, ""},
-		{"invalid json", json.RawMessage(`not json`), ""},
+		{"invalid json", make(chan int), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

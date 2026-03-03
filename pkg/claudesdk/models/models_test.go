@@ -49,6 +49,46 @@ const preToolUseBashJSON = `{
   "tool_use_id": "toolu_bash123"
 }`
 
+const postToolUseReadJSON = `{
+  "session_id": "post-1",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/home/user",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "/tmp/a.txt"
+  },
+  "tool_response": {
+    "text_file": {
+      "content": "hello",
+      "total_lines": 1,
+      "lines_returned": 1
+    }
+  },
+  "tool_use_id": "toolu_post_1"
+}`
+
+const permissionRequestJSON = `{
+  "session_id": "perm-1",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/home/user",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/tmp/a.txt",
+    "content": "hello"
+  },
+  "permission_suggestions": [
+    {
+      "add_rules": {
+        "rules": [{"tool_name":"Write","rule_content":"/tmp/**"}],
+        "behavior": "allow",
+        "destination": "session"
+      }
+    }
+  ]
+}`
+
 func TestPreToolUseHookInput_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -66,7 +106,7 @@ func TestPreToolUseHookInput_UnmarshalJSON(t *testing.T) {
 			err := json.Unmarshal([]byte(tt.input), &m)
 			assert.NilError(t, err)
 			assert.Equal(t, m.ToolName, tt.wantTool)
-			assert.Assert(t, len(m.ToolInput) > 0, "tool_input should not be empty")
+			assert.Assert(t, m.ToolInput != nil, "tool_input should not be nil")
 		})
 	}
 }
@@ -91,11 +131,15 @@ func TestPreToolUseHookInput_RoundTripJSON(t *testing.T) {
 	assert.Equal(t, m.ToolUseID, m2.ToolUseID)
 	assert.Equal(t, m.Cwd, m2.Cwd)
 
-	// Verify tool_input is preserved (compare semantically, ignoring whitespace)
-	var ti1, ti2 map[string]any
-	err = json.Unmarshal(m.ToolInput, &ti1)
+	// Verify tool_input is preserved (compare semantically, ignoring whitespace).
+	raw1, err := json.Marshal(m.ToolInput)
 	assert.NilError(t, err)
-	err = json.Unmarshal(m2.ToolInput, &ti2)
+	raw2, err := json.Marshal(m2.ToolInput)
+	assert.NilError(t, err)
+	var ti1, ti2 map[string]any
+	err = json.Unmarshal(raw1, &ti1)
+	assert.NilError(t, err)
+	err = json.Unmarshal(raw2, &ti2)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, ti1, ti2)
 }
@@ -123,23 +167,21 @@ func TestPreToolUseHookInput_ModelToProtoRoundTrip(t *testing.T) {
 	assert.Equal(t, m2.ToolName, m.ToolName)
 	assert.Equal(t, m2.ToolUseID, m.ToolUseID)
 
-	// Verify tool_input round-trips
-	var ri models.FileReadInput
-	err = json.Unmarshal(m2.ToolInput, &ri)
-	assert.NilError(t, err)
+	// Verify tool_input round-trips.
+	ri, ok := m2.ToolInput.(models.FileReadInput)
+	assert.Assert(t, ok, "expected FileReadInput, got %T", m2.ToolInput)
 	assert.Equal(t, ri.FilePath, "/yay/buf.gen.yaml")
 }
 
 func TestPreToolUseHookInput_MarshalProducesFlat(t *testing.T) {
-	m := models.PreToolUseHookInput{
-		SessionID:      "sess1",
-		TranscriptPath: "/tmp/t.jsonl",
-		Cwd:            "/home",
-		ToolName:       "Read",
-		ToolInput:      json.RawMessage(`{"file_path":"/foo/bar.go"}`),
-		HookEventName:  "PreToolUse",
-		ToolUseID:      "tool1",
-	}
+	var m models.PreToolUseHookInput
+	m.SessionID = "sess1"
+	m.TranscriptPath = "/tmp/t.jsonl"
+	m.Cwd = "/home"
+	m.ToolName = "Read"
+	m.ToolInput = models.FileReadInput{FilePath: "/foo/bar.go"}
+	m.HookEventName = "PreToolUse"
+	m.ToolUseID = "tool1"
 
 	data, err := json.Marshal(&m)
 	assert.NilError(t, err)
@@ -157,4 +199,47 @@ func TestPreToolUseHookInput_MarshalProducesFlat(t *testing.T) {
 	// Should NOT have nested keys like "fileRead"
 	_, hasFileRead := ti["fileRead"]
 	assert.Assert(t, !hasFileRead, "tool_input should not have nested 'fileRead' key")
+}
+
+func TestPostToolUseHookInput_ModelToProtoRoundTrip(t *testing.T) {
+	var m models.PostToolUseHookInput
+	err := json.Unmarshal([]byte(postToolUseReadJSON), &m)
+	assert.NilError(t, err)
+
+	p, err := m.ToProto()
+	assert.NilError(t, err)
+	assert.Equal(t, p.GetToolName(), "Read")
+	assert.Assert(t, p.GetToolInput().GetFileRead() != nil)
+	assert.Assert(t, p.GetToolResponse().GetRead() != nil)
+	assert.Assert(t, p.GetToolResponse().GetRead().GetTextFile() != nil)
+	assert.Equal(t, p.GetToolResponse().GetRead().GetTextFile().GetContent(), "hello")
+
+	var m2 models.PostToolUseHookInput
+	err = m2.FromProto(p)
+	assert.NilError(t, err)
+	assert.Equal(t, m2.ToolName, "Read")
+	assert.Assert(t, m2.ToolInput != nil)
+	assert.Assert(t, m2.ToolResponse != nil)
+}
+
+func TestPermissionRequestHookInput_ModelToProtoRoundTrip(t *testing.T) {
+	var m models.PermissionRequestHookInput
+	err := json.Unmarshal([]byte(permissionRequestJSON), &m)
+	assert.NilError(t, err)
+	assert.Equal(t, len(m.PermissionSuggestions), 1)
+
+	p, err := m.ToProto()
+	assert.NilError(t, err)
+	assert.Equal(t, p.GetToolName(), "Write")
+	assert.Equal(t, len(p.GetPermissionSuggestions()), 1)
+	assert.Assert(t, p.GetPermissionSuggestions()[0].GetAddRules() != nil)
+	assert.Equal(t, p.GetPermissionSuggestions()[0].GetAddRules().GetBehavior(), "allow")
+
+	var m2 models.PermissionRequestHookInput
+	err = m2.FromProto(p)
+	assert.NilError(t, err)
+	assert.Equal(t, m2.ToolName, "Write")
+	assert.Equal(t, len(m2.PermissionSuggestions), 1)
+	assert.Assert(t, m2.PermissionSuggestions[0].AddRules != nil)
+	assert.Equal(t, m2.PermissionSuggestions[0].AddRules.Behavior, "allow")
 }

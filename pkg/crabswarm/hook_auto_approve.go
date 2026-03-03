@@ -88,12 +88,16 @@ func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) erro
 }
 
 // extractFilePath extracts the file_path field from raw tool_input JSON.
-func extractFilePath(toolInput json.RawMessage) string {
-	if len(toolInput) == 0 {
+func extractFilePath(toolInput any) string {
+	if toolInput == nil {
+		return ""
+	}
+	raw, err := json.Marshal(toolInput)
+	if err != nil {
 		return ""
 	}
 	var m map[string]json.RawMessage
-	if err := json.Unmarshal(toolInput, &m); err != nil {
+	if err := json.Unmarshal(raw, &m); err != nil {
 		return ""
 	}
 	raw, ok := m["file_path"]

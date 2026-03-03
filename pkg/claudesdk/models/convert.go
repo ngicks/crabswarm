@@ -12,44 +12,6 @@ import (
 
 var unmarshaler = protojson.UnmarshalOptions{DiscardUnknown: true}
 
-// ToProto converts the PreToolUseHookInput to its proto equivalent.
-func (m *PreToolUseHookInput) ToProto() (*pb.PreToolUseHookInput, error) {
-	ti, err := toolInputToProto(m.ToolName, m.ToolInput)
-	if err != nil {
-		return nil, fmt.Errorf("converting tool_input: %w", err)
-	}
-
-	p := &pb.PreToolUseHookInput{
-		SessionId:      m.SessionID,
-		TranscriptPath: m.TranscriptPath,
-		Cwd:            m.Cwd,
-		PermissionMode: m.PermissionMode,
-		ToolName:       m.ToolName,
-		ToolInput:      ti,
-		HookEventName:  m.HookEventName,
-		ToolUseId:      m.ToolUseID,
-	}
-	return p, nil
-}
-
-// FromProto populates the receiver's fields from a proto PreToolUseHookInput.
-func (m *PreToolUseHookInput) FromProto(p *pb.PreToolUseHookInput) error {
-	raw, err := toolInputFromProto(p.GetToolInput())
-	if err != nil {
-		return fmt.Errorf("converting tool_input: %w", err)
-	}
-
-	m.SessionID = p.GetSessionId()
-	m.TranscriptPath = p.GetTranscriptPath()
-	m.Cwd = p.GetCwd()
-	m.PermissionMode = p.PermissionMode
-	m.ToolName = p.GetToolName()
-	m.ToolInput = raw
-	m.HookEventName = p.GetHookEventName()
-	m.ToolUseID = p.GetToolUseId()
-	return nil
-}
-
 // toolInputToProto converts raw JSON tool input + tool name to a proto ToolInput.
 // It uses protojson.Unmarshal on the specific proto message type, which works because
 // the individual proto messages accept both camelCase and proto field names.

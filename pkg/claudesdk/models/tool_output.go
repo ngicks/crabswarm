@@ -16,6 +16,12 @@ type TaskOutput struct {
 	DurationMs   *int64     `json:"duration_ms,omitempty"`
 }
 
+// AskUserQuestionOutput returns asked questions and provided answers.
+type AskUserQuestionOutput struct {
+	Questions []Question        `json:"questions,omitempty"`
+	Answers   map[string]string `json:"answers,omitempty"`
+}
+
 // BashOutput returns command output with exit status.
 type BashOutput struct {
 	Output   string  `json:"output"`
@@ -43,6 +49,54 @@ type TextFileOutput struct {
 	Content       string `json:"content"`
 	TotalLines    int32  `json:"total_lines"`
 	LinesReturned int32  `json:"lines_returned"`
+}
+
+// ImageFileOutput contains image file contents.
+type ImageFileOutput struct {
+	Image    string `json:"image"`
+	MimeType string `json:"mime_type"`
+	FileSize int64  `json:"file_size"`
+}
+
+// PDFPageImage contains an image extracted from a PDF page.
+type PDFPageImage struct {
+	Image    string `json:"image"`
+	MimeType string `json:"mime_type"`
+}
+
+// PDFPage contains the contents of a single PDF page.
+type PDFPage struct {
+	PageNumber int32          `json:"page_number"`
+	Text       *string        `json:"text,omitempty"`
+	Images     []PDFPageImage `json:"images,omitempty"`
+}
+
+// PDFFileOutput contains PDF file contents.
+type PDFFileOutput struct {
+	Pages      []PDFPage `json:"pages,omitempty"`
+	TotalPages int32     `json:"total_pages"`
+}
+
+// NotebookCell contains a single Jupyter notebook cell.
+type NotebookCell struct {
+	CellType       string `json:"cell_type"`
+	Source         string `json:"source"`
+	Outputs        []any  `json:"outputs,omitempty"`
+	ExecutionCount *int32 `json:"execution_count,omitempty"`
+}
+
+// NotebookFileOutput contains Jupyter notebook contents.
+type NotebookFileOutput struct {
+	Cells    []NotebookCell `json:"cells,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// ReadOutput returns file contents in format appropriate to file type.
+type ReadOutput struct {
+	TextFile     *TextFileOutput     `json:"text_file,omitempty"`
+	ImageFile    *ImageFileOutput    `json:"image_file,omitempty"`
+	PDFFile      *PDFFileOutput      `json:"pdf_file,omitempty"`
+	NotebookFile *NotebookFileOutput `json:"notebook_file,omitempty"`
 }
 
 // WriteOutput returns confirmation after writing a file.
@@ -80,6 +134,25 @@ type GrepFilesOutput struct {
 	Count int32    `json:"count"`
 }
 
+// GrepFileCount represents match counts for a single file.
+type GrepFileCount struct {
+	File  string `json:"file"`
+	Count int32  `json:"count"`
+}
+
+// GrepCountOutput contains match counts per file.
+type GrepCountOutput struct {
+	Counts []GrepFileCount `json:"counts"`
+	Total  int32           `json:"total"`
+}
+
+// GrepOutput returns search results in the format specified by output_mode.
+type GrepOutput struct {
+	Content *GrepContentOutput `json:"content,omitempty"`
+	Files   *GrepFilesOutput   `json:"files,omitempty"`
+	Count   *GrepCountOutput   `json:"count,omitempty"`
+}
+
 // KillBashOutput returns confirmation after terminating a background shell.
 type KillBashOutput struct {
 	Message string `json:"message"`
@@ -104,9 +177,10 @@ type WebFetchOutput struct {
 
 // WebSearchResult represents a single web search result.
 type WebSearchResult struct {
-	Title   string `json:"title"`
-	URL     string `json:"url"`
-	Snippet string `json:"snippet"`
+	Title    string         `json:"title"`
+	URL      string         `json:"url"`
+	Snippet  string         `json:"snippet"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // WebSearchOutput returns formatted search results from the web.
@@ -134,4 +208,33 @@ type TodoWriteOutput struct {
 type ExitPlanModeOutput struct {
 	Message  string `json:"message"`
 	Approved *bool  `json:"approved,omitempty"`
+}
+
+// McpResource represents an available MCP resource.
+type McpResource struct {
+	Uri         string  `json:"uri"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	MimeType    *string `json:"mime_type,omitempty"`
+	Server      string  `json:"server"`
+}
+
+// ListMcpResourcesOutput returns a list of available MCP resources.
+type ListMcpResourcesOutput struct {
+	Resources []McpResource `json:"resources,omitempty"`
+	Total     int32         `json:"total"`
+}
+
+// McpResourceContent contains the content of an MCP resource.
+type McpResourceContent struct {
+	Uri      string  `json:"uri"`
+	MimeType *string `json:"mime_type,omitempty"`
+	Text     *string `json:"text,omitempty"`
+	Blob     *string `json:"blob,omitempty"`
+}
+
+// ReadMcpResourceOutput returns the contents of the requested MCP resource.
+type ReadMcpResourceOutput struct {
+	Contents []McpResourceContent `json:"contents,omitempty"`
+	Server   string               `json:"server"`
 }
