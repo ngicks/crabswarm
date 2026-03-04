@@ -1,7 +1,3 @@
-// Package models provides JSON-native Go types that match Claude Code's
-// actual JSON wire format. These exist because protobuf oneof types
-// (ToolInput, ToolOutput, HookSpecificOutput) produce nested JSON that
-// doesn't match what Claude Code sends/expects.
 package models
 
 import "strings"
