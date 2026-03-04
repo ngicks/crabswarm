@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
+	"github.com/ngicks/crabswarm/pkg/claudesdk/models"
 	"gotest.tools/v3/assert"
 )
 
@@ -49,10 +50,18 @@ func isApproval(t *testing.T, err error) {
 	if he.Output.HookSpecificOutput == nil {
 		t.Fatal("expected hookSpecificOutput, got nil")
 	}
-	if he.Output.HookSpecificOutput.Decision == nil {
+	hso, ok := he.Output.HookSpecificOutput.(models.HookSpecificOutputPermissionRequest)
+	if !ok {
+		t.Fatalf("expected HookSpecificOutputPermissionRequest, got %T", he.Output.HookSpecificOutput)
+	}
+	if hso.Decision == nil {
 		t.Fatal("expected decision, got nil")
 	}
-	assert.Equal(t, he.Output.HookSpecificOutput.Decision.Behavior, "allow")
+	dec, ok := hso.Decision.(models.PermissionRequestDecisionAllow)
+	if !ok {
+		t.Fatalf("expected PermissionRequestDecisionAllow, got %T", hso.Decision)
+	}
+	assert.Equal(t, string(dec.Behavior), "allow")
 }
 
 func TestHookAutoApprove_MatchingToolAndDir(t *testing.T) {

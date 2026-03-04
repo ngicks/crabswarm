@@ -400,7 +400,7 @@ func (m *SyncHookJSONOutput) ToProto() (*pb.SyncHookJSONOutput, error) {
 		Continue:       m.Continue,
 		SuppressOutput: m.SuppressOutput,
 		StopReason:     m.StopReason,
-		Decision:       m.Decision,
+		Decision:       syncHookDecisionToStringPtr(m.Decision),
 		SystemMessage:  m.SystemMessage,
 		Reason:         m.Reason,
 	}
@@ -421,7 +421,7 @@ func (m *SyncHookJSONOutput) FromProto(p *pb.SyncHookJSONOutput) error {
 	m.Continue = p.Continue
 	m.SuppressOutput = p.SuppressOutput
 	m.StopReason = p.StopReason
-	m.Decision = p.Decision
+	m.Decision = syncHookDecisionFromStringPtr(p.Decision)
 	m.SystemMessage = p.SystemMessage
 	m.Reason = p.Reason
 
@@ -436,49 +436,137 @@ func (m *SyncHookJSONOutput) FromProto(p *pb.SyncHookJSONOutput) error {
 	return nil
 }
 
-func hookSpecificOutputToProto(h *HookSpecificOutput) (*pb.HookSpecificOutput, error) {
+func hookSpecificOutputToProto(h HookSpecificOutput) (*pb.HookSpecificOutput, error) {
 	p := &pb.HookSpecificOutput{}
 
-	// Determine which oneof variant to use based on populated fields.
-	if h.Decision != nil {
-		// PermissionRequest
+	switch v := h.(type) {
+	case HookSpecificOutputPreToolUse:
+		pd := permissionDecisionToStringPtr(v.PermissionDecision)
+		ptuo := &pb.PreToolUseHookSpecificOutput{
+			PermissionDecision:       pd,
+			PermissionDecisionReason: v.PermissionDecisionReason,
+		}
+		// We can't convert UpdatedInput without knowing the tool name.
+		p.Output = &pb.HookSpecificOutput_PreToolUse{PreToolUse: ptuo}
+	case *HookSpecificOutputPreToolUse:
+		if v == nil {
+			return p, nil
+		}
+		pd := permissionDecisionToStringPtr(v.PermissionDecision)
+		ptuo := &pb.PreToolUseHookSpecificOutput{
+			PermissionDecision:       pd,
+			PermissionDecisionReason: v.PermissionDecisionReason,
+		}
+		p.Output = &pb.HookSpecificOutput_PreToolUse{PreToolUse: ptuo}
+	case HookSpecificOutputUserPromptSubmit:
+		p.Output = &pb.HookSpecificOutput_UserPromptSubmit{
+			UserPromptSubmit: &pb.UserPromptSubmitHookSpecificOutput{
+				AdditionalContext: v.AdditionalContext,
+			},
+		}
+	case *HookSpecificOutputUserPromptSubmit:
+		if v == nil {
+			return p, nil
+		}
+		p.Output = &pb.HookSpecificOutput_UserPromptSubmit{
+			UserPromptSubmit: &pb.UserPromptSubmitHookSpecificOutput{
+				AdditionalContext: v.AdditionalContext,
+			},
+		}
+	case HookSpecificOutputSessionStart:
+		p.Output = &pb.HookSpecificOutput_SessionStart{
+			SessionStart: &pb.SessionStartHookSpecificOutput{
+				AdditionalContext: v.AdditionalContext,
+			},
+		}
+	case *HookSpecificOutputSessionStart:
+		if v == nil {
+			return p, nil
+		}
+		p.Output = &pb.HookSpecificOutput_SessionStart{
+			SessionStart: &pb.SessionStartHookSpecificOutput{
+				AdditionalContext: v.AdditionalContext,
+			},
+		}
+	case HookSpecificOutputPostToolUse:
+		p.Output = &pb.HookSpecificOutput_PostToolUse{
+			PostToolUse: &pb.PostToolUseHookSpecificOutput{
+				AdditionalContext: v.AdditionalContext,
+			},
+		}
+	case *HookSpecificOutputPostToolUse:
+		if v == nil {
+			return p, nil
+		}
+		p.Output = &pb.HookSpecificOutput_PostToolUse{
+			PostToolUse: &pb.PostToolUseHookSpecificOutput{
+				AdditionalContext: v.AdditionalContext,
+			},
+		}
+	case HookSpecificOutputPermissionRequest:
 		pr := &pb.PermissionRequestHookSpecificOutput{}
-		result, err := permissionRequestDecisionToProto(h.Decision)
+		result, err := permissionRequestDecisionToProto(v.Decision)
 		if err != nil {
 			return nil, err
 		}
 		pr.Decision = result
 		p.Output = &pb.HookSpecificOutput_PermissionRequest{PermissionRequest: pr}
-	} else if h.PermissionDecision != nil || h.PermissionDecisionReason != nil || len(h.UpdatedInput) > 0 {
-		// PreToolUse
-		ptuo := &pb.PreToolUseHookSpecificOutput{
-			PermissionDecision:       h.PermissionDecision,
-			PermissionDecisionReason: h.PermissionDecisionReason,
+	case *HookSpecificOutputPermissionRequest:
+		if v == nil {
+			return p, nil
 		}
-		if len(h.UpdatedInput) > 0 {
-			// We can't convert UpdatedInput without knowing the tool name,
-			// so we skip it here. It remains as raw JSON.
+		pr := &pb.PermissionRequestHookSpecificOutput{}
+		result, err := permissionRequestDecisionToProto(v.Decision)
+		if err != nil {
+			return nil, err
 		}
-		p.Output = &pb.HookSpecificOutput_PreToolUse{PreToolUse: ptuo}
-	} else if h.AdditionalContext != nil {
-		// Could be UserPromptSubmit, SessionStart, or PostToolUse.
-		// Default to PostToolUse since they all have the same field.
-		ptuo := &pb.PostToolUseHookSpecificOutput{
-			AdditionalContext: h.AdditionalContext,
+		pr.Decision = result
+		p.Output = &pb.HookSpecificOutput_PermissionRequest{PermissionRequest: pr}
+	case HookSpecificOutputSetup:
+		return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+	case *HookSpecificOutputSetup:
+		if v != nil {
+			return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
 		}
-		p.Output = &pb.HookSpecificOutput_PostToolUse{PostToolUse: ptuo}
+	case HookSpecificOutputSubagentStart:
+		return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+	case *HookSpecificOutputSubagentStart:
+		if v != nil {
+			return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+		}
+	case HookSpecificOutputPostToolUseFailure:
+		return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+	case *HookSpecificOutputPostToolUseFailure:
+		if v != nil {
+			return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+		}
+	case HookSpecificOutputNotification:
+		return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+	case *HookSpecificOutputNotification:
+		if v != nil {
+			return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+		}
+	case HookSpecificOutputUnknown:
+		return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+	case *HookSpecificOutputUnknown:
+		if v != nil {
+			return nil, fmt.Errorf("hook specific output %q is not representable in proto", v.HookEventName)
+		}
+	default:
+		return nil, fmt.Errorf("unknown hook specific output type: %T", h)
 	}
 
 	return p, nil
 }
 
-func hookSpecificOutputFromProto(p *pb.HookSpecificOutput) (*HookSpecificOutput, error) {
-	h := &HookSpecificOutput{}
-
+func hookSpecificOutputFromProto(p *pb.HookSpecificOutput) (HookSpecificOutput, error) {
 	switch v := p.GetOutput().(type) {
 	case *pb.HookSpecificOutput_PreToolUse:
-		h.PermissionDecision = v.PreToolUse.PermissionDecision
-		h.PermissionDecisionReason = v.PreToolUse.PermissionDecisionReason
+		h := HookSpecificOutputPreToolUse{
+			HookEventName:            HookEventNamePreToolUse,
+			PermissionDecision:       permissionDecisionFromStringPtr(v.PreToolUse.PermissionDecision),
+			PermissionDecisionReason: v.PreToolUse.PermissionDecisionReason,
+		}
 		if v.PreToolUse.UpdatedInput != nil {
 			updatedInput, err := convertProtoToolInputToModel("", v.PreToolUse.UpdatedInput)
 			if err != nil {
@@ -490,13 +578,26 @@ func hookSpecificOutputFromProto(p *pb.HookSpecificOutput) (*HookSpecificOutput,
 			}
 			h.UpdatedInput = raw
 		}
+		return h, nil
 	case *pb.HookSpecificOutput_UserPromptSubmit:
-		h.AdditionalContext = v.UserPromptSubmit.AdditionalContext
+		return HookSpecificOutputUserPromptSubmit{
+			HookEventName:     HookEventNameUserPromptSubmit,
+			AdditionalContext: v.UserPromptSubmit.AdditionalContext,
+		}, nil
 	case *pb.HookSpecificOutput_SessionStart:
-		h.AdditionalContext = v.SessionStart.AdditionalContext
+		return HookSpecificOutputSessionStart{
+			HookEventName:     HookEventNameSessionStart,
+			AdditionalContext: v.SessionStart.AdditionalContext,
+		}, nil
 	case *pb.HookSpecificOutput_PostToolUse:
-		h.AdditionalContext = v.PostToolUse.AdditionalContext
+		return HookSpecificOutputPostToolUse{
+			HookEventName:     HookEventNamePostToolUse,
+			AdditionalContext: v.PostToolUse.AdditionalContext,
+		}, nil
 	case *pb.HookSpecificOutput_PermissionRequest:
+		h := HookSpecificOutputPermissionRequest{
+			HookEventName: HookEventNamePermissionRequest,
+		}
 		if v.PermissionRequest.Decision != nil {
 			dec, err := permissionRequestDecisionFromProto(v.PermissionRequest.Decision)
 			if err != nil {
@@ -504,21 +605,28 @@ func hookSpecificOutputFromProto(p *pb.HookSpecificOutput) (*HookSpecificOutput,
 			}
 			h.Decision = dec
 		}
+		return h, nil
+	default:
+		return nil, nil
 	}
-
-	return h, nil
 }
 
-func permissionRequestDecisionToProto(d *PermissionRequestDecision) (*pb.PermissionResult, error) {
+func permissionRequestDecisionToProto(d PermissionRequestDecision) (*pb.PermissionResult, error) {
+	if d == nil {
+		return nil, nil
+	}
 	result := &pb.PermissionResult{}
 
-	switch d.Behavior {
-	case "allow":
+	switch v := d.(type) {
+	case PermissionRequestDecisionAllow:
+		if v.Behavior != "" && v.Behavior != PermissionRequestBehaviorAllow {
+			return nil, fmt.Errorf("unknown behavior: %q", v.Behavior)
+		}
 		allow := &pb.AllowResult{}
-		if len(d.UpdatedInput) > 0 {
+		if len(v.UpdatedInput) > 0 {
 			// Parse as generic Struct since we don't know the tool name
 			var m map[string]any
-			if err := json.Unmarshal(d.UpdatedInput, &m); err != nil {
+			if err := json.Unmarshal(v.UpdatedInput, &m); err != nil {
 				return nil, fmt.Errorf("unmarshal updatedInput: %w", err)
 			}
 			s, err := structpb.NewStruct(m)
@@ -532,27 +640,40 @@ func permissionRequestDecisionToProto(d *PermissionRequestDecision) (*pb.Permiss
 		// updatedPermissions conversion would require full PermissionUpdate parsing;
 		// omitted for now as it's not needed by the auto-approve hook.
 		result.Result = &pb.PermissionResult_Allow{Allow: allow}
-	case "deny":
-		deny := &pb.DenyResult{
-			Interrupt: d.Interrupt,
+	case *PermissionRequestDecisionAllow:
+		if v == nil {
+			return nil, nil
 		}
-		if d.Message != nil {
-			deny.Message = *d.Message
+		return permissionRequestDecisionToProto(*v)
+	case PermissionRequestDecisionDeny:
+		if v.Behavior != "" && v.Behavior != PermissionRequestBehaviorDeny {
+			return nil, fmt.Errorf("unknown behavior: %q", v.Behavior)
+		}
+		deny := &pb.DenyResult{
+			Interrupt: v.Interrupt,
+		}
+		if v.Message != nil {
+			deny.Message = *v.Message
 		}
 		result.Result = &pb.PermissionResult_Deny{Deny: deny}
+	case *PermissionRequestDecisionDeny:
+		if v == nil {
+			return nil, nil
+		}
+		return permissionRequestDecisionToProto(*v)
 	default:
-		return nil, fmt.Errorf("unknown behavior: %q", d.Behavior)
+		return nil, fmt.Errorf("unknown permission request decision type: %T", d)
 	}
 
 	return result, nil
 }
 
-func permissionRequestDecisionFromProto(p *pb.PermissionResult) (*PermissionRequestDecision, error) {
-	d := &PermissionRequestDecision{}
-
+func permissionRequestDecisionFromProto(p *pb.PermissionResult) (PermissionRequestDecision, error) {
 	switch v := p.GetResult().(type) {
 	case *pb.PermissionResult_Allow:
-		d.Behavior = "allow"
+		d := PermissionRequestDecisionAllow{
+			Behavior: PermissionRequestBehaviorAllow,
+		}
 		if v.Allow.UpdatedInput != nil {
 			updatedInput, err := convertProtoToolInputToModel("", v.Allow.UpdatedInput)
 			if err != nil {
@@ -565,16 +686,52 @@ func permissionRequestDecisionFromProto(p *pb.PermissionResult) (*PermissionRequ
 			d.UpdatedInput = raw
 		}
 		// updatedPermissions conversion omitted for now.
+		return d, nil
 	case *pb.PermissionResult_Deny:
-		d.Behavior = "deny"
+		d := PermissionRequestDecisionDeny{
+			Behavior:  PermissionRequestBehaviorDeny,
+			Interrupt: v.Deny.Interrupt,
+		}
 		msg := v.Deny.Message
 		if msg != "" {
 			d.Message = &msg
 		}
-		d.Interrupt = v.Deny.Interrupt
+		return d, nil
+	default:
+		return nil, nil
 	}
+}
 
-	return d, nil
+func syncHookDecisionToStringPtr(v *SyncHookJSONOutputDecision) *string {
+	if v == nil {
+		return nil
+	}
+	s := string(*v)
+	return &s
+}
+
+func syncHookDecisionFromStringPtr(v *string) *SyncHookJSONOutputDecision {
+	if v == nil {
+		return nil
+	}
+	d := SyncHookJSONOutputDecision(*v)
+	return &d
+}
+
+func permissionDecisionToStringPtr(v *PermissionDecision) *string {
+	if v == nil {
+		return nil
+	}
+	s := string(*v)
+	return &s
+}
+
+func permissionDecisionFromStringPtr(v *string) *PermissionDecision {
+	if v == nil {
+		return nil
+	}
+	d := PermissionDecision(*v)
+	return &d
 }
 
 func cloneBoolPtr(v *bool) *bool {

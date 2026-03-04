@@ -236,6 +236,23 @@ type HookSpecificOutputPreToolUse struct {
 	AdditionalContext *string         `json:"additionalContext,omitempty"`
 }
 
+func (o HookSpecificOutputPreToolUse) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputPreToolUse
+	o.HookEventName = HookEventNamePreToolUse
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputPreToolUse) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputPreToolUse
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputPreToolUse(p)
+	o.HookEventName = HookEventNamePreToolUse
+	return nil
+}
+
 type PermissionDecision string
 
 const (
@@ -262,9 +279,43 @@ type HookSpecificOutputUserPromptSubmit struct {
 	AdditionalContext *string       `json:"additionalContext,omitempty"`
 }
 
+func (o HookSpecificOutputUserPromptSubmit) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputUserPromptSubmit
+	o.HookEventName = HookEventNameUserPromptSubmit
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputUserPromptSubmit) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputUserPromptSubmit
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputUserPromptSubmit(p)
+	o.HookEventName = HookEventNameUserPromptSubmit
+	return nil
+}
+
 type HookSpecificOutputSessionStart struct {
 	HookEventName     HookEventName `json:"hookEventName"`
 	AdditionalContext *string       `json:"additionalContext,omitempty"`
+}
+
+func (o HookSpecificOutputSessionStart) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputSessionStart
+	o.HookEventName = HookEventNameSessionStart
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputSessionStart) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputSessionStart
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputSessionStart(p)
+	o.HookEventName = HookEventNameSessionStart
+	return nil
 }
 
 type HookSpecificOutputSetup struct {
@@ -272,9 +323,43 @@ type HookSpecificOutputSetup struct {
 	AdditionalContext *string       `json:"additionalContext,omitempty"`
 }
 
+func (o HookSpecificOutputSetup) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputSetup
+	o.HookEventName = HookEventNameSetup
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputSetup) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputSetup
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputSetup(p)
+	o.HookEventName = HookEventNameSetup
+	return nil
+}
+
 type HookSpecificOutputSubagentStart struct {
 	HookEventName     HookEventName `json:"hookEventName"`
 	AdditionalContext *string       `json:"additionalContext,omitempty"`
+}
+
+func (o HookSpecificOutputSubagentStart) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputSubagentStart
+	o.HookEventName = HookEventNameSubagentStart
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputSubagentStart) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputSubagentStart
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputSubagentStart(p)
+	o.HookEventName = HookEventNameSubagentStart
+	return nil
 }
 
 type HookSpecificOutputPostToolUse struct {
@@ -283,9 +368,43 @@ type HookSpecificOutputPostToolUse struct {
 	UpdatedMCPToolOutput json.RawMessage `json:"updatedMCPToolOutput,omitempty"`
 }
 
+func (o HookSpecificOutputPostToolUse) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputPostToolUse
+	o.HookEventName = HookEventNamePostToolUse
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputPostToolUse) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputPostToolUse
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputPostToolUse(p)
+	o.HookEventName = HookEventNamePostToolUse
+	return nil
+}
+
 type HookSpecificOutputPostToolUseFailure struct {
 	HookEventName     HookEventName `json:"hookEventName"`
 	AdditionalContext *string       `json:"additionalContext,omitempty"`
+}
+
+func (o HookSpecificOutputPostToolUseFailure) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputPostToolUseFailure
+	o.HookEventName = HookEventNamePostToolUseFailure
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputPostToolUseFailure) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputPostToolUseFailure
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputPostToolUseFailure(p)
+	o.HookEventName = HookEventNamePostToolUseFailure
+	return nil
 }
 
 type HookSpecificOutputNotification struct {
@@ -293,27 +412,50 @@ type HookSpecificOutputNotification struct {
 	AdditionalContext *string       `json:"additionalContext,omitempty"`
 }
 
+func (o HookSpecificOutputNotification) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputNotification
+	o.HookEventName = HookEventNameNotification
+	return json.Marshal(plain(o))
+}
+
+func (o *HookSpecificOutputNotification) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputNotification
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputNotification(p)
+	o.HookEventName = HookEventNameNotification
+	return nil
+}
+
 type HookSpecificOutputPermissionRequest struct {
 	HookEventName HookEventName             `json:"hookEventName"`
 	Decision      PermissionRequestDecision `json:"decision,omitempty"`
 }
 
-func (p *HookSpecificOutputPermissionRequest) UnmarshalJSON(data []byte) error {
-	type raw struct {
-		HookEventName HookEventName   `json:"hookEventName"`
-		Decision      json.RawMessage `json:"decision,omitempty"`
-	}
+func (p HookSpecificOutputPermissionRequest) MarshalJSON() ([]byte, error) {
+	type plain HookSpecificOutputPermissionRequest
+	p.HookEventName = HookEventNamePermissionRequest
+	return json.Marshal(plain(p))
+}
 
-	var a raw
-	if err := json.Unmarshal(data, &a); err != nil {
+func (p *HookSpecificOutputPermissionRequest) UnmarshalJSON(data []byte) error {
+	type plain HookSpecificOutputPermissionRequest
+	var q plain
+	if err := json.Unmarshal(data, &q); err != nil {
 		return err
 	}
+	*p = HookSpecificOutputPermissionRequest(q)
+	p.HookEventName = HookEventNamePermissionRequest
 
-	p.HookEventName = a.HookEventName
-
-	if len(a.Decision) > 0 {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw["decision"]) > 0 {
 		var err error
-		p.Decision, err = unmarshalPermissionRequestDecision(a.Decision)
+		p.Decision, err = unmarshalPermissionRequestDecision(raw["decision"])
 		if err != nil {
 			return err
 		}

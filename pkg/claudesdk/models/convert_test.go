@@ -28,7 +28,7 @@ func TestSyncHookJSONOutput_ProtoModelRoundTrip_Table(t *testing.T) {
 		{
 			name: "top-level decision",
 			model: models.SyncHookJSONOutput{
-				Decision: ptr("block"),
+				Decision: ptr(models.SyncHookJSONOutputDecisionBlock),
 				Reason:   ptr("not allowed"),
 			},
 			proto: &pb.SyncHookJSONOutput{
@@ -39,8 +39,9 @@ func TestSyncHookJSONOutput_ProtoModelRoundTrip_Table(t *testing.T) {
 		{
 			name: "pre-tool-use permission fields",
 			model: models.SyncHookJSONOutput{
-				HookSpecificOutput: &models.HookSpecificOutput{
-					PermissionDecision:       ptr("allow"),
+				HookSpecificOutput: models.HookSpecificOutputPreToolUse{
+					HookEventName:            models.HookEventNamePreToolUse,
+					PermissionDecision:       ptr(models.PermissionDecisionAllow),
 					PermissionDecisionReason: ptr("whitelisted"),
 				},
 			},
@@ -56,8 +57,11 @@ func TestSyncHookJSONOutput_ProtoModelRoundTrip_Table(t *testing.T) {
 		{
 			name: "permission request allow",
 			model: models.SyncHookJSONOutput{
-				HookSpecificOutput: &models.HookSpecificOutput{
-					Decision: &models.PermissionRequestDecision{Behavior: "allow"},
+				HookSpecificOutput: models.HookSpecificOutputPermissionRequest{
+					HookEventName: models.HookEventNamePermissionRequest,
+					Decision: models.PermissionRequestDecisionAllow{
+						Behavior: models.PermissionRequestBehaviorAllow,
+					},
 				},
 			},
 			proto: &pb.SyncHookJSONOutput{
@@ -71,9 +75,10 @@ func TestSyncHookJSONOutput_ProtoModelRoundTrip_Table(t *testing.T) {
 		{
 			name: "permission request deny",
 			model: models.SyncHookJSONOutput{
-				HookSpecificOutput: &models.HookSpecificOutput{
-					Decision: &models.PermissionRequestDecision{
-						Behavior:  "deny",
+				HookSpecificOutput: models.HookSpecificOutputPermissionRequest{
+					HookEventName: models.HookEventNamePermissionRequest,
+					Decision: models.PermissionRequestDecisionDeny{
+						Behavior:  models.PermissionRequestBehaviorDeny,
 						Message:   ptr("not allowed"),
 						Interrupt: ptr(true),
 					},
@@ -93,7 +98,8 @@ func TestSyncHookJSONOutput_ProtoModelRoundTrip_Table(t *testing.T) {
 		{
 			name: "additional context",
 			model: models.SyncHookJSONOutput{
-				HookSpecificOutput: &models.HookSpecificOutput{
+				HookSpecificOutput: models.HookSpecificOutputPostToolUse{
+					HookEventName:     models.HookEventNamePostToolUse,
 					AdditionalContext: ptr("extra context"),
 				},
 			},
@@ -133,8 +139,11 @@ func TestSyncHookJSONOutput_ToProto_UnknownBehavior_Table(t *testing.T) {
 		{
 			name: "permission request unknown behavior",
 			model: models.SyncHookJSONOutput{
-				HookSpecificOutput: &models.HookSpecificOutput{
-					Decision: &models.PermissionRequestDecision{Behavior: "unknown"},
+				HookSpecificOutput: models.HookSpecificOutputPermissionRequest{
+					HookEventName: models.HookEventNamePermissionRequest,
+					Decision: models.PermissionRequestDecisionAllow{
+						Behavior: models.PermissionRequestBehavior("unknown"),
+					},
 				},
 			},
 		},
@@ -157,9 +166,11 @@ func TestSyncHookJSONOutput_JSON_Table(t *testing.T) {
 		{
 			name: "permission request allow",
 			in: models.SyncHookJSONOutput{
-				HookSpecificOutput: &models.HookSpecificOutput{
-					HookEventName: ptr("PermissionRequest"),
-					Decision:      &models.PermissionRequestDecision{Behavior: "allow"},
+				HookSpecificOutput: models.HookSpecificOutputPermissionRequest{
+					HookEventName: models.HookEventNamePermissionRequest,
+					Decision: models.PermissionRequestDecisionAllow{
+						Behavior: models.PermissionRequestBehaviorAllow,
+					},
 				},
 			},
 			want: map[string]any{

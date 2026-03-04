@@ -20,7 +20,7 @@ func TestHandlerError_Error_Allow(t *testing.T) {
 func TestHandlerError_Error_Block(t *testing.T) {
 	he := &HandlerError{
 		Output: &models.SyncHookJSONOutput{
-			Decision: ptr(string(HookDecisionBlock)),
+			Decision: ptr(models.SyncHookJSONOutputDecision(HookDecisionBlock)),
 			Reason:   ptr("not allowed"),
 		},
 	}
@@ -30,7 +30,7 @@ func TestHandlerError_Error_Block(t *testing.T) {
 func TestHandlerError_Error_BlockNoReason(t *testing.T) {
 	he := &HandlerError{
 		Output: &models.SyncHookJSONOutput{
-			Decision: ptr(string(HookDecisionBlock)),
+			Decision: ptr(models.SyncHookJSONOutputDecision(HookDecisionBlock)),
 		},
 	}
 	assert.Equal(t, he.Error(), "hook: block: ")
@@ -41,10 +41,13 @@ func TestNewPermissionRequestAllowError(t *testing.T) {
 
 	assert.Assert(t, he.Output != nil)
 	assert.Assert(t, he.Output.HookSpecificOutput != nil)
-	assert.Assert(t, he.Output.HookSpecificOutput.HookEventName != nil)
-	assert.Equal(t, *he.Output.HookSpecificOutput.HookEventName, "PermissionRequest")
-	assert.Assert(t, he.Output.HookSpecificOutput.Decision != nil)
-	assert.Equal(t, he.Output.HookSpecificOutput.Decision.Behavior, "allow")
+	hso, ok := he.Output.HookSpecificOutput.(models.HookSpecificOutputPermissionRequest)
+	assert.Assert(t, ok, "expected HookSpecificOutputPermissionRequest, got %T", he.Output.HookSpecificOutput)
+	assert.Equal(t, string(hso.HookEventName), "PermissionRequest")
+	assert.Assert(t, hso.Decision != nil)
+	dec, ok := hso.Decision.(models.PermissionRequestDecisionAllow)
+	assert.Assert(t, ok, "expected PermissionRequestDecisionAllow, got %T", hso.Decision)
+	assert.Equal(t, string(dec.Behavior), "allow")
 }
 
 func TestNewPermissionRequestAllowError_JSON(t *testing.T) {

@@ -47,7 +47,7 @@ type HandlerError struct {
 }
 
 func (e *HandlerError) Error() string {
-	if e.Output != nil && e.Output.Decision != nil && *e.Output.Decision == string(HookDecisionBlock) {
+	if e.Output != nil && e.Output.Decision != nil && *e.Output.Decision == models.SyncHookJSONOutputDecision(HookDecisionBlock) {
 		reason := ""
 		if e.Output.Reason != nil {
 			reason = *e.Output.Reason
@@ -63,7 +63,7 @@ func (e *HandlerError) Handle() {
 		os.Exit(0)
 	}
 
-	if e.Output.Decision != nil && *e.Output.Decision == string(HookDecisionBlock) {
+	if e.Output.Decision != nil && *e.Output.Decision == models.SyncHookJSONOutputDecision(HookDecisionBlock) {
 		if e.Output.Reason != nil {
 			fmt.Fprint(os.Stderr, *e.Output.Reason)
 		}
@@ -83,13 +83,12 @@ func (e *HandlerError) Handle() {
 // NewPermissionRequestAllowError creates a HandlerError that outputs a PermissionRequest
 // approval response (hookSpecificOutput with decision.behavior = "allow").
 func NewPermissionRequestAllowError() *HandlerError {
-	hookEventName := "PermissionRequest"
 	return &HandlerError{
 		Output: &models.SyncHookJSONOutput{
-			HookSpecificOutput: &models.HookSpecificOutput{
-				HookEventName: &hookEventName,
-				Decision: &models.PermissionRequestDecision{
-					Behavior: string(PermissionRequestBehaviorAllow),
+			HookSpecificOutput: models.HookSpecificOutputPermissionRequest{
+				HookEventName: models.HookEventNamePermissionRequest,
+				Decision: models.PermissionRequestDecisionAllow{
+					Behavior: models.PermissionRequestBehavior(PermissionRequestBehaviorAllow),
 				},
 			},
 		},
