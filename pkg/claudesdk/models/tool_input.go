@@ -4,6 +4,88 @@
 // doesn't match what Claude Code sends/expects.
 package models
 
+func toolNameToInputType(toolName string) ToolInputSchemas {
+	switch toolName {
+	case "Task":
+		return AgentInput{}
+		case "
+	}
+}
+
+// As per https://platform.claude.com/docs/en/agent-sdk/typescript#tool-input-types
+/*
+type ToolInputSchemas =
+  | AgentInput
+  | AskUserQuestionInput
+  | BashInput
+  | TaskOutputInput
+  | ConfigInput
+  | EnterWorktreeInput
+  | ExitPlanModeInput
+  | FileEditInput
+  | FileReadInput
+  | FileWriteInput
+  | GlobInput
+  | GrepInput
+  | ListMcpResourcesInput
+  | McpInput
+  | NotebookEditInput
+  | ReadMcpResourceInput
+  | SubscribeMcpResourceInput
+  | SubscribePollingInput
+  | TaskStopInput
+  | TodoWriteInput
+  | UnsubscribeMcpResourceInput
+  | UnsubscribePollingInput
+  | WebFetchInput
+  | WebSearchInput;
+*/
+
+// ToolInputSchemas is union type as per As per https://platform.claude.com/docs/en/agent-sdk/typescript#tool-input-types
+//
+// Note that some types are not listed but actually exist.
+// When the parser encounters unknown union variant then it
+type ToolInputSchemas interface {
+	toolInputSchemas()
+}
+
+// fallback target
+func (UnknownInput) toolInputSchemas() {}
+
+func (AgentInput) toolInputSchemas()                  {}
+func (AskUserQuestionInput) toolInputSchemas()        {}
+func (BashInput) toolInputSchemas()                   {}
+func (TaskOutputInput) toolInputSchemas()             {}
+func (ConfigInput) toolInputSchemas()                 {}
+func (EnterWorktreeInput) toolInputSchemas()          {}
+func (ExitPlanModeInput) toolInputSchemas()           {}
+func (FileEditInput) toolInputSchemas()               {}
+func (FileReadInput) toolInputSchemas()               {}
+func (FileWriteInput) toolInputSchemas()              {}
+func (GlobInput) toolInputSchemas()                   {}
+func (GrepInput) toolInputSchemas()                   {}
+func (ListMcpResourcesInput) toolInputSchemas()       {}
+func (McpInput) toolInputSchemas()                    {}
+func (NotebookEditInput) toolInputSchemas()           {}
+func (ReadMcpResourceInput) toolInputSchemas()        {}
+func (SubscribeMcpResourceInput) toolInputSchemas()   {}
+func (SubscribePollingInput) toolInputSchemas()       {}
+func (TaskStopInput) toolInputSchemas()               {}
+func (TodoWriteInput) toolInputSchemas()              {}
+func (UnsubscribeMcpResourceInput) toolInputSchemas() {}
+func (UnsubscribePollingInput) toolInputSchemas()     {}
+func (WebFetchInput) toolInputSchemas()               {}
+func (WebSearchInput) toolInputSchemas()              {}
+
+// -- not listed --
+
+func (BashOutputInput) toolInputSchemas() {}
+func (KillShellInput) toolInputSchemas()  {}
+
+// UnknownInput is fallback target:
+// If parser hits unlisted tool_name, it falls back to this value
+type UnknownInput map[string]any
+
 // AgentInput is the input for the Task tool.
 type AgentInput struct {
 	Description  string `json:"description"`
@@ -11,10 +93,10 @@ type AgentInput struct {
 	SubagentType string `json:"subagent_type"`
 }
 
-// QuestionOption represents a single choice option within a question.
-type QuestionOption struct {
-	Label       string `json:"label"`
-	Description string `json:"description"`
+// AskUserQuestionInput asks the user clarifying questions during execution.
+type AskUserQuestionInput struct {
+	Questions []Question        `json:"questions"`
+	Answers   map[string]string `json:"answers,omitempty"`
 }
 
 // Question represents a single question to ask the user.
@@ -25,10 +107,10 @@ type Question struct {
 	MultiSelect bool             `json:"multiSelect"`
 }
 
-// AskUserQuestionInput asks the user clarifying questions during execution.
-type AskUserQuestionInput struct {
-	Questions []Question        `json:"questions"`
-	Answers   map[string]string `json:"answers,omitempty"`
+// QuestionOption represents a single choice option within a question.
+type QuestionOption struct {
+	Label       string `json:"label"`
+	Description string `json:"description"`
 }
 
 // BashInput executes bash commands in a persistent shell session.
@@ -37,13 +119,32 @@ type BashInput struct {
 	Timeout                   *int32  `json:"timeout,omitempty"`
 	Description               *string `json:"description,omitempty"`
 	RunInBackground           *bool   `json:"run_in_background,omitempty"`
-	DangerouslyDisableSandbox *bool   `json:"dangerouslyDisableSandbox,omitEmpty"`
+	DangerouslyDisableSandbox *bool   `json:"dangerouslyDisableSandbox,omitempty"`
 }
 
 type TaskOutputInput struct {
 	TaskId  string `json:"task_id"`
 	Block   bool   `json:"block"`
 	Timeout int32  `json:"timeout"`
+}
+
+type ConfigInput struct {
+	Settings string `json:"setting"`
+	Value    *any   `json:"value,omitEmpty"` // string | boolean | number;
+}
+
+type EnterWorktreeInput struct {
+	Name *string `json:"name,omitEmpty"`
+}
+
+type ExitPlanModeInput struct {
+	Plan           string          `json:"plan"`
+	AllowedPrompts []AllowedPrompt `json:"allowedPrompts,omitEmpty"`
+}
+
+type AllowedPrompt struct {
+	Tool   string `json:"tool"`
+	Prompt string `json:"prompt"`
 }
 
 type FileEditInput struct {
@@ -53,32 +154,22 @@ type FileEditInput struct {
 	ReplaceAll *bool  `json:"replace_all"`
 }
 
-// BashOutputInput retrieves output from a running or completed background shell.
-type BashOutputInput struct {
-	BashID string  `json:"bash_id"`
-	Filter *string `json:"filter,omitempty"`
-}
-
-// FileReadInput reads files from the local filesystem.
 type FileReadInput struct {
 	FilePath string `json:"file_path"`
 	Offset   *int32 `json:"offset,omitempty"`
 	Limit    *int32 `json:"limit,omitempty"`
 }
 
-// FileWriteInput writes a file to the local filesystem.
 type FileWriteInput struct {
 	FilePath string `json:"file_path"`
 	Content  string `json:"content"`
 }
 
-// GlobInput performs fast file pattern matching.
 type GlobInput struct {
 	Pattern string  `json:"pattern"`
 	Path    *string `json:"path,omitempty"`
 }
 
-// GrepInput searches file contents using ripgrep with regex support.
 type GrepInput struct {
 	Pattern         string  `json:"pattern"`
 	Path            *string `json:"path,omitempty"`
@@ -94,17 +185,14 @@ type GrepInput struct {
 	Multiline       *bool   `json:"multiline,omitempty"`
 }
 
-type TaskStopInput struct {
-	TaskId  *string `json:"task_id,omitEmpty"`
-	ShellId *string `json:"shell_id"`
+type ListMcpResourcesInput struct {
+	Server *string `json:"server,omitempty"`
 }
 
-// KillShellInput kills a running background shell by its ID.
-type KillShellInput struct {
-	ShellID string `json:"shell_id"`
-}
+// Not defined in SDK doc.
 
-// NotebookEditInput edits cells in Jupyter notebook files.
+type McpInput map[string]any
+
 type NotebookEditInput struct {
 	NotebookPath string  `json:"notebook_path"`
 	CellId       *string `json:"cell_id,omitempty"`
@@ -113,58 +201,57 @@ type NotebookEditInput struct {
 	EditMode     string  `json:"edit_mode"`
 }
 
-// WebFetchInput fetches content from a URL and processes it with an AI model.
-type WebFetchInput struct {
-	Url    string `json:"url"`
-	Prompt string `json:"prompt"`
+type ReadMcpResourceInput struct {
+	Server string `json:"server"`
+	Uri    string `json:"uri"`
 }
 
-// WebSearchInput searches the web and returns formatted results.
-type WebSearchInput struct {
-	Query          string   `json:"query"`
-	AllowedDomains []string `json:"allowed_domains,omitempty"`
-	BlockedDomains []string `json:"blocked_domains,omitempty"`
+// Not defined in SDK doc.
+
+type SubscribeMcpResourceInput map[string]any
+
+// Not defined in SDK doc.
+
+type SubscribePollingInput map[string]any
+
+type TaskStopInput struct {
+	TaskId  *string `json:"task_id,omitempty"`
+	ShellId *string `json:"shell_id"`
 }
 
-// TodoItem represents a single task in the todo list.
+type TodoWriteInput struct {
+	Todos []TodoItem `json:"todos"`
+}
+
 type TodoItem struct {
 	Content    string `json:"content"`
 	Status     string `json:"status"`
 	ActiveForm string `json:"activeForm"`
 }
 
-// TodoWriteInput creates and manages a structured task list.
-type TodoWriteInput struct {
-	Todos []TodoItem `json:"todos"`
-}
+type UnsubscribeMcpResourceInput map[string]any
 
-// ExitPlanModeInput exits planning mode and prompts the user to approve the plan.
-type ExitPlanModeInput struct {
-	Plan           string          `json:"plan"`
-	AllowedPrompts []AllowedPrompt `json:"allowedPrompts,omitEmpty"`
-}
+type UnsubscribePollingInput map[string]any
 
-type AllowedPrompt struct {
-	Tool   string `json:"tool"`
+type WebFetchInput struct {
+	Url    string `json:"url"`
 	Prompt string `json:"prompt"`
 }
 
-// ListMcpResourcesInput lists available MCP resources from connected servers.
-type ListMcpResourcesInput struct {
-	Server *string `json:"server,omitempty"`
+type WebSearchInput struct {
+	Query          string   `json:"query"`
+	AllowedDomains []string `json:"allowed_domains,omitempty"`
+	BlockedDomains []string `json:"blocked_domains,omitempty"`
 }
 
-// ReadMcpResourceInput reads a specific MCP resource from a server.
-type ReadMcpResourceInput struct {
-	Server string `json:"server"`
-	Uri    string `json:"uri"`
+// -- Below here, types not listed on https://platform.claude.com/docs/en/agent-sdk/typescript#tool-input-types
+
+type BashOutputInput struct {
+	BashID string  `json:"bash_id"`
+	Filter *string `json:"filter,omitempty"`
 }
 
-type ConfigInput struct {
-	Settings string `json:"setting"`
-	Value    *any   `json:"value,omitEmpty"` // string | boolean | number;
-}
-
-type EnterWorktreeInput struct {
-	Name *string `json:"name,omitEmpty"`
+// KillShellInput kills a running background shell by its ID.
+type KillShellInput struct {
+	ShellID string `json:"shell_id"`
 }

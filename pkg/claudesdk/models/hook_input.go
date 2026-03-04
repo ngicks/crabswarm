@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+var unmarshaler = protojson.UnmarshalOptions{DiscardUnknown: true}
+
 type hookInputBase struct {
 	SessionID      string  `json:"session_id"`
 	TranscriptPath string  `json:"transcript_path"`
@@ -224,7 +226,7 @@ func (i *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 
 // ToProto converts the PreToolUseHookInput to its proto equivalent.
 func (m *PreToolUseHookInput) ToProto() (*pb.PreToolUseHookInput, error) {
-	ti, err := modelToolInputToProto(m.ToolName, m.ToolInput)
+	ti, err := convertModelToolInputToProto(m.ToolName, m.ToolInput)
 	if err != nil {
 		return nil, fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -242,7 +244,7 @@ func (m *PreToolUseHookInput) ToProto() (*pb.PreToolUseHookInput, error) {
 
 // FromProto populates the receiver's fields from a proto PreToolUseHookInput.
 func (m *PreToolUseHookInput) FromProto(p *pb.PreToolUseHookInput) error {
-	input, err := modelToolInputFromProto(p.GetToolName(), p.GetToolInput())
+	input, err := convertProtoToolInputToModel(p.GetToolName(), p.GetToolInput())
 	if err != nil {
 		return fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -258,7 +260,7 @@ func (m *PreToolUseHookInput) FromProto(p *pb.PreToolUseHookInput) error {
 }
 
 func (m *PostToolUseHookInput) ToProto() (*pb.PostToolUseHookInput, error) {
-	ti, err := modelToolInputToProto(m.ToolName, m.ToolInput)
+	ti, err := convertModelToolInputToProto(m.ToolName, m.ToolInput)
 	if err != nil {
 		return nil, fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -280,7 +282,7 @@ func (m *PostToolUseHookInput) ToProto() (*pb.PostToolUseHookInput, error) {
 }
 
 func (m *PostToolUseHookInput) FromProto(p *pb.PostToolUseHookInput) error {
-	input, err := modelToolInputFromProto(p.GetToolName(), p.GetToolInput())
+	input, err := convertProtoToolInputToModel(p.GetToolName(), p.GetToolInput())
 	if err != nil {
 		return fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -301,7 +303,7 @@ func (m *PostToolUseHookInput) FromProto(p *pb.PostToolUseHookInput) error {
 }
 
 func (m *PostToolUseFailureHookInput) ToProto() (*pb.PostToolUseFailureHookInput, error) {
-	ti, err := modelToolInputToProto(m.ToolName, m.ToolInput)
+	ti, err := convertModelToolInputToProto(m.ToolName, m.ToolInput)
 	if err != nil {
 		return nil, fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -319,7 +321,7 @@ func (m *PostToolUseFailureHookInput) ToProto() (*pb.PostToolUseFailureHookInput
 }
 
 func (m *PostToolUseFailureHookInput) FromProto(p *pb.PostToolUseFailureHookInput) error {
-	input, err := modelToolInputFromProto(p.GetToolName(), p.GetToolInput())
+	input, err := convertProtoToolInputToModel(p.GetToolName(), p.GetToolInput())
 	if err != nil {
 		return fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -510,7 +512,7 @@ func (m *PreCompactHookInput) FromProto(p *pb.PreCompactHookInput) error {
 }
 
 func (m *PermissionRequestHookInput) ToProto() (*pb.PermissionRequestHookInput, error) {
-	ti, err := modelToolInputToProto(m.ToolName, m.ToolInput)
+	ti, err := convertModelToolInputToProto(m.ToolName, m.ToolInput)
 	if err != nil {
 		return nil, fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -531,7 +533,7 @@ func (m *PermissionRequestHookInput) ToProto() (*pb.PermissionRequestHookInput, 
 }
 
 func (m *PermissionRequestHookInput) FromProto(p *pb.PermissionRequestHookInput) error {
-	input, err := modelToolInputFromProto(p.GetToolName(), p.GetToolInput())
+	input, err := convertProtoToolInputToModel(p.GetToolName(), p.GetToolInput())
 	if err != nil {
 		return fmt.Errorf("converting tool_input: %w", err)
 	}
@@ -550,33 +552,11 @@ func (m *PermissionRequestHookInput) FromProto(p *pb.PermissionRequestHookInput)
 	return nil
 }
 
-func modelToolInputToProto(toolName string, input any) (*pb.ToolInput, error) {
-	if input == nil {
-		return nil, nil
-	}
-	raw, err := json.Marshal(input)
-	if err != nil {
-		return nil, fmt.Errorf("marshal model tool_input: %w", err)
-	}
-	return toolInputToProto(toolName, raw)
-}
-
-func modelToolInputFromProto(toolName string, ti *pb.ToolInput) (any, error) {
-	raw, err := toolInputFromProto(ti)
-	if err != nil {
-		return nil, err
-	}
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	return unmarshalModelToolInput(toolName, raw)
-}
-
 func unmarshalModelToolInput(toolName string, raw json.RawMessage) (any, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
-	tgt := newModelToolInput(toolName)
+	tgt := modelToolInputSchema(toolName)
 	decoded, err := decodeJSONToModel(tgt, raw)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal tool_input for %q: %w", toolName, err)
@@ -584,7 +564,7 @@ func unmarshalModelToolInput(toolName string, raw json.RawMessage) (any, error) 
 	return decoded, nil
 }
 
-func newModelToolInput(toolName string) any {
+func modelToolInputSchema(toolName string) any {
 	switch toolName {
 	case "Task":
 		return AgentInput{}
@@ -737,7 +717,7 @@ func unmarshalModelToolOutput(toolName string, raw json.RawMessage) (any, error)
 	if len(raw) == 0 {
 		return nil, nil
 	}
-	tgt := newModelToolOutput(toolName)
+	tgt := modelToolOutputSchema(toolName)
 	decoded, err := decodeJSONToModel(tgt, raw)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal tool_response for %q: %w", toolName, err)
@@ -745,7 +725,7 @@ func unmarshalModelToolOutput(toolName string, raw json.RawMessage) (any, error)
 	return decoded, nil
 }
 
-func newModelToolOutput(toolName string) any {
+func modelToolOutputSchema(toolName string) any {
 	switch toolName {
 	case "Task":
 		return TaskOutput{}

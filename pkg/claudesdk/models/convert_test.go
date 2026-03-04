@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
 	"github.com/ngicks/crabswarm/pkg/claudesdk/models"
+	"google.golang.org/protobuf/proto"
 	"gotest.tools/v3/assert"
 )
 
@@ -12,194 +14,173 @@ func ptr[V any](v V) *V {
 	return &v
 }
 
-func TestSyncHookJSONOutput_ToProto_NilOutput(t *testing.T) {
-	m := &models.SyncHookJSONOutput{}
-	p, err := m.ToProto()
-	assert.NilError(t, err)
-	assert.Assert(t, p != nil)
-	assert.Assert(t, p.HookSpecificOutput == nil)
-}
-
-func TestSyncHookJSONOutput_ToProto_Decision(t *testing.T) {
-	m := &models.SyncHookJSONOutput{
-		Decision: ptr("block"),
-		Reason:   ptr("not allowed"),
-	}
-	p, err := m.ToProto()
-	assert.NilError(t, err)
-	assert.Equal(t, *p.Decision, "block")
-	assert.Equal(t, *p.Reason, "not allowed")
-}
-
-func TestSyncHookJSONOutput_ToProto_PreToolUse(t *testing.T) {
-	m := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			PermissionDecision:       ptr("allow"),
-			PermissionDecisionReason: ptr("whitelisted"),
+func TestSyncHookJSONOutput_ProtoModelRoundTrip_Table(t *testing.T) {
+	tests := []struct {
+		name  string
+		model models.SyncHookJSONOutput
+		proto *pb.SyncHookJSONOutput
+	}{
+		{
+			name:  "empty",
+			model: models.SyncHookJSONOutput{},
+			proto: &pb.SyncHookJSONOutput{},
 		},
-	}
-	p, err := m.ToProto()
-	assert.NilError(t, err)
-	assert.Assert(t, p.HookSpecificOutput != nil)
-	ptu := p.HookSpecificOutput.GetPreToolUse()
-	assert.Assert(t, ptu != nil)
-	assert.Equal(t, *ptu.PermissionDecision, "allow")
-	assert.Equal(t, *ptu.PermissionDecisionReason, "whitelisted")
-}
-
-func TestSyncHookJSONOutput_ToProto_PermissionRequestAllow(t *testing.T) {
-	m := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			Decision: &models.PermissionRequestDecision{
-				Behavior: "allow",
+		{
+			name: "top-level decision",
+			model: models.SyncHookJSONOutput{
+				Decision: ptr("block"),
+				Reason:   ptr("not allowed"),
+			},
+			proto: &pb.SyncHookJSONOutput{
+				Decision: ptr("block"),
+				Reason:   ptr("not allowed"),
 			},
 		},
-	}
-	p, err := m.ToProto()
-	assert.NilError(t, err)
-	assert.Assert(t, p.HookSpecificOutput != nil)
-	pr := p.HookSpecificOutput.GetPermissionRequest()
-	assert.Assert(t, pr != nil)
-	assert.Assert(t, pr.Decision != nil)
-	assert.Assert(t, pr.Decision.GetAllow() != nil)
-}
-
-func TestSyncHookJSONOutput_ToProto_PermissionRequestDeny(t *testing.T) {
-	m := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			Decision: &models.PermissionRequestDecision{
-				Behavior: "deny",
-				Message:  ptr("forbidden"),
+		{
+			name: "pre-tool-use permission fields",
+			model: models.SyncHookJSONOutput{
+				HookSpecificOutput: &models.HookSpecificOutput{
+					PermissionDecision:       ptr("allow"),
+					PermissionDecisionReason: ptr("whitelisted"),
+				},
+			},
+			proto: &pb.SyncHookJSONOutput{
+				HookSpecificOutput: &pb.HookSpecificOutput{
+					Output: &pb.HookSpecificOutput_PreToolUse{PreToolUse: &pb.PreToolUseHookSpecificOutput{
+						PermissionDecision:       ptr("allow"),
+						PermissionDecisionReason: ptr("whitelisted"),
+					}},
+				},
 			},
 		},
-	}
-	p, err := m.ToProto()
-	assert.NilError(t, err)
-	pr := p.HookSpecificOutput.GetPermissionRequest()
-	assert.Assert(t, pr != nil)
-	deny := pr.Decision.GetDeny()
-	assert.Assert(t, deny != nil)
-	assert.Equal(t, deny.Message, "forbidden")
-}
-
-func TestSyncHookJSONOutput_FromProto_Nil(t *testing.T) {
-	m := &models.SyncHookJSONOutput{}
-	// Build a proto with basic fields only.
-	p := &models.SyncHookJSONOutput{
-		Continue:   ptr(true),
-		StopReason: ptr("done"),
-	}
-	proto, err := p.ToProto()
-	assert.NilError(t, err)
-
-	err = m.FromProto(proto)
-	assert.NilError(t, err)
-	assert.Assert(t, m.Continue != nil)
-	assert.Equal(t, *m.Continue, true)
-	assert.Assert(t, m.StopReason != nil)
-	assert.Equal(t, *m.StopReason, "done")
-}
-
-func TestSyncHookJSONOutput_RoundTrip_PermissionRequestAllow(t *testing.T) {
-	original := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			Decision: &models.PermissionRequestDecision{
-				Behavior: "allow",
+		{
+			name: "permission request allow",
+			model: models.SyncHookJSONOutput{
+				HookSpecificOutput: &models.HookSpecificOutput{
+					Decision: &models.PermissionRequestDecision{Behavior: "allow"},
+				},
+			},
+			proto: &pb.SyncHookJSONOutput{
+				HookSpecificOutput: &pb.HookSpecificOutput{
+					Output: &pb.HookSpecificOutput_PermissionRequest{PermissionRequest: &pb.PermissionRequestHookSpecificOutput{
+						Decision: &pb.PermissionResult{Result: &pb.PermissionResult_Allow{Allow: &pb.AllowResult{}}},
+					}},
+				},
+			},
+		},
+		{
+			name: "permission request deny",
+			model: models.SyncHookJSONOutput{
+				HookSpecificOutput: &models.HookSpecificOutput{
+					Decision: &models.PermissionRequestDecision{
+						Behavior:  "deny",
+						Message:   ptr("not allowed"),
+						Interrupt: ptr(true),
+					},
+				},
+			},
+			proto: &pb.SyncHookJSONOutput{
+				HookSpecificOutput: &pb.HookSpecificOutput{
+					Output: &pb.HookSpecificOutput_PermissionRequest{PermissionRequest: &pb.PermissionRequestHookSpecificOutput{
+						Decision: &pb.PermissionResult{Result: &pb.PermissionResult_Deny{Deny: &pb.DenyResult{
+							Message:   "not allowed",
+							Interrupt: ptr(true),
+						}}},
+					}},
+				},
+			},
+		},
+		{
+			name: "additional context",
+			model: models.SyncHookJSONOutput{
+				HookSpecificOutput: &models.HookSpecificOutput{
+					AdditionalContext: ptr("extra context"),
+				},
+			},
+			proto: &pb.SyncHookJSONOutput{
+				HookSpecificOutput: &pb.HookSpecificOutput{
+					Output: &pb.HookSpecificOutput_PostToolUse{PostToolUse: &pb.PostToolUseHookSpecificOutput{
+						AdditionalContext: ptr("extra context"),
+					}},
+				},
 			},
 		},
 	}
 
-	// model -> proto
-	p, err := original.ToProto()
-	assert.NilError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotProto, err := tt.model.ToProto()
+			assert.NilError(t, err)
+			assert.Assert(t, proto.Equal(gotProto, tt.proto))
 
-	// proto -> model
-	result := &models.SyncHookJSONOutput{}
-	err = result.FromProto(p)
-	assert.NilError(t, err)
+			var gotModel models.SyncHookJSONOutput
+			err = gotModel.FromProto(tt.proto)
+			assert.NilError(t, err)
+			assert.DeepEqual(t, gotModel, tt.model)
 
-	assert.Assert(t, result.HookSpecificOutput != nil)
-	assert.Assert(t, result.HookSpecificOutput.Decision != nil)
-	assert.Equal(t, result.HookSpecificOutput.Decision.Behavior, "allow")
+			roundTripProto, err := gotModel.ToProto()
+			assert.NilError(t, err)
+			assert.Assert(t, proto.Equal(roundTripProto, tt.proto))
+		})
+	}
 }
 
-func TestSyncHookJSONOutput_RoundTrip_PermissionRequestDeny(t *testing.T) {
-	original := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			Decision: &models.PermissionRequestDecision{
-				Behavior:  "deny",
-				Message:   ptr("not allowed"),
-				Interrupt: ptr(true),
+func TestSyncHookJSONOutput_ToProto_UnknownBehavior_Table(t *testing.T) {
+	tests := []struct {
+		name  string
+		model models.SyncHookJSONOutput
+	}{
+		{
+			name: "permission request unknown behavior",
+			model: models.SyncHookJSONOutput{
+				HookSpecificOutput: &models.HookSpecificOutput{
+					Decision: &models.PermissionRequestDecision{Behavior: "unknown"},
+				},
 			},
 		},
 	}
 
-	p, err := original.ToProto()
-	assert.NilError(t, err)
-
-	result := &models.SyncHookJSONOutput{}
-	err = result.FromProto(p)
-	assert.NilError(t, err)
-
-	assert.Assert(t, result.HookSpecificOutput != nil)
-	assert.Assert(t, result.HookSpecificOutput.Decision != nil)
-	assert.Equal(t, result.HookSpecificOutput.Decision.Behavior, "deny")
-	assert.Assert(t, result.HookSpecificOutput.Decision.Message != nil)
-	assert.Equal(t, *result.HookSpecificOutput.Decision.Message, "not allowed")
-	assert.Assert(t, result.HookSpecificOutput.Decision.Interrupt != nil)
-	assert.Equal(t, *result.HookSpecificOutput.Decision.Interrupt, true)
-}
-
-func TestSyncHookJSONOutput_RoundTrip_AdditionalContext(t *testing.T) {
-	original := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			AdditionalContext: ptr("extra context"),
-		},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tt.model.ToProto()
+			assert.Assert(t, err != nil)
+		})
 	}
-
-	p, err := original.ToProto()
-	assert.NilError(t, err)
-
-	result := &models.SyncHookJSONOutput{}
-	err = result.FromProto(p)
-	assert.NilError(t, err)
-
-	assert.Assert(t, result.HookSpecificOutput != nil)
-	assert.Assert(t, result.HookSpecificOutput.AdditionalContext != nil)
-	assert.Equal(t, *result.HookSpecificOutput.AdditionalContext, "extra context")
 }
 
-func TestSyncHookJSONOutput_JSON_PermissionRequestAllow(t *testing.T) {
-	m := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			HookEventName: ptr("PermissionRequest"),
-			Decision: &models.PermissionRequestDecision{
-				Behavior: "allow",
+func TestSyncHookJSONOutput_JSON_Table(t *testing.T) {
+	tests := []struct {
+		name string
+		in   models.SyncHookJSONOutput
+		want map[string]any
+	}{
+		{
+			name: "permission request allow",
+			in: models.SyncHookJSONOutput{
+				HookSpecificOutput: &models.HookSpecificOutput{
+					HookEventName: ptr("PermissionRequest"),
+					Decision:      &models.PermissionRequestDecision{Behavior: "allow"},
+				},
+			},
+			want: map[string]any{
+				"hookSpecificOutput": map[string]any{
+					"hookEventName": "PermissionRequest",
+					"decision": map[string]any{
+						"behavior": "allow",
+					},
+				},
 			},
 		},
 	}
 
-	data, err := json.Marshal(m)
-	assert.NilError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.in)
+			assert.NilError(t, err)
 
-	var raw map[string]any
-	assert.NilError(t, json.Unmarshal(data, &raw))
-
-	hso := raw["hookSpecificOutput"].(map[string]any)
-	assert.Equal(t, hso["hookEventName"], "PermissionRequest")
-
-	decision := hso["decision"].(map[string]any)
-	assert.Equal(t, decision["behavior"], "allow")
-}
-
-func TestSyncHookJSONOutput_ToProto_UnknownBehavior(t *testing.T) {
-	m := &models.SyncHookJSONOutput{
-		HookSpecificOutput: &models.HookSpecificOutput{
-			Decision: &models.PermissionRequestDecision{
-				Behavior: "unknown",
-			},
-		},
+			var got map[string]any
+			assert.NilError(t, json.Unmarshal(data, &got))
+			assert.DeepEqual(t, got, tt.want)
+		})
 	}
-	_, err := m.ToProto()
-	assert.Assert(t, err != nil, "expected error for unknown behavior")
 }
