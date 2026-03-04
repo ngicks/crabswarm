@@ -4,12 +4,71 @@
 // doesn't match what Claude Code sends/expects.
 package models
 
+import "strings"
+
 func toolNameToInputType(toolName string) ToolInputSchemas {
 	switch toolName {
 	case "Task":
 		return AgentInput{}
-		case "
+	case "AskUserQuestion":
+		return AskUserQuestionInput{}
+	case "Bash":
+		return BashInput{}
+	case "TaskOutput":
+		return TaskOutputInput{}
+	case "Edit":
+		return FileEditInput{}
+	case "Read":
+		return FileReadInput{}
+	case "Write":
+		return FileWriteInput{}
+	case "Glob":
+		return GlobInput{}
+	case "Grep":
+		return GrepInput{}
+	case "TaskStop":
+		return TaskStopInput{}
+	case "NotebookEdit":
+		return NotebookEditInput{}
+	case "WebFetch":
+		return WebFetchInput{}
+	case "WebSearch":
+		return WebSearchInput{}
+	case "TodoWrite":
+		//		, "TaskCreate", "TaskUpdate", "TaskList", "TaskGet":
+		return TodoWriteInput{}
+	case "ExitPlanMode":
+		return ExitPlanModeInput{}
+	case "ListMcpResources":
+		return ListMcpResourcesInput{}
+	case "ReadMcpResource":
+		return ReadMcpResourceInput{}
+	case "Config":
+		return ConfigInput{}
+	case "EnterWorktree":
+		return EnterWorktreeInput{}
+
+		// actually tool names for these tools are not listed in SDK doc;
+		// so we'll sample from actual softwares and update accordingly
+	case "SubscribeMcpResource":
+		return SubscribeMcpResourceInput{}
+	case "SubscribePolling":
+		return SubscribePollingInput{}
+	case "UnsubscribeMcpResource":
+		return UnsubscribeMcpResourceInput{}
+	case "UnsubscribePolling":
+		return UnsubscribePollingInput{}
+	case "BashOutput":
+		return BashOutputInput{}
+	case "KillShell":
+		return KillShellInput{}
 	}
+
+	if strings.HasPrefix(toolName, "mcp__") {
+		return McpInput{}
+	}
+
+	return UnknownInput{}
 }
 
 // As per https://platform.claude.com/docs/en/agent-sdk/typescript#tool-input-types
