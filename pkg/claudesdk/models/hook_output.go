@@ -9,6 +9,8 @@ import (
 
 type HookJSONOutput interface {
 	hookJSONOutput()
+	json.Marshaler
+	json.Unmarshaler
 }
 
 func (AsyncHookJSONOutput) hookJSONOutput() {}

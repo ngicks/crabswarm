@@ -31,6 +31,8 @@ type HookInput =
 
 type HookInput interface {
 	hookInput()
+	json.Marshaler
+	json.Unmarshaler
 }
 
 // fallback target

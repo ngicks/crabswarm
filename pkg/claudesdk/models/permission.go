@@ -42,6 +42,8 @@ type PermissionUpdate =
 
 type PermissionUpdate interface {
 	permissionUpdate()
+	json.Marshaler
+	json.Unmarshaler
 }
 
 func (PermissionUpdateAddRules) permissionUpdate() {}
