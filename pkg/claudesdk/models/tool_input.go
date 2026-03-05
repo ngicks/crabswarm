@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"strings"
 )
 
@@ -40,8 +39,6 @@ type ToolInputSchemas =
 // When the parser encounters unknown union variant then it
 type ToolInputSchemas interface {
 	toolInputSchemas()
-	json.Marshaler
-	json.Unmarshaler
 }
 
 // fallback target
@@ -142,7 +139,9 @@ func toolNameToInputType(toolName string) ToolInputSchemas {
 	return &UnknownInput{}
 }
 
-func unmarshalToolInputSchemas(data []byte) (_ ToolInputSchemas, err error) {}
+func unmarshalToolInputSchemas(data []byte) (_ ToolInputSchemas, err error) {
+	return nil, nil
+}
 
 // UnknownInput is fallback target:
 // If parser hits unlisted tool_name, it falls back to this value

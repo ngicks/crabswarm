@@ -448,21 +448,18 @@ func (p HookSpecificOutputPermissionRequest) MarshalJSON() ([]byte, error) {
 }
 
 func (p *HookSpecificOutputPermissionRequest) UnmarshalJSON(data []byte) error {
-	type plain HookSpecificOutputPermissionRequest
-	var q plain
-	if err := json.Unmarshal(data, &q); err != nil {
-		return err
+	var raw struct {
+		HookEventName HookEventName   `json:"hookEventName"`
+		Decision      json.RawMessage `json:"decision,omitempty"`
 	}
-	*p = HookSpecificOutputPermissionRequest(q)
-	p.HookEventName = HookEventNamePermissionRequest
-
-	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	if len(raw["decision"]) > 0 {
+	p.HookEventName = HookEventNamePermissionRequest
+
+	if len(raw.Decision) > 0 && string(raw.Decision) != "null" {
 		var err error
-		p.Decision, err = unmarshalPermissionRequestDecision(raw["decision"])
+		p.Decision, err = unmarshalPermissionRequestDecision(raw.Decision)
 		if err != nil {
 			return err
 		}

@@ -260,16 +260,16 @@ func convertProtoToolInputToModel(toolName string, ti *pb.ToolInput) (any, error
 			SubagentType: v.Agent.GetSubagentType(),
 		}, nil
 	case *pb.ToolInput_AskUserQuestion:
-		questions := make([]Question, 0, len(v.AskUserQuestion.GetQuestions()))
+		questions := make([]AskUserQuestionInputQuestion, 0, len(v.AskUserQuestion.GetQuestions()))
 		for _, q := range v.AskUserQuestion.GetQuestions() {
-			options := make([]QuestionOption, 0, len(q.GetOptions()))
+			options := make([]AskUserQuestionInputQuestionOption, 0, len(q.GetOptions()))
 			for _, o := range q.GetOptions() {
-				options = append(options, QuestionOption{
+				options = append(options, AskUserQuestionInputQuestionOption{
 					Label:       o.GetLabel(),
 					Description: o.GetDescription(),
 				})
 			}
-			questions = append(questions, Question{
+			questions = append(questions, AskUserQuestionInputQuestion{
 				Question:    q.GetQuestion(),
 				Header:      q.GetHeader(),
 				Options:     options,

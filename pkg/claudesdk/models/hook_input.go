@@ -31,8 +31,6 @@ type HookInput =
 
 type HookInput interface {
 	hookInput()
-	json.Marshaler
-	json.Unmarshaler
 }
 
 // fallback target
@@ -172,6 +170,33 @@ type PreToolUseHookInput struct {
 	ToolUseID     string           `json:"tool_use_id"`
 }
 
+func (o *PreToolUseHookInput) UnmarshalJSON(data []byte) error {
+	type raw struct {
+		BaseHookInput
+		HookEventName string          `json:"hook_event_name"`
+		ToolName      string          `json:"tool_name"`
+		ToolInput     json.RawMessage `json:"tool_input"`
+		ToolUseID     string          `json:"tool_use_id"`
+	}
+	var r raw
+	if err := json.Unmarshal(data, &r); err != nil {
+		return err
+	}
+	o.BaseHookInput = r.BaseHookInput
+	o.HookEventName = r.HookEventName
+	o.ToolName = r.ToolName
+	o.ToolUseID = r.ToolUseID
+
+	if len(r.ToolInput) > 0 {
+		v := toolNameToInputType(r.ToolName)
+		if err := json.Unmarshal(r.ToolInput, v); err != nil {
+			return err
+		}
+		o.ToolInput = v
+	}
+	return nil
+}
+
 type PostToolUseHookInput struct {
 	BaseHookInput
 	HookEventName string           `json:"hook_event_name"`
@@ -180,6 +205,35 @@ type PostToolUseHookInput struct {
 	// response from tool
 	ToolResponse json.RawMessage `json:"tool_response"`
 	ToolUseID    string          `json:"tool_use_id"`
+}
+
+func (o *PostToolUseHookInput) UnmarshalJSON(data []byte) error {
+	type raw struct {
+		BaseHookInput
+		HookEventName string          `json:"hook_event_name"`
+		ToolName      string          `json:"tool_name"`
+		ToolInput     json.RawMessage `json:"tool_input"`
+		ToolResponse  json.RawMessage `json:"tool_response"`
+		ToolUseID     string          `json:"tool_use_id"`
+	}
+	var r raw
+	if err := json.Unmarshal(data, &r); err != nil {
+		return err
+	}
+	o.BaseHookInput = r.BaseHookInput
+	o.HookEventName = r.HookEventName
+	o.ToolName = r.ToolName
+	o.ToolResponse = r.ToolResponse
+	o.ToolUseID = r.ToolUseID
+
+	if len(r.ToolInput) > 0 {
+		v := toolNameToInputType(r.ToolName)
+		if err := json.Unmarshal(r.ToolInput, v); err != nil {
+			return err
+		}
+		o.ToolInput = v
+	}
+	return nil
 }
 
 type PostToolUseFailureHookInput struct {
@@ -327,8 +381,6 @@ func (o UnknownHookInput) MarshalJSON() ([]byte, error) {
 	if o.PermissionMode != nil {
 		m["permission_mode"] = marshal(o.PermissionMode)
 	}
-	m["tool_use_id"] = marshal(o.ToolUseID)
-
 	m["hook_event_name"] = marshal(o.HookEventName)
 
 	return json.Marshal(m)
@@ -350,7 +402,6 @@ func (o *UnknownHookInput) UnmarshalJSON(data []byte) error {
 		{"transcript_path", &o.TranscriptPath},
 		{"cwd", &o.Cwd},
 		{"permission_mode", &o.PermissionMode},
-		{"tool_use_id", &o.ToolUseID},
 		{"hook_event_name", &o.HookEventName},
 	} {
 		if _, ok := unknown[kv.k]; !ok {
