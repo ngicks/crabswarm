@@ -2,149 +2,112 @@ package models
 
 import "encoding/json"
 
+// As per https://platform.claude.com/docs/en/agent-sdk/typescript#permission-update
+/*
+type PermissionUpdate =
+  | {
+      type: "addRules";
+      rules: PermissionRuleValue[];
+      behavior: PermissionBehavior;
+      destination: PermissionUpdateDestination;
+    }
+  | {
+      type: "replaceRules";
+      rules: PermissionRuleValue[];
+      behavior: PermissionBehavior;
+      destination: PermissionUpdateDestination;
+    }
+  | {
+      type: "removeRules";
+      rules: PermissionRuleValue[];
+      behavior: PermissionBehavior;
+      destination: PermissionUpdateDestination;
+    }
+  | {
+      type: "setMode";
+      mode: PermissionMode;
+      destination: PermissionUpdateDestination;
+    }
+  | {
+      type: "addDirectories";
+      directories: string[];
+      destination: PermissionUpdateDestination;
+    }
+  | {
+      type: "removeDirectories";
+      directories: string[];
+      destination: PermissionUpdateDestination;
+    };
+*/
+
+type PermissionUpdate interface {
+	permissionUpdate()
+}
+
+func (PermissionUpdateAddRules) permissionUpdate() {}
+func (PermissionUpdateReplaceRules) permissionUpdate() {}
+func (PermissionUpdateRemoveRules) permissionUpdate() {}
+func (PermissionUpdateSetMode) permissionUpdate() {}
+func (PermissionUpdateAddDirectories) permissionUpdate() {}
+func (PermissionUpdateRemoveDirectories) permissionUpdate() {}
+
+func unmarshalPermissionUpdate(data []byte) (_ PermissionUpdate, err error) {}
+
+type PermissionUpdateAddRules struct {
+type: "addRules";
+      rules: PermissionRuleValue[];
+      behavior: PermissionBehavior;
+      destination: PermissionUpdateDestination;
+    }
+  type PermissionUpdateReplaceRules  struct {
+      type: "replaceRules";
+      rules: PermissionRuleValue[];
+      behavior: PermissionBehavior;
+      destination: PermissionUpdateDestination;
+    }
+type PermissionUpdateRemoveRules  struct {
+      type: "removeRules";
+      rules: PermissionRuleValue[];
+      behavior: PermissionBehavior;
+      destination: PermissionUpdateDestination;
+    }
+ type PermissionUpdateSetMode struct {
+      type: "setMode";
+      mode: PermissionMode;
+      destination: PermissionUpdateDestination;
+    }
+ type PermissionUpdateAddDirectories  struct {
+      type: "addDirectories";
+      directories: string[];
+      destination: PermissionUpdateDestination;
+    }
+type PermissionUpdateRemoveDirectories  struct {
+      type: "removeDirectories";
+      directories: string[];
+      destination: PermissionUpdateDestination;
+    }
+
+ type PermissionBehavior string
+
+ const (
+	 PermissionBehaviorAllow PermissionBehavior = "allow" 
+	 PermissionBehaviorDeny PermissionBehavior = "deny"
+	 PermissionBehaviorAsk PermissionBehavior = "ask"
+)
+
+type PermissionUpdateDestination string 
+const (
+	PermissionUpdateDestinationUserSettings PermissionUpdateDestination = "userSettings" // Global user settings
+PermissionUpdateDestinationProjectSettings  PermissionUpdateDestination= "projectSettings" // Per-directory project settings
+PermissionUpdateDestinationLocalSettings PermissionUpdateDestination=  "localSettings" // Gitignored local settings
+PermissionUpdateDestinationSession PermissionUpdateDestination=    "session" // Current session only
+PermissionUpdateDestinationCliArg PermissionUpdateDestination=  "cliArg"; // CLI argument
+)
+
 // PermissionRuleValue represents a single permission rule.
 type PermissionRuleValue struct {
 	ToolName    string  `json:"tool_name"`
 	RuleContent *string `json:"rule_content,omitempty"`
 }
 
-// PermissionUpdate is a flattened oneof representation for permission updates.
-type PermissionUpdate struct {
-	AddRules          *AddRulesUpdate          `json:"add_rules,omitempty"`
-	ReplaceRules      *ReplaceRulesUpdate      `json:"replace_rules,omitempty"`
-	RemoveRules       *RemoveRulesUpdate       `json:"remove_rules,omitempty"`
-	SetMode           *SetModeUpdate           `json:"set_mode,omitempty"`
-	AddDirectories    *AddDirectoriesUpdate    `json:"add_directories,omitempty"`
-	RemoveDirectories *RemoveDirectoriesUpdate `json:"remove_directories,omitempty"`
-}
 
-func (p *PermissionUpdate) UnmarshalJSON(data []byte) error {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if v, ok := raw["add_rules"]; ok {
-		var x AddRulesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.AddRules = &x
-	}
-	if v, ok := raw["addRules"]; ok {
-		var x AddRulesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.AddRules = &x
-	}
-	if v, ok := raw["replace_rules"]; ok {
-		var x ReplaceRulesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.ReplaceRules = &x
-	}
-	if v, ok := raw["replaceRules"]; ok {
-		var x ReplaceRulesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.ReplaceRules = &x
-	}
-	if v, ok := raw["remove_rules"]; ok {
-		var x RemoveRulesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.RemoveRules = &x
-	}
-	if v, ok := raw["removeRules"]; ok {
-		var x RemoveRulesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.RemoveRules = &x
-	}
-	if v, ok := raw["set_mode"]; ok {
-		var x SetModeUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.SetMode = &x
-	}
-	if v, ok := raw["setMode"]; ok {
-		var x SetModeUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.SetMode = &x
-	}
-	if v, ok := raw["add_directories"]; ok {
-		var x AddDirectoriesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.AddDirectories = &x
-	}
-	if v, ok := raw["addDirectories"]; ok {
-		var x AddDirectoriesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.AddDirectories = &x
-	}
-	if v, ok := raw["remove_directories"]; ok {
-		var x RemoveDirectoriesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.RemoveDirectories = &x
-	}
-	if v, ok := raw["removeDirectories"]; ok {
-		var x RemoveDirectoriesUpdate
-		if err := json.Unmarshal(v, &x); err != nil {
-			return err
-		}
-		p.RemoveDirectories = &x
-	}
-	return nil
-}
-
-// AddRulesUpdate adds permission rules.
-type AddRulesUpdate struct {
-	Rules       []PermissionRuleValue `json:"rules"`
-	Behavior    string                `json:"behavior"`
-	Destination string                `json:"destination"`
-}
-
-// ReplaceRulesUpdate replaces permission rules.
-type ReplaceRulesUpdate struct {
-	Rules       []PermissionRuleValue `json:"rules"`
-	Behavior    string                `json:"behavior"`
-	Destination string                `json:"destination"`
-}
-
-// RemoveRulesUpdate removes permission rules.
-type RemoveRulesUpdate struct {
-	Rules       []PermissionRuleValue `json:"rules"`
-	Behavior    string                `json:"behavior"`
-	Destination string                `json:"destination"`
-}
-
-// SetModeUpdate sets permission mode.
-type SetModeUpdate struct {
-	Mode        string `json:"mode"`
-	Destination string `json:"destination"`
-}
-
-// AddDirectoriesUpdate adds allowed directories.
-type AddDirectoriesUpdate struct {
-	Directories []string `json:"directories"`
-	Destination string   `json:"destination"`
-}
-
-// RemoveDirectoriesUpdate removes allowed directories.
-type RemoveDirectoriesUpdate struct {
-	Directories []string `json:"directories"`
-	Destination string   `json:"destination"`
-}

@@ -7,6 +7,13 @@ import (
 	"slices"
 )
 
+type HookJSONOutput interface {
+	hookJSONOutput()
+}
+
+func (AsyncHookJSONOutput) hookJSONOutput() {}
+func (SyncHookJSONOutput) hookJSONOutput()  {}
+
 // AsyncHookJSONOutput represents the output of an async hook.
 // https://platform.claude.com/docs/en/agent-sdk/typescript#async-hook-json-output
 type AsyncHookJSONOutput struct {
@@ -59,67 +66,6 @@ func (s *SyncHookJSONOutput) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
-}
-
-func unmarshalHookSpecificOutput(data []byte) (_ HookSpecificOutput, err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("SyncHookJSONOutput: %w", err)
-		}
-	}()
-
-	var d struct {
-		HookEventName HookEventName `json:"hookEventName"`
-	}
-	if err := json.Unmarshal(data, &d); err != nil {
-		return nil, err
-	}
-
-	switch d.HookEventName {
-	default:
-		if d.HookEventName == "" {
-			return nil, fmt.Errorf("empty hookEventName")
-		}
-		var v HookSpecificOutputUnknown
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNamePreToolUse:
-		var v HookSpecificOutputPreToolUse
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNameUserPromptSubmit:
-		var v HookSpecificOutputUserPromptSubmit
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNameSessionStart:
-		var v HookSpecificOutputSessionStart
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNameSetup:
-		var v HookSpecificOutputSetup
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNameSubagentStart:
-		var v HookSpecificOutputSubagentStart
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNamePostToolUse:
-		var v HookSpecificOutputPostToolUse
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNamePostToolUseFailure:
-		var v HookSpecificOutputPostToolUseFailure
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNameNotification:
-		var v HookSpecificOutputNotification
-		err := json.Unmarshal(data, &v)
-		return v, err
-	case HookEventNamePermissionRequest:
-		var v HookSpecificOutputPermissionRequest
-		err := json.Unmarshal(data, &v)
-		return v, err
-	}
 }
 
 type SyncHookJSONOutputDecision string
@@ -198,6 +144,9 @@ type HookSpecificOutput interface {
 	hookSpecificOutput()
 }
 
+// fallback target
+func (HookSpecificOutputUnknown) hookSpecificOutput() {}
+
 func (HookSpecificOutputPreToolUse) hookSpecificOutput()         {}
 func (HookSpecificOutputUserPromptSubmit) hookSpecificOutput()   {}
 func (HookSpecificOutputSessionStart) hookSpecificOutput()       {}
@@ -208,9 +157,65 @@ func (HookSpecificOutputPostToolUseFailure) hookSpecificOutput() {}
 func (HookSpecificOutputNotification) hookSpecificOutput()       {}
 func (HookSpecificOutputPermissionRequest) hookSpecificOutput()  {}
 
-// fallback target
+func unmarshalHookSpecificOutput(data []byte) (_ HookSpecificOutput, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("SyncHookJSONOutput: %w", err)
+		}
+	}()
 
-func (HookSpecificOutputUnknown) hookSpecificOutput() {}
+	var d struct {
+		HookEventName HookEventName `json:"hookEventName"`
+	}
+	if err := json.Unmarshal(data, &d); err != nil {
+		return nil, err
+	}
+
+	switch d.HookEventName {
+	default:
+		var v HookSpecificOutputUnknown
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "":
+		return nil, fmt.Errorf("empty hookEventName")
+	case HookEventNamePreToolUse:
+		var v HookSpecificOutputPreToolUse
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNameUserPromptSubmit:
+		var v HookSpecificOutputUserPromptSubmit
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNameSessionStart:
+		var v HookSpecificOutputSessionStart
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNameSetup:
+		var v HookSpecificOutputSetup
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNameSubagentStart:
+		var v HookSpecificOutputSubagentStart
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNamePostToolUse:
+		var v HookSpecificOutputPostToolUse
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNamePostToolUseFailure:
+		var v HookSpecificOutputPostToolUseFailure
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNameNotification:
+		var v HookSpecificOutputNotification
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case HookEventNamePermissionRequest:
+		var v HookSpecificOutputPermissionRequest
+		err := json.Unmarshal(data, &v)
+		return v, err
+	}
+}
 
 type HookEventName string
 

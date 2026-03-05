@@ -1,71 +1,9 @@
 package models
 
-import "strings"
-
-func toolNameToInputType(toolName string) ToolInputSchemas {
-	switch toolName {
-	case "Task":
-		return AgentInput{}
-	case "AskUserQuestion":
-		return AskUserQuestionInput{}
-	case "Bash":
-		return BashInput{}
-	case "TaskOutput":
-		return TaskOutputInput{}
-	case "Edit":
-		return FileEditInput{}
-	case "Read":
-		return FileReadInput{}
-	case "Write":
-		return FileWriteInput{}
-	case "Glob":
-		return GlobInput{}
-	case "Grep":
-		return GrepInput{}
-	case "TaskStop":
-		return TaskStopInput{}
-	case "NotebookEdit":
-		return NotebookEditInput{}
-	case "WebFetch":
-		return WebFetchInput{}
-	case "WebSearch":
-		return WebSearchInput{}
-	case "TodoWrite":
-		//		, "TaskCreate", "TaskUpdate", "TaskList", "TaskGet":
-		return TodoWriteInput{}
-	case "ExitPlanMode":
-		return ExitPlanModeInput{}
-	case "ListMcpResources":
-		return ListMcpResourcesInput{}
-	case "ReadMcpResource":
-		return ReadMcpResourceInput{}
-	case "Config":
-		return ConfigInput{}
-	case "EnterWorktree":
-		return EnterWorktreeInput{}
-
-		// actually tool names for these tools are not listed in SDK doc;
-		// so we'll sample from actual softwares and update accordingly
-	case "SubscribeMcpResource":
-		return SubscribeMcpResourceInput{}
-	case "SubscribePolling":
-		return SubscribePollingInput{}
-	case "UnsubscribeMcpResource":
-		return UnsubscribeMcpResourceInput{}
-	case "UnsubscribePolling":
-		return UnsubscribePollingInput{}
-	case "BashOutput":
-		return BashOutputInput{}
-	case "KillShell":
-		return KillShellInput{}
-	}
-
-	if strings.HasPrefix(toolName, "mcp__") {
-		return McpInput{}
-	}
-
-	return UnknownInput{}
-}
+import (
+	"encoding/json"
+	"strings"
+)
 
 // As per https://platform.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 /*
@@ -102,6 +40,8 @@ type ToolInputSchemas =
 // When the parser encounters unknown union variant then it
 type ToolInputSchemas interface {
 	toolInputSchemas()
+	json.Marshaler
+	json.Unmarshaler
 }
 
 // fallback target
@@ -137,6 +77,73 @@ func (WebSearchInput) toolInputSchemas()              {}
 func (BashOutputInput) toolInputSchemas() {}
 func (KillShellInput) toolInputSchemas()  {}
 
+func toolNameToInputType(toolName string) ToolInputSchemas {
+	switch toolName {
+	case "Task":
+		return &AgentInput{}
+	case "AskUserQuestion":
+		return &AskUserQuestionInput{}
+	case "Bash":
+		return &BashInput{}
+	case "TaskOutput":
+		return &TaskOutputInput{}
+	case "Edit":
+		return &FileEditInput{}
+	case "Read":
+		return &FileReadInput{}
+	case "Write":
+		return &FileWriteInput{}
+	case "Glob":
+		return &GlobInput{}
+	case "Grep":
+		return &GrepInput{}
+	case "TaskStop":
+		return &TaskStopInput{}
+	case "NotebookEdit":
+		return &NotebookEditInput{}
+	case "WebFetch":
+		return &WebFetchInput{}
+	case "WebSearch":
+		return &WebSearchInput{}
+	case "TodoWrite":
+		//		, "TaskCreate", "TaskUpdate", "TaskList", "TaskGet":
+		return &TodoWriteInput{}
+	case "ExitPlanMode":
+		return &ExitPlanModeInput{}
+	case "ListMcpResources":
+		return &ListMcpResourcesInput{}
+	case "ReadMcpResource":
+		return &ReadMcpResourceInput{}
+	case "Config":
+		return &ConfigInput{}
+	case "EnterWorktree":
+		return &EnterWorktreeInput{}
+
+		// actually tool names for these tools are not listed in SDK doc;
+		// so we'll sample from actual softwares and update accordingly
+	case "SubscribeMcpResource":
+		return &SubscribeMcpResourceInput{}
+	case "SubscribePolling":
+		return &SubscribePollingInput{}
+	case "UnsubscribeMcpResource":
+		return &UnsubscribeMcpResourceInput{}
+	case "UnsubscribePolling":
+		return &UnsubscribePollingInput{}
+	case "BashOutput":
+		return &BashOutputInput{}
+	case "KillShell":
+		return &KillShellInput{}
+	}
+
+	if strings.HasPrefix(toolName, "mcp__") {
+		return &McpInput{}
+	}
+
+	return &UnknownInput{}
+}
+
+func unmarshalToolInputSchemas(data []byte) (_ ToolInputSchemas, err error) {}
+
 // UnknownInput is fallback target:
 // If parser hits unlisted tool_name, it falls back to this value
 type UnknownInput map[string]any
@@ -150,20 +157,20 @@ type AgentInput struct {
 
 // AskUserQuestionInput asks the user clarifying questions during execution.
 type AskUserQuestionInput struct {
-	Questions []Question        `json:"questions"`
-	Answers   map[string]string `json:"answers,omitempty"`
+	Questions []AskUserQuestionInputQuestion `json:"questions"`
+	Answers   map[string]string              `json:"answers,omitempty"`
 }
 
 // Question represents a single question to ask the user.
-type Question struct {
-	Question    string           `json:"question"`
-	Header      string           `json:"header"`
-	Options     []QuestionOption `json:"options"`
-	MultiSelect bool             `json:"multiSelect"`
+type AskUserQuestionInputQuestion struct {
+	Question    string                               `json:"question"`
+	Header      string                               `json:"header"`
+	Options     []AskUserQuestionInputQuestionOption `json:"options"`
+	MultiSelect bool                                 `json:"multiSelect"`
 }
 
 // QuestionOption represents a single choice option within a question.
-type QuestionOption struct {
+type AskUserQuestionInputQuestionOption struct {
 	Label       string `json:"label"`
 	Description string `json:"description"`
 }
@@ -185,16 +192,16 @@ type TaskOutputInput struct {
 
 type ConfigInput struct {
 	Settings string `json:"setting"`
-	Value    *any   `json:"value,omitEmpty"` // string | boolean | number;
+	Value    *any   `json:"value,omitempty"` // string | boolean | number;
 }
 
 type EnterWorktreeInput struct {
-	Name *string `json:"name,omitEmpty"`
+	Name *string `json:"name,omitempty"`
 }
 
 type ExitPlanModeInput struct {
 	Plan           string          `json:"plan"`
-	AllowedPrompts []AllowedPrompt `json:"allowedPrompts,omitEmpty"`
+	AllowedPrompts []AllowedPrompt `json:"allowedPrompts,omitempty"`
 }
 
 type AllowedPrompt struct {

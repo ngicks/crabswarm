@@ -1,240 +1,496 @@
 package models
 
-// UsageInfo contains token usage statistics.
-type UsageInfo struct {
-	InputTokens              int32  `json:"input_tokens"`
-	OutputTokens             int32  `json:"output_tokens"`
-	CacheCreationInputTokens *int32 `json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     *int32 `json:"cache_read_input_tokens,omitempty"`
+import "encoding/json"
+
+type ToolOutputSchemas interface {
+	toolOutputSchemas()
+	json.Marshaler
+	json.Unmarshaler
 }
 
-// TaskOutput returns the final result from a subagent.
-type TaskOutput struct {
-	Result       string     `json:"result"`
-	Usage        *UsageInfo `json:"usage,omitempty"`
-	TotalCostUSD *float64   `json:"total_cost_usd,omitempty"`
-	DurationMs   *int64     `json:"duration_ms,omitempty"`
+// As per https://platform.claude.com/docs/en/agent-sdk/typescript#tool-output-schemas
+/*
+type ToolOutputSchemas =
+  | AgentOutput
+  | AskUserQuestionOutput
+  | BashOutput
+  | ConfigOutput
+  | EnterWorktreeOutput
+  | ExitPlanModeOutput
+  | FileEditOutput
+  | FileReadOutput
+  | FileWriteOutput
+  | GlobOutput
+  | GrepOutput
+  | ListMcpResourcesOutput
+  | NotebookEditOutput
+  | ReadMcpResourceOutput
+  | TaskStopOutput
+  | TodoWriteOutput
+  | WebFetchOutput
+  | WebSearchOutput;
+*/
+
+// fallback target
+func (*UnknownOutput) toolOutputSchemas()        {}
+
+func (*AgentOutput) toolOutputSchemas()            {}
+func (*AskUserQuestionOutput) toolOutputSchemas()  {}
+func (*BashOutput) toolOutputSchemas()             {}
+func (*ConfigOutput) toolOutputSchemas()           {}
+func (*EnterWorktreeOutput) toolOutputSchemas()    {}
+func (*ExitPlanModeOutput) toolOutputSchemas()     {}
+func (*FileEditOutput) toolOutputSchemas()         {}
+func (*FileReadOutput) toolOutputSchemas()         {}
+func (*FileWriteOutput) toolOutputSchemas()        {}
+func (*GlobOutput) toolOutputSchemas()             {}
+func (*GrepOutput) toolOutputSchemas()             {}
+func (*ListMcpResourcesOutput) toolOutputSchemas() {}
+func (*NotebookEditOutput) toolOutputSchemas()     {}
+func (*ReadMcpResourceOutput) toolOutputSchemas()  {}
+func (*TaskStopOutput) toolOutputSchemas()         {}
+func (*TodoWriteOutput) toolOutputSchemas()        {}
+func (*WebFetchOutput) toolOutputSchemas()         {}
+func (*WebSearchOutput) toolOutputSchemas()        {}
+
+
+
+func unmarshalToolOutputSchemas(toolName string, data []byte) (_ ToolOutputSchemas, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("ToolOutputSchemas: %w", err)
+		}
+	}()
+
+	switch toolName {
+	default:
+		// unmarshal to default
+			case "":
+		return nil, fmt.Errorf("empty tool_name")
+	case "Task":
+     v, err :=		unmarshalAgentOutput(data)
+		 if err != nil {
+		 return nil, err
+		 }
+		 return v, nil
+		case "AskUserQuestion":
+			var v AskUserQuestionOutput 
+			err := json.Unmarshal(data, &v)
+			return v, err
+		case "Bash":
+						var v BashOutput 
+			err := json.Unmarshal(data, &v)
+			return v, err
+		case "Edit":
+			var v FileEditOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "Read":
+			v, err := unmarshalFileReadOutput(data)
+			if err != nil {
+return nil, err
+			}
+			return v, nil
+		case "Write":
+			var v FileWriteOutput
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case  "Glob":
+			var v GlobOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "Grep":	
+			var v GrepOutput  
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "TaskStop":
+			var v TaskStopOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "NotebookEdit":
+			var v NotebookEditOutput
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "WebFetch":
+			var v WebFetchOutput
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "WebSearch":
+			var v WebSearchOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "TodoWrite":
+			var v TodoWriteOutput  
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "ExitPlanMode":
+			var v ExitPlanModeOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "ListMcpResources":
+			var v ListMcpResourcesOutput	
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "ReadMcpResource":
+			var v ReadMcpResourceOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "Config":
+			var v ConfigOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+		case "EnterWorktree":
+			 var v EnterWorktreeOutput 
+						err := json.Unmarshal(data, &v)
+			return v, err
+	}
 }
 
-// AskUserQuestionOutput returns asked questions and provided answers.
-type AskUserQuestionOutput struct {
-	Questions []Question        `json:"questions,omitempty"`
-	Answers   map[string]string `json:"answers,omitempty"`
+// AgentOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#task-2
+// Task name: "Task".
+type AgentOutput interface {
+	agentOutput()
 }
 
-// BashOutput returns command output with exit status.
-type BashOutput struct {
-	Output   string  `json:"output"`
-	ExitCode int32   `json:"exit_code"`
-	Killed   *bool   `json:"killed,omitempty"`
-	ShellID  *string `json:"shell_id,omitempty"`
+func(AgentOutputCompleted) agentOutput(){}
+func(AgentOutputAsyncLaunched) agentOutput(){}
+func(AgentOutputSubAgentEntered) agentOutput(){}
+
+func unmarshalAgentOutput(data []byte) (_ AgentOutput, err error) {}
+
+type AgentOutputCompleted struct{
+      status: "completed";
+      agentId: string;
+      content: Array<{ type: "text"; text: string }>;
+      totalToolUseCount: number;
+      totalDurationMs: number;
+      totalTokens: number;
+      usage: {
+        input_tokens: number;
+        output_tokens: number;
+        cache_creation_input_tokens: number | null;
+        cache_read_input_tokens: number | null;
+        server_tool_use: {
+          web_search_requests: number;
+          web_fetch_requests: number;
+        } | null;
+        service_tier: ("standard" | "priority" | "batch") | null;
+        cache_creation: {
+          ephemeral_1h_input_tokens: number;
+          ephemeral_5m_input_tokens: number;
+        } | null;
+      };
+      prompt: string;
 }
 
-// BashOutputToolOutput returns incremental output from background shells.
-type BashOutputToolOutput struct {
-	Output   string `json:"output"`
-	Status   string `json:"status"`
-	ExitCode *int32 `json:"exit_code,omitempty"`
+type AgentOutputAsyncLaunched struct{
+	      status: "async_launched";
+      agentId: string;
+      description: string;
+      prompt: string;
+      outputFile: string;
+      canReadOutputFile?: boolean;
 }
 
-// EditOutput returns confirmation of successful edits.
-type EditOutput struct {
-	Message      string `json:"message"`
-	Replacements int32  `json:"replacements"`
-	FilePath     string `json:"file_path"`
+type AgentOutputSubAgentEntered  struct{
+      status: "sub_agent_entered";
+      description: string;
+      message: string;
 }
 
-// TextFileOutput contains text file contents.
-type TextFileOutput struct {
-	Content       string `json:"content"`
-	TotalLines    int32  `json:"total_lines"`
-	LinesReturned int32  `json:"lines_returned"`
+// AskUserQuestionOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#ask-user-question-2
+// Tool name: AskUserQuestion
+type AskUserQuestionOutput struct{
+	Questions  []AskUserQuestionOutputQuestion  `json:"questions"`
+  answers: Record<string, string>;
 }
 
-// ImageFileOutput contains image file contents.
-type ImageFileOutput struct {
-	Image    string `json:"image"`
-	MimeType string `json:"mime_type"`
-	FileSize int64  `json:"file_size"`
+type AskUserQuestionOutputQuestion struct{
+	  question: string;
+    header: string;
+    options: []AskUserQuestionOutputQuestionOption
+    multiSelect: boolean;
 }
 
-// PDFPageImage contains an image extracted from a PDF page.
-type PDFPageImage struct {
-	Image    string `json:"image"`
-	MimeType string `json:"mime_type"`
+type  AskUserQuestionOutputQuestionOption struct{
+label: string
+description: string
 }
 
-// PDFPage contains the contents of a single PDF page.
-type PDFPage struct {
-	PageNumber int32          `json:"page_number"`
-	Text       *string        `json:"text,omitempty"`
-	Images     []PDFPageImage `json:"images,omitempty"`
+
+// BashOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#ask-user-question-2
+// Tool name: Bash
+type BashOutput struct{
+  stdout: string;
+  stderr: string;
+  rawOutputPath?: string;
+  interrupted: boolean;
+  isImage?: boolean;
+  backgroundTaskId?: string;
+  backgroundedByUser?: boolean;
+  dangerouslyDisableSandbox?: boolean;
+  returnCodeInterpretation?: string;
+  structuredContent?: unknown[];
+  persistedOutputPath?: string;
+  persistedOutputSize?: number;
 }
 
-// PDFFileOutput contains PDF file contents.
-type PDFFileOutput struct {
-	Pages      []PDFPage `json:"pages,omitempty"`
-	TotalPages int32     `json:"total_pages"`
+// FileEditOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#edit-2
+// Tool name: Edit
+type FileEditOutput struct{
+  filePath: string;
+  oldString: string;
+  newString: string;
+  originalFile: string;
+  structuredPatch: Array<{
+    oldStart: number;
+    oldLines: number;
+    newStart: number;
+    newLines: number;
+    lines: string[];
+  }>;
+  userModified: boolean;
+  replaceAll: boolean;
+  gitDiff?: {
+    filename: string;
+    status: "modified" | "added";
+    additions: number;
+    deletions: number;
+    changes: number;
+    patch: string;
+  };
 }
 
-// NotebookCell contains a single Jupyter notebook cell.
-type NotebookCell struct {
-	CellType       string `json:"cell_type"`
-	Source         string `json:"source"`
-	Outputs        []any  `json:"outputs,omitempty"`
-	ExecutionCount *int32 `json:"execution_count,omitempty"`
+// FileReadOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#edit-2
+// Tool name: Read
+type FileReadOutput interface{
+	fileReadOutput()
 }
 
-// NotebookFileOutput contains Jupyter notebook contents.
-type NotebookFileOutput struct {
-	Cells    []NotebookCell `json:"cells,omitempty"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+func unmarshalFileReadOutput(data []byte) (_ FileReadOutput, err error) {}
+
+
+type FileReadOutputText struct{
+	     type: "text";
+      file: {
+        filePath: string;
+        content: string;
+        numLines: number;
+        startLine: number;
+        totalLines: number;
+      };
 }
 
-// ReadOutput returns file contents in format appropriate to file type.
-type ReadOutput struct {
-	TextFile     *TextFileOutput     `json:"text_file,omitempty"`
-	ImageFile    *ImageFileOutput    `json:"image_file,omitempty"`
-	PDFFile      *PDFFileOutput      `json:"pdf_file,omitempty"`
-	NotebookFile *NotebookFileOutput `json:"notebook_file,omitempty"`
+type FileReadOutputImage struct{
+	      type: "image";
+      file: {
+        base64: string;
+        type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+        originalSize: number;
+        dimensions?: {
+          originalWidth?: number;
+          originalHeight?: number;
+          displayWidth?: number;
+          displayHeight?: number;
+        };
+      };
 }
 
-// WriteOutput returns confirmation after writing a file.
-type WriteOutput struct {
-	Message      string `json:"message"`
-	BytesWritten int64  `json:"bytes_written"`
-	FilePath     string `json:"file_path"`
+type FileReadOutputNotebook struct{
+     type: "notebook";
+      file: {
+        filePath: string;
+        cells: unknown[];
+      };
 }
 
-// GlobOutput returns file paths matching the glob pattern.
-type GlobOutput struct {
-	Matches    []string `json:"matches"`
-	Count      int32    `json:"count"`
-	SearchPath string   `json:"search_path"`
+type FileReadOutputPdf struct{
+	      type: "pdf";
+      file: {
+        filePath: string;
+        base64: string;
+        originalSize: number;
+      };
 }
 
-// GrepMatch represents a single grep match with context.
-type GrepMatch struct {
-	File          string   `json:"file"`
-	LineNumber    *int32   `json:"line_number,omitempty"`
-	Line          string   `json:"line"`
-	BeforeContext []string `json:"before_context,omitempty"`
-	AfterContext  []string `json:"after_context,omitempty"`
+type FileReadOutputParts struct{
+	      type: "parts";
+      file: {
+        filePath: string;
+        originalSize: number;
+        count: number;
+        outputDir: string;
+      };
 }
 
-// GrepContentOutput contains matching lines with context.
-type GrepContentOutput struct {
-	Matches      []GrepMatch `json:"matches"`
-	TotalMatches int32       `json:"total_matches"`
+// FileWriteOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#write-2
+// Tool name: Write
+type FileWriteOutput struct{
+  type: "create" | "update";
+  filePath: string;
+  content: string;
+  structuredPatch: Array<{
+    oldStart: number;
+    oldLines: number;
+    newStart: number;
+    newLines: number;
+    lines: string[];
+  }>;
+  originalFile: string | null;
+  gitDiff?: {
+    filename: string;
+    status: "modified" | "added";
+    additions: number;
+    deletions: number;
+    changes: number;
+    patch: string;
+  };
 }
 
-// GrepFilesOutput contains files with matches.
-type GrepFilesOutput struct {
-	Files []string `json:"files"`
-	Count int32    `json:"count"`
+
+// GlobOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#glob-2
+// Tool name: Glob
+type GlobOutput struct{
+  durationMs: number;
+  numFiles: number;
+  filenames: string[];
+  truncated: boolean;
 }
 
-// GrepFileCount represents match counts for a single file.
-type GrepFileCount struct {
-	File  string `json:"file"`
-	Count int32  `json:"count"`
+// GrepOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#grep-2
+// Tool name: Grep
+type GrepOutput struct{
+  mode?: "content" | "files_with_matches" | "count";
+  numFiles: number;
+  filenames: string[];
+  content?: string;
+  numLines?: number;
+  numMatches?: number;
+  appliedLimit?: number;
+  appliedOffset?: number;
 }
 
-// GrepCountOutput contains match counts per file.
-type GrepCountOutput struct {
-	Counts []GrepFileCount `json:"counts"`
-	Total  int32           `json:"total"`
+// TaskStopOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#task-stop-2
+// Tool name: TaskStop
+type TaskStopOutput struct{
+  message: string;
+  task_id: string;
+  task_type: string;
+  command?: string;
 }
 
-// GrepOutput returns search results in the format specified by output_mode.
-type GrepOutput struct {
-	Content *GrepContentOutput `json:"content,omitempty"`
-	Files   *GrepFilesOutput   `json:"files,omitempty"`
-	Count   *GrepCountOutput   `json:"count,omitempty"`
+// NotebookEditOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#notebook-edit-2
+// Tool name: NotebookEdit
+type NotebookEditOutput struct{
+  new_source: string;
+  cell_id?: string;
+  cell_type: "code" | "markdown";
+  language: string;
+  edit_mode: string;
+  error?: string;
+  notebook_path: string;
+  original_file: string;
+  updated_file: string;
 }
 
-// KillBashOutput returns confirmation after terminating a background shell.
-type KillBashOutput struct {
-	Message string `json:"message"`
-	ShellID string `json:"shell_id"`
+// WebFetchOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#web-fetch-2
+// Tool name: WebFetch
+type WebFetchOutput struct{
+  bytes: number;
+  code: number;
+  codeText: string;
+  result: string;
+  durationMs: number;
+  url: string;
 }
 
-// NotebookEditOutput returns confirmation after modifying a Jupyter notebook.
-type NotebookEditOutput struct {
-	Message    string  `json:"message"`
-	EditType   string  `json:"edit_type"`
-	CellID     *string `json:"cell_id,omitempty"`
-	TotalCells int32   `json:"total_cells"`
+// WebSearchOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#web-search-2
+// Tool name: WebSearch
+type WebSearchOutput struct{
+  query: string;
+  results: Array<
+    | {
+        tool_use_id: string;
+        content: Array<{ title: string; url: string }>;
+      }
+    | string
+  >;
+  durationSeconds: number;
 }
 
-// WebFetchOutput returns the AI's analysis of fetched web content.
-type WebFetchOutput struct {
-	Response   string  `json:"response"`
-	URL        string  `json:"url"`
-	FinalURL   *string `json:"final_url,omitempty"`
-	StatusCode *int32  `json:"status_code,omitempty"`
+// TodoWriteOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#todo-write-2
+// Tool name: TodoWrite
+type TodoWriteOutput struct{
+  oldTodos: Array<{
+    content: string;
+    status: "pending" | "in_progress" | "completed";
+    activeForm: string;
+  }>;
+  newTodos: Array<{
+    content: string;
+    status: "pending" | "in_progress" | "completed";
+    activeForm: string;
+  }>;
 }
 
-// WebSearchResult represents a single web search result.
-type WebSearchResult struct {
-	Title    string         `json:"title"`
-	URL      string         `json:"url"`
-	Snippet  string         `json:"snippet"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+// ExitPlanModeOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#exit-plan-mode-2
+// Tool name: ExitPlanMode
+type ExitPlanModeOutput struct{
+  plan: string | null;
+  isAgent: boolean;
+  filePath?: string;
+  hasTaskTool?: boolean;
+  awaitingLeaderApproval?: boolean;
+  requestId?: string;
 }
 
-// WebSearchOutput returns formatted search results from the web.
-type WebSearchOutput struct {
-	Results      []WebSearchResult `json:"results"`
-	TotalResults int32             `json:"total_results"`
-	Query        string            `json:"query"`
+// ListMcpResourcesOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#list-mcp-resources-2
+// Tool name: ListMcpResources
+type ListMcpResourcesOutput  []ListMcpResourcesOutputSingle
+
+type ListMcpResourcesOutputSingle  struct{
+  uri: string;
+  name: string;
+  mimeType?: string;
+  description?: string;
+  server: string;
 }
 
-// TodoStats contains current task statistics.
-type TodoStats struct {
-	Total      int32 `json:"total"`
-	Pending    int32 `json:"pending"`
-	InProgress int32 `json:"in_progress"`
-	Completed  int32 `json:"completed"`
+// ReadMcpResourceOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#read-mcp-resource-2
+// Tool name: ReadMcpResource
+type ReadMcpResourceOutput struct{
+  contents: Array<{
+    uri: string;
+    mimeType?: string;
+    text?: string;
+  }>;
 }
 
-// TodoWriteOutput returns confirmation with current task statistics.
-type TodoWriteOutput struct {
-	Message string     `json:"message"`
-	Stats   *TodoStats `json:"stats,omitempty"`
+// ConfigOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#config-2
+// Tool name: Config
+type ConfigOutput struct{
+	  success: boolean;
+  operation?: "get" | "set";
+  setting?: string;
+  value?: unknown;
+  previousValue?: unknown;
+  newValue?: unknown;
+  error?: string;
 }
 
-// ExitPlanModeOutput returns confirmation after exiting plan mode.
-type ExitPlanModeOutput struct {
-	Message  string `json:"message"`
-	Approved *bool  `json:"approved,omitempty"`
+// EnterWorktreeOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#enter-worktree-2
+// Tool name: EnterWorktree
+type EnterWorktreeOutput struct{
+  worktreePath: string;
+  worktreeBranch?: string;
+  message: string;
 }
 
-// McpResource represents an available MCP resource.
-type McpResource struct {
-	Uri         string  `json:"uri"`
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	MimeType    *string `json:"mime_type,omitempty"`
-	Server      string  `json:"server"`
-}
 
-// ListMcpResourcesOutput returns a list of available MCP resources.
-type ListMcpResourcesOutput struct {
-	Resources []McpResource `json:"resources,omitempty"`
-	Total     int32         `json:"total"`
-}
 
-// McpResourceContent contains the content of an MCP resource.
-type McpResourceContent struct {
-	Uri      string  `json:"uri"`
-	MimeType *string `json:"mime_type,omitempty"`
-	Text     *string `json:"text,omitempty"`
-	Blob     *string `json:"blob,omitempty"`
-}
 
-// ReadMcpResourceOutput returns the contents of the requested MCP resource.
-type ReadMcpResourceOutput struct {
-	Contents []McpResourceContent `json:"contents,omitempty"`
-	Server   string               `json:"server"`
-}
+
+
+
+
+

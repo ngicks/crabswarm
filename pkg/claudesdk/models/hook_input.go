@@ -3,12 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-
-	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
+	"maps"
 )
 
 // As per https://platform.claude.com/docs/en/agent-sdk/typescript#hook-input
@@ -38,6 +33,9 @@ type HookInput interface {
 	hookInput()
 }
 
+// fallback target
+func (UnknownHookInput) hookInput() {}
+
 func (PreToolUseHookInput) hookInput()         {}
 func (PostToolUseHookInput) hookInput()        {}
 func (PostToolUseFailureHookInput) hookInput() {}
@@ -57,144 +55,312 @@ func (ConfigChangeHookInput) hookInput()       {}
 func (WorktreeCreateHookInput) hookInput()     {}
 func (WorktreeRemoveHookInput) hookInput()     {}
 
+func unmarshalHookInput(data []byte) (_ HookInput, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("HookInput: %w", err)
+		}
+	}()
+
+	type hookEventName struct {
+		HookEventName string `json:"hook_event_name"`
+	}
+
+	var h hookEventName
+	err = json.Unmarshal(data, &h)
+	if err != nil {
+		return nil, err
+	}
+
+	switch h.HookEventName {
+	default:
+		var v UnknownHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "":
+		return nil, fmt.Errorf("empty hook_event_name")
+	case "PreToolUse":
+		var v PreToolUseHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "PostToolUse":
+		var v PostToolUseHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "PostToolUseFailure":
+		var v PostToolUseFailureHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "Notification":
+		var v NotificationHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "UserPromptSubmit":
+		var v UserPromptSubmitHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "SessionStart":
+		var v SessionStartHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "SessionEnd":
+		var v SessionEndHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "Stop":
+		var v StopHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "SubagentStart":
+		var v SubagentStartHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "SubagentStop":
+		var v SubagentStopHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "PreCompact":
+		var v PreCompactHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "PermissionRequest":
+		var v PermissionRequestHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "Setup":
+		var v SetupHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "TeammateIdle":
+		var v TeammateIdleHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "TaskCompleted":
+		var v TaskCompletedHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "ConfigChange":
+		var v ConfigChangeHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "WorktreeCreate":
+		var v WorktreeCreateHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	case "WorktreeRemove":
+		var v WorktreeRemoveHookInput
+		err := json.Unmarshal(data, &v)
+		return v, err
+	}
+}
+
 // BaseHookInput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#base-hook-input
 type BaseHookInput struct {
 	SessionID      string  `json:"session_id"`
 	TranscriptPath string  `json:"transcript_path"`
 	Cwd            string  `json:"cwd"`
 	PermissionMode *string `json:"permission_mode,omitempty"`
-	// Not documented but actually there's
-	ToolUseID string `json:"tool_use_id,omitempty"`
 }
 
-type hookInputBase struct {
+type PreToolUseHookInput struct {
+	BaseHookInput
+	HookEventName string           `json:"hook_event_name"`
+	ToolName      string           `json:"tool_name"`
+	ToolInput     ToolInputSchemas `json:"tool_input"`
+	ToolUseID     string           `json:"tool_use_id"`
+}
+
+type PostToolUseHookInput struct {
+	BaseHookInput
+	HookEventName string           `json:"hook_event_name"`
+	ToolName      string           `json:"tool_name"`
+	ToolInput     ToolInputSchemas `json:"tool_input"`
+	// response from tool
+	ToolResponse json.RawMessage `json:"tool_response"`
+	ToolUseID    string          `json:"tool_use_id"`
+}
+
+type PostToolUseFailureHookInput struct {
+	BaseHookInput
 	HookEventName string `json:"hook_event_name"`
+	ToolName      string `json:"tool_name"`
+	ToolInput     any    `json:"tool_input"`
+	ToolUseID     string `json:"tool_use_id"`
+	Error         string `json:"error"`
+	IsInterrupt   *bool  `json:"is_interrupt,omitempty"`
 }
 
-type PreToolUseHookInput struct{
-  BaseHookInput
-  hook_event_name: "PreToolUse";
-  tool_name: string;
-  tool_input: unknown;
-  tool_use_id: string;
+type NotificationHookInput struct {
+	BaseHookInput
+	HookEventName    string  `json:"hook_event_name"`
+	Message          string  `json:"message"`
+	Title            *string `json:"title,omitempty"`
+	NotificationType string  `json:"notification_type"`
 }
 
-type PostToolUseHookInput struct{
-BaseHookInput
-  hook_event_name: "PostToolUse";
-  tool_name: string;
-  tool_input: unknown;
-  tool_response: unknown;
-  tool_use_id: string;
-}
-type PostToolUseFailureHookInput struct{
-BaseHookInput
- hook_event_name: "PostToolUseFailure";
-  tool_name: string;
-  tool_input: unknown;
-  tool_use_id: string;
-  error: string;
-  is_interrupt?: boolean;
-}
-type NotificationHookInput struct{
-BaseHookInput
-  hook_event_name: "Notification";
-  message: string;
-  title?: string;
-  notification_type: string;
-}
-type UserPromptSubmitHookInput struct{
-BaseHookInput
-  hook_event_name: "UserPromptSubmit";
-  prompt: string;
-}
-type SessionStartHookInput struct{
-BaseHookInput
- hook_event_name: "SessionStart";
-  source: "startup" | "resume" | "clear" | "compact";
-  agent_type?: string;
-  model?: string;
-}
-type SessionEndHookInput struct{
-BaseHookInput
-  hook_event_name: "SessionEnd";
-  reason: ExitReason; // String from EXIT_REASONS array
-}
-type StopHookInput struct{
-BaseHookInput
-  hook_event_name: "Stop";
-  stop_hook_active: boolean;
-  last_assistant_message?: string;
-}
-type SubagentStartHookInput struct{
-BaseHookInput
-  hook_event_name: "SubagentStart";
-  agent_id: string;
-  agent_type: string;
-}
-type SubagentStopHookInput struct{
-BaseHookInput
-  hook_event_name: "SubagentStop";
-  stop_hook_active: boolean;
-  agent_id: string;
-  agent_transcript_path: string;
-  agent_type: string;
-  last_assistant_message?: string;
-}
-type PreCompactHookInput struct{
-BaseHookInput
-  hook_event_name: "PreCompact";
-  trigger: "manual" | "auto";
-  custom_instructions: string | null;
-}
-type PermissionRequestHookInput struct{
-BaseHookInput
-  hook_event_name: "PermissionRequest";
-  tool_name: string;
-  tool_input: unknown;
-  permission_suggestions?: PermissionUpdate[];
+type UserPromptSubmitHookInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	Prompt        string `json:"prompt"`
 }
 
-type PermissionUpdate struct{}
+type SessionStartHookInput struct {
+	BaseHookInput
+	HookEventName string  `json:"hook_event_name"`
+	Source        string  `json:"source"`
+	AgentType     *string `json:"agent_type,omitempty"`
+	Model         *string `json:"model,omitempty"`
+}
 
-type SetupHookInput struct{
-BaseHookInput
-  hook_event_name: "Setup";
-  trigger: "init" | "maintenance";
+type ExitReason string
+
+type SessionEndHookInput struct {
+	BaseHookInput
+	HookEventName string     `json:"hook_event_name"`
+	Reason        ExitReason `json:"reason"`
 }
-type TeammateIdleHookInput struct{
-BaseHookInput
- hook_event_name: "TeammateIdle";
-  teammate_name: string;
-  team_name: string;
+
+type StopHookInput struct {
+	BaseHookInput
+	HookEventName        string  `json:"hook_event_name"`
+	StopHookActive       bool    `json:"stop_hook_active"`
+	LastAssistantMessage *string `json:"last_assistant_message,omitempty"`
 }
-type TaskCompletedHookInput struct{
-BaseHookInput
-  hook_event_name: "TaskCompleted";
-  task_id: string;
-  task_subject: string;
-  task_description?: string;
-  teammate_name?: string;
-  team_name?: string;
+
+type SubagentStartHookInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	AgentID       string `json:"agent_id"`
+	AgentType     string `json:"agent_type"`
 }
-type ConfigChangeHookInput struct{
-BaseHookInput
-  hook_event_name: "ConfigChange";
-  source:
-    | "user_settings"
-    | "project_settings"
-    | "local_settings"
-    | "policy_settings"
-    | "skills";
-  file_path?: string;
+
+type SubagentStopHookInput struct {
+	BaseHookInput
+	HookEventName        string  `json:"hook_event_name"`
+	StopHookActive       bool    `json:"stop_hook_active"`
+	AgentID              string  `json:"agent_id"`
+	AgentTranscriptPath  string  `json:"agent_transcript_path"`
+	AgentType            string  `json:"agent_type"`
+	LastAssistantMessage *string `json:"last_assistant_message,omitempty"`
 }
-type WorktreeCreateHookInput struct{
-BaseHookInput
-  hook_event_name: "WorktreeCreate";
-  name: string;
+
+type PreCompactHookInput struct {
+	BaseHookInput
+	HookEventName      string  `json:"hook_event_name"`
+	Trigger            string  `json:"trigger"`
+	CustomInstructions *string `json:"custom_instructions"`
 }
-type WorktreeRemoveHookInput struct{
-BaseHookInput
-  hook_event_name: "WorktreeRemove";
-  worktree_path: string;
+
+type PermissionRequestHookInput struct {
+	BaseHookInput
+	HookEventName         string             `json:"hook_event_name"`
+	ToolName              string             `json:"tool_name"`
+	ToolInput             any                `json:"tool_input"`
+	PermissionSuggestions []PermissionUpdate `json:"permission_suggestions,omitempty"`
+}
+
+type SetupHookInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	Trigger       string `json:"trigger"`
+}
+
+type TeammateIdleHookInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	TeammateName  string `json:"teammate_name"`
+	TeamName      string `json:"team_name"`
+}
+
+type TaskCompletedHookInput struct {
+	BaseHookInput
+	HookEventName   string  `json:"hook_event_name"`
+	TaskID          string  `json:"task_id"`
+	TaskSubject     string  `json:"task_subject"`
+	TaskDescription *string `json:"task_description,omitempty"`
+	TeammateName    *string `json:"teammate_name,omitempty"`
+	TeamName        *string `json:"team_name,omitempty"`
+}
+
+type ConfigChangeHookInput struct {
+	BaseHookInput
+	HookEventName string  `json:"hook_event_name"`
+	Source        string  `json:"source"`
+	FilePath      *string `json:"file_path,omitempty"`
+}
+
+type WorktreeCreateHookInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	Name          string `json:"name"`
+}
+
+type WorktreeRemoveHookInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	WorktreePath  string `json:"worktree_path"`
+}
+
+type UnknownHookInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	Unknown       map[string]json.RawMessage
+}
+
+func (o UnknownHookInput) MarshalJSON() ([]byte, error) {
+	m := maps.Clone(o.Unknown)
+	if m == nil {
+		// panic instead?
+		m = map[string]json.RawMessage{}
+	}
+
+	marshal := func(v any) json.RawMessage {
+		raw, _ := json.Marshal(v)
+		return json.RawMessage(raw)
+	}
+
+	m["session_id"] = marshal(o.SessionID)
+	m["transcript_path"] = marshal(o.TranscriptPath)
+	m["cwd"] = marshal(o.Cwd)
+	if o.PermissionMode != nil {
+		m["permission_mode"] = marshal(o.PermissionMode)
+	}
+	m["tool_use_id"] = marshal(o.ToolUseID)
+
+	m["hook_event_name"] = marshal(o.HookEventName)
+
+	return json.Marshal(m)
+}
+
+func (o *UnknownHookInput) UnmarshalJSON(data []byte) error {
+	unknown := map[string]json.RawMessage{}
+	err := json.Unmarshal(data, &unknown)
+	if err != nil {
+		return fmt.Errorf("HookSpecificOutputUnknown: %w", err)
+	}
+
+	type pair struct {
+		k   string
+		tgt any
+	}
+	for _, kv := range []pair{
+		{"session_id", &o.SessionID},
+		{"transcript_path", &o.TranscriptPath},
+		{"cwd", &o.Cwd},
+		{"permission_mode", &o.PermissionMode},
+		{"tool_use_id", &o.ToolUseID},
+		{"hook_event_name", &o.HookEventName},
+	} {
+		if _, ok := unknown[kv.k]; !ok {
+			continue
+		}
+		if err := json.Unmarshal(unknown[kv.k], kv.tgt); err != nil {
+			return fmt.Errorf("HookSpecificOutputUnknown: %w", err)
+		}
+	}
+	if o.HookEventName == "" {
+		return fmt.Errorf("HookSpecificOutputUnknown: empty hookEventName")
+	}
+	o.Unknown = unknown
+	return nil
 }
