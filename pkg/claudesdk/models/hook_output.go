@@ -13,6 +13,9 @@ type HookJSONOutput interface {
 	json.Unmarshaler
 }
 
+// fallback target
+func (*HookJSONOutputUnknown) hookJSONOutput() {}
+
 func (AsyncHookJSONOutput) hookJSONOutput() {}
 func (SyncHookJSONOutput) hookJSONOutput()  {}
 
@@ -478,7 +481,9 @@ func unmarshalPermissionRequestDecision(data []byte) (PermissionRequestDecision,
 
 	switch d.Behavior {
 	default:
-		return nil, fmt.Errorf("HookSpecificOutputPermissionRequest: unknown behavior: %q", d.Behavior)
+		var v PermissionRequestDecisionUnknown
+		err := json.Unmarshal(data, &v)
+		return v, err
 	case PermissionRequestBehaviorAllow:
 		var v PermissionRequestDecisionAllow
 		err := json.Unmarshal(data, &v)
@@ -499,6 +504,9 @@ func unmarshalPermissionRequestDecision(data []byte) (PermissionRequestDecision,
 type PermissionRequestDecision interface {
 	permissionRequestDecision()
 }
+
+// fallback target
+func (PermissionRequestDecisionUnknown) permissionRequestDecision() {}
 
 func (PermissionRequestDecisionAllow) permissionRequestDecision() {}
 func (PermissionRequestDecisionDeny) permissionRequestDecision()  {}
@@ -554,3 +562,17 @@ func (o *HookSpecificOutputUnknown) UnmarshalJSON(data []byte) error {
 	o.Unknown = unknown
 	return nil
 }
+
+// HookJSONOutputUnknown is a fallback type for unknown HookJSONOutput variants.
+type HookJSONOutputUnknown map[string]json.RawMessage
+
+func (o HookJSONOutputUnknown) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]json.RawMessage(o))
+}
+
+func (o *HookJSONOutputUnknown) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, (*map[string]json.RawMessage)(o))
+}
+
+// PermissionRequestDecisionUnknown is a fallback type for unknown PermissionRequestDecision variants.
+type PermissionRequestDecisionUnknown map[string]json.RawMessage

@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 )
 
@@ -50,6 +51,9 @@ type PermissionUpdate interface {
 	json.Unmarshaler
 }
 
+// fallback target
+func (*PermissionUpdateUnknown) permissionUpdate() {}
+
 func (*PermissionUpdateAddRules) permissionUpdate()          {}
 func (*PermissionUpdateReplaceRules) permissionUpdate()      {}
 func (*PermissionUpdateRemoveRules) permissionUpdate()       {}
@@ -73,7 +77,9 @@ func unmarshalPermissionUpdate(data []byte) (_ PermissionUpdate, err error) {
 
 	switch d.Type {
 	default:
-		return nil, fmt.Errorf("unknown type: %q", d.Type)
+		var v PermissionUpdateUnknown
+		err := json.Unmarshal(data, &v)
+		return &v, err
 	case "":
 		return nil, fmt.Errorf("empty type")
 	case "addRules":
@@ -101,6 +107,36 @@ func unmarshalPermissionUpdate(data []byte) (_ PermissionUpdate, err error) {
 		err := json.Unmarshal(data, &v)
 		return &v, err
 	}
+}
+
+// PermissionUpdateUnknown is a fallback type for unknown PermissionUpdate variants.
+type PermissionUpdateUnknown struct {
+	Type    string `json:"type"`
+	Unknown map[string]json.RawMessage
+}
+
+func (o PermissionUpdateUnknown) MarshalJSON() ([]byte, error) {
+	m := maps.Clone(o.Unknown)
+	if m == nil {
+		m = map[string]json.RawMessage{}
+	}
+	raw, _ := json.Marshal(o.Type)
+	m["type"] = json.RawMessage(raw)
+	return json.Marshal(m)
+}
+
+func (o *PermissionUpdateUnknown) UnmarshalJSON(data []byte) error {
+	unknown := map[string]json.RawMessage{}
+	if err := json.Unmarshal(data, &unknown); err != nil {
+		return err
+	}
+	if raw, ok := unknown["type"]; ok {
+		if err := json.Unmarshal(raw, &o.Type); err != nil {
+			return fmt.Errorf("UnknownPermissionUpdate: %w", err)
+		}
+	}
+	o.Unknown = unknown
+	return nil
 }
 
 // PermissionUpdateAddRules is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#permission-update
@@ -301,8 +337,8 @@ const (
 	PermissionUpdateDestinationUserSettings    PermissionUpdateDestination = "userSettings"    // Global user settings
 	PermissionUpdateDestinationProjectSettings PermissionUpdateDestination = "projectSettings" // Per-directory project settings
 	PermissionUpdateDestinationLocalSettings   PermissionUpdateDestination = "localSettings"   // Gitignored local settings
-	PermissionUpdateDestinationSession         PermissionUpdateDestination = "session"          // Current session only
-	PermissionUpdateDestinationCliArg          PermissionUpdateDestination = "cliArg"           // CLI argument
+	PermissionUpdateDestinationSession         PermissionUpdateDestination = "session"         // Current session only
+	PermissionUpdateDestinationCliArg          PermissionUpdateDestination = "cliArg"          // CLI argument
 )
 
 var allPermissionUpdateDestination = [...]PermissionUpdateDestination{

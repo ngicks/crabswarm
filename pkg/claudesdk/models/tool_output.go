@@ -40,6 +40,7 @@ func (*UnknownOutput) toolOutputSchemas() {}
 func (*AgentOutputCompleted) toolOutputSchemas()        {}
 func (*AgentOutputAsyncLaunched) toolOutputSchemas()    {}
 func (*AgentOutputSubAgentEntered) toolOutputSchemas()  {}
+func (*AgentOutputUnknown) toolOutputSchemas()          {}
 func (*AskUserQuestionOutput) toolOutputSchemas()       {}
 func (*BashOutput) toolOutputSchemas()                  {}
 func (*ConfigOutput) toolOutputSchemas()                {}
@@ -51,6 +52,7 @@ func (*FileReadOutputImage) toolOutputSchemas()         {}
 func (*FileReadOutputNotebook) toolOutputSchemas()      {}
 func (*FileReadOutputPdf) toolOutputSchemas()           {}
 func (*FileReadOutputParts) toolOutputSchemas()         {}
+func (*FileReadOutputUnknown) toolOutputSchemas()       {}
 func (*FileWriteOutput) toolOutputSchemas()             {}
 func (*GlobOutput) toolOutputSchemas()                  {}
 func (*GrepOutput) toolOutputSchemas()                  {}
@@ -166,6 +168,28 @@ func (o *UnknownOutput) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, (*map[string]json.RawMessage)(o))
 }
 
+// AgentOutputUnknown is a fallback type for unknown AgentOutput variants.
+type AgentOutputUnknown map[string]json.RawMessage
+
+func (o AgentOutputUnknown) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]json.RawMessage(o))
+}
+
+func (o *AgentOutputUnknown) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, (*map[string]json.RawMessage)(o))
+}
+
+// FileReadOutputUnknown is a fallback type for unknown FileReadOutput variants.
+type FileReadOutputUnknown map[string]json.RawMessage
+
+func (o FileReadOutputUnknown) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]json.RawMessage(o))
+}
+
+func (o *FileReadOutputUnknown) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, (*map[string]json.RawMessage)(o))
+}
+
 // AgentOutput is direct translation of https://platform.claude.com/docs/en/agent-sdk/typescript#task-2
 // Tool name: "Task".
 type AgentOutput interface {
@@ -173,9 +197,12 @@ type AgentOutput interface {
 	ToolOutputSchemas
 }
 
-func (*AgentOutputCompleted) agentOutput()        {}
-func (*AgentOutputAsyncLaunched) agentOutput()    {}
-func (*AgentOutputSubAgentEntered) agentOutput()  {}
+// fallback target
+func (*AgentOutputUnknown) agentOutput() {}
+
+func (*AgentOutputCompleted) agentOutput()       {}
+func (*AgentOutputAsyncLaunched) agentOutput()   {}
+func (*AgentOutputSubAgentEntered) agentOutput() {}
 
 func unmarshalAgentOutput(data []byte) (_ AgentOutput, err error) {
 	defer func() {
@@ -193,7 +220,9 @@ func unmarshalAgentOutput(data []byte) (_ AgentOutput, err error) {
 
 	switch d.Status {
 	default:
-		return nil, fmt.Errorf("unknown status: %q", d.Status)
+		var v AgentOutputUnknown
+		err := json.Unmarshal(data, &v)
+		return &v, err
 	case "":
 		return nil, fmt.Errorf("empty status")
 	case "completed":
@@ -427,6 +456,9 @@ type FileReadOutput interface {
 	ToolOutputSchemas
 }
 
+// fallback target
+func (*FileReadOutputUnknown) fileReadOutput() {}
+
 func (*FileReadOutputText) fileReadOutput()     {}
 func (*FileReadOutputImage) fileReadOutput()    {}
 func (*FileReadOutputNotebook) fileReadOutput() {}
@@ -449,7 +481,9 @@ func unmarshalFileReadOutput(data []byte) (_ FileReadOutput, err error) {
 
 	switch d.Type {
 	default:
-		return nil, fmt.Errorf("unknown type: %q", d.Type)
+		var v FileReadOutputUnknown
+		err := json.Unmarshal(data, &v)
+		return &v, err
 	case "":
 		return nil, fmt.Errorf("empty type")
 	case "text":
