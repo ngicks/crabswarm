@@ -2,13 +2,13 @@
 
 **Date**: 2026-03-08
 **Status**: Draft v2
-**Goal**: Replace `./mux/tmux` with daemonless, per-command monitor processes that coordinate via a shared SQLite database. Inspired by Podman's conmon architecture.
+**Goal**: Replace `./mux/tmux` with detached, per-command monitor processes that coordinate via a shared SQLite database. Inspired by Podman's conmon architecture.
 
 ---
 
 ## 1. Overview
 
-No central daemon. Each managed command has its own **monitor process** that double-forks to daemonize, allocates a PTY, runs the command, and listens on a Unix socket for attach clients. All state is shared via a **SQLite database**.
+No central daemon. Each managed command has its own **monitor process** that detaches from the invoking CLI, allocates a PTY, runs the command, and serves a gRPC API on a per-command Unix socket. All state is shared via a **SQLite database**.
 
 ```
                           ┌──────────────────────┐
@@ -24,18 +24,18 @@ No central daemon. Each managed command has its own **monitor process** that dou
    │ │ PTY    │ │          │ │ PTY    │ │                 │ run/attach │
    │ │ cmd #1 │ │          │ │ cmd #2 │ │                 └──────┬─────┘
    │ └────────┘ │          │ └────────┘ │                        │
-   │ attach.sock│          │ attach.sock│               attach via UDS
+   │ monitor.sock│         │ monitor.sock│              attach via gRPC UDS
    └────────────┘          └────────────┘                        │
          ▲                       ▲                               │
-         │         raw UDS       │                               │
+         │       gRPC over UDS   │                               │
          └───────────────────────────────────────────────────────┘
 
 ```
 
 ### Components
 
-1. **Monitor** — A self-daemonizing process (one per command). Double-forks like conmon. Owns a PTY, runs the command as its child. Listens on a Unix socket for attach clients. Writes state to SQLite on lifecycle events.
-2. **CLI** — User-facing commands. Reads SQLite for queries (`ls`, `inspect`). Sends signals via `kill(2)` for `stop`. Connects to monitor's attach socket for interactive I/O.
+1. **Monitor** — A self-detaching process (one per command). Re-execs into a new session/process group and redirects stdio away from the invoking terminal. Owns a PTY, runs the command as its child, and serves a gRPC API on a Unix socket. Writes state to SQLite on lifecycle events.
+2. **CLI** — User-facing commands. Reads SQLite for queries (`ls`, `inspect`). Sends signals via the monitor's gRPC API for `stop`. Connects to the monitor socket for interactive I/O.
 3. **SQLite Database** — Single source of truth for command state, metadata, labels. Shared across all monitors and the CLI.
 
 ---
@@ -51,21 +51,22 @@ cmd run -- /bin/bash
   ├─ (2) Fork monitor process
   │       │
   │       └─ Monitor (child):
-  │           ├─ (3) Double-fork to daemonize, parent exits
-  │           ├─ (4) setsid() — new session leader
-  │           ├─ (5) Update DB: state=running, pid=<self>
-  │           ├─ (6) Create attach socket: <runtime_dir>/<command_id>/attach.sock
+  │           ├─ (3) Re-exec into detached monitor process, parent exits
+  │           ├─ (4) setsid() — new session leader; stdio redirected away from terminal
+  │           ├─ (5) Update DB: state=starting, pid=<self>
+  │           ├─ (6) Create gRPC socket: <runtime_dir>/<command_id>/monitor.sock
   │           ├─ (7) Allocate PTY, start command in PTY slave
-  │           ├─ (8) Accept attach connections, fan-out PTY output
-  │           ├─ (9) Wait for command exit
-  │           ├─ (10) Update DB: state=exited, exit_code=N, finished_at=now
-  │           ├─ (11) If --rm: delete DB record
-  │           ├─ (12) Clean up socket, exit
+  │           ├─ (8) Start serving gRPC API; update DB: state=running
+  │           ├─ (9) Accept attach connections, fan-out PTY output
+  │           ├─ (10) Wait for command exit
+  │           ├─ (11) Update DB: state=exited, exit_code=N, finished_at=now
+  │           ├─ (12) If --rm: delete DB record
+  │           ├─ (13) Clean up socket, exit
   │
-  └─ (2b) CLI waits for monitor to write `running` state, then returns
+  └─ (2b) CLI waits for monitor to write `running` state, then returns or attaches
 ```
 
-**Daemonization**: The monitor uses `exec.Command` to launch itself with a special `__monitor` subcommand (hidden). The first invocation double-forks via `syscall.SysProcAttr{Setsid: true}` so it detaches from the CLI's process group. Alternatively, use `os/exec` with `Setpgid: true` + redirect stdin/stdout/stderr to `/dev/null`.
+**Detachment**: The monitor uses `exec.Command` to launch itself with a special `__monitor` subcommand (hidden). A single fork/re-exec is sufficient: start the monitor in a new session/process group and redirect stdin/stdout/stderr away from the invoking terminal (for example to `/dev/null` or log files). Classic double-fork daemonization is not required.
 
 ### 2.2 Monitor gRPC Server
 
@@ -75,7 +76,7 @@ Each monitor runs a gRPC server on a per-command Unix domain socket:
 $XDG_RUNTIME_DIR/crabswarm/cmd/<command_id>/monitor.sock
 ```
 
-The socket path is recorded in the SQLite database for CLI discovery.
+The socket path is recorded in the SQLite database for CLI discovery. This is the single transport for attach, logs, signal, and status operations.
 
 ```
 <runtime_dir>/cmd/<command_id>/
@@ -136,7 +137,7 @@ message SignalResponse {}
 message StatusRequest {}
 
 message StatusResponse {
-  string state = 1;             // running, exited, errored
+  string state = 1;             // starting, running, exited, errored
   int32 exit_code = 2;
   int32 pid = 3;
 }
@@ -151,11 +152,11 @@ Following Docker/Podman behavior:
 - All clients can write stdin (multiplexed to PTY, serialized via mutex).
 - Terminal resize: last-writer-wins.
 - Detach: client closes the stream (or uses configurable detach key sequence handled client-side).
-- Signal proxy: CLI intercepts signals (e.g., SIGINT) and calls `Signal` RPC instead of killing itself.
+- Signal proxy: CLI intercepts signals (e.g., SIGINT) and calls `Signal` RPC instead of signaling processes directly.
 
 ### 2.4 Scrollback Buffer
 
-Each monitor maintains an in-memory ring buffer (default 10,000 lines). When a new client attaches:
+Each monitor maintains an in-memory byte ring buffer (default 1 MiB). When a new client attaches:
 
 1. Send buffered scrollback content first via the `Attach` stream.
 2. Switch to live streaming.
@@ -185,17 +186,17 @@ CREATE TABLE commands (
     command         TEXT NOT NULL,           -- JSON array of command + args
     working_dir     TEXT,                    -- -C flag
     env             TEXT,                    -- JSON array of KEY=VALUE pairs
-    labels          TEXT,                    -- JSON object {"key": "value"}
     startup_keys    TEXT,                    -- JSON array
     restart_policy  TEXT DEFAULT 'no',       -- no | on-failure | always
     auto_remove     INTEGER DEFAULT 0,      -- --rm flag
-    scrollback_lines INTEGER DEFAULT 10000,
+    scrollback_bytes INTEGER DEFAULT 1048576,
 
     -- Runtime state
-    state           TEXT NOT NULL,           -- created, running, exited, errored
+    state           TEXT NOT NULL,           -- created, starting, running, exited, errored
     exit_code       INTEGER,
+    restart_count   INTEGER DEFAULT 0,
     monitor_pid     INTEGER,                -- PID of monitor process
-    socket_dir      TEXT,                    -- path to attach.sock directory
+    socket_dir      TEXT,                    -- path to monitor.sock directory
 
     -- Timestamps
     created_at      TEXT NOT NULL,           -- RFC3339
@@ -220,7 +221,7 @@ CREATE INDEX idx_labels_kv ON command_labels(key, value);
 
 ### 3.3 Stale Entry Cleanup
 
-On `cmd ls` (and other read operations), the CLI checks liveness of entries in `running` state:
+On `cmd ls` (and other read operations), the CLI checks liveness of entries in `starting` or `running` state:
 
 1. Check if `monitor_pid` is alive via `kill(pid, 0)`.
 2. If dead: update state to `errored`, set `error = "monitor died unexpectedly"`, set `finished_at = now`.
@@ -255,8 +256,8 @@ Subcommands under `crabswarm cmd`:
 | `--startup-keys KEYS`   | Keys to send to PTY after command starts (repeatable)                    |
 | `--restart POLICY`      | `no` (default), `on-failure`, `always`                                   |
 | `--rm`                  | Auto-remove DB entry on command exit                                     |
-| `--scrollback N`        | Scrollback buffer lines (default 10000)                                  |
-| `-d, --detach`          | Return immediately (default). Without this flag, auto-attach after start |
+| `--scrollback-bytes N`  | Scrollback buffer size in bytes (default 1048576)                        |
+| `--attach`              | Attach after the monitor reaches `running`                               |
 
 ### 4.2 `cmd attach` Flags
 
@@ -314,7 +315,7 @@ The monitor handles restarts internally (no daemon needed):
 On restart:
 
 1. Release old PTY.
-2. Update DB: increment restart count (optional field).
+2. Update DB: increment `restart_count`.
 3. Allocate new PTY, start command again.
 4. Attached clients remain connected — they see the new output seamlessly.
 
@@ -355,7 +356,7 @@ On restart:
 - **Read goroutine**: Reads PTY master → appends to ring buffer → sends `AttachOutput` to all active Attach streams.
 - **Write goroutine**: Receives `AttachInput.stdin` from all Attach streams (each handled in its own goroutine) → serializes via channel → writes to PTY master.
 - **Resize handling**: `AttachInput.resize` messages call `pty.Setsize()` directly (last-writer-wins).
-- **Ring buffer**: Fixed-size byte ring buffer (`scrollback_lines` × average line length). Thread-safe with mutex.
+- **Ring buffer**: Fixed-size byte ring buffer (`scrollback_bytes`). Thread-safe with mutex.
 
 ### 7.3 Terminal Resize
 
@@ -373,7 +374,7 @@ pkg/
   cmdmon/                           # command monitor core
     monitor.go                      # Monitor process entry point, lifecycle
     monitor_test.go
-    daemonize.go                    # Double-fork / daemonization logic
+    daemonize.go                    # Monitor detachment logic
     daemonize_test.go
     server.go                       # gRPC server (Attach, Logs, Signal, Status)
     server_test.go
@@ -408,16 +409,16 @@ cmd/
 
 ### Phase 1: Monitor Core + Run/Ls/Stop/Rm
 
-- Monitor process: daemonize, allocate PTY, run command, wait for exit
+- Monitor process: detach, allocate PTY, run command, wait for exit
 - SQLite store: CRUD for commands table
 - Stale entry cleanup on read
-- CLI: `cmd run -d`, `cmd ls`, `cmd stop`, `cmd rm`
+- CLI: `cmd run`, `cmd ls`, `cmd stop`, `cmd rm`
+- Explicit `starting` and `running` states
 - Basic `-C`, `-E`, `-n`, `-l` flags
 
 ### Phase 2: Attach + Interactive I/O
 
-- Attach socket: raw bidirectional byte stream
-- Control socket: resize, signal, detach
+- gRPC monitor socket: Attach, Logs, Signal, Status
 - Scrollback ring buffer with drain-on-attach
 - Multiple simultaneous clients
 - CLI: `cmd attach`, `cmd logs`
@@ -440,28 +441,12 @@ cmd/
 
 - Label-based bulk operations (`cmd stop -l ...`, `cmd rm -l ...`)
 - `cmd inspect` (JSON output)
-- Update `crabswarm server start` to use `cmd run` instead of tmux
+- Remove `crabswarm server start`
 - Deprecate `pkg/mux/tmux`
 
 ---
 
-## 10. Migration from tmux Mux
-
-```bash
-# Before (tmux)
-crabswarm server start
-  → tmux new-session -d -s crabswarm 'crabswarm serve --sock ...'
-crabswarm server attach
-  → tmux attach -t crabswarm
-
-# After (command monitor)
-crabswarm cmd run -n crabswarm-server -- crabswarm serve --sock ...
-crabswarm cmd attach crabswarm-server
-```
-
----
-
-## 11. Open Questions
+## 10. Open Questions
 
 1. **Scrollback persistence**: In-memory only (lost on monitor exit), or persist to a log file per command? In-memory is simpler; log files allow `cmd logs` on exited commands.
 
