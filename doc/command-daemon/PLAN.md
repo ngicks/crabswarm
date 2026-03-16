@@ -2,17 +2,17 @@
 
 **Date**: 2026-03-08
 **Status**: Draft v2
-**Goal**: Replace `./mux/tmux` with detached, per-command monitor processes that coordinate via a shared SQLite database. Inspired by Podman's conmon architecture.
+**Goal**: Replace `./mux/tmux` with detached, per-command monitor processes that execute generated `config.json` definitions from per-command directories, while storing command config, runtime state, and exit history in SQLite. Inspired by Podman's conmon architecture.
 
 ---
 
 ## 1. Overview
 
-No central daemon. Each managed command has its own **monitor process** that detaches from the invoking CLI, allocates a PTY, runs the command, and serves a gRPC API on a per-command Unix socket. All state is shared via a **SQLite database**.
+No central daemon. Each managed command has its own **monitor process** that detaches from the invoking CLI, allocates a PTY, reads its command definition from `<command-dir>/config.json`, runs the command, and serves a gRPC API on a per-command Unix socket. SQLite stores `CommandConfig`, `CommandState`, and `CommandExitCode`; `config.json` is generated from the stored config JSON before the monitor starts.
 
 ```
                           ┌──────────────────────┐
-                          │   SQLite Database    │  ← shared state
+                          │   SQLite Database    │  ← config + state + exit history
                           └──────┬───────▲───────┘
                                  │       │
          ┌───────────────────────┤       └───────────────────────┐
@@ -20,7 +20,7 @@ No central daemon. Each managed command has its own **monitor process** that det
    ┌─────▼──────┐          ┌─────▼──────┐                 ┌────────────┐
    │ Monitor #1 │          │ Monitor #2 │                 │    CLI     │
    │ (daemon)   │          │ (daemon)   │                 │            │
-   │ ┌────────┐ │          │ ┌────────┐ │                 │ ls/rm/stop │
+   │ │config.json│         │ │config.json│                │ ls/rm/stop │
    │ │ PTY    │ │          │ │ PTY    │ │                 │ run/attach │
    │ │ cmd #1 │ │          │ │ cmd #2 │ │                 └──────┬─────┘
    │ └────────┘ │          │ └────────┘ │                        │
@@ -34,9 +34,10 @@ No central daemon. Each managed command has its own **monitor process** that det
 
 ### Components
 
-1. **Monitor** — A self-detaching process (one per command). Re-execs into a new session/process group and redirects stdio away from the invoking terminal. Owns a PTY, runs the command as its child, and serves a gRPC API on a Unix socket. Writes state to SQLite on lifecycle events.
-2. **CLI** — User-facing commands. Reads SQLite for queries (`ls`, `inspect`). Sends signals via the monitor's gRPC API for `stop`. Connects to the monitor socket for interactive I/O.
-3. **SQLite Database** — Single source of truth for command state, metadata, labels. Shared across all monitors and the CLI.
+1. **Monitor** — A self-detaching process (one per command). Re-execs into a new session/process group and redirects stdio away from the invoking terminal. Reads `<command-dir>/config.json`, owns a PTY, runs the configured command as its child, and serves a gRPC API on a Unix socket. Writes runtime state to SQLite on lifecycle events.
+2. **CLI** — User-facing commands. Stores command config JSON in SQLite, generates per-command `config.json`, updates runtime bookkeeping, sends signals via the monitor's gRPC API for `stop`, and connects to the monitor socket for interactive I/O.
+3. **Command Directory** — Per-command persistent directory containing generated `config.json` and runtime-adjacent files.
+4. **SQLite Database** — Shared store for `CommandConfig`, `CommandState`, and `CommandExitCode`. Used by monitors and the CLI for `ls`, `inspect`, name lookup, stale cleanup, and exit-code history.
 
 ---
 
@@ -47,23 +48,27 @@ No central daemon. Each managed command has its own **monitor process** that det
 ```
 cmd run -- /bin/bash
   │
-  ├─ (1) Insert command record into SQLite (state=created)
-  ├─ (2) Fork monitor process
+  ├─ (1) Insert CommandConfig row into SQLite
+  ├─ (2) Create <command-dir>/ and materialize config.json from SQLite
+  ├─ (3) Insert CommandState row into SQLite (state=created)
+  ├─ (4) Fork monitor process with <command-dir>
   │       │
   │       └─ Monitor (child):
-  │           ├─ (3) Re-exec into detached monitor process, parent exits
-  │           ├─ (4) setsid() — new session leader; stdio redirected away from terminal
-  │           ├─ (5) Update DB: state=starting, pid=<self>
-  │           ├─ (6) Create gRPC socket: <runtime_dir>/<command_id>/monitor.sock
-  │           ├─ (7) Allocate PTY, start command in PTY slave
-  │           ├─ (8) Start serving gRPC API; update DB: state=running
-  │           ├─ (9) Accept attach connections, fan-out PTY output
-  │           ├─ (10) Wait for command exit
-  │           ├─ (11) Update DB: state=exited, exit_code=N, finished_at=now
-  │           ├─ (12) If --rm: delete DB record
-  │           ├─ (13) Clean up socket, exit
+  │           ├─ (5) Re-exec into detached monitor process, parent exits
+  │           ├─ (6) setsid() — new session leader; stdio redirected away from terminal
+  │           ├─ (7) Read <command-dir>/config.json
+  │           ├─ (8) Update CommandState: state=starting
+  │           ├─ (9) Create gRPC socket: <runtime_dir>/<command_id>/monitor.sock
+  │           ├─ (10) Allocate PTY, start configured command in PTY slave
+  │           ├─ (11) Start serving gRPC API; update CommandState: state=running
+  │           ├─ (12) Accept attach connections, fan-out PTY output
+  │           ├─ (13) Wait for command exit
+  │           ├─ (14) Update CommandState: state=exited, exit_code=N
+  │           ├─ (15) Insert CommandExitCode row: (id, timestamp, exit_code)
+  │           ├─ (16) If the stored config JSON requests auto-remove: delete DB rows and command-dir
+  │           ├─ (17) Clean up socket, exit
   │
-  └─ (2b) CLI waits for monitor to write `running` state, then returns or attaches
+  └─ (4b) CLI waits for monitor to write `running` state, then returns or attaches
 ```
 
 **Detachment**: The monitor uses `exec.Command` to launch itself with a special `__monitor` subcommand (hidden). A single fork/re-exec is sufficient: start the monitor in a new session/process group and redirect stdin/stdout/stderr away from the invoking terminal (for example to `/dev/null` or log files). Classic double-fork daemonization is not required.
@@ -165,6 +170,17 @@ Transition is atomic — no output is lost or duplicated.
 
 `Logs` RPC provides non-interactive access (no stdin). With `follow=true`, it behaves like `tail -f`.
 
+### 2.5 Command Directory
+
+Each command gets a persistent directory:
+
+```
+<data_dir>/commands/<command_id>/
+  └── config.json      # generated execution artifact
+```
+
+The CLI writes `config.json` from the command's config JSON stored in SQLite before spawning the monitor. The monitor receives `command-dir` as an argument, reads `config.json`, and executes according to that file.
+
 ---
 
 ## 3. SQLite Database
@@ -177,55 +193,50 @@ $XDG_DATA_HOME/crabswarm/commands.db
 
 (fallback: `~/.local/share/crabswarm/commands.db`)
 
+SQLite stores `CommandConfig`, `CommandState`, and `CommandExitCode`. `config.json` is generated from `CommandConfig.JSON` as the execution artifact used by the monitor.
+
 ### 3.2 Schema
 
 ```sql
-CREATE TABLE commands (
-    id              TEXT PRIMARY KEY,       -- UUID
-    name            TEXT UNIQUE,            -- human-readable name (nullable)
-    command         TEXT NOT NULL,           -- JSON array of command + args
-    working_dir     TEXT,                    -- -C flag
-    env             TEXT,                    -- JSON array of KEY=VALUE pairs
-    startup_keys    TEXT,                    -- JSON array
-    restart_policy  TEXT DEFAULT 'no',       -- no | on-failure | always
-    auto_remove     INTEGER DEFAULT 0,      -- --rm flag
-    scrollback_bytes INTEGER DEFAULT 1048576,
-
-    -- Runtime state
-    state           TEXT NOT NULL,           -- created, starting, running, exited, errored
-    exit_code       INTEGER,
-    restart_count   INTEGER DEFAULT 0,
-    monitor_pid     INTEGER,                -- PID of monitor process
-    socket_dir      TEXT,                    -- path to monitor.sock directory
-
-    -- Timestamps
-    created_at      TEXT NOT NULL,           -- RFC3339
-    started_at      TEXT,
-    finished_at     TEXT,
-    error           TEXT                     -- error message if errored
+CREATE TABLE CommandConfig (
+    ID              TEXT PRIMARY KEY,       -- UUID
+    Name            TEXT UNIQUE,            -- human-readable name (nullable)
+    JSON            TEXT NOT NULL           -- canonical command config JSON
 );
 
-CREATE INDEX idx_commands_state ON commands(state);
-CREATE INDEX idx_commands_name ON commands(name);
+CREATE INDEX idx_command_config_name ON CommandConfig(Name);
 
-CREATE TABLE command_labels (
-    command_id  TEXT NOT NULL,
-    key         TEXT NOT NULL,
-    value       TEXT NOT NULL,
-    PRIMARY KEY (command_id, key),
-    FOREIGN KEY (command_id) REFERENCES commands(id) ON DELETE CASCADE
+CREATE TABLE CommandState (
+    ID              TEXT PRIMARY KEY,
+    State           TEXT NOT NULL,           -- created, starting, running, exited, errored
+    ExitCode        INTEGER CHECK (ExitCode BETWEEN -1 AND 255),
+    JSON            TEXT NOT NULL,           -- runtime state JSON
+    FOREIGN KEY (ID) REFERENCES CommandConfig(ID)
+        ON DELETE CASCADE
+        DEFERRABLE INITIALLY DEFERRED
 );
 
-CREATE INDEX idx_labels_kv ON command_labels(key, value);
+CREATE INDEX idx_command_state_state ON CommandState(State);
+
+CREATE TABLE CommandExitCode (
+    ID              TEXT NOT NULL,
+    Timestamp       TEXT NOT NULL,           -- RFC3339
+    ExitCode        INTEGER NOT NULL CHECK (ExitCode BETWEEN -1 AND 255),
+    FOREIGN KEY (ID) REFERENCES CommandConfig(ID)
+        ON DELETE CASCADE
+        DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX idx_command_exit_code_id_ts ON CommandExitCode(ID, Timestamp);
 ```
 
 ### 3.3 Stale Entry Cleanup
 
 On `cmd ls` (and other read operations), the CLI checks liveness of entries in `starting` or `running` state:
 
-1. Check if `monitor_pid` is alive via `kill(pid, 0)`.
-2. If dead: update state to `errored`, set `error = "monitor died unexpectedly"`, set `finished_at = now`.
-3. If `auto_remove = 1` on a finished entry: delete the row.
+1. Read the relevant runtime fields from `CommandState.JSON` and check if the recorded monitor PID is alive via `kill(pid, 0)`.
+2. If dead: update `CommandState` to `errored`, set `error = "monitor died unexpectedly"` in `CommandState.JSON`.
+3. If the command config JSON requests auto-remove on a finished entry: delete the rows and remove the command-dir.
 
 This ensures the DB self-heals after reboots or crashes without a daemon.
 
@@ -241,9 +252,9 @@ Subcommands under `crabswarm cmd`:
 | `cmd attach [flags] ID\|NAME`          | Attach to a running command's PTY                        |
 | `cmd ls [flags]`                       | List commands (with stale cleanup)                       |
 | `cmd stop [flags] ID\|NAME`            | Send signal via monitor's `Signal` RPC (default SIGTERM) |
-| `cmd rm [flags] ID\|NAME`              | Remove a stopped command from DB                         |
+| `cmd rm [flags] ID\|NAME`              | Remove a stopped command from DB and command-dir         |
 | `cmd logs [flags] ID\|NAME`            | Dump scrollback buffer                                   |
-| `cmd inspect ID\|NAME`                 | Show detailed command info (JSON)                        |
+| `cmd inspect ID\|NAME`                 | Show merged command definition, runtime state, and exit history (JSON) |
 
 ### 4.1 `cmd run` Flags
 
@@ -255,7 +266,7 @@ Subcommands under `crabswarm cmd`:
 | `-l, --label KEY=VALUE` | Metadata label (repeatable)                                              |
 | `--startup-keys KEYS`   | Keys to send to PTY after command starts (repeatable)                    |
 | `--restart POLICY`      | `no` (default), `on-failure`, `always`                                   |
-| `--rm`                  | Auto-remove DB entry on command exit                                     |
+| `--rm`                  | Write auto-remove annotation into the stored config JSON                 |
 | `--scrollback-bytes N`  | Scrollback buffer size in bytes (default 1048576)                        |
 | `--attach`              | Attach after the monitor reaches `running`                               |
 
@@ -271,7 +282,7 @@ Subcommands under `crabswarm cmd`:
 
 | Flag                    | Description                                             |
 | ----------------------- | ------------------------------------------------------- |
-| `-l, --label KEY=VALUE` | Filter by label (repeatable, AND logic)                 |
+| `-l, --label KEY=VALUE` | Filter by label (repeatable, AND logic; queried from config JSON) |
 | `-a, --all`             | Show all (including exited). Default shows running only |
 | `-q, --quiet`           | Print IDs only                                          |
 | `--format FORMAT`       | Output format: `table` (default), `json`                |
@@ -280,9 +291,13 @@ Subcommands under `crabswarm cmd`:
 
 | Flag                    | Description                                                   |
 | ----------------------- | ------------------------------------------------------------- |
-| `-l, --label KEY=VALUE` | Target commands matching labels                               |
+| `-l, --label KEY=VALUE` | Target commands matching labels (queried from config JSON)    |
 | `-s, --signal SIG`      | Signal to send (stop only, default SIGTERM)                   |
 | `-f, --force`           | Force remove running commands (rm only — sends SIGKILL first) |
+
+### 4.5 `cmd inspect`
+
+`cmd inspect ID|NAME` reads `CommandConfig.JSON` as the canonical command definition, merges it with `CommandState`, includes recent `CommandExitCode` history, and may augment the result with live `Status` RPC data when the monitor is reachable. It may also include the generated `config.json` path for debugging.
 
 ---
 
@@ -300,6 +315,10 @@ Escaping: `##{...}` produces literal `#{...}`.
 
 Startup keys are sent to the PTY stdin after the command process starts and the monitor has confirmed it is running. Interpolation is applied at send time.
 
+`CommandConfig.JSON` is the canonical command definition. At minimum it contains the command argv, working directory, environment, startup keys, restart policy, scrollback limit, labels, annotations, and command-dir metadata needed to generate `config.json`. `--rm` is represented as an annotation inside that JSON rather than a dedicated SQL column.
+
+`CommandState.JSON` stores mutable runtime-only fields beyond `State` and `ExitCode`, such as monitor PID, socket path, timestamps, restart count, and error details.
+
 ---
 
 ## 6. Restart Policies
@@ -315,7 +334,7 @@ The monitor handles restarts internally (no daemon needed):
 On restart:
 
 1. Release old PTY.
-2. Update DB: increment `restart_count`.
+2. Re-read `config.json` (materialized from `CommandConfig.JSON`) and update `CommandState.JSON` to increment `restart_count`.
 3. Allocate new PTY, start command again.
 4. Attached clients remain connected — they see the new output seamlessly.
 
@@ -356,7 +375,7 @@ On restart:
 - **Read goroutine**: Reads PTY master → appends to ring buffer → sends `AttachOutput` to all active Attach streams.
 - **Write goroutine**: Receives `AttachInput.stdin` from all Attach streams (each handled in its own goroutine) → serializes via channel → writes to PTY master.
 - **Resize handling**: `AttachInput.resize` messages call `pty.Setsize()` directly (last-writer-wins).
-- **Ring buffer**: Fixed-size byte ring buffer (`scrollback_bytes`). Thread-safe with mutex.
+- **Ring buffer**: Fixed-size byte ring buffer; the configured limit is stored in `CommandConfig.JSON`. Thread-safe with mutex.
 
 ### 7.3 Terminal Resize
 
@@ -380,8 +399,10 @@ pkg/
     server_test.go
     fanout.go                       # Fan-out + mux for PTY I/O across streams
     fanout_test.go
-    store.go                        # SQLite persistence layer
+    store.go                        # SQLite CommandConfig/CommandState/CommandExitCode layer
     store_test.go
+    config.go                       # config JSON storage and config.json materialization
+    config_test.go
     interpolate.go                  # Placeholder interpolation (ported)
     interpolate_test.go
     scrollback.go                   # Ring buffer for output capture
@@ -393,13 +414,13 @@ pkg/
 cmd/
   crabswarm/commands/
     cmd.go                          # `crabswarm cmd` parent command
-    cmd_run.go                      # `cmd run` — creates DB entry, spawns monitor
+    cmd_run.go                      # `cmd run` — stores CommandConfig, materializes config.json, creates CommandState, spawns monitor
     cmd_attach.go                   # `cmd attach` — connects via gRPC Attach stream
-    cmd_ls.go                       # `cmd ls` — reads DB, cleans stale entries
+    cmd_ls.go                       # `cmd ls` — reads DB, queries labels from CommandConfig.JSON, cleans stale entries
     cmd_stop.go                     # `cmd stop` — calls monitor's Signal RPC
-    cmd_rm.go                       # `cmd rm` — deletes DB entry + socket dir
+    cmd_rm.go                       # `cmd rm` — deletes CommandConfig/CommandState/CommandExitCode rows + command-dir
     cmd_logs.go                     # `cmd logs` — calls monitor's Logs RPC
-    cmd_inspect.go                  # `cmd inspect` — reads DB + calls Status RPC
+    cmd_inspect.go                  # `cmd inspect` — reads CommandConfig, CommandState, CommandExitCode, and optional live Status RPC
     cmd_monitor.go                  # Hidden `__monitor` subcommand (monitor entry point)
 ```
 
@@ -410,11 +431,12 @@ cmd/
 ### Phase 1: Monitor Core + Run/Ls/Stop/Rm
 
 - Monitor process: detach, allocate PTY, run command, wait for exit
-- SQLite store: CRUD for commands table
+- SQLite store: CommandConfig + CommandState + CommandExitCode
+- config.json materialization under per-command command-dir
 - Stale entry cleanup on read
 - CLI: `cmd run`, `cmd ls`, `cmd stop`, `cmd rm`
 - Explicit `starting` and `running` states
-- Basic `-C`, `-E`, `-n`, `-l` flags
+- Basic `-C`, `-E`, `-n`, `-l` flags backed by config JSON
 
 ### Phase 2: Attach + Interactive I/O
 
@@ -435,12 +457,12 @@ cmd/
 - `--restart no|on-failure|always`
 - Monitor re-exec loop with new PTY allocation
 - Attached clients survive restart seamlessly
-- `--rm` auto-remove on exit
+- `--rm` annotation-driven auto-remove on exit
 
 ### Phase 5: Integration + Migration
 
 - Label-based bulk operations (`cmd stop -l ...`, `cmd rm -l ...`)
-- `cmd inspect` (JSON output)
+- `cmd inspect` (JSON output from CommandConfig + CommandState + CommandExitCode)
 - Remove `crabswarm server start`
 - Deprecate `pkg/mux/tmux`
 
