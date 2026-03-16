@@ -1,6 +1,8 @@
 # Command Monitor TODO
 
-Derived from [PLAN.md](/home/watage/gitrepo/github.com/ngicks/crabswarm/doc/command-daemon/PLAN.md).
+Derived from [PLAN.md](./PLAN.md).
+
+**Implementation Package**: `pkg/cmdman`
 
 > **Note**: Phases here are reordered from PLAN.md for a bottom-up implementation
 > sequence (storage → monitor → gRPC → CLI queries → restart → migration).
@@ -69,7 +71,7 @@ Derived from [PLAN.md](/home/watage/gitrepo/github.com/ngicks/crabswarm/doc/comm
 
 ## Phase 3: Attach, Logs, and Status
 
-- [ ] Define and generate `cmdmon.proto` with Attach, Logs, Signal, and Status RPCs.
+- [ ] Define and generate `cmdman.proto` with Attach, Logs, Signal, and Status RPCs.
 - [ ] Implement monitor gRPC server.
 - [ ] Implement attach fan-out for multiple clients.
 - [ ] Implement attach stdin multiplexing.

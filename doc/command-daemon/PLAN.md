@@ -3,6 +3,7 @@
 **Date**: 2026-03-08
 **Status**: Draft v2
 **Goal**: Replace `./mux/tmux` with detached, per-command monitor processes that execute generated `config.json` definitions from per-command directories, while storing command config, runtime state, and exit history in SQLite. Inspired by Podman's conmon architecture.
+**Implementation Package**: `pkg/cmdman`
 
 ---
 
@@ -93,7 +94,7 @@ The socket path is recorded in the SQLite database for CLI discovery. This is th
 
 ```protobuf
 syntax = "proto3";
-package crabswarm.cmdmon.v1;
+package crabswarm.cmdman.v1;
 
 service CommandMonitor {
   // Bidirectional streaming — PTY I/O + control
@@ -390,7 +391,7 @@ On restart:
 
 ```
 pkg/
-  cmdmon/                           # command monitor core
+  cmdman/                           # command monitor core
     monitor.go                      # Monitor process entry point, lifecycle
     monitor_test.go
     daemonize.go                    # Monitor detachment logic
@@ -407,10 +408,10 @@ pkg/
     interpolate_test.go
     scrollback.go                   # Ring buffer for output capture
     scrollback_test.go
-  cmdmon/api/v1/                    # Generated protobuf/gRPC code
-    cmdmon.proto
-    cmdmon.pb.go
-    cmdmon_grpc.pb.go
+  cmdman/api/v1/                    # Generated protobuf/gRPC code
+    cmdman.proto
+    cmdman.pb.go
+    cmdman_grpc.pb.go
 cmd/
   crabswarm/commands/
     cmd.go                          # `crabswarm cmd` parent command
