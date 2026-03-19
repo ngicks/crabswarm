@@ -7,10 +7,11 @@ import (
 
 func TestLs_Empty(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// Listing with no commands should return empty or null.
-	entries := env.lsJSON()
+	entries := env.lsJSON(ctx)
 	if len(entries) != 0 {
 		t.Errorf("expected empty list, got %d entries", len(entries))
 	}
@@ -18,20 +19,21 @@ func TestLs_Empty(t *testing.T) {
 
 func TestLs_ShowsRunningByDefault(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// Start a long-running command.
-	id := env.run("run", "-n", "runner", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState("runner", "running", defaultTimeout)
+	id := env.run(ctx, "run", "-n", "runner", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, "runner", "running", defaultTimeout)
 
 	// Also start one that exits immediately.
-	exitedID := env.run("run", "-n", "quitter", "--", "/bin/sh", "-c", "echo done")
-	env.waitForState("quitter", "exited", defaultTimeout)
-	t.Cleanup(func() { env.cleanupCommand(exitedID) })
+	exitedID := env.run(ctx, "run", "-n", "quitter", "--", "/bin/sh", "-c", "echo done")
+	env.waitForState(ctx, "quitter", "exited", defaultTimeout)
+	t.Cleanup(func() { env.cleanupCommand(ctx, exitedID) })
 
 	// Default ls (no -a) should only show the running command.
-	stdout := env.run("ls", "--format", "json")
+	stdout := env.run(ctx, "ls", "--format", "json")
 	if stdout == "null" || stdout == "" {
 		t.Fatal("expected at least one entry in ls")
 	}
@@ -44,15 +46,16 @@ func TestLs_ShowsRunningByDefault(t *testing.T) {
 
 func TestLs_AllFlag(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "-n", "short-lived", "--", "/bin/sh", "-c", "echo done")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState("short-lived", "exited", defaultTimeout)
+	id := env.run(ctx, "run", "-n", "short-lived", "--", "/bin/sh", "-c", "echo done")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, "short-lived", "exited", defaultTimeout)
 
 	// Without -a, exited commands may not appear.
 	// With -a, it should appear.
-	entries := env.lsJSON()
+	entries := env.lsJSON(ctx)
 	found := false
 	for _, e := range entries {
 		if e["Name"] == "short-lived" {
@@ -66,14 +69,15 @@ func TestLs_AllFlag(t *testing.T) {
 
 func TestLs_QuietMode(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "running", defaultTimeout)
+	id := env.run(ctx, "run", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "running", defaultTimeout)
 
 	// Quiet mode should print only IDs.
-	stdout := env.run("ls", "-q")
+	stdout := env.run(ctx, "ls", "-q")
 	if !strings.Contains(stdout, id) {
 		t.Errorf("expected ID %s in quiet output, got %q", id, stdout)
 	}
@@ -85,14 +89,15 @@ func TestLs_QuietMode(t *testing.T) {
 
 func TestLs_TableFormat(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "-n", "table-test", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState("table-test", "running", defaultTimeout)
+	id := env.run(ctx, "run", "-n", "table-test", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, "table-test", "running", defaultTimeout)
 
 	// Default table format should contain headers.
-	stdout := env.run("ls")
+	stdout := env.run(ctx, "ls")
 	if !strings.Contains(stdout, "ID") {
 		t.Error("table output missing ID header")
 	}
@@ -109,21 +114,22 @@ func TestLs_TableFormat(t *testing.T) {
 
 func TestLs_FilterByLabel(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// Start commands with different labels.
-	id1 := env.run("run", "-l", "tier=frontend", "--", "/bin/sh", "-c", "sleep 300")
-	id2 := env.run("run", "-l", "tier=backend", "--", "/bin/sh", "-c", "sleep 300")
+	id1 := env.run(ctx, "run", "-l", "tier=frontend", "--", "/bin/sh", "-c", "sleep 300")
+	id2 := env.run(ctx, "run", "-l", "tier=backend", "--", "/bin/sh", "-c", "sleep 300")
 	t.Cleanup(func() {
-		env.cleanupCommand(id1)
-		env.cleanupCommand(id2)
+		env.cleanupCommand(ctx, id1)
+		env.cleanupCommand(ctx, id2)
 	})
 
-	env.waitForState(id1, "running", defaultTimeout)
-	env.waitForState(id2, "running", defaultTimeout)
+	env.waitForState(ctx, id1, "running", defaultTimeout)
+	env.waitForState(ctx, id2, "running", defaultTimeout)
 
 	// Filter by label.
-	stdout := env.run("ls", "-q", "-l", "tier=frontend")
+	stdout := env.run(ctx, "ls", "-q", "-l", "tier=frontend")
 	if !strings.Contains(stdout, id1) {
 		t.Errorf("expected %s in label-filtered output", id1)
 	}

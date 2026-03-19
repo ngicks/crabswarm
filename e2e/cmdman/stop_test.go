@@ -6,21 +6,22 @@ import (
 
 func TestStop_RunningCommand(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// Start a long-running command.
-	id := env.run("run", "-n", "sleeper", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
+	id := env.run(ctx, "run", "-n", "sleeper", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
 
-	env.waitForState("sleeper", "running", defaultTimeout)
+	env.waitForState(ctx, "sleeper", "running", defaultTimeout)
 
 	// Stop it.
-	env.run("stop", "sleeper")
+	env.run(ctx, "stop", "sleeper")
 
 	// Wait for it to reach exited state.
-	env.waitForState("sleeper", "exited", defaultTimeout)
+	env.waitForState(ctx, "sleeper", "exited", defaultTimeout)
 
-	info := env.inspectJSON("sleeper")
+	info := env.inspectJSON(ctx, "sleeper")
 	if info["state"] != "exited" {
 		t.Errorf("expected state=exited after stop, got %v", info["state"])
 	}
@@ -28,45 +29,48 @@ func TestStop_RunningCommand(t *testing.T) {
 
 func TestStop_ByID(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
+	id := env.run(ctx, "run", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
 
-	env.waitForState(id, "running", defaultTimeout)
+	env.waitForState(ctx, id, "running", defaultTimeout)
 
 	// Stop by ID.
-	env.run("stop", id)
+	env.run(ctx, "stop", id)
 
-	env.waitForState(id, "exited", defaultTimeout)
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 }
 
 func TestStop_WithSignal(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "-n", "sig-test", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
+	id := env.run(ctx, "run", "-n", "sig-test", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
 
-	env.waitForState("sig-test", "running", defaultTimeout)
+	env.waitForState(ctx, "sig-test", "running", defaultTimeout)
 
 	// Send SIGKILL explicitly.
-	env.run("stop", "-s", "SIGKILL", "sig-test")
+	env.run(ctx, "stop", "-s", "SIGKILL", "sig-test")
 
-	env.waitForState("sig-test", "exited", defaultTimeout)
+	env.waitForState(ctx, "sig-test", "exited", defaultTimeout)
 }
 
 func TestStop_AlreadyExited(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "--", "/bin/sh", "-c", "echo done")
-	env.waitForState(id, "exited", defaultTimeout)
+	id := env.run(ctx, "run", "--", "/bin/sh", "-c", "echo done")
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
 	// Stopping an already-exited command prints an error per-command
 	// but the stop command itself may return 0.
 	// The important thing is the command remains in exited state.
-	stdout, stderr, _ := env.exec("stop", id)
+	stdout, stderr, _ := env.exec(ctx, "stop", id)
 	combined := stdout + " " + stderr
 	// Should indicate an error (connection refused, no socket, etc.)
 	if combined == " " {
@@ -74,7 +78,7 @@ func TestStop_AlreadyExited(t *testing.T) {
 	}
 
 	// State should still be exited.
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 	if info["state"] != "exited" {
 		t.Errorf("expected state=exited, got %v", info["state"])
 	}
@@ -82,22 +86,23 @@ func TestStop_AlreadyExited(t *testing.T) {
 
 func TestStop_WithLabels(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// Start two commands with the same label.
-	id1 := env.run("run", "-l", "group=workers", "--", "/bin/sh", "-c", "sleep 300")
-	id2 := env.run("run", "-l", "group=workers", "--", "/bin/sh", "-c", "sleep 300")
+	id1 := env.run(ctx, "run", "-l", "group=workers", "--", "/bin/sh", "-c", "sleep 300")
+	id2 := env.run(ctx, "run", "-l", "group=workers", "--", "/bin/sh", "-c", "sleep 300")
 	t.Cleanup(func() {
-		env.cleanupCommand(id1)
-		env.cleanupCommand(id2)
+		env.cleanupCommand(ctx, id1)
+		env.cleanupCommand(ctx, id2)
 	})
 
-	env.waitForState(id1, "running", defaultTimeout)
-	env.waitForState(id2, "running", defaultTimeout)
+	env.waitForState(ctx, id1, "running", defaultTimeout)
+	env.waitForState(ctx, id2, "running", defaultTimeout)
 
 	// Stop all commands with the label.
-	env.run("stop", "-l", "group=workers")
+	env.run(ctx, "stop", "-l", "group=workers")
 
-	env.waitForState(id1, "exited", defaultTimeout)
-	env.waitForState(id2, "exited", defaultTimeout)
+	env.waitForState(ctx, id1, "exited", defaultTimeout)
+	env.waitForState(ctx, id2, "exited", defaultTimeout)
 }

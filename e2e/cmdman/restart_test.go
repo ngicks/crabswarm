@@ -8,14 +8,15 @@ import (
 
 func TestRestart_NoPolicy(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// With --restart=no (default), the command should exit and stay exited.
-	id := env.run("run", "--restart", "no", "--", "/bin/sh", "-c", "exit 1")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "exited", defaultTimeout)
+	id := env.run(ctx, "run", "--restart", "no", "--", "/bin/sh", "-c", "exit 1")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 
 	// Should have exactly one exit history entry.
 	history, _ := info["exit_history"].([]any)
@@ -31,6 +32,7 @@ func TestRestart_NoPolicy(t *testing.T) {
 
 func TestRestart_OnFailure(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// Create a script that fails twice then succeeds.
@@ -48,13 +50,13 @@ fi
 exit 0
 `)
 
-	id := env.run("run", "--restart", "on-failure", "--", "/bin/sh", script)
-	t.Cleanup(func() { env.cleanupCommand(id) })
+	id := env.run(ctx, "run", "--restart", "on-failure", "--", "/bin/sh", script)
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
 
 	// Should eventually exit successfully after 3 runs (2 failures + 1 success).
-	env.waitForState(id, "exited", defaultTimeout)
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 	exitCode, _ := info["exit_code"].(float64)
 	if exitCode != 0 {
 		t.Errorf("expected final exit_code=0 with on-failure restart, got %v", exitCode)
@@ -76,14 +78,15 @@ exit 0
 
 func TestRestart_OnFailure_SuccessDoesNotRestart(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// A command that exits with 0 should not be restarted.
-	id := env.run("run", "--restart", "on-failure", "--", "/bin/sh", "-c", "exit 0")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "exited", defaultTimeout)
+	id := env.run(ctx, "run", "--restart", "on-failure", "--", "/bin/sh", "-c", "exit 0")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 	history, _ := info["exit_history"].([]any)
 	if len(history) != 1 {
 		t.Errorf("expected 1 exit_history entry (no restart on success), got %d", len(history))
@@ -92,18 +95,19 @@ func TestRestart_OnFailure_SuccessDoesNotRestart(t *testing.T) {
 
 func TestRestart_Always(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// A command with --restart=always keeps restarting even on success.
 	// Use a command that sleeps briefly so it doesn't restart too fast.
-	id := env.run("run", "-n", "always-restart", "--restart", "always",
+	id := env.run(ctx, "run", "-n", "always-restart", "--restart", "always",
 		"--", "/bin/sh", "-c", "sleep 0.5; exit 0")
-	t.Cleanup(func() { env.cleanupCommand(id) })
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
 
 	// Wait for a few restart cycles.
 	time.Sleep(3 * time.Second)
 
-	info := env.inspectJSON("always-restart")
+	info := env.inspectJSON(ctx, "always-restart")
 
 	// Should have multiple exit history entries.
 	history, _ := info["exit_history"].([]any)
@@ -112,25 +116,26 @@ func TestRestart_Always(t *testing.T) {
 	}
 
 	// Stop the always-restarting command.
-	env.run("stop", "always-restart")
-	env.waitForState("always-restart", "exited", defaultTimeout)
+	env.run(ctx, "stop", "always-restart")
+	env.waitForState(ctx, "always-restart", "exited", defaultTimeout)
 }
 
 func TestRestart_AlwaysStoppedBySignal(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
 	// Start a command that always restarts and sleeps.
-	id := env.run("run", "-n", "always-sleep", "--restart", "always",
+	id := env.run(ctx, "run", "-n", "always-sleep", "--restart", "always",
 		"--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState("always-sleep", "running", defaultTimeout)
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, "always-sleep", "running", defaultTimeout)
 
 	// Stopping it should terminate it despite always-restart policy.
-	env.run("stop", "always-sleep")
-	env.waitForState("always-sleep", "exited", defaultTimeout)
+	env.run(ctx, "stop", "always-sleep")
+	env.waitForState(ctx, "always-sleep", "exited", defaultTimeout)
 
-	info := env.inspectJSON("always-sleep")
+	info := env.inspectJSON(ctx, "always-sleep")
 	if info["state"] != "exited" {
 		t.Errorf("expected state=exited after stop, got %v", info["state"])
 	}

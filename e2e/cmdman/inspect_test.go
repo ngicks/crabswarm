@@ -6,13 +6,14 @@ import (
 
 func TestInspect_BasicFields(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "-n", "inspect-me", "--", "/bin/sh", "-c", "echo inspect-test")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState("inspect-me", "exited", defaultTimeout)
+	id := env.run(ctx, "run", "-n", "inspect-me", "--", "/bin/sh", "-c", "echo inspect-test")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, "inspect-me", "exited", defaultTimeout)
 
-	info := env.inspectJSON("inspect-me")
+	info := env.inspectJSON(ctx, "inspect-me")
 
 	// Check required top-level fields.
 	if info["id"] == nil || info["id"] == "" {
@@ -37,13 +38,14 @@ func TestInspect_BasicFields(t *testing.T) {
 
 func TestInspect_ConfigContainsArgv(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "--", "/bin/sh", "-c", "echo argv-check")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "exited", defaultTimeout)
+	id := env.run(ctx, "run", "--", "/bin/sh", "-c", "echo argv-check")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 	cfg, _ := info["config"].(map[string]any)
 	argv, _ := cfg["argv"].([]any)
 
@@ -63,13 +65,14 @@ func TestInspect_ConfigContainsArgv(t *testing.T) {
 
 func TestInspect_StateDetailHasTimestamps(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "--", "/bin/sh", "-c", "echo ts-check")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "exited", defaultTimeout)
+	id := env.run(ctx, "run", "--", "/bin/sh", "-c", "echo ts-check")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 	stateDetail, _ := info["state_detail"].(map[string]any)
 
 	startedAt, _ := stateDetail["started_at"].(string)
@@ -85,13 +88,14 @@ func TestInspect_StateDetailHasTimestamps(t *testing.T) {
 
 func TestInspect_ExitHistory(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "--", "/bin/sh", "-c", "exit 7")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "exited", defaultTimeout)
+	id := env.run(ctx, "run", "--", "/bin/sh", "-c", "exit 7")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 	history, _ := info["exit_history"].([]any)
 
 	if len(history) == 0 {
@@ -111,16 +115,17 @@ func TestInspect_ExitHistory(t *testing.T) {
 
 func TestInspect_ByNameAndByID(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "-n", "lookup-test", "--", "/bin/sh", "-c", "echo lookup")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "exited", defaultTimeout)
+	id := env.run(ctx, "run", "-n", "lookup-test", "--", "/bin/sh", "-c", "echo lookup")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
 	// Inspect by name.
-	byName := env.inspectJSON("lookup-test")
+	byName := env.inspectJSON(ctx, "lookup-test")
 	// Inspect by ID.
-	byID := env.inspectJSON(id)
+	byID := env.inspectJSON(ctx, id)
 
 	// Both should return the same id.
 	if byName["id"] != byID["id"] {
@@ -130,13 +135,14 @@ func TestInspect_ByNameAndByID(t *testing.T) {
 
 func TestInspect_LiveStatusForRunningCommand(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run", "-n", "live-status", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState("live-status", "running", defaultTimeout)
+	id := env.run(ctx, "run", "-n", "live-status", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, "live-status", "running", defaultTimeout)
 
-	info := env.inspectJSON("live-status")
+	info := env.inspectJSON(ctx, "live-status")
 
 	// A running command should have live_status populated.
 	liveStatus, _ := info["live_status"].(map[string]any)
@@ -154,17 +160,18 @@ func TestInspect_LiveStatusForRunningCommand(t *testing.T) {
 
 func TestInspect_LabelsInConfig(t *testing.T) {
 	t.Parallel()
+	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	id := env.run("run",
+	id := env.run(ctx, "run",
 		"-l", "app=web",
 		"-l", "env=staging",
 		"--", "/bin/sh", "-c", "echo labeled",
 	)
-	t.Cleanup(func() { env.cleanupCommand(id) })
-	env.waitForState(id, "exited", defaultTimeout)
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+	env.waitForState(ctx, id, "exited", defaultTimeout)
 
-	info := env.inspectJSON(id)
+	info := env.inspectJSON(ctx, id)
 	cfg, _ := info["config"].(map[string]any)
 	labels, _ := cfg["labels"].(map[string]any)
 

@@ -86,9 +86,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	return env
 }
 
-func (e *testEnv) exec(args ...string) (string, string, error) {
+func (e *testEnv) exec(ctx context.Context, args ...string) (string, string, error) {
 	e.t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, cmdmanBin, args...)
 	cmd.Env = append(
@@ -106,18 +106,18 @@ func (e *testEnv) exec(args ...string) (string, string, error) {
 	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
 }
 
-func (e *testEnv) run(args ...string) string {
+func (e *testEnv) run(ctx context.Context, args ...string) string {
 	e.t.Helper()
-	stdout, _, err := e.exec(args...)
+	stdout, _, err := e.exec(ctx, args...)
 	if err != nil {
 		e.t.Fatalf("cmdman %s failed: %v", strings.Join(args, " "), err)
 	}
 	return stdout
 }
 
-func (e *testEnv) runExpectFail(args ...string) (string, string) {
+func (e *testEnv) runExpectFail(ctx context.Context, args ...string) (string, string) {
 	e.t.Helper()
-	stdout, stderr, err := e.exec(args...)
+	stdout, stderr, err := e.exec(ctx, args...)
 	if err == nil {
 		e.t.Fatalf("cmdman %s succeeded unexpectedly; stdout=%q", strings.Join(args, " "), stdout)
 	}
@@ -126,11 +126,11 @@ func (e *testEnv) runExpectFail(args ...string) (string, string) {
 
 // waitForState polls "cmdman inspect" until the command reaches the desired state
 // or the timeout is reached.
-func (e *testEnv) waitForState(idOrName, state string, timeout time.Duration) {
+func (e *testEnv) waitForState(ctx context.Context, idOrName, state string, timeout time.Duration) {
 	e.t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		stdout, _, _ := e.exec("inspect", idOrName)
+		stdout, _, _ := e.exec(ctx, "inspect", idOrName)
 		if stdout == "" {
 			time.Sleep(50 * time.Millisecond)
 			continue
@@ -146,14 +146,14 @@ func (e *testEnv) waitForState(idOrName, state string, timeout time.Duration) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	// One last attempt for the error message.
-	stdout, _, _ := e.exec("inspect", idOrName)
+	stdout, _, _ := e.exec(ctx, "inspect", idOrName)
 	e.t.Fatalf("timed out waiting for state %q; last inspect output:\n%s", state, stdout)
 }
 
 // inspectJSON runs "cmdman inspect" and returns the parsed JSON.
-func (e *testEnv) inspectJSON(idOrName string) map[string]any {
+func (e *testEnv) inspectJSON(ctx context.Context, idOrName string) map[string]any {
 	e.t.Helper()
-	stdout := e.run("inspect", idOrName)
+	stdout := e.run(ctx, "inspect", idOrName)
 	var result map[string]any
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
 		e.t.Fatalf("parse inspect output: %v\nraw output:\n%s", err, stdout)
@@ -162,10 +162,10 @@ func (e *testEnv) inspectJSON(idOrName string) map[string]any {
 }
 
 // lsJSON runs "cmdman ls --format json" and returns the parsed JSON array.
-func (e *testEnv) lsJSON(extraArgs ...string) []map[string]any {
+func (e *testEnv) lsJSON(ctx context.Context, extraArgs ...string) []map[string]any {
 	e.t.Helper()
 	args := append([]string{"ls", "--format", "json", "-a"}, extraArgs...)
-	stdout := e.run(args...)
+	stdout := e.run(ctx, args...)
 	if stdout == "null" || stdout == "" {
 		return nil
 	}
@@ -177,12 +177,12 @@ func (e *testEnv) lsJSON(extraArgs ...string) []map[string]any {
 }
 
 // cleanupCommand stops and removes a command, ignoring errors.
-func (e *testEnv) cleanupCommand(idOrName string) {
+func (e *testEnv) cleanupCommand(ctx context.Context, idOrName string) {
 	e.t.Helper()
-	e.exec("stop", idOrName)
+	e.exec(ctx, "stop", idOrName)
 	// Wait a moment for the monitor to exit.
 	time.Sleep(200 * time.Millisecond)
-	e.exec("rm", "-f", idOrName)
+	e.exec(ctx, "rm", "-f", idOrName)
 }
 
 // waitUntil polls fn until it returns true or the timeout is reached.
