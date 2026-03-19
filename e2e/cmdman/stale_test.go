@@ -1,0 +1,99 @@
+package cmdman_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/ngicks/crabswarm/pkg/cmdman"
+)
+
+// TestStale_DetectedOnLs verifies that stale entries (where the monitor
+// has died) are detected and marked as errored when running ls.
+func TestStale_DetectedOnLs(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+
+	// Start a command.
+	id := env.run("run", "-n", "stale-target", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(id) })
+	env.waitForState("stale-target", "running", defaultTimeout)
+
+	// Get the monitor PID from inspect.
+	info := env.inspectJSON("stale-target")
+	stateDetail, _ := info["state_detail"].(map[string]any)
+	monitorPID, _ := stateDetail["monitor_pid"].(float64)
+	if monitorPID <= 0 {
+		t.Fatal("could not get monitor PID")
+	}
+
+	// Kill the monitor process directly (simulating a crash).
+	proc, err := os.FindProcess(int(monitorPID))
+	if err != nil {
+		t.Fatalf("find monitor process: %v", err)
+	}
+	proc.Kill()
+
+	// Wait for the process to actually die.
+	time.Sleep(500 * time.Millisecond)
+
+	// Running ls should detect the stale entry and mark it errored.
+	env.run("ls", "-a")
+
+	info = env.inspectJSON("stale-target")
+	if info["state"] != "errored" {
+		t.Errorf("expected state=errored after monitor crash, got %v", info["state"])
+	}
+
+	stateDetail, _ = info["state_detail"].(map[string]any)
+	errorMsg, _ := stateDetail["error"].(string)
+	if errorMsg == "" {
+		t.Error("expected error message in state_detail after stale detection")
+	}
+}
+
+// TestStale_AutoRemoveOnStale verifies that a stale command with --rm
+// is automatically removed when detected.
+func TestStale_AutoRemoveOnStale(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+
+	// We need to manually create a stale entry in the DB to test auto-remove on stale.
+	// Use the store directly.
+	dbPath := filepath.Join(env.dataHome, "crabswarm", "commands.db")
+	os.MkdirAll(filepath.Dir(dbPath), 0o755)
+
+	store, err := cmdman.OpenStore(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer store.Close()
+
+	// Create a fake command that looks running but has a dead PID.
+	id := "stale-auto-rm-test-id"
+	cfg := &cmdman.CommandConfigJSON{
+		Argv:            []string{"/bin/sh", "-c", "echo fake"},
+		RestartPolicy:   "no",
+		ScrollbackBytes: 1024,
+		Annotations:     map[string]string{cmdman.AnnotationAutoRemove: "true"},
+		CommandDir:      filepath.Join(env.dataHome, "crabswarm", "commands", id),
+	}
+	store.InsertCommandConfig(id, "stale-auto-rm", cfg)
+	store.InsertCommandState(id, cmdman.StateRunning, &cmdman.CommandStateJSON{
+		MonitorPID: 99999999, // A PID that is almost certainly not alive.
+	})
+	store.Close()
+
+	// Running ls triggers stale detection. Since the command has --rm annotation,
+	// it should be auto-removed.
+	env.run("ls", "-a")
+
+	// The command should be gone.
+	entries := env.lsJSON()
+	for _, e := range entries {
+		if e["ID"] == id {
+			t.Error("stale auto-rm command still present after ls")
+		}
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -39,6 +40,9 @@ type Monitor struct {
 
 	grpcServer *grpc.Server
 	sockPath   string
+
+	// stopRequested is set by the Signal RPC to prevent restarts.
+	stopRequested atomic.Bool
 }
 
 // RunMonitor is the main entry point for the monitor process.
@@ -158,7 +162,11 @@ func (m *Monitor) runLoop(ctx context.Context) error {
 			return m.maybeAutoRemove()
 		}
 
-		// Check if context was cancelled (explicit stop).
+		// Check if stop was requested or context was cancelled.
+		if m.stopRequested.Load() {
+			m.setExited(ec)
+			return m.maybeAutoRemove()
+		}
 		select {
 		case <-ctx.Done():
 			m.setExited(ec)
@@ -297,7 +305,11 @@ func (m *Monitor) Resize(rows, cols uint16) error {
 }
 
 // SignalProcess sends a signal to the running command.
+// Sending SIGTERM or SIGKILL also sets the stop flag to prevent restarts.
 func (m *Monitor) SignalProcess(sig syscall.Signal) error {
+	if sig == syscall.SIGTERM || sig == syscall.SIGKILL {
+		m.stopRequested.Store(true)
+	}
 	if m.cmd == nil || m.cmd.Process == nil {
 		return fmt.Errorf("no running process")
 	}

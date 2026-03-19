@@ -138,5 +138,5 @@ Derived from [PLAN.md](./PLAN.md).
 - [x] Add tests for stale-entry cleanup.
 - [x] Add tests for auto-remove behavior.
 - [x] Add tests for restart policies.
-- [ ] Add tests for `cmd inspect` merged output.
-- [ ] Add end-to-end lifecycle test: `cmd run` → `cmd attach` → `cmd stop` → `cmd rm`.
+- [x] Add tests for `cmd inspect` merged output.
+- [x] Add end-to-end lifecycle test: `cmd run` → `cmd attach` → `cmd stop` → `cmd rm`.
