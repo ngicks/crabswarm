@@ -17,16 +17,15 @@ func init() {
 	f.StringP("dir", "C", "", "Working directory for the command")
 	f.StringArrayP("env", "E", nil, "Environment variable KEY=VALUE (repeatable)")
 	f.StringArrayP("label", "l", nil, "Metadata label KEY=VALUE (repeatable)")
-	f.StringArray("startup-keys", nil, "Keys to send to PTY after command starts (repeatable)")
-	f.String("restart", cmdman.RestartNo, "Restart policy: no, on-failure, always")
+	f.String("restart", string(cmdman.RestartPolicyNo), "Restart policy: no, on-failure, always")
 	f.Bool("rm", false, "Auto-remove on exit")
 	f.Int("scrollback-bytes", cmdman.DefaultScrollbackBytes, "Scrollback buffer size in bytes")
-	f.Bool("attach", false, "Attach after monitor reaches running")
+	f.Bool("attach", false, "Attach after the command reaches running")
 }
 
 var runCmd = &cobra.Command{
 	Use:   "run [flags] -- COMMAND [ARGS...]",
-	Short: "Spawn a monitor and start a command",
+	Short: "Start a new command",
 	Args:  cobra.MinimumNArgs(1),
 	RunE:  runRun,
 }
@@ -37,18 +36,16 @@ func runRun(cmd *cobra.Command, args []string) error {
 	dir, _ := f.GetString("dir")
 	envSlice, _ := f.GetStringArray("env")
 	labelSlice, _ := f.GetStringArray("label")
-	startupKeys, _ := f.GetStringArray("startup-keys")
 	restartPolicy, _ := f.GetString("restart")
 	autoRemove, _ := f.GetBool("rm")
 	scrollbackBytes, _ := f.GetInt("scrollback-bytes")
 	attach, _ := f.GetBool("attach")
 
 	// Validate restart policy.
-	switch restartPolicy {
-	case cmdman.RestartNo, cmdman.RestartOnFailure, cmdman.RestartAlways:
-	default:
+	if !cmdman.IsRestartPolicy(restartPolicy) {
 		return fmt.Errorf("invalid restart policy: %s", restartPolicy)
 	}
+	rp := cmdman.RestartPolicy(restartPolicy)
 
 	// Parse labels.
 	labels := make(map[string]string)
@@ -75,8 +72,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Argv:            args,
 		Dir:             dir,
 		Env:             envSlice,
-		StartupKeys:     startupKeys,
-		RestartPolicy:   restartPolicy,
+		RestartPolicy:   rp,
 		ScrollbackBytes: scrollbackBytes,
 		Labels:          labels,
 		Annotations:     annotations,
@@ -106,7 +102,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// Materialize config.json.
-	if err := cmdman.MaterializeConfigJSON(cfg); err != nil {
+	if err := cfg.Write(); err != nil {
 		return fmt.Errorf("materialize config: %w", err)
 	}
 

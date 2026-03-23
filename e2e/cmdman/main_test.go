@@ -71,7 +71,7 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
-	base, err := os.MkdirTemp("/tmp", "cmdman-e2e-test-*")
+	base, err := os.MkdirTemp("", "cmdman-e2e-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}

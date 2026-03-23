@@ -11,7 +11,7 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-func TestRestartOnFailure(t *testing.T) {
+func TestRestartPolicyOnFailure(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-restart")
@@ -40,13 +40,13 @@ exit 0
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/sh", scriptPath, counterFile},
 		Dir:             dir,
-		RestartPolicy:   RestartOnFailure,
+		RestartPolicy:   RestartPolicyOnFailure,
 		ScrollbackBytes: 4096,
 		CommandDir:      commandDir,
 	}
 
 	assert.NilError(t, store.InsertCommandConfig(id, "", cfg))
-	assert.NilError(t, MaterializeConfigJSON(cfg))
+	assert.NilError(t, cfg.Write())
 	assert.NilError(t, store.InsertCommandState(id, StateCreated, &CommandStateJSON{}))
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
@@ -70,7 +70,7 @@ exit 0
 	assert.Equal(t, len(history), 3)
 }
 
-func TestRestartAlways(t *testing.T) {
+func TestRestartPolicyAlways(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-always")
@@ -83,13 +83,13 @@ func TestRestartAlways(t *testing.T) {
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/sh", "-c", "true"},
 		Dir:             dir,
-		RestartPolicy:   RestartAlways,
+		RestartPolicy:   RestartPolicyAlways,
 		ScrollbackBytes: 4096,
 		CommandDir:      commandDir,
 	}
 
 	assert.NilError(t, store.InsertCommandConfig(id, "", cfg))
-	assert.NilError(t, MaterializeConfigJSON(cfg))
+	assert.NilError(t, cfg.Write())
 	assert.NilError(t, store.InsertCommandState(id, StateCreated, &CommandStateJSON{}))
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))

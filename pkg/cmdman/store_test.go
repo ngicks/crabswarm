@@ -83,7 +83,7 @@ func TestInsertAndGetCommandConfig(t *testing.T) {
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/bash", "-c", "echo hello"},
 		Dir:             "/tmp",
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: DefaultScrollbackBytes,
 		Labels:          map[string]string{"app": "test", "env": "dev"},
 		CommandDir:      "/tmp/cmd/test-1",
@@ -108,14 +108,14 @@ func TestListCommandsWithLabels(t *testing.T) {
 
 	cfg1 := &CommandConfigJSON{
 		Argv:            []string{"/bin/true"},
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: DefaultScrollbackBytes,
 		Labels:          map[string]string{"app": "web", "env": "prod"},
 		CommandDir:      "/tmp/cmd/1",
 	}
 	cfg2 := &CommandConfigJSON{
 		Argv:            []string{"/bin/true"},
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: DefaultScrollbackBytes,
 		Labels:          map[string]string{"app": "api", "env": "prod"},
 		CommandDir:      "/tmp/cmd/2",
@@ -143,7 +143,7 @@ func TestDeleteCommand(t *testing.T) {
 
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/true"},
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: DefaultScrollbackBytes,
 		CommandDir:      "/tmp/cmd/del-1",
 	}
@@ -164,12 +164,12 @@ func TestConfigJSONMaterialization(t *testing.T) {
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/echo", "hello"},
 		Dir:             "/tmp",
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: DefaultScrollbackBytes,
 		CommandDir:      commandDir,
 	}
 
-	assert.NilError(t, MaterializeConfigJSON(cfg))
+	assert.NilError(t, cfg.Write())
 
 	// Verify file was written.
 	data, err := os.ReadFile(filepath.Join(commandDir, "config.json"))
@@ -177,7 +177,7 @@ func TestConfigJSONMaterialization(t *testing.T) {
 	assert.Assert(t, len(data) > 0)
 
 	// Read it back.
-	got, err := ReadConfigJSON(commandDir)
+	got, err := ReadCommandConfig(commandDir)
 	assert.NilError(t, err)
 	assert.Equal(t, got.Argv[0], "/bin/echo")
 	assert.Equal(t, got.Dir, "/tmp")

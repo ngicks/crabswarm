@@ -36,11 +36,6 @@ func CommandDir(id string) string {
 	return filepath.Join(DataDir(), "commands", id)
 }
 
-// CommandConfigPath returns the path to config.json for a command.
-func CommandConfigPath(id string) string {
-	return filepath.Join(CommandDir(id), "config.json")
-}
-
 // MonitorRuntimeDir returns the per-command runtime directory.
 func MonitorRuntimeDir(id string) string {
 	return filepath.Join(RuntimeDir(), "cmd", id)

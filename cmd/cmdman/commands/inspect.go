@@ -70,7 +70,7 @@ func runInspect(cmd *cobra.Command, args []string) error {
 		ExitCode:    exitCode,
 		StateJSON:   stateJSON,
 		ExitHistory: exitHistory,
-		ConfigPath:  cmdman.CommandConfigPath(id),
+		ConfigPath:  cfg.ConfigPath(),
 	}
 
 	// Try to get live status from monitor.

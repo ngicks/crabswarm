@@ -64,7 +64,7 @@ func RunMonitor(ctx context.Context, id, commandDir, dbPath string, logger *slog
 	defer store.Close()
 	m.store = store
 
-	cfg, err := ReadConfigJSON(commandDir)
+	cfg, err := ReadCommandConfig(commandDir)
 	if err != nil {
 		return fmt.Errorf("read config: %w", err)
 	}
@@ -123,7 +123,7 @@ func RunMonitor(ctx context.Context, id, commandDir, dbPath string, logger *slog
 func (m *Monitor) runLoop(ctx context.Context) error {
 	for {
 		// Re-read config on each restart iteration.
-		cfg, err := ReadConfigJSON(m.CommandDir)
+		cfg, err := ReadCommandConfig(m.CommandDir)
 		if err != nil {
 			return fmt.Errorf("read config: %w", err)
 		}
@@ -147,15 +147,15 @@ func (m *Monitor) runLoop(ctx context.Context) error {
 
 		// Check restart policy.
 		switch m.cfg.RestartPolicy {
-		case RestartNo:
+		case RestartPolicyNo:
 			m.setExited(ec)
 			return m.maybeAutoRemove()
-		case RestartOnFailure:
+		case RestartPolicyOnFailure:
 			if exitCode == 0 {
 				m.setExited(ec)
 				return m.maybeAutoRemove()
 			}
-		case RestartAlways:
+		case RestartPolicyAlways:
 			// Continue loop unless context cancelled.
 		default:
 			m.setExited(ec)
@@ -203,14 +203,6 @@ func (m *Monitor) runOnce(ctx context.Context) (int, error) {
 	m.stateJSON.StartedAt = time.Now().UTC().Format(time.RFC3339)
 	if err := m.store.UpdateCommandState(m.ID, StateRunning, nil, m.stateJSON); err != nil {
 		m.Logger.Error("update state to running failed", slog.String("error", err.Error()))
-	}
-
-	// Send startup keys.
-	_, name, _, _ := m.store.GetCommandConfig(m.ID)
-	for key := range InterpolateKeys(m.cfg.StartupKeys, m.ID, name) {
-		if _, err := ptmx.WriteString(key); err != nil {
-			m.Logger.Warn("write startup key failed", slog.String("error", err.Error()))
-		}
 	}
 
 	// PTY read goroutine: read -> ring buffer + fanout.

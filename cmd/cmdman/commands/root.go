@@ -13,6 +13,6 @@ func Execute(ctx context.Context) error {
 
 var rootCmd = &cobra.Command{
 	Use:   "cmdman",
-	Short: "Command monitor manager",
-	Long:  "cmdman manages long-running commands via per-command monitor processes.",
+	Short: "Command manager",
+	Long:  "cmdman manages long-running commands.",
 }

@@ -24,13 +24,13 @@ func TestMonitorRunAndExit(t *testing.T) {
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/sh", "-c", "echo hello from monitor"},
 		Dir:             dir,
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: 4096,
 		CommandDir:      commandDir,
 	}
 
 	assert.NilError(t, store.InsertCommandConfig(id, "test-echo", cfg))
-	assert.NilError(t, MaterializeConfigJSON(cfg))
+	assert.NilError(t, cfg.Write())
 	assert.NilError(t, store.InsertCommandState(id, StateCreated, &CommandStateJSON{}))
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
@@ -69,13 +69,13 @@ func TestMonitorNonZeroExit(t *testing.T) {
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/sh", "-c", "exit 42"},
 		Dir:             dir,
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: 4096,
 		CommandDir:      commandDir,
 	}
 
 	assert.NilError(t, store.InsertCommandConfig(id, "", cfg))
-	assert.NilError(t, MaterializeConfigJSON(cfg))
+	assert.NilError(t, cfg.Write())
 	assert.NilError(t, store.InsertCommandState(id, StateCreated, &CommandStateJSON{}))
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
@@ -106,14 +106,14 @@ func TestMonitorAutoRemove(t *testing.T) {
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/sh", "-c", "true"},
 		Dir:             dir,
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: 4096,
 		Annotations:     map[string]string{AnnotationAutoRemove: "true"},
 		CommandDir:      commandDir,
 	}
 
 	assert.NilError(t, store.InsertCommandConfig(id, "", cfg))
-	assert.NilError(t, MaterializeConfigJSON(cfg))
+	assert.NilError(t, cfg.Write())
 	assert.NilError(t, store.InsertCommandState(id, StateCreated, &CommandStateJSON{}))
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
@@ -146,13 +146,13 @@ func TestMonitorGracefulShutdown(t *testing.T) {
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/sh", "-c", "sleep 60"},
 		Dir:             dir,
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: 4096,
 		CommandDir:      commandDir,
 	}
 
 	assert.NilError(t, store.InsertCommandConfig(id, "", cfg))
-	assert.NilError(t, MaterializeConfigJSON(cfg))
+	assert.NilError(t, cfg.Write())
 	assert.NilError(t, store.InsertCommandState(id, StateCreated, &CommandStateJSON{}))
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
@@ -181,7 +181,7 @@ func TestStaleEntryCleanup(t *testing.T) {
 
 	cfg := &CommandConfigJSON{
 		Argv:            []string{"/bin/true"},
-		RestartPolicy:   RestartNo,
+		RestartPolicy:   RestartPolicyNo,
 		ScrollbackBytes: DefaultScrollbackBytes,
 		CommandDir:      "/tmp/cmd/stale-1",
 	}

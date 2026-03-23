@@ -6,6 +6,27 @@ import (
 	"path/filepath"
 )
 
+// ConfigFileName is the fixed name of the per-command configuration file.
+const ConfigFileName = "config.json"
+
+// RestartPolicy determines how the monitor handles command exits.
+type RestartPolicy string
+
+const (
+	RestartPolicyNo        RestartPolicy = "no"
+	RestartPolicyOnFailure RestartPolicy = "on-failure"
+	RestartPolicyAlways    RestartPolicy = "always"
+)
+
+// IsRestartPolicy reports whether s is a valid RestartPolicy value.
+func IsRestartPolicy(s string) bool {
+	switch RestartPolicy(s) {
+	case RestartPolicyNo, RestartPolicyOnFailure, RestartPolicyAlways:
+		return true
+	}
+	return false
+}
+
 // CommandConfigJSON is the canonical command configuration stored in CommandConfig.JSON.
 type CommandConfigJSON struct {
 	// Argv is the command and its arguments.
@@ -14,10 +35,8 @@ type CommandConfigJSON struct {
 	Dir string `json:"dir,omitempty"`
 	// Env is environment variables for the command.
 	Env []string `json:"env,omitempty"`
-	// StartupKeys are keys to send to the PTY after the command starts.
-	StartupKeys []string `json:"startup_keys,omitempty"`
 	// RestartPolicy is one of "no", "on-failure", "always".
-	RestartPolicy string `json:"restart_policy"`
+	RestartPolicy RestartPolicy `json:"restart_policy"`
 	// ScrollbackBytes is the scrollback buffer size in bytes.
 	ScrollbackBytes int `json:"scrollback_bytes"`
 	// Labels are user-defined key-value metadata.
@@ -28,14 +47,45 @@ type CommandConfigJSON struct {
 	CommandDir string `json:"command_dir"`
 }
 
-const (
-	AnnotationAutoRemove = "crabswarm.auto-remove"
-)
+// ConfigPath returns the full path to this command's config file.
+func (c *CommandConfigJSON) ConfigPath() string {
+	return filepath.Join(c.CommandDir, ConfigFileName)
+}
+
+// Write materializes the config as a JSON file in the command directory.
+// It creates the directory if it does not exist.
+func (c *CommandConfigJSON) Write() error {
+	return WriteCommandConfig(c.CommandDir, c)
+}
+
+// WriteCommandConfig writes cfg to commandDir/ConfigFileName.
+// It creates the directory if it does not exist.
+func WriteCommandConfig(commandDir string, cfg *CommandConfigJSON) error {
+	if err := os.MkdirAll(commandDir, 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(commandDir, ConfigFileName), data, 0o644)
+}
+
+// ReadCommandConfig reads ConfigFileName from the given command directory.
+func ReadCommandConfig(commandDir string) (*CommandConfigJSON, error) {
+	data, err := os.ReadFile(filepath.Join(commandDir, ConfigFileName))
+	if err != nil {
+		return nil, err
+	}
+	var cfg CommandConfigJSON
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
 
 const (
-	RestartNo        = "no"
-	RestartOnFailure = "on-failure"
-	RestartAlways    = "always"
+	AnnotationAutoRemove = "crabswarm.auto-remove"
 )
 
 const DefaultScrollbackBytes = 1048576 // 1 MiB
@@ -54,30 +104,4 @@ type CommandStateJSON struct {
 	RestartCount int `json:"restart_count"`
 	// Error contains error details when the command is in errored state.
 	Error string `json:"error,omitempty"`
-}
-
-// MaterializeConfigJSON writes the config.json file to the command directory.
-func MaterializeConfigJSON(cfg *CommandConfigJSON) error {
-	dir := filepath.Dir(cfg.CommandDir + "/config.json")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(cfg.CommandDir, "config.json"), data, 0o644)
-}
-
-// ReadConfigJSON reads config.json from the given command directory.
-func ReadConfigJSON(commandDir string) (*CommandConfigJSON, error) {
-	data, err := os.ReadFile(filepath.Join(commandDir, "config.json"))
-	if err != nil {
-		return nil, err
-	}
-	var cfg CommandConfigJSON
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-	return &cfg, nil
 }

@@ -76,7 +76,7 @@ func TestStale_AutoRemoveOnStale(t *testing.T) {
 	id := "stale-auto-rm-test-id"
 	cfg := &cmdman.CommandConfigJSON{
 		Argv:            []string{"/bin/sh", "-c", "echo fake"},
-		RestartPolicy:   "no",
+		RestartPolicy:   cmdman.RestartPolicyNo,
 		ScrollbackBytes: 1024,
 		Annotations:     map[string]string{cmdman.AnnotationAutoRemove: "true"},
 		CommandDir:      filepath.Join(env.dataHome, "crabswarm", "commands", id),
