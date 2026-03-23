@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/ngicks/crabswarm/pkg/cmdman"
@@ -48,13 +47,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 	rp := cmdman.RestartPolicy(restartPolicy)
 
 	// Parse labels.
-	labels := make(map[string]string)
-	for _, l := range labelSlice {
-		k, v, ok := strings.Cut(l, "=")
-		if !ok {
-			return fmt.Errorf("invalid label format: %s (expected KEY=VALUE)", l)
-		}
-		labels[k] = v
+	labels, err := parseLabels(labelSlice)
+	if err != nil {
+		return err
 	}
 
 	// Build annotations.

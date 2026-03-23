@@ -108,7 +108,11 @@ func resolveTargets(store *cmdman.Store, args []string, labelSlice []string) ([]
 		ids = append(ids, id)
 	}
 
-	if labels := parseLabels(labelSlice); len(labels) > 0 {
+	labels, err := parseLabels(labelSlice)
+	if err != nil {
+		return nil, err
+	}
+	if len(labels) > 0 {
 		labelIDs, err := store.FindByLabels(labels)
 		if err != nil {
 			return nil, fmt.Errorf("find by labels: %w", err)

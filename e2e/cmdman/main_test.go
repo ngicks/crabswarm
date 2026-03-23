@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ngicks/crabswarm/pkg/cmdman"
 )
 
 func must(t *testing.T, err error) {
@@ -93,8 +95,8 @@ func (e *testEnv) exec(ctx context.Context, args ...string) (string, string, err
 	cmd := exec.CommandContext(ctx, cmdmanBin, args...)
 	cmd.Env = append(
 		os.Environ(),
-		"XDG_DATA_HOME="+e.dataHome,
-		"XDG_RUNTIME_DIR="+e.runtimeDir,
+		cmdman.ENV_CMDMAN_DATA_DIR+"="+e.dataHome,
+		cmdman.ENV_CMDMAN_RUNTIME_DIR+"="+e.runtimeDir,
 	)
 	// WaitDelay ensures cmd.Wait returns even if spawned child processes
 	// hold stdout/stderr pipe FDs open (e.g. the detached monitor).

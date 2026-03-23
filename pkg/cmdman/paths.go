@@ -5,25 +5,36 @@ import (
 	"path/filepath"
 )
 
-// DataDir returns the base data directory for crabswarm commands.
-// Uses $XDG_DATA_HOME/crabswarm, falling back to ~/.local/share/crabswarm.
+const (
+	ENV_CMDMAN_DATA_DIR    = "CMDMAN_DATA_DIR"
+	ENV_CMDMAN_RUNTIME_DIR = "CMDMAN_RUNTIME_DIR"
+)
+
+// DataDir returns the base data directory for cmdman.
+// Resolution order: $CMDMAN_DATA_DIR → $XDG_DATA_HOME/cmdman → ~/.local/share/cmdman.
 func DataDir() string {
+	if dir := os.Getenv(ENV_CMDMAN_DATA_DIR); dir != "" {
+		return dir
+	}
 	dir := os.Getenv("XDG_DATA_HOME")
 	if dir == "" {
 		home, _ := os.UserHomeDir()
 		dir = filepath.Join(home, ".local", "share")
 	}
-	return filepath.Join(dir, "crabswarm")
+	return filepath.Join(dir, "cmdman")
 }
 
-// RuntimeDir returns the runtime directory for crabswarm.
-// Uses $XDG_RUNTIME_DIR/crabswarm, falling back to /tmp/crabswarm.
+// RuntimeDir returns the runtime directory for cmdman.
+// Resolution order: $CMDMAN_RUNTIME_DIR → $XDG_RUNTIME_DIR/cmdman → /tmp/cmdman.
 func RuntimeDir() string {
+	if dir := os.Getenv(ENV_CMDMAN_RUNTIME_DIR); dir != "" {
+		return dir
+	}
 	dir := os.Getenv("XDG_RUNTIME_DIR")
 	if dir == "" {
 		dir = "/tmp"
 	}
-	return filepath.Join(dir, "crabswarm")
+	return filepath.Join(dir, "cmdman")
 }
 
 // DBPath returns the path to the SQLite database.

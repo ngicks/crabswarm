@@ -60,8 +60,8 @@ func WaitForState(store *Store, id, desiredState string, maxAttempts int) (strin
 		if state == desiredState {
 			return state, nil
 		}
-		if state == StateErrored {
-			return state, fmt.Errorf("monitor entered errored state")
+		if state == StateFailed {
+			return state, fmt.Errorf("monitor entered failed state")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}

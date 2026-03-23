@@ -49,7 +49,7 @@ message SignalResponse {}
 message StatusRequest {}
 
 message StatusResponse {
-  string state = 1;             // starting, running, exited, errored
+  string state = 1;             // starting, running, exited, failed
   int32 exit_code = 2;
   int32 pid = 3;
 }

@@ -2,55 +2,55 @@ package cmdman
 
 import "sync"
 
-// RingBuffer is a thread-safe byte ring buffer for scrollback.
-type RingBuffer struct {
+// ringBuffer is a thread-safe byte ring buffer for scrollback.
+type ringBuffer struct {
 	mu   sync.Mutex
 	buf  []byte
 	pos  int
 	full bool
 }
 
-// NewRingBuffer creates a ring buffer with the given capacity in bytes.
-func NewRingBuffer(capacity int) *RingBuffer {
-	return &RingBuffer{buf: make([]byte, capacity)}
+// newRingBuffer creates a ring buffer with the given capacity in bytes.
+func newRingBuffer(capacity int) *ringBuffer {
+	return &ringBuffer{buf: make([]byte, capacity)}
 }
 
 // Write appends data to the ring buffer, overwriting the oldest data if full.
-func (r *RingBuffer) Write(p []byte) (int, error) {
+func (r *ringBuffer) Write(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	n := len(p)
-	cap := len(r.buf)
+	pLen := len(p)
+	bufLen := len(r.buf)
 
-	if n >= cap {
+	if pLen >= bufLen {
 		// Data is larger than buffer; keep only the last cap bytes.
-		copy(r.buf, p[n-cap:])
+		copy(r.buf, p[pLen-bufLen:])
 		r.pos = 0
 		r.full = true
-		return n, nil
+		return pLen, nil
 	}
 
 	// Write data, wrapping around.
-	first := cap - r.pos
-	if first >= n {
+	remaining := bufLen - r.pos
+	if remaining >= pLen {
 		copy(r.buf[r.pos:], p)
 	} else {
-		copy(r.buf[r.pos:], p[:first])
-		copy(r.buf, p[first:])
+		copy(r.buf[r.pos:], p[:remaining])
+		copy(r.buf, p[remaining:])
 	}
 
-	r.pos = (r.pos + n) % cap
-	if !r.full && r.pos < n {
+	r.pos = (r.pos + pLen) % bufLen
+	if !r.full && r.pos < pLen {
 		// We've wrapped around at least once during this write.
 		r.full = true
 	}
 
-	return n, nil
+	return pLen, nil
 }
 
 // Bytes returns the current contents of the ring buffer in order.
-func (r *RingBuffer) Bytes() []byte {
+func (r *ringBuffer) Bytes() []byte {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

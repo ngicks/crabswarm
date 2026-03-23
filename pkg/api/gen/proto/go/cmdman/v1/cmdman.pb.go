@@ -405,7 +405,7 @@ func (*StatusRequest) Descriptor() ([]byte, []int) {
 
 type StatusResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	State         string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // starting, running, exited, errored
+	State         string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // starting, running, exited, failed
 	ExitCode      int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	Pid           int32                  `protobuf:"varint,3,opt,name=pid,proto3" json:"pid,omitempty"`
 	unknownFields protoimpl.UnknownFields

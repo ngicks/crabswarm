@@ -143,7 +143,7 @@ message SignalResponse {}
 message StatusRequest {}
 
 message StatusResponse {
-  string state = 1;             // starting, running, exited, errored
+  string state = 1;             // starting, running, exited, failed
   int32 exit_code = 2;
   int32 pid = 3;
 }
@@ -209,7 +209,7 @@ CREATE INDEX idx_command_config_name ON CommandConfig(Name);
 
 CREATE TABLE CommandState (
     ID              TEXT PRIMARY KEY,
-    State           TEXT NOT NULL,           -- created, starting, running, exited, errored
+    State           TEXT NOT NULL,           -- created, starting, running, exited, failed
     ExitCode        INTEGER CHECK (ExitCode BETWEEN -1 AND 255),
     JSON            TEXT NOT NULL,           -- runtime state JSON
     FOREIGN KEY (ID) REFERENCES CommandConfig(ID)
@@ -236,7 +236,7 @@ CREATE INDEX idx_command_exit_code_id_ts ON CommandExitCode(ID, Timestamp);
 On `cmd ls` (and other read operations), the CLI checks liveness of entries in `starting` or `running` state:
 
 1. Read the relevant runtime fields from `CommandState.JSON` and check if the recorded monitor PID is alive via `kill(pid, 0)`.
-2. If dead: update `CommandState` to `errored`, set `error = "monitor died unexpectedly"` in `CommandState.JSON`.
+2. If dead: update `CommandState` to `failed`, set `error = "monitor died unexpectedly"` in `CommandState.JSON`.
 3. If the command config JSON requests auto-remove on a finished entry: delete the rows and remove the command-dir.
 
 This ensures the DB self-heals after reboots or crashes without a daemon.

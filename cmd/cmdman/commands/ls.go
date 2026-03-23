@@ -30,7 +30,10 @@ func runLs(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	format, _ := cmd.Flags().GetString("format")
 
-	labels := parseLabels(labelSlice)
+	labels, err := parseLabels(labelSlice)
+	if err != nil {
+		return err
+	}
 
 	store, err := cmdman.OpenStore(cmdman.DBPath())
 	if err != nil {
@@ -79,14 +82,17 @@ func runLs(cmd *cobra.Command, args []string) error {
 	return w.Flush()
 }
 
-func parseLabels(labelSlice []string) map[string]string {
+func parseLabels(labelSlice []string) (map[string]string, error) {
 	if len(labelSlice) == 0 {
-		return nil
+		return nil, nil
 	}
 	labels := make(map[string]string)
 	for _, l := range labelSlice {
-		k, v, _ := strings.Cut(l, "=")
+		k, v, ok := strings.Cut(l, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid label format: %s (expected KEY=VALUE)", l)
+		}
 		labels[k] = v
 	}
-	return labels
+	return labels, nil
 }

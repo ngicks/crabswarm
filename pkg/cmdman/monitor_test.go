@@ -194,5 +194,5 @@ func TestStaleEntryCleanup(t *testing.T) {
 
 	state, _, _, err := store.GetCommandState("stale-1")
 	assert.NilError(t, err)
-	assert.Equal(t, state, StateErrored)
+	assert.Equal(t, state, StateFailed)
 }

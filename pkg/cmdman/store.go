@@ -127,7 +127,7 @@ const (
 	StateStarting = "starting"
 	StateRunning  = "running"
 	StateExited   = "exited"
-	StateErrored  = "errored"
+	StateFailed   = "failed"
 )
 
 // InsertCommandConfig inserts a new CommandConfig row.

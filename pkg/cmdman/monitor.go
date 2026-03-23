@@ -35,7 +35,7 @@ type Monitor struct {
 	ptmx     *os.File
 	cmd      *exec.Cmd
 	fanout   *Fanout
-	ring     *RingBuffer
+	ring     *ringBuffer
 	stdinCh  chan []byte
 
 	grpcServer *grpc.Server
@@ -69,7 +69,7 @@ func RunMonitor(ctx context.Context, id, commandDir, dbPath string, logger *slog
 		return fmt.Errorf("read config: %w", err)
 	}
 	m.cfg = cfg
-	m.ring = NewRingBuffer(cfg.ScrollbackBytes)
+	m.ring = newRingBuffer(cfg.ScrollbackBytes)
 	m.stateJSON = &CommandStateJSON{}
 
 	// Update state to starting.
@@ -136,7 +136,7 @@ func (m *Monitor) runLoop(ctx context.Context) error {
 				m.setExited(-1)
 				return nil
 			}
-			m.setErrored(fmt.Sprintf("run failed: %v", err))
+			m.setFailed(fmt.Sprintf("run failed: %v", err))
 			return err
 		}
 
@@ -262,9 +262,9 @@ func (m *Monitor) setExited(exitCode int) {
 	_ = m.store.UpdateCommandState(m.ID, StateExited, &ec, m.stateJSON)
 }
 
-func (m *Monitor) setErrored(errMsg string) {
+func (m *Monitor) setFailed(errMsg string) {
 	m.stateJSON.Error = errMsg
-	_ = m.store.UpdateCommandState(m.ID, StateErrored, nil, m.stateJSON)
+	_ = m.store.UpdateCommandState(m.ID, StateFailed, nil, m.stateJSON)
 }
 
 func (m *Monitor) maybeAutoRemove() error {
@@ -349,7 +349,7 @@ func CheckMonitorAlive(pid int) bool {
 	return err == nil
 }
 
-// CleanStaleEntries checks for stale monitors and marks them as errored.
+// CleanStaleEntries checks for stale monitors and marks them as failed.
 func CleanStaleEntries(store *Store) error {
 	entries, err := store.ListCommands(true, nil)
 	if err != nil {
@@ -361,7 +361,7 @@ func CleanStaleEntries(store *Store) error {
 		}
 		if e.StateJSON.MonitorPID > 0 && !CheckMonitorAlive(e.StateJSON.MonitorPID) {
 			e.StateJSON.Error = "monitor died unexpectedly"
-			_ = store.UpdateCommandState(e.ID, StateErrored, nil, e.StateJSON)
+			_ = store.UpdateCommandState(e.ID, StateFailed, nil, e.StateJSON)
 
 			// Auto-remove if requested.
 			if e.ConfigJSON.Annotations[AnnotationAutoRemove] == "true" {

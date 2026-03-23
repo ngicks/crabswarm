@@ -96,7 +96,7 @@ Derived from [PLAN.md](./PLAN.md).
 - [x] Support `cmd stop -l KEY=VALUE` (extends `cmd stop` from Phase 3 with label-based bulk targeting).
 - [x] Support `cmd rm -l KEY=VALUE`.
 - [x] Implement stale-entry liveness checks using monitor PID from `CommandState.JSON`.
-- [x] On stale monitor detection, mark the command errored in `CommandState`.
+- [x] On stale monitor detection, mark the command failed in `CommandState`.
 - [x] Add `cmd rm`.
 - [x] Resolve command-dir from `CommandConfig.JSON` for explicit `cmd rm`.
 - [x] Make `cmd rm` delete DB rows and command-dir.

@@ -102,6 +102,6 @@ type CommandStateJSON struct {
 	FinishedAt string `json:"finished_at,omitempty"`
 	// RestartCount is how many times the command has been restarted.
 	RestartCount int `json:"restart_count"`
-	// Error contains error details when the command is in errored state.
+	// Error contains error details when the command is in failed state.
 	Error string `json:"error,omitempty"`
 }

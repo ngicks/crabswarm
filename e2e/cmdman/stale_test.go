@@ -10,7 +10,7 @@ import (
 )
 
 // TestStale_DetectedOnLs verifies that stale entries (where the monitor
-// has died) are detected and marked as errored when running ls.
+// has died) are detected and marked as failed when running ls.
 func TestStale_DetectedOnLs(t *testing.T) {
 	t.Parallel()
 	ctx := testContext(t)
@@ -39,12 +39,12 @@ func TestStale_DetectedOnLs(t *testing.T) {
 	// Wait for the process to actually die.
 	time.Sleep(500 * time.Millisecond)
 
-	// Running ls should detect the stale entry and mark it errored.
+	// Running ls should detect the stale entry and mark it failed.
 	env.run(ctx, "ls", "-a")
 
 	info = env.inspectJSON(ctx, "stale-target")
-	if info["state"] != "errored" {
-		t.Errorf("expected state=errored after monitor crash, got %v", info["state"])
+	if info["state"] != "failed" {
+		t.Errorf("expected state=failed after monitor crash, got %v", info["state"])
 	}
 
 	stateDetail, _ = info["state_detail"].(map[string]any)
@@ -63,8 +63,7 @@ func TestStale_AutoRemoveOnStale(t *testing.T) {
 
 	// We need to manually create a stale entry in the DB to test auto-remove on stale.
 	// Use the store directly.
-	dbPath := filepath.Join(env.dataHome, "crabswarm", "commands.db")
-	os.MkdirAll(filepath.Dir(dbPath), 0o755)
+	dbPath := filepath.Join(env.dataHome, "commands.db")
 
 	store, err := cmdman.OpenStore(dbPath)
 	if err != nil {
@@ -79,7 +78,7 @@ func TestStale_AutoRemoveOnStale(t *testing.T) {
 		RestartPolicy:   cmdman.RestartPolicyNo,
 		ScrollbackBytes: 1024,
 		Annotations:     map[string]string{cmdman.AnnotationAutoRemove: "true"},
-		CommandDir:      filepath.Join(env.dataHome, "crabswarm", "commands", id),
+		CommandDir:      filepath.Join(env.dataHome, "commands", id),
 	}
 	store.InsertCommandConfig(id, "stale-auto-rm", cfg)
 	store.InsertCommandState(id, cmdman.StateRunning, &cmdman.CommandStateJSON{

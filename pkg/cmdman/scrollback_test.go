@@ -7,7 +7,7 @@ import (
 )
 
 func TestRingBufferBasic(t *testing.T) {
-	r := NewRingBuffer(10)
+	r := newRingBuffer(10)
 
 	r.Write([]byte("hello"))
 	assert.Equal(t, string(r.Bytes()), "hello")
@@ -17,7 +17,7 @@ func TestRingBufferBasic(t *testing.T) {
 }
 
 func TestRingBufferWrap(t *testing.T) {
-	r := NewRingBuffer(10)
+	r := newRingBuffer(10)
 
 	r.Write([]byte("0123456789"))
 	assert.Equal(t, string(r.Bytes()), "0123456789")
@@ -27,13 +27,13 @@ func TestRingBufferWrap(t *testing.T) {
 }
 
 func TestRingBufferOverflow(t *testing.T) {
-	r := NewRingBuffer(5)
+	r := newRingBuffer(5)
 
 	r.Write([]byte("1234567890"))
 	assert.Equal(t, string(r.Bytes()), "67890")
 }
 
 func TestRingBufferEmpty(t *testing.T) {
-	r := NewRingBuffer(10)
+	r := newRingBuffer(10)
 	assert.Equal(t, len(r.Bytes()), 0)
 }
