@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"syscall"
+	"time"
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/cmdman/v1"
 )
@@ -48,6 +49,9 @@ func (s *monitorServer) Attach(stream pb.CommandMonitor_AttachServer) error {
 	}()
 
 	// Send live output to client.
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case data, ok := <-ch:
@@ -62,6 +66,11 @@ func (s *monitorServer) Attach(stream pb.CommandMonitor_AttachServer) error {
 				return nil
 			}
 			return err
+		case <-ticker.C:
+			state, _, _ := s.monitor.GetState()
+			if state != StateStarting && state != StateRunning {
+				return nil
+			}
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 		}

@@ -99,22 +99,40 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	}
 
 	// Put terminal into raw mode so keystrokes pass through to the remote PTY.
-	var restoreTerminal func()
+	var (
+		stdinFd    int
+		savedState *term.State
+	)
 	if !noStdin {
-		fd := int(os.Stdin.Fd())
-		if term.IsTerminal(fd) {
-			oldState, err := term.MakeRaw(fd)
+		stdinFd = int(os.Stdin.Fd())
+		if term.IsTerminal(stdinFd) {
+			oldState, err := term.MakeRaw(stdinFd)
 			if err == nil {
-				restoreTerminal = func() { term.Restore(fd, oldState) }
-				defer restoreTerminal()
+				savedState = oldState
 			}
 		}
 	}
 
-	// Take over all signal handling. signal.Reset() undoes any prior
-	// signal.Notify registrations (including main.go's NotifyContext),
-	// giving us full control.
-	signal.Reset()
+	// restoreTerminal restores the terminal to its saved state and writes
+	// a reset sequence to ensure clean output. Safe to call multiple times
+	// or when savedState is nil.
+	restoreTerminal := func() {
+		if savedState != nil {
+			term.Restore(stdinFd, savedState)
+		}
+		// Reset terminal attributes and ensure cursor is visible.
+		// \033[0m  — reset SGR (colors/bold)
+		// \033[?25h — show cursor
+		// \r       — carriage return (cursor to column 0)
+		os.Stdout.WriteString("\033[0m\033[?25h\r")
+	}
+
+	// Undo main.go's signal.NotifyContext for os.Interrupt so SIGINT
+	// doesn't cancel the context while we're attached. Only reset this
+	// specific signal — signal.Reset() with no args would also undo Go's
+	// internal SIGPIPE handling, causing the process to die without
+	// cleanup when the gRPC connection drops.
+	signal.Reset(os.Interrupt)
 
 	// Send initial terminal size.
 	sendResize(stream)
@@ -173,15 +191,21 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	}
 
 	// Wait for either direction to finish.
+	var exitErr error
 	select {
 	case err := <-errCh:
-		if err == io.EOF || errors.Is(err, errDetached) {
-			return nil
+		if err != io.EOF && !errors.Is(err, errDetached) {
+			exitErr = err
 		}
-		return err
 	case <-ctx.Done():
-		return nil
 	}
+
+	// Close the stream first to stop the recv goroutine from writing
+	// to stdout, then restore the terminal.
+	stream.CloseSend()
+	restoreTerminal()
+
+	return exitErr
 }
 
 // handleAllSignals processes signals during attach:
@@ -220,9 +244,7 @@ func handleAllSignals(
 			if sigNum == syscall.SIGINT || sigNum == syscall.SIGTERM {
 				forceCount++
 				if forceCount >= 3 {
-					if restoreTerminal != nil {
-						restoreTerminal()
-					}
+					restoreTerminal()
 					os.Exit(1)
 				}
 			} else {
@@ -284,20 +306,10 @@ func (e *escapeReader) Read(p []byte) (int, error) {
 			e.pos++
 			if e.pos == len(e.keys) {
 				// Full escape sequence detected.
-				// Return any output accumulated before the sequence,
-				// then errDetached on the next call.
-				if out > 0 {
-					e.pos = 0
-					// Store errDetached for the next Read call
-					// by keeping pos at len(keys)... actually,
-					// simpler: return what we have and signal detach.
-					// We need to return the detach on *this* call if no output.
-				}
 				return out, errDetached
 			}
 		} else if e.pos > 0 {
 			// Partial match broken. Flush the buffered escape prefix.
-			// The bytes that matched so far need to be output.
 			prefix := e.keys[:e.pos]
 			e.pos = 0
 
@@ -311,12 +323,10 @@ func (e *escapeReader) Read(p []byte) (int, error) {
 			n := copy(remaining, prefix)
 			out += n
 			if n < len(prefix) {
-				// Not enough space in p. Buffer the rest.
 				e.buf = append(e.buf, prefix[n:]...)
 				if e.pos == 0 {
 					e.buf = append(e.buf, b)
 				}
-				// Also buffer unprocessed input.
 				e.buf = append(e.buf, p[i+1:nr]...)
 				return out, err
 			}
@@ -354,7 +364,6 @@ func parseDetachKeys(s string) ([]byte, error) {
 			if len(ch) != 1 {
 				return nil, fmt.Errorf("invalid ctrl sequence: %s", part)
 			}
-			// ctrl-a = 0x01, ctrl-z = 0x1a
 			b := ch[0]
 			if b >= 'a' && b <= 'z' {
 				keys = append(keys, b-'a'+1)
