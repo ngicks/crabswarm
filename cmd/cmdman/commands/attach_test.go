@@ -2,13 +2,15 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 
+	"github.com/moby/term"
 	"gotest.tools/v3/assert"
 )
 
-func TestParseDetachKeys(t *testing.T) {
+func TestDetachKeys_Parse(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected []byte
@@ -28,7 +30,7 @@ func TestParseDetachKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, err := parseDetachKeys(tt.input)
+			got, err := term.ToBytes(tt.input)
 			if tt.wantErr {
 				assert.Assert(t, err != nil, "expected error for %q", tt.input)
 				return
@@ -39,13 +41,9 @@ func TestParseDetachKeys(t *testing.T) {
 	}
 }
 
-func TestEscapeReader_DetectsSequence(t *testing.T) {
-	// Input: some data, then ctrl-p ctrl-q.
+func TestDetachKeys_ProxyDetectsSequence(t *testing.T) {
 	input := []byte("hello\x10\x11")
-	r := &escapeReader{
-		r:    bytes.NewReader(input),
-		keys: []byte{0x10, 0x11},
-	}
+	r := term.NewEscapeProxy(bytes.NewReader(input), []byte{0x10, 0x11})
 
 	buf := make([]byte, 1024)
 	var output []byte
@@ -55,7 +53,8 @@ func TestEscapeReader_DetectsSequence(t *testing.T) {
 		if n > 0 {
 			output = append(output, buf[:n]...)
 		}
-		if err == errDetached {
+		var escapeErr term.EscapeError
+		if errors.As(err, &escapeErr) {
 			detached = true
 			break
 		}
@@ -68,13 +67,9 @@ func TestEscapeReader_DetectsSequence(t *testing.T) {
 	assert.Equal(t, string(output), "hello")
 }
 
-func TestEscapeReader_PartialMatchFlush(t *testing.T) {
-	// Input: ctrl-p followed by 'a' (not ctrl-q). Should flush ctrl-p and 'a'.
+func TestDetachKeys_ProxyPartialMatchFlush(t *testing.T) {
 	input := []byte("\x10a")
-	r := &escapeReader{
-		r:    bytes.NewReader(input),
-		keys: []byte{0x10, 0x11},
-	}
+	r := term.NewEscapeProxy(bytes.NewReader(input), []byte{0x10, 0x11})
 
 	var output []byte
 	buf := make([]byte, 1024)
@@ -83,7 +78,8 @@ func TestEscapeReader_PartialMatchFlush(t *testing.T) {
 		if n > 0 {
 			output = append(output, buf[:n]...)
 		}
-		if err == errDetached {
+		var escapeErr term.EscapeError
+		if errors.As(err, &escapeErr) {
 			t.Fatal("should not detach")
 		}
 		if err != nil {
@@ -94,27 +90,22 @@ func TestEscapeReader_PartialMatchFlush(t *testing.T) {
 	assert.Equal(t, string(output), "\x10a")
 }
 
-func TestEscapeReader_NoSequence(t *testing.T) {
+func TestDetachKeys_ProxyNoSequence(t *testing.T) {
 	input := []byte("hello world")
-	r := &escapeReader{
-		r:    bytes.NewReader(input),
-		keys: []byte{0x10, 0x11},
-	}
+	r := term.NewEscapeProxy(bytes.NewReader(input), []byte{0x10, 0x11})
 
 	data, err := io.ReadAll(r)
 	assert.NilError(t, err)
 	assert.Equal(t, string(data), "hello world")
 }
 
-func TestEscapeReader_OnlySequence(t *testing.T) {
+func TestDetachKeys_ProxyOnlySequence(t *testing.T) {
 	input := []byte{0x10, 0x11}
-	r := &escapeReader{
-		r:    bytes.NewReader(input),
-		keys: []byte{0x10, 0x11},
-	}
+	r := term.NewEscapeProxy(bytes.NewReader(input), []byte{0x10, 0x11})
 
 	buf := make([]byte, 1024)
 	n, err := r.Read(buf)
+	var escapeErr term.EscapeError
 	assert.Equal(t, n, 0)
-	assert.Equal(t, err, errDetached)
+	assert.Assert(t, errors.As(err, &escapeErr))
 }

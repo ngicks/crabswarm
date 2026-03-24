@@ -4,10 +4,10 @@ go 1.26.0
 
 require (
 	github.com/creack/pty/v2 v2.0.1
+	github.com/moby/term v0.5.2
 	github.com/ngicks/go-common/contextkey v0.2.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sys v0.42.0
-	golang.org/x/term v0.41.0
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
 	gotest.tools/v3 v3.5.2
@@ -15,6 +15,7 @@ require (
 )
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

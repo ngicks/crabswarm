@@ -7,12 +7,11 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
+	"github.com/moby/term"
 	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -48,15 +47,12 @@ var forwardedSignals = []os.Signal{
 	syscall.SIGWINCH,
 }
 
-// errDetached is returned by escapeReader when the detach key sequence is detected.
-var errDetached = errors.New("detached")
-
 func runAttach(cmd *cobra.Command, idOrName string) error {
 	noStdin, _ := cmd.Flags().GetBool("no-stdin")
 	sigProxy, _ := cmd.Flags().GetBool("sig-proxy")
 	detachKeysStr, _ := cmd.Flags().GetString("detach-keys")
 
-	detachKeys, err := parseDetachKeys(detachKeysStr)
+	detachKeys, err := term.ToBytes(detachKeysStr)
 	if err != nil {
 		return fmt.Errorf("invalid detach-keys: %w", err)
 	}
@@ -107,8 +103,8 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	)
 	if !noStdin {
 		stdinFd = int(os.Stdin.Fd())
-		if term.IsTerminal(stdinFd) {
-			oldState, err := term.MakeRaw(stdinFd)
+		if term.IsTerminal(uintptr(stdinFd)) {
+			oldState, err := term.SetRawTerminal(uintptr(stdinFd))
 			if err == nil {
 				savedState = oldState
 			}
@@ -120,17 +116,9 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	// or when savedState is nil.
 	restoreTerminal := func() {
 		if savedState != nil {
-			term.Restore(stdinFd, savedState)
+			_ = term.RestoreTerminal(uintptr(stdinFd), savedState)
 		}
-		// Reset tty-driven display state that the attached program may have
-		// left behind. term.Restore only restores termios, not screen modes.
-		// \033[0m     — reset SGR (colors/bold)
-		// \033[?25h   — show cursor
-		// \033[?1l    — normal cursor keys
-		// \033[?1049l — leave alternate screen buffer
-		// \033>       — normal keypad mode
-		// \r\n        — give the parent shell a fresh line for its prompt
-		os.Stdout.WriteString("\033[0m\033[?25h\033[?1l\033[?1049l\033>\r\n")
+		restoreDisplayModes(os.Stdout)
 	}
 
 	// Undo main.go's signal.NotifyContext for os.Interrupt so SIGINT
@@ -171,7 +159,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		go func() {
 			var r io.Reader = os.Stdin
 			if len(detachKeys) > 0 {
-				r = &escapeReader{r: os.Stdin, keys: detachKeys}
+				r = term.NewEscapeProxy(os.Stdin, detachKeys)
 			}
 			buf := make([]byte, 32*1024)
 			for {
@@ -200,7 +188,8 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	var exitErr error
 	select {
 	case err := <-errCh:
-		if err != io.EOF && !errors.Is(err, errDetached) {
+		var escapeErr term.EscapeError
+		if err != io.EOF && !errors.As(err, &escapeErr) {
 			exitErr = err
 		}
 	case <-ctx.Done():
@@ -282,108 +271,17 @@ func getTerminalSize() (rows, cols int) {
 	return getTerminalSizeImpl()
 }
 
-// escapeReader wraps a reader and detects a detach key sequence.
-// When the full sequence is matched, Read returns errDetached.
-// Partial matches are buffered and flushed if the sequence breaks.
-type escapeReader struct {
-	r    io.Reader
-	keys []byte
-	pos  int    // position in the escape sequence
-	buf  []byte // buffered partial match bytes
-}
-
-func (e *escapeReader) Read(p []byte) (int, error) {
-	// Flush any buffered partial-match bytes first.
-	if len(e.buf) > 0 {
-		n := copy(p, e.buf)
-		e.buf = e.buf[n:]
-		return n, nil
-	}
-
-	nr, err := e.r.Read(p)
-	if nr == 0 {
-		return 0, err
-	}
-
-	// Scan read bytes for the escape sequence.
-	out := 0
-	for i := 0; i < nr; i++ {
-		b := p[i]
-		if b == e.keys[e.pos] {
-			e.pos++
-			if e.pos == len(e.keys) {
-				// Full escape sequence detected.
-				return out, errDetached
-			}
-		} else if e.pos > 0 {
-			// Partial match broken. Flush the buffered escape prefix.
-			prefix := e.keys[:e.pos]
-			e.pos = 0
-
-			// Check if current byte starts a new match.
-			if b == e.keys[0] {
-				e.pos = 1
-			}
-
-			// Output the prefix + (if not starting new match) current byte.
-			remaining := p[out:]
-			n := copy(remaining, prefix)
-			out += n
-			if n < len(prefix) {
-				e.buf = append(e.buf, prefix[n:]...)
-				if e.pos == 0 {
-					e.buf = append(e.buf, b)
-				}
-				e.buf = append(e.buf, p[i+1:nr]...)
-				return out, err
-			}
-			if e.pos == 0 {
-				if out < len(p) {
-					p[out] = b
-					out++
-				} else {
-					e.buf = append(e.buf, b)
-					e.buf = append(e.buf, p[i+1:nr]...)
-					return out, err
-				}
-			}
-		} else {
-			p[out] = b
-			out++
-		}
-	}
-
-	return out, err
-}
-
-// parseDetachKeys parses a detach key sequence string like "ctrl-p,ctrl-q"
-// into a byte slice.
-func parseDetachKeys(s string) ([]byte, error) {
-	if s == "" {
-		return nil, nil
-	}
-	parts := strings.Split(s, ",")
-	keys := make([]byte, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "ctrl-") {
-			ch := strings.TrimPrefix(part, "ctrl-")
-			if len(ch) != 1 {
-				return nil, fmt.Errorf("invalid ctrl sequence: %s", part)
-			}
-			b := ch[0]
-			if b >= 'a' && b <= 'z' {
-				keys = append(keys, b-'a'+1)
-			} else if b >= 'A' && b <= 'Z' {
-				keys = append(keys, b-'A'+1)
-			} else {
-				return nil, fmt.Errorf("invalid ctrl sequence: %s", part)
-			}
-		} else if len(part) == 1 {
-			keys = append(keys, part[0])
-		} else {
-			return nil, fmt.Errorf("invalid key: %s", part)
-		}
-	}
-	return keys, nil
+// restoreDisplayModes resets tty-driven display state that the attached program
+// may have left behind. Terminal state restore only restores termios, not
+// screen modes.
+//
+// It writes:
+//   - \033[0m to reset SGR (colors/bold)
+//   - \033[?25h to show the cursor
+//   - \033[?1l to return to normal cursor-key mode
+//   - \033[?1049l to leave the alternate screen buffer
+//   - \033> to return to normal keypad mode
+//   - \r\n to give the parent shell a fresh line for its prompt
+func restoreDisplayModes(w io.Writer) {
+	_, _ = io.WriteString(w, "\033[0m\033[?25h\033[?1l\033[?1049l\033>\r\n")
 }
