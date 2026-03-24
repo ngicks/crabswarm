@@ -92,8 +92,10 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 
 	client := pb.NewCommandMonitorClient(conn)
 	ctx := cmd.Context()
+	attachCtx, cancelAttach := context.WithCancel(ctx)
+	defer cancelAttach()
 
-	stream, err := client.Attach(ctx)
+	stream, err := client.Attach(attachCtx)
 	if err != nil {
 		return fmt.Errorf("attach: %w", err)
 	}
@@ -120,11 +122,15 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		if savedState != nil {
 			term.Restore(stdinFd, savedState)
 		}
-		// Reset terminal attributes and ensure cursor is visible.
-		// \033[0m  — reset SGR (colors/bold)
-		// \033[?25h — show cursor
-		// \r       — carriage return (cursor to column 0)
-		os.Stdout.WriteString("\033[0m\033[?25h\r")
+		// Reset tty-driven display state that the attached program may have
+		// left behind. term.Restore only restores termios, not screen modes.
+		// \033[0m     — reset SGR (colors/bold)
+		// \033[?25h   — show cursor
+		// \033[?1l    — normal cursor keys
+		// \033[?1049l — leave alternate screen buffer
+		// \033>       — normal keypad mode
+		// \r\n        — give the parent shell a fresh line for its prompt
+		os.Stdout.WriteString("\033[0m\033[?25h\033[?1l\033[?1049l\033>\r\n")
 	}
 
 	// Undo main.go's signal.NotifyContext for os.Interrupt so SIGINT
@@ -144,7 +150,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		signal.Notify(sigCh, forwardedSignals...)
 		defer signal.Stop(sigCh)
 
-		go handleAllSignals(ctx, sigCh, client, stream, restoreTerminal)
+		go handleAllSignals(attachCtx, sigCh, client, stream, restoreTerminal)
 	}
 
 	// Read from stream -> stdout.
@@ -200,8 +206,9 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	case <-ctx.Done():
 	}
 
-	// Close the stream first to stop the recv goroutine from writing
-	// to stdout, then restore the terminal.
+	// Cancel the attach RPC so detach does not depend on transport-side
+	// half-close propagation, then best-effort close the send side.
+	cancelAttach()
 	stream.CloseSend()
 	restoreTerminal()
 
