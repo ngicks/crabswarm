@@ -28,7 +28,7 @@ var logsCmd = &cobra.Command{
 func runLogs(cmd *cobra.Command, args []string) error {
 	follow, _ := cmd.Flags().GetBool("follow")
 
-	store, err := cmdman.OpenStore(cmdman.DBPath())
+	store, err := cmdman.OpenStore(cmdman.DBPath(), true)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}

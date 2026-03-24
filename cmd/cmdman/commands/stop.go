@@ -31,7 +31,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 
 	sig := parseSignal(sigName)
 
-	store, err := cmdman.OpenStore(cmdman.DBPath())
+	store, err := cmdman.OpenStore(cmdman.DBPath(), true)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}

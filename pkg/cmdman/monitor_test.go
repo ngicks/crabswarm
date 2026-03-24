@@ -16,7 +16,7 @@ func TestMonitorRunAndExit(t *testing.T) {
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-1")
 
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	assert.NilError(t, err)
 	defer store.Close()
 
@@ -61,7 +61,7 @@ func TestMonitorNonZeroExit(t *testing.T) {
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-2")
 
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	assert.NilError(t, err)
 	defer store.Close()
 
@@ -98,7 +98,7 @@ func TestMonitorAutoRemove(t *testing.T) {
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-3")
 
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	assert.NilError(t, err)
 	defer store.Close()
 
@@ -138,7 +138,7 @@ func TestMonitorGracefulShutdown(t *testing.T) {
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-4")
 
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	assert.NilError(t, err)
 	defer store.Close()
 

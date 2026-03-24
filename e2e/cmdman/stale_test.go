@@ -65,7 +65,7 @@ func TestStale_AutoRemoveOnStale(t *testing.T) {
 	// Use the store directly.
 	dbPath := filepath.Join(env.dataHome, "commands.db")
 
-	store, err := cmdman.OpenStore(dbPath)
+	store, err := cmdman.OpenStore(dbPath, true)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}

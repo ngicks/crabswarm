@@ -35,7 +35,7 @@ func runLs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	store, err := cmdman.OpenStore(cmdman.DBPath())
+	store, err := cmdman.OpenStore(cmdman.DBPath(), true)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
@@ -73,11 +73,7 @@ func runLs(cmd *cobra.Command, args []string) error {
 		if name == "" {
 			name = "-"
 		}
-		displayID := e.ID
-		if len(displayID) > 12 {
-			displayID = displayID[:12]
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", displayID, name, e.State, ec)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.ID, name, e.State, ec)
 	}
 	return w.Flush()
 }

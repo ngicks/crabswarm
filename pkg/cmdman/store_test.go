@@ -12,7 +12,7 @@ func testStore(t *testing.T) *Store {
 	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	assert.NilError(t, err)
 	t.Cleanup(func() { store.Close() })
 	return store

@@ -57,7 +57,7 @@ func RunMonitor(ctx context.Context, id, commandDir, dbPath string, logger *slog
 		stdinCh:    make(chan []byte, 64),
 	}
 
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}

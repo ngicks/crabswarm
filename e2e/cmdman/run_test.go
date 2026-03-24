@@ -20,10 +20,10 @@ func TestRun_BasicCommand(t *testing.T) {
 	// Run a command that exits immediately.
 	stdout := env.run(ctx, "run", "--", "/bin/sh", "-c", "echo hello")
 
-	// stdout should contain the command ID (a UUID).
+	// stdout should contain the command ID (32-char hex string).
 	id := stdout
-	if len(id) < 36 {
-		t.Fatalf("expected UUID in output, got %q", id)
+	if len(id) != 32 {
+		t.Fatalf("expected 32-char hex ID in output, got %q (len=%d)", id, len(id))
 	}
 
 	// Wait for it to exit.
@@ -48,7 +48,7 @@ func TestRun_WithName(t *testing.T) {
 	// Run with a human-readable name.
 	stdout := env.run(ctx, "run", "-n", "my-echo", "--", "/bin/sh", "-c", "echo named")
 
-	// stdout should be the name, not the UUID.
+	// stdout should be the name, not the ID.
 	if stdout != "my-echo" {
 		t.Errorf("expected name %q in output, got %q", "my-echo", stdout)
 	}

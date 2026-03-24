@@ -16,7 +16,7 @@ func TestRestartPolicyOnFailure(t *testing.T) {
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-restart")
 
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	assert.NilError(t, err)
 	defer store.Close()
 
@@ -75,7 +75,7 @@ func TestRestartPolicyAlways(t *testing.T) {
 	dbPath := filepath.Join(dir, "test.db")
 	commandDir := filepath.Join(dir, "cmd-always")
 
-	store, err := OpenStore(dbPath)
+	store, err := OpenStore(dbPath, true)
 	assert.NilError(t, err)
 	defer store.Close()
 

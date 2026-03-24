@@ -1,10 +1,11 @@
 package commands
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 
-	"github.com/google/uuid"
 	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
 )
@@ -59,7 +60,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// Generate command ID.
-	id := uuid.New().String()
+	id := generateID()
 	commandDir := cmdman.CommandDir(id)
 
 	// Build config.
@@ -85,7 +86,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	// Open store.
 	dbPath := cmdman.DBPath()
-	store, err := cmdman.OpenStore(dbPath)
+	store, err := cmdman.OpenStore(dbPath, true)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
@@ -134,4 +135,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func generateID() string {
+	var buf [16]byte
+	rand.Read(buf[:])
+	return hex.EncodeToString(buf[:])
 }
