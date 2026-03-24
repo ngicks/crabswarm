@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,6 +31,19 @@ var attachCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runAttach(cmd, args[0])
 	},
+}
+
+// signals forwarded to the remote command during attach.
+var forwardedSignals = []os.Signal{
+	syscall.SIGINT,
+	syscall.SIGTERM,
+	syscall.SIGHUP,
+	syscall.SIGQUIT,
+	syscall.SIGUSR1,
+	syscall.SIGUSR2,
+	syscall.SIGTSTP,
+	syscall.SIGCONT,
+	syscall.SIGWINCH,
 }
 
 func runAttach(cmd *cobra.Command, idOrName string) error {
@@ -74,45 +88,35 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	}
 
 	// Put terminal into raw mode so keystrokes pass through to the remote PTY.
-	// Restore on exit to avoid leaving the terminal in a broken state.
+	var restoreTerminal func()
 	if !noStdin {
 		fd := int(os.Stdin.Fd())
 		if term.IsTerminal(fd) {
 			oldState, err := term.MakeRaw(fd)
 			if err == nil {
-				defer term.Restore(fd, oldState)
+				restoreTerminal = func() { term.Restore(fd, oldState) }
+				defer restoreTerminal()
 			}
 		}
 	}
 
-	// Signal proxy.
-	if sigProxy {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			for sig := range sigCh {
-				sigNum, ok := sig.(syscall.Signal)
-				if !ok {
-					continue
-				}
-				client.Signal(ctx, &pb.SignalRequest{Signal: int32(sigNum)})
-			}
-		}()
-		defer signal.Stop(sigCh)
-	}
+	// Take over all signal handling. signal.Reset() undoes any prior
+	// signal.Notify registrations (including main.go's NotifyContext),
+	// giving us full control.
+	signal.Reset()
 
-	// Send terminal size.
+	// Send initial terminal size.
 	sendResize(stream)
 
-	// Watch for SIGWINCH.
-	winchCh := make(chan os.Signal, 1)
-	signal.Notify(winchCh, syscall.SIGWINCH)
-	go func() {
-		for range winchCh {
-			sendResize(stream)
-		}
-	}()
-	defer signal.Stop(winchCh)
+	// HandleAllSignals: forward signals to remote command, handle SIGWINCH
+	// locally as resize, and force-exit after 3 consecutive SIGINT/SIGTERM.
+	if sigProxy {
+		sigCh := make(chan os.Signal, 4)
+		signal.Notify(sigCh, forwardedSignals...)
+		defer signal.Stop(sigCh)
+
+		go handleAllSignals(ctx, sigCh, client, stream, restoreTerminal)
+	}
 
 	// Read from stream -> stdout.
 	errCh := make(chan error, 2)
@@ -161,7 +165,59 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		}
 		return err
 	case <-ctx.Done():
-		return ctx.Err()
+		return nil
+	}
+}
+
+// handleAllSignals processes signals during attach:
+//   - SIGWINCH → send resize event
+//   - SIGINT/SIGTERM → forward to remote; after 3 consecutive, force exit with terminal restore
+//   - All others → forward to remote
+func handleAllSignals(
+	ctx context.Context,
+	sigCh <-chan os.Signal,
+	client pb.CommandMonitorClient,
+	stream pb.CommandMonitor_AttachClient,
+	restoreTerminal func(),
+) {
+	forceCount := 0
+	for {
+		select {
+		case sig, ok := <-sigCh:
+			if !ok {
+				return
+			}
+			sigNum, ok := sig.(syscall.Signal)
+			if !ok {
+				continue
+			}
+
+			if sigNum == syscall.SIGWINCH {
+				sendResize(stream)
+				forceCount = 0
+				continue
+			}
+
+			// Forward to remote command.
+			client.Signal(ctx, &pb.SignalRequest{Signal: int32(sigNum)})
+
+			// Count consecutive SIGINT/SIGTERM for forced exit.
+			if sigNum == syscall.SIGINT || sigNum == syscall.SIGTERM {
+				forceCount++
+				if forceCount >= 3 {
+					// Force exit: restore terminal before exiting.
+					if restoreTerminal != nil {
+						restoreTerminal()
+					}
+					os.Exit(1)
+				}
+			} else {
+				forceCount = 0
+			}
+
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
