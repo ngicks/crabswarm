@@ -9,6 +9,7 @@ import (
 
 	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -70,6 +71,18 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	stream, err := client.Attach(ctx)
 	if err != nil {
 		return fmt.Errorf("attach: %w", err)
+	}
+
+	// Put terminal into raw mode so keystrokes pass through to the remote PTY.
+	// Restore on exit to avoid leaving the terminal in a broken state.
+	if !noStdin {
+		fd := int(os.Stdin.Fd())
+		if term.IsTerminal(fd) {
+			oldState, err := term.MakeRaw(fd)
+			if err == nil {
+				defer term.Restore(fd, oldState)
+			}
+		}
 	}
 
 	// Signal proxy.
