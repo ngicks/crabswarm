@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/moby/term"
@@ -98,8 +99,9 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 
 	// Put terminal into raw mode so keystrokes pass through to the remote PTY.
 	var (
-		stdinFd    int
-		savedState *term.State
+		stdinFd         int
+		savedState      *term.State
+		restoreTerminal = func() {}
 	)
 	if !noStdin {
 		stdinFd = int(os.Stdin.Fd())
@@ -107,18 +109,21 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 			oldState, err := term.SetRawTerminal(uintptr(stdinFd))
 			if err == nil {
 				savedState = oldState
+
+				// some call chain exits by os.Exit,
+				// which forcefully exits without calluing
+				// registered deferred functions.
+				// In case of panic, we defer calling but
+				// also wrapping it in sync.Once
+				restoreTerminal = sync.OnceFunc(func() {
+					if savedState != nil {
+						_ = term.RestoreTerminal(uintptr(stdinFd), savedState)
+					}
+					restoreDisplayModes(os.Stdout)
+				})
+				defer restoreTerminal()
 			}
 		}
-	}
-
-	// restoreTerminal restores the terminal to its saved state and writes
-	// a reset sequence to ensure clean output. Safe to call multiple times
-	// or when savedState is nil.
-	restoreTerminal := func() {
-		if savedState != nil {
-			_ = term.RestoreTerminal(uintptr(stdinFd), savedState)
-		}
-		restoreDisplayModes(os.Stdout)
 	}
 
 	// Undo main.go's signal.NotifyContext for os.Interrupt so SIGINT
