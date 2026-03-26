@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/moby/term"
+	cmdsignals "github.com/ngicks/crabswarm/cmd/internal/signals"
 	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -134,12 +135,9 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		}
 	}
 
-	// Undo main.go's signal.NotifyContext for os.Interrupt so SIGINT
-	// doesn't cancel the context while we're attached. Only reset this
-	// specific signal — signal.Reset() with no args would also undo Go's
-	// internal SIGPIPE handling, causing the process to die without
-	// cleanup when the gRPC connection drops.
-	signal.Reset(os.Interrupt)
+	// We can't do simly `signal.Reset()` withou any argument
+	// since gRPC handles SIGPIPE.
+	signal.Reset(cmdsignals.ExitSignals[:]...)
 
 	// Send initial terminal size.
 	sendResize(stream)

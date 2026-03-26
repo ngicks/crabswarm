@@ -7,10 +7,11 @@ import (
 	"os/signal"
 
 	"github.com/ngicks/crabswarm/cmd/cmdman/commands"
+	cmdsignals "github.com/ngicks/crabswarm/cmd/internal/signals"
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), cmdsignals.ExitSignals[:]...)
 	defer stop()
 
 	logger := slog.New(

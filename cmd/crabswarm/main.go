@@ -8,11 +8,12 @@ import (
 	"os/signal"
 
 	"github.com/ngicks/crabswarm/cmd/crabswarm/commands"
+	cmdsignals "github.com/ngicks/crabswarm/cmd/internal/signals"
 	"github.com/ngicks/go-common/contextkey"
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), cmdsignals.ExitSignals[:]...)
 	defer stop()
 
 	logger := slog.New(
