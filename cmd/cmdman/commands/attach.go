@@ -110,16 +110,24 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 			if err == nil {
 				savedState = oldState
 
-				// some call chain exits by os.Exit,
-				// which forcefully exits without calluing
-				// registered deferred functions.
-				// In case of panic, we defer calling but
+				// Some call chain exits by os.Exit,
+				// which forcefully terminates the processes
+				// without invoking deferred functions.
+				// In case of panic, we defer this func but
 				// also wrapping it in sync.Once
+				// to allow racy callers.
 				restoreTerminal = sync.OnceFunc(func() {
 					if savedState != nil {
 						_ = term.RestoreTerminal(uintptr(stdinFd), savedState)
 					}
-					restoreDisplayModes(os.Stdout)
+					// stdin and stdout can differ in odd half-interactive setups
+					// such as `cmd attach ID | tee out.log`: stdin is still the
+					// user's tty, so termios restore is valid, while stdout is a
+					// pipe, so writing display-reset escapes there would just emit
+					// junk into the pipeline.
+					if term.IsTerminal(os.Stdout.Fd()) {
+						restoreDisplayModes(os.Stdout)
+					}
 				})
 				defer restoreTerminal()
 			}
@@ -279,14 +287,30 @@ func getTerminalSize() (rows, cols int) {
 // restoreDisplayModes resets tty-driven display state that the attached program
 // may have left behind. Terminal state restore only restores termios, not
 // screen modes.
+// This remains heuristic: attach is cleaning up after arbitrary programs whose
+// terminal feature set we do not control or track.
 //
-// It writes:
-//   - \033[0m to reset SGR (colors/bold)
-//   - \033[?25h to show the cursor
-//   - \033[?1l to return to normal cursor-key mode
-//   - \033[?1049l to leave the alternate screen buffer
-//   - \033> to return to normal keypad mode
-//   - \r\n to give the parent shell a fresh line for its prompt
+// Side note: Bubble Tea's (*Program).restoreTerminal is narrower and
+// state-driven. It only emits cleanup for modes Bubble Tea knows it enabled,
+// for example \033[?1049l when alt screen was active, \033[?2004l when
+// bracketed paste was enabled, and mouse-disable sequences when mouse mode was
+// enabled. attach differs because it is cleaning up after arbitrary remote
+// programs whose terminal state it did not enable and cannot observe, so it
+// falls back to a broader unconditional best-effort cleanup sequence.
 func restoreDisplayModes(w io.Writer) {
-	_, _ = io.WriteString(w, "\033[0m\033[?25h\033[?1l\033[?1049l\033>\r\n")
+	_, _ = io.WriteString(w, displayModeResetSeq)
 }
+
+const displayModeResetSeq = "" +
+	"\033[0m" + // Reset SGR (colors/bold).
+	"\033[?25h" + // Show cursor.
+	"\033[?1l" + // Leave application cursor-key mode.
+	"\033[?1000l" + // Disable normal mouse tracking.
+	"\033[?1002l" + // Disable button-event mouse tracking.
+	"\033[?1003l" + // Disable any-event mouse tracking.
+	"\033[?1004l" + // Disable focus reporting.
+	"\033[?1006l" + // Disable SGR mouse reporting.
+	"\033[?1015l" + // Disable urxvt mouse reporting.
+	"\033[?2004l" + // Disable bracketed paste.
+	"\033[?1049l" + // Leave the alternate screen buffer.
+	"\033>\r\n" // Leave application keypad mode and move to a fresh shell line.

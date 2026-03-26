@@ -109,3 +109,10 @@ func TestDetachKeys_ProxyOnlySequence(t *testing.T) {
 	assert.Equal(t, n, 0)
 	assert.Assert(t, errors.As(err, &escapeErr))
 }
+
+func TestRestoreDisplayModes(t *testing.T) {
+	var buf bytes.Buffer
+	restoreDisplayModes(&buf)
+
+	assert.Equal(t, buf.String(), displayModeResetSeq)
+}
