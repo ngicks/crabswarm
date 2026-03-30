@@ -40,7 +40,6 @@ var attachCmd = &cobra.Command{
 var forwardedSignals = []os.Signal{
 	syscall.SIGINT,
 	syscall.SIGTERM,
-	syscall.SIGHUP,
 	syscall.SIGQUIT,
 	syscall.SIGUSR1,
 	syscall.SIGUSR2,
@@ -135,7 +134,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		}
 	}
 
-	// We can't do simly `signal.Reset()` withou any argument
+	// We can't do simply `signal.Reset()` without any argument
 	// since gRPC handles SIGPIPE.
 	signal.Reset(cmdsignals.ExitSignals[:]...)
 

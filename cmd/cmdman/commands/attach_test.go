@@ -4,11 +4,34 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
+	"slices"
+	"syscall"
 	"testing"
 
 	"github.com/moby/term"
 	"gotest.tools/v3/assert"
 )
+
+func TestForwardedSignals_DoesNotIncludeSIGHUP(t *testing.T) {
+	assert.Assert(
+		t,
+		!slices.ContainsFunc(
+			forwardedSignals,
+			func(sig os.Signal) bool { return sig == syscall.SIGHUP },
+		),
+	)
+}
+
+func TestForwardedSignals_DoesNotIncludeSIGURG(t *testing.T) {
+	assert.Assert(
+		t,
+		!slices.ContainsFunc(
+			forwardedSignals,
+			func(sig os.Signal) bool { return sig == syscall.SIGURG },
+		),
+	)
+}
 
 func TestDetachKeys_Parse(t *testing.T) {
 	tests := []struct {
