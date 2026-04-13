@@ -3,19 +3,47 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
-	"text/tabwriter"
+	"text/template"
 
 	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
 )
+
+const (
+	defaultLsHeader    = "ID\tNAME\tSTATE\tEXIT CODE\tCOMMAND"
+	defaultLsRowFormat = "{{slice .ID 0 12}}\t{{.Name}}\t{{.State}}\t{{if .ExitCode}}{{printf \"%d\" .ExitCode}}{{else}}-{{end}}\t{{command .}}"
+)
+
+const commandMaxLen = 40
+
+var lsFuncMap = template.FuncMap{
+	"json": func(v any) string {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("ERR: %v", err)
+		}
+		return string(b)
+	},
+	"command": func(e cmdman.CommandEntry) string {
+		if e.ConfigJSON == nil || len(e.ConfigJSON.Argv) == 0 {
+			return "-"
+		}
+		s := strings.Join(e.ConfigJSON.Argv, " ")
+		if len(s) > commandMaxLen {
+			return s[:commandMaxLen-3] + "..."
+		}
+		return s
+	},
+}
 
 func init() {
 	rootCmd.AddCommand(lsCmd)
 	lsCmd.Flags().StringArrayP("label", "l", nil, "Filter by label KEY=VALUE (repeatable)")
 	lsCmd.Flags().BoolP("all", "a", false, "Show all (including exited)")
 	lsCmd.Flags().BoolP("quiet", "q", false, "Print IDs only")
-	lsCmd.Flags().String("format", "table", "Output format: table, json")
+	lsCmd.Flags().String("format", "", buildFormatUsage())
 }
 
 var lsCmd = &cobra.Command{
@@ -56,26 +84,36 @@ func runLs(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if format == "json" {
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(entries)
+	if format == "" {
+		format = defaultLsRowFormat
+		fmt.Fprintln(cmd.OutOrStdout(), defaultLsHeader)
 	}
 
-	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tSTATE\tEXIT CODE")
-	for _, e := range entries {
-		ec := ""
-		if e.ExitCode != nil {
-			ec = fmt.Sprintf("%d", *e.ExitCode)
-		}
-		name := e.Name
-		if name == "" {
-			name = "-"
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.ID, name, e.State, ec)
+	tmpl, err := template.New("format").Funcs(lsFuncMap).Parse(format)
+	if err != nil {
+		return fmt.Errorf("parse format template: %w", err)
 	}
-	return w.Flush()
+	out := cmd.OutOrStdout()
+	for _, e := range entries {
+		if err := tmpl.Execute(out, e); err != nil {
+			return fmt.Errorf("execute format template: %w", err)
+		}
+		fmt.Fprintln(out)
+	}
+	return nil
+}
+
+func buildFormatUsage() string {
+	t := reflect.TypeOf(cmdman.CommandEntry{})
+	var fields []string
+	for i := range t.NumField() {
+		f := t.Field(i)
+		fields = append(fields, fmt.Sprintf(".%s (%s)", f.Name, f.Type))
+	}
+	return fmt.Sprintf(
+		"Go text/template string. Available fields:\n  %s\nTemplate functions: json",
+		strings.Join(fields, ", "),
+	)
 }
 
 func parseLabels(labelSlice []string) (map[string]string, error) {

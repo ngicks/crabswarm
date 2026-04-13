@@ -33,8 +33,8 @@ func TestLs_ShowsRunningByDefault(t *testing.T) {
 	t.Cleanup(func() { env.cleanupCommand(ctx, exitedID) })
 
 	// Default ls (no -a) should only show the running command.
-	stdout := env.run(ctx, "ls", "--format", "json")
-	if stdout == "null" || stdout == "" {
+	stdout := env.run(ctx, "ls", "--format", "{{json .}}")
+	if stdout == "" {
 		t.Fatal("expected at least one entry in ls")
 	}
 

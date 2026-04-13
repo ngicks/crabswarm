@@ -163,17 +163,27 @@ func (e *testEnv) inspectJSON(ctx context.Context, idOrName string) map[string]a
 	return result
 }
 
-// lsJSON runs "cmdman ls --format json" and returns the parsed JSON array.
+// lsJSON runs "cmdman ls --format '{{json .}}'" and returns the parsed entries.
+// Each line of output is a separate JSON object.
 func (e *testEnv) lsJSON(ctx context.Context, extraArgs ...string) []map[string]any {
 	e.t.Helper()
-	args := append([]string{"ls", "--format", "json", "-a"}, extraArgs...)
+	args := append([]string{"ls", "--format", "{{json .}}", "-a"}, extraArgs...)
 	stdout := e.run(ctx, args...)
-	if stdout == "null" || stdout == "" {
+	stdout = strings.TrimSpace(stdout)
+	if stdout == "" {
 		return nil
 	}
 	var result []map[string]any
-	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
-		e.t.Fatalf("parse ls output: %v\nraw output:\n%s", err, stdout)
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var entry map[string]any
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			e.t.Fatalf("parse ls line: %v\nraw line:\n%s", err, line)
+		}
+		result = append(result, entry)
 	}
 	return result
 }
