@@ -17,12 +17,17 @@ This document defines the conversion rules for reimplementing or updating Claude
 ## Source Of Truth And Scope
 
 - Source of truth: the TypeScript interfaces documented at <https://platform.claude.com/docs/en/agent-sdk/typescript>. When local proto or Go shapes differ, the TypeScript SDK shape wins.
+- Ignore existing local Go types, proto schema, generated protobuf output, repository history, and other repository files when defining the SDK surface, except where repository-specific placement or build wiring is required.
+- This is a hard rule, not a suggestion: existing local SDK-facing code may be consulted only after the SDK surface has already been derived from the TypeScript docs, and then only for integration wiring such as package placement, imports, callers, or build regeneration.
+- Do not use existing local definitions, deleted files, generated files, git history, or prior implementations as the basis, template, scaffold, checklist, or starting draft for SDK type design.
+- If the TypeScript docs and the old local implementation disagree, the old local implementation is wrong for the purpose of the conversion and must be ignored.
 - Scope: implement the full Claude Agent SDK TypeScript type surface for `sdk_types/v1/`, not only the subset already used by this repository.
 
 ## Placement And Generation Boundary
 
 - Handwritten SDK-shaped types and conversion code live under `pkg/api/types/sdk_types/v1/`.
 - Keep the first-pass implementation in a single file within `pkg/api/types/sdk_types/v1/`, and place both the handwritten SDK-shaped types and all proto conversion logic in that file.
+- Keep the first-pass proto schema in a single file under `pkg/api/schema/proto/sdk_types/v1/`. Do not split the SDK proto definitions across multiple files unless the user explicitly asks for that refactor later.
 - Updating the proto schema and regenerating generated code is in scope. Do not treat existing proto definitions as fixed constraints.
 - The handwritten Go file and the proto schema are authored and updated directly by the LLM as normal source files.
 - Regenerate generated outputs after source edits using `buf generate`.
@@ -70,9 +75,19 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Store both the discriminator value and the original `json.RawMessage` on unknown union variants.
 - Preserve round-trip conversion for unknown union variants.
 - Generated proto conversion must also preserve unknown union variants by defining corresponding unknown proto variants.
+- This applies to every union, not only selected high-value unions.
+- Do not omit unknown proto variants just because protobuf `oneof` is inconvenient or because the current repository does not yet consume that path.
+- Each proto unknown variant must be designed intentionally to preserve round-trip data. At minimum it must carry the discriminator value when the union is discriminator-based, and the original payload in a form that can be converted back without inventing or dropping fields.
+- Proto union design is not complete until the unknown variant path exists and the handwritten Go conversion code maps to and from it.
 - Represent string-literal unions and enum-like fields as named Go string types, for example `type <UnionTypeName> string`.
 - Define string-literal union and enum constants in a `const (...)` block.
 - Form constant names by prefixing the union or type name to the PascalCase form of the literal value. Example: `"string-content"` becomes `<UnionTypeName>StringContent`.
+
+## Execution Discipline
+
+- First derive the target SDK shape from the TypeScript docs. Only after that may you inspect repository code for integration points.
+- Do not mechanically merge, rename, or consolidate old local SDK files into the new implementation unless the resulting content has already been validated against the TypeScript docs field-by-field.
+- If you find yourself reusing old repository SDK code because it is faster, stop. Re-derive the type from the docs instead.
 
 ## Proto Conversion API
 
