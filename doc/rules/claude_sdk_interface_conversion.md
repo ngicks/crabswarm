@@ -19,7 +19,8 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Source of truth: the TypeScript interfaces documented at <https://platform.claude.com/docs/en/agent-sdk/typescript>. When local proto or Go shapes differ, the TypeScript SDK shape wins.
 - Ignore existing local Go types, proto schema, generated protobuf output, repository history, and other repository files when defining the SDK surface, except where repository-specific placement or build wiring is required.
 - This is a hard rule, not a suggestion: existing local SDK-facing code may be consulted only after the SDK surface has already been derived from the TypeScript docs, and then only for integration wiring such as package placement, imports, callers, or build regeneration.
-- Do not use existing local definitions, deleted files, generated files, git history, or prior implementations as the basis, template, scaffold, checklist, or starting draft for SDK type design.
+- Do not use existing local definitions, deleted files, generated files, git history, or prior implementations as the basis, template, scaffold, checklist, starting draft, or restoration source for SDK type design.
+- Do not restore deleted proto or Go files from git as a shortcut. If a file needs to exist again, re-author it from the TypeScript docs and only then wire it into the repository.
 - If the TypeScript docs and the old local implementation disagree, the old local implementation is wrong for the purpose of the conversion and must be ignored.
 - Scope: implement the full Claude Agent SDK TypeScript type surface for `sdk_types/v1/`, not only the subset already used by this repository.
 
@@ -88,6 +89,7 @@ This document defines the conversion rules for reimplementing or updating Claude
 - First derive the target SDK shape from the TypeScript docs. Only after that may you inspect repository code for integration points.
 - Do not mechanically merge, rename, or consolidate old local SDK files into the new implementation unless the resulting content has already been validated against the TypeScript docs field-by-field.
 - If you find yourself reusing old repository SDK code because it is faster, stop. Re-derive the type from the docs instead.
+- If you catch yourself copying from an old proto, old Go file, generated `.pb.go`, or git history before the docs-derived shape is written down, stop and restart from the TypeScript docs.
 
 ## Proto Conversion API
 
