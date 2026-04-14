@@ -40,6 +40,7 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Use normal Go field naming conventions, and preserve the documented wire names in JSON struct tags.
 - Reflect relevant comments from the Claude SDK docs in the handwritten Go types.
 - Every handwritten Go type must have its own doc comment that includes the exact Claude SDK reference URL for that specific type or section anchor. A single file-level URL is insufficient.
+- Every exported handwritten Go type doc comment must begin with the type name in standard Go doc-comment form, for example `TypeName is ...`, so editor and linter tooling do not flag it.
 - Every proto message, enum, and union-carrier message must also carry its own doc comment with the exact corresponding Claude SDK reference URL. A file-level URL is insufficient there as well.
 - Use anchored `https://code.claude.com/docs/en/agent-sdk/typescript#...` URLs that identify the relevant section for the specific type, such as `#message-types`, `#sdkassistantmessage`, or the exact anchored section that defines that type.
 - Do not use the bare top-level TypeScript docs URL as a per-type source comment.
@@ -112,6 +113,14 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Prefer methods such as `ToProto()` and `FromProto(...)` on the handwritten Go types, plus package-level helpers for unions and convenience entrypoints.
 - Unknown union variants must also participate in bi-directional conversion and preserve discriminator plus raw payload without loss.
 - A type implementation is not complete until its JSON behavior and its proto-to-Go / Go-to-proto behavior are both defined.
+- In proto conversion code, do not read generated protobuf struct fields directly.
+- Read generated proto values through `Get...` accessors, union oneof getters, or protobuf reflection helpers for presence-sensitive optional fields.
+- This rule exists to keep the conversion layer compatible if generated protobuf code switches to opaque APIs where exported struct fields are not available.
+- When converting getter-returned scalar values back into pointer fields on handwritten Go types, use a small helper such as `func opt[T comparable](v T) *T` instead of direct generated-field access.
+- `proto3 optional` scalar fields are presence-sensitive. Treat “absent” and “present with zero value” as distinct states during proto-to-Go conversion.
+- This matters for exact JSON round-trip requirements. Examples: omitted vs `false`, omitted vs `0`, and omitted vs `""` must remain distinguishable when the handwritten Go type uses pointer fields.
+- Therefore, when reconstructing handwritten Go pointer fields from generated proto values, first check field presence, then read the value with `GetXX()`. Do not reconstruct pointer fields by reading generated struct fields directly.
+- Plain non-optional proto3 scalar fields do not preserve this distinction and should not be treated as tri-state.
 
 ## Ambiguity Rule
 

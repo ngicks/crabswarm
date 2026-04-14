@@ -8,6 +8,7 @@ import (
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -16,19 +17,24 @@ import (
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type UUID string
 
-// External Anthropic SDK payload wrappers intentionally remain raw for now.
+// BetaMessage is a handwritten Claude Agent SDK type.
 //
-// Sources:
-// https://code.claude.com/docs/en/agent-sdk/typescript#sdkassistantmessage
-// https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessage
-// https://code.claude.com/docs/en/agent-sdk/typescript#sdkpartialassistantmessage
-type (
-	BetaMessage               json.RawMessage
-	MessageParam              json.RawMessage
-	BetaRawMessageStreamEvent json.RawMessage
-)
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkassistantmessage
+type BetaMessage json.RawMessage
+
+// MessageParam is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessage
+type MessageParam json.RawMessage
+
+// BetaRawMessageStreamEvent is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpartialassistantmessage
+type BetaRawMessageStreamEvent json.RawMessage
 
 // UnknownUnion preserves unsupported union members.
+//
+// UnknownUnion is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type UnknownUnion struct {
@@ -36,6 +42,8 @@ type UnknownUnion struct {
 	Raw           json.RawMessage `json:"-"`
 }
 
+// PermissionMode is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permissionmode
 type PermissionMode string
 
@@ -48,6 +56,8 @@ const (
 	PermissionModeAuto              PermissionMode = "auto"
 )
 
+// PermissionBehavior is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionBehavior string
 
@@ -57,6 +67,8 @@ const (
 	PermissionBehaviorAsk   PermissionBehavior = "ask"
 )
 
+// PermissionUpdateDestination is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateDestination string
 
@@ -68,6 +80,8 @@ const (
 	PermissionUpdateDestinationCliArg          PermissionUpdateDestination = "cliArg"
 )
 
+// SettingSource is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#settingsource
 type SettingSource string
 
@@ -77,6 +91,8 @@ const (
 	SettingSourceLocal   SettingSource = "local"
 )
 
+// ApiKeySource is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#accountinfo
 type ApiKeySource string
 
@@ -88,6 +104,8 @@ const (
 	ApiKeySourceOauth     ApiKeySource = "oauth"
 )
 
+// SdkBeta is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SdkBeta string
 
@@ -95,6 +113,8 @@ const (
 	SdkBetaContext1M20250807 SdkBeta = "context-1m-2025-08-07"
 )
 
+// Effort is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type Effort string
 
@@ -105,6 +125,8 @@ const (
 	EffortMax    Effort = "max"
 )
 
+// AgentModel is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition
 type AgentModel string
 
@@ -115,6 +137,8 @@ const (
 	AgentModelInherit AgentModel = "inherit"
 )
 
+// AgentMode is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type AgentMode string
 
@@ -126,6 +150,8 @@ const (
 	AgentModePlan              AgentMode = "plan"
 )
 
+// AgentIsolation is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type AgentIsolation string
 
@@ -133,6 +159,8 @@ const (
 	AgentIsolationWorktree AgentIsolation = "worktree"
 )
 
+// ToolPreset is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ToolPreset string
 
@@ -140,6 +168,8 @@ const (
 	ToolPresetClaudeCode ToolPreset = "claude_code"
 )
 
+// SystemPromptPresetName is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPromptPresetName string
 
@@ -147,6 +177,8 @@ const (
 	SystemPromptPresetClaudeCode SystemPromptPresetName = "claude_code"
 )
 
+// ConfigScope is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#config-2
 type ConfigScope string
 
@@ -156,6 +188,8 @@ const (
 	ConfigScopeProject ConfigScope = "project"
 )
 
+// ServiceTier is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#agentoutput
 type ServiceTier string
 
@@ -165,6 +199,8 @@ const (
 	ServiceTierBatch    ServiceTier = "batch"
 )
 
+// HookEvent is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
 type HookEvent string
 
@@ -189,6 +225,8 @@ const (
 	HookEventWorktreeRemove     HookEvent = "WorktreeRemove"
 )
 
+// SessionStartSource is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sessionstarthookinput
 type SessionStartSource string
 
@@ -199,6 +237,8 @@ const (
 	SessionStartSourceCompact SessionStartSource = "compact"
 )
 
+// SetupTrigger is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#setuphookinput
 type SetupTrigger string
 
@@ -207,6 +247,8 @@ const (
 	SetupTriggerMaintenance SetupTrigger = "maintenance"
 )
 
+// ConfigChangeSource is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#configchangehookinput
 type ConfigChangeSource string
 
@@ -218,6 +260,8 @@ const (
 	ConfigChangeSourceSkills          ConfigChangeSource = "skills"
 )
 
+// HookDecision is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sync-hook-json-output
 type HookDecision string
 
@@ -226,6 +270,8 @@ const (
 	HookDecisionBlock   HookDecision = "block"
 )
 
+// HookPermissionDecision is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookPermissionDecision string
 
@@ -235,6 +281,8 @@ const (
 	HookPermissionDecisionAsk   HookPermissionDecision = "ask"
 )
 
+// TodoStatus is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite
 type TodoStatus string
 
@@ -244,6 +292,8 @@ const (
 	TodoStatusCompleted  TodoStatus = "completed"
 )
 
+// NotebookCellType is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#notebookedit
 type NotebookCellType string
 
@@ -252,6 +302,8 @@ const (
 	NotebookCellTypeMarkdown NotebookCellType = "markdown"
 )
 
+// NotebookEditMode is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#notebookedit
 type NotebookEditMode string
 
@@ -261,6 +313,8 @@ const (
 	NotebookEditModeDelete  NotebookEditMode = "delete"
 )
 
+// GrepOutputMode is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#grep
 type GrepOutputMode string
 
@@ -270,6 +324,8 @@ const (
 	GrepOutputModeCount            GrepOutputMode = "count"
 )
 
+// FileReadImageMimeType is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadImageMimeType string
 
@@ -280,6 +336,8 @@ const (
 	FileReadImageMimeTypeWEBP FileReadImageMimeType = "image/webp"
 )
 
+// McpServerStatusState is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#mcpserverstatus
 type McpServerStatusState string
 
@@ -291,6 +349,8 @@ const (
 	McpServerStatusStateDisabled  McpServerStatusState = "disabled"
 )
 
+// RateLimitStatus is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#ratelimitinfo
 type RateLimitStatus string
 
@@ -300,6 +360,8 @@ const (
 	RateLimitStatusRejected       RateLimitStatus = "rejected"
 )
 
+// ToolUseSummaryType is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type ToolUseSummaryType string
 
@@ -307,6 +369,8 @@ const (
 	ToolUseSummaryTypeToolUseSummary ToolUseSummaryType = "tool_use_summary"
 )
 
+// PromptSuggestionType is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type PromptSuggestionType string
 
@@ -314,6 +378,8 @@ const (
 	PromptSuggestionTypePromptSuggestion PromptSuggestionType = "prompt_suggestion"
 )
 
+// SystemMessageType is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type SystemMessageType string
 
@@ -328,6 +394,8 @@ const (
 	SystemMessageTypeResult         SystemMessageType = "result"
 )
 
+// SystemSubtype is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type SystemSubtype string
 
@@ -345,6 +413,8 @@ const (
 	SystemSubtypeLocalCommandOutput SystemSubtype = "local_command_output"
 )
 
+// SDKAssistantMessageError is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkassistantmessage
 type SDKAssistantMessageError string
 
@@ -358,6 +428,8 @@ const (
 	SDKAssistantMessageErrorUnknown              SDKAssistantMessageError = "unknown"
 )
 
+// SDKResultSubtype is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
 type SDKResultSubtype string
 
@@ -369,6 +441,8 @@ const (
 	SDKResultSubtypeErrorMaxStructuredOutputRetries SDKResultSubtype = "error_max_structured_output_retries"
 )
 
+// HookResponseOutcome is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkhookresponsemessage
 type HookResponseOutcome string
 
@@ -378,6 +452,8 @@ const (
 	HookResponseOutcomeCancelled HookResponseOutcome = "cancelled"
 )
 
+// TaskNotificationStatus is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktasknotificationmessage
 type TaskNotificationStatus string
 
@@ -387,18 +463,24 @@ const (
 	TaskNotificationStatusStopped   TaskNotificationStatus = "stopped"
 )
 
+// FilesPersistedFile is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkfilespersistedevent
 type FilesPersistedFile struct {
 	Filename string `json:"filename"`
 	FileID   string `json:"file_id"`
 }
 
+// FilesPersistedFailure is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkfilespersistedevent
 type FilesPersistedFailure struct {
 	Filename string `json:"filename"`
 	Error    string `json:"error"`
 }
 
+// RateLimitInfo is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkratelimitevent
 type RateLimitInfo struct {
 	Status      RateLimitStatus `json:"status"`
@@ -406,6 +488,8 @@ type RateLimitInfo struct {
 	Utilization *float64        `json:"utilization,omitzero"`
 }
 
+// ToolAnnotations is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#toolannotations
 type ToolAnnotations struct {
 	ReadOnlyHint    *bool `json:"readOnlyHint,omitzero"`
@@ -414,6 +498,8 @@ type ToolAnnotations struct {
 	OpenWorldHint   *bool `json:"openWorldHint,omitzero"`
 }
 
+// AskUserQuestionPreviewFormat is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type AskUserQuestionPreviewFormat string
 
@@ -422,22 +508,30 @@ const (
 	AskUserQuestionPreviewFormatHTML     AskUserQuestionPreviewFormat = "html"
 )
 
+// ToolConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ToolConfig struct {
 	AskUserQuestion *AskUserQuestionToolConfig `json:"askUserQuestion,omitzero"`
 }
 
+// AskUserQuestionToolConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type AskUserQuestionToolConfig struct {
 	PreviewFormat *AskUserQuestionPreviewFormat `json:"previewFormat,omitzero"`
 }
 
+// OutputFormat is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type OutputFormat struct {
 	Type   string          `json:"type"`
 	Schema json.RawMessage `json:"schema"`
 }
 
+// SystemPrompt is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPrompt interface{ systemPrompt() }
 
@@ -447,12 +541,18 @@ var (
 	_ SystemPrompt = (*SystemPromptPreset)(nil)
 )
 
+// SystemPromptUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPromptUnknown struct{ UnknownUnion }
 
+// SystemPromptString is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPromptString struct{ Value string }
 
+// SystemPromptPreset is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPromptPreset struct {
 	Type   string                 `json:"type"`
@@ -464,6 +564,8 @@ func (SystemPromptUnknown) systemPrompt() {}
 func (SystemPromptString) systemPrompt()  {}
 func (SystemPromptPreset) systemPrompt()  {}
 
+// ThinkingConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfig interface{ thinkingConfig() }
 
@@ -474,20 +576,28 @@ var (
 	_ ThinkingConfig = (*ThinkingConfigDisabled)(nil)
 )
 
+// ThinkingConfigUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfigUnknown struct{ UnknownUnion }
 
+// ThinkingConfigAdaptive is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfigAdaptive struct {
 	Type string `json:"type"`
 }
 
+// ThinkingConfigEnabled is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfigEnabled struct {
 	Type         string `json:"type"`
 	BudgetTokens *int64 `json:"budgetTokens,omitzero"`
 }
 
+// ThinkingConfigDisabled is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfigDisabled struct {
 	Type string `json:"type"`
@@ -498,6 +608,8 @@ func (ThinkingConfigAdaptive) thinkingConfig() {}
 func (ThinkingConfigEnabled) thinkingConfig()  {}
 func (ThinkingConfigDisabled) thinkingConfig() {}
 
+// ToolsConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ToolsConfig interface{ toolsConfig() }
 
@@ -507,14 +619,20 @@ var (
 	_ ToolsConfig = (*ToolsConfigPreset)(nil)
 )
 
+// ToolsConfigUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ToolsConfigUnknown struct{ UnknownUnion }
 
+// ToolsConfigList is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ToolsConfigList struct {
 	Tools []string `json:"-"`
 }
 
+// ToolsConfigPreset is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ToolsConfigPreset struct {
 	Type   string     `json:"type"`
@@ -525,12 +643,16 @@ func (ToolsConfigUnknown) toolsConfig() {}
 func (ToolsConfigList) toolsConfig()    {}
 func (ToolsConfigPreset) toolsConfig()  {}
 
+// PermissionRuleValue is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionRuleValue struct {
 	ToolName    string  `json:"toolName"`
 	RuleContent *string `json:"ruleContent,omitzero"`
 }
 
+// PermissionUpdate is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdate interface{ permissionUpdate() }
 
@@ -544,9 +666,13 @@ var (
 	_ PermissionUpdate = (*PermissionUpdateRemoveDirectories)(nil)
 )
 
+// PermissionUpdateUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateUnknown struct{ UnknownUnion }
 
+// PermissionUpdateAddRules is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateAddRules struct {
 	Type        string                      `json:"type"`
@@ -555,6 +681,8 @@ type PermissionUpdateAddRules struct {
 	Destination PermissionUpdateDestination `json:"destination"`
 }
 
+// PermissionUpdateReplaceRules is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateReplaceRules struct {
 	Type        string                      `json:"type"`
@@ -563,6 +691,8 @@ type PermissionUpdateReplaceRules struct {
 	Destination PermissionUpdateDestination `json:"destination"`
 }
 
+// PermissionUpdateRemoveRules is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateRemoveRules struct {
 	Type        string                      `json:"type"`
@@ -571,6 +701,8 @@ type PermissionUpdateRemoveRules struct {
 	Destination PermissionUpdateDestination `json:"destination"`
 }
 
+// PermissionUpdateSetMode is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateSetMode struct {
 	Type        string                      `json:"type"`
@@ -578,6 +710,8 @@ type PermissionUpdateSetMode struct {
 	Destination PermissionUpdateDestination `json:"destination"`
 }
 
+// PermissionUpdateAddDirectories is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateAddDirectories struct {
 	Type        string                      `json:"type"`
@@ -585,6 +719,8 @@ type PermissionUpdateAddDirectories struct {
 	Destination PermissionUpdateDestination `json:"destination"`
 }
 
+// PermissionUpdateRemoveDirectories is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 type PermissionUpdateRemoveDirectories struct {
 	Type        string                      `json:"type"`
@@ -600,6 +736,8 @@ func (PermissionUpdateSetMode) permissionUpdate()           {}
 func (PermissionUpdateAddDirectories) permissionUpdate()    {}
 func (PermissionUpdateRemoveDirectories) permissionUpdate() {}
 
+// PermissionResult is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResult interface{ permissionResult() }
 
@@ -609,9 +747,13 @@ var (
 	_ PermissionResult = (*PermissionResultDeny)(nil)
 )
 
+// PermissionResultUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResultUnknown struct{ UnknownUnion }
 
+// PermissionResultAllow is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResultAllow struct {
 	Behavior           string             `json:"behavior"`
@@ -620,6 +762,8 @@ type PermissionResultAllow struct {
 	ToolUseID          *string            `json:"toolUseID,omitzero"`
 }
 
+// PermissionResultDeny is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResultDeny struct {
 	Behavior  string  `json:"behavior"`
@@ -632,6 +776,8 @@ func (PermissionResultUnknown) permissionResult() {}
 func (PermissionResultAllow) permissionResult()   {}
 func (PermissionResultDeny) permissionResult()    {}
 
+// McpServerConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type McpServerConfig interface{ mcpServerConfig() }
 
@@ -644,9 +790,13 @@ var (
 	_ McpServerConfig = (*McpClaudeAIProxyServerConfig)(nil)
 )
 
+// McpServerConfigUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type McpServerConfigUnknown struct{ UnknownUnion }
 
+// McpStdioServerConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type McpStdioServerConfig struct {
 	Type    *string           `json:"type,omitzero"`
@@ -655,6 +805,8 @@ type McpStdioServerConfig struct {
 	Env     map[string]string `json:"env,omitzero"`
 }
 
+// McpSSEServerConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type McpSSEServerConfig struct {
 	Type    string            `json:"type"`
@@ -662,6 +814,8 @@ type McpSSEServerConfig struct {
 	Headers map[string]string `json:"headers,omitzero"`
 }
 
+// McpHttpServerConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type McpHttpServerConfig struct {
 	Type    string            `json:"type"`
@@ -669,6 +823,8 @@ type McpHttpServerConfig struct {
 	Headers map[string]string `json:"headers,omitzero"`
 }
 
+// McpSdkServerConfigWithInstance is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#createsdkmcpserver
 type McpSdkServerConfigWithInstance struct {
 	Type     string          `json:"type"`
@@ -676,6 +832,8 @@ type McpSdkServerConfigWithInstance struct {
 	Instance json.RawMessage `json:"instance"`
 }
 
+// McpClaudeAIProxyServerConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type McpClaudeAIProxyServerConfig struct {
 	Type string `json:"type"`
@@ -690,12 +848,16 @@ func (McpHttpServerConfig) mcpServerConfig()            {}
 func (McpSdkServerConfigWithInstance) mcpServerConfig() {}
 func (McpClaudeAIProxyServerConfig) mcpServerConfig()   {}
 
+// SdkPluginConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SdkPluginConfig struct {
 	Type string `json:"type"`
 	Path string `json:"path"`
 }
 
+// SandboxNetworkConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SandboxNetworkConfig struct {
 	AllowedDomains          []string `json:"allowedDomains,omitzero"`
@@ -707,6 +869,8 @@ type SandboxNetworkConfig struct {
 	SocksProxyPort          *int64   `json:"socksProxyPort,omitzero"`
 }
 
+// SandboxFilesystemConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SandboxFilesystemConfig struct {
 	AllowWrite []string `json:"allowWrite,omitzero"`
@@ -714,12 +878,16 @@ type SandboxFilesystemConfig struct {
 	DenyRead   []string `json:"denyRead,omitzero"`
 }
 
+// RipgrepConfig is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type RipgrepConfig struct {
 	Command string   `json:"command"`
 	Args    []string `json:"args,omitzero"`
 }
 
+// SandboxSettings is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SandboxSettings struct {
 	Enabled                   *bool                    `json:"enabled,omitzero"`
@@ -733,6 +901,8 @@ type SandboxSettings struct {
 	Ripgrep                   *RipgrepConfig           `json:"ripgrep,omitzero"`
 }
 
+// AgentDefinition is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition
 type AgentDefinition struct {
 	Description                        string            `json:"description"`
@@ -746,6 +916,8 @@ type AgentDefinition struct {
 	CriticalSystemReminderExperimental *string           `json:"criticalSystemReminder_EXPERIMENTAL,omitzero"`
 }
 
+// Options is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type Options struct {
 	AdditionalDirectories           []string                   `json:"additionalDirectories,omitzero"`
@@ -792,6 +964,8 @@ type Options struct {
 	Tools                           ToolsConfig                `json:"tools,omitzero"`
 }
 
+// SlashCommand is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#slashcommand
 type SlashCommand struct {
 	Name         string `json:"name"`
@@ -799,6 +973,8 @@ type SlashCommand struct {
 	ArgumentHint string `json:"argumentHint"`
 }
 
+// ModelInfo is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#modelinfo
 type ModelInfo struct {
 	Value                    string   `json:"value"`
@@ -810,6 +986,8 @@ type ModelInfo struct {
 	SupportsFastMode         *bool    `json:"supportsFastMode,omitzero"`
 }
 
+// AgentInfo is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition
 type AgentInfo struct {
 	Name        string  `json:"name"`
@@ -817,6 +995,8 @@ type AgentInfo struct {
 	Model       *string `json:"model,omitzero"`
 }
 
+// AccountInfo is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#accountinfo
 type AccountInfo struct {
 	Email            *string `json:"email,omitzero"`
@@ -826,6 +1006,8 @@ type AccountInfo struct {
 	ApiKeySource     *string `json:"apiKeySource,omitzero"`
 }
 
+// ModelUsage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#modelusage
 type ModelUsage struct {
 	InputTokens              int64   `json:"inputTokens"`
@@ -838,6 +1020,8 @@ type ModelUsage struct {
 	MaxOutputTokens          int64   `json:"maxOutputTokens"`
 }
 
+// Usage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
 type Usage struct {
 	InputTokens              *int64 `json:"input_tokens"`
@@ -846,6 +1030,8 @@ type Usage struct {
 	CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
 }
 
+// NonNullableUsage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#nonnullableusage
 type NonNullableUsage struct {
 	InputTokens              int64 `json:"input_tokens"`
@@ -854,18 +1040,24 @@ type NonNullableUsage struct {
 	CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
 }
 
+// CallToolResultContent is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#calltoolresult
 type CallToolResultContent struct {
 	Type string         `json:"type"`
 	Data map[string]any `json:"data,omitzero"`
 }
 
+// CallToolResult is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#calltoolresult
 type CallToolResult struct {
 	Content []CallToolResultContent `json:"content"`
 	IsError *bool                   `json:"isError,omitzero"`
 }
 
+// SDKPermissionDenial is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpermissiondenial
 type SDKPermissionDenial struct {
 	ToolName  string         `json:"tool_name"`
@@ -873,12 +1065,16 @@ type SDKPermissionDenial struct {
 	ToolInput map[string]any `json:"tool_input"`
 }
 
+// CompactMetadata is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkcompactboundarymessage
 type CompactMetadata struct {
 	Trigger   string `json:"trigger"`
 	PreTokens int64  `json:"pre_tokens"`
 }
 
+// TaskUsageSummary is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskprogressmessage
 type TaskUsageSummary struct {
 	TotalTokens int64 `json:"total_tokens"`
@@ -886,6 +1082,8 @@ type TaskUsageSummary struct {
 	DurationMs  int64 `json:"duration_ms"`
 }
 
+// SDKMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type SDKMessage interface{ sdkMessage() }
 
@@ -916,11 +1114,15 @@ var (
 	_ SDKMessage = (*SDKPromptSuggestionMessage)(nil)
 )
 
+// SDKMessageUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type SDKMessageUnknown struct{ UnknownUnion }
 
 func (SDKMessageUnknown) sdkMessage() {}
 
+// SDKAssistantMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkassistantmessage
 type SDKAssistantMessage struct {
 	Type            string                    `json:"type"`
@@ -933,6 +1135,8 @@ type SDKAssistantMessage struct {
 
 func (SDKAssistantMessage) sdkMessage() {}
 
+// SDKUserMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessage
 type SDKUserMessage struct {
 	Type            string          `json:"type"`
@@ -946,6 +1150,8 @@ type SDKUserMessage struct {
 
 func (SDKUserMessage) sdkMessage() {}
 
+// SDKUserMessageReplay is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessagereplay
 type SDKUserMessageReplay struct {
 	Type            string          `json:"type"`
@@ -960,18 +1166,24 @@ type SDKUserMessageReplay struct {
 
 func (SDKUserMessageReplay) sdkMessage() {}
 
+// SDKResultMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
 type SDKResultMessage interface {
 	sdkMessage()
 	sdkResultMessage()
 }
 
+// SDKResultMessageUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
 type SDKResultMessageUnknown struct{ UnknownUnion }
 
 func (SDKResultMessageUnknown) sdkMessage()       {}
 func (SDKResultMessageUnknown) sdkResultMessage() {}
 
+// SDKResultMessageSuccess is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
 type SDKResultMessageSuccess struct {
 	Type              string                `json:"type"`
@@ -994,6 +1206,8 @@ type SDKResultMessageSuccess struct {
 func (SDKResultMessageSuccess) sdkMessage()       {}
 func (SDKResultMessageSuccess) sdkResultMessage() {}
 
+// SDKResultMessageError is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
 type SDKResultMessageError struct {
 	Type              string                `json:"type"`
@@ -1015,18 +1229,24 @@ type SDKResultMessageError struct {
 func (SDKResultMessageError) sdkMessage()       {}
 func (SDKResultMessageError) sdkResultMessage() {}
 
+// SDKSystemServer is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdksystemmessage
 type SDKSystemServer struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
 }
 
+// SDKSystemPlugin is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdksystemmessage
 type SDKSystemPlugin struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
 }
 
+// SDKSystemMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdksystemmessage
 type SDKSystemMessage struct {
 	Type              string            `json:"type"`
@@ -1050,6 +1270,8 @@ type SDKSystemMessage struct {
 
 func (SDKSystemMessage) sdkMessage() {}
 
+// SDKPartialAssistantMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpartialassistantmessage
 type SDKPartialAssistantMessage struct {
 	Type            string                    `json:"type"`
@@ -1061,6 +1283,8 @@ type SDKPartialAssistantMessage struct {
 
 func (SDKPartialAssistantMessage) sdkMessage() {}
 
+// SDKCompactBoundaryMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkcompactboundarymessage
 type SDKCompactBoundaryMessage struct {
 	Type            string          `json:"type"`
@@ -1072,6 +1296,8 @@ type SDKCompactBoundaryMessage struct {
 
 func (SDKCompactBoundaryMessage) sdkMessage() {}
 
+// SDKStatusMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkstatusmessage
 type SDKStatusMessage struct {
 	Type           string          `json:"type"`
@@ -1084,6 +1310,8 @@ type SDKStatusMessage struct {
 
 func (SDKStatusMessage) sdkMessage() {}
 
+// SDKLocalCommandOutputMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdklocalcommandoutputmessage
 type SDKLocalCommandOutputMessage struct {
 	Type      string        `json:"type"`
@@ -1095,6 +1323,8 @@ type SDKLocalCommandOutputMessage struct {
 
 func (SDKLocalCommandOutputMessage) sdkMessage() {}
 
+// SDKHookStartedMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkhookstartedmessage
 type SDKHookStartedMessage struct {
 	Type      string        `json:"type"`
@@ -1108,6 +1338,8 @@ type SDKHookStartedMessage struct {
 
 func (SDKHookStartedMessage) sdkMessage() {}
 
+// SDKHookProgressMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkhookprogressmessage
 type SDKHookProgressMessage struct {
 	Type      string        `json:"type"`
@@ -1124,6 +1356,8 @@ type SDKHookProgressMessage struct {
 
 func (SDKHookProgressMessage) sdkMessage() {}
 
+// SDKHookResponseMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkhookresponsemessage
 type SDKHookResponseMessage struct {
 	Type      string              `json:"type"`
@@ -1142,6 +1376,8 @@ type SDKHookResponseMessage struct {
 
 func (SDKHookResponseMessage) sdkMessage() {}
 
+// SDKToolProgressMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktoolprogressmessage
 type SDKToolProgressMessage struct {
 	Type               string  `json:"type"`
@@ -1156,6 +1392,8 @@ type SDKToolProgressMessage struct {
 
 func (SDKToolProgressMessage) sdkMessage() {}
 
+// SDKAuthStatusMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkauthstatusmessage
 type SDKAuthStatusMessage struct {
 	Type             string   `json:"type"`
@@ -1168,6 +1406,8 @@ type SDKAuthStatusMessage struct {
 
 func (SDKAuthStatusMessage) sdkMessage() {}
 
+// SDKTaskNotificationMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktasknotificationmessage
 type SDKTaskNotificationMessage struct {
 	Type       string                 `json:"type"`
@@ -1184,6 +1424,8 @@ type SDKTaskNotificationMessage struct {
 
 func (SDKTaskNotificationMessage) sdkMessage() {}
 
+// SDKTaskStartedMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskstartedmessage
 type SDKTaskStartedMessage struct {
 	Type        string        `json:"type"`
@@ -1198,6 +1440,8 @@ type SDKTaskStartedMessage struct {
 
 func (SDKTaskStartedMessage) sdkMessage() {}
 
+// SDKTaskProgressMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskprogressmessage
 type SDKTaskProgressMessage struct {
 	Type         string           `json:"type"`
@@ -1213,6 +1457,8 @@ type SDKTaskProgressMessage struct {
 
 func (SDKTaskProgressMessage) sdkMessage() {}
 
+// SDKFilesPersistedEvent is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkfilespersistedevent
 type SDKFilesPersistedEvent struct {
 	Type        string                  `json:"type"`
@@ -1226,6 +1472,8 @@ type SDKFilesPersistedEvent struct {
 
 func (SDKFilesPersistedEvent) sdkMessage() {}
 
+// SDKToolUseSummaryMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktoolusesummarymessage
 type SDKToolUseSummaryMessage struct {
 	Type                string   `json:"type"`
@@ -1237,6 +1485,8 @@ type SDKToolUseSummaryMessage struct {
 
 func (SDKToolUseSummaryMessage) sdkMessage() {}
 
+// SDKRateLimitEvent is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkratelimitevent
 type SDKRateLimitEvent struct {
 	Type          string        `json:"type"`
@@ -1247,6 +1497,8 @@ type SDKRateLimitEvent struct {
 
 func (SDKRateLimitEvent) sdkMessage() {}
 
+// SDKPromptSuggestionMessage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpromptsuggestionmessage
 type SDKPromptSuggestionMessage struct {
 	Type       string `json:"type"`
@@ -1257,6 +1509,8 @@ type SDKPromptSuggestionMessage struct {
 
 func (SDKPromptSuggestionMessage) sdkMessage() {}
 
+// BaseHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
 type BaseHookInput struct {
 	SessionID      string  `json:"session_id"`
@@ -1267,6 +1521,8 @@ type BaseHookInput struct {
 	AgentType      *string `json:"agent_type,omitzero"`
 }
 
+// HookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
 type HookInput interface{ hookInput() }
 
@@ -1292,11 +1548,15 @@ var (
 	_ HookInput = (*WorktreeRemoveHookInput)(nil)
 )
 
+// HookInputUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
 type HookInputUnknown struct{ UnknownUnion }
 
 func (HookInputUnknown) hookInput() {}
 
+// PreToolUseHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#pretoolusehookinput
 type PreToolUseHookInput struct {
 	BaseHookInput
@@ -1308,6 +1568,8 @@ type PreToolUseHookInput struct {
 
 func (PreToolUseHookInput) hookInput() {}
 
+// PostToolUseHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusehookinput
 type PostToolUseHookInput struct {
 	BaseHookInput
@@ -1320,6 +1582,8 @@ type PostToolUseHookInput struct {
 
 func (PostToolUseHookInput) hookInput() {}
 
+// PostToolUseFailureHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusefailurehookinput
 type PostToolUseFailureHookInput struct {
 	BaseHookInput
@@ -1333,6 +1597,8 @@ type PostToolUseFailureHookInput struct {
 
 func (PostToolUseFailureHookInput) hookInput() {}
 
+// NotificationHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#notificationhookinput
 type NotificationHookInput struct {
 	BaseHookInput
@@ -1344,6 +1610,8 @@ type NotificationHookInput struct {
 
 func (NotificationHookInput) hookInput() {}
 
+// UserPromptSubmitHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#userpromptsubmithookinput
 type UserPromptSubmitHookInput struct {
 	BaseHookInput
@@ -1353,6 +1621,8 @@ type UserPromptSubmitHookInput struct {
 
 func (UserPromptSubmitHookInput) hookInput() {}
 
+// SessionStartHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sessionstarthookinput
 type SessionStartHookInput struct {
 	BaseHookInput
@@ -1363,6 +1633,8 @@ type SessionStartHookInput struct {
 
 func (SessionStartHookInput) hookInput() {}
 
+// SessionEndHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sessionendhookinput
 type SessionEndHookInput struct {
 	BaseHookInput
@@ -1372,6 +1644,8 @@ type SessionEndHookInput struct {
 
 func (SessionEndHookInput) hookInput() {}
 
+// StopHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#stophookinput
 type StopHookInput struct {
 	BaseHookInput
@@ -1381,6 +1655,8 @@ type StopHookInput struct {
 
 func (StopHookInput) hookInput() {}
 
+// SubagentStartHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstarthookinput
 type SubagentStartHookInput struct {
 	BaseHookInput
@@ -1390,6 +1666,8 @@ type SubagentStartHookInput struct {
 
 func (SubagentStartHookInput) hookInput() {}
 
+// SubagentStopHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
 type SubagentStopHookInput struct {
 	BaseHookInput
@@ -1399,6 +1677,8 @@ type SubagentStopHookInput struct {
 
 func (SubagentStopHookInput) hookInput() {}
 
+// PreCompactHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#precompacthookinput
 type PreCompactHookInput struct {
 	BaseHookInput
@@ -1409,6 +1689,8 @@ type PreCompactHookInput struct {
 
 func (PreCompactHookInput) hookInput() {}
 
+// PermissionRequestHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permissionrequesthookinput
 type PermissionRequestHookInput struct {
 	BaseHookInput
@@ -1421,6 +1703,8 @@ type PermissionRequestHookInput struct {
 
 func (PermissionRequestHookInput) hookInput() {}
 
+// SetupHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#setuphookinput
 type SetupHookInput struct {
 	BaseHookInput
@@ -1430,6 +1714,8 @@ type SetupHookInput struct {
 
 func (SetupHookInput) hookInput() {}
 
+// TeammateIdleHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#teammateidlehookinput
 type TeammateIdleHookInput struct {
 	BaseHookInput
@@ -1438,6 +1724,8 @@ type TeammateIdleHookInput struct {
 
 func (TeammateIdleHookInput) hookInput() {}
 
+// TaskCompletedHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcompletedhookinput
 type TaskCompletedHookInput struct {
 	BaseHookInput
@@ -1451,6 +1739,8 @@ type TaskCompletedHookInput struct {
 
 func (TaskCompletedHookInput) hookInput() {}
 
+// ConfigChangeHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#configchangehookinput
 type ConfigChangeHookInput struct {
 	BaseHookInput
@@ -1461,6 +1751,8 @@ type ConfigChangeHookInput struct {
 
 func (ConfigChangeHookInput) hookInput() {}
 
+// WorktreeCreateHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#worktreecreatehookinput
 type WorktreeCreateHookInput struct {
 	BaseHookInput
@@ -1470,6 +1762,8 @@ type WorktreeCreateHookInput struct {
 
 func (WorktreeCreateHookInput) hookInput() {}
 
+// WorktreeRemoveHookInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#worktreeremovehookinput
 type WorktreeRemoveHookInput struct {
 	BaseHookInput
@@ -1479,6 +1773,8 @@ type WorktreeRemoveHookInput struct {
 
 func (WorktreeRemoveHookInput) hookInput() {}
 
+// HookJSONOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-json-output
 type HookJSONOutput interface{ hookJSONOutput() }
 
@@ -1488,11 +1784,15 @@ var (
 	_ HookJSONOutput = (*SyncHookJSONOutput)(nil)
 )
 
+// HookJSONOutputUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-json-output
 type HookJSONOutputUnknown struct{ UnknownUnion }
 
 func (HookJSONOutputUnknown) hookJSONOutput() {}
 
+// AsyncHookJSONOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#async-hook-json-output
 type AsyncHookJSONOutput struct {
 	Async        bool   `json:"async"`
@@ -1501,6 +1801,8 @@ type AsyncHookJSONOutput struct {
 
 func (AsyncHookJSONOutput) hookJSONOutput() {}
 
+// HookSpecificOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutput interface{ hookSpecificOutput() }
 
@@ -1517,11 +1819,15 @@ var (
 	_ HookSpecificOutput = (*HookSpecificOutputPermissionRequest)(nil)
 )
 
+// HookSpecificOutputUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputUnknown struct{ UnknownUnion }
 
 func (HookSpecificOutputUnknown) hookSpecificOutput() {}
 
+// HookSpecificOutputPreToolUse is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputPreToolUse struct {
 	HookEventName            HookEvent               `json:"hookEventName"`
@@ -1533,6 +1839,8 @@ type HookSpecificOutputPreToolUse struct {
 
 func (HookSpecificOutputPreToolUse) hookSpecificOutput() {}
 
+// HookSpecificOutputUserPromptSubmit is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputUserPromptSubmit struct {
 	HookEventName     HookEvent `json:"hookEventName"`
@@ -1541,6 +1849,8 @@ type HookSpecificOutputUserPromptSubmit struct {
 
 func (HookSpecificOutputUserPromptSubmit) hookSpecificOutput() {}
 
+// HookSpecificOutputSessionStart is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputSessionStart struct {
 	HookEventName     HookEvent `json:"hookEventName"`
@@ -1549,6 +1859,8 @@ type HookSpecificOutputSessionStart struct {
 
 func (HookSpecificOutputSessionStart) hookSpecificOutput() {}
 
+// HookSpecificOutputSetup is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputSetup struct {
 	HookEventName     HookEvent `json:"hookEventName"`
@@ -1557,6 +1869,8 @@ type HookSpecificOutputSetup struct {
 
 func (HookSpecificOutputSetup) hookSpecificOutput() {}
 
+// HookSpecificOutputSubagentStart is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputSubagentStart struct {
 	HookEventName     HookEvent `json:"hookEventName"`
@@ -1565,6 +1879,8 @@ type HookSpecificOutputSubagentStart struct {
 
 func (HookSpecificOutputSubagentStart) hookSpecificOutput() {}
 
+// HookSpecificOutputPostToolUse is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputPostToolUse struct {
 	HookEventName        HookEvent       `json:"hookEventName"`
@@ -1574,6 +1890,8 @@ type HookSpecificOutputPostToolUse struct {
 
 func (HookSpecificOutputPostToolUse) hookSpecificOutput() {}
 
+// HookSpecificOutputPostToolUseFailure is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputPostToolUseFailure struct {
 	HookEventName     HookEvent `json:"hookEventName"`
@@ -1582,6 +1900,8 @@ type HookSpecificOutputPostToolUseFailure struct {
 
 func (HookSpecificOutputPostToolUseFailure) hookSpecificOutput() {}
 
+// HookSpecificOutputNotification is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputNotification struct {
 	HookEventName     HookEvent `json:"hookEventName"`
@@ -1590,6 +1910,8 @@ type HookSpecificOutputNotification struct {
 
 func (HookSpecificOutputNotification) hookSpecificOutput() {}
 
+// PermissionRequestDecision is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecision interface{ permissionRequestDecision() }
 
@@ -1599,11 +1921,15 @@ var (
 	_ PermissionRequestDecision = (*PermissionRequestDecisionDeny)(nil)
 )
 
+// PermissionRequestDecisionUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecisionUnknown struct{ UnknownUnion }
 
 func (PermissionRequestDecisionUnknown) permissionRequestDecision() {}
 
+// PermissionRequestDecisionAllow is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecisionAllow struct {
 	Behavior           string             `json:"behavior"`
@@ -1613,6 +1939,8 @@ type PermissionRequestDecisionAllow struct {
 
 func (PermissionRequestDecisionAllow) permissionRequestDecision() {}
 
+// PermissionRequestDecisionDeny is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecisionDeny struct {
 	Behavior  string  `json:"behavior"`
@@ -1622,6 +1950,8 @@ type PermissionRequestDecisionDeny struct {
 
 func (PermissionRequestDecisionDeny) permissionRequestDecision() {}
 
+// HookSpecificOutputPermissionRequest is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputPermissionRequest struct {
 	HookEventName HookEvent                 `json:"hookEventName"`
@@ -1630,6 +1960,8 @@ type HookSpecificOutputPermissionRequest struct {
 
 func (HookSpecificOutputPermissionRequest) hookSpecificOutput() {}
 
+// SyncHookJSONOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sync-hook-json-output
 type SyncHookJSONOutput struct {
 	Continue           *bool              `json:"continue,omitzero"`
@@ -1643,6 +1975,8 @@ type SyncHookJSONOutput struct {
 
 func (SyncHookJSONOutput) hookJSONOutput() {}
 
+// ToolInputSchemas is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 type ToolInputSchemas interface{ toolInputSchemas() }
 
@@ -1674,11 +2008,15 @@ var (
 	_ ToolInputSchemas = (*WebSearchInput)(nil)
 )
 
+// ToolInputUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 type ToolInputUnknown struct{ UnknownUnion }
 
 func (ToolInputUnknown) toolInputSchemas() {}
 
+// AgentInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task
 type AgentInput struct {
 	Description     string          `json:"description"`
@@ -1696,6 +2034,8 @@ type AgentInput struct {
 
 func (AgentInput) toolInputSchemas() {}
 
+// AskUserQuestionInputOption is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#askuserquestion
 type AskUserQuestionInputOption struct {
 	Label       string  `json:"label"`
@@ -1703,6 +2043,8 @@ type AskUserQuestionInputOption struct {
 	Preview     *string `json:"preview,omitzero"`
 }
 
+// AskUserQuestionInputQuestion is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#askuserquestion
 type AskUserQuestionInputQuestion struct {
 	Question    string                       `json:"question"`
@@ -1711,6 +2053,8 @@ type AskUserQuestionInputQuestion struct {
 	MultiSelect bool                         `json:"multiSelect"`
 }
 
+// AskUserQuestionInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#askuserquestion
 type AskUserQuestionInput struct {
 	Questions []AskUserQuestionInputQuestion `json:"questions"`
@@ -1718,6 +2062,8 @@ type AskUserQuestionInput struct {
 
 func (AskUserQuestionInput) toolInputSchemas() {}
 
+// BashInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#bash
 type BashInput struct {
 	Command                   string  `json:"command"`
@@ -1729,6 +2075,8 @@ type BashInput struct {
 
 func (BashInput) toolInputSchemas() {}
 
+// TaskOutputInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskoutput
 type TaskOutputInput struct {
 	TaskID  string `json:"task_id"`
@@ -1738,6 +2086,8 @@ type TaskOutputInput struct {
 
 func (TaskOutputInput) toolInputSchemas() {}
 
+// ConfigInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#config
 type ConfigInput struct {
 	Setting string          `json:"setting"`
@@ -1746,6 +2096,8 @@ type ConfigInput struct {
 
 func (ConfigInput) toolInputSchemas() {}
 
+// EnterWorktreeInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#enterworktree
 type EnterWorktreeInput struct {
 	Name *string `json:"name,omitzero"`
@@ -1753,12 +2105,16 @@ type EnterWorktreeInput struct {
 
 func (EnterWorktreeInput) toolInputSchemas() {}
 
+// AllowedPrompt is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#exitplanmode
 type AllowedPrompt struct {
 	Tool   string `json:"tool"`
 	Prompt string `json:"prompt"`
 }
 
+// ExitPlanModeInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#exitplanmode
 type ExitPlanModeInput struct {
 	AllowedPrompts []AllowedPrompt `json:"allowedPrompts,omitzero"`
@@ -1766,6 +2122,8 @@ type ExitPlanModeInput struct {
 
 func (ExitPlanModeInput) toolInputSchemas() {}
 
+// FileEditInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#edit
 type FileEditInput struct {
 	FilePath   string `json:"file_path"`
@@ -1776,6 +2134,8 @@ type FileEditInput struct {
 
 func (FileEditInput) toolInputSchemas() {}
 
+// FileReadInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read
 type FileReadInput struct {
 	FilePath string  `json:"file_path"`
@@ -1786,6 +2146,8 @@ type FileReadInput struct {
 
 func (FileReadInput) toolInputSchemas() {}
 
+// FileWriteInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#write
 type FileWriteInput struct {
 	FilePath string `json:"file_path"`
@@ -1794,6 +2156,8 @@ type FileWriteInput struct {
 
 func (FileWriteInput) toolInputSchemas() {}
 
+// GlobInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#glob
 type GlobInput struct {
 	Pattern string  `json:"pattern"`
@@ -1802,6 +2166,8 @@ type GlobInput struct {
 
 func (GlobInput) toolInputSchemas() {}
 
+// GrepInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#grep
 type GrepInput struct {
 	Pattern         string          `json:"pattern"`
@@ -1822,6 +2188,8 @@ type GrepInput struct {
 
 func (GrepInput) toolInputSchemas() {}
 
+// ListMcpResourcesInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#listmcpresources
 type ListMcpResourcesInput struct {
 	Server *string `json:"server,omitzero"`
@@ -1829,11 +2197,15 @@ type ListMcpResourcesInput struct {
 
 func (ListMcpResourcesInput) toolInputSchemas() {}
 
+// McpInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 type McpInput map[string]any
 
 func (McpInput) toolInputSchemas() {}
 
+// NotebookEditInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#notebookedit
 type NotebookEditInput struct {
 	NotebookPath string            `json:"notebook_path"`
@@ -1845,6 +2217,8 @@ type NotebookEditInput struct {
 
 func (NotebookEditInput) toolInputSchemas() {}
 
+// ReadMcpResourceInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#readmcpresource
 type ReadMcpResourceInput struct {
 	Server string `json:"server"`
@@ -1853,16 +2227,22 @@ type ReadMcpResourceInput struct {
 
 func (ReadMcpResourceInput) toolInputSchemas() {}
 
+// SubscribeMcpResourceInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 type SubscribeMcpResourceInput map[string]any
 
 func (SubscribeMcpResourceInput) toolInputSchemas() {}
 
+// SubscribePollingInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 type SubscribePollingInput map[string]any
 
 func (SubscribePollingInput) toolInputSchemas() {}
 
+// TaskStopInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskstop
 type TaskStopInput struct {
 	TaskID  *string `json:"task_id,omitzero"`
@@ -1871,6 +2251,8 @@ type TaskStopInput struct {
 
 func (TaskStopInput) toolInputSchemas() {}
 
+// TodoItem is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite
 type TodoItem struct {
 	Content    string     `json:"content"`
@@ -1878,6 +2260,8 @@ type TodoItem struct {
 	ActiveForm string     `json:"activeForm"`
 }
 
+// TodoWriteInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite
 type TodoWriteInput struct {
 	Todos []TodoItem `json:"todos"`
@@ -1885,16 +2269,22 @@ type TodoWriteInput struct {
 
 func (TodoWriteInput) toolInputSchemas() {}
 
+// UnsubscribeMcpResourceInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 type UnsubscribeMcpResourceInput map[string]any
 
 func (UnsubscribeMcpResourceInput) toolInputSchemas() {}
 
+// UnsubscribePollingInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
 type UnsubscribePollingInput map[string]any
 
 func (UnsubscribePollingInput) toolInputSchemas() {}
 
+// WebFetchInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#webfetch
 type WebFetchInput struct {
 	URL    string `json:"url"`
@@ -1903,6 +2293,8 @@ type WebFetchInput struct {
 
 func (WebFetchInput) toolInputSchemas() {}
 
+// WebSearchInput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch
 type WebSearchInput struct {
 	Query          string   `json:"query"`
@@ -1912,6 +2304,8 @@ type WebSearchInput struct {
 
 func (WebSearchInput) toolInputSchemas() {}
 
+// ToolOutputSchemas is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-output-schemas
 type ToolOutputSchemas interface{ toolOutputSchemas() }
 
@@ -1945,11 +2339,15 @@ var (
 	_ ToolOutputSchemas = (*EnterWorktreeOutput)(nil)
 )
 
+// ToolOutputUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-output-schemas
 type ToolOutputUnknown struct{ UnknownUnion }
 
 func (ToolOutputUnknown) toolOutputSchemas() {}
 
+// AgentOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutput interface {
 	toolOutputSchemas()
@@ -1963,30 +2361,40 @@ var (
 	_ AgentOutput = (*AgentOutputSubAgentEntered)(nil)
 )
 
+// AgentOutputUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputUnknown struct{ UnknownUnion }
 
 func (AgentOutputUnknown) toolOutputSchemas() {}
 func (AgentOutputUnknown) agentOutput()       {}
 
+// AgentOutputContentBlock is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputContentBlock struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
+// AgentOutputServerToolUse is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputServerToolUse struct {
 	WebSearchRequests int64 `json:"web_search_requests"`
 	WebFetchRequests  int64 `json:"web_fetch_requests"`
 }
 
+// AgentOutputCacheCreation is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputCacheCreation struct {
 	Ephemeral1HInputTokens int64 `json:"ephemeral_1h_input_tokens"`
 	Ephemeral5MInputTokens int64 `json:"ephemeral_5m_input_tokens"`
 }
 
+// AgentOutputUsage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputUsage struct {
 	InputTokens              int64                     `json:"input_tokens"`
@@ -1998,6 +2406,8 @@ type AgentOutputUsage struct {
 	CacheCreation            *AgentOutputCacheCreation `json:"cache_creation"`
 }
 
+// AgentOutputCompleted is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputCompleted struct {
 	Status            string                    `json:"status"`
@@ -2013,6 +2423,8 @@ type AgentOutputCompleted struct {
 func (AgentOutputCompleted) toolOutputSchemas() {}
 func (AgentOutputCompleted) agentOutput()       {}
 
+// AgentOutputAsyncLaunched is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputAsyncLaunched struct {
 	Status            string `json:"status"`
@@ -2026,6 +2438,8 @@ type AgentOutputAsyncLaunched struct {
 func (AgentOutputAsyncLaunched) toolOutputSchemas() {}
 func (AgentOutputAsyncLaunched) agentOutput()       {}
 
+// AgentOutputSubAgentEntered is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task-2
 type AgentOutputSubAgentEntered struct {
 	Status      string `json:"status"`
@@ -2036,6 +2450,8 @@ type AgentOutputSubAgentEntered struct {
 func (AgentOutputSubAgentEntered) toolOutputSchemas() {}
 func (AgentOutputSubAgentEntered) agentOutput()       {}
 
+// AskUserQuestionOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#askuserquestion-2
 type AskUserQuestionOutput struct {
 	Questions []AskUserQuestionInputQuestion `json:"questions"`
@@ -2044,6 +2460,8 @@ type AskUserQuestionOutput struct {
 
 func (AskUserQuestionOutput) toolOutputSchemas() {}
 
+// BashOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#bash-2
 type BashOutput struct {
 	Stdout                    string            `json:"stdout"`
@@ -2062,6 +2480,8 @@ type BashOutput struct {
 
 func (BashOutput) toolOutputSchemas() {}
 
+// StructuredPatchHunk is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#edit-2
 type StructuredPatchHunk struct {
 	OldStart int64    `json:"oldStart"`
@@ -2071,6 +2491,8 @@ type StructuredPatchHunk struct {
 	Lines    []string `json:"lines"`
 }
 
+// GitDiff is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#edit-2
 type GitDiff struct {
 	Filename  string `json:"filename"`
@@ -2081,6 +2503,8 @@ type GitDiff struct {
 	Patch     string `json:"patch"`
 }
 
+// FileEditOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#edit-2
 type FileEditOutput struct {
 	FilePath        string                `json:"filePath"`
@@ -2095,6 +2519,8 @@ type FileEditOutput struct {
 
 func (FileEditOutput) toolOutputSchemas() {}
 
+// FileReadOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutput interface {
 	toolOutputSchemas()
@@ -2110,12 +2536,16 @@ var (
 	_ FileReadOutput = (*FileReadOutputParts)(nil)
 )
 
+// FileReadOutputUnknown is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputUnknown struct{ UnknownUnion }
 
 func (FileReadOutputUnknown) toolOutputSchemas() {}
 func (FileReadOutputUnknown) fileReadOutput()    {}
 
+// FileReadOutputTextFile is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputTextFile struct {
 	FilePath   string `json:"filePath"`
@@ -2125,6 +2555,8 @@ type FileReadOutputTextFile struct {
 	TotalLines int64  `json:"totalLines"`
 }
 
+// FileReadOutputText is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputText struct {
 	Type string                 `json:"type"`
@@ -2134,6 +2566,8 @@ type FileReadOutputText struct {
 func (FileReadOutputText) toolOutputSchemas() {}
 func (FileReadOutputText) fileReadOutput()    {}
 
+// FileReadOutputImageDimensions is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputImageDimensions struct {
 	OriginalWidth  *int64 `json:"originalWidth,omitzero"`
@@ -2142,6 +2576,8 @@ type FileReadOutputImageDimensions struct {
 	DisplayHeight  *int64 `json:"displayHeight,omitzero"`
 }
 
+// FileReadOutputImageFile is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputImageFile struct {
 	Base64       string                         `json:"base64"`
@@ -2150,6 +2586,8 @@ type FileReadOutputImageFile struct {
 	Dimensions   *FileReadOutputImageDimensions `json:"dimensions,omitzero"`
 }
 
+// FileReadOutputImage is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputImage struct {
 	Type string                  `json:"type"`
@@ -2159,12 +2597,16 @@ type FileReadOutputImage struct {
 func (FileReadOutputImage) toolOutputSchemas() {}
 func (FileReadOutputImage) fileReadOutput()    {}
 
+// FileReadOutputNotebookFile is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputNotebookFile struct {
 	FilePath string            `json:"filePath"`
 	Cells    []json.RawMessage `json:"cells"`
 }
 
+// FileReadOutputNotebook is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputNotebook struct {
 	Type string                     `json:"type"`
@@ -2174,6 +2616,8 @@ type FileReadOutputNotebook struct {
 func (FileReadOutputNotebook) toolOutputSchemas() {}
 func (FileReadOutputNotebook) fileReadOutput()    {}
 
+// FileReadOutputPdfFile is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputPdfFile struct {
 	FilePath     string `json:"filePath"`
@@ -2181,6 +2625,8 @@ type FileReadOutputPdfFile struct {
 	OriginalSize int64  `json:"originalSize"`
 }
 
+// FileReadOutputPdf is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputPdf struct {
 	Type string                `json:"type"`
@@ -2190,6 +2636,8 @@ type FileReadOutputPdf struct {
 func (FileReadOutputPdf) toolOutputSchemas() {}
 func (FileReadOutputPdf) fileReadOutput()    {}
 
+// FileReadOutputPartsFile is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputPartsFile struct {
 	FilePath     string `json:"filePath"`
@@ -2198,6 +2646,8 @@ type FileReadOutputPartsFile struct {
 	OutputDir    string `json:"outputDir"`
 }
 
+// FileReadOutputParts is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
 type FileReadOutputParts struct {
 	Type string                  `json:"type"`
@@ -2207,6 +2657,8 @@ type FileReadOutputParts struct {
 func (FileReadOutputParts) toolOutputSchemas() {}
 func (FileReadOutputParts) fileReadOutput()    {}
 
+// FileWriteOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#write-2
 type FileWriteOutput struct {
 	Type            string                `json:"type"`
@@ -2219,6 +2671,8 @@ type FileWriteOutput struct {
 
 func (FileWriteOutput) toolOutputSchemas() {}
 
+// GlobOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#glob-2
 type GlobOutput struct {
 	DurationMs int64    `json:"durationMs"`
@@ -2229,6 +2683,8 @@ type GlobOutput struct {
 
 func (GlobOutput) toolOutputSchemas() {}
 
+// GrepOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#grep-2
 type GrepOutput struct {
 	Mode          *GrepOutputMode `json:"mode,omitzero"`
@@ -2243,6 +2699,8 @@ type GrepOutput struct {
 
 func (GrepOutput) toolOutputSchemas() {}
 
+// TaskStopOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskstop-2
 type TaskStopOutput struct {
 	Message  string  `json:"message"`
@@ -2253,6 +2711,8 @@ type TaskStopOutput struct {
 
 func (TaskStopOutput) toolOutputSchemas() {}
 
+// NotebookEditOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#notebookedit-2
 type NotebookEditOutput struct {
 	NewSource    string           `json:"new_source"`
@@ -2268,6 +2728,8 @@ type NotebookEditOutput struct {
 
 func (NotebookEditOutput) toolOutputSchemas() {}
 
+// WebFetchOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#webfetch-2
 type WebFetchOutput struct {
 	Bytes      int64  `json:"bytes"`
@@ -2280,6 +2742,8 @@ type WebFetchOutput struct {
 
 func (WebFetchOutput) toolOutputSchemas() {}
 
+// WebSearchOutputResultEntry is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
 type WebSearchOutputResultEntry struct {
 	Title   string `json:"title"`
@@ -2287,6 +2751,8 @@ type WebSearchOutputResultEntry struct {
 	Snippet string `json:"snippet"`
 }
 
+// WebSearchOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
 type WebSearchOutput struct {
 	Query   string                       `json:"query"`
@@ -2295,6 +2761,8 @@ type WebSearchOutput struct {
 
 func (WebSearchOutput) toolOutputSchemas() {}
 
+// TodoWriteOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite-2
 type TodoWriteOutput struct {
 	OldTodos string `json:"oldTodos"`
@@ -2303,6 +2771,8 @@ type TodoWriteOutput struct {
 
 func (TodoWriteOutput) toolOutputSchemas() {}
 
+// ExitPlanModeOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#exitplanmode-2
 type ExitPlanModeOutput struct {
 	ApprovedPrompts []string `json:"approvedPrompts"`
@@ -2310,6 +2780,8 @@ type ExitPlanModeOutput struct {
 
 func (ExitPlanModeOutput) toolOutputSchemas() {}
 
+// McpResource is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#listmcpresources-2
 type McpResource struct {
 	URI         string  `json:"uri"`
@@ -2318,6 +2790,8 @@ type McpResource struct {
 	MimeType    *string `json:"mimeType,omitzero"`
 }
 
+// ListMcpResourcesOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#listmcpresources-2
 type ListMcpResourcesOutput struct {
 	Resources []McpResource `json:"resources"`
@@ -2325,6 +2799,8 @@ type ListMcpResourcesOutput struct {
 
 func (ListMcpResourcesOutput) toolOutputSchemas() {}
 
+// ReadMcpResourceOutputContent is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#readmcpresource-2
 type ReadMcpResourceOutputContent struct {
 	URI      string  `json:"uri"`
@@ -2332,6 +2808,8 @@ type ReadMcpResourceOutputContent struct {
 	Text     *string `json:"text,omitzero"`
 }
 
+// ReadMcpResourceOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#readmcpresource-2
 type ReadMcpResourceOutput struct {
 	Contents []ReadMcpResourceOutputContent `json:"contents"`
@@ -2339,6 +2817,8 @@ type ReadMcpResourceOutput struct {
 
 func (ReadMcpResourceOutput) toolOutputSchemas() {}
 
+// ConfigOutputOperation is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type ConfigOutputOperation string
 
@@ -2347,6 +2827,8 @@ const (
 	ConfigOutputOperationSet ConfigOutputOperation = "set"
 )
 
+// ConfigOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#config-2
 type ConfigOutput struct {
 	Success       bool                   `json:"success"`
@@ -2360,6 +2842,8 @@ type ConfigOutput struct {
 
 func (ConfigOutput) toolOutputSchemas() {}
 
+// EnterWorktreeOutput is a handwritten Claude Agent SDK type.
+//
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#enterworktree-2
 type EnterWorktreeOutput struct {
 	WorktreePath   string  `json:"worktreePath"`
@@ -2390,6 +2874,18 @@ func protoStructToMap(v *structpb.Struct) map[string]any {
 		return nil
 	}
 	return v.AsMap()
+}
+
+func opt[T comparable](v T) *T {
+	return &v
+}
+
+func protoOpt[T comparable](msg interface{ ProtoReflect() protoreflect.Message }, fieldName protoreflect.Name, v T) *T {
+	field := msg.ProtoReflect().Descriptor().Fields().ByName(fieldName)
+	if field == nil || !msg.ProtoReflect().Has(field) {
+		return nil
+	}
+	return opt(v)
 }
 
 func rawToolInputToProto(raw json.RawMessage, discriminator string) *pb.ToolInput {
@@ -2464,7 +2960,7 @@ func permissionRuleValuesFromProto(v []*pb.PermissionRuleValue) []PermissionRule
 	for _, rule := range v {
 		out = append(out, PermissionRuleValue{
 			ToolName:    rule.GetToolName(),
-			RuleContent: rule.RuleContent,
+			RuleContent: protoOpt(rule, "rule_content", rule.GetRuleContent()),
 		})
 	}
 	return out
@@ -2642,7 +3138,8 @@ func (o *PermissionUpdateRemoveDirectories) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func unmarshalPermissionUpdate(data []byte) (PermissionUpdate, error) {
+// UnmarshalPermissionUpdate unmarshals a PermissionUpdate union value from JSON.
+func UnmarshalPermissionUpdate(data []byte) (PermissionUpdate, error) {
 	var disc struct {
 		Type string `json:"type"`
 	}
@@ -2729,46 +3226,52 @@ func PermissionUpdateFromProto(v *pb.PermissionUpdate) (PermissionUpdate, error)
 	switch x := v.GetValue().(type) {
 	case *pb.PermissionUpdate_Unknown:
 		var u UnknownUnion
-		u.FromProto(x.Unknown)
+		u.FromProto(v.GetUnknown())
 		return &PermissionUpdateUnknown{UnknownUnion: u}, nil
 	case *pb.PermissionUpdate_AddRules:
+		addRules := v.GetAddRules()
 		return &PermissionUpdateAddRules{
 			Type:        "addRules",
-			Rules:       permissionRuleValuesFromProto(x.AddRules.GetRules()),
-			Behavior:    PermissionBehavior(x.AddRules.GetBehavior()),
-			Destination: PermissionUpdateDestination(x.AddRules.GetDestination()),
+			Rules:       permissionRuleValuesFromProto(addRules.GetRules()),
+			Behavior:    PermissionBehavior(addRules.GetBehavior()),
+			Destination: PermissionUpdateDestination(addRules.GetDestination()),
 		}, nil
 	case *pb.PermissionUpdate_ReplaceRules:
+		replaceRules := v.GetReplaceRules()
 		return &PermissionUpdateReplaceRules{
 			Type:        "replaceRules",
-			Rules:       permissionRuleValuesFromProto(x.ReplaceRules.GetRules()),
-			Behavior:    PermissionBehavior(x.ReplaceRules.GetBehavior()),
-			Destination: PermissionUpdateDestination(x.ReplaceRules.GetDestination()),
+			Rules:       permissionRuleValuesFromProto(replaceRules.GetRules()),
+			Behavior:    PermissionBehavior(replaceRules.GetBehavior()),
+			Destination: PermissionUpdateDestination(replaceRules.GetDestination()),
 		}, nil
 	case *pb.PermissionUpdate_RemoveRules:
+		removeRules := v.GetRemoveRules()
 		return &PermissionUpdateRemoveRules{
 			Type:        "removeRules",
-			Rules:       permissionRuleValuesFromProto(x.RemoveRules.GetRules()),
-			Behavior:    PermissionBehavior(x.RemoveRules.GetBehavior()),
-			Destination: PermissionUpdateDestination(x.RemoveRules.GetDestination()),
+			Rules:       permissionRuleValuesFromProto(removeRules.GetRules()),
+			Behavior:    PermissionBehavior(removeRules.GetBehavior()),
+			Destination: PermissionUpdateDestination(removeRules.GetDestination()),
 		}, nil
 	case *pb.PermissionUpdate_SetMode:
+		setMode := v.GetSetMode()
 		return &PermissionUpdateSetMode{
 			Type:        "setMode",
-			Mode:        PermissionMode(x.SetMode.GetMode()),
-			Destination: PermissionUpdateDestination(x.SetMode.GetDestination()),
+			Mode:        PermissionMode(setMode.GetMode()),
+			Destination: PermissionUpdateDestination(setMode.GetDestination()),
 		}, nil
 	case *pb.PermissionUpdate_AddDirectories:
+		addDirectories := v.GetAddDirectories()
 		return &PermissionUpdateAddDirectories{
 			Type:        "addDirectories",
-			Directories: append([]string(nil), x.AddDirectories.GetDirectories()...),
-			Destination: PermissionUpdateDestination(x.AddDirectories.GetDestination()),
+			Directories: append([]string(nil), addDirectories.GetDirectories()...),
+			Destination: PermissionUpdateDestination(addDirectories.GetDestination()),
 		}, nil
 	case *pb.PermissionUpdate_RemoveDirectories:
+		removeDirectories := v.GetRemoveDirectories()
 		return &PermissionUpdateRemoveDirectories{
 			Type:        "removeDirectories",
-			Directories: append([]string(nil), x.RemoveDirectories.GetDirectories()...),
-			Destination: PermissionUpdateDestination(x.RemoveDirectories.GetDestination()),
+			Directories: append([]string(nil), removeDirectories.GetDirectories()...),
+			Destination: PermissionUpdateDestination(removeDirectories.GetDestination()),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proto PermissionUpdate %T", x)
@@ -2801,7 +3304,7 @@ func (o *PermissionResultAllow) UnmarshalJSON(data []byte) error {
 	}
 	updates := make([]PermissionUpdate, 0, len(v.UpdatedPermissions))
 	for _, rawUpdate := range v.UpdatedPermissions {
-		update, err := unmarshalPermissionUpdate(rawUpdate)
+		update, err := UnmarshalPermissionUpdate(rawUpdate)
 		if err != nil {
 			return err
 		}
@@ -2872,25 +3375,27 @@ func PermissionResultFromProto(v *pb.PermissionResult) (PermissionResult, error)
 	switch x := v.GetValue().(type) {
 	case *pb.PermissionResult_Unknown:
 		var u UnknownUnion
-		u.FromProto(x.Unknown)
+		u.FromProto(v.GetUnknown())
 		return &PermissionResultUnknown{UnknownUnion: u}, nil
 	case *pb.PermissionResult_Allow:
-		updates, err := permissionUpdatesFromProto(x.Allow.GetUpdatedPermissions())
+		allow := v.GetAllow()
+		updates, err := permissionUpdatesFromProto(allow.GetUpdatedPermissions())
 		if err != nil {
 			return nil, err
 		}
 		return &PermissionResultAllow{
 			Behavior:           "allow",
-			UpdatedInput:       protoStructToMap(x.Allow.GetUpdatedInput()),
+			UpdatedInput:       protoStructToMap(allow.GetUpdatedInput()),
 			UpdatedPermissions: updates,
-			ToolUseID:          x.Allow.ToolUseId,
+			ToolUseID:          protoOpt(allow, "tool_use_id", allow.GetToolUseId()),
 		}, nil
 	case *pb.PermissionResult_Deny:
+		deny := v.GetDeny()
 		return &PermissionResultDeny{
 			Behavior:  "deny",
-			Message:   x.Deny.GetMessage(),
-			Interrupt: x.Deny.Interrupt,
-			ToolUseID: x.Deny.ToolUseId,
+			Message:   deny.GetMessage(),
+			Interrupt: protoOpt(deny, "interrupt", deny.GetInterrupt()),
+			ToolUseID: protoOpt(deny, "tool_use_id", deny.GetToolUseId()),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proto PermissionResult %T", x)
@@ -2900,6 +3405,7 @@ func PermissionResultFromProto(v *pb.PermissionResult) (PermissionResult, error)
 func (o PermissionRequestDecisionUnknown) MarshalJSON() ([]byte, error) {
 	return o.UnknownUnion.MarshalJSON()
 }
+
 func (o *PermissionRequestDecisionUnknown) UnmarshalJSON(data []byte) error {
 	return o.UnknownUnion.UnmarshalJSON(data)
 }
@@ -2922,7 +3428,7 @@ func (o *PermissionRequestDecisionAllow) UnmarshalJSON(data []byte) error {
 	}
 	updates := make([]PermissionUpdate, 0, len(v.UpdatedPermissions))
 	for _, rawUpdate := range v.UpdatedPermissions {
-		update, err := unmarshalPermissionUpdate(rawUpdate)
+		update, err := UnmarshalPermissionUpdate(rawUpdate)
 		if err != nil {
 			return err
 		}
@@ -2954,7 +3460,8 @@ func (o *PermissionRequestDecisionDeny) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func unmarshalPermissionRequestDecision(data []byte) (PermissionRequestDecision, error) {
+// UnmarshalPermissionRequestDecision unmarshals a PermissionRequestDecision union value from JSON.
+func UnmarshalPermissionRequestDecision(data []byte) (PermissionRequestDecision, error) {
 	var disc struct {
 		Behavior string `json:"behavior"`
 	}
@@ -3010,23 +3517,25 @@ func PermissionRequestDecisionFromProto(v *pb.PermissionRequestDecision) (Permis
 	switch x := v.GetValue().(type) {
 	case *pb.PermissionRequestDecision_Unknown:
 		var u UnknownUnion
-		u.FromProto(x.Unknown)
+		u.FromProto(v.GetUnknown())
 		return &PermissionRequestDecisionUnknown{UnknownUnion: u}, nil
 	case *pb.PermissionRequestDecision_Allow:
-		updates, err := permissionUpdatesFromProto(x.Allow.GetUpdatedPermissions())
+		allow := v.GetAllow()
+		updates, err := permissionUpdatesFromProto(allow.GetUpdatedPermissions())
 		if err != nil {
 			return nil, err
 		}
 		return &PermissionRequestDecisionAllow{
 			Behavior:           "allow",
-			UpdatedInput:       protoStructToMap(x.Allow.GetUpdatedInput()),
+			UpdatedInput:       protoStructToMap(allow.GetUpdatedInput()),
 			UpdatedPermissions: updates,
 		}, nil
 	case *pb.PermissionRequestDecision_Deny:
+		deny := v.GetDeny()
 		return &PermissionRequestDecisionDeny{
 			Behavior:  "deny",
-			Message:   x.Deny.Message,
-			Interrupt: x.Deny.Interrupt,
+			Message:   protoOpt(deny, "message", deny.GetMessage()),
+			Interrupt: protoOpt(deny, "interrupt", deny.GetInterrupt()),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proto PermissionRequestDecision %T", x)
@@ -3201,7 +3710,7 @@ func (o *HookSpecificOutputPermissionRequest) UnmarshalJSON(data []byte) error {
 	}
 	o.HookEventName = HookEventPermissionRequest
 	if len(v.Decision) > 0 {
-		dec, err := unmarshalPermissionRequestDecision(v.Decision)
+		dec, err := UnmarshalPermissionRequestDecision(v.Decision)
 		if err != nil {
 			return err
 		}
@@ -3223,7 +3732,8 @@ func marshalPermissionRequestDecision(v PermissionRequestDecision) ([]byte, erro
 	}
 }
 
-func unmarshalHookSpecificOutput(data []byte) (HookSpecificOutput, error) {
+// UnmarshalHookSpecificOutput unmarshals a HookSpecificOutput union value from JSON.
+func UnmarshalHookSpecificOutput(data []byte) (HookSpecificOutput, error) {
 	var disc struct {
 		HookEventName HookEvent `json:"hookEventName"`
 	}
@@ -3337,38 +3847,50 @@ func HookSpecificOutputFromProto(v *pb.HookSpecificOutput) (HookSpecificOutput, 
 	switch x := v.GetValue().(type) {
 	case *pb.HookSpecificOutput_Unknown:
 		var u UnknownUnion
-		u.FromProto(x.Unknown)
+		u.FromProto(v.GetUnknown())
 		return &HookSpecificOutputUnknown{UnknownUnion: u}, nil
 	case *pb.HookSpecificOutput_PreToolUse:
+		preToolUse := v.GetPreToolUse()
 		var pd *HookPermissionDecision
-		if x.PreToolUse.PermissionDecision != nil {
-			t := HookPermissionDecision(*x.PreToolUse.PermissionDecision)
+		permissionDecision := preToolUse.GetPermissionDecision()
+		if permissionDecision != "" {
+			t := HookPermissionDecision(permissionDecision)
 			pd = &t
 		}
 		return &HookSpecificOutputPreToolUse{
-			HookEventName: HookEventPreToolUse, PermissionDecision: pd, PermissionDecisionReason: x.PreToolUse.PermissionDecisionReason,
-			UpdatedInput: protoStructToMap(x.PreToolUse.GetUpdatedInput()), AdditionalContext: x.PreToolUse.AdditionalContext,
+			HookEventName:            HookEventPreToolUse,
+			PermissionDecision:       pd,
+			PermissionDecisionReason: protoOpt(preToolUse, "permission_decision_reason", preToolUse.GetPermissionDecisionReason()),
+			UpdatedInput:             protoStructToMap(preToolUse.GetUpdatedInput()),
+			AdditionalContext:        protoOpt(preToolUse, "additional_context", preToolUse.GetAdditionalContext()),
 		}, nil
 	case *pb.HookSpecificOutput_UserPromptSubmit:
-		return &HookSpecificOutputUserPromptSubmit{HookEventName: HookEventUserPromptSubmit, AdditionalContext: x.UserPromptSubmit.AdditionalContext}, nil
+		userPromptSubmit := v.GetUserPromptSubmit()
+		return &HookSpecificOutputUserPromptSubmit{HookEventName: HookEventUserPromptSubmit, AdditionalContext: protoOpt(userPromptSubmit, "additional_context", userPromptSubmit.GetAdditionalContext())}, nil
 	case *pb.HookSpecificOutput_SessionStart:
-		return &HookSpecificOutputSessionStart{HookEventName: HookEventSessionStart, AdditionalContext: x.SessionStart.AdditionalContext}, nil
+		sessionStart := v.GetSessionStart()
+		return &HookSpecificOutputSessionStart{HookEventName: HookEventSessionStart, AdditionalContext: protoOpt(sessionStart, "additional_context", sessionStart.GetAdditionalContext())}, nil
 	case *pb.HookSpecificOutput_Setup:
-		return &HookSpecificOutputSetup{HookEventName: HookEventSetup, AdditionalContext: x.Setup.AdditionalContext}, nil
+		setup := v.GetSetup()
+		return &HookSpecificOutputSetup{HookEventName: HookEventSetup, AdditionalContext: protoOpt(setup, "additional_context", setup.GetAdditionalContext())}, nil
 	case *pb.HookSpecificOutput_SubagentStart:
-		return &HookSpecificOutputSubagentStart{HookEventName: HookEventSubagentStart, AdditionalContext: x.SubagentStart.AdditionalContext}, nil
+		subagentStart := v.GetSubagentStart()
+		return &HookSpecificOutputSubagentStart{HookEventName: HookEventSubagentStart, AdditionalContext: protoOpt(subagentStart, "additional_context", subagentStart.GetAdditionalContext())}, nil
 	case *pb.HookSpecificOutput_PostToolUse:
+		postToolUse := v.GetPostToolUse()
 		var updated json.RawMessage
-		if x.PostToolUse.GetUpdatedMcpToolOutput() != nil {
-			updated = cloneRawMessage(x.PostToolUse.GetUpdatedMcpToolOutput().GetRawJson())
+		if postToolUse.GetUpdatedMcpToolOutput() != nil {
+			updated = cloneRawMessage(postToolUse.GetUpdatedMcpToolOutput().GetRawJson())
 		}
-		return &HookSpecificOutputPostToolUse{HookEventName: HookEventPostToolUse, AdditionalContext: x.PostToolUse.AdditionalContext, UpdatedMCPToolOutput: updated}, nil
+		return &HookSpecificOutputPostToolUse{HookEventName: HookEventPostToolUse, AdditionalContext: protoOpt(postToolUse, "additional_context", postToolUse.GetAdditionalContext()), UpdatedMCPToolOutput: updated}, nil
 	case *pb.HookSpecificOutput_PostToolUseFailure:
-		return &HookSpecificOutputPostToolUseFailure{HookEventName: HookEventPostToolUseFailure, AdditionalContext: x.PostToolUseFailure.AdditionalContext}, nil
+		postToolUseFailure := v.GetPostToolUseFailure()
+		return &HookSpecificOutputPostToolUseFailure{HookEventName: HookEventPostToolUseFailure, AdditionalContext: protoOpt(postToolUseFailure, "additional_context", postToolUseFailure.GetAdditionalContext())}, nil
 	case *pb.HookSpecificOutput_Notification:
-		return &HookSpecificOutputNotification{HookEventName: HookEventNotification, AdditionalContext: x.Notification.AdditionalContext}, nil
+		notification := v.GetNotification()
+		return &HookSpecificOutputNotification{HookEventName: HookEventNotification, AdditionalContext: protoOpt(notification, "additional_context", notification.GetAdditionalContext())}, nil
 	case *pb.HookSpecificOutput_PermissionRequest:
-		dec, err := PermissionRequestDecisionFromProto(x.PermissionRequest.GetDecision())
+		dec, err := PermissionRequestDecisionFromProto(v.GetPermissionRequest().GetDecision())
 		if err != nil {
 			return nil, err
 		}
@@ -3443,7 +3965,7 @@ func (o *SyncHookJSONOutput) UnmarshalJSON(data []byte) error {
 	o.SystemMessage = v.SystemMessage
 	o.Reason = v.Reason
 	if len(v.HookSpecificOutput) > 0 {
-		got, err := unmarshalHookSpecificOutput(v.HookSpecificOutput)
+		got, err := UnmarshalHookSpecificOutput(v.HookSpecificOutput)
 		if err != nil {
 			return err
 		}
@@ -3479,7 +4001,8 @@ func marshalHookSpecificOutput(v HookSpecificOutput) ([]byte, error) {
 	}
 }
 
-func unmarshalHookJSONOutput(data []byte) (HookJSONOutput, error) {
+// UnmarshalHookJSONOutput unmarshals a HookJSONOutput union value from JSON.
+func UnmarshalHookJSONOutput(data []byte) (HookJSONOutput, error) {
 	var probe struct {
 		Async *bool `json:"async"`
 	}
@@ -3536,24 +4059,30 @@ func HookJSONOutputFromProto(v *pb.HookJSONOutput) (HookJSONOutput, error) {
 	switch x := v.GetValue().(type) {
 	case *pb.HookJSONOutput_Unknown:
 		var u UnknownUnion
-		u.FromProto(x.Unknown)
+		u.FromProto(v.GetUnknown())
 		return &HookJSONOutputUnknown{UnknownUnion: u}, nil
 	case *pb.HookJSONOutput_AsyncOutput:
-		return &AsyncHookJSONOutput{Async: x.AsyncOutput.GetAsync(), AsyncTimeout: x.AsyncOutput.AsyncTimeout}, nil
+		asyncOutput := v.GetAsyncOutput()
+		return &AsyncHookJSONOutput{Async: asyncOutput.GetAsync(), AsyncTimeout: protoOpt(asyncOutput, "async_timeout", asyncOutput.GetAsyncTimeout())}, nil
 	case *pb.HookJSONOutput_SyncOutput:
+		syncOutput := v.GetSyncOutput()
 		var decision *HookDecision
-		if x.SyncOutput.Decision != nil {
-			d := HookDecision(*x.SyncOutput.Decision)
+		if got := syncOutput.GetDecision(); got != "" {
+			d := HookDecision(got)
 			decision = &d
 		}
-		hso, err := HookSpecificOutputFromProto(x.SyncOutput.GetHookSpecificOutput())
+		hso, err := HookSpecificOutputFromProto(syncOutput.GetHookSpecificOutput())
 		if err != nil {
 			return nil, err
 		}
 		return &SyncHookJSONOutput{
-			Continue: x.SyncOutput.Continue, SuppressOutput: x.SyncOutput.SuppressOutput,
-			StopReason: x.SyncOutput.StopReason, Decision: decision, SystemMessage: x.SyncOutput.SystemMessage,
-			Reason: x.SyncOutput.Reason, HookSpecificOutput: hso,
+			Continue:           protoOpt(syncOutput, "continue", syncOutput.GetContinue()),
+			SuppressOutput:     protoOpt(syncOutput, "suppress_output", syncOutput.GetSuppressOutput()),
+			StopReason:         protoOpt(syncOutput, "stop_reason", syncOutput.GetStopReason()),
+			Decision:           decision,
+			SystemMessage:      protoOpt(syncOutput, "system_message", syncOutput.GetSystemMessage()),
+			Reason:             protoOpt(syncOutput, "reason", syncOutput.GetReason()),
+			HookSpecificOutput: hso,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proto HookJSONOutput %T", x)
@@ -3609,7 +4138,7 @@ func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 	}
 	suggestions := make([]PermissionUpdate, 0, len(v.PermissionSuggestions))
 	for _, rawSuggestion := range v.PermissionSuggestions {
-		suggestion, err := unmarshalPermissionUpdate(rawSuggestion)
+		suggestion, err := UnmarshalPermissionUpdate(rawSuggestion)
 		if err != nil {
 			return err
 		}
@@ -3627,7 +4156,8 @@ func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func unmarshalHookInput(data []byte) (HookInput, error) {
+// UnmarshalHookInput unmarshals a HookInput union value from JSON.
+func UnmarshalHookInput(data []byte) (HookInput, error) {
 	var disc struct {
 		HookEventName HookEvent `json:"hook_event_name"`
 	}
@@ -3834,68 +4364,86 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 	switch x := v.GetValue().(type) {
 	case *pb.HookInput_Unknown:
 		var u UnknownUnion
-		u.FromProto(x.Unknown)
+		u.FromProto(v.GetUnknown())
 		return &HookInputUnknown{UnknownUnion: u}, nil
 	case *pb.HookInput_PreToolUse:
-		raw, err := rawFromToolInputProto(x.PreToolUse.GetToolInput())
+		preToolUse := v.GetPreToolUse()
+		raw, err := rawFromToolInputProto(preToolUse.GetToolInput())
 		if err != nil {
 			return nil, err
 		}
-		return &PreToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: x.PreToolUse.GetSessionId(), TranscriptPath: x.PreToolUse.GetTranscriptPath(), Cwd: x.PreToolUse.GetCwd(), PermissionMode: x.PreToolUse.PermissionMode, AgentID: x.PreToolUse.AgentId, AgentType: x.PreToolUse.AgentType}, HookEventName: HookEvent(x.PreToolUse.GetHookEventName()), ToolName: x.PreToolUse.GetToolName(), ToolInput: raw, ToolUseID: x.PreToolUse.GetToolUseId()}, nil
+		return &PreToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: preToolUse.GetSessionId(), TranscriptPath: preToolUse.GetTranscriptPath(), Cwd: preToolUse.GetCwd(), PermissionMode: protoOpt(preToolUse, "permission_mode", preToolUse.GetPermissionMode()), AgentID: protoOpt(preToolUse, "agent_id", preToolUse.GetAgentId()), AgentType: protoOpt(preToolUse, "agent_type", preToolUse.GetAgentType())}, HookEventName: HookEvent(preToolUse.GetHookEventName()), ToolName: preToolUse.GetToolName(), ToolInput: raw, ToolUseID: preToolUse.GetToolUseId()}, nil
 	case *pb.HookInput_PostToolUse:
-		rawIn, err := rawFromToolInputProto(x.PostToolUse.GetToolInput())
+		postToolUse := v.GetPostToolUse()
+		rawIn, err := rawFromToolInputProto(postToolUse.GetToolInput())
 		if err != nil {
 			return nil, err
 		}
-		rawOut, err := rawFromToolOutputProto(x.PostToolUse.GetToolResponse())
+		rawOut, err := rawFromToolOutputProto(postToolUse.GetToolResponse())
 		if err != nil {
 			return nil, err
 		}
-		return &PostToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: x.PostToolUse.GetSessionId(), TranscriptPath: x.PostToolUse.GetTranscriptPath(), Cwd: x.PostToolUse.GetCwd(), PermissionMode: x.PostToolUse.PermissionMode, AgentID: x.PostToolUse.AgentId, AgentType: x.PostToolUse.AgentType}, HookEventName: HookEvent(x.PostToolUse.GetHookEventName()), ToolName: x.PostToolUse.GetToolName(), ToolInput: rawIn, ToolResponse: rawOut, ToolUseID: x.PostToolUse.GetToolUseId()}, nil
+		return &PostToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: postToolUse.GetSessionId(), TranscriptPath: postToolUse.GetTranscriptPath(), Cwd: postToolUse.GetCwd(), PermissionMode: protoOpt(postToolUse, "permission_mode", postToolUse.GetPermissionMode()), AgentID: protoOpt(postToolUse, "agent_id", postToolUse.GetAgentId()), AgentType: protoOpt(postToolUse, "agent_type", postToolUse.GetAgentType())}, HookEventName: HookEvent(postToolUse.GetHookEventName()), ToolName: postToolUse.GetToolName(), ToolInput: rawIn, ToolResponse: rawOut, ToolUseID: postToolUse.GetToolUseId()}, nil
 	case *pb.HookInput_PostToolUseFailure:
-		raw, err := rawFromToolInputProto(x.PostToolUseFailure.GetToolInput())
+		postToolUseFailure := v.GetPostToolUseFailure()
+		raw, err := rawFromToolInputProto(postToolUseFailure.GetToolInput())
 		if err != nil {
 			return nil, err
 		}
-		return &PostToolUseFailureHookInput{BaseHookInput: BaseHookInput{SessionID: x.PostToolUseFailure.GetSessionId(), TranscriptPath: x.PostToolUseFailure.GetTranscriptPath(), Cwd: x.PostToolUseFailure.GetCwd(), PermissionMode: x.PostToolUseFailure.PermissionMode, AgentID: x.PostToolUseFailure.AgentId, AgentType: x.PostToolUseFailure.AgentType}, HookEventName: HookEvent(x.PostToolUseFailure.GetHookEventName()), ToolName: x.PostToolUseFailure.GetToolName(), ToolInput: raw, ToolUseID: x.PostToolUseFailure.GetToolUseId(), Error: x.PostToolUseFailure.GetError(), IsInterrupt: x.PostToolUseFailure.IsInterrupt}, nil
+		return &PostToolUseFailureHookInput{BaseHookInput: BaseHookInput{SessionID: postToolUseFailure.GetSessionId(), TranscriptPath: postToolUseFailure.GetTranscriptPath(), Cwd: postToolUseFailure.GetCwd(), PermissionMode: protoOpt(postToolUseFailure, "permission_mode", postToolUseFailure.GetPermissionMode()), AgentID: protoOpt(postToolUseFailure, "agent_id", postToolUseFailure.GetAgentId()), AgentType: protoOpt(postToolUseFailure, "agent_type", postToolUseFailure.GetAgentType())}, HookEventName: HookEvent(postToolUseFailure.GetHookEventName()), ToolName: postToolUseFailure.GetToolName(), ToolInput: raw, ToolUseID: postToolUseFailure.GetToolUseId(), Error: postToolUseFailure.GetError(), IsInterrupt: protoOpt(postToolUseFailure, "is_interrupt", postToolUseFailure.GetIsInterrupt())}, nil
 	case *pb.HookInput_Notification:
-		return &NotificationHookInput{BaseHookInput: BaseHookInput{SessionID: x.Notification.GetSessionId(), TranscriptPath: x.Notification.GetTranscriptPath(), Cwd: x.Notification.GetCwd(), PermissionMode: x.Notification.PermissionMode, AgentID: x.Notification.AgentId, AgentType: x.Notification.AgentType}, HookEventName: HookEvent(x.Notification.GetHookEventName()), Message: x.Notification.GetMessage(), Title: x.Notification.Title, NotificationType: x.Notification.GetNotificationType()}, nil
+		notification := v.GetNotification()
+		return &NotificationHookInput{BaseHookInput: BaseHookInput{SessionID: notification.GetSessionId(), TranscriptPath: notification.GetTranscriptPath(), Cwd: notification.GetCwd(), PermissionMode: protoOpt(notification, "permission_mode", notification.GetPermissionMode()), AgentID: protoOpt(notification, "agent_id", notification.GetAgentId()), AgentType: protoOpt(notification, "agent_type", notification.GetAgentType())}, HookEventName: HookEvent(notification.GetHookEventName()), Message: notification.GetMessage(), Title: protoOpt(notification, "title", notification.GetTitle()), NotificationType: notification.GetNotificationType()}, nil
 	case *pb.HookInput_UserPromptSubmit:
-		return &UserPromptSubmitHookInput{BaseHookInput: BaseHookInput{SessionID: x.UserPromptSubmit.GetSessionId(), TranscriptPath: x.UserPromptSubmit.GetTranscriptPath(), Cwd: x.UserPromptSubmit.GetCwd(), PermissionMode: x.UserPromptSubmit.PermissionMode, AgentID: x.UserPromptSubmit.AgentId, AgentType: x.UserPromptSubmit.AgentType}, HookEventName: HookEvent(x.UserPromptSubmit.GetHookEventName()), Prompt: x.UserPromptSubmit.GetPrompt()}, nil
+		userPromptSubmit := v.GetUserPromptSubmit()
+		return &UserPromptSubmitHookInput{BaseHookInput: BaseHookInput{SessionID: userPromptSubmit.GetSessionId(), TranscriptPath: userPromptSubmit.GetTranscriptPath(), Cwd: userPromptSubmit.GetCwd(), PermissionMode: protoOpt(userPromptSubmit, "permission_mode", userPromptSubmit.GetPermissionMode()), AgentID: protoOpt(userPromptSubmit, "agent_id", userPromptSubmit.GetAgentId()), AgentType: protoOpt(userPromptSubmit, "agent_type", userPromptSubmit.GetAgentType())}, HookEventName: HookEvent(userPromptSubmit.GetHookEventName()), Prompt: userPromptSubmit.GetPrompt()}, nil
 	case *pb.HookInput_SessionStart:
-		return &SessionStartHookInput{BaseHookInput: BaseHookInput{SessionID: x.SessionStart.GetSessionId(), TranscriptPath: x.SessionStart.GetTranscriptPath(), Cwd: x.SessionStart.GetCwd(), PermissionMode: x.SessionStart.PermissionMode, AgentID: x.SessionStart.AgentId, AgentType: x.SessionStart.AgentType}, HookEventName: HookEvent(x.SessionStart.GetHookEventName()), Source: SessionStartSource(x.SessionStart.GetSource()), Model: x.SessionStart.Model}, nil
+		sessionStart := v.GetSessionStart()
+		return &SessionStartHookInput{BaseHookInput: BaseHookInput{SessionID: sessionStart.GetSessionId(), TranscriptPath: sessionStart.GetTranscriptPath(), Cwd: sessionStart.GetCwd(), PermissionMode: protoOpt(sessionStart, "permission_mode", sessionStart.GetPermissionMode()), AgentID: protoOpt(sessionStart, "agent_id", sessionStart.GetAgentId()), AgentType: protoOpt(sessionStart, "agent_type", sessionStart.GetAgentType())}, HookEventName: HookEvent(sessionStart.GetHookEventName()), Source: SessionStartSource(sessionStart.GetSource()), Model: protoOpt(sessionStart, "model", sessionStart.GetModel())}, nil
 	case *pb.HookInput_SessionEnd:
-		return &SessionEndHookInput{BaseHookInput: BaseHookInput{SessionID: x.SessionEnd.GetSessionId(), TranscriptPath: x.SessionEnd.GetTranscriptPath(), Cwd: x.SessionEnd.GetCwd(), PermissionMode: x.SessionEnd.PermissionMode, AgentID: x.SessionEnd.AgentId, AgentType: x.SessionEnd.AgentType}, HookEventName: HookEvent(x.SessionEnd.GetHookEventName()), Reason: x.SessionEnd.GetReason()}, nil
+		sessionEnd := v.GetSessionEnd()
+		return &SessionEndHookInput{BaseHookInput: BaseHookInput{SessionID: sessionEnd.GetSessionId(), TranscriptPath: sessionEnd.GetTranscriptPath(), Cwd: sessionEnd.GetCwd(), PermissionMode: protoOpt(sessionEnd, "permission_mode", sessionEnd.GetPermissionMode()), AgentID: protoOpt(sessionEnd, "agent_id", sessionEnd.GetAgentId()), AgentType: protoOpt(sessionEnd, "agent_type", sessionEnd.GetAgentType())}, HookEventName: HookEvent(sessionEnd.GetHookEventName()), Reason: sessionEnd.GetReason()}, nil
 	case *pb.HookInput_Stop:
-		return &StopHookInput{BaseHookInput: BaseHookInput{SessionID: x.Stop.GetSessionId(), TranscriptPath: x.Stop.GetTranscriptPath(), Cwd: x.Stop.GetCwd(), PermissionMode: x.Stop.PermissionMode, AgentID: x.Stop.AgentId, AgentType: x.Stop.AgentType}, HookEventName: HookEvent(x.Stop.GetHookEventName()), StopHookActive: x.Stop.GetStopHookActive()}, nil
+		stop := v.GetStop()
+		return &StopHookInput{BaseHookInput: BaseHookInput{SessionID: stop.GetSessionId(), TranscriptPath: stop.GetTranscriptPath(), Cwd: stop.GetCwd(), PermissionMode: protoOpt(stop, "permission_mode", stop.GetPermissionMode()), AgentID: protoOpt(stop, "agent_id", stop.GetAgentId()), AgentType: protoOpt(stop, "agent_type", stop.GetAgentType())}, HookEventName: HookEvent(stop.GetHookEventName()), StopHookActive: stop.GetStopHookActive()}, nil
 	case *pb.HookInput_SubagentStart:
-		return &SubagentStartHookInput{BaseHookInput: BaseHookInput{SessionID: x.SubagentStart.GetSessionId(), TranscriptPath: x.SubagentStart.GetTranscriptPath(), Cwd: x.SubagentStart.GetCwd(), PermissionMode: x.SubagentStart.PermissionMode, AgentID: x.SubagentStart.AgentId, AgentType: x.SubagentStart.AgentType}, HookEventName: HookEvent(x.SubagentStart.GetHookEventName()), Prompt: x.SubagentStart.GetPrompt()}, nil
+		subagentStart := v.GetSubagentStart()
+		return &SubagentStartHookInput{BaseHookInput: BaseHookInput{SessionID: subagentStart.GetSessionId(), TranscriptPath: subagentStart.GetTranscriptPath(), Cwd: subagentStart.GetCwd(), PermissionMode: protoOpt(subagentStart, "permission_mode", subagentStart.GetPermissionMode()), AgentID: protoOpt(subagentStart, "agent_id", subagentStart.GetAgentId()), AgentType: protoOpt(subagentStart, "agent_type", subagentStart.GetAgentType())}, HookEventName: HookEvent(subagentStart.GetHookEventName()), Prompt: subagentStart.GetPrompt()}, nil
 	case *pb.HookInput_SubagentStop:
-		return &SubagentStopHookInput{BaseHookInput: BaseHookInput{SessionID: x.SubagentStop.GetSessionId(), TranscriptPath: x.SubagentStop.GetTranscriptPath(), Cwd: x.SubagentStop.GetCwd(), PermissionMode: x.SubagentStop.PermissionMode, AgentID: x.SubagentStop.AgentId, AgentType: x.SubagentStop.AgentType}, HookEventName: HookEvent(x.SubagentStop.GetHookEventName()), StopReason: x.SubagentStop.GetStopReason()}, nil
+		subagentStop := v.GetSubagentStop()
+		return &SubagentStopHookInput{BaseHookInput: BaseHookInput{SessionID: subagentStop.GetSessionId(), TranscriptPath: subagentStop.GetTranscriptPath(), Cwd: subagentStop.GetCwd(), PermissionMode: protoOpt(subagentStop, "permission_mode", subagentStop.GetPermissionMode()), AgentID: protoOpt(subagentStop, "agent_id", subagentStop.GetAgentId()), AgentType: protoOpt(subagentStop, "agent_type", subagentStop.GetAgentType())}, HookEventName: HookEvent(subagentStop.GetHookEventName()), StopReason: subagentStop.GetStopReason()}, nil
 	case *pb.HookInput_PreCompact:
-		return &PreCompactHookInput{BaseHookInput: BaseHookInput{SessionID: x.PreCompact.GetSessionId(), TranscriptPath: x.PreCompact.GetTranscriptPath(), Cwd: x.PreCompact.GetCwd(), PermissionMode: x.PreCompact.PermissionMode, AgentID: x.PreCompact.AgentId, AgentType: x.PreCompact.AgentType}, HookEventName: HookEvent(x.PreCompact.GetHookEventName()), Trigger: x.PreCompact.GetTrigger(), CustomInstructions: x.PreCompact.GetCustomInstructions()}, nil
+		preCompact := v.GetPreCompact()
+		return &PreCompactHookInput{BaseHookInput: BaseHookInput{SessionID: preCompact.GetSessionId(), TranscriptPath: preCompact.GetTranscriptPath(), Cwd: preCompact.GetCwd(), PermissionMode: protoOpt(preCompact, "permission_mode", preCompact.GetPermissionMode()), AgentID: protoOpt(preCompact, "agent_id", preCompact.GetAgentId()), AgentType: protoOpt(preCompact, "agent_type", preCompact.GetAgentType())}, HookEventName: HookEvent(preCompact.GetHookEventName()), Trigger: preCompact.GetTrigger(), CustomInstructions: preCompact.GetCustomInstructions()}, nil
 	case *pb.HookInput_PermissionRequest:
-		raw, err := rawFromToolInputProto(x.PermissionRequest.GetToolInput())
+		permissionRequest := v.GetPermissionRequest()
+		raw, err := rawFromToolInputProto(permissionRequest.GetToolInput())
 		if err != nil {
 			return nil, err
 		}
-		updates, err := permissionUpdatesFromProto(x.PermissionRequest.GetPermissionSuggestions())
+		updates, err := permissionUpdatesFromProto(permissionRequest.GetPermissionSuggestions())
 		if err != nil {
 			return nil, err
 		}
-		return &PermissionRequestHookInput{BaseHookInput: BaseHookInput{SessionID: x.PermissionRequest.GetSessionId(), TranscriptPath: x.PermissionRequest.GetTranscriptPath(), Cwd: x.PermissionRequest.GetCwd(), PermissionMode: x.PermissionRequest.PermissionMode, AgentID: x.PermissionRequest.AgentId, AgentType: x.PermissionRequest.AgentType}, HookEventName: HookEvent(x.PermissionRequest.GetHookEventName()), ToolName: x.PermissionRequest.GetToolName(), ToolInput: raw, ToolUseID: x.PermissionRequest.GetToolUseId(), PermissionSuggestions: updates}, nil
+		return &PermissionRequestHookInput{BaseHookInput: BaseHookInput{SessionID: permissionRequest.GetSessionId(), TranscriptPath: permissionRequest.GetTranscriptPath(), Cwd: permissionRequest.GetCwd(), PermissionMode: protoOpt(permissionRequest, "permission_mode", permissionRequest.GetPermissionMode()), AgentID: protoOpt(permissionRequest, "agent_id", permissionRequest.GetAgentId()), AgentType: protoOpt(permissionRequest, "agent_type", permissionRequest.GetAgentType())}, HookEventName: HookEvent(permissionRequest.GetHookEventName()), ToolName: permissionRequest.GetToolName(), ToolInput: raw, ToolUseID: permissionRequest.GetToolUseId(), PermissionSuggestions: updates}, nil
 	case *pb.HookInput_Setup:
-		return &SetupHookInput{BaseHookInput: BaseHookInput{SessionID: x.Setup.GetSessionId(), TranscriptPath: x.Setup.GetTranscriptPath(), Cwd: x.Setup.GetCwd(), PermissionMode: x.Setup.PermissionMode, AgentID: x.Setup.AgentId, AgentType: x.Setup.AgentType}, HookEventName: HookEvent(x.Setup.GetHookEventName()), Trigger: SetupTrigger(x.Setup.GetTrigger())}, nil
+		setup := v.GetSetup()
+		return &SetupHookInput{BaseHookInput: BaseHookInput{SessionID: setup.GetSessionId(), TranscriptPath: setup.GetTranscriptPath(), Cwd: setup.GetCwd(), PermissionMode: protoOpt(setup, "permission_mode", setup.GetPermissionMode()), AgentID: protoOpt(setup, "agent_id", setup.GetAgentId()), AgentType: protoOpt(setup, "agent_type", setup.GetAgentType())}, HookEventName: HookEvent(setup.GetHookEventName()), Trigger: SetupTrigger(setup.GetTrigger())}, nil
 	case *pb.HookInput_TeammateIdle:
-		return &TeammateIdleHookInput{BaseHookInput: BaseHookInput{SessionID: x.TeammateIdle.GetSessionId(), TranscriptPath: x.TeammateIdle.GetTranscriptPath(), Cwd: x.TeammateIdle.GetCwd(), PermissionMode: x.TeammateIdle.PermissionMode, AgentID: x.TeammateIdle.AgentId, AgentType: x.TeammateIdle.AgentType}, HookEventName: HookEvent(x.TeammateIdle.GetHookEventName())}, nil
+		teammateIdle := v.GetTeammateIdle()
+		return &TeammateIdleHookInput{BaseHookInput: BaseHookInput{SessionID: teammateIdle.GetSessionId(), TranscriptPath: teammateIdle.GetTranscriptPath(), Cwd: teammateIdle.GetCwd(), PermissionMode: protoOpt(teammateIdle, "permission_mode", teammateIdle.GetPermissionMode()), AgentID: protoOpt(teammateIdle, "agent_id", teammateIdle.GetAgentId()), AgentType: protoOpt(teammateIdle, "agent_type", teammateIdle.GetAgentType())}, HookEventName: HookEvent(teammateIdle.GetHookEventName())}, nil
 	case *pb.HookInput_TaskCompleted:
-		return &TaskCompletedHookInput{BaseHookInput: BaseHookInput{SessionID: x.TaskCompleted.GetSessionId(), TranscriptPath: x.TaskCompleted.GetTranscriptPath(), Cwd: x.TaskCompleted.GetCwd(), PermissionMode: x.TaskCompleted.PermissionMode, AgentID: x.TaskCompleted.AgentId, AgentType: x.TaskCompleted.AgentType}, HookEventName: HookEvent(x.TaskCompleted.GetHookEventName()), TaskID: x.TaskCompleted.GetTaskId(), TaskSubject: x.TaskCompleted.GetTaskSubject(), TaskDescription: x.TaskCompleted.TaskDescription, TeammateName: x.TaskCompleted.TeammateName, TeamName: x.TaskCompleted.TeamName}, nil
+		taskCompleted := v.GetTaskCompleted()
+		return &TaskCompletedHookInput{BaseHookInput: BaseHookInput{SessionID: taskCompleted.GetSessionId(), TranscriptPath: taskCompleted.GetTranscriptPath(), Cwd: taskCompleted.GetCwd(), PermissionMode: protoOpt(taskCompleted, "permission_mode", taskCompleted.GetPermissionMode()), AgentID: protoOpt(taskCompleted, "agent_id", taskCompleted.GetAgentId()), AgentType: protoOpt(taskCompleted, "agent_type", taskCompleted.GetAgentType())}, HookEventName: HookEvent(taskCompleted.GetHookEventName()), TaskID: taskCompleted.GetTaskId(), TaskSubject: taskCompleted.GetTaskSubject(), TaskDescription: protoOpt(taskCompleted, "task_description", taskCompleted.GetTaskDescription()), TeammateName: protoOpt(taskCompleted, "teammate_name", taskCompleted.GetTeammateName()), TeamName: protoOpt(taskCompleted, "team_name", taskCompleted.GetTeamName())}, nil
 	case *pb.HookInput_ConfigChange:
-		return &ConfigChangeHookInput{BaseHookInput: BaseHookInput{SessionID: x.ConfigChange.GetSessionId(), TranscriptPath: x.ConfigChange.GetTranscriptPath(), Cwd: x.ConfigChange.GetCwd(), PermissionMode: x.ConfigChange.PermissionMode, AgentID: x.ConfigChange.AgentId, AgentType: x.ConfigChange.AgentType}, HookEventName: HookEvent(x.ConfigChange.GetHookEventName()), Source: ConfigChangeSource(x.ConfigChange.GetSource()), FilePath: x.ConfigChange.FilePath}, nil
+		configChange := v.GetConfigChange()
+		return &ConfigChangeHookInput{BaseHookInput: BaseHookInput{SessionID: configChange.GetSessionId(), TranscriptPath: configChange.GetTranscriptPath(), Cwd: configChange.GetCwd(), PermissionMode: protoOpt(configChange, "permission_mode", configChange.GetPermissionMode()), AgentID: protoOpt(configChange, "agent_id", configChange.GetAgentId()), AgentType: protoOpt(configChange, "agent_type", configChange.GetAgentType())}, HookEventName: HookEvent(configChange.GetHookEventName()), Source: ConfigChangeSource(configChange.GetSource()), FilePath: protoOpt(configChange, "file_path", configChange.GetFilePath())}, nil
 	case *pb.HookInput_WorktreeCreate:
-		return &WorktreeCreateHookInput{BaseHookInput: BaseHookInput{SessionID: x.WorktreeCreate.GetSessionId(), TranscriptPath: x.WorktreeCreate.GetTranscriptPath(), Cwd: x.WorktreeCreate.GetCwd(), PermissionMode: x.WorktreeCreate.PermissionMode, AgentID: x.WorktreeCreate.AgentId, AgentType: x.WorktreeCreate.AgentType}, HookEventName: HookEvent(x.WorktreeCreate.GetHookEventName()), Name: x.WorktreeCreate.GetName()}, nil
+		worktreeCreate := v.GetWorktreeCreate()
+		return &WorktreeCreateHookInput{BaseHookInput: BaseHookInput{SessionID: worktreeCreate.GetSessionId(), TranscriptPath: worktreeCreate.GetTranscriptPath(), Cwd: worktreeCreate.GetCwd(), PermissionMode: protoOpt(worktreeCreate, "permission_mode", worktreeCreate.GetPermissionMode()), AgentID: protoOpt(worktreeCreate, "agent_id", worktreeCreate.GetAgentId()), AgentType: protoOpt(worktreeCreate, "agent_type", worktreeCreate.GetAgentType())}, HookEventName: HookEvent(worktreeCreate.GetHookEventName()), Name: worktreeCreate.GetName()}, nil
 	case *pb.HookInput_WorktreeRemove:
-		return &WorktreeRemoveHookInput{BaseHookInput: BaseHookInput{SessionID: x.WorktreeRemove.GetSessionId(), TranscriptPath: x.WorktreeRemove.GetTranscriptPath(), Cwd: x.WorktreeRemove.GetCwd(), PermissionMode: x.WorktreeRemove.PermissionMode, AgentID: x.WorktreeRemove.AgentId, AgentType: x.WorktreeRemove.AgentType}, HookEventName: HookEvent(x.WorktreeRemove.GetHookEventName()), WorktreePath: x.WorktreeRemove.GetWorktreePath()}, nil
+		worktreeRemove := v.GetWorktreeRemove()
+		return &WorktreeRemoveHookInput{BaseHookInput: BaseHookInput{SessionID: worktreeRemove.GetSessionId(), TranscriptPath: worktreeRemove.GetTranscriptPath(), Cwd: worktreeRemove.GetCwd(), PermissionMode: protoOpt(worktreeRemove, "permission_mode", worktreeRemove.GetPermissionMode()), AgentID: protoOpt(worktreeRemove, "agent_id", worktreeRemove.GetAgentId()), AgentType: protoOpt(worktreeRemove, "agent_type", worktreeRemove.GetAgentType())}, HookEventName: HookEvent(worktreeRemove.GetHookEventName()), WorktreePath: worktreeRemove.GetWorktreePath()}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proto HookInput %T", x)
 	}
