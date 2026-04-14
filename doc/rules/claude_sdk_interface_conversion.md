@@ -39,7 +39,12 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Use the TypeScript type name as-is where possible, uppercasing the first letter so the Go type is exported.
 - Use normal Go field naming conventions, and preserve the documented wire names in JSON struct tags.
 - Reflect relevant comments from the Claude SDK docs in the handwritten Go types.
-- Include a link to the Claude SDK documentation source for each generated handwritten type.
+- Every handwritten Go type must have its own doc comment that includes the exact Claude SDK reference URL for that specific type or section anchor. A single file-level URL is insufficient.
+- Every proto message, enum, and union-carrier message must also carry its own doc comment with the exact corresponding Claude SDK reference URL. A file-level URL is insufficient there as well.
+- Use anchored `https://code.claude.com/docs/en/agent-sdk/typescript#...` URLs that identify the relevant section for the specific type, such as `#message-types`, `#sdkassistantmessage`, or the exact anchored section that defines that type.
+- Do not use the bare top-level TypeScript docs URL as a per-type source comment.
+- Do not infer anchors mechanically from Go/proto type names. Use the actual anchor used by the documentation heading or section, even when it is non-obvious, shared across multiple types, or tool-name based, for example `https://code.claude.com/docs/en/agent-sdk/typescript#read-2`.
+- If multiple adjacent types come from the same exact SDK section, repeat that anchored source URL on each type instead of relying on shared context.
 - Carry the same SDK-derived comments and source URLs into the proto schema as well.
 
 ## Type Mapping
@@ -49,6 +54,7 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Map `Record<string, T>`-style maps to `map[string]T`.
 - If a TypeScript `unknown` or `any` is effectively `Record<string, unknown>`, use `map[string]any`.
 - Otherwise represent `unknown` or `any` as `json.RawMessage`.
+- When the Claude SDK docs reference Anthropic SDK-owned payload types that are named but not defined on the page, keep them as named `json.RawMessage` wrappers in handwritten Go and as raw JSON carrier messages in proto for now; add doc comments linking to the source mention instead of inventing a local structural model.
 - Use `time.Time` for timestamp or date-like fields by default.
 - If custom time formatting is required, wrap it in a dedicated type such as `type CustomTime struct { t time.Time }`.
 
@@ -56,6 +62,7 @@ This document defines the conversion rules for reimplementing or updating Claude
 
 - Represent optional TypeScript fields as pointer fields in Go and tag them with `omitzero`.
 - Represent nullable TypeScript fields such as `T | null` as pointer fields in Go without `omitzero`.
+- Do not add `omitempty` to handwritten Go JSON tags for this SDK conversion. Use `omitzero` alone when omission-on-empty is required by an optional field.
 - Assume the target Claude interfaces do not require optional-plus-nullable tri-state fields unless the docs prove otherwise.
 
 ## JSON Shape
@@ -64,18 +71,23 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Do not strip documented discriminators such as `type`; keep the original data shape by storing discriminator fields explicitly on concrete variant structs.
 - Enforce discriminator correctness in `MarshalJSON` and `UnmarshalJSON` so a concrete type cannot round-trip with a conflicting discriminator value.
 - Define custom JSON methods when needed rather than on every type.
-- In practice, expect many types to need custom JSON methods because union-typed fields are common.
+- In practice, almost every SDK-facing handwritten Go type should define `MarshalJSON` and `UnmarshalJSON` explicitly so the docs-derived JSON shape is enforced rather than assumed.
+- Only omit custom JSON methods for a handwritten Go type when the type is a trivially safe alias or plain struct with no optional/nullable nuance, no union participation, no discriminator constraints, no raw-payload preservation, and no risk of Go's default encoder producing a docs-incompatible shape.
+- If there is any doubt, implement the JSON methods.
 
 ## Unions And String Literals
 
 - Model each TypeScript union as a Go interface with a private marker method `interface { <unionTypeName>() }`.
 - Every union variant must implement that interface.
+- Immediately after each handwritten Go union interface definition, add a compile-time implementation check block such as `var ( _ UnionType = (*ConcreteVariant)(nil) ... )` covering every concrete variant, including the unknown variant.
+- Keep these implementation assertion blocks adjacent to the union interface so omissions fail loudly during compilation.
 - Define `unmarshal<UnionTypeName>(...)` helpers to decode union variants and use those helpers from enclosing `UnmarshalJSON` implementations.
 - Treat unions as open-value.
 - Always define an unknown variant type for each union so JSON decoding can preserve unsupported variants instead of failing.
 - Store both the discriminator value and the original `json.RawMessage` on unknown union variants.
 - Preserve round-trip conversion for unknown union variants.
 - Generated proto conversion must also preserve unknown union variants by defining corresponding unknown proto variants.
+- This is mandatory for both handwritten Go unions and proto unions. Do not leave either side without its explicit unknown variant.
 - This applies to every union, not only selected high-value unions.
 - Do not omit unknown proto variants just because protobuf `oneof` is inconvenient or because the current repository does not yet consume that path.
 - Each proto unknown variant must be designed intentionally to preserve round-trip data. At minimum it must carry the discriminator value when the union is discriminator-based, and the original payload in a form that can be converted back without inventing or dropping fields.
@@ -95,6 +107,11 @@ This document defines the conversion rules for reimplementing or updating Claude
 
 - Implement bi-directional proto conversion primarily as methods on the handwritten Go types.
 - Also define package-level helpers for proto-to-Go conversion so callers can convert generated proto values into handwritten Go types easily.
+- Treat bi-directional conversion as part of the definition of each handwritten SDK-facing Go type, not as optional follow-up work.
+- For each handwritten Go type that has a proto representation, provide conversion coverage in both directions between the handwritten type and the generated proto type.
+- Prefer methods such as `ToProto()` and `FromProto(...)` on the handwritten Go types, plus package-level helpers for unions and convenience entrypoints.
+- Unknown union variants must also participate in bi-directional conversion and preserve discriminator plus raw payload without loss.
+- A type implementation is not complete until its JSON behavior and its proto-to-Go / Go-to-proto behavior are both defined.
 
 ## Ambiguity Rule
 

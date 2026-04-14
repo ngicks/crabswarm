@@ -2,284 +2,1579 @@ syntax = "proto3";
 
 package sdk_types.v1;
 
-import "sdk_types/v1/permission.proto";
-import "sdk_types/v1/tool_input.proto";
-import "sdk_types/v1/tool_output.proto";
+import "google/protobuf/struct.proto";
 
-// PreToolUseHookInput represents input for the pre-tool-use hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-tool-use-hook-input
+option go_package = "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1";
+
+// Claude Agent SDK types consolidated into a single proto source.
+// Source of truth:
+// https://code.claude.com/docs/en/agent-sdk/typescript
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message JsonRawMessage {
+  bytes raw_json = 1 [json_name = "raw_json"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message UnknownVariant {
+  string discriminator = 1;
+  bytes raw_json = 2 [json_name = "raw_json"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionRuleValue {
+  string tool_name = 1 [json_name = "toolName"];
+  optional string rule_content = 2 [json_name = "ruleContent"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionUpdateAddRules {
+  string type = 1;
+  repeated PermissionRuleValue rules = 2;
+  string behavior = 3;
+  string destination = 4;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionUpdateReplaceRules {
+  string type = 1;
+  repeated PermissionRuleValue rules = 2;
+  string behavior = 3;
+  string destination = 4;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionUpdateRemoveRules {
+  string type = 1;
+  repeated PermissionRuleValue rules = 2;
+  string behavior = 3;
+  string destination = 4;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionUpdateSetMode {
+  string type = 1;
+  string mode = 2;
+  string destination = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionUpdateAddDirectories {
+  string type = 1;
+  repeated string directories = 2;
+  string destination = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionUpdateRemoveDirectories {
+  string type = 1;
+  repeated string directories = 2;
+  string destination = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+message PermissionUpdate {
+  oneof value {
+    PermissionUpdateAddRules add_rules = 1 [json_name = "addRules"];
+    PermissionUpdateReplaceRules replace_rules = 2 [json_name = "replaceRules"];
+    PermissionUpdateRemoveRules remove_rules = 3 [json_name = "removeRules"];
+    PermissionUpdateSetMode set_mode = 4 [json_name = "setMode"];
+    PermissionUpdateAddDirectories add_directories = 5 [json_name = "addDirectories"];
+    PermissionUpdateRemoveDirectories remove_directories = 6 [json_name = "removeDirectories"];
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
+message PermissionResultAllow {
+  string behavior = 1;
+  google.protobuf.Struct updated_input = 2 [json_name = "updatedInput"];
+  repeated PermissionUpdate updated_permissions = 3 [json_name = "updatedPermissions"];
+  optional string tool_use_id = 4 [json_name = "toolUseID"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
+message PermissionResultDeny {
+  string behavior = 1;
+  string message = 2;
+  optional bool interrupt = 3;
+  optional string tool_use_id = 4 [json_name = "toolUseID"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
+message PermissionResult {
+  oneof value {
+    PermissionResultAllow allow = 1;
+    PermissionResultDeny deny = 2;
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message McpStdioServerConfig {
+  optional string type = 1;
+  string command = 2;
+  repeated string args = 3;
+  map<string, string> env = 4;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message McpSSEServerConfig {
+  string type = 1;
+  string url = 2;
+  map<string, string> headers = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message McpHttpServerConfig {
+  string type = 1;
+  string url = 2;
+  map<string, string> headers = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#createsdkmcpserver
+message McpSdkServerConfigWithInstance {
+  string type = 1;
+  string name = 2;
+  JsonRawMessage instance = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message McpClaudeAIProxyServerConfig {
+  string type = 1;
+  string url = 2;
+  string id = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message McpServerConfig {
+  oneof value {
+    McpStdioServerConfig stdio = 1;
+    McpSSEServerConfig sse = 2;
+    McpHttpServerConfig http = 3;
+    McpSdkServerConfigWithInstance sdk_instance = 4 [json_name = "sdkInstance"];
+    McpClaudeAIProxyServerConfig claude_ai_proxy = 5 [json_name = "claudeAiProxy"];
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message SdkPluginConfig {
+  string type = 1;
+  string path = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message SandboxNetworkConfig {
+  repeated string allowed_domains = 1 [json_name = "allowedDomains"];
+  optional bool allow_managed_domains_only = 2 [json_name = "allowManagedDomainsOnly"];
+  optional bool allow_local_binding = 3 [json_name = "allowLocalBinding"];
+  repeated string allow_unix_sockets = 4 [json_name = "allowUnixSockets"];
+  optional bool allow_all_unix_sockets = 5 [json_name = "allowAllUnixSockets"];
+  optional int64 http_proxy_port = 6 [json_name = "httpProxyPort"];
+  optional int64 socks_proxy_port = 7 [json_name = "socksProxyPort"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message SandboxFilesystemConfig {
+  repeated string allow_write = 1 [json_name = "allowWrite"];
+  repeated string deny_write = 2 [json_name = "denyWrite"];
+  repeated string deny_read = 3 [json_name = "denyRead"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message RipgrepConfig {
+  string command = 1;
+  repeated string args = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message SandboxSettings {
+  optional bool enabled = 1;
+  optional bool auto_allow_bash_if_sandboxed = 2 [json_name = "autoAllowBashIfSandboxed"];
+  repeated string excluded_commands = 3 [json_name = "excludedCommands"];
+  optional bool allow_unsandboxed_commands = 4 [json_name = "allowUnsandboxedCommands"];
+  optional SandboxNetworkConfig network = 5;
+  optional SandboxFilesystemConfig filesystem = 6;
+  map<string, JsonRawMessage> ignore_violations = 7 [json_name = "ignoreViolations"];
+  optional bool enable_weaker_nested_sandbox = 8 [json_name = "enableWeakerNestedSandbox"];
+  optional RipgrepConfig ripgrep = 9;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition
+message AgentDefinition {
+  string description = 1;
+  repeated string tools = 2;
+  repeated string disallowed_tools = 3 [json_name = "disallowedTools"];
+  string prompt = 4;
+  optional string model = 5;
+  repeated JsonRawMessage mcp_servers = 6 [json_name = "mcpServers"];
+  repeated string skills = 7;
+  optional int64 max_turns = 8 [json_name = "maxTurns"];
+  optional string critical_system_reminder_experimental = 9 [json_name = "criticalSystemReminder_EXPERIMENTAL"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message OutputFormat {
+  string type = 1;
+  JsonRawMessage schema = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message SystemPromptString {
+  string value = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message SystemPromptPreset {
+  string type = 1;
+  string preset = 2;
+  optional string append = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message SystemPrompt {
+  oneof value {
+    SystemPromptString string_value = 1 [json_name = "stringValue"];
+    SystemPromptPreset preset = 2;
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ThinkingConfigAdaptive {
+  string type = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ThinkingConfigEnabled {
+  string type = 1;
+  optional int64 budget_tokens = 2 [json_name = "budgetTokens"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ThinkingConfigDisabled {
+  string type = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ThinkingConfig {
+  oneof value {
+    ThinkingConfigAdaptive adaptive = 1;
+    ThinkingConfigEnabled enabled = 2;
+    ThinkingConfigDisabled disabled = 3;
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message AskUserQuestionToolConfig {
+  optional string preview_format = 1 [json_name = "previewFormat"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ToolConfig {
+  optional AskUserQuestionToolConfig ask_user_question = 1 [json_name = "askUserQuestion"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ToolsConfigList {
+  repeated string tools = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ToolsConfigPreset {
+  string type = 1;
+  string preset = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message ToolsConfig {
+  oneof value {
+    ToolsConfigList list = 1;
+    ToolsConfigPreset preset = 2;
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+message Options {
+  repeated string additional_directories = 1 [json_name = "additionalDirectories"];
+  optional string agent = 2;
+  map<string, AgentDefinition> agents = 3;
+  optional bool allow_dangerously_skip_permissions = 4 [json_name = "allowDangerouslySkipPermissions"];
+  repeated string allowed_tools = 5 [json_name = "allowedTools"];
+  repeated string betas = 6;
+  optional bool continue = 7;
+  optional string cwd = 8;
+  optional bool debug = 9;
+  optional string debug_file = 10 [json_name = "debugFile"];
+  repeated string disallowed_tools = 11 [json_name = "disallowedTools"];
+  optional string effort = 12;
+  optional bool enable_file_checkpointing = 13 [json_name = "enableFileCheckpointing"];
+  map<string, JsonRawMessage> env = 14;
+  optional string executable = 15;
+  repeated string executable_args = 16 [json_name = "executableArgs"];
+  map<string, JsonRawMessage> extra_args = 17 [json_name = "extraArgs"];
+  optional string fallback_model = 18 [json_name = "fallbackModel"];
+  optional bool fork_session = 19 [json_name = "forkSession"];
+  optional bool include_partial_messages = 20 [json_name = "includePartialMessages"];
+  optional double max_budget_usd = 21 [json_name = "maxBudgetUsd"];
+  optional int64 max_thinking_tokens = 22 [json_name = "maxThinkingTokens"];
+  optional int64 max_turns = 23 [json_name = "maxTurns"];
+  map<string, McpServerConfig> mcp_servers = 24 [json_name = "mcpServers"];
+  optional string model = 25;
+  optional OutputFormat output_format = 26 [json_name = "outputFormat"];
+  optional string path_to_claude_code_executable = 27 [json_name = "pathToClaudeCodeExecutable"];
+  optional string permission_mode = 28 [json_name = "permissionMode"];
+  optional string permission_prompt_tool_name = 29 [json_name = "permissionPromptToolName"];
+  optional bool persist_session = 30 [json_name = "persistSession"];
+  repeated SdkPluginConfig plugins = 31;
+  optional bool prompt_suggestions = 32 [json_name = "promptSuggestions"];
+  optional string resume = 33;
+  optional string resume_session_at = 34 [json_name = "resumeSessionAt"];
+  optional SandboxSettings sandbox = 35;
+  optional string session_id = 36 [json_name = "sessionId"];
+  repeated string setting_sources = 37 [json_name = "settingSources"];
+  optional bool strict_mcp_config = 38 [json_name = "strictMcpConfig"];
+  optional SystemPrompt system_prompt = 39 [json_name = "systemPrompt"];
+  optional ThinkingConfig thinking = 40;
+  optional ToolConfig tool_config = 41 [json_name = "toolConfig"];
+  optional ToolsConfig tools = 42;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#slashcommand
+message SlashCommand {
+  string name = 1;
+  string description = 2;
+  string argument_hint = 3 [json_name = "argumentHint"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#modelinfo
+message ModelInfo {
+  string value = 1;
+  string display_name = 2 [json_name = "displayName"];
+  string description = 3;
+  optional bool supports_effort = 4 [json_name = "supportsEffort"];
+  repeated string supported_effort_levels = 5 [json_name = "supportedEffortLevels"];
+  optional bool supports_adaptive_thinking = 6 [json_name = "supportsAdaptiveThinking"];
+  optional bool supports_fast_mode = 7 [json_name = "supportsFastMode"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition
+message AgentInfo {
+  string name = 1;
+  string description = 2;
+  optional string model = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#accountinfo
+message AccountInfo {
+  optional string email = 1;
+  optional string organization = 2;
+  optional string subscription_type = 3 [json_name = "subscriptionType"];
+  optional string token_source = 4 [json_name = "tokenSource"];
+  optional string api_key_source = 5 [json_name = "apiKeySource"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#modelusage
+message ModelUsage {
+  int64 input_tokens = 1 [json_name = "inputTokens"];
+  int64 output_tokens = 2 [json_name = "outputTokens"];
+  int64 cache_read_input_tokens = 3 [json_name = "cacheReadInputTokens"];
+  int64 cache_creation_input_tokens = 4 [json_name = "cacheCreationInputTokens"];
+  int64 web_search_requests = 5 [json_name = "webSearchRequests"];
+  double cost_usd = 6 [json_name = "costUSD"];
+  int64 context_window = 7 [json_name = "contextWindow"];
+  int64 max_output_tokens = 8 [json_name = "maxOutputTokens"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
+message Usage {
+  optional int64 input_tokens = 1 [json_name = "input_tokens"];
+  optional int64 output_tokens = 2 [json_name = "output_tokens"];
+  optional int64 cache_creation_input_tokens = 3 [json_name = "cache_creation_input_tokens"];
+  optional int64 cache_read_input_tokens = 4 [json_name = "cache_read_input_tokens"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#nonnullableusage
+message NonNullableUsage {
+  int64 input_tokens = 1 [json_name = "input_tokens"];
+  int64 output_tokens = 2 [json_name = "output_tokens"];
+  int64 cache_creation_input_tokens = 3 [json_name = "cache_creation_input_tokens"];
+  int64 cache_read_input_tokens = 4 [json_name = "cache_read_input_tokens"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#calltoolresult
+message CallToolResultContent {
+  string type = 1;
+  google.protobuf.Struct data = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#calltoolresult
+message CallToolResult {
+  repeated CallToolResultContent content = 1;
+  optional bool is_error = 2 [json_name = "isError"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpermissiondenial
+message SDKPermissionDenial {
+  string tool_name = 1 [json_name = "tool_name"];
+  string tool_use_id = 2 [json_name = "tool_use_id"];
+  google.protobuf.Struct tool_input = 3 [json_name = "tool_input"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkcompactboundarymessage
+message CompactMetadata {
+  string trigger = 1;
+  int64 pre_tokens = 2 [json_name = "pre_tokens"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskprogressmessage
+message TaskUsageSummary {
+  int64 total_tokens = 1 [json_name = "total_tokens"];
+  int64 tool_uses = 2 [json_name = "tool_uses"];
+  int64 duration_ms = 3 [json_name = "duration_ms"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkassistantmessage
+message SDKAssistantMessage {
+  string type = 1;
+  string uuid = 2;
+  string session_id = 3 [json_name = "session_id"];
+  JsonRawMessage message = 4;
+  optional string parent_tool_use_id = 5 [json_name = "parent_tool_use_id"];
+  optional string error = 6;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessage
+message SDKUserMessage {
+  string type = 1;
+  optional string uuid = 2;
+  string session_id = 3 [json_name = "session_id"];
+  JsonRawMessage message = 4;
+  optional string parent_tool_use_id = 5 [json_name = "parent_tool_use_id"];
+  optional bool is_synthetic = 6 [json_name = "isSynthetic"];
+  optional JsonRawMessage tool_use_result = 7 [json_name = "tool_use_result"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessagereplay
+message SDKUserMessageReplay {
+  string type = 1;
+  string uuid = 2;
+  string session_id = 3 [json_name = "session_id"];
+  JsonRawMessage message = 4;
+  optional string parent_tool_use_id = 5 [json_name = "parent_tool_use_id"];
+  optional bool is_synthetic = 6 [json_name = "isSynthetic"];
+  optional JsonRawMessage tool_use_result = 7 [json_name = "tool_use_result"];
+  bool is_replay = 8 [json_name = "isReplay"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
+message SDKResultMessageSuccess {
+  string type = 1;
+  string subtype = 2;
+  string uuid = 3;
+  string session_id = 4 [json_name = "session_id"];
+  int64 duration_ms = 5 [json_name = "duration_ms"];
+  int64 duration_api_ms = 6 [json_name = "duration_api_ms"];
+  bool is_error = 7 [json_name = "is_error"];
+  int64 num_turns = 8 [json_name = "num_turns"];
+  string result = 9;
+  optional string stop_reason = 10 [json_name = "stop_reason"];
+  double total_cost_usd = 11 [json_name = "total_cost_usd"];
+  NonNullableUsage usage = 12;
+  map<string, ModelUsage> model_usage = 13 [json_name = "modelUsage"];
+  repeated SDKPermissionDenial permission_denials = 14 [json_name = "permission_denials"];
+  optional JsonRawMessage structured_output = 15 [json_name = "structured_output"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
+message SDKResultMessageError {
+  string type = 1;
+  string subtype = 2;
+  string uuid = 3;
+  string session_id = 4 [json_name = "session_id"];
+  int64 duration_ms = 5 [json_name = "duration_ms"];
+  int64 duration_api_ms = 6 [json_name = "duration_api_ms"];
+  bool is_error = 7 [json_name = "is_error"];
+  int64 num_turns = 8 [json_name = "num_turns"];
+  optional string stop_reason = 9 [json_name = "stop_reason"];
+  double total_cost_usd = 10 [json_name = "total_cost_usd"];
+  NonNullableUsage usage = 11;
+  map<string, ModelUsage> model_usage = 12 [json_name = "modelUsage"];
+  repeated SDKPermissionDenial permission_denials = 13 [json_name = "permission_denials"];
+  repeated string errors = 14;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdksystemmessage
+message SDKSystemServer {
+  string name = 1;
+  string status = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdksystemmessage
+message SDKSystemPlugin {
+  string name = 1;
+  string path = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdksystemmessage
+message SDKSystemMessage {
+  string type = 1;
+  string subtype = 2;
+  string uuid = 3;
+  string session_id = 4 [json_name = "session_id"];
+  repeated string agents = 5;
+  string api_key_source = 6 [json_name = "apiKeySource"];
+  repeated string betas = 7;
+  string claude_code_version = 8 [json_name = "claude_code_version"];
+  string cwd = 9;
+  repeated string tools = 10;
+  repeated SDKSystemServer mcp_servers = 11 [json_name = "mcp_servers"];
+  string model = 12;
+  string permission_mode = 13 [json_name = "permissionMode"];
+  repeated string slash_commands = 14 [json_name = "slash_commands"];
+  string output_style = 15 [json_name = "output_style"];
+  repeated string skills = 16;
+  repeated SDKSystemPlugin plugins = 17;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpartialassistantmessage
+message SDKPartialAssistantMessage {
+  string type = 1;
+  JsonRawMessage event = 2;
+  optional string parent_tool_use_id = 3 [json_name = "parent_tool_use_id"];
+  string uuid = 4;
+  string session_id = 5 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkcompactboundarymessage
+message SDKCompactBoundaryMessage {
+  string type = 1;
+  string subtype = 2;
+  string uuid = 3;
+  string session_id = 4 [json_name = "session_id"];
+  CompactMetadata compact_metadata = 5 [json_name = "compact_metadata"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkstatusmessage
+message SDKStatusMessage {
+  string type = 1;
+  string subtype = 2;
+  optional string status = 3;
+  optional string permission_mode = 4 [json_name = "permissionMode"];
+  string uuid = 5;
+  string session_id = 6 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdklocalcommandoutputmessage
+message SDKLocalCommandOutputMessage {
+  string type = 1;
+  string subtype = 2;
+  string content = 3;
+  string uuid = 4;
+  string session_id = 5 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkhookstartedmessage
+message SDKHookStartedMessage {
+  string type = 1;
+  string subtype = 2;
+  string hook_id = 3 [json_name = "hook_id"];
+  string hook_name = 4 [json_name = "hook_name"];
+  string hook_event = 5 [json_name = "hook_event"];
+  string uuid = 6;
+  string session_id = 7 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkhookprogressmessage
+message SDKHookProgressMessage {
+  string type = 1;
+  string subtype = 2;
+  string hook_id = 3 [json_name = "hook_id"];
+  string hook_name = 4 [json_name = "hook_name"];
+  string hook_event = 5 [json_name = "hook_event"];
+  string stdout = 6;
+  string stderr = 7;
+  string output = 8;
+  string uuid = 9;
+  string session_id = 10 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkhookresponsemessage
+message SDKHookResponseMessage {
+  string type = 1;
+  string subtype = 2;
+  string hook_id = 3 [json_name = "hook_id"];
+  string hook_name = 4 [json_name = "hook_name"];
+  string hook_event = 5 [json_name = "hook_event"];
+  string output = 6;
+  string stdout = 7;
+  string stderr = 8;
+  optional int64 exit_code = 9 [json_name = "exit_code"];
+  string outcome = 10;
+  string uuid = 11;
+  string session_id = 12 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktoolprogressmessage
+message SDKToolProgressMessage {
+  string type = 1;
+  string tool_use_id = 2 [json_name = "tool_use_id"];
+  string tool_name = 3 [json_name = "tool_name"];
+  optional string parent_tool_use_id = 4 [json_name = "parent_tool_use_id"];
+  double elapsed_time_seconds = 5 [json_name = "elapsed_time_seconds"];
+  optional string task_id = 6 [json_name = "task_id"];
+  string uuid = 7;
+  string session_id = 8 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkauthstatusmessage
+message SDKAuthStatusMessage {
+  string type = 1;
+  bool is_authenticating = 2 [json_name = "isAuthenticating"];
+  repeated string output = 3;
+  optional string error = 4;
+  string uuid = 5;
+  string session_id = 6 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktasknotificationmessage
+message SDKTaskNotificationMessage {
+  string type = 1;
+  string subtype = 2;
+  string task_id = 3 [json_name = "task_id"];
+  optional string tool_use_id = 4 [json_name = "tool_use_id"];
+  string status = 5;
+  string output_file = 6 [json_name = "output_file"];
+  string summary = 7;
+  optional TaskUsageSummary usage = 8;
+  string uuid = 9;
+  string session_id = 10 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskstartedmessage
+message SDKTaskStartedMessage {
+  string type = 1;
+  string subtype = 2;
+  string task_id = 3 [json_name = "task_id"];
+  optional string tool_use_id = 4 [json_name = "tool_use_id"];
+  string description = 5;
+  optional string task_type = 6 [json_name = "task_type"];
+  string uuid = 7;
+  string session_id = 8 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskprogressmessage
+message SDKTaskProgressMessage {
+  string type = 1;
+  string subtype = 2;
+  string task_id = 3 [json_name = "task_id"];
+  optional string tool_use_id = 4 [json_name = "tool_use_id"];
+  string description = 5;
+  TaskUsageSummary usage = 6;
+  optional string last_tool_name = 7 [json_name = "last_tool_name"];
+  string uuid = 8;
+  string session_id = 9 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkfilespersistedevent
+message FilesPersistedFile {
+  string filename = 1;
+  string file_id = 2 [json_name = "file_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkfilespersistedevent
+message FilesPersistedFailure {
+  string filename = 1;
+  string error = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkfilespersistedevent
+message SDKFilesPersistedEvent {
+  string type = 1;
+  string subtype = 2;
+  repeated FilesPersistedFile files = 3;
+  repeated FilesPersistedFailure failed = 4;
+  string processed_at = 5 [json_name = "processed_at"];
+  string uuid = 6;
+  string session_id = 7 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkratelimitevent
+message RateLimitInfo {
+  string status = 1;
+  optional double resets_at = 2 [json_name = "resetsAt"];
+  optional double utilization = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktoolusesummarymessage
+message SDKToolUseSummaryMessage {
+  string type = 1;
+  string summary = 2;
+  repeated string preceding_tool_use_ids = 3 [json_name = "preceding_tool_use_ids"];
+  string uuid = 4;
+  string session_id = 5 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkratelimitevent
+message SDKRateLimitEvent {
+  string type = 1;
+  RateLimitInfo rate_limit_info = 2 [json_name = "rate_limit_info"];
+  string uuid = 3;
+  string session_id = 4 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpromptsuggestionmessage
+message SDKPromptSuggestionMessage {
+  string type = 1;
+  string suggestion = 2;
+  string uuid = 3;
+  string session_id = 4 [json_name = "session_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message SDKMessage {
+  oneof value {
+    SDKAssistantMessage assistant = 1;
+    SDKUserMessage user = 2;
+    SDKUserMessageReplay user_replay = 3 [json_name = "userReplay"];
+    SDKResultMessageSuccess result_success = 4 [json_name = "resultSuccess"];
+    SDKResultMessageError result_error = 5 [json_name = "resultError"];
+    SDKSystemMessage system = 6;
+    SDKPartialAssistantMessage partial_assistant = 7 [json_name = "partialAssistant"];
+    SDKCompactBoundaryMessage compact_boundary = 8 [json_name = "compactBoundary"];
+    SDKStatusMessage status = 9;
+    SDKLocalCommandOutputMessage local_command_output = 10 [json_name = "localCommandOutput"];
+    SDKHookStartedMessage hook_started = 11 [json_name = "hookStarted"];
+    SDKHookProgressMessage hook_progress = 12 [json_name = "hookProgress"];
+    SDKHookResponseMessage hook_response = 13 [json_name = "hookResponse"];
+    SDKToolProgressMessage tool_progress = 14 [json_name = "toolProgress"];
+    SDKAuthStatusMessage auth_status = 15 [json_name = "authStatus"];
+    SDKTaskNotificationMessage task_notification = 16 [json_name = "taskNotification"];
+    SDKTaskStartedMessage task_started = 17 [json_name = "taskStarted"];
+    SDKTaskProgressMessage task_progress = 18 [json_name = "taskProgress"];
+    SDKFilesPersistedEvent files_persisted = 19 [json_name = "filesPersisted"];
+    SDKToolUseSummaryMessage tool_use_summary = 20 [json_name = "toolUseSummary"];
+    SDKRateLimitEvent rate_limit_event = 21 [json_name = "rateLimitEvent"];
+    SDKPromptSuggestionMessage prompt_suggestion = 22 [json_name = "promptSuggestion"];
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message QuestionOption {
+  string label = 1;
+  string description = 2;
+  optional string preview = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message Question {
+  string question = 1;
+  string header = 2;
+  repeated QuestionOption options = 3;
+  bool multi_select = 4 [json_name = "multiSelect"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
+message ToolInput {
+  oneof input {
+    AgentInput agent = 1;
+    AskUserQuestionInput ask_user_question = 2 [json_name = "askUserQuestion"];
+    BashInput bash = 3;
+    BashOutputInput bash_output = 4 [json_name = "bashOutput"];
+    FileEditInput file_edit = 5 [json_name = "fileEdit"];
+    FileReadInput file_read = 6 [json_name = "fileRead"];
+    FileWriteInput file_write = 7 [json_name = "fileWrite"];
+    GlobInput glob = 8;
+    GrepInput grep = 9;
+    KillShellInput kill_shell = 10 [json_name = "killShell"];
+    NotebookEditInput notebook_edit = 11 [json_name = "notebookEdit"];
+    WebFetchInput web_fetch = 12 [json_name = "webFetch"];
+    WebSearchInput web_search = 13 [json_name = "webSearch"];
+    TodoWriteInput todo_write = 14 [json_name = "todoWrite"];
+    ExitPlanModeInput exit_plan_mode = 15 [json_name = "exitPlanMode"];
+    ListMcpResourcesInput list_mcp_resources = 16 [json_name = "listMcpResources"];
+    ReadMcpResourceInput read_mcp_resource = 17 [json_name = "readMcpResource"];
+    google.protobuf.Struct mcp_tool = 18 [json_name = "mcpTool"];
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#task
+message AgentInput {
+  string description = 1;
+  string prompt = 2;
+  string subagent_type = 3 [json_name = "subagent_type"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#askuserquestion
+message AskUserQuestionInput {
+  repeated Question questions = 1;
+  map<string, string> answers = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#bash
+message BashInput {
+  string command = 1;
+  optional int32 timeout = 2;
+  optional string description = 3;
+  optional bool run_in_background = 4 [json_name = "run_in_background"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message BashOutputInput {
+  string bash_id = 1 [json_name = "bash_id"];
+  optional string filter = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#edit
+message FileEditInput {
+  string file_path = 1 [json_name = "file_path"];
+  string old_string = 2 [json_name = "old_string"];
+  string new_string = 3 [json_name = "new_string"];
+  optional bool replace_all = 4 [json_name = "replace_all"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read
+message FileReadInput {
+  string file_path = 1 [json_name = "file_path"];
+  optional int32 offset = 2;
+  optional int32 limit = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#write
+message FileWriteInput {
+  string file_path = 1 [json_name = "file_path"];
+  string content = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#glob
+message GlobInput {
+  string pattern = 1;
+  optional string path = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#grep
+message GrepInput {
+  string pattern = 1;
+  optional string path = 2;
+  optional string glob = 3;
+  optional string type = 4;
+  string output_mode = 5 [json_name = "output_mode"];
+  optional bool case_insensitive = 6 [json_name = "-i"];
+  optional bool show_line_numbers = 7 [json_name = "-n"];
+  optional int32 before_context = 8 [json_name = "-B"];
+  optional int32 after_context = 9 [json_name = "-A"];
+  optional int32 context = 10 [json_name = "-C"];
+  optional int32 head_limit = 11 [json_name = "head_limit"];
+  optional bool multiline = 12;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message KillShellInput {
+  string shell_id = 1 [json_name = "shell_id"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#notebookedit
+message NotebookEditInput {
+  string notebook_path = 1 [json_name = "notebook_path"];
+  optional string cell_id = 2 [json_name = "cell_id"];
+  string new_source = 3 [json_name = "new_source"];
+  string cell_type = 4 [json_name = "cell_type"];
+  string edit_mode = 5 [json_name = "edit_mode"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#webfetch
+message WebFetchInput {
+  string url = 1;
+  string prompt = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch
+message WebSearchInput {
+  string query = 1;
+  repeated string allowed_domains = 2 [json_name = "allowed_domains"];
+  repeated string blocked_domains = 3 [json_name = "blocked_domains"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite
+message TodoItem {
+  string content = 1;
+  string status = 2;
+  string active_form = 3 [json_name = "activeForm"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite
+message TodoWriteInput {
+  repeated TodoItem todos = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#exitplanmode
+message ExitPlanModeInput {
+  repeated string approved_prompts = 1 [json_name = "approvedPrompts"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#listmcpresources
+message ListMcpResourcesInput {
+  optional string server = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#readmcpresource
+message ReadMcpResourceInput {
+  string server = 1;
+  string uri = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-output-schemas
+message ToolOutput {
+  oneof output {
+    TaskOutput task = 1;
+    AskUserQuestionOutput ask_user_question = 2 [json_name = "askUserQuestion"];
+    BashOutput bash = 3;
+    FileEditOutput file_edit = 4 [json_name = "fileEdit"];
+    FileReadOutput file_read = 5 [json_name = "fileRead"];
+    FileWriteOutput file_write = 6 [json_name = "fileWrite"];
+    GlobOutput glob = 7;
+    GrepOutput grep = 8;
+    TaskStopOutput task_stop = 9 [json_name = "taskStop"];
+    NotebookEditOutput notebook_edit = 10 [json_name = "notebookEdit"];
+    WebFetchOutput web_fetch = 11 [json_name = "webFetch"];
+    WebSearchOutput web_search = 12 [json_name = "webSearch"];
+    TodoWriteOutput todo_write = 13 [json_name = "todoWrite"];
+    ExitPlanModeOutput exit_plan_mode = 14 [json_name = "exitPlanMode"];
+    ListMcpResourcesOutput list_mcp_resources = 15 [json_name = "listMcpResources"];
+    ReadMcpResourceOutput read_mcp_resource = 16 [json_name = "readMcpResource"];
+    ConfigOutput config = 17;
+    EnterWorktreeOutput enter_worktree = 18 [json_name = "enterWorktree"];
+    google.protobuf.Struct mcp_tool = 19 [json_name = "mcpTool"];
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message UsageInfo {
+  int32 input_tokens = 1 [json_name = "input_tokens"];
+  int32 output_tokens = 2 [json_name = "output_tokens"];
+  optional int32 cache_creation_input_tokens = 3 [json_name = "cache_creation_input_tokens"];
+  optional int32 cache_read_input_tokens = 4 [json_name = "cache_read_input_tokens"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+message TaskOutput {
+  string result = 1;
+  UsageInfo usage = 2;
+  optional double total_cost_usd = 3 [json_name = "total_cost_usd"];
+  optional int64 duration_ms = 4 [json_name = "duration_ms"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#askuserquestion-2
+message AskUserQuestionOutput {
+  repeated Question questions = 1;
+  map<string, string> answers = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#bash-2
+message BashOutput {
+  string output = 1;
+  int32 exit_code = 2 [json_name = "exitCode"];
+  optional bool killed = 3;
+  optional string shell_id = 4 [json_name = "shellId"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#edit-2
+message FileEditOutput {
+  string file_path = 1 [json_name = "filePath"];
+  string old_string = 2 [json_name = "oldString"];
+  string new_string = 3 [json_name = "newString"];
+  string original_file = 4 [json_name = "originalFile"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputTextFile {
+  string file_path = 1 [json_name = "filePath"];
+  string content = 2;
+  int32 num_lines = 3 [json_name = "numLines"];
+  int32 start_line = 4 [json_name = "startLine"];
+  int32 total_lines = 5 [json_name = "totalLines"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputImageFile {
+  string base64 = 1;
+  string type = 2;
+  int64 original_size = 3 [json_name = "originalSize"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputNotebookFile {
+  string file_path = 1 [json_name = "filePath"];
+  repeated JsonRawMessage cells = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputPdfFile {
+  string file_path = 1 [json_name = "filePath"];
+  string base64 = 2;
+  int64 original_size = 3 [json_name = "originalSize"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputPartsFile {
+  string file_path = 1 [json_name = "filePath"];
+  int64 original_size = 2 [json_name = "originalSize"];
+  int64 count = 3;
+  string output_dir = 4 [json_name = "outputDir"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputText {
+  string type = 1;
+  FileReadOutputTextFile file = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputImage {
+  string type = 1;
+  FileReadOutputImageFile file = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputNotebook {
+  string type = 1;
+  FileReadOutputNotebookFile file = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputPdf {
+  string type = 1;
+  FileReadOutputPdfFile file = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutputParts {
+  string type = 1;
+  FileReadOutputPartsFile file = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#read-2
+message FileReadOutput {
+  oneof output {
+    FileReadOutputText text = 1;
+    FileReadOutputImage image = 2;
+    FileReadOutputNotebook notebook = 3;
+    FileReadOutputPdf pdf = 4;
+    FileReadOutputParts parts = 5;
+    UnknownVariant unknown = 99;
+  }
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#write-2
+message FileWriteOutput {
+  string file_path = 1 [json_name = "filePath"];
+  string content = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#glob-2
+message GlobOutput {
+  int64 duration_ms = 1 [json_name = "durationMs"];
+  int64 num_files = 2 [json_name = "numFiles"];
+  repeated string filenames = 3;
+  bool truncated = 4;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#grep-2
+message GrepOutput {
+  optional string mode = 1;
+  int64 num_files = 2 [json_name = "numFiles"];
+  repeated string filenames = 3;
+  optional string content = 4;
+  optional int64 num_lines = 5 [json_name = "numLines"];
+  optional int64 num_matches = 6 [json_name = "numMatches"];
+  optional int64 applied_limit = 7 [json_name = "appliedLimit"];
+  optional int64 applied_offset = 8 [json_name = "appliedOffset"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskstop-2
+message TaskStopOutput {
+  string message = 1;
+  string task_id = 2 [json_name = "task_id"];
+  string task_type = 3 [json_name = "task_type"];
+  optional string command = 4;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#notebookedit-2
+message NotebookEditOutput {
+  string new_source = 1 [json_name = "new_source"];
+  optional string cell_id = 2 [json_name = "cell_id"];
+  string cell_type = 3 [json_name = "cell_type"];
+  string language = 4;
+  string edit_mode = 5 [json_name = "edit_mode"];
+  optional string error = 6;
+  string notebook_path = 7 [json_name = "notebook_path"];
+  string original_file = 8 [json_name = "original_file"];
+  string updated_file = 9 [json_name = "updated_file"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#webfetch-2
+message WebFetchOutput {
+  int64 bytes = 1;
+  int64 code = 2;
+  string code_text = 3 [json_name = "codeText"];
+  string result = 4;
+  int64 duration_ms = 5 [json_name = "durationMs"];
+  string url = 6;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
+message WebSearchOutputResultEntry {
+  string title = 1;
+  string url = 2;
+  string snippet = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
+message WebSearchOutput {
+  string query = 1;
+  repeated WebSearchOutputResultEntry results = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite-2
+message TodoWriteOutput {
+  string old_todos = 1 [json_name = "oldTodos"];
+  string new_todos = 2 [json_name = "newTodos"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#exitplanmode-2
+message ExitPlanModeOutput {
+  repeated string approved_prompts = 1 [json_name = "approvedPrompts"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#listmcpresources-2
+message McpResource {
+  string uri = 1;
+  string name = 2;
+  optional string description = 3;
+  optional string mime_type = 4 [json_name = "mimeType"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#listmcpresources-2
+message ListMcpResourcesOutput {
+  repeated McpResource resources = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#readmcpresource-2
+message ReadMcpResourceOutputContent {
+  string uri = 1;
+  optional string mime_type = 2 [json_name = "mimeType"];
+  optional string text = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#readmcpresource-2
+message ReadMcpResourceOutput {
+  repeated ReadMcpResourceOutputContent contents = 1;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#config-2
+message ConfigOutput {
+  bool success = 1;
+  optional string operation = 2;
+  optional string setting = 3;
+  optional JsonRawMessage value = 4;
+  optional JsonRawMessage previous_value = 5 [json_name = "previousValue"];
+  optional JsonRawMessage new_value = 6 [json_name = "newValue"];
+  optional string error = 7;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#enterworktree-2
+message EnterWorktreeOutput {
+  string worktree_path = 1 [json_name = "worktreePath"];
+  optional string worktree_branch = 2 [json_name = "worktreeBranch"];
+  string message = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#pretoolusehookinput
 message PreToolUseHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string tool_name = 5 [json_name = "tool_name"];
-  ToolInput tool_input = 6 [json_name = "tool_input"];
-  // hook_event_name discriminator. Value must be "PreToolUse".
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
   string hook_event_name = 7 [json_name = "hook_event_name"];
-  string tool_use_id = 8 [json_name = "tool_use_id"];
+  string tool_name = 8 [json_name = "tool_name"];
+  ToolInput tool_input = 9 [json_name = "tool_input"];
+  string tool_use_id = 10 [json_name = "tool_use_id"];
 }
 
-// PostToolUseHookInput represents input for the post-tool-use hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusehookinput
 message PostToolUseHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string tool_name = 5 [json_name = "tool_name"];
-  ToolInput tool_input = 6 [json_name = "tool_input"];
-  ToolOutput tool_response = 7 [json_name = "tool_response"];
-  // hook_event_name discriminator. Value must be "PostToolUse".
-  string hook_event_name = 8 [json_name = "hook_event_name"];
-  string tool_use_id = 9 [json_name = "tool_use_id"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string tool_name = 8 [json_name = "tool_name"];
+  ToolInput tool_input = 9 [json_name = "tool_input"];
+  ToolOutput tool_response = 10 [json_name = "tool_response"];
+  string tool_use_id = 11 [json_name = "tool_use_id"];
 }
 
-// PostToolUseFailureHookInput represents input for the post-tool-use-failure hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-failure-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusefailurehookinput
 message PostToolUseFailureHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string tool_name = 5 [json_name = "tool_name"];
-  ToolInput tool_input = 6 [json_name = "tool_input"];
-  string error = 7;
-  optional bool is_interrupt = 8 [json_name = "is_interrupt"];
-  // hook_event_name discriminator. Value must be "PostToolUseFailure".
-  string hook_event_name = 9 [json_name = "hook_event_name"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string tool_name = 8 [json_name = "tool_name"];
+  ToolInput tool_input = 9 [json_name = "tool_input"];
+  string tool_use_id = 10 [json_name = "tool_use_id"];
+  string error = 11;
+  optional bool is_interrupt = 12 [json_name = "is_interrupt"];
 }
 
-// NotificationHookInput represents input for the notification hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#notification-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#notificationhookinput
 message NotificationHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string message = 5;
-  optional string title = 6;
-  // hook_event_name discriminator. Value must be "Notification".
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
   string hook_event_name = 7 [json_name = "hook_event_name"];
+  string message = 8;
+  optional string title = 9;
+  string notification_type = 10 [json_name = "notification_type"];
 }
 
-// UserPromptSubmitHookInput represents input for the user-prompt-submit hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#user-prompt-submit-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#userpromptsubmithookinput
 message UserPromptSubmitHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string prompt = 5;
-  // hook_event_name discriminator. Value must be "UserPromptSubmit".
-  string hook_event_name = 6 [json_name = "hook_event_name"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string prompt = 8;
 }
 
-// SessionStartHookInput represents input for the session-start hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sessionstarthookinput
 message SessionStartHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  // Possible values: "startup", "resume", "clear", "compact"
-  // See https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-input
-  string source = 5;
-  // hook_event_name discriminator. Value must be "SessionStart".
-  string hook_event_name = 6 [json_name = "hook_event_name"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string source = 8;
+  optional string model = 9;
 }
 
-// SessionEndHookInput represents input for the session-end hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-end-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sessionendhookinput
 message SessionEndHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string reason = 5;
-  // hook_event_name discriminator. Value must be "SessionEnd".
-  string hook_event_name = 6 [json_name = "hook_event_name"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string reason = 8;
 }
 
-// StopHookInput represents input for the stop hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#stop-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#stophookinput
 message StopHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  bool stop_hook_active = 5 [json_name = "stop_hook_active"];
-  // hook_event_name discriminator. Value must be "Stop".
-  string hook_event_name = 6 [json_name = "hook_event_name"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  bool stop_hook_active = 8 [json_name = "stop_hook_active"];
 }
 
-// SubagentStartHookInput represents input for the subagent-start hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#subagent-start-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstarthookinput
 message SubagentStartHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string agent_id = 5 [json_name = "agent_id"];
-  string agent_type = 6 [json_name = "agent_type"];
-  // hook_event_name discriminator. Value must be "SubagentStart".
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
   string hook_event_name = 7 [json_name = "hook_event_name"];
+  string prompt = 8;
 }
 
-// SubagentStopHookInput represents input for the subagent-stop hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#subagent-stop-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
 message SubagentStopHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  bool stop_hook_active = 5 [json_name = "stop_hook_active"];
-  // hook_event_name discriminator. Value must be "SubagentStop".
-  string hook_event_name = 6 [json_name = "hook_event_name"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string stop_reason = 8 [json_name = "stop_reason"];
 }
 
-// PreCompactHookInput represents input for the pre-compact hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#precompacthookinput
 message PreCompactHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  // Possible values: "manual", "auto"
-  // See https://platform.claude.com/docs/en/agent-sdk/typescript#pre-compact-hook-input
-  string trigger = 5;
-  optional string custom_instructions = 6 [json_name = "custom_instructions"];
-  // hook_event_name discriminator. Value must be "PreCompact".
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
   string hook_event_name = 7 [json_name = "hook_event_name"];
+  string trigger = 8;
+  string custom_instructions = 9 [json_name = "custom_instructions"];
 }
 
-// PermissionRequestHookInput represents input for the permission-request hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-request-hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permissionrequesthookinput
 message PermissionRequestHookInput {
   string session_id = 1 [json_name = "session_id"];
   string transcript_path = 2 [json_name = "transcript_path"];
   string cwd = 3;
   optional string permission_mode = 4 [json_name = "permission_mode"];
-  string tool_name = 5 [json_name = "tool_name"];
-  ToolInput tool_input = 6 [json_name = "tool_input"];
-  repeated PermissionUpdate permission_suggestions = 7 [json_name = "permission_suggestions"];
-  // hook_event_name discriminator. Value must be "PermissionRequest".
-  string hook_event_name = 8 [json_name = "hook_event_name"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string tool_name = 8 [json_name = "tool_name"];
+  ToolInput tool_input = 9 [json_name = "tool_input"];
+  string tool_use_id = 10 [json_name = "tool_use_id"];
+  repeated PermissionUpdate permission_suggestions = 11 [json_name = "permission_suggestions"];
 }
 
-// HookInput is a union wrapper for all hook input types.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#hook-input
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#setuphookinput
+message SetupHookInput {
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
+  string cwd = 3;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string trigger = 8;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#teammateidlehookinput
+message TeammateIdleHookInput {
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
+  string cwd = 3;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcompletedhookinput
+message TaskCompletedHookInput {
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
+  string cwd = 3;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string task_id = 8 [json_name = "task_id"];
+  string task_subject = 9 [json_name = "task_subject"];
+  optional string task_description = 10 [json_name = "task_description"];
+  optional string teammate_name = 11 [json_name = "teammate_name"];
+  optional string team_name = 12 [json_name = "team_name"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#configchangehookinput
+message ConfigChangeHookInput {
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
+  string cwd = 3;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string source = 8;
+  optional string file_path = 9 [json_name = "file_path"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#worktreecreatehookinput
+message WorktreeCreateHookInput {
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
+  string cwd = 3;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string name = 8;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#worktreeremovehookinput
+message WorktreeRemoveHookInput {
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
+  string cwd = 3;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string worktree_path = 8 [json_name = "worktree_path"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
 message HookInput {
-  oneof input {
-    PreToolUseHookInput pre_tool_use = 1;
-    PostToolUseHookInput post_tool_use = 2;
-    PostToolUseFailureHookInput post_tool_use_failure = 3;
+  oneof value {
+    PreToolUseHookInput pre_tool_use = 1 [json_name = "preToolUse"];
+    PostToolUseHookInput post_tool_use = 2 [json_name = "postToolUse"];
+    PostToolUseFailureHookInput post_tool_use_failure = 3 [json_name = "postToolUseFailure"];
     NotificationHookInput notification = 4;
-    UserPromptSubmitHookInput user_prompt_submit = 5;
-    SessionStartHookInput session_start = 6;
-    SessionEndHookInput session_end = 7;
+    UserPromptSubmitHookInput user_prompt_submit = 5 [json_name = "userPromptSubmit"];
+    SessionStartHookInput session_start = 6 [json_name = "sessionStart"];
+    SessionEndHookInput session_end = 7 [json_name = "sessionEnd"];
     StopHookInput stop = 8;
-    SubagentStartHookInput subagent_start = 9;
-    SubagentStopHookInput subagent_stop = 10;
-    PreCompactHookInput pre_compact = 11;
-    PermissionRequestHookInput permission_request = 12;
+    SubagentStartHookInput subagent_start = 9 [json_name = "subagentStart"];
+    SubagentStopHookInput subagent_stop = 10 [json_name = "subagentStop"];
+    PreCompactHookInput pre_compact = 11 [json_name = "preCompact"];
+    PermissionRequestHookInput permission_request = 12 [json_name = "permissionRequest"];
+    SetupHookInput setup = 13;
+    TeammateIdleHookInput teammate_idle = 14 [json_name = "teammateIdle"];
+    TaskCompletedHookInput task_completed = 15 [json_name = "taskCompleted"];
+    ConfigChangeHookInput config_change = 16 [json_name = "configChange"];
+    WorktreeCreateHookInput worktree_create = 17 [json_name = "worktreeCreate"];
+    WorktreeRemoveHookInput worktree_remove = 18 [json_name = "worktreeRemove"];
+    UnknownVariant unknown = 99;
   }
 }
 
-// --- Permission Result Types (moved from types.proto) ---
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputPreToolUse {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string permission_decision = 2 [json_name = "permissionDecision"];
+  optional string permission_decision_reason = 3 [json_name = "permissionDecisionReason"];
+  google.protobuf.Struct updated_input = 4 [json_name = "updatedInput"];
+  optional string additional_context = 5 [json_name = "additionalContext"];
+}
 
-// PermissionResult represents the result of a permission check.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#permission-result
-message PermissionResult {
-  oneof result {
-    AllowResult allow = 1;
-    DenyResult deny = 2;
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputUserPromptSubmit {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string additional_context = 2 [json_name = "additionalContext"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputSessionStart {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string additional_context = 2 [json_name = "additionalContext"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputSetup {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string additional_context = 2 [json_name = "additionalContext"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputSubagentStart {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string additional_context = 2 [json_name = "additionalContext"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputPostToolUse {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string additional_context = 2 [json_name = "additionalContext"];
+  optional JsonRawMessage updated_mcp_tool_output = 3 [json_name = "updatedMCPToolOutput"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputPostToolUseFailure {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string additional_context = 2 [json_name = "additionalContext"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputNotification {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  optional string additional_context = 2 [json_name = "additionalContext"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message PermissionRequestDecisionAllow {
+  string behavior = 1;
+  google.protobuf.Struct updated_input = 2 [json_name = "updatedInput"];
+  repeated PermissionUpdate updated_permissions = 3 [json_name = "updatedPermissions"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message PermissionRequestDecisionDeny {
+  string behavior = 1;
+  optional string message = 2;
+  optional bool interrupt = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message PermissionRequestDecision {
+  oneof value {
+    PermissionRequestDecisionAllow allow = 1;
+    PermissionRequestDecisionDeny deny = 2;
+    UnknownVariant unknown = 99;
   }
 }
 
-// AllowResult represents an allowed permission result.
-message AllowResult {
-  ToolInput updated_input = 1;
-  repeated PermissionUpdate updated_permissions = 2;
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+message HookSpecificOutputPermissionRequest {
+  string hook_event_name = 1 [json_name = "hookEventName"];
+  PermissionRequestDecision decision = 2;
 }
 
-// DenyResult represents a denied permission result.
-message DenyResult {
-  string message = 1;
-  optional bool interrupt = 2;
-}
-
-// --- Hook Output Types ---
-
-// AsyncHookJSONOutput represents the output of an async hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#async-hook-json-output
-message AsyncHookJSONOutput {
-  optional int32 async_timeout = 1;
-}
-
-// PreToolUseHookSpecificOutput represents hook-specific output for pre-tool-use hooks.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#pre-tool-use-hook-specific-output
-message PreToolUseHookSpecificOutput {
-  optional string permission_decision = 1;
-  optional string permission_decision_reason = 2;
-  optional ToolInput updated_input = 3;
-}
-
-// UserPromptSubmitHookSpecificOutput represents hook-specific output for user-prompt-submit hooks.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#user-prompt-submit-hook-specific-output
-message UserPromptSubmitHookSpecificOutput {
-  optional string additional_context = 1;
-}
-
-// SessionStartHookSpecificOutput represents hook-specific output for session-start hooks.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#session-start-hook-specific-output
-message SessionStartHookSpecificOutput {
-  optional string additional_context = 1;
-}
-
-// PostToolUseHookSpecificOutput represents hook-specific output for post-tool-use hooks.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#post-tool-use-hook-specific-output
-message PostToolUseHookSpecificOutput {
-  optional string additional_context = 1;
-}
-
-// PermissionRequestHookSpecificOutput represents hook-specific output for permission-request hooks.
-// NOTE: This message does not have a corresponding definition in the TypeScript Agent SDK type definitions.
-// It is derived from the Claude Code hooks reference:
-// https://code.claude.com/docs/en/hooks#permissionrequest-decision-control
-message PermissionRequestHookSpecificOutput {
-  optional PermissionResult decision = 1;
-}
-
-// HookSpecificOutput is a union wrapper for hook-specific output types.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#hook-specific-output
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 message HookSpecificOutput {
-  oneof output {
-    PreToolUseHookSpecificOutput pre_tool_use = 1;
-    UserPromptSubmitHookSpecificOutput user_prompt_submit = 2;
-    SessionStartHookSpecificOutput session_start = 3;
-    PostToolUseHookSpecificOutput post_tool_use = 4;
-    PermissionRequestHookSpecificOutput permission_request = 5;
+  oneof value {
+    HookSpecificOutputPreToolUse pre_tool_use = 1 [json_name = "preToolUse"];
+    HookSpecificOutputUserPromptSubmit user_prompt_submit = 2 [json_name = "userPromptSubmit"];
+    HookSpecificOutputSessionStart session_start = 3 [json_name = "sessionStart"];
+    HookSpecificOutputSetup setup = 4;
+    HookSpecificOutputSubagentStart subagent_start = 5 [json_name = "subagentStart"];
+    HookSpecificOutputPostToolUse post_tool_use = 6 [json_name = "postToolUse"];
+    HookSpecificOutputPostToolUseFailure post_tool_use_failure = 7 [json_name = "postToolUseFailure"];
+    HookSpecificOutputNotification notification = 8;
+    HookSpecificOutputPermissionRequest permission_request = 9 [json_name = "permissionRequest"];
+    UnknownVariant unknown = 99;
   }
 }
 
-// SyncHookJSONOutput represents the output of a synchronous hook.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#sync-hook-json-output
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#async-hook-json-output
+message AsyncHookJSONOutput {
+  bool async = 1;
+  optional int64 async_timeout = 2 [json_name = "asyncTimeout"];
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sync-hook-json-output
 message SyncHookJSONOutput {
   optional bool continue = 1;
-  optional bool suppress_output = 2;
-  optional string stop_reason = 3;
+  optional bool suppress_output = 2 [json_name = "suppressOutput"];
+  optional string stop_reason = 3 [json_name = "stopReason"];
   optional string decision = 4;
-  optional string system_message = 5;
+  optional string system_message = 5 [json_name = "systemMessage"];
   optional string reason = 6;
-  optional HookSpecificOutput hook_specific_output = 7;
+  optional HookSpecificOutput hook_specific_output = 7 [json_name = "hookSpecificOutput"];
 }
 
-// HookJSONOutput is a union wrapper for all hook output types.
-// Copied from https://platform.claude.com/docs/en/agent-sdk/typescript#hook-json-output
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-json-output
 message HookJSONOutput {
-  oneof output {
-    AsyncHookJSONOutput async_output = 1;
-    SyncHookJSONOutput sync_output = 2;
+  oneof value {
+    AsyncHookJSONOutput async_output = 1 [json_name = "asyncOutput"];
+    SyncHookJSONOutput sync_output = 2 [json_name = "syncOutput"];
+    UnknownVariant unknown = 99;
   }
 }
