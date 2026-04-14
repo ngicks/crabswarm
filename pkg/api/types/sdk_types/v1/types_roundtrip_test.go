@@ -1,4 +1,4 @@
-package v1
+package sdktypesv1
 
 import (
 	"encoding/json"

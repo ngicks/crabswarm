@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             (unknown)
-// source: claude_hook/v1/audit_service.proto
+// source: crabhook/v1/audit_service.proto
 
-package claude_hookv1
+package crabhookv1
 
 import (
 	context "context"
@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuditService_SendAuditEvent_FullMethodName = "/claude_hook.v1.AuditService/SendAuditEvent"
+	AuditService_ReportHookInputEvent_FullMethodName = "/crabhook.v1.AuditService/ReportHookInputEvent"
 )
 
 // AuditServiceClient is the client API for AuditService service.
@@ -28,8 +28,7 @@ const (
 //
 // AuditService provides audit logging for hook events.
 type AuditServiceClient interface {
-	// SendAuditEvent sends a single audit event to the server.
-	SendAuditEvent(ctx context.Context, in *AuditRequest, opts ...grpc.CallOption) (*AuditResponse, error)
+	ReportHookInputEvent(ctx context.Context, in *ReportHookInputEventRequest, opts ...grpc.CallOption) (*ReportHookInputEventResponse, error)
 }
 
 type auditServiceClient struct {
@@ -40,10 +39,10 @@ func NewAuditServiceClient(cc grpc.ClientConnInterface) AuditServiceClient {
 	return &auditServiceClient{cc}
 }
 
-func (c *auditServiceClient) SendAuditEvent(ctx context.Context, in *AuditRequest, opts ...grpc.CallOption) (*AuditResponse, error) {
+func (c *auditServiceClient) ReportHookInputEvent(ctx context.Context, in *ReportHookInputEventRequest, opts ...grpc.CallOption) (*ReportHookInputEventResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AuditResponse)
-	err := c.cc.Invoke(ctx, AuditService_SendAuditEvent_FullMethodName, in, out, cOpts...)
+	out := new(ReportHookInputEventResponse)
+	err := c.cc.Invoke(ctx, AuditService_ReportHookInputEvent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,8 +55,7 @@ func (c *auditServiceClient) SendAuditEvent(ctx context.Context, in *AuditReques
 //
 // AuditService provides audit logging for hook events.
 type AuditServiceServer interface {
-	// SendAuditEvent sends a single audit event to the server.
-	SendAuditEvent(context.Context, *AuditRequest) (*AuditResponse, error)
+	ReportHookInputEvent(context.Context, *ReportHookInputEventRequest) (*ReportHookInputEventResponse, error)
 	mustEmbedUnimplementedAuditServiceServer()
 }
 
@@ -68,8 +66,8 @@ type AuditServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAuditServiceServer struct{}
 
-func (UnimplementedAuditServiceServer) SendAuditEvent(context.Context, *AuditRequest) (*AuditResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SendAuditEvent not implemented")
+func (UnimplementedAuditServiceServer) ReportHookInputEvent(context.Context, *ReportHookInputEventRequest) (*ReportHookInputEventResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReportHookInputEvent not implemented")
 }
 func (UnimplementedAuditServiceServer) mustEmbedUnimplementedAuditServiceServer() {}
 func (UnimplementedAuditServiceServer) testEmbeddedByValue()                      {}
@@ -92,20 +90,20 @@ func RegisterAuditServiceServer(s grpc.ServiceRegistrar, srv AuditServiceServer)
 	s.RegisterService(&AuditService_ServiceDesc, srv)
 }
 
-func _AuditService_SendAuditEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AuditRequest)
+func _AuditService_ReportHookInputEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportHookInputEventRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AuditServiceServer).SendAuditEvent(ctx, in)
+		return srv.(AuditServiceServer).ReportHookInputEvent(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AuditService_SendAuditEvent_FullMethodName,
+		FullMethod: AuditService_ReportHookInputEvent_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuditServiceServer).SendAuditEvent(ctx, req.(*AuditRequest))
+		return srv.(AuditServiceServer).ReportHookInputEvent(ctx, req.(*ReportHookInputEventRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -114,14 +112,14 @@ func _AuditService_SendAuditEvent_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AuditService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "claude_hook.v1.AuditService",
+	ServiceName: "crabhook.v1.AuditService",
 	HandlerType: (*AuditServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SendAuditEvent",
-			Handler:    _AuditService_SendAuditEvent_Handler,
+			MethodName: "ReportHookInputEvent",
+			Handler:    _AuditService_ReportHookInputEvent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "claude_hook/v1/audit_service.proto",
+	Metadata: "crabhook/v1/audit_service.proto",
 }

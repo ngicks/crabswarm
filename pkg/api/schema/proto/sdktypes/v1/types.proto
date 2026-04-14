@@ -1,21 +1,21 @@
 syntax = "proto3";
 
-package sdk_types.v1;
+package sdktypes.v1;
 
 import "google/protobuf/struct.proto";
 
-option go_package = "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdk_typesv1";
+option go_package = "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdktypesv1";
 
 // Claude Agent SDK types consolidated into a single proto source.
 // Source of truth:
 // https://code.claude.com/docs/en/agent-sdk/typescript
 
-// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+// An uninterpreted raw json message for unknown messages.
 message JsonRawMessage {
   bytes raw_json = 1 [json_name = "raw_json"];
 }
 
-// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+// Used internally for unrecognized union types.
 message UnknownVariant {
   string discriminator = 1;
   bytes raw_json = 2 [json_name = "raw_json"];
