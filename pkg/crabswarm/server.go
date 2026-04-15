@@ -12,10 +12,7 @@ import (
 	"syscall"
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabhook/v1"
-	sdktypespb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 // Server is the crabswarm server.
@@ -108,17 +105,7 @@ func (s *auditServiceServer) ReportHookInputEvent(ctx context.Context, req *pb.R
 		attrs = append(attrs, slog.String("timestamp", req.GetTimestamp().AsTime().Format("2006-01-02T15:04:05.999999999Z07:00")))
 	}
 	if req.GetHookInput() != nil {
-		var hookInput sdktypespb.HookInput
-		if err := proto.Unmarshal(req.GetHookInput(), &hookInput); err != nil {
-			s.logger.WarnContext(ctx, "failed to unmarshal hook input", slog.String("error", err.Error()))
-		} else {
-			payload, err := protojson.Marshal(&hookInput)
-			if err != nil {
-				s.logger.WarnContext(ctx, "failed to marshal hook input", slog.String("error", err.Error()))
-			} else {
-				attrs = append(attrs, slog.String("hook_input", string(payload)))
-			}
-		}
+		attrs = append(attrs, slog.String("hook_input", string(req.GetHookInput())))
 	}
 	s.logger.InfoContext(ctx, "audit hook input event", attrs...)
 	return &pb.ReportHookInputEventResponse{}, nil

@@ -1,6 +1,7 @@
 package crabswarm
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -8,11 +9,8 @@ import (
 	"testing"
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabhook/v1"
-	sdktypes "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/testing/protocmp"
 	"gotest.tools/v3/assert"
 )
 
@@ -44,30 +42,6 @@ const validInput = `{
   "tool_use_id": "tooluse_12345"
 }`
 
-var defaultPermissionMode = new("default")
-
-var expected = &sdktypes.HookInput{
-	Value: &sdktypes.HookInput_PreToolUse{
-		PreToolUse: &sdktypes.PreToolUseHookInput{
-			SessionId:      "12345",
-			TranscriptPath: "/root/.config/claude/projects/-yay/12345.jsonl",
-			Cwd:            "/yay",
-			PermissionMode: defaultPermissionMode,
-			HookEventName:  "PreToolUse",
-			ToolName:       "Read",
-			ToolInput: &sdktypes.ToolInput{
-				Input: &sdktypes.ToolInput_Unknown{
-					Unknown: &sdktypes.UnknownVariant{
-						Discriminator: "Read",
-						RawJson:       []byte("{\n    \"file_path\": \"/yay/buf.gen.yaml\"\n  }"),
-					},
-				},
-			},
-			ToolUseId: "tooluse_12345",
-		},
-	},
-}
-
 func TestHookAudit_ValidInput(t *testing.T) {
 	mock := &mockAuditClient{}
 	err := HookAudit(context.Background(), strings.NewReader(validInput), mock)
@@ -80,9 +54,7 @@ func TestHookAudit_ValidInput(t *testing.T) {
 		t.Fatal("ReportHookInputEvent was not called")
 	}
 
-	var got sdktypes.HookInput
-	assert.NilError(t, proto.Unmarshal(mock.req.HookInput, &got))
-	assert.DeepEqual(t, &got, expected, protocmp.Transform())
+	assert.Assert(t, bytes.Equal(mock.req.HookInput, []byte(validInput)))
 
 	if mock.req.Timestamp == nil {
 		t.Error("timestamp is nil")
@@ -95,13 +67,8 @@ func TestHookAudit_ValidInput(t *testing.T) {
 func TestHookAudit_InvalidJSON(t *testing.T) {
 	mock := &mockAuditClient{}
 	err := HookAudit(context.Background(), strings.NewReader("not json"), mock)
-
-	var he *handler.HandlerError
-	if errors.As(err, &he) {
-		t.Fatal("expected regular error, got HandlerError")
-	}
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if _, ok := errors.AsType[*handler.HandlerError](err); !ok {
+		t.Fatalf("expected HandlerError, got %T: %v", err, err)
 	}
 }
 
