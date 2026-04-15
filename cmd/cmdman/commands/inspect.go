@@ -95,7 +95,7 @@ func getLiveStatus(cmd *cobra.Command, sockPath string) *LiveStatusInfo {
 	}
 	defer conn.Close()
 
-	client := pb.NewCommandMonitorClient(conn)
+	client := pb.NewCommandMonitorServiceClient(conn)
 	resp, err := client.Status(cmd.Context(), &pb.StatusRequest{})
 	if err != nil {
 		return nil

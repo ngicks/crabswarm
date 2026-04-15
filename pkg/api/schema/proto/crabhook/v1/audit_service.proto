@@ -3,7 +3,6 @@ syntax = "proto3";
 package crabhook.v1;
 
 import "google/protobuf/timestamp.proto";
-import "sdktypes/v1/types.proto";
 
 option go_package = "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabhook/v1;crabhookv1";
 

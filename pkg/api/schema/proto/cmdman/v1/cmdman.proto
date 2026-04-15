@@ -2,12 +2,12 @@ syntax = "proto3";
 
 package cmdman.v1;
 
-service CommandMonitor {
+service CommandMonitorService {
   // Bidirectional streaming — PTY I/O + control
-  rpc Attach(stream AttachInput) returns (stream AttachOutput);
+  rpc Attach(stream AttachRequest) returns (stream AttachResponse);
 
   // Read scrollback buffer (non-interactive)
-  rpc Logs(LogsRequest) returns (stream LogsOutput);
+  rpc Logs(LogsRequest) returns (stream LogsResponse);
 
   // Send signal to the command process
   rpc Signal(SignalRequest) returns (SignalResponse);
@@ -16,14 +16,14 @@ service CommandMonitor {
   rpc Status(StatusRequest) returns (StatusResponse);
 }
 
-message AttachInput {
+message AttachRequest {
   oneof input {
     bytes stdin = 1; // raw bytes to write to PTY
     ResizeEvent resize = 2; // terminal resize (SIGWINCH)
   }
 }
 
-message AttachOutput {
+message AttachResponse {
   bytes stdout = 1; // raw bytes from PTY
 }
 
@@ -36,7 +36,7 @@ message LogsRequest {
   bool follow = 1; // stream live output after scrollback
 }
 
-message LogsOutput {
+message LogsResponse {
   bytes data = 1;
 }
 

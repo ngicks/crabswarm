@@ -28,15 +28,15 @@ type Monitor struct {
 	DBPath     string
 	Logger     *slog.Logger
 
-	store    *Store
-	cfg      *CommandConfigJSON
+	store     *Store
+	cfg       *CommandConfigJSON
 	stateJSON *CommandStateJSON
 
-	ptmx     *os.File
-	cmd      *exec.Cmd
-	fanout   *Fanout
-	ring     *ringBuffer
-	stdinCh  chan []byte
+	ptmx    *os.File
+	cmd     *exec.Cmd
+	fanout  *Fanout
+	ring    *ringBuffer
+	stdinCh chan []byte
 
 	grpcServer *grpc.Server
 	sockPath   string
@@ -104,7 +104,7 @@ func RunMonitor(ctx context.Context, id, commandDir, dbPath string, logger *slog
 	defer lis.Close()
 
 	m.grpcServer = grpc.NewServer()
-	pb.RegisterCommandMonitorServer(m.grpcServer, &monitorServer{monitor: m})
+	pb.RegisterCommandMonitorServiceServer(m.grpcServer, &monitorServer{monitor: m})
 
 	go func() {
 		if err := m.grpcServer.Serve(lis); err != nil {

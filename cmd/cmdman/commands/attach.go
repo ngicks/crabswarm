@@ -88,7 +88,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	}
 	defer conn.Close()
 
-	client := pb.NewCommandMonitorClient(conn)
+	client := pb.NewCommandMonitorServiceClient(conn)
 	ctx := cmd.Context()
 	attachCtx, cancelAttach := context.WithCancel(ctx)
 	defer cancelAttach()
@@ -178,8 +178,8 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 				if n > 0 {
 					data := make([]byte, n)
 					copy(data, buf[:n])
-					if sendErr := stream.Send(&pb.AttachInput{
-						Input: &pb.AttachInput_Stdin{Stdin: data},
+					if sendErr := stream.Send(&pb.AttachRequest{
+						Input: &pb.AttachRequest_Stdin{Stdin: data},
 					}); sendErr != nil {
 						errCh <- sendErr
 						return
@@ -229,8 +229,8 @@ func parseDetachKeys(detachKeys string) ([]byte, error) {
 func handleAllSignals(
 	ctx context.Context,
 	sigCh <-chan os.Signal,
-	client pb.CommandMonitorClient,
-	stream pb.CommandMonitor_AttachClient,
+	client pb.CommandMonitorServiceClient,
+	stream pb.CommandMonitorService_AttachClient,
 	restoreTerminal func(),
 ) {
 	forceCount := 0
@@ -271,11 +271,11 @@ func handleAllSignals(
 	}
 }
 
-func sendResize(stream pb.CommandMonitor_AttachClient) {
+func sendResize(stream pb.CommandMonitorService_AttachClient) {
 	rows, cols := getTerminalSize()
 	if rows > 0 && cols > 0 {
-		stream.Send(&pb.AttachInput{
-			Input: &pb.AttachInput_Resize{
+		stream.Send(&pb.AttachRequest{
+			Input: &pb.AttachRequest_Resize{
 				Resize: &pb.ResizeEvent{
 					Rows: uint32(rows),
 					Cols: uint32(cols),

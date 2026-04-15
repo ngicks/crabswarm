@@ -10,15 +10,15 @@ import (
 )
 
 type monitorServer struct {
-	pb.UnimplementedCommandMonitorServer
+	pb.UnimplementedCommandMonitorServiceServer
 	monitor *Monitor
 }
 
-func (s *monitorServer) Attach(stream pb.CommandMonitor_AttachServer) error {
+func (s *monitorServer) Attach(stream pb.CommandMonitorService_AttachServer) error {
 	// Send scrollback first.
 	scrollback := s.monitor.ring.Bytes()
 	if len(scrollback) > 0 {
-		if err := stream.Send(&pb.AttachOutput{Stdout: scrollback}); err != nil {
+		if err := stream.Send(&pb.AttachResponse{Stdout: scrollback}); err != nil {
 			return err
 		}
 	}
@@ -37,9 +37,9 @@ func (s *monitorServer) Attach(stream pb.CommandMonitor_AttachServer) error {
 				return
 			}
 			switch input := msg.Input.(type) {
-			case *pb.AttachInput_Stdin:
+			case *pb.AttachRequest_Stdin:
 				s.monitor.SendStdin(input.Stdin)
-			case *pb.AttachInput_Resize:
+			case *pb.AttachRequest_Resize:
 				s.monitor.Resize(
 					uint16(input.Resize.Rows),
 					uint16(input.Resize.Cols),
@@ -58,7 +58,7 @@ func (s *monitorServer) Attach(stream pb.CommandMonitor_AttachServer) error {
 			if !ok {
 				return nil
 			}
-			if err := stream.Send(&pb.AttachOutput{Stdout: data}); err != nil {
+			if err := stream.Send(&pb.AttachResponse{Stdout: data}); err != nil {
 				return err
 			}
 		case err := <-errCh:
@@ -77,11 +77,11 @@ func (s *monitorServer) Attach(stream pb.CommandMonitor_AttachServer) error {
 	}
 }
 
-func (s *monitorServer) Logs(req *pb.LogsRequest, stream pb.CommandMonitor_LogsServer) error {
+func (s *monitorServer) Logs(req *pb.LogsRequest, stream pb.CommandMonitorService_LogsServer) error {
 	// Send scrollback.
 	scrollback := s.monitor.ring.Bytes()
 	if len(scrollback) > 0 {
-		if err := stream.Send(&pb.LogsOutput{Data: scrollback}); err != nil {
+		if err := stream.Send(&pb.LogsResponse{Data: scrollback}); err != nil {
 			return err
 		}
 	}
@@ -100,7 +100,7 @@ func (s *monitorServer) Logs(req *pb.LogsRequest, stream pb.CommandMonitor_LogsS
 			if !ok {
 				return nil
 			}
-			if err := stream.Send(&pb.LogsOutput{Data: data}); err != nil {
+			if err := stream.Send(&pb.LogsResponse{Data: data}); err != nil {
 				return err
 			}
 		case <-stream.Context().Done():

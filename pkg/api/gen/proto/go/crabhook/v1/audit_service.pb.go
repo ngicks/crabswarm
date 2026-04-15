@@ -7,7 +7,6 @@
 package crabhookv1
 
 import (
-	_ "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -115,7 +114,7 @@ var File_crabhook_v1_audit_service_proto protoreflect.FileDescriptor
 
 const file_crabhook_v1_audit_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1fcrabhook/v1/audit_service.proto\x12\vcrabhook.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17sdktypes/v1/types.proto\"v\n" +
+	"\x1fcrabhook/v1/audit_service.proto\x12\vcrabhook.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"v\n" +
 	"\x1bReportHookInputEventRequest\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1d\n" +
 	"\n" +

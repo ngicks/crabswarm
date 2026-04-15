@@ -19,54 +19,54 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CommandMonitor_Attach_FullMethodName = "/cmdman.v1.CommandMonitor/Attach"
-	CommandMonitor_Logs_FullMethodName   = "/cmdman.v1.CommandMonitor/Logs"
-	CommandMonitor_Signal_FullMethodName = "/cmdman.v1.CommandMonitor/Signal"
-	CommandMonitor_Status_FullMethodName = "/cmdman.v1.CommandMonitor/Status"
+	CommandMonitorService_Attach_FullMethodName = "/cmdman.v1.CommandMonitorService/Attach"
+	CommandMonitorService_Logs_FullMethodName   = "/cmdman.v1.CommandMonitorService/Logs"
+	CommandMonitorService_Signal_FullMethodName = "/cmdman.v1.CommandMonitorService/Signal"
+	CommandMonitorService_Status_FullMethodName = "/cmdman.v1.CommandMonitorService/Status"
 )
 
-// CommandMonitorClient is the client API for CommandMonitor service.
+// CommandMonitorServiceClient is the client API for CommandMonitorService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type CommandMonitorClient interface {
+type CommandMonitorServiceClient interface {
 	// Bidirectional streaming — PTY I/O + control
-	Attach(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AttachInput, AttachOutput], error)
+	Attach(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AttachRequest, AttachResponse], error)
 	// Read scrollback buffer (non-interactive)
-	Logs(ctx context.Context, in *LogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogsOutput], error)
+	Logs(ctx context.Context, in *LogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogsResponse], error)
 	// Send signal to the command process
 	Signal(ctx context.Context, in *SignalRequest, opts ...grpc.CallOption) (*SignalResponse, error)
 	// Query monitor status
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 }
 
-type commandMonitorClient struct {
+type commandMonitorServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewCommandMonitorClient(cc grpc.ClientConnInterface) CommandMonitorClient {
-	return &commandMonitorClient{cc}
+func NewCommandMonitorServiceClient(cc grpc.ClientConnInterface) CommandMonitorServiceClient {
+	return &commandMonitorServiceClient{cc}
 }
 
-func (c *commandMonitorClient) Attach(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AttachInput, AttachOutput], error) {
+func (c *commandMonitorServiceClient) Attach(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AttachRequest, AttachResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &CommandMonitor_ServiceDesc.Streams[0], CommandMonitor_Attach_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &CommandMonitorService_ServiceDesc.Streams[0], CommandMonitorService_Attach_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[AttachInput, AttachOutput]{ClientStream: stream}
+	x := &grpc.GenericClientStream[AttachRequest, AttachResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type CommandMonitor_AttachClient = grpc.BidiStreamingClient[AttachInput, AttachOutput]
+type CommandMonitorService_AttachClient = grpc.BidiStreamingClient[AttachRequest, AttachResponse]
 
-func (c *commandMonitorClient) Logs(ctx context.Context, in *LogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogsOutput], error) {
+func (c *commandMonitorServiceClient) Logs(ctx context.Context, in *LogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogsResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &CommandMonitor_ServiceDesc.Streams[1], CommandMonitor_Logs_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &CommandMonitorService_ServiceDesc.Streams[1], CommandMonitorService_Logs_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[LogsRequest, LogsOutput]{ClientStream: stream}
+	x := &grpc.GenericClientStream[LogsRequest, LogsResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -77,163 +77,163 @@ func (c *commandMonitorClient) Logs(ctx context.Context, in *LogsRequest, opts .
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type CommandMonitor_LogsClient = grpc.ServerStreamingClient[LogsOutput]
+type CommandMonitorService_LogsClient = grpc.ServerStreamingClient[LogsResponse]
 
-func (c *commandMonitorClient) Signal(ctx context.Context, in *SignalRequest, opts ...grpc.CallOption) (*SignalResponse, error) {
+func (c *commandMonitorServiceClient) Signal(ctx context.Context, in *SignalRequest, opts ...grpc.CallOption) (*SignalResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SignalResponse)
-	err := c.cc.Invoke(ctx, CommandMonitor_Signal_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, CommandMonitorService_Signal_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *commandMonitorClient) Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+func (c *commandMonitorServiceClient) Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StatusResponse)
-	err := c.cc.Invoke(ctx, CommandMonitor_Status_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, CommandMonitorService_Status_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// CommandMonitorServer is the server API for CommandMonitor service.
-// All implementations must embed UnimplementedCommandMonitorServer
+// CommandMonitorServiceServer is the server API for CommandMonitorService service.
+// All implementations must embed UnimplementedCommandMonitorServiceServer
 // for forward compatibility.
-type CommandMonitorServer interface {
+type CommandMonitorServiceServer interface {
 	// Bidirectional streaming — PTY I/O + control
-	Attach(grpc.BidiStreamingServer[AttachInput, AttachOutput]) error
+	Attach(grpc.BidiStreamingServer[AttachRequest, AttachResponse]) error
 	// Read scrollback buffer (non-interactive)
-	Logs(*LogsRequest, grpc.ServerStreamingServer[LogsOutput]) error
+	Logs(*LogsRequest, grpc.ServerStreamingServer[LogsResponse]) error
 	// Send signal to the command process
 	Signal(context.Context, *SignalRequest) (*SignalResponse, error)
 	// Query monitor status
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
-	mustEmbedUnimplementedCommandMonitorServer()
+	mustEmbedUnimplementedCommandMonitorServiceServer()
 }
 
-// UnimplementedCommandMonitorServer must be embedded to have
+// UnimplementedCommandMonitorServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedCommandMonitorServer struct{}
+type UnimplementedCommandMonitorServiceServer struct{}
 
-func (UnimplementedCommandMonitorServer) Attach(grpc.BidiStreamingServer[AttachInput, AttachOutput]) error {
+func (UnimplementedCommandMonitorServiceServer) Attach(grpc.BidiStreamingServer[AttachRequest, AttachResponse]) error {
 	return status.Error(codes.Unimplemented, "method Attach not implemented")
 }
-func (UnimplementedCommandMonitorServer) Logs(*LogsRequest, grpc.ServerStreamingServer[LogsOutput]) error {
+func (UnimplementedCommandMonitorServiceServer) Logs(*LogsRequest, grpc.ServerStreamingServer[LogsResponse]) error {
 	return status.Error(codes.Unimplemented, "method Logs not implemented")
 }
-func (UnimplementedCommandMonitorServer) Signal(context.Context, *SignalRequest) (*SignalResponse, error) {
+func (UnimplementedCommandMonitorServiceServer) Signal(context.Context, *SignalRequest) (*SignalResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Signal not implemented")
 }
-func (UnimplementedCommandMonitorServer) Status(context.Context, *StatusRequest) (*StatusResponse, error) {
+func (UnimplementedCommandMonitorServiceServer) Status(context.Context, *StatusRequest) (*StatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedCommandMonitorServer) mustEmbedUnimplementedCommandMonitorServer() {}
-func (UnimplementedCommandMonitorServer) testEmbeddedByValue()                        {}
+func (UnimplementedCommandMonitorServiceServer) mustEmbedUnimplementedCommandMonitorServiceServer() {}
+func (UnimplementedCommandMonitorServiceServer) testEmbeddedByValue()                               {}
 
-// UnsafeCommandMonitorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to CommandMonitorServer will
+// UnsafeCommandMonitorServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CommandMonitorServiceServer will
 // result in compilation errors.
-type UnsafeCommandMonitorServer interface {
-	mustEmbedUnimplementedCommandMonitorServer()
+type UnsafeCommandMonitorServiceServer interface {
+	mustEmbedUnimplementedCommandMonitorServiceServer()
 }
 
-func RegisterCommandMonitorServer(s grpc.ServiceRegistrar, srv CommandMonitorServer) {
-	// If the following call panics, it indicates UnimplementedCommandMonitorServer was
+func RegisterCommandMonitorServiceServer(s grpc.ServiceRegistrar, srv CommandMonitorServiceServer) {
+	// If the following call panics, it indicates UnimplementedCommandMonitorServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&CommandMonitor_ServiceDesc, srv)
+	s.RegisterService(&CommandMonitorService_ServiceDesc, srv)
 }
 
-func _CommandMonitor_Attach_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(CommandMonitorServer).Attach(&grpc.GenericServerStream[AttachInput, AttachOutput]{ServerStream: stream})
+func _CommandMonitorService_Attach_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(CommandMonitorServiceServer).Attach(&grpc.GenericServerStream[AttachRequest, AttachResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type CommandMonitor_AttachServer = grpc.BidiStreamingServer[AttachInput, AttachOutput]
+type CommandMonitorService_AttachServer = grpc.BidiStreamingServer[AttachRequest, AttachResponse]
 
-func _CommandMonitor_Logs_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _CommandMonitorService_Logs_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(LogsRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(CommandMonitorServer).Logs(m, &grpc.GenericServerStream[LogsRequest, LogsOutput]{ServerStream: stream})
+	return srv.(CommandMonitorServiceServer).Logs(m, &grpc.GenericServerStream[LogsRequest, LogsResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type CommandMonitor_LogsServer = grpc.ServerStreamingServer[LogsOutput]
+type CommandMonitorService_LogsServer = grpc.ServerStreamingServer[LogsResponse]
 
-func _CommandMonitor_Signal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CommandMonitorService_Signal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SignalRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CommandMonitorServer).Signal(ctx, in)
+		return srv.(CommandMonitorServiceServer).Signal(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CommandMonitor_Signal_FullMethodName,
+		FullMethod: CommandMonitorService_Signal_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CommandMonitorServer).Signal(ctx, req.(*SignalRequest))
+		return srv.(CommandMonitorServiceServer).Signal(ctx, req.(*SignalRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CommandMonitor_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CommandMonitorService_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CommandMonitorServer).Status(ctx, in)
+		return srv.(CommandMonitorServiceServer).Status(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CommandMonitor_Status_FullMethodName,
+		FullMethod: CommandMonitorService_Status_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CommandMonitorServer).Status(ctx, req.(*StatusRequest))
+		return srv.(CommandMonitorServiceServer).Status(ctx, req.(*StatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// CommandMonitor_ServiceDesc is the grpc.ServiceDesc for CommandMonitor service.
+// CommandMonitorService_ServiceDesc is the grpc.ServiceDesc for CommandMonitorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var CommandMonitor_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "cmdman.v1.CommandMonitor",
-	HandlerType: (*CommandMonitorServer)(nil),
+var CommandMonitorService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "cmdman.v1.CommandMonitorService",
+	HandlerType: (*CommandMonitorServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Signal",
-			Handler:    _CommandMonitor_Signal_Handler,
+			Handler:    _CommandMonitorService_Signal_Handler,
 		},
 		{
 			MethodName: "Status",
-			Handler:    _CommandMonitor_Status_Handler,
+			Handler:    _CommandMonitorService_Status_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Attach",
-			Handler:       _CommandMonitor_Attach_Handler,
+			Handler:       _CommandMonitorService_Attach_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{
 			StreamName:    "Logs",
-			Handler:       _CommandMonitor_Logs_Handler,
+			Handler:       _CommandMonitorService_Logs_Handler,
 			ServerStreams: true,
 		},
 	},

@@ -57,7 +57,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	}
 	defer conn.Close()
 
-	client := pb.NewCommandMonitorClient(conn)
+	client := pb.NewCommandMonitorServiceClient(conn)
 	stream, err := client.Logs(cmd.Context(), &pb.LogsRequest{Follow: follow})
 	if err != nil {
 		return fmt.Errorf("logs: %w", err)

@@ -68,7 +68,7 @@ func stopOne(cmd *cobra.Command, store *cmdman.Store, id string, sig int32) erro
 	}
 	defer conn.Close()
 
-	client := pb.NewCommandMonitorClient(conn)
+	client := pb.NewCommandMonitorServiceClient(conn)
 	_, err = client.Signal(cmd.Context(), &pb.SignalRequest{Signal: sig})
 	return err
 }

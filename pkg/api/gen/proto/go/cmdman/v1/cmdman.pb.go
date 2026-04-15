@@ -21,31 +21,31 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type AttachInput struct {
+type AttachRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Input:
 	//
-	//	*AttachInput_Stdin
-	//	*AttachInput_Resize
-	Input         isAttachInput_Input `protobuf_oneof:"input"`
+	//	*AttachRequest_Stdin
+	//	*AttachRequest_Resize
+	Input         isAttachRequest_Input `protobuf_oneof:"input"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AttachInput) Reset() {
-	*x = AttachInput{}
+func (x *AttachRequest) Reset() {
+	*x = AttachRequest{}
 	mi := &file_cmdman_v1_cmdman_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AttachInput) String() string {
+func (x *AttachRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AttachInput) ProtoMessage() {}
+func (*AttachRequest) ProtoMessage() {}
 
-func (x *AttachInput) ProtoReflect() protoreflect.Message {
+func (x *AttachRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_cmdman_v1_cmdman_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -57,73 +57,73 @@ func (x *AttachInput) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AttachInput.ProtoReflect.Descriptor instead.
-func (*AttachInput) Descriptor() ([]byte, []int) {
+// Deprecated: Use AttachRequest.ProtoReflect.Descriptor instead.
+func (*AttachRequest) Descriptor() ([]byte, []int) {
 	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *AttachInput) GetInput() isAttachInput_Input {
+func (x *AttachRequest) GetInput() isAttachRequest_Input {
 	if x != nil {
 		return x.Input
 	}
 	return nil
 }
 
-func (x *AttachInput) GetStdin() []byte {
+func (x *AttachRequest) GetStdin() []byte {
 	if x != nil {
-		if x, ok := x.Input.(*AttachInput_Stdin); ok {
+		if x, ok := x.Input.(*AttachRequest_Stdin); ok {
 			return x.Stdin
 		}
 	}
 	return nil
 }
 
-func (x *AttachInput) GetResize() *ResizeEvent {
+func (x *AttachRequest) GetResize() *ResizeEvent {
 	if x != nil {
-		if x, ok := x.Input.(*AttachInput_Resize); ok {
+		if x, ok := x.Input.(*AttachRequest_Resize); ok {
 			return x.Resize
 		}
 	}
 	return nil
 }
 
-type isAttachInput_Input interface {
-	isAttachInput_Input()
+type isAttachRequest_Input interface {
+	isAttachRequest_Input()
 }
 
-type AttachInput_Stdin struct {
+type AttachRequest_Stdin struct {
 	Stdin []byte `protobuf:"bytes,1,opt,name=stdin,proto3,oneof"` // raw bytes to write to PTY
 }
 
-type AttachInput_Resize struct {
+type AttachRequest_Resize struct {
 	Resize *ResizeEvent `protobuf:"bytes,2,opt,name=resize,proto3,oneof"` // terminal resize (SIGWINCH)
 }
 
-func (*AttachInput_Stdin) isAttachInput_Input() {}
+func (*AttachRequest_Stdin) isAttachRequest_Input() {}
 
-func (*AttachInput_Resize) isAttachInput_Input() {}
+func (*AttachRequest_Resize) isAttachRequest_Input() {}
 
-type AttachOutput struct {
+type AttachResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Stdout        []byte                 `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"` // raw bytes from PTY
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AttachOutput) Reset() {
-	*x = AttachOutput{}
+func (x *AttachResponse) Reset() {
+	*x = AttachResponse{}
 	mi := &file_cmdman_v1_cmdman_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AttachOutput) String() string {
+func (x *AttachResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AttachOutput) ProtoMessage() {}
+func (*AttachResponse) ProtoMessage() {}
 
-func (x *AttachOutput) ProtoReflect() protoreflect.Message {
+func (x *AttachResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_cmdman_v1_cmdman_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -135,12 +135,12 @@ func (x *AttachOutput) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AttachOutput.ProtoReflect.Descriptor instead.
-func (*AttachOutput) Descriptor() ([]byte, []int) {
+// Deprecated: Use AttachResponse.ProtoReflect.Descriptor instead.
+func (*AttachResponse) Descriptor() ([]byte, []int) {
 	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *AttachOutput) GetStdout() []byte {
+func (x *AttachResponse) GetStdout() []byte {
 	if x != nil {
 		return x.Stdout
 	}
@@ -243,27 +243,27 @@ func (x *LogsRequest) GetFollow() bool {
 	return false
 }
 
-type LogsOutput struct {
+type LogsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LogsOutput) Reset() {
-	*x = LogsOutput{}
+func (x *LogsResponse) Reset() {
+	*x = LogsResponse{}
 	mi := &file_cmdman_v1_cmdman_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LogsOutput) String() string {
+func (x *LogsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LogsOutput) ProtoMessage() {}
+func (*LogsResponse) ProtoMessage() {}
 
-func (x *LogsOutput) ProtoReflect() protoreflect.Message {
+func (x *LogsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_cmdman_v1_cmdman_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -275,12 +275,12 @@ func (x *LogsOutput) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LogsOutput.ProtoReflect.Descriptor instead.
-func (*LogsOutput) Descriptor() ([]byte, []int) {
+// Deprecated: Use LogsResponse.ProtoReflect.Descriptor instead.
+func (*LogsResponse) Descriptor() ([]byte, []int) {
 	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *LogsOutput) GetData() []byte {
+func (x *LogsResponse) GetData() []byte {
 	if x != nil {
 		return x.Data
 	}
@@ -467,20 +467,19 @@ var File_cmdman_v1_cmdman_proto protoreflect.FileDescriptor
 
 const file_cmdman_v1_cmdman_proto_rawDesc = "" +
 	"\n" +
-	"\x16cmdman/v1/cmdman.proto\x12\tcmdman.v1\"`\n" +
-	"\vAttachInput\x12\x16\n" +
+	"\x16cmdman/v1/cmdman.proto\x12\tcmdman.v1\"b\n" +
+	"\rAttachRequest\x12\x16\n" +
 	"\x05stdin\x18\x01 \x01(\fH\x00R\x05stdin\x120\n" +
 	"\x06resize\x18\x02 \x01(\v2\x16.cmdman.v1.ResizeEventH\x00R\x06resizeB\a\n" +
-	"\x05input\"&\n" +
-	"\fAttachOutput\x12\x16\n" +
+	"\x05input\"(\n" +
+	"\x0eAttachResponse\x12\x16\n" +
 	"\x06stdout\x18\x01 \x01(\fR\x06stdout\"5\n" +
 	"\vResizeEvent\x12\x12\n" +
 	"\x04rows\x18\x01 \x01(\rR\x04rows\x12\x12\n" +
 	"\x04cols\x18\x02 \x01(\rR\x04cols\"%\n" +
 	"\vLogsRequest\x12\x16\n" +
-	"\x06follow\x18\x01 \x01(\bR\x06follow\" \n" +
-	"\n" +
-	"LogsOutput\x12\x12\n" +
+	"\x06follow\x18\x01 \x01(\bR\x06follow\"\"\n" +
+	"\fLogsResponse\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\"'\n" +
 	"\rSignalRequest\x12\x16\n" +
 	"\x06signal\x18\x01 \x01(\x05R\x06signal\"\x10\n" +
@@ -489,10 +488,10 @@ const file_cmdman_v1_cmdman_proto_rawDesc = "" +
 	"\x0eStatusResponse\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x10\n" +
-	"\x03pid\x18\x03 \x01(\x05R\x03pid2\x86\x02\n" +
-	"\x0eCommandMonitor\x12=\n" +
-	"\x06Attach\x12\x16.cmdman.v1.AttachInput\x1a\x17.cmdman.v1.AttachOutput(\x010\x01\x127\n" +
-	"\x04Logs\x12\x16.cmdman.v1.LogsRequest\x1a\x15.cmdman.v1.LogsOutput0\x01\x12=\n" +
+	"\x03pid\x18\x03 \x01(\x05R\x03pid2\x93\x02\n" +
+	"\x15CommandMonitorService\x12A\n" +
+	"\x06Attach\x12\x18.cmdman.v1.AttachRequest\x1a\x19.cmdman.v1.AttachResponse(\x010\x01\x129\n" +
+	"\x04Logs\x12\x16.cmdman.v1.LogsRequest\x1a\x17.cmdman.v1.LogsResponse0\x01\x12=\n" +
 	"\x06Signal\x12\x18.cmdman.v1.SignalRequest\x1a\x19.cmdman.v1.SignalResponse\x12=\n" +
 	"\x06Status\x12\x18.cmdman.v1.StatusRequest\x1a\x19.cmdman.v1.StatusResponseB\xa6\x01\n" +
 	"\rcom.cmdman.v1B\vCmdmanProtoP\x01ZCgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/cmdman/v1;cmdmanv1\xa2\x02\x03CXX\xaa\x02\tCmdman.V1\xca\x02\tCmdman\\V1\xe2\x02\x15Cmdman\\V1\\GPBMetadata\xea\x02\n" +
@@ -512,26 +511,26 @@ func file_cmdman_v1_cmdman_proto_rawDescGZIP() []byte {
 
 var file_cmdman_v1_cmdman_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_cmdman_v1_cmdman_proto_goTypes = []any{
-	(*AttachInput)(nil),    // 0: cmdman.v1.AttachInput
-	(*AttachOutput)(nil),   // 1: cmdman.v1.AttachOutput
+	(*AttachRequest)(nil),  // 0: cmdman.v1.AttachRequest
+	(*AttachResponse)(nil), // 1: cmdman.v1.AttachResponse
 	(*ResizeEvent)(nil),    // 2: cmdman.v1.ResizeEvent
 	(*LogsRequest)(nil),    // 3: cmdman.v1.LogsRequest
-	(*LogsOutput)(nil),     // 4: cmdman.v1.LogsOutput
+	(*LogsResponse)(nil),   // 4: cmdman.v1.LogsResponse
 	(*SignalRequest)(nil),  // 5: cmdman.v1.SignalRequest
 	(*SignalResponse)(nil), // 6: cmdman.v1.SignalResponse
 	(*StatusRequest)(nil),  // 7: cmdman.v1.StatusRequest
 	(*StatusResponse)(nil), // 8: cmdman.v1.StatusResponse
 }
 var file_cmdman_v1_cmdman_proto_depIdxs = []int32{
-	2, // 0: cmdman.v1.AttachInput.resize:type_name -> cmdman.v1.ResizeEvent
-	0, // 1: cmdman.v1.CommandMonitor.Attach:input_type -> cmdman.v1.AttachInput
-	3, // 2: cmdman.v1.CommandMonitor.Logs:input_type -> cmdman.v1.LogsRequest
-	5, // 3: cmdman.v1.CommandMonitor.Signal:input_type -> cmdman.v1.SignalRequest
-	7, // 4: cmdman.v1.CommandMonitor.Status:input_type -> cmdman.v1.StatusRequest
-	1, // 5: cmdman.v1.CommandMonitor.Attach:output_type -> cmdman.v1.AttachOutput
-	4, // 6: cmdman.v1.CommandMonitor.Logs:output_type -> cmdman.v1.LogsOutput
-	6, // 7: cmdman.v1.CommandMonitor.Signal:output_type -> cmdman.v1.SignalResponse
-	8, // 8: cmdman.v1.CommandMonitor.Status:output_type -> cmdman.v1.StatusResponse
+	2, // 0: cmdman.v1.AttachRequest.resize:type_name -> cmdman.v1.ResizeEvent
+	0, // 1: cmdman.v1.CommandMonitorService.Attach:input_type -> cmdman.v1.AttachRequest
+	3, // 2: cmdman.v1.CommandMonitorService.Logs:input_type -> cmdman.v1.LogsRequest
+	5, // 3: cmdman.v1.CommandMonitorService.Signal:input_type -> cmdman.v1.SignalRequest
+	7, // 4: cmdman.v1.CommandMonitorService.Status:input_type -> cmdman.v1.StatusRequest
+	1, // 5: cmdman.v1.CommandMonitorService.Attach:output_type -> cmdman.v1.AttachResponse
+	4, // 6: cmdman.v1.CommandMonitorService.Logs:output_type -> cmdman.v1.LogsResponse
+	6, // 7: cmdman.v1.CommandMonitorService.Signal:output_type -> cmdman.v1.SignalResponse
+	8, // 8: cmdman.v1.CommandMonitorService.Status:output_type -> cmdman.v1.StatusResponse
 	5, // [5:9] is the sub-list for method output_type
 	1, // [1:5] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -545,8 +544,8 @@ func file_cmdman_v1_cmdman_proto_init() {
 		return
 	}
 	file_cmdman_v1_cmdman_proto_msgTypes[0].OneofWrappers = []any{
-		(*AttachInput_Stdin)(nil),
-		(*AttachInput_Resize)(nil),
+		(*AttachRequest_Stdin)(nil),
+		(*AttachRequest_Resize)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
