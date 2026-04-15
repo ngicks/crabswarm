@@ -22,6 +22,159 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+type HookPermissionDecision int32
+
+const (
+	HookPermissionDecision_HOOK_PERMISSION_DECISION_UNSPECIFIED HookPermissionDecision = 0
+	HookPermissionDecision_HOOK_PERMISSION_DECISION_ALLOW       HookPermissionDecision = 1
+	HookPermissionDecision_HOOK_PERMISSION_DECISION_DENY        HookPermissionDecision = 2
+	HookPermissionDecision_HOOK_PERMISSION_DECISION_ASK         HookPermissionDecision = 3
+)
+
+// Enum value maps for HookPermissionDecision.
+var (
+	HookPermissionDecision_name = map[int32]string{
+		0: "HOOK_PERMISSION_DECISION_UNSPECIFIED",
+		1: "HOOK_PERMISSION_DECISION_ALLOW",
+		2: "HOOK_PERMISSION_DECISION_DENY",
+		3: "HOOK_PERMISSION_DECISION_ASK",
+	}
+	HookPermissionDecision_value = map[string]int32{
+		"HOOK_PERMISSION_DECISION_UNSPECIFIED": 0,
+		"HOOK_PERMISSION_DECISION_ALLOW":       1,
+		"HOOK_PERMISSION_DECISION_DENY":        2,
+		"HOOK_PERMISSION_DECISION_ASK":         3,
+	}
+)
+
+func (x HookPermissionDecision) Enum() *HookPermissionDecision {
+	p := new(HookPermissionDecision)
+	*p = x
+	return p
+}
+
+func (x HookPermissionDecision) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (HookPermissionDecision) Descriptor() protoreflect.EnumDescriptor {
+	return file_sdktypes_v1_types_proto_enumTypes[0].Descriptor()
+}
+
+func (HookPermissionDecision) Type() protoreflect.EnumType {
+	return &file_sdktypes_v1_types_proto_enumTypes[0]
+}
+
+func (x HookPermissionDecision) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use HookPermissionDecision.Descriptor instead.
+func (HookPermissionDecision) EnumDescriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{0}
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
+type PermissionResultBehavior int32
+
+const (
+	PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED PermissionResultBehavior = 0
+	PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_ALLOW       PermissionResultBehavior = 1
+	PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_DENY        PermissionResultBehavior = 2
+)
+
+// Enum value maps for PermissionResultBehavior.
+var (
+	PermissionResultBehavior_name = map[int32]string{
+		0: "PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED",
+		1: "PERMISSION_RESULT_BEHAVIOR_ALLOW",
+		2: "PERMISSION_RESULT_BEHAVIOR_DENY",
+	}
+	PermissionResultBehavior_value = map[string]int32{
+		"PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED": 0,
+		"PERMISSION_RESULT_BEHAVIOR_ALLOW":       1,
+		"PERMISSION_RESULT_BEHAVIOR_DENY":        2,
+	}
+)
+
+func (x PermissionResultBehavior) Enum() *PermissionResultBehavior {
+	p := new(PermissionResultBehavior)
+	*p = x
+	return p
+}
+
+func (x PermissionResultBehavior) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PermissionResultBehavior) Descriptor() protoreflect.EnumDescriptor {
+	return file_sdktypes_v1_types_proto_enumTypes[1].Descriptor()
+}
+
+func (PermissionResultBehavior) Type() protoreflect.EnumType {
+	return &file_sdktypes_v1_types_proto_enumTypes[1]
+}
+
+func (x PermissionResultBehavior) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PermissionResultBehavior.Descriptor instead.
+func (PermissionResultBehavior) EnumDescriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{1}
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+type PermissionRequestDecisionBehavior int32
+
+const (
+	PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED PermissionRequestDecisionBehavior = 0
+	PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW       PermissionRequestDecisionBehavior = 1
+	PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_DENY        PermissionRequestDecisionBehavior = 2
+)
+
+// Enum value maps for PermissionRequestDecisionBehavior.
+var (
+	PermissionRequestDecisionBehavior_name = map[int32]string{
+		0: "PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED",
+		1: "PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW",
+		2: "PERMISSION_REQUEST_DECISION_BEHAVIOR_DENY",
+	}
+	PermissionRequestDecisionBehavior_value = map[string]int32{
+		"PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED": 0,
+		"PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW":       1,
+		"PERMISSION_REQUEST_DECISION_BEHAVIOR_DENY":        2,
+	}
+)
+
+func (x PermissionRequestDecisionBehavior) Enum() *PermissionRequestDecisionBehavior {
+	p := new(PermissionRequestDecisionBehavior)
+	*p = x
+	return p
+}
+
+func (x PermissionRequestDecisionBehavior) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PermissionRequestDecisionBehavior) Descriptor() protoreflect.EnumDescriptor {
+	return file_sdktypes_v1_types_proto_enumTypes[2].Descriptor()
+}
+
+func (PermissionRequestDecisionBehavior) Type() protoreflect.EnumType {
+	return &file_sdktypes_v1_types_proto_enumTypes[2]
+}
+
+func (x PermissionRequestDecisionBehavior) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PermissionRequestDecisionBehavior.Descriptor instead.
+func (PermissionRequestDecisionBehavior) EnumDescriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{2}
+}
+
 // An uninterpreted raw json message for unknown messages.
 type JsonRawMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -728,11 +881,11 @@ func (*PermissionUpdate_Unknown) isPermissionUpdate_Value() {}
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResultAllow struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Behavior           string                 `protobuf:"bytes,1,opt,name=behavior,proto3" json:"behavior,omitempty"`
-	UpdatedInput       *structpb.Struct       `protobuf:"bytes,2,opt,name=updated_input,json=updatedInput,proto3" json:"updated_input,omitempty"`
-	UpdatedPermissions []*PermissionUpdate    `protobuf:"bytes,3,rep,name=updated_permissions,json=updatedPermissions,proto3" json:"updated_permissions,omitempty"`
-	ToolUseId          *string                `protobuf:"bytes,4,opt,name=tool_use_id,json=toolUseID,proto3,oneof" json:"tool_use_id,omitempty"`
+	state              protoimpl.MessageState   `protogen:"open.v1"`
+	Behavior           PermissionResultBehavior `protobuf:"varint,1,opt,name=behavior,proto3,enum=sdktypes.v1.PermissionResultBehavior" json:"behavior,omitempty"`
+	UpdatedInput       *structpb.Struct         `protobuf:"bytes,2,opt,name=updated_input,json=updatedInput,proto3" json:"updated_input,omitempty"`
+	UpdatedPermissions []*PermissionUpdate      `protobuf:"bytes,3,rep,name=updated_permissions,json=updatedPermissions,proto3" json:"updated_permissions,omitempty"`
+	ToolUseId          *string                  `protobuf:"bytes,4,opt,name=tool_use_id,json=toolUseID,proto3,oneof" json:"tool_use_id,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -767,11 +920,11 @@ func (*PermissionResultAllow) Descriptor() ([]byte, []int) {
 	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *PermissionResultAllow) GetBehavior() string {
+func (x *PermissionResultAllow) GetBehavior() PermissionResultBehavior {
 	if x != nil {
 		return x.Behavior
 	}
-	return ""
+	return PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED
 }
 
 func (x *PermissionResultAllow) GetUpdatedInput() *structpb.Struct {
@@ -797,11 +950,11 @@ func (x *PermissionResultAllow) GetToolUseId() string {
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResultDeny struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Behavior      string                 `protobuf:"bytes,1,opt,name=behavior,proto3" json:"behavior,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Interrupt     *bool                  `protobuf:"varint,3,opt,name=interrupt,proto3,oneof" json:"interrupt,omitempty"`
-	ToolUseId     *string                `protobuf:"bytes,4,opt,name=tool_use_id,json=toolUseID,proto3,oneof" json:"tool_use_id,omitempty"`
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Behavior      PermissionResultBehavior `protobuf:"varint,1,opt,name=behavior,proto3,enum=sdktypes.v1.PermissionResultBehavior" json:"behavior,omitempty"`
+	Message       string                   `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Interrupt     *bool                    `protobuf:"varint,3,opt,name=interrupt,proto3,oneof" json:"interrupt,omitempty"`
+	ToolUseId     *string                  `protobuf:"bytes,4,opt,name=tool_use_id,json=toolUseID,proto3,oneof" json:"tool_use_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -836,11 +989,11 @@ func (*PermissionResultDeny) Descriptor() ([]byte, []int) {
 	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *PermissionResultDeny) GetBehavior() string {
+func (x *PermissionResultDeny) GetBehavior() PermissionResultBehavior {
 	if x != nil {
 		return x.Behavior
 	}
-	return ""
+	return PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED
 }
 
 func (x *PermissionResultDeny) GetMessage() string {
@@ -13690,10 +13843,10 @@ func (x *HookSpecificOutputNotification) GetAdditionalContext() string {
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecisionAllow struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Behavior           string                 `protobuf:"bytes,1,opt,name=behavior,proto3" json:"behavior,omitempty"`
-	UpdatedInput       *structpb.Struct       `protobuf:"bytes,2,opt,name=updated_input,json=updatedInput,proto3" json:"updated_input,omitempty"`
-	UpdatedPermissions []*PermissionUpdate    `protobuf:"bytes,3,rep,name=updated_permissions,json=updatedPermissions,proto3" json:"updated_permissions,omitempty"`
+	state              protoimpl.MessageState            `protogen:"open.v1"`
+	Behavior           PermissionRequestDecisionBehavior `protobuf:"varint,1,opt,name=behavior,proto3,enum=sdktypes.v1.PermissionRequestDecisionBehavior" json:"behavior,omitempty"`
+	UpdatedInput       *structpb.Struct                  `protobuf:"bytes,2,opt,name=updated_input,json=updatedInput,proto3" json:"updated_input,omitempty"`
+	UpdatedPermissions []*PermissionUpdate               `protobuf:"bytes,3,rep,name=updated_permissions,json=updatedPermissions,proto3" json:"updated_permissions,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -13728,11 +13881,11 @@ func (*PermissionRequestDecisionAllow) Descriptor() ([]byte, []int) {
 	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{160}
 }
 
-func (x *PermissionRequestDecisionAllow) GetBehavior() string {
+func (x *PermissionRequestDecisionAllow) GetBehavior() PermissionRequestDecisionBehavior {
 	if x != nil {
 		return x.Behavior
 	}
-	return ""
+	return PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED
 }
 
 func (x *PermissionRequestDecisionAllow) GetUpdatedInput() *structpb.Struct {
@@ -13751,10 +13904,10 @@ func (x *PermissionRequestDecisionAllow) GetUpdatedPermissions() []*PermissionUp
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecisionDeny struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Behavior      string                 `protobuf:"bytes,1,opt,name=behavior,proto3" json:"behavior,omitempty"`
-	Message       *string                `protobuf:"bytes,2,opt,name=message,proto3,oneof" json:"message,omitempty"`
-	Interrupt     *bool                  `protobuf:"varint,3,opt,name=interrupt,proto3,oneof" json:"interrupt,omitempty"`
+	state         protoimpl.MessageState            `protogen:"open.v1"`
+	Behavior      PermissionRequestDecisionBehavior `protobuf:"varint,1,opt,name=behavior,proto3,enum=sdktypes.v1.PermissionRequestDecisionBehavior" json:"behavior,omitempty"`
+	Message       *string                           `protobuf:"bytes,2,opt,name=message,proto3,oneof" json:"message,omitempty"`
+	Interrupt     *bool                             `protobuf:"varint,3,opt,name=interrupt,proto3,oneof" json:"interrupt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -13789,11 +13942,11 @@ func (*PermissionRequestDecisionDeny) Descriptor() ([]byte, []int) {
 	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{161}
 }
 
-func (x *PermissionRequestDecisionDeny) GetBehavior() string {
+func (x *PermissionRequestDecisionDeny) GetBehavior() PermissionRequestDecisionBehavior {
 	if x != nil {
 		return x.Behavior
 	}
-	return ""
+	return PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED
 }
 
 func (x *PermissionRequestDecisionDeny) GetMessage() string {
@@ -14467,15 +14620,15 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x0fadd_directories\x18\x05 \x01(\v2+.sdktypes.v1.PermissionUpdateAddDirectoriesH\x00R\x0eaddDirectories\x12_\n" +
 	"\x12remove_directories\x18\x06 \x01(\v2..sdktypes.v1.PermissionUpdateRemoveDirectoriesH\x00R\x11removeDirectories\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
-	"\x05value\"\xf6\x01\n" +
-	"\x15PermissionResultAllow\x12\x1a\n" +
-	"\bbehavior\x18\x01 \x01(\tR\bbehavior\x12<\n" +
+	"\x05value\"\x9d\x02\n" +
+	"\x15PermissionResultAllow\x12A\n" +
+	"\bbehavior\x18\x01 \x01(\x0e2%.sdktypes.v1.PermissionResultBehaviorR\bbehavior\x12<\n" +
 	"\rupdated_input\x18\x02 \x01(\v2\x17.google.protobuf.StructR\fupdatedInput\x12N\n" +
 	"\x13updated_permissions\x18\x03 \x03(\v2\x1d.sdktypes.v1.PermissionUpdateR\x12updatedPermissions\x12#\n" +
 	"\vtool_use_id\x18\x04 \x01(\tH\x00R\ttoolUseID\x88\x01\x01B\x0e\n" +
-	"\f_tool_use_id\"\xb2\x01\n" +
-	"\x14PermissionResultDeny\x12\x1a\n" +
-	"\bbehavior\x18\x01 \x01(\tR\bbehavior\x12\x18\n" +
+	"\f_tool_use_id\"\xd9\x01\n" +
+	"\x14PermissionResultDeny\x12A\n" +
+	"\bbehavior\x18\x01 \x01(\x0e2%.sdktypes.v1.PermissionResultBehaviorR\bbehavior\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12!\n" +
 	"\tinterrupt\x18\x03 \x01(\bH\x00R\tinterrupt\x88\x01\x01\x12#\n" +
 	"\vtool_use_id\x18\x04 \x01(\tH\x01R\ttoolUseID\x88\x01\x01B\f\n" +
@@ -15917,13 +16070,13 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x1eHookSpecificOutputNotification\x12&\n" +
 	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x122\n" +
 	"\x12additional_context\x18\x02 \x01(\tH\x00R\x11additionalContext\x88\x01\x01B\x15\n" +
-	"\x13_additional_context\"\xca\x01\n" +
-	"\x1ePermissionRequestDecisionAllow\x12\x1a\n" +
-	"\bbehavior\x18\x01 \x01(\tR\bbehavior\x12<\n" +
+	"\x13_additional_context\"\xfa\x01\n" +
+	"\x1ePermissionRequestDecisionAllow\x12J\n" +
+	"\bbehavior\x18\x01 \x01(\x0e2..sdktypes.v1.PermissionRequestDecisionBehaviorR\bbehavior\x12<\n" +
 	"\rupdated_input\x18\x02 \x01(\v2\x17.google.protobuf.StructR\fupdatedInput\x12N\n" +
-	"\x13updated_permissions\x18\x03 \x03(\v2\x1d.sdktypes.v1.PermissionUpdateR\x12updatedPermissions\"\x97\x01\n" +
-	"\x1dPermissionRequestDecisionDeny\x12\x1a\n" +
-	"\bbehavior\x18\x01 \x01(\tR\bbehavior\x12\x1d\n" +
+	"\x13updated_permissions\x18\x03 \x03(\v2\x1d.sdktypes.v1.PermissionUpdateR\x12updatedPermissions\"\xc7\x01\n" +
+	"\x1dPermissionRequestDecisionDeny\x12J\n" +
+	"\bbehavior\x18\x01 \x01(\x0e2..sdktypes.v1.PermissionRequestDecisionBehaviorR\bbehavior\x12\x1d\n" +
 	"\amessage\x18\x02 \x01(\tH\x00R\amessage\x88\x01\x01\x12!\n" +
 	"\tinterrupt\x18\x03 \x01(\bH\x01R\tinterrupt\x88\x01\x01B\n" +
 	"\n" +
@@ -15976,7 +16129,20 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\vsync_output\x18\x02 \x01(\v2\x1f.sdktypes.v1.SyncHookJSONOutputH\x00R\n" +
 	"syncOutput\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
-	"\x05valueB\xb3\x01\n" +
+	"\x05value*\xab\x01\n" +
+	"\x16HookPermissionDecision\x12(\n" +
+	"$HOOK_PERMISSION_DECISION_UNSPECIFIED\x10\x00\x12\"\n" +
+	"\x1eHOOK_PERMISSION_DECISION_ALLOW\x10\x01\x12!\n" +
+	"\x1dHOOK_PERMISSION_DECISION_DENY\x10\x02\x12 \n" +
+	"\x1cHOOK_PERMISSION_DECISION_ASK\x10\x03*\x91\x01\n" +
+	"\x18PermissionResultBehavior\x12*\n" +
+	"&PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED\x10\x00\x12$\n" +
+	" PERMISSION_RESULT_BEHAVIOR_ALLOW\x10\x01\x12#\n" +
+	"\x1fPERMISSION_RESULT_BEHAVIOR_DENY\x10\x02*\xb8\x01\n" +
+	"!PermissionRequestDecisionBehavior\x124\n" +
+	"0PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED\x10\x00\x12.\n" +
+	"*PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW\x10\x01\x12-\n" +
+	")PERMISSION_REQUEST_DECISION_BEHAVIOR_DENY\x10\x02B\xb3\x01\n" +
 	"\x0fcom.sdktypes.v1B\n" +
 	"TypesProtoP\x01ZGgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1;sdktypesv1\xa2\x02\x03SXX\xaa\x02\vSdktypes.V1\xca\x02\vSdktypes\\V1\xe2\x02\x17Sdktypes\\V1\\GPBMetadata\xea\x02\fSdktypes::V1b\x06proto3"
 
@@ -15992,414 +16158,422 @@ func file_sdktypes_v1_types_proto_rawDescGZIP() []byte {
 	return file_sdktypes_v1_types_proto_rawDescData
 }
 
+var file_sdktypes_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_sdktypes_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 180)
 var file_sdktypes_v1_types_proto_goTypes = []any{
-	(*JsonRawMessage)(nil),                       // 0: sdktypes.v1.JsonRawMessage
-	(*UnknownVariant)(nil),                       // 1: sdktypes.v1.UnknownVariant
-	(*PermissionRuleValue)(nil),                  // 2: sdktypes.v1.PermissionRuleValue
-	(*PermissionUpdateAddRules)(nil),             // 3: sdktypes.v1.PermissionUpdateAddRules
-	(*PermissionUpdateReplaceRules)(nil),         // 4: sdktypes.v1.PermissionUpdateReplaceRules
-	(*PermissionUpdateRemoveRules)(nil),          // 5: sdktypes.v1.PermissionUpdateRemoveRules
-	(*PermissionUpdateSetMode)(nil),              // 6: sdktypes.v1.PermissionUpdateSetMode
-	(*PermissionUpdateAddDirectories)(nil),       // 7: sdktypes.v1.PermissionUpdateAddDirectories
-	(*PermissionUpdateRemoveDirectories)(nil),    // 8: sdktypes.v1.PermissionUpdateRemoveDirectories
-	(*PermissionUpdate)(nil),                     // 9: sdktypes.v1.PermissionUpdate
-	(*PermissionResultAllow)(nil),                // 10: sdktypes.v1.PermissionResultAllow
-	(*PermissionResultDeny)(nil),                 // 11: sdktypes.v1.PermissionResultDeny
-	(*PermissionResult)(nil),                     // 12: sdktypes.v1.PermissionResult
-	(*McpStdioServerConfig)(nil),                 // 13: sdktypes.v1.McpStdioServerConfig
-	(*McpSSEServerConfig)(nil),                   // 14: sdktypes.v1.McpSSEServerConfig
-	(*McpHttpServerConfig)(nil),                  // 15: sdktypes.v1.McpHttpServerConfig
-	(*McpSdkServerConfigWithInstance)(nil),       // 16: sdktypes.v1.McpSdkServerConfigWithInstance
-	(*McpClaudeAIProxyServerConfig)(nil),         // 17: sdktypes.v1.McpClaudeAIProxyServerConfig
-	(*McpServerConfig)(nil),                      // 18: sdktypes.v1.McpServerConfig
-	(*SdkPluginConfig)(nil),                      // 19: sdktypes.v1.SdkPluginConfig
-	(*SandboxNetworkConfig)(nil),                 // 20: sdktypes.v1.SandboxNetworkConfig
-	(*SandboxFilesystemConfig)(nil),              // 21: sdktypes.v1.SandboxFilesystemConfig
-	(*RipgrepConfig)(nil),                        // 22: sdktypes.v1.RipgrepConfig
-	(*SandboxSettings)(nil),                      // 23: sdktypes.v1.SandboxSettings
-	(*AgentDefinition)(nil),                      // 24: sdktypes.v1.AgentDefinition
-	(*OutputFormat)(nil),                         // 25: sdktypes.v1.OutputFormat
-	(*SystemPromptString)(nil),                   // 26: sdktypes.v1.SystemPromptString
-	(*SystemPromptPreset)(nil),                   // 27: sdktypes.v1.SystemPromptPreset
-	(*SystemPrompt)(nil),                         // 28: sdktypes.v1.SystemPrompt
-	(*ThinkingConfigAdaptive)(nil),               // 29: sdktypes.v1.ThinkingConfigAdaptive
-	(*ThinkingConfigEnabled)(nil),                // 30: sdktypes.v1.ThinkingConfigEnabled
-	(*ThinkingConfigDisabled)(nil),               // 31: sdktypes.v1.ThinkingConfigDisabled
-	(*ThinkingConfig)(nil),                       // 32: sdktypes.v1.ThinkingConfig
-	(*AskUserQuestionToolConfig)(nil),            // 33: sdktypes.v1.AskUserQuestionToolConfig
-	(*ToolConfig)(nil),                           // 34: sdktypes.v1.ToolConfig
-	(*ToolsConfigList)(nil),                      // 35: sdktypes.v1.ToolsConfigList
-	(*ToolsConfigPreset)(nil),                    // 36: sdktypes.v1.ToolsConfigPreset
-	(*ToolsConfig)(nil),                          // 37: sdktypes.v1.ToolsConfig
-	(*Options)(nil),                              // 38: sdktypes.v1.Options
-	(*SlashCommand)(nil),                         // 39: sdktypes.v1.SlashCommand
-	(*ModelInfo)(nil),                            // 40: sdktypes.v1.ModelInfo
-	(*AgentInfo)(nil),                            // 41: sdktypes.v1.AgentInfo
-	(*AccountInfo)(nil),                          // 42: sdktypes.v1.AccountInfo
-	(*ModelUsage)(nil),                           // 43: sdktypes.v1.ModelUsage
-	(*Usage)(nil),                                // 44: sdktypes.v1.Usage
-	(*NonNullableUsage)(nil),                     // 45: sdktypes.v1.NonNullableUsage
-	(*CallToolResultContent)(nil),                // 46: sdktypes.v1.CallToolResultContent
-	(*CallToolResult)(nil),                       // 47: sdktypes.v1.CallToolResult
-	(*SDKPermissionDenial)(nil),                  // 48: sdktypes.v1.SDKPermissionDenial
-	(*CompactMetadata)(nil),                      // 49: sdktypes.v1.CompactMetadata
-	(*TaskUsageSummary)(nil),                     // 50: sdktypes.v1.TaskUsageSummary
-	(*SDKAssistantMessage)(nil),                  // 51: sdktypes.v1.SDKAssistantMessage
-	(*SDKUserMessage)(nil),                       // 52: sdktypes.v1.SDKUserMessage
-	(*SDKUserMessageReplay)(nil),                 // 53: sdktypes.v1.SDKUserMessageReplay
-	(*SDKResultMessageSuccess)(nil),              // 54: sdktypes.v1.SDKResultMessageSuccess
-	(*SDKResultMessageError)(nil),                // 55: sdktypes.v1.SDKResultMessageError
-	(*SDKSystemServer)(nil),                      // 56: sdktypes.v1.SDKSystemServer
-	(*SDKSystemPlugin)(nil),                      // 57: sdktypes.v1.SDKSystemPlugin
-	(*SDKSystemMessage)(nil),                     // 58: sdktypes.v1.SDKSystemMessage
-	(*SDKPartialAssistantMessage)(nil),           // 59: sdktypes.v1.SDKPartialAssistantMessage
-	(*SDKCompactBoundaryMessage)(nil),            // 60: sdktypes.v1.SDKCompactBoundaryMessage
-	(*SDKStatusMessage)(nil),                     // 61: sdktypes.v1.SDKStatusMessage
-	(*SDKLocalCommandOutputMessage)(nil),         // 62: sdktypes.v1.SDKLocalCommandOutputMessage
-	(*SDKHookStartedMessage)(nil),                // 63: sdktypes.v1.SDKHookStartedMessage
-	(*SDKHookProgressMessage)(nil),               // 64: sdktypes.v1.SDKHookProgressMessage
-	(*SDKHookResponseMessage)(nil),               // 65: sdktypes.v1.SDKHookResponseMessage
-	(*SDKToolProgressMessage)(nil),               // 66: sdktypes.v1.SDKToolProgressMessage
-	(*SDKAuthStatusMessage)(nil),                 // 67: sdktypes.v1.SDKAuthStatusMessage
-	(*SDKTaskNotificationMessage)(nil),           // 68: sdktypes.v1.SDKTaskNotificationMessage
-	(*SDKTaskStartedMessage)(nil),                // 69: sdktypes.v1.SDKTaskStartedMessage
-	(*SDKTaskProgressMessage)(nil),               // 70: sdktypes.v1.SDKTaskProgressMessage
-	(*FilesPersistedFile)(nil),                   // 71: sdktypes.v1.FilesPersistedFile
-	(*FilesPersistedFailure)(nil),                // 72: sdktypes.v1.FilesPersistedFailure
-	(*SDKFilesPersistedEvent)(nil),               // 73: sdktypes.v1.SDKFilesPersistedEvent
-	(*RateLimitInfo)(nil),                        // 74: sdktypes.v1.RateLimitInfo
-	(*SDKToolUseSummaryMessage)(nil),             // 75: sdktypes.v1.SDKToolUseSummaryMessage
-	(*SDKRateLimitEvent)(nil),                    // 76: sdktypes.v1.SDKRateLimitEvent
-	(*SDKPromptSuggestionMessage)(nil),           // 77: sdktypes.v1.SDKPromptSuggestionMessage
-	(*SDKMessage)(nil),                           // 78: sdktypes.v1.SDKMessage
-	(*QuestionOption)(nil),                       // 79: sdktypes.v1.QuestionOption
-	(*Question)(nil),                             // 80: sdktypes.v1.Question
-	(*ToolInput)(nil),                            // 81: sdktypes.v1.ToolInput
-	(*AgentInput)(nil),                           // 82: sdktypes.v1.AgentInput
-	(*AskUserQuestionInput)(nil),                 // 83: sdktypes.v1.AskUserQuestionInput
-	(*BashInput)(nil),                            // 84: sdktypes.v1.BashInput
-	(*BashOutputInput)(nil),                      // 85: sdktypes.v1.BashOutputInput
-	(*FileEditInput)(nil),                        // 86: sdktypes.v1.FileEditInput
-	(*FileReadInput)(nil),                        // 87: sdktypes.v1.FileReadInput
-	(*FileWriteInput)(nil),                       // 88: sdktypes.v1.FileWriteInput
-	(*GlobInput)(nil),                            // 89: sdktypes.v1.GlobInput
-	(*GrepInput)(nil),                            // 90: sdktypes.v1.GrepInput
-	(*KillShellInput)(nil),                       // 91: sdktypes.v1.KillShellInput
-	(*NotebookEditInput)(nil),                    // 92: sdktypes.v1.NotebookEditInput
-	(*WebFetchInput)(nil),                        // 93: sdktypes.v1.WebFetchInput
-	(*WebSearchInput)(nil),                       // 94: sdktypes.v1.WebSearchInput
-	(*TodoItem)(nil),                             // 95: sdktypes.v1.TodoItem
-	(*TodoWriteInput)(nil),                       // 96: sdktypes.v1.TodoWriteInput
-	(*ExitPlanModeInput)(nil),                    // 97: sdktypes.v1.ExitPlanModeInput
-	(*ListMcpResourcesInput)(nil),                // 98: sdktypes.v1.ListMcpResourcesInput
-	(*ReadMcpResourceInput)(nil),                 // 99: sdktypes.v1.ReadMcpResourceInput
-	(*ToolOutput)(nil),                           // 100: sdktypes.v1.ToolOutput
-	(*UsageInfo)(nil),                            // 101: sdktypes.v1.UsageInfo
-	(*TaskOutput)(nil),                           // 102: sdktypes.v1.TaskOutput
-	(*AskUserQuestionOutput)(nil),                // 103: sdktypes.v1.AskUserQuestionOutput
-	(*BashOutput)(nil),                           // 104: sdktypes.v1.BashOutput
-	(*FileEditOutput)(nil),                       // 105: sdktypes.v1.FileEditOutput
-	(*FileReadOutputTextFile)(nil),               // 106: sdktypes.v1.FileReadOutputTextFile
-	(*FileReadOutputImageFile)(nil),              // 107: sdktypes.v1.FileReadOutputImageFile
-	(*FileReadOutputNotebookFile)(nil),           // 108: sdktypes.v1.FileReadOutputNotebookFile
-	(*FileReadOutputPdfFile)(nil),                // 109: sdktypes.v1.FileReadOutputPdfFile
-	(*FileReadOutputPartsFile)(nil),              // 110: sdktypes.v1.FileReadOutputPartsFile
-	(*FileReadOutputText)(nil),                   // 111: sdktypes.v1.FileReadOutputText
-	(*FileReadOutputImage)(nil),                  // 112: sdktypes.v1.FileReadOutputImage
-	(*FileReadOutputNotebook)(nil),               // 113: sdktypes.v1.FileReadOutputNotebook
-	(*FileReadOutputPdf)(nil),                    // 114: sdktypes.v1.FileReadOutputPdf
-	(*FileReadOutputParts)(nil),                  // 115: sdktypes.v1.FileReadOutputParts
-	(*FileReadOutput)(nil),                       // 116: sdktypes.v1.FileReadOutput
-	(*FileWriteOutput)(nil),                      // 117: sdktypes.v1.FileWriteOutput
-	(*GlobOutput)(nil),                           // 118: sdktypes.v1.GlobOutput
-	(*GrepOutput)(nil),                           // 119: sdktypes.v1.GrepOutput
-	(*TaskStopOutput)(nil),                       // 120: sdktypes.v1.TaskStopOutput
-	(*NotebookEditOutput)(nil),                   // 121: sdktypes.v1.NotebookEditOutput
-	(*WebFetchOutput)(nil),                       // 122: sdktypes.v1.WebFetchOutput
-	(*WebSearchOutputResultEntry)(nil),           // 123: sdktypes.v1.WebSearchOutputResultEntry
-	(*WebSearchOutput)(nil),                      // 124: sdktypes.v1.WebSearchOutput
-	(*TodoWriteOutput)(nil),                      // 125: sdktypes.v1.TodoWriteOutput
-	(*ExitPlanModeOutput)(nil),                   // 126: sdktypes.v1.ExitPlanModeOutput
-	(*McpResource)(nil),                          // 127: sdktypes.v1.McpResource
-	(*ListMcpResourcesOutput)(nil),               // 128: sdktypes.v1.ListMcpResourcesOutput
-	(*ReadMcpResourceOutputContent)(nil),         // 129: sdktypes.v1.ReadMcpResourceOutputContent
-	(*ReadMcpResourceOutput)(nil),                // 130: sdktypes.v1.ReadMcpResourceOutput
-	(*ConfigOutput)(nil),                         // 131: sdktypes.v1.ConfigOutput
-	(*EnterWorktreeOutput)(nil),                  // 132: sdktypes.v1.EnterWorktreeOutput
-	(*PreToolUseHookInput)(nil),                  // 133: sdktypes.v1.PreToolUseHookInput
-	(*PostToolUseHookInput)(nil),                 // 134: sdktypes.v1.PostToolUseHookInput
-	(*PostToolUseFailureHookInput)(nil),          // 135: sdktypes.v1.PostToolUseFailureHookInput
-	(*NotificationHookInput)(nil),                // 136: sdktypes.v1.NotificationHookInput
-	(*UserPromptSubmitHookInput)(nil),            // 137: sdktypes.v1.UserPromptSubmitHookInput
-	(*SessionStartHookInput)(nil),                // 138: sdktypes.v1.SessionStartHookInput
-	(*SessionEndHookInput)(nil),                  // 139: sdktypes.v1.SessionEndHookInput
-	(*StopHookInput)(nil),                        // 140: sdktypes.v1.StopHookInput
-	(*SubagentStartHookInput)(nil),               // 141: sdktypes.v1.SubagentStartHookInput
-	(*SubagentStopHookInput)(nil),                // 142: sdktypes.v1.SubagentStopHookInput
-	(*PreCompactHookInput)(nil),                  // 143: sdktypes.v1.PreCompactHookInput
-	(*PermissionRequestHookInput)(nil),           // 144: sdktypes.v1.PermissionRequestHookInput
-	(*SetupHookInput)(nil),                       // 145: sdktypes.v1.SetupHookInput
-	(*TeammateIdleHookInput)(nil),                // 146: sdktypes.v1.TeammateIdleHookInput
-	(*TaskCompletedHookInput)(nil),               // 147: sdktypes.v1.TaskCompletedHookInput
-	(*ConfigChangeHookInput)(nil),                // 148: sdktypes.v1.ConfigChangeHookInput
-	(*WorktreeCreateHookInput)(nil),              // 149: sdktypes.v1.WorktreeCreateHookInput
-	(*WorktreeRemoveHookInput)(nil),              // 150: sdktypes.v1.WorktreeRemoveHookInput
-	(*HookInput)(nil),                            // 151: sdktypes.v1.HookInput
-	(*HookSpecificOutputPreToolUse)(nil),         // 152: sdktypes.v1.HookSpecificOutputPreToolUse
-	(*HookSpecificOutputUserPromptSubmit)(nil),   // 153: sdktypes.v1.HookSpecificOutputUserPromptSubmit
-	(*HookSpecificOutputSessionStart)(nil),       // 154: sdktypes.v1.HookSpecificOutputSessionStart
-	(*HookSpecificOutputSetup)(nil),              // 155: sdktypes.v1.HookSpecificOutputSetup
-	(*HookSpecificOutputSubagentStart)(nil),      // 156: sdktypes.v1.HookSpecificOutputSubagentStart
-	(*HookSpecificOutputPostToolUse)(nil),        // 157: sdktypes.v1.HookSpecificOutputPostToolUse
-	(*HookSpecificOutputPostToolUseFailure)(nil), // 158: sdktypes.v1.HookSpecificOutputPostToolUseFailure
-	(*HookSpecificOutputNotification)(nil),       // 159: sdktypes.v1.HookSpecificOutputNotification
-	(*PermissionRequestDecisionAllow)(nil),       // 160: sdktypes.v1.PermissionRequestDecisionAllow
-	(*PermissionRequestDecisionDeny)(nil),        // 161: sdktypes.v1.PermissionRequestDecisionDeny
-	(*PermissionRequestDecision)(nil),            // 162: sdktypes.v1.PermissionRequestDecision
-	(*HookSpecificOutputPermissionRequest)(nil),  // 163: sdktypes.v1.HookSpecificOutputPermissionRequest
-	(*HookSpecificOutput)(nil),                   // 164: sdktypes.v1.HookSpecificOutput
-	(*AsyncHookJSONOutput)(nil),                  // 165: sdktypes.v1.AsyncHookJSONOutput
-	(*SyncHookJSONOutput)(nil),                   // 166: sdktypes.v1.SyncHookJSONOutput
-	(*HookJSONOutput)(nil),                       // 167: sdktypes.v1.HookJSONOutput
-	nil,                                          // 168: sdktypes.v1.McpStdioServerConfig.EnvEntry
-	nil,                                          // 169: sdktypes.v1.McpSSEServerConfig.HeadersEntry
-	nil,                                          // 170: sdktypes.v1.McpHttpServerConfig.HeadersEntry
-	nil,                                          // 171: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
-	nil,                                          // 172: sdktypes.v1.Options.AgentsEntry
-	nil,                                          // 173: sdktypes.v1.Options.EnvEntry
-	nil,                                          // 174: sdktypes.v1.Options.ExtraArgsEntry
-	nil,                                          // 175: sdktypes.v1.Options.McpServersEntry
-	nil,                                          // 176: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
-	nil,                                          // 177: sdktypes.v1.SDKResultMessageError.ModelUsageEntry
-	nil,                                          // 178: sdktypes.v1.AskUserQuestionInput.AnswersEntry
-	nil,                                          // 179: sdktypes.v1.AskUserQuestionOutput.AnswersEntry
-	(*structpb.Struct)(nil),                      // 180: google.protobuf.Struct
+	(HookPermissionDecision)(0),                  // 0: sdktypes.v1.HookPermissionDecision
+	(PermissionResultBehavior)(0),                // 1: sdktypes.v1.PermissionResultBehavior
+	(PermissionRequestDecisionBehavior)(0),       // 2: sdktypes.v1.PermissionRequestDecisionBehavior
+	(*JsonRawMessage)(nil),                       // 3: sdktypes.v1.JsonRawMessage
+	(*UnknownVariant)(nil),                       // 4: sdktypes.v1.UnknownVariant
+	(*PermissionRuleValue)(nil),                  // 5: sdktypes.v1.PermissionRuleValue
+	(*PermissionUpdateAddRules)(nil),             // 6: sdktypes.v1.PermissionUpdateAddRules
+	(*PermissionUpdateReplaceRules)(nil),         // 7: sdktypes.v1.PermissionUpdateReplaceRules
+	(*PermissionUpdateRemoveRules)(nil),          // 8: sdktypes.v1.PermissionUpdateRemoveRules
+	(*PermissionUpdateSetMode)(nil),              // 9: sdktypes.v1.PermissionUpdateSetMode
+	(*PermissionUpdateAddDirectories)(nil),       // 10: sdktypes.v1.PermissionUpdateAddDirectories
+	(*PermissionUpdateRemoveDirectories)(nil),    // 11: sdktypes.v1.PermissionUpdateRemoveDirectories
+	(*PermissionUpdate)(nil),                     // 12: sdktypes.v1.PermissionUpdate
+	(*PermissionResultAllow)(nil),                // 13: sdktypes.v1.PermissionResultAllow
+	(*PermissionResultDeny)(nil),                 // 14: sdktypes.v1.PermissionResultDeny
+	(*PermissionResult)(nil),                     // 15: sdktypes.v1.PermissionResult
+	(*McpStdioServerConfig)(nil),                 // 16: sdktypes.v1.McpStdioServerConfig
+	(*McpSSEServerConfig)(nil),                   // 17: sdktypes.v1.McpSSEServerConfig
+	(*McpHttpServerConfig)(nil),                  // 18: sdktypes.v1.McpHttpServerConfig
+	(*McpSdkServerConfigWithInstance)(nil),       // 19: sdktypes.v1.McpSdkServerConfigWithInstance
+	(*McpClaudeAIProxyServerConfig)(nil),         // 20: sdktypes.v1.McpClaudeAIProxyServerConfig
+	(*McpServerConfig)(nil),                      // 21: sdktypes.v1.McpServerConfig
+	(*SdkPluginConfig)(nil),                      // 22: sdktypes.v1.SdkPluginConfig
+	(*SandboxNetworkConfig)(nil),                 // 23: sdktypes.v1.SandboxNetworkConfig
+	(*SandboxFilesystemConfig)(nil),              // 24: sdktypes.v1.SandboxFilesystemConfig
+	(*RipgrepConfig)(nil),                        // 25: sdktypes.v1.RipgrepConfig
+	(*SandboxSettings)(nil),                      // 26: sdktypes.v1.SandboxSettings
+	(*AgentDefinition)(nil),                      // 27: sdktypes.v1.AgentDefinition
+	(*OutputFormat)(nil),                         // 28: sdktypes.v1.OutputFormat
+	(*SystemPromptString)(nil),                   // 29: sdktypes.v1.SystemPromptString
+	(*SystemPromptPreset)(nil),                   // 30: sdktypes.v1.SystemPromptPreset
+	(*SystemPrompt)(nil),                         // 31: sdktypes.v1.SystemPrompt
+	(*ThinkingConfigAdaptive)(nil),               // 32: sdktypes.v1.ThinkingConfigAdaptive
+	(*ThinkingConfigEnabled)(nil),                // 33: sdktypes.v1.ThinkingConfigEnabled
+	(*ThinkingConfigDisabled)(nil),               // 34: sdktypes.v1.ThinkingConfigDisabled
+	(*ThinkingConfig)(nil),                       // 35: sdktypes.v1.ThinkingConfig
+	(*AskUserQuestionToolConfig)(nil),            // 36: sdktypes.v1.AskUserQuestionToolConfig
+	(*ToolConfig)(nil),                           // 37: sdktypes.v1.ToolConfig
+	(*ToolsConfigList)(nil),                      // 38: sdktypes.v1.ToolsConfigList
+	(*ToolsConfigPreset)(nil),                    // 39: sdktypes.v1.ToolsConfigPreset
+	(*ToolsConfig)(nil),                          // 40: sdktypes.v1.ToolsConfig
+	(*Options)(nil),                              // 41: sdktypes.v1.Options
+	(*SlashCommand)(nil),                         // 42: sdktypes.v1.SlashCommand
+	(*ModelInfo)(nil),                            // 43: sdktypes.v1.ModelInfo
+	(*AgentInfo)(nil),                            // 44: sdktypes.v1.AgentInfo
+	(*AccountInfo)(nil),                          // 45: sdktypes.v1.AccountInfo
+	(*ModelUsage)(nil),                           // 46: sdktypes.v1.ModelUsage
+	(*Usage)(nil),                                // 47: sdktypes.v1.Usage
+	(*NonNullableUsage)(nil),                     // 48: sdktypes.v1.NonNullableUsage
+	(*CallToolResultContent)(nil),                // 49: sdktypes.v1.CallToolResultContent
+	(*CallToolResult)(nil),                       // 50: sdktypes.v1.CallToolResult
+	(*SDKPermissionDenial)(nil),                  // 51: sdktypes.v1.SDKPermissionDenial
+	(*CompactMetadata)(nil),                      // 52: sdktypes.v1.CompactMetadata
+	(*TaskUsageSummary)(nil),                     // 53: sdktypes.v1.TaskUsageSummary
+	(*SDKAssistantMessage)(nil),                  // 54: sdktypes.v1.SDKAssistantMessage
+	(*SDKUserMessage)(nil),                       // 55: sdktypes.v1.SDKUserMessage
+	(*SDKUserMessageReplay)(nil),                 // 56: sdktypes.v1.SDKUserMessageReplay
+	(*SDKResultMessageSuccess)(nil),              // 57: sdktypes.v1.SDKResultMessageSuccess
+	(*SDKResultMessageError)(nil),                // 58: sdktypes.v1.SDKResultMessageError
+	(*SDKSystemServer)(nil),                      // 59: sdktypes.v1.SDKSystemServer
+	(*SDKSystemPlugin)(nil),                      // 60: sdktypes.v1.SDKSystemPlugin
+	(*SDKSystemMessage)(nil),                     // 61: sdktypes.v1.SDKSystemMessage
+	(*SDKPartialAssistantMessage)(nil),           // 62: sdktypes.v1.SDKPartialAssistantMessage
+	(*SDKCompactBoundaryMessage)(nil),            // 63: sdktypes.v1.SDKCompactBoundaryMessage
+	(*SDKStatusMessage)(nil),                     // 64: sdktypes.v1.SDKStatusMessage
+	(*SDKLocalCommandOutputMessage)(nil),         // 65: sdktypes.v1.SDKLocalCommandOutputMessage
+	(*SDKHookStartedMessage)(nil),                // 66: sdktypes.v1.SDKHookStartedMessage
+	(*SDKHookProgressMessage)(nil),               // 67: sdktypes.v1.SDKHookProgressMessage
+	(*SDKHookResponseMessage)(nil),               // 68: sdktypes.v1.SDKHookResponseMessage
+	(*SDKToolProgressMessage)(nil),               // 69: sdktypes.v1.SDKToolProgressMessage
+	(*SDKAuthStatusMessage)(nil),                 // 70: sdktypes.v1.SDKAuthStatusMessage
+	(*SDKTaskNotificationMessage)(nil),           // 71: sdktypes.v1.SDKTaskNotificationMessage
+	(*SDKTaskStartedMessage)(nil),                // 72: sdktypes.v1.SDKTaskStartedMessage
+	(*SDKTaskProgressMessage)(nil),               // 73: sdktypes.v1.SDKTaskProgressMessage
+	(*FilesPersistedFile)(nil),                   // 74: sdktypes.v1.FilesPersistedFile
+	(*FilesPersistedFailure)(nil),                // 75: sdktypes.v1.FilesPersistedFailure
+	(*SDKFilesPersistedEvent)(nil),               // 76: sdktypes.v1.SDKFilesPersistedEvent
+	(*RateLimitInfo)(nil),                        // 77: sdktypes.v1.RateLimitInfo
+	(*SDKToolUseSummaryMessage)(nil),             // 78: sdktypes.v1.SDKToolUseSummaryMessage
+	(*SDKRateLimitEvent)(nil),                    // 79: sdktypes.v1.SDKRateLimitEvent
+	(*SDKPromptSuggestionMessage)(nil),           // 80: sdktypes.v1.SDKPromptSuggestionMessage
+	(*SDKMessage)(nil),                           // 81: sdktypes.v1.SDKMessage
+	(*QuestionOption)(nil),                       // 82: sdktypes.v1.QuestionOption
+	(*Question)(nil),                             // 83: sdktypes.v1.Question
+	(*ToolInput)(nil),                            // 84: sdktypes.v1.ToolInput
+	(*AgentInput)(nil),                           // 85: sdktypes.v1.AgentInput
+	(*AskUserQuestionInput)(nil),                 // 86: sdktypes.v1.AskUserQuestionInput
+	(*BashInput)(nil),                            // 87: sdktypes.v1.BashInput
+	(*BashOutputInput)(nil),                      // 88: sdktypes.v1.BashOutputInput
+	(*FileEditInput)(nil),                        // 89: sdktypes.v1.FileEditInput
+	(*FileReadInput)(nil),                        // 90: sdktypes.v1.FileReadInput
+	(*FileWriteInput)(nil),                       // 91: sdktypes.v1.FileWriteInput
+	(*GlobInput)(nil),                            // 92: sdktypes.v1.GlobInput
+	(*GrepInput)(nil),                            // 93: sdktypes.v1.GrepInput
+	(*KillShellInput)(nil),                       // 94: sdktypes.v1.KillShellInput
+	(*NotebookEditInput)(nil),                    // 95: sdktypes.v1.NotebookEditInput
+	(*WebFetchInput)(nil),                        // 96: sdktypes.v1.WebFetchInput
+	(*WebSearchInput)(nil),                       // 97: sdktypes.v1.WebSearchInput
+	(*TodoItem)(nil),                             // 98: sdktypes.v1.TodoItem
+	(*TodoWriteInput)(nil),                       // 99: sdktypes.v1.TodoWriteInput
+	(*ExitPlanModeInput)(nil),                    // 100: sdktypes.v1.ExitPlanModeInput
+	(*ListMcpResourcesInput)(nil),                // 101: sdktypes.v1.ListMcpResourcesInput
+	(*ReadMcpResourceInput)(nil),                 // 102: sdktypes.v1.ReadMcpResourceInput
+	(*ToolOutput)(nil),                           // 103: sdktypes.v1.ToolOutput
+	(*UsageInfo)(nil),                            // 104: sdktypes.v1.UsageInfo
+	(*TaskOutput)(nil),                           // 105: sdktypes.v1.TaskOutput
+	(*AskUserQuestionOutput)(nil),                // 106: sdktypes.v1.AskUserQuestionOutput
+	(*BashOutput)(nil),                           // 107: sdktypes.v1.BashOutput
+	(*FileEditOutput)(nil),                       // 108: sdktypes.v1.FileEditOutput
+	(*FileReadOutputTextFile)(nil),               // 109: sdktypes.v1.FileReadOutputTextFile
+	(*FileReadOutputImageFile)(nil),              // 110: sdktypes.v1.FileReadOutputImageFile
+	(*FileReadOutputNotebookFile)(nil),           // 111: sdktypes.v1.FileReadOutputNotebookFile
+	(*FileReadOutputPdfFile)(nil),                // 112: sdktypes.v1.FileReadOutputPdfFile
+	(*FileReadOutputPartsFile)(nil),              // 113: sdktypes.v1.FileReadOutputPartsFile
+	(*FileReadOutputText)(nil),                   // 114: sdktypes.v1.FileReadOutputText
+	(*FileReadOutputImage)(nil),                  // 115: sdktypes.v1.FileReadOutputImage
+	(*FileReadOutputNotebook)(nil),               // 116: sdktypes.v1.FileReadOutputNotebook
+	(*FileReadOutputPdf)(nil),                    // 117: sdktypes.v1.FileReadOutputPdf
+	(*FileReadOutputParts)(nil),                  // 118: sdktypes.v1.FileReadOutputParts
+	(*FileReadOutput)(nil),                       // 119: sdktypes.v1.FileReadOutput
+	(*FileWriteOutput)(nil),                      // 120: sdktypes.v1.FileWriteOutput
+	(*GlobOutput)(nil),                           // 121: sdktypes.v1.GlobOutput
+	(*GrepOutput)(nil),                           // 122: sdktypes.v1.GrepOutput
+	(*TaskStopOutput)(nil),                       // 123: sdktypes.v1.TaskStopOutput
+	(*NotebookEditOutput)(nil),                   // 124: sdktypes.v1.NotebookEditOutput
+	(*WebFetchOutput)(nil),                       // 125: sdktypes.v1.WebFetchOutput
+	(*WebSearchOutputResultEntry)(nil),           // 126: sdktypes.v1.WebSearchOutputResultEntry
+	(*WebSearchOutput)(nil),                      // 127: sdktypes.v1.WebSearchOutput
+	(*TodoWriteOutput)(nil),                      // 128: sdktypes.v1.TodoWriteOutput
+	(*ExitPlanModeOutput)(nil),                   // 129: sdktypes.v1.ExitPlanModeOutput
+	(*McpResource)(nil),                          // 130: sdktypes.v1.McpResource
+	(*ListMcpResourcesOutput)(nil),               // 131: sdktypes.v1.ListMcpResourcesOutput
+	(*ReadMcpResourceOutputContent)(nil),         // 132: sdktypes.v1.ReadMcpResourceOutputContent
+	(*ReadMcpResourceOutput)(nil),                // 133: sdktypes.v1.ReadMcpResourceOutput
+	(*ConfigOutput)(nil),                         // 134: sdktypes.v1.ConfigOutput
+	(*EnterWorktreeOutput)(nil),                  // 135: sdktypes.v1.EnterWorktreeOutput
+	(*PreToolUseHookInput)(nil),                  // 136: sdktypes.v1.PreToolUseHookInput
+	(*PostToolUseHookInput)(nil),                 // 137: sdktypes.v1.PostToolUseHookInput
+	(*PostToolUseFailureHookInput)(nil),          // 138: sdktypes.v1.PostToolUseFailureHookInput
+	(*NotificationHookInput)(nil),                // 139: sdktypes.v1.NotificationHookInput
+	(*UserPromptSubmitHookInput)(nil),            // 140: sdktypes.v1.UserPromptSubmitHookInput
+	(*SessionStartHookInput)(nil),                // 141: sdktypes.v1.SessionStartHookInput
+	(*SessionEndHookInput)(nil),                  // 142: sdktypes.v1.SessionEndHookInput
+	(*StopHookInput)(nil),                        // 143: sdktypes.v1.StopHookInput
+	(*SubagentStartHookInput)(nil),               // 144: sdktypes.v1.SubagentStartHookInput
+	(*SubagentStopHookInput)(nil),                // 145: sdktypes.v1.SubagentStopHookInput
+	(*PreCompactHookInput)(nil),                  // 146: sdktypes.v1.PreCompactHookInput
+	(*PermissionRequestHookInput)(nil),           // 147: sdktypes.v1.PermissionRequestHookInput
+	(*SetupHookInput)(nil),                       // 148: sdktypes.v1.SetupHookInput
+	(*TeammateIdleHookInput)(nil),                // 149: sdktypes.v1.TeammateIdleHookInput
+	(*TaskCompletedHookInput)(nil),               // 150: sdktypes.v1.TaskCompletedHookInput
+	(*ConfigChangeHookInput)(nil),                // 151: sdktypes.v1.ConfigChangeHookInput
+	(*WorktreeCreateHookInput)(nil),              // 152: sdktypes.v1.WorktreeCreateHookInput
+	(*WorktreeRemoveHookInput)(nil),              // 153: sdktypes.v1.WorktreeRemoveHookInput
+	(*HookInput)(nil),                            // 154: sdktypes.v1.HookInput
+	(*HookSpecificOutputPreToolUse)(nil),         // 155: sdktypes.v1.HookSpecificOutputPreToolUse
+	(*HookSpecificOutputUserPromptSubmit)(nil),   // 156: sdktypes.v1.HookSpecificOutputUserPromptSubmit
+	(*HookSpecificOutputSessionStart)(nil),       // 157: sdktypes.v1.HookSpecificOutputSessionStart
+	(*HookSpecificOutputSetup)(nil),              // 158: sdktypes.v1.HookSpecificOutputSetup
+	(*HookSpecificOutputSubagentStart)(nil),      // 159: sdktypes.v1.HookSpecificOutputSubagentStart
+	(*HookSpecificOutputPostToolUse)(nil),        // 160: sdktypes.v1.HookSpecificOutputPostToolUse
+	(*HookSpecificOutputPostToolUseFailure)(nil), // 161: sdktypes.v1.HookSpecificOutputPostToolUseFailure
+	(*HookSpecificOutputNotification)(nil),       // 162: sdktypes.v1.HookSpecificOutputNotification
+	(*PermissionRequestDecisionAllow)(nil),       // 163: sdktypes.v1.PermissionRequestDecisionAllow
+	(*PermissionRequestDecisionDeny)(nil),        // 164: sdktypes.v1.PermissionRequestDecisionDeny
+	(*PermissionRequestDecision)(nil),            // 165: sdktypes.v1.PermissionRequestDecision
+	(*HookSpecificOutputPermissionRequest)(nil),  // 166: sdktypes.v1.HookSpecificOutputPermissionRequest
+	(*HookSpecificOutput)(nil),                   // 167: sdktypes.v1.HookSpecificOutput
+	(*AsyncHookJSONOutput)(nil),                  // 168: sdktypes.v1.AsyncHookJSONOutput
+	(*SyncHookJSONOutput)(nil),                   // 169: sdktypes.v1.SyncHookJSONOutput
+	(*HookJSONOutput)(nil),                       // 170: sdktypes.v1.HookJSONOutput
+	nil,                                          // 171: sdktypes.v1.McpStdioServerConfig.EnvEntry
+	nil,                                          // 172: sdktypes.v1.McpSSEServerConfig.HeadersEntry
+	nil,                                          // 173: sdktypes.v1.McpHttpServerConfig.HeadersEntry
+	nil,                                          // 174: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
+	nil,                                          // 175: sdktypes.v1.Options.AgentsEntry
+	nil,                                          // 176: sdktypes.v1.Options.EnvEntry
+	nil,                                          // 177: sdktypes.v1.Options.ExtraArgsEntry
+	nil,                                          // 178: sdktypes.v1.Options.McpServersEntry
+	nil,                                          // 179: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
+	nil,                                          // 180: sdktypes.v1.SDKResultMessageError.ModelUsageEntry
+	nil,                                          // 181: sdktypes.v1.AskUserQuestionInput.AnswersEntry
+	nil,                                          // 182: sdktypes.v1.AskUserQuestionOutput.AnswersEntry
+	(*structpb.Struct)(nil),                      // 183: google.protobuf.Struct
 }
 var file_sdktypes_v1_types_proto_depIdxs = []int32{
-	2,   // 0: sdktypes.v1.PermissionUpdateAddRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
-	2,   // 1: sdktypes.v1.PermissionUpdateReplaceRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
-	2,   // 2: sdktypes.v1.PermissionUpdateRemoveRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
-	3,   // 3: sdktypes.v1.PermissionUpdate.add_rules:type_name -> sdktypes.v1.PermissionUpdateAddRules
-	4,   // 4: sdktypes.v1.PermissionUpdate.replace_rules:type_name -> sdktypes.v1.PermissionUpdateReplaceRules
-	5,   // 5: sdktypes.v1.PermissionUpdate.remove_rules:type_name -> sdktypes.v1.PermissionUpdateRemoveRules
-	6,   // 6: sdktypes.v1.PermissionUpdate.set_mode:type_name -> sdktypes.v1.PermissionUpdateSetMode
-	7,   // 7: sdktypes.v1.PermissionUpdate.add_directories:type_name -> sdktypes.v1.PermissionUpdateAddDirectories
-	8,   // 8: sdktypes.v1.PermissionUpdate.remove_directories:type_name -> sdktypes.v1.PermissionUpdateRemoveDirectories
-	1,   // 9: sdktypes.v1.PermissionUpdate.unknown:type_name -> sdktypes.v1.UnknownVariant
-	180, // 10: sdktypes.v1.PermissionResultAllow.updated_input:type_name -> google.protobuf.Struct
-	9,   // 11: sdktypes.v1.PermissionResultAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
-	10,  // 12: sdktypes.v1.PermissionResult.allow:type_name -> sdktypes.v1.PermissionResultAllow
-	11,  // 13: sdktypes.v1.PermissionResult.deny:type_name -> sdktypes.v1.PermissionResultDeny
-	1,   // 14: sdktypes.v1.PermissionResult.unknown:type_name -> sdktypes.v1.UnknownVariant
-	168, // 15: sdktypes.v1.McpStdioServerConfig.env:type_name -> sdktypes.v1.McpStdioServerConfig.EnvEntry
-	169, // 16: sdktypes.v1.McpSSEServerConfig.headers:type_name -> sdktypes.v1.McpSSEServerConfig.HeadersEntry
-	170, // 17: sdktypes.v1.McpHttpServerConfig.headers:type_name -> sdktypes.v1.McpHttpServerConfig.HeadersEntry
-	0,   // 18: sdktypes.v1.McpSdkServerConfigWithInstance.instance:type_name -> sdktypes.v1.JsonRawMessage
-	13,  // 19: sdktypes.v1.McpServerConfig.stdio:type_name -> sdktypes.v1.McpStdioServerConfig
-	14,  // 20: sdktypes.v1.McpServerConfig.sse:type_name -> sdktypes.v1.McpSSEServerConfig
-	15,  // 21: sdktypes.v1.McpServerConfig.http:type_name -> sdktypes.v1.McpHttpServerConfig
-	16,  // 22: sdktypes.v1.McpServerConfig.sdk_instance:type_name -> sdktypes.v1.McpSdkServerConfigWithInstance
-	17,  // 23: sdktypes.v1.McpServerConfig.claude_ai_proxy:type_name -> sdktypes.v1.McpClaudeAIProxyServerConfig
-	1,   // 24: sdktypes.v1.McpServerConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
-	20,  // 25: sdktypes.v1.SandboxSettings.network:type_name -> sdktypes.v1.SandboxNetworkConfig
-	21,  // 26: sdktypes.v1.SandboxSettings.filesystem:type_name -> sdktypes.v1.SandboxFilesystemConfig
-	171, // 27: sdktypes.v1.SandboxSettings.ignore_violations:type_name -> sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
-	22,  // 28: sdktypes.v1.SandboxSettings.ripgrep:type_name -> sdktypes.v1.RipgrepConfig
-	0,   // 29: sdktypes.v1.AgentDefinition.mcp_servers:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 30: sdktypes.v1.OutputFormat.schema:type_name -> sdktypes.v1.JsonRawMessage
-	26,  // 31: sdktypes.v1.SystemPrompt.string_value:type_name -> sdktypes.v1.SystemPromptString
-	27,  // 32: sdktypes.v1.SystemPrompt.preset:type_name -> sdktypes.v1.SystemPromptPreset
-	1,   // 33: sdktypes.v1.SystemPrompt.unknown:type_name -> sdktypes.v1.UnknownVariant
-	29,  // 34: sdktypes.v1.ThinkingConfig.adaptive:type_name -> sdktypes.v1.ThinkingConfigAdaptive
-	30,  // 35: sdktypes.v1.ThinkingConfig.enabled:type_name -> sdktypes.v1.ThinkingConfigEnabled
-	31,  // 36: sdktypes.v1.ThinkingConfig.disabled:type_name -> sdktypes.v1.ThinkingConfigDisabled
-	1,   // 37: sdktypes.v1.ThinkingConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
-	33,  // 38: sdktypes.v1.ToolConfig.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionToolConfig
-	35,  // 39: sdktypes.v1.ToolsConfig.list:type_name -> sdktypes.v1.ToolsConfigList
-	36,  // 40: sdktypes.v1.ToolsConfig.preset:type_name -> sdktypes.v1.ToolsConfigPreset
-	1,   // 41: sdktypes.v1.ToolsConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
-	172, // 42: sdktypes.v1.Options.agents:type_name -> sdktypes.v1.Options.AgentsEntry
-	173, // 43: sdktypes.v1.Options.env:type_name -> sdktypes.v1.Options.EnvEntry
-	174, // 44: sdktypes.v1.Options.extra_args:type_name -> sdktypes.v1.Options.ExtraArgsEntry
-	175, // 45: sdktypes.v1.Options.mcp_servers:type_name -> sdktypes.v1.Options.McpServersEntry
-	25,  // 46: sdktypes.v1.Options.output_format:type_name -> sdktypes.v1.OutputFormat
-	19,  // 47: sdktypes.v1.Options.plugins:type_name -> sdktypes.v1.SdkPluginConfig
-	23,  // 48: sdktypes.v1.Options.sandbox:type_name -> sdktypes.v1.SandboxSettings
-	28,  // 49: sdktypes.v1.Options.system_prompt:type_name -> sdktypes.v1.SystemPrompt
-	32,  // 50: sdktypes.v1.Options.thinking:type_name -> sdktypes.v1.ThinkingConfig
-	34,  // 51: sdktypes.v1.Options.tool_config:type_name -> sdktypes.v1.ToolConfig
-	37,  // 52: sdktypes.v1.Options.tools:type_name -> sdktypes.v1.ToolsConfig
-	180, // 53: sdktypes.v1.CallToolResultContent.data:type_name -> google.protobuf.Struct
-	46,  // 54: sdktypes.v1.CallToolResult.content:type_name -> sdktypes.v1.CallToolResultContent
-	180, // 55: sdktypes.v1.SDKPermissionDenial.tool_input:type_name -> google.protobuf.Struct
-	0,   // 56: sdktypes.v1.SDKAssistantMessage.message:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 57: sdktypes.v1.SDKUserMessage.message:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 58: sdktypes.v1.SDKUserMessage.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 59: sdktypes.v1.SDKUserMessageReplay.message:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 60: sdktypes.v1.SDKUserMessageReplay.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
-	45,  // 61: sdktypes.v1.SDKResultMessageSuccess.usage:type_name -> sdktypes.v1.NonNullableUsage
-	176, // 62: sdktypes.v1.SDKResultMessageSuccess.model_usage:type_name -> sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
-	48,  // 63: sdktypes.v1.SDKResultMessageSuccess.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
-	0,   // 64: sdktypes.v1.SDKResultMessageSuccess.structured_output:type_name -> sdktypes.v1.JsonRawMessage
-	45,  // 65: sdktypes.v1.SDKResultMessageError.usage:type_name -> sdktypes.v1.NonNullableUsage
-	177, // 66: sdktypes.v1.SDKResultMessageError.model_usage:type_name -> sdktypes.v1.SDKResultMessageError.ModelUsageEntry
-	48,  // 67: sdktypes.v1.SDKResultMessageError.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
-	56,  // 68: sdktypes.v1.SDKSystemMessage.mcp_servers:type_name -> sdktypes.v1.SDKSystemServer
-	57,  // 69: sdktypes.v1.SDKSystemMessage.plugins:type_name -> sdktypes.v1.SDKSystemPlugin
-	0,   // 70: sdktypes.v1.SDKPartialAssistantMessage.event:type_name -> sdktypes.v1.JsonRawMessage
-	49,  // 71: sdktypes.v1.SDKCompactBoundaryMessage.compact_metadata:type_name -> sdktypes.v1.CompactMetadata
-	50,  // 72: sdktypes.v1.SDKTaskNotificationMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
-	50,  // 73: sdktypes.v1.SDKTaskProgressMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
-	71,  // 74: sdktypes.v1.SDKFilesPersistedEvent.files:type_name -> sdktypes.v1.FilesPersistedFile
-	72,  // 75: sdktypes.v1.SDKFilesPersistedEvent.failed:type_name -> sdktypes.v1.FilesPersistedFailure
-	74,  // 76: sdktypes.v1.SDKRateLimitEvent.rate_limit_info:type_name -> sdktypes.v1.RateLimitInfo
-	51,  // 77: sdktypes.v1.SDKMessage.assistant:type_name -> sdktypes.v1.SDKAssistantMessage
-	52,  // 78: sdktypes.v1.SDKMessage.user:type_name -> sdktypes.v1.SDKUserMessage
-	53,  // 79: sdktypes.v1.SDKMessage.user_replay:type_name -> sdktypes.v1.SDKUserMessageReplay
-	54,  // 80: sdktypes.v1.SDKMessage.result_success:type_name -> sdktypes.v1.SDKResultMessageSuccess
-	55,  // 81: sdktypes.v1.SDKMessage.result_error:type_name -> sdktypes.v1.SDKResultMessageError
-	58,  // 82: sdktypes.v1.SDKMessage.system:type_name -> sdktypes.v1.SDKSystemMessage
-	59,  // 83: sdktypes.v1.SDKMessage.partial_assistant:type_name -> sdktypes.v1.SDKPartialAssistantMessage
-	60,  // 84: sdktypes.v1.SDKMessage.compact_boundary:type_name -> sdktypes.v1.SDKCompactBoundaryMessage
-	61,  // 85: sdktypes.v1.SDKMessage.status:type_name -> sdktypes.v1.SDKStatusMessage
-	62,  // 86: sdktypes.v1.SDKMessage.local_command_output:type_name -> sdktypes.v1.SDKLocalCommandOutputMessage
-	63,  // 87: sdktypes.v1.SDKMessage.hook_started:type_name -> sdktypes.v1.SDKHookStartedMessage
-	64,  // 88: sdktypes.v1.SDKMessage.hook_progress:type_name -> sdktypes.v1.SDKHookProgressMessage
-	65,  // 89: sdktypes.v1.SDKMessage.hook_response:type_name -> sdktypes.v1.SDKHookResponseMessage
-	66,  // 90: sdktypes.v1.SDKMessage.tool_progress:type_name -> sdktypes.v1.SDKToolProgressMessage
-	67,  // 91: sdktypes.v1.SDKMessage.auth_status:type_name -> sdktypes.v1.SDKAuthStatusMessage
-	68,  // 92: sdktypes.v1.SDKMessage.task_notification:type_name -> sdktypes.v1.SDKTaskNotificationMessage
-	69,  // 93: sdktypes.v1.SDKMessage.task_started:type_name -> sdktypes.v1.SDKTaskStartedMessage
-	70,  // 94: sdktypes.v1.SDKMessage.task_progress:type_name -> sdktypes.v1.SDKTaskProgressMessage
-	73,  // 95: sdktypes.v1.SDKMessage.files_persisted:type_name -> sdktypes.v1.SDKFilesPersistedEvent
-	75,  // 96: sdktypes.v1.SDKMessage.tool_use_summary:type_name -> sdktypes.v1.SDKToolUseSummaryMessage
-	76,  // 97: sdktypes.v1.SDKMessage.rate_limit_event:type_name -> sdktypes.v1.SDKRateLimitEvent
-	77,  // 98: sdktypes.v1.SDKMessage.prompt_suggestion:type_name -> sdktypes.v1.SDKPromptSuggestionMessage
-	1,   // 99: sdktypes.v1.SDKMessage.unknown:type_name -> sdktypes.v1.UnknownVariant
-	79,  // 100: sdktypes.v1.Question.options:type_name -> sdktypes.v1.QuestionOption
-	82,  // 101: sdktypes.v1.ToolInput.agent:type_name -> sdktypes.v1.AgentInput
-	83,  // 102: sdktypes.v1.ToolInput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionInput
-	84,  // 103: sdktypes.v1.ToolInput.bash:type_name -> sdktypes.v1.BashInput
-	85,  // 104: sdktypes.v1.ToolInput.bash_output:type_name -> sdktypes.v1.BashOutputInput
-	86,  // 105: sdktypes.v1.ToolInput.file_edit:type_name -> sdktypes.v1.FileEditInput
-	87,  // 106: sdktypes.v1.ToolInput.file_read:type_name -> sdktypes.v1.FileReadInput
-	88,  // 107: sdktypes.v1.ToolInput.file_write:type_name -> sdktypes.v1.FileWriteInput
-	89,  // 108: sdktypes.v1.ToolInput.glob:type_name -> sdktypes.v1.GlobInput
-	90,  // 109: sdktypes.v1.ToolInput.grep:type_name -> sdktypes.v1.GrepInput
-	91,  // 110: sdktypes.v1.ToolInput.kill_shell:type_name -> sdktypes.v1.KillShellInput
-	92,  // 111: sdktypes.v1.ToolInput.notebook_edit:type_name -> sdktypes.v1.NotebookEditInput
-	93,  // 112: sdktypes.v1.ToolInput.web_fetch:type_name -> sdktypes.v1.WebFetchInput
-	94,  // 113: sdktypes.v1.ToolInput.web_search:type_name -> sdktypes.v1.WebSearchInput
-	96,  // 114: sdktypes.v1.ToolInput.todo_write:type_name -> sdktypes.v1.TodoWriteInput
-	97,  // 115: sdktypes.v1.ToolInput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeInput
-	98,  // 116: sdktypes.v1.ToolInput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesInput
-	99,  // 117: sdktypes.v1.ToolInput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceInput
-	180, // 118: sdktypes.v1.ToolInput.mcp_tool:type_name -> google.protobuf.Struct
-	1,   // 119: sdktypes.v1.ToolInput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	80,  // 120: sdktypes.v1.AskUserQuestionInput.questions:type_name -> sdktypes.v1.Question
-	178, // 121: sdktypes.v1.AskUserQuestionInput.answers:type_name -> sdktypes.v1.AskUserQuestionInput.AnswersEntry
-	95,  // 122: sdktypes.v1.TodoWriteInput.todos:type_name -> sdktypes.v1.TodoItem
-	102, // 123: sdktypes.v1.ToolOutput.task:type_name -> sdktypes.v1.TaskOutput
-	103, // 124: sdktypes.v1.ToolOutput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionOutput
-	104, // 125: sdktypes.v1.ToolOutput.bash:type_name -> sdktypes.v1.BashOutput
-	105, // 126: sdktypes.v1.ToolOutput.file_edit:type_name -> sdktypes.v1.FileEditOutput
-	116, // 127: sdktypes.v1.ToolOutput.file_read:type_name -> sdktypes.v1.FileReadOutput
-	117, // 128: sdktypes.v1.ToolOutput.file_write:type_name -> sdktypes.v1.FileWriteOutput
-	118, // 129: sdktypes.v1.ToolOutput.glob:type_name -> sdktypes.v1.GlobOutput
-	119, // 130: sdktypes.v1.ToolOutput.grep:type_name -> sdktypes.v1.GrepOutput
-	120, // 131: sdktypes.v1.ToolOutput.task_stop:type_name -> sdktypes.v1.TaskStopOutput
-	121, // 132: sdktypes.v1.ToolOutput.notebook_edit:type_name -> sdktypes.v1.NotebookEditOutput
-	122, // 133: sdktypes.v1.ToolOutput.web_fetch:type_name -> sdktypes.v1.WebFetchOutput
-	124, // 134: sdktypes.v1.ToolOutput.web_search:type_name -> sdktypes.v1.WebSearchOutput
-	125, // 135: sdktypes.v1.ToolOutput.todo_write:type_name -> sdktypes.v1.TodoWriteOutput
-	126, // 136: sdktypes.v1.ToolOutput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeOutput
-	128, // 137: sdktypes.v1.ToolOutput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesOutput
-	130, // 138: sdktypes.v1.ToolOutput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceOutput
-	131, // 139: sdktypes.v1.ToolOutput.config:type_name -> sdktypes.v1.ConfigOutput
-	132, // 140: sdktypes.v1.ToolOutput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeOutput
-	180, // 141: sdktypes.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
-	1,   // 142: sdktypes.v1.ToolOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	101, // 143: sdktypes.v1.TaskOutput.usage:type_name -> sdktypes.v1.UsageInfo
-	80,  // 144: sdktypes.v1.AskUserQuestionOutput.questions:type_name -> sdktypes.v1.Question
-	179, // 145: sdktypes.v1.AskUserQuestionOutput.answers:type_name -> sdktypes.v1.AskUserQuestionOutput.AnswersEntry
-	0,   // 146: sdktypes.v1.FileReadOutputNotebookFile.cells:type_name -> sdktypes.v1.JsonRawMessage
-	106, // 147: sdktypes.v1.FileReadOutputText.file:type_name -> sdktypes.v1.FileReadOutputTextFile
-	107, // 148: sdktypes.v1.FileReadOutputImage.file:type_name -> sdktypes.v1.FileReadOutputImageFile
-	108, // 149: sdktypes.v1.FileReadOutputNotebook.file:type_name -> sdktypes.v1.FileReadOutputNotebookFile
-	109, // 150: sdktypes.v1.FileReadOutputPdf.file:type_name -> sdktypes.v1.FileReadOutputPdfFile
-	110, // 151: sdktypes.v1.FileReadOutputParts.file:type_name -> sdktypes.v1.FileReadOutputPartsFile
-	111, // 152: sdktypes.v1.FileReadOutput.text:type_name -> sdktypes.v1.FileReadOutputText
-	112, // 153: sdktypes.v1.FileReadOutput.image:type_name -> sdktypes.v1.FileReadOutputImage
-	113, // 154: sdktypes.v1.FileReadOutput.notebook:type_name -> sdktypes.v1.FileReadOutputNotebook
-	114, // 155: sdktypes.v1.FileReadOutput.pdf:type_name -> sdktypes.v1.FileReadOutputPdf
-	115, // 156: sdktypes.v1.FileReadOutput.parts:type_name -> sdktypes.v1.FileReadOutputParts
-	1,   // 157: sdktypes.v1.FileReadOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	123, // 158: sdktypes.v1.WebSearchOutput.results:type_name -> sdktypes.v1.WebSearchOutputResultEntry
-	127, // 159: sdktypes.v1.ListMcpResourcesOutput.resources:type_name -> sdktypes.v1.McpResource
-	129, // 160: sdktypes.v1.ReadMcpResourceOutput.contents:type_name -> sdktypes.v1.ReadMcpResourceOutputContent
-	0,   // 161: sdktypes.v1.ConfigOutput.value:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 162: sdktypes.v1.ConfigOutput.previous_value:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 163: sdktypes.v1.ConfigOutput.new_value:type_name -> sdktypes.v1.JsonRawMessage
-	81,  // 164: sdktypes.v1.PreToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	81,  // 165: sdktypes.v1.PostToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	100, // 166: sdktypes.v1.PostToolUseHookInput.tool_response:type_name -> sdktypes.v1.ToolOutput
-	81,  // 167: sdktypes.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	81,  // 168: sdktypes.v1.PermissionRequestHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	9,   // 169: sdktypes.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdktypes.v1.PermissionUpdate
-	133, // 170: sdktypes.v1.HookInput.pre_tool_use:type_name -> sdktypes.v1.PreToolUseHookInput
-	134, // 171: sdktypes.v1.HookInput.post_tool_use:type_name -> sdktypes.v1.PostToolUseHookInput
-	135, // 172: sdktypes.v1.HookInput.post_tool_use_failure:type_name -> sdktypes.v1.PostToolUseFailureHookInput
-	136, // 173: sdktypes.v1.HookInput.notification:type_name -> sdktypes.v1.NotificationHookInput
-	137, // 174: sdktypes.v1.HookInput.user_prompt_submit:type_name -> sdktypes.v1.UserPromptSubmitHookInput
-	138, // 175: sdktypes.v1.HookInput.session_start:type_name -> sdktypes.v1.SessionStartHookInput
-	139, // 176: sdktypes.v1.HookInput.session_end:type_name -> sdktypes.v1.SessionEndHookInput
-	140, // 177: sdktypes.v1.HookInput.stop:type_name -> sdktypes.v1.StopHookInput
-	141, // 178: sdktypes.v1.HookInput.subagent_start:type_name -> sdktypes.v1.SubagentStartHookInput
-	142, // 179: sdktypes.v1.HookInput.subagent_stop:type_name -> sdktypes.v1.SubagentStopHookInput
-	143, // 180: sdktypes.v1.HookInput.pre_compact:type_name -> sdktypes.v1.PreCompactHookInput
-	144, // 181: sdktypes.v1.HookInput.permission_request:type_name -> sdktypes.v1.PermissionRequestHookInput
-	145, // 182: sdktypes.v1.HookInput.setup:type_name -> sdktypes.v1.SetupHookInput
-	146, // 183: sdktypes.v1.HookInput.teammate_idle:type_name -> sdktypes.v1.TeammateIdleHookInput
-	147, // 184: sdktypes.v1.HookInput.task_completed:type_name -> sdktypes.v1.TaskCompletedHookInput
-	148, // 185: sdktypes.v1.HookInput.config_change:type_name -> sdktypes.v1.ConfigChangeHookInput
-	149, // 186: sdktypes.v1.HookInput.worktree_create:type_name -> sdktypes.v1.WorktreeCreateHookInput
-	150, // 187: sdktypes.v1.HookInput.worktree_remove:type_name -> sdktypes.v1.WorktreeRemoveHookInput
-	1,   // 188: sdktypes.v1.HookInput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	180, // 189: sdktypes.v1.HookSpecificOutputPreToolUse.updated_input:type_name -> google.protobuf.Struct
-	0,   // 190: sdktypes.v1.HookSpecificOutputPostToolUse.updated_mcp_tool_output:type_name -> sdktypes.v1.JsonRawMessage
-	180, // 191: sdktypes.v1.PermissionRequestDecisionAllow.updated_input:type_name -> google.protobuf.Struct
-	9,   // 192: sdktypes.v1.PermissionRequestDecisionAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
-	160, // 193: sdktypes.v1.PermissionRequestDecision.allow:type_name -> sdktypes.v1.PermissionRequestDecisionAllow
-	161, // 194: sdktypes.v1.PermissionRequestDecision.deny:type_name -> sdktypes.v1.PermissionRequestDecisionDeny
-	1,   // 195: sdktypes.v1.PermissionRequestDecision.unknown:type_name -> sdktypes.v1.UnknownVariant
-	162, // 196: sdktypes.v1.HookSpecificOutputPermissionRequest.decision:type_name -> sdktypes.v1.PermissionRequestDecision
-	152, // 197: sdktypes.v1.HookSpecificOutput.pre_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPreToolUse
-	153, // 198: sdktypes.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdktypes.v1.HookSpecificOutputUserPromptSubmit
-	154, // 199: sdktypes.v1.HookSpecificOutput.session_start:type_name -> sdktypes.v1.HookSpecificOutputSessionStart
-	155, // 200: sdktypes.v1.HookSpecificOutput.setup:type_name -> sdktypes.v1.HookSpecificOutputSetup
-	156, // 201: sdktypes.v1.HookSpecificOutput.subagent_start:type_name -> sdktypes.v1.HookSpecificOutputSubagentStart
-	157, // 202: sdktypes.v1.HookSpecificOutput.post_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPostToolUse
-	158, // 203: sdktypes.v1.HookSpecificOutput.post_tool_use_failure:type_name -> sdktypes.v1.HookSpecificOutputPostToolUseFailure
-	159, // 204: sdktypes.v1.HookSpecificOutput.notification:type_name -> sdktypes.v1.HookSpecificOutputNotification
-	163, // 205: sdktypes.v1.HookSpecificOutput.permission_request:type_name -> sdktypes.v1.HookSpecificOutputPermissionRequest
-	1,   // 206: sdktypes.v1.HookSpecificOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	164, // 207: sdktypes.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdktypes.v1.HookSpecificOutput
-	165, // 208: sdktypes.v1.HookJSONOutput.async_output:type_name -> sdktypes.v1.AsyncHookJSONOutput
-	166, // 209: sdktypes.v1.HookJSONOutput.sync_output:type_name -> sdktypes.v1.SyncHookJSONOutput
-	1,   // 210: sdktypes.v1.HookJSONOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	0,   // 211: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	24,  // 212: sdktypes.v1.Options.AgentsEntry.value:type_name -> sdktypes.v1.AgentDefinition
-	0,   // 213: sdktypes.v1.Options.EnvEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	0,   // 214: sdktypes.v1.Options.ExtraArgsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	18,  // 215: sdktypes.v1.Options.McpServersEntry.value:type_name -> sdktypes.v1.McpServerConfig
-	43,  // 216: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
-	43,  // 217: sdktypes.v1.SDKResultMessageError.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
-	218, // [218:218] is the sub-list for method output_type
-	218, // [218:218] is the sub-list for method input_type
-	218, // [218:218] is the sub-list for extension type_name
-	218, // [218:218] is the sub-list for extension extendee
-	0,   // [0:218] is the sub-list for field type_name
+	5,   // 0: sdktypes.v1.PermissionUpdateAddRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
+	5,   // 1: sdktypes.v1.PermissionUpdateReplaceRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
+	5,   // 2: sdktypes.v1.PermissionUpdateRemoveRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
+	6,   // 3: sdktypes.v1.PermissionUpdate.add_rules:type_name -> sdktypes.v1.PermissionUpdateAddRules
+	7,   // 4: sdktypes.v1.PermissionUpdate.replace_rules:type_name -> sdktypes.v1.PermissionUpdateReplaceRules
+	8,   // 5: sdktypes.v1.PermissionUpdate.remove_rules:type_name -> sdktypes.v1.PermissionUpdateRemoveRules
+	9,   // 6: sdktypes.v1.PermissionUpdate.set_mode:type_name -> sdktypes.v1.PermissionUpdateSetMode
+	10,  // 7: sdktypes.v1.PermissionUpdate.add_directories:type_name -> sdktypes.v1.PermissionUpdateAddDirectories
+	11,  // 8: sdktypes.v1.PermissionUpdate.remove_directories:type_name -> sdktypes.v1.PermissionUpdateRemoveDirectories
+	4,   // 9: sdktypes.v1.PermissionUpdate.unknown:type_name -> sdktypes.v1.UnknownVariant
+	1,   // 10: sdktypes.v1.PermissionResultAllow.behavior:type_name -> sdktypes.v1.PermissionResultBehavior
+	183, // 11: sdktypes.v1.PermissionResultAllow.updated_input:type_name -> google.protobuf.Struct
+	12,  // 12: sdktypes.v1.PermissionResultAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
+	1,   // 13: sdktypes.v1.PermissionResultDeny.behavior:type_name -> sdktypes.v1.PermissionResultBehavior
+	13,  // 14: sdktypes.v1.PermissionResult.allow:type_name -> sdktypes.v1.PermissionResultAllow
+	14,  // 15: sdktypes.v1.PermissionResult.deny:type_name -> sdktypes.v1.PermissionResultDeny
+	4,   // 16: sdktypes.v1.PermissionResult.unknown:type_name -> sdktypes.v1.UnknownVariant
+	171, // 17: sdktypes.v1.McpStdioServerConfig.env:type_name -> sdktypes.v1.McpStdioServerConfig.EnvEntry
+	172, // 18: sdktypes.v1.McpSSEServerConfig.headers:type_name -> sdktypes.v1.McpSSEServerConfig.HeadersEntry
+	173, // 19: sdktypes.v1.McpHttpServerConfig.headers:type_name -> sdktypes.v1.McpHttpServerConfig.HeadersEntry
+	3,   // 20: sdktypes.v1.McpSdkServerConfigWithInstance.instance:type_name -> sdktypes.v1.JsonRawMessage
+	16,  // 21: sdktypes.v1.McpServerConfig.stdio:type_name -> sdktypes.v1.McpStdioServerConfig
+	17,  // 22: sdktypes.v1.McpServerConfig.sse:type_name -> sdktypes.v1.McpSSEServerConfig
+	18,  // 23: sdktypes.v1.McpServerConfig.http:type_name -> sdktypes.v1.McpHttpServerConfig
+	19,  // 24: sdktypes.v1.McpServerConfig.sdk_instance:type_name -> sdktypes.v1.McpSdkServerConfigWithInstance
+	20,  // 25: sdktypes.v1.McpServerConfig.claude_ai_proxy:type_name -> sdktypes.v1.McpClaudeAIProxyServerConfig
+	4,   // 26: sdktypes.v1.McpServerConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
+	23,  // 27: sdktypes.v1.SandboxSettings.network:type_name -> sdktypes.v1.SandboxNetworkConfig
+	24,  // 28: sdktypes.v1.SandboxSettings.filesystem:type_name -> sdktypes.v1.SandboxFilesystemConfig
+	174, // 29: sdktypes.v1.SandboxSettings.ignore_violations:type_name -> sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
+	25,  // 30: sdktypes.v1.SandboxSettings.ripgrep:type_name -> sdktypes.v1.RipgrepConfig
+	3,   // 31: sdktypes.v1.AgentDefinition.mcp_servers:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 32: sdktypes.v1.OutputFormat.schema:type_name -> sdktypes.v1.JsonRawMessage
+	29,  // 33: sdktypes.v1.SystemPrompt.string_value:type_name -> sdktypes.v1.SystemPromptString
+	30,  // 34: sdktypes.v1.SystemPrompt.preset:type_name -> sdktypes.v1.SystemPromptPreset
+	4,   // 35: sdktypes.v1.SystemPrompt.unknown:type_name -> sdktypes.v1.UnknownVariant
+	32,  // 36: sdktypes.v1.ThinkingConfig.adaptive:type_name -> sdktypes.v1.ThinkingConfigAdaptive
+	33,  // 37: sdktypes.v1.ThinkingConfig.enabled:type_name -> sdktypes.v1.ThinkingConfigEnabled
+	34,  // 38: sdktypes.v1.ThinkingConfig.disabled:type_name -> sdktypes.v1.ThinkingConfigDisabled
+	4,   // 39: sdktypes.v1.ThinkingConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
+	36,  // 40: sdktypes.v1.ToolConfig.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionToolConfig
+	38,  // 41: sdktypes.v1.ToolsConfig.list:type_name -> sdktypes.v1.ToolsConfigList
+	39,  // 42: sdktypes.v1.ToolsConfig.preset:type_name -> sdktypes.v1.ToolsConfigPreset
+	4,   // 43: sdktypes.v1.ToolsConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
+	175, // 44: sdktypes.v1.Options.agents:type_name -> sdktypes.v1.Options.AgentsEntry
+	176, // 45: sdktypes.v1.Options.env:type_name -> sdktypes.v1.Options.EnvEntry
+	177, // 46: sdktypes.v1.Options.extra_args:type_name -> sdktypes.v1.Options.ExtraArgsEntry
+	178, // 47: sdktypes.v1.Options.mcp_servers:type_name -> sdktypes.v1.Options.McpServersEntry
+	28,  // 48: sdktypes.v1.Options.output_format:type_name -> sdktypes.v1.OutputFormat
+	22,  // 49: sdktypes.v1.Options.plugins:type_name -> sdktypes.v1.SdkPluginConfig
+	26,  // 50: sdktypes.v1.Options.sandbox:type_name -> sdktypes.v1.SandboxSettings
+	31,  // 51: sdktypes.v1.Options.system_prompt:type_name -> sdktypes.v1.SystemPrompt
+	35,  // 52: sdktypes.v1.Options.thinking:type_name -> sdktypes.v1.ThinkingConfig
+	37,  // 53: sdktypes.v1.Options.tool_config:type_name -> sdktypes.v1.ToolConfig
+	40,  // 54: sdktypes.v1.Options.tools:type_name -> sdktypes.v1.ToolsConfig
+	183, // 55: sdktypes.v1.CallToolResultContent.data:type_name -> google.protobuf.Struct
+	49,  // 56: sdktypes.v1.CallToolResult.content:type_name -> sdktypes.v1.CallToolResultContent
+	183, // 57: sdktypes.v1.SDKPermissionDenial.tool_input:type_name -> google.protobuf.Struct
+	3,   // 58: sdktypes.v1.SDKAssistantMessage.message:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 59: sdktypes.v1.SDKUserMessage.message:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 60: sdktypes.v1.SDKUserMessage.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 61: sdktypes.v1.SDKUserMessageReplay.message:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 62: sdktypes.v1.SDKUserMessageReplay.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
+	48,  // 63: sdktypes.v1.SDKResultMessageSuccess.usage:type_name -> sdktypes.v1.NonNullableUsage
+	179, // 64: sdktypes.v1.SDKResultMessageSuccess.model_usage:type_name -> sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
+	51,  // 65: sdktypes.v1.SDKResultMessageSuccess.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
+	3,   // 66: sdktypes.v1.SDKResultMessageSuccess.structured_output:type_name -> sdktypes.v1.JsonRawMessage
+	48,  // 67: sdktypes.v1.SDKResultMessageError.usage:type_name -> sdktypes.v1.NonNullableUsage
+	180, // 68: sdktypes.v1.SDKResultMessageError.model_usage:type_name -> sdktypes.v1.SDKResultMessageError.ModelUsageEntry
+	51,  // 69: sdktypes.v1.SDKResultMessageError.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
+	59,  // 70: sdktypes.v1.SDKSystemMessage.mcp_servers:type_name -> sdktypes.v1.SDKSystemServer
+	60,  // 71: sdktypes.v1.SDKSystemMessage.plugins:type_name -> sdktypes.v1.SDKSystemPlugin
+	3,   // 72: sdktypes.v1.SDKPartialAssistantMessage.event:type_name -> sdktypes.v1.JsonRawMessage
+	52,  // 73: sdktypes.v1.SDKCompactBoundaryMessage.compact_metadata:type_name -> sdktypes.v1.CompactMetadata
+	53,  // 74: sdktypes.v1.SDKTaskNotificationMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
+	53,  // 75: sdktypes.v1.SDKTaskProgressMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
+	74,  // 76: sdktypes.v1.SDKFilesPersistedEvent.files:type_name -> sdktypes.v1.FilesPersistedFile
+	75,  // 77: sdktypes.v1.SDKFilesPersistedEvent.failed:type_name -> sdktypes.v1.FilesPersistedFailure
+	77,  // 78: sdktypes.v1.SDKRateLimitEvent.rate_limit_info:type_name -> sdktypes.v1.RateLimitInfo
+	54,  // 79: sdktypes.v1.SDKMessage.assistant:type_name -> sdktypes.v1.SDKAssistantMessage
+	55,  // 80: sdktypes.v1.SDKMessage.user:type_name -> sdktypes.v1.SDKUserMessage
+	56,  // 81: sdktypes.v1.SDKMessage.user_replay:type_name -> sdktypes.v1.SDKUserMessageReplay
+	57,  // 82: sdktypes.v1.SDKMessage.result_success:type_name -> sdktypes.v1.SDKResultMessageSuccess
+	58,  // 83: sdktypes.v1.SDKMessage.result_error:type_name -> sdktypes.v1.SDKResultMessageError
+	61,  // 84: sdktypes.v1.SDKMessage.system:type_name -> sdktypes.v1.SDKSystemMessage
+	62,  // 85: sdktypes.v1.SDKMessage.partial_assistant:type_name -> sdktypes.v1.SDKPartialAssistantMessage
+	63,  // 86: sdktypes.v1.SDKMessage.compact_boundary:type_name -> sdktypes.v1.SDKCompactBoundaryMessage
+	64,  // 87: sdktypes.v1.SDKMessage.status:type_name -> sdktypes.v1.SDKStatusMessage
+	65,  // 88: sdktypes.v1.SDKMessage.local_command_output:type_name -> sdktypes.v1.SDKLocalCommandOutputMessage
+	66,  // 89: sdktypes.v1.SDKMessage.hook_started:type_name -> sdktypes.v1.SDKHookStartedMessage
+	67,  // 90: sdktypes.v1.SDKMessage.hook_progress:type_name -> sdktypes.v1.SDKHookProgressMessage
+	68,  // 91: sdktypes.v1.SDKMessage.hook_response:type_name -> sdktypes.v1.SDKHookResponseMessage
+	69,  // 92: sdktypes.v1.SDKMessage.tool_progress:type_name -> sdktypes.v1.SDKToolProgressMessage
+	70,  // 93: sdktypes.v1.SDKMessage.auth_status:type_name -> sdktypes.v1.SDKAuthStatusMessage
+	71,  // 94: sdktypes.v1.SDKMessage.task_notification:type_name -> sdktypes.v1.SDKTaskNotificationMessage
+	72,  // 95: sdktypes.v1.SDKMessage.task_started:type_name -> sdktypes.v1.SDKTaskStartedMessage
+	73,  // 96: sdktypes.v1.SDKMessage.task_progress:type_name -> sdktypes.v1.SDKTaskProgressMessage
+	76,  // 97: sdktypes.v1.SDKMessage.files_persisted:type_name -> sdktypes.v1.SDKFilesPersistedEvent
+	78,  // 98: sdktypes.v1.SDKMessage.tool_use_summary:type_name -> sdktypes.v1.SDKToolUseSummaryMessage
+	79,  // 99: sdktypes.v1.SDKMessage.rate_limit_event:type_name -> sdktypes.v1.SDKRateLimitEvent
+	80,  // 100: sdktypes.v1.SDKMessage.prompt_suggestion:type_name -> sdktypes.v1.SDKPromptSuggestionMessage
+	4,   // 101: sdktypes.v1.SDKMessage.unknown:type_name -> sdktypes.v1.UnknownVariant
+	82,  // 102: sdktypes.v1.Question.options:type_name -> sdktypes.v1.QuestionOption
+	85,  // 103: sdktypes.v1.ToolInput.agent:type_name -> sdktypes.v1.AgentInput
+	86,  // 104: sdktypes.v1.ToolInput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionInput
+	87,  // 105: sdktypes.v1.ToolInput.bash:type_name -> sdktypes.v1.BashInput
+	88,  // 106: sdktypes.v1.ToolInput.bash_output:type_name -> sdktypes.v1.BashOutputInput
+	89,  // 107: sdktypes.v1.ToolInput.file_edit:type_name -> sdktypes.v1.FileEditInput
+	90,  // 108: sdktypes.v1.ToolInput.file_read:type_name -> sdktypes.v1.FileReadInput
+	91,  // 109: sdktypes.v1.ToolInput.file_write:type_name -> sdktypes.v1.FileWriteInput
+	92,  // 110: sdktypes.v1.ToolInput.glob:type_name -> sdktypes.v1.GlobInput
+	93,  // 111: sdktypes.v1.ToolInput.grep:type_name -> sdktypes.v1.GrepInput
+	94,  // 112: sdktypes.v1.ToolInput.kill_shell:type_name -> sdktypes.v1.KillShellInput
+	95,  // 113: sdktypes.v1.ToolInput.notebook_edit:type_name -> sdktypes.v1.NotebookEditInput
+	96,  // 114: sdktypes.v1.ToolInput.web_fetch:type_name -> sdktypes.v1.WebFetchInput
+	97,  // 115: sdktypes.v1.ToolInput.web_search:type_name -> sdktypes.v1.WebSearchInput
+	99,  // 116: sdktypes.v1.ToolInput.todo_write:type_name -> sdktypes.v1.TodoWriteInput
+	100, // 117: sdktypes.v1.ToolInput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeInput
+	101, // 118: sdktypes.v1.ToolInput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesInput
+	102, // 119: sdktypes.v1.ToolInput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceInput
+	183, // 120: sdktypes.v1.ToolInput.mcp_tool:type_name -> google.protobuf.Struct
+	4,   // 121: sdktypes.v1.ToolInput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	83,  // 122: sdktypes.v1.AskUserQuestionInput.questions:type_name -> sdktypes.v1.Question
+	181, // 123: sdktypes.v1.AskUserQuestionInput.answers:type_name -> sdktypes.v1.AskUserQuestionInput.AnswersEntry
+	98,  // 124: sdktypes.v1.TodoWriteInput.todos:type_name -> sdktypes.v1.TodoItem
+	105, // 125: sdktypes.v1.ToolOutput.task:type_name -> sdktypes.v1.TaskOutput
+	106, // 126: sdktypes.v1.ToolOutput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionOutput
+	107, // 127: sdktypes.v1.ToolOutput.bash:type_name -> sdktypes.v1.BashOutput
+	108, // 128: sdktypes.v1.ToolOutput.file_edit:type_name -> sdktypes.v1.FileEditOutput
+	119, // 129: sdktypes.v1.ToolOutput.file_read:type_name -> sdktypes.v1.FileReadOutput
+	120, // 130: sdktypes.v1.ToolOutput.file_write:type_name -> sdktypes.v1.FileWriteOutput
+	121, // 131: sdktypes.v1.ToolOutput.glob:type_name -> sdktypes.v1.GlobOutput
+	122, // 132: sdktypes.v1.ToolOutput.grep:type_name -> sdktypes.v1.GrepOutput
+	123, // 133: sdktypes.v1.ToolOutput.task_stop:type_name -> sdktypes.v1.TaskStopOutput
+	124, // 134: sdktypes.v1.ToolOutput.notebook_edit:type_name -> sdktypes.v1.NotebookEditOutput
+	125, // 135: sdktypes.v1.ToolOutput.web_fetch:type_name -> sdktypes.v1.WebFetchOutput
+	127, // 136: sdktypes.v1.ToolOutput.web_search:type_name -> sdktypes.v1.WebSearchOutput
+	128, // 137: sdktypes.v1.ToolOutput.todo_write:type_name -> sdktypes.v1.TodoWriteOutput
+	129, // 138: sdktypes.v1.ToolOutput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeOutput
+	131, // 139: sdktypes.v1.ToolOutput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesOutput
+	133, // 140: sdktypes.v1.ToolOutput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceOutput
+	134, // 141: sdktypes.v1.ToolOutput.config:type_name -> sdktypes.v1.ConfigOutput
+	135, // 142: sdktypes.v1.ToolOutput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeOutput
+	183, // 143: sdktypes.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
+	4,   // 144: sdktypes.v1.ToolOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	104, // 145: sdktypes.v1.TaskOutput.usage:type_name -> sdktypes.v1.UsageInfo
+	83,  // 146: sdktypes.v1.AskUserQuestionOutput.questions:type_name -> sdktypes.v1.Question
+	182, // 147: sdktypes.v1.AskUserQuestionOutput.answers:type_name -> sdktypes.v1.AskUserQuestionOutput.AnswersEntry
+	3,   // 148: sdktypes.v1.FileReadOutputNotebookFile.cells:type_name -> sdktypes.v1.JsonRawMessage
+	109, // 149: sdktypes.v1.FileReadOutputText.file:type_name -> sdktypes.v1.FileReadOutputTextFile
+	110, // 150: sdktypes.v1.FileReadOutputImage.file:type_name -> sdktypes.v1.FileReadOutputImageFile
+	111, // 151: sdktypes.v1.FileReadOutputNotebook.file:type_name -> sdktypes.v1.FileReadOutputNotebookFile
+	112, // 152: sdktypes.v1.FileReadOutputPdf.file:type_name -> sdktypes.v1.FileReadOutputPdfFile
+	113, // 153: sdktypes.v1.FileReadOutputParts.file:type_name -> sdktypes.v1.FileReadOutputPartsFile
+	114, // 154: sdktypes.v1.FileReadOutput.text:type_name -> sdktypes.v1.FileReadOutputText
+	115, // 155: sdktypes.v1.FileReadOutput.image:type_name -> sdktypes.v1.FileReadOutputImage
+	116, // 156: sdktypes.v1.FileReadOutput.notebook:type_name -> sdktypes.v1.FileReadOutputNotebook
+	117, // 157: sdktypes.v1.FileReadOutput.pdf:type_name -> sdktypes.v1.FileReadOutputPdf
+	118, // 158: sdktypes.v1.FileReadOutput.parts:type_name -> sdktypes.v1.FileReadOutputParts
+	4,   // 159: sdktypes.v1.FileReadOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	126, // 160: sdktypes.v1.WebSearchOutput.results:type_name -> sdktypes.v1.WebSearchOutputResultEntry
+	130, // 161: sdktypes.v1.ListMcpResourcesOutput.resources:type_name -> sdktypes.v1.McpResource
+	132, // 162: sdktypes.v1.ReadMcpResourceOutput.contents:type_name -> sdktypes.v1.ReadMcpResourceOutputContent
+	3,   // 163: sdktypes.v1.ConfigOutput.value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 164: sdktypes.v1.ConfigOutput.previous_value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 165: sdktypes.v1.ConfigOutput.new_value:type_name -> sdktypes.v1.JsonRawMessage
+	84,  // 166: sdktypes.v1.PreToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	84,  // 167: sdktypes.v1.PostToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	103, // 168: sdktypes.v1.PostToolUseHookInput.tool_response:type_name -> sdktypes.v1.ToolOutput
+	84,  // 169: sdktypes.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	84,  // 170: sdktypes.v1.PermissionRequestHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	12,  // 171: sdktypes.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdktypes.v1.PermissionUpdate
+	136, // 172: sdktypes.v1.HookInput.pre_tool_use:type_name -> sdktypes.v1.PreToolUseHookInput
+	137, // 173: sdktypes.v1.HookInput.post_tool_use:type_name -> sdktypes.v1.PostToolUseHookInput
+	138, // 174: sdktypes.v1.HookInput.post_tool_use_failure:type_name -> sdktypes.v1.PostToolUseFailureHookInput
+	139, // 175: sdktypes.v1.HookInput.notification:type_name -> sdktypes.v1.NotificationHookInput
+	140, // 176: sdktypes.v1.HookInput.user_prompt_submit:type_name -> sdktypes.v1.UserPromptSubmitHookInput
+	141, // 177: sdktypes.v1.HookInput.session_start:type_name -> sdktypes.v1.SessionStartHookInput
+	142, // 178: sdktypes.v1.HookInput.session_end:type_name -> sdktypes.v1.SessionEndHookInput
+	143, // 179: sdktypes.v1.HookInput.stop:type_name -> sdktypes.v1.StopHookInput
+	144, // 180: sdktypes.v1.HookInput.subagent_start:type_name -> sdktypes.v1.SubagentStartHookInput
+	145, // 181: sdktypes.v1.HookInput.subagent_stop:type_name -> sdktypes.v1.SubagentStopHookInput
+	146, // 182: sdktypes.v1.HookInput.pre_compact:type_name -> sdktypes.v1.PreCompactHookInput
+	147, // 183: sdktypes.v1.HookInput.permission_request:type_name -> sdktypes.v1.PermissionRequestHookInput
+	148, // 184: sdktypes.v1.HookInput.setup:type_name -> sdktypes.v1.SetupHookInput
+	149, // 185: sdktypes.v1.HookInput.teammate_idle:type_name -> sdktypes.v1.TeammateIdleHookInput
+	150, // 186: sdktypes.v1.HookInput.task_completed:type_name -> sdktypes.v1.TaskCompletedHookInput
+	151, // 187: sdktypes.v1.HookInput.config_change:type_name -> sdktypes.v1.ConfigChangeHookInput
+	152, // 188: sdktypes.v1.HookInput.worktree_create:type_name -> sdktypes.v1.WorktreeCreateHookInput
+	153, // 189: sdktypes.v1.HookInput.worktree_remove:type_name -> sdktypes.v1.WorktreeRemoveHookInput
+	4,   // 190: sdktypes.v1.HookInput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	183, // 191: sdktypes.v1.HookSpecificOutputPreToolUse.updated_input:type_name -> google.protobuf.Struct
+	3,   // 192: sdktypes.v1.HookSpecificOutputPostToolUse.updated_mcp_tool_output:type_name -> sdktypes.v1.JsonRawMessage
+	2,   // 193: sdktypes.v1.PermissionRequestDecisionAllow.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
+	183, // 194: sdktypes.v1.PermissionRequestDecisionAllow.updated_input:type_name -> google.protobuf.Struct
+	12,  // 195: sdktypes.v1.PermissionRequestDecisionAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
+	2,   // 196: sdktypes.v1.PermissionRequestDecisionDeny.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
+	163, // 197: sdktypes.v1.PermissionRequestDecision.allow:type_name -> sdktypes.v1.PermissionRequestDecisionAllow
+	164, // 198: sdktypes.v1.PermissionRequestDecision.deny:type_name -> sdktypes.v1.PermissionRequestDecisionDeny
+	4,   // 199: sdktypes.v1.PermissionRequestDecision.unknown:type_name -> sdktypes.v1.UnknownVariant
+	165, // 200: sdktypes.v1.HookSpecificOutputPermissionRequest.decision:type_name -> sdktypes.v1.PermissionRequestDecision
+	155, // 201: sdktypes.v1.HookSpecificOutput.pre_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPreToolUse
+	156, // 202: sdktypes.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdktypes.v1.HookSpecificOutputUserPromptSubmit
+	157, // 203: sdktypes.v1.HookSpecificOutput.session_start:type_name -> sdktypes.v1.HookSpecificOutputSessionStart
+	158, // 204: sdktypes.v1.HookSpecificOutput.setup:type_name -> sdktypes.v1.HookSpecificOutputSetup
+	159, // 205: sdktypes.v1.HookSpecificOutput.subagent_start:type_name -> sdktypes.v1.HookSpecificOutputSubagentStart
+	160, // 206: sdktypes.v1.HookSpecificOutput.post_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPostToolUse
+	161, // 207: sdktypes.v1.HookSpecificOutput.post_tool_use_failure:type_name -> sdktypes.v1.HookSpecificOutputPostToolUseFailure
+	162, // 208: sdktypes.v1.HookSpecificOutput.notification:type_name -> sdktypes.v1.HookSpecificOutputNotification
+	166, // 209: sdktypes.v1.HookSpecificOutput.permission_request:type_name -> sdktypes.v1.HookSpecificOutputPermissionRequest
+	4,   // 210: sdktypes.v1.HookSpecificOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	167, // 211: sdktypes.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdktypes.v1.HookSpecificOutput
+	168, // 212: sdktypes.v1.HookJSONOutput.async_output:type_name -> sdktypes.v1.AsyncHookJSONOutput
+	169, // 213: sdktypes.v1.HookJSONOutput.sync_output:type_name -> sdktypes.v1.SyncHookJSONOutput
+	4,   // 214: sdktypes.v1.HookJSONOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	3,   // 215: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	27,  // 216: sdktypes.v1.Options.AgentsEntry.value:type_name -> sdktypes.v1.AgentDefinition
+	3,   // 217: sdktypes.v1.Options.EnvEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 218: sdktypes.v1.Options.ExtraArgsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	21,  // 219: sdktypes.v1.Options.McpServersEntry.value:type_name -> sdktypes.v1.McpServerConfig
+	46,  // 220: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
+	46,  // 221: sdktypes.v1.SDKResultMessageError.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
+	222, // [222:222] is the sub-list for method output_type
+	222, // [222:222] is the sub-list for method input_type
+	222, // [222:222] is the sub-list for extension type_name
+	222, // [222:222] is the sub-list for extension extendee
+	0,   // [0:222] is the sub-list for field type_name
 }
 
 func init() { file_sdktypes_v1_types_proto_init() }
@@ -16648,13 +16822,14 @@ func file_sdktypes_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdktypes_v1_types_proto_rawDesc), len(file_sdktypes_v1_types_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      3,
 			NumMessages:   180,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sdktypes_v1_types_proto_goTypes,
 		DependencyIndexes: file_sdktypes_v1_types_proto_depIdxs,
+		EnumInfos:         file_sdktypes_v1_types_proto_enumTypes,
 		MessageInfos:      file_sdktypes_v1_types_proto_msgTypes,
 	}.Build()
 	File_sdktypes_v1_types_proto = out.File

@@ -85,7 +85,7 @@ func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) erro
 	}
 
 	// All conditions matched — auto-approve.
-	return handler.Allow(nil, nil)
+	return handler.PermissionAllow(nil, nil)
 }
 
 func pathWithinDir(filePath, dirPath string) (bool, error) {

@@ -59,15 +59,15 @@ func Handle(err error) {
 	hook.Handle()
 }
 
-// Allow creates a HandlerError that outputs a PermissionRequest
-// approval response (hookSpecificOutput with decision.behavior = "allow").
-func Allow(updatedInput map[string]any, updatedPermission []sdktypesv1.PermissionUpdate) *HandlerError {
+// PermissionAllow creates a HandlerError that outputs a PermissionRequest
+// approval response (hookSpecificOutput with decision.behavior = PermissionRequestDecisionBehaviorAllow).
+func PermissionAllow(updatedInput map[string]any, updatedPermission []sdktypesv1.PermissionUpdate) *HandlerError {
 	return &HandlerError{
 		Output: &sdktypesv1.SyncHookJSONOutput{
 			HookSpecificOutput: &sdktypesv1.HookSpecificOutputPermissionRequest{
 				HookEventName: sdktypesv1.HookEventPermissionRequest,
 				Decision: &sdktypesv1.PermissionRequestDecisionAllow{
-					Behavior:           "allow",
+					Behavior:           sdktypesv1.PermissionRequestDecisionBehaviorAllow,
 					UpdatedInput:       updatedInput,
 					UpdatedPermissions: updatedPermission,
 				},
@@ -83,13 +83,13 @@ func opt[T comparable](t T) *T {
 	return &t
 }
 
-func Deny(message string, interrupt bool) *HandlerError {
+func PermissionDeny(message string, interrupt bool) *HandlerError {
 	return &HandlerError{
 		Output: &sdktypesv1.SyncHookJSONOutput{
 			HookSpecificOutput: &sdktypesv1.HookSpecificOutputPermissionRequest{
 				HookEventName: sdktypesv1.HookEventPermissionRequest,
 				Decision: &sdktypesv1.PermissionRequestDecisionDeny{
-					Behavior:  "deny",
+					Behavior:  sdktypesv1.PermissionRequestDecisionBehaviorDeny,
 					Message:   opt(message),
 					Interrupt: opt(interrupt),
 				},

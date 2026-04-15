@@ -96,6 +96,8 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Represent string-literal unions and enum-like fields as named Go string types, for example `type <UnionTypeName> string`.
 - Define string-literal union and enum constants in a `const (...)` block.
 - Form constant names by prefixing the union or type name to the PascalCase form of the literal value. Example: `"string-content"` becomes `<UnionTypeName>StringContent`.
+- For Claude hook- and permission-related discriminators, fields such as `behavior: "allow" | "deny"` must not remain plain `string` fields in handwritten Go. Model them with a named Go string type and constants, and use those constants instead of raw string literals in normal code paths.
+- Do not reuse one named literal type across different SDK fields just because the current literal set overlaps. If two fields can evolve independently in the TypeScript SDK, they must have separate named Go types and separate proto enums.
 
 ## Execution Discipline
 

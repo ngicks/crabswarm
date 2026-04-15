@@ -281,6 +281,70 @@ const (
 	HookPermissionDecisionAsk   HookPermissionDecision = "ask"
 )
 
+// PermissionResultBehavior is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
+type PermissionResultBehavior string
+
+const (
+	PermissionResultBehaviorAllow PermissionResultBehavior = "allow"
+	PermissionResultBehaviorDeny  PermissionResultBehavior = "deny"
+)
+
+func permissionResultBehaviorToProto(v PermissionResultBehavior) pb.PermissionResultBehavior {
+	switch v {
+	case PermissionResultBehaviorAllow:
+		return pb.PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_ALLOW
+	case PermissionResultBehaviorDeny:
+		return pb.PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_DENY
+	default:
+		return pb.PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED
+	}
+}
+
+func permissionResultBehaviorFromProto(v pb.PermissionResultBehavior) PermissionResultBehavior {
+	switch v {
+	case pb.PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_ALLOW:
+		return PermissionResultBehaviorAllow
+	case pb.PermissionResultBehavior_PERMISSION_RESULT_BEHAVIOR_DENY:
+		return PermissionResultBehaviorDeny
+	default:
+		return ""
+	}
+}
+
+// PermissionRequestDecisionBehavior is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+type PermissionRequestDecisionBehavior string
+
+const (
+	PermissionRequestDecisionBehaviorAllow PermissionRequestDecisionBehavior = "allow"
+	PermissionRequestDecisionBehaviorDeny  PermissionRequestDecisionBehavior = "deny"
+)
+
+func permissionRequestDecisionBehaviorToProto(v PermissionRequestDecisionBehavior) pb.PermissionRequestDecisionBehavior {
+	switch v {
+	case PermissionRequestDecisionBehaviorAllow:
+		return pb.PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW
+	case PermissionRequestDecisionBehaviorDeny:
+		return pb.PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_DENY
+	default:
+		return pb.PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED
+	}
+}
+
+func permissionRequestDecisionBehaviorFromProto(v pb.PermissionRequestDecisionBehavior) PermissionRequestDecisionBehavior {
+	switch v {
+	case pb.PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW:
+		return PermissionRequestDecisionBehaviorAllow
+	case pb.PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_DENY:
+		return PermissionRequestDecisionBehaviorDeny
+	default:
+		return ""
+	}
+}
+
 // TodoStatus is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite
@@ -756,20 +820,20 @@ type PermissionResultUnknown struct{ UnknownUnion }
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResultAllow struct {
-	Behavior           string             `json:"behavior"`
-	UpdatedInput       map[string]any     `json:"updatedInput,omitzero"`
-	UpdatedPermissions []PermissionUpdate `json:"updatedPermissions,omitzero"`
-	ToolUseID          *string            `json:"toolUseID,omitzero"`
+	Behavior           PermissionResultBehavior `json:"behavior"`
+	UpdatedInput       map[string]any           `json:"updatedInput,omitzero"`
+	UpdatedPermissions []PermissionUpdate       `json:"updatedPermissions,omitzero"`
+	ToolUseID          *string                  `json:"toolUseID,omitzero"`
 }
 
 // PermissionResultDeny is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 type PermissionResultDeny struct {
-	Behavior  string  `json:"behavior"`
-	Message   string  `json:"message"`
-	Interrupt *bool   `json:"interrupt,omitzero"`
-	ToolUseID *string `json:"toolUseID,omitzero"`
+	Behavior  PermissionResultBehavior `json:"behavior"`
+	Message   string                   `json:"message"`
+	Interrupt *bool                    `json:"interrupt,omitzero"`
+	ToolUseID *string                  `json:"toolUseID,omitzero"`
 }
 
 func (PermissionResultUnknown) permissionResult() {}
@@ -1932,9 +1996,9 @@ func (PermissionRequestDecisionUnknown) permissionRequestDecision() {}
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecisionAllow struct {
-	Behavior           string             `json:"behavior"`
-	UpdatedInput       map[string]any     `json:"updatedInput,omitzero"`
-	UpdatedPermissions []PermissionUpdate `json:"updatedPermissions,omitzero"`
+	Behavior           PermissionRequestDecisionBehavior `json:"behavior"`
+	UpdatedInput       map[string]any                    `json:"updatedInput,omitzero"`
+	UpdatedPermissions []PermissionUpdate                `json:"updatedPermissions,omitzero"`
 }
 
 func (PermissionRequestDecisionAllow) permissionRequestDecision() {}
@@ -1943,9 +2007,9 @@ func (PermissionRequestDecisionAllow) permissionRequestDecision() {}
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type PermissionRequestDecisionDeny struct {
-	Behavior  string  `json:"behavior"`
-	Message   *string `json:"message,omitzero"`
-	Interrupt *bool   `json:"interrupt,omitzero"`
+	Behavior  PermissionRequestDecisionBehavior `json:"behavior"`
+	Message   *string                           `json:"message,omitzero"`
+	Interrupt *bool                             `json:"interrupt,omitzero"`
 }
 
 func (PermissionRequestDecisionDeny) permissionRequestDecision() {}
@@ -3287,16 +3351,16 @@ func (o *PermissionResultUnknown) UnmarshalJSON(data []byte) error {
 
 func (o PermissionResultAllow) MarshalJSON() ([]byte, error) {
 	type alias PermissionResultAllow
-	o.Behavior = "allow"
+	o.Behavior = PermissionResultBehaviorAllow
 	return json.Marshal(alias(o))
 }
 
 func (o *PermissionResultAllow) UnmarshalJSON(data []byte) error {
 	type raw struct {
-		Behavior           string            `json:"behavior"`
-		UpdatedInput       map[string]any    `json:"updatedInput,omitzero"`
-		UpdatedPermissions []json.RawMessage `json:"updatedPermissions,omitzero"`
-		ToolUseID          *string           `json:"toolUseID,omitzero"`
+		Behavior           PermissionResultBehavior `json:"behavior"`
+		UpdatedInput       map[string]any           `json:"updatedInput,omitzero"`
+		UpdatedPermissions []json.RawMessage        `json:"updatedPermissions,omitzero"`
+		ToolUseID          *string                  `json:"toolUseID,omitzero"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -3311,18 +3375,18 @@ func (o *PermissionResultAllow) UnmarshalJSON(data []byte) error {
 		updates = append(updates, update)
 	}
 	*o = PermissionResultAllow{
-		Behavior:           "allow",
+		Behavior:           PermissionResultBehaviorAllow,
 		UpdatedInput:       v.UpdatedInput,
 		UpdatedPermissions: updates,
 		ToolUseID:          v.ToolUseID,
 	}
-	o.Behavior = "allow"
+	o.Behavior = PermissionResultBehaviorAllow
 	return nil
 }
 
 func (o PermissionResultDeny) MarshalJSON() ([]byte, error) {
 	type alias PermissionResultDeny
-	o.Behavior = "deny"
+	o.Behavior = PermissionResultBehaviorDeny
 	return json.Marshal(alias(o))
 }
 
@@ -3333,7 +3397,7 @@ func (o *PermissionResultDeny) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*o = PermissionResultDeny(v)
-	o.Behavior = "deny"
+	o.Behavior = PermissionResultBehaviorDeny
 	return nil
 }
 
@@ -3351,14 +3415,14 @@ func PermissionResultToProto(v PermissionResult) (*pb.PermissionResult, error) {
 			return nil, err
 		}
 		return &pb.PermissionResult{Value: &pb.PermissionResult_Allow{Allow: &pb.PermissionResultAllow{
-			Behavior:           "allow",
+			Behavior:           permissionResultBehaviorToProto(PermissionResultBehaviorAllow),
 			UpdatedInput:       updatedInput,
 			UpdatedPermissions: updatedPermissions,
 			ToolUseId:          x.ToolUseID,
 		}}}, nil
 	case *PermissionResultDeny:
 		return &pb.PermissionResult{Value: &pb.PermissionResult_Deny{Deny: &pb.PermissionResultDeny{
-			Behavior:  "deny",
+			Behavior:  permissionResultBehaviorToProto(PermissionResultBehaviorDeny),
 			Message:   x.Message,
 			Interrupt: x.Interrupt,
 			ToolUseId: x.ToolUseID,
@@ -3384,7 +3448,7 @@ func PermissionResultFromProto(v *pb.PermissionResult) (PermissionResult, error)
 			return nil, err
 		}
 		return &PermissionResultAllow{
-			Behavior:           "allow",
+			Behavior:           permissionResultBehaviorFromProto(allow.GetBehavior()),
 			UpdatedInput:       protoStructToMap(allow.GetUpdatedInput()),
 			UpdatedPermissions: updates,
 			ToolUseID:          protoOpt(allow, "tool_use_id", allow.GetToolUseId()),
@@ -3392,7 +3456,7 @@ func PermissionResultFromProto(v *pb.PermissionResult) (PermissionResult, error)
 	case *pb.PermissionResult_Deny:
 		deny := v.GetDeny()
 		return &PermissionResultDeny{
-			Behavior:  "deny",
+			Behavior:  permissionResultBehaviorFromProto(deny.GetBehavior()),
 			Message:   deny.GetMessage(),
 			Interrupt: protoOpt(deny, "interrupt", deny.GetInterrupt()),
 			ToolUseID: protoOpt(deny, "tool_use_id", deny.GetToolUseId()),
@@ -3412,15 +3476,15 @@ func (o *PermissionRequestDecisionUnknown) UnmarshalJSON(data []byte) error {
 
 func (o PermissionRequestDecisionAllow) MarshalJSON() ([]byte, error) {
 	type alias PermissionRequestDecisionAllow
-	o.Behavior = "allow"
+	o.Behavior = PermissionRequestDecisionBehaviorAllow
 	return json.Marshal(alias(o))
 }
 
 func (o *PermissionRequestDecisionAllow) UnmarshalJSON(data []byte) error {
 	type raw struct {
-		Behavior           string            `json:"behavior"`
-		UpdatedInput       map[string]any    `json:"updatedInput,omitzero"`
-		UpdatedPermissions []json.RawMessage `json:"updatedPermissions,omitzero"`
+		Behavior           PermissionRequestDecisionBehavior `json:"behavior"`
+		UpdatedInput       map[string]any                    `json:"updatedInput,omitzero"`
+		UpdatedPermissions []json.RawMessage                 `json:"updatedPermissions,omitzero"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -3435,17 +3499,17 @@ func (o *PermissionRequestDecisionAllow) UnmarshalJSON(data []byte) error {
 		updates = append(updates, update)
 	}
 	*o = PermissionRequestDecisionAllow{
-		Behavior:           "allow",
+		Behavior:           PermissionRequestDecisionBehaviorAllow,
 		UpdatedInput:       v.UpdatedInput,
 		UpdatedPermissions: updates,
 	}
-	o.Behavior = "allow"
+	o.Behavior = PermissionRequestDecisionBehaviorAllow
 	return nil
 }
 
 func (o PermissionRequestDecisionDeny) MarshalJSON() ([]byte, error) {
 	type alias PermissionRequestDecisionDeny
-	o.Behavior = "deny"
+	o.Behavior = PermissionRequestDecisionBehaviorDeny
 	return json.Marshal(alias(o))
 }
 
@@ -3456,23 +3520,23 @@ func (o *PermissionRequestDecisionDeny) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*o = PermissionRequestDecisionDeny(v)
-	o.Behavior = "deny"
+	o.Behavior = PermissionRequestDecisionBehaviorDeny
 	return nil
 }
 
 // UnmarshalPermissionRequestDecision unmarshals a PermissionRequestDecision union value from JSON.
 func UnmarshalPermissionRequestDecision(data []byte) (PermissionRequestDecision, error) {
 	var disc struct {
-		Behavior string `json:"behavior"`
+		Behavior PermissionRequestDecisionBehavior `json:"behavior"`
 	}
 	if err := json.Unmarshal(data, &disc); err != nil {
 		return nil, err
 	}
 	switch disc.Behavior {
-	case "allow":
+	case PermissionRequestDecisionBehaviorAllow:
 		var v PermissionRequestDecisionAllow
 		return &v, v.UnmarshalJSON(data)
-	case "deny":
+	case PermissionRequestDecisionBehaviorDeny:
 		var v PermissionRequestDecisionDeny
 		return &v, v.UnmarshalJSON(data)
 	default:
@@ -3495,13 +3559,13 @@ func PermissionRequestDecisionToProto(v PermissionRequestDecision) (*pb.Permissi
 			return nil, err
 		}
 		return &pb.PermissionRequestDecision{Value: &pb.PermissionRequestDecision_Allow{Allow: &pb.PermissionRequestDecisionAllow{
-			Behavior:           "allow",
+			Behavior:           permissionRequestDecisionBehaviorToProto(PermissionRequestDecisionBehaviorAllow),
 			UpdatedInput:       updatedInput,
 			UpdatedPermissions: updatedPermissions,
 		}}}, nil
 	case *PermissionRequestDecisionDeny:
 		return &pb.PermissionRequestDecision{Value: &pb.PermissionRequestDecision_Deny{Deny: &pb.PermissionRequestDecisionDeny{
-			Behavior:  "deny",
+			Behavior:  permissionRequestDecisionBehaviorToProto(PermissionRequestDecisionBehaviorDeny),
 			Message:   x.Message,
 			Interrupt: x.Interrupt,
 		}}}, nil
@@ -3526,14 +3590,14 @@ func PermissionRequestDecisionFromProto(v *pb.PermissionRequestDecision) (Permis
 			return nil, err
 		}
 		return &PermissionRequestDecisionAllow{
-			Behavior:           "allow",
+			Behavior:           permissionRequestDecisionBehaviorFromProto(allow.GetBehavior()),
 			UpdatedInput:       protoStructToMap(allow.GetUpdatedInput()),
 			UpdatedPermissions: updates,
 		}, nil
 	case *pb.PermissionRequestDecision_Deny:
 		deny := v.GetDeny()
 		return &PermissionRequestDecisionDeny{
-			Behavior:  "deny",
+			Behavior:  permissionRequestDecisionBehaviorFromProto(deny.GetBehavior()),
 			Message:   protoOpt(deny, "message", deny.GetMessage()),
 			Interrupt: protoOpt(deny, "interrupt", deny.GetInterrupt()),
 		}, nil

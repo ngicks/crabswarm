@@ -33,7 +33,7 @@ func TestHandlerError_Error_BlockNoReason(t *testing.T) {
 }
 
 func TestNewPermissionRequestAllowError(t *testing.T) {
-	he := Allow(nil, nil)
+	he := PermissionAllow(nil, nil)
 
 	assert.Assert(t, he.Output != nil)
 	assert.Assert(t, he.Output.HookSpecificOutput != nil)
@@ -43,11 +43,11 @@ func TestNewPermissionRequestAllowError(t *testing.T) {
 	assert.Assert(t, hso.Decision != nil)
 	dec, ok := hso.Decision.(*sdktypesv1.PermissionRequestDecisionAllow)
 	assert.Assert(t, ok, "expected PermissionRequestDecisionAllow, got %T", hso.Decision)
-	assert.Equal(t, string(dec.Behavior), "allow")
+	assert.Equal(t, dec.Behavior, sdktypesv1.PermissionRequestDecisionBehaviorAllow)
 }
 
 func TestNewPermissionRequestAllowError_JSON(t *testing.T) {
-	he := Allow(nil, nil)
+	he := PermissionAllow(nil, nil)
 
 	data, err := json.Marshal(he.Output)
 	assert.NilError(t, err)
@@ -63,5 +63,5 @@ func TestNewPermissionRequestAllowError_JSON(t *testing.T) {
 
 	decision, ok := hso["decision"].(map[string]any)
 	assert.Assert(t, ok, "expected decision in hookSpecificOutput")
-	assert.Equal(t, decision["behavior"], "allow")
+	assert.Equal(t, decision["behavior"], string(sdktypesv1.PermissionRequestDecisionBehaviorAllow))
 }

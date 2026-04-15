@@ -21,6 +21,28 @@ message UnknownVariant {
   bytes raw_json = 2 [json_name = "raw_json"];
 }
 
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+enum HookPermissionDecision {
+  HOOK_PERMISSION_DECISION_UNSPECIFIED = 0;
+  HOOK_PERMISSION_DECISION_ALLOW = 1;
+  HOOK_PERMISSION_DECISION_DENY = 2;
+  HOOK_PERMISSION_DECISION_ASK = 3;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
+enum PermissionResultBehavior {
+  PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED = 0;
+  PERMISSION_RESULT_BEHAVIOR_ALLOW = 1;
+  PERMISSION_RESULT_BEHAVIOR_DENY = 2;
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+enum PermissionRequestDecisionBehavior {
+  PERMISSION_REQUEST_DECISION_BEHAVIOR_UNSPECIFIED = 0;
+  PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW = 1;
+  PERMISSION_REQUEST_DECISION_BEHAVIOR_DENY = 2;
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
 message PermissionRuleValue {
   string tool_name = 1 [json_name = "toolName"];
@@ -87,7 +109,7 @@ message PermissionUpdate {
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 message PermissionResultAllow {
-  string behavior = 1;
+  PermissionResultBehavior behavior = 1;
   google.protobuf.Struct updated_input = 2 [json_name = "updatedInput"];
   repeated PermissionUpdate updated_permissions = 3 [json_name = "updatedPermissions"];
   optional string tool_use_id = 4 [json_name = "toolUseID"];
@@ -95,7 +117,7 @@ message PermissionResultAllow {
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
 message PermissionResultDeny {
-  string behavior = 1;
+  PermissionResultBehavior behavior = 1;
   string message = 2;
   optional bool interrupt = 3;
   optional string tool_use_id = 4 [json_name = "toolUseID"];
@@ -1510,14 +1532,14 @@ message HookSpecificOutputNotification {
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 message PermissionRequestDecisionAllow {
-  string behavior = 1;
+  PermissionRequestDecisionBehavior behavior = 1;
   google.protobuf.Struct updated_input = 2 [json_name = "updatedInput"];
   repeated PermissionUpdate updated_permissions = 3 [json_name = "updatedPermissions"];
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 message PermissionRequestDecisionDeny {
-  string behavior = 1;
+  PermissionRequestDecisionBehavior behavior = 1;
   optional string message = 2;
   optional bool interrupt = 3;
 }

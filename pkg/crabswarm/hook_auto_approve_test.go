@@ -61,7 +61,7 @@ func isApproval(t *testing.T, err error) {
 	if !ok {
 		t.Fatalf("expected PermissionRequestDecisionAllow, got %T", hso.Decision)
 	}
-	assert.Equal(t, string(dec.Behavior), "allow")
+	assert.Equal(t, dec.Behavior, sdktypesv1.PermissionRequestDecisionBehaviorAllow)
 }
 
 func TestHookAutoApprove_MatchingToolAndDir(t *testing.T) {
