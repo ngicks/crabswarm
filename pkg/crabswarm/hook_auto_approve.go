@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"regexp"
+	"strings"
 
+	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
-	"github.com/ngicks/crabswarm/pkg/claudesdk/models"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/planreview"
 )
 
 // AutoApproveConfig holds configuration for the auto-approve hook.
@@ -41,7 +42,7 @@ func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) erro
 		return fmt.Errorf("reading stdin: %w", err)
 	}
 
-	var input models.PermissionRequestHookInput
+	var input sdktypesv1.PermissionRequestHookInput
 	if err := json.Unmarshal(raw, &input); err != nil {
 		return fmt.Errorf("parsing PermissionRequestHookInput: %w", err)
 	}
@@ -70,7 +71,7 @@ func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) erro
 
 	underAny := false
 	for _, dir := range cfg.UnderDirs {
-		under, err := planreview.PathWithinDir(filePath, dir)
+		under, err := pathWithinDir(filePath, dir)
 		if err != nil {
 			return &handler.HandlerError{}
 		}
@@ -84,20 +85,69 @@ func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) erro
 	}
 
 	// All conditions matched — auto-approve.
-	return handler.NewPermissionRequestAllowError()
+	return handler.Allow(nil, nil)
+}
+
+func pathWithinDir(filePath, dirPath string) (bool, error) {
+	absFile, err := filepath.Abs(filePath)
+	if err != nil {
+		return false, fmt.Errorf("abs file path: %w", err)
+	}
+	absDir, err := filepath.Abs(dirPath)
+	if err != nil {
+		return false, fmt.Errorf("abs dir path: %w", err)
+	}
+
+	realDir, err := filepath.EvalSymlinks(absDir)
+	if err != nil {
+		return false, fmt.Errorf("eval symlinks on dir: %w", err)
+	}
+	realFile, err := resolvePartial(absFile)
+	if err != nil {
+		return false, fmt.Errorf("resolving file path: %w", err)
+	}
+
+	if realFile == realDir {
+		return true, nil
+	}
+	return strings.HasPrefix(realFile, realDir+string(filepath.Separator)), nil
+}
+
+func resolvePartial(path string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err == nil {
+		return resolved, nil
+	}
+
+	remaining := ""
+	current := path
+	for {
+		parent := filepath.Dir(current)
+		if parent == current {
+			return path, nil
+		}
+		base := filepath.Base(current)
+		if remaining == "" {
+			remaining = base
+		} else {
+			remaining = base + string(filepath.Separator) + remaining
+		}
+		current = parent
+
+		resolved, err = filepath.EvalSymlinks(current)
+		if err == nil {
+			return filepath.Join(resolved, remaining), nil
+		}
+	}
 }
 
 // extractFilePath extracts the file_path field from raw tool_input JSON.
-func extractFilePath(toolInput any) string {
-	if toolInput == nil {
-		return ""
-	}
-	raw, err := json.Marshal(toolInput)
-	if err != nil {
+func extractFilePath(toolInput json.RawMessage) string {
+	if len(toolInput) == 0 {
 		return ""
 	}
 	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := json.Unmarshal(toolInput, &m); err != nil {
 		return ""
 	}
 	raw, ok := m["file_path"]

@@ -3,10 +3,11 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdk_types/v1"
+	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
 )
 
 // HandlerError is returned by hook subcommands to signal the hook result.
@@ -50,14 +51,48 @@ func (e *HandlerError) Handle() {
 	os.Exit(0)
 }
 
-// NewPermissionRequestAllowError creates a HandlerError that outputs a PermissionRequest
+func Handle(err error) {
+	hook, ok := errors.AsType[*HandlerError](err)
+	if !ok {
+		return
+	}
+	hook.Handle()
+}
+
+// Allow creates a HandlerError that outputs a PermissionRequest
 // approval response (hookSpecificOutput with decision.behavior = "allow").
-func NewPermissionRequestAllowError() *HandlerError {
+func Allow(updatedInput map[string]any, updatedPermission []sdktypesv1.PermissionUpdate) *HandlerError {
 	return &HandlerError{
 		Output: &sdktypesv1.SyncHookJSONOutput{
-			HookSpecificOutput: sdktypesv1.HookSpecificOutputPermissionRequest{
+			HookSpecificOutput: &sdktypesv1.HookSpecificOutputPermissionRequest{
 				HookEventName: sdktypesv1.HookEventPermissionRequest,
-				Decision:      sdktypesv1.PermissionRequestDecisionAllow{},
+				Decision: &sdktypesv1.PermissionRequestDecisionAllow{
+					Behavior:           "allow",
+					UpdatedInput:       updatedInput,
+					UpdatedPermissions: updatedPermission,
+				},
+			},
+		},
+	}
+}
+
+func opt[T comparable](t T) *T {
+	if t == *new(T) {
+		return nil
+	}
+	return &t
+}
+
+func Deny(message string, interrupt bool) *HandlerError {
+	return &HandlerError{
+		Output: &sdktypesv1.SyncHookJSONOutput{
+			HookSpecificOutput: &sdktypesv1.HookSpecificOutputPermissionRequest{
+				HookEventName: sdktypesv1.HookEventPermissionRequest,
+				Decision: &sdktypesv1.PermissionRequestDecisionDeny{
+					Behavior:  "deny",
+					Message:   opt(message),
+					Interrupt: opt(interrupt),
+				},
 			},
 		},
 	}

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
-	"github.com/ngicks/crabswarm/pkg/claudesdk/models"
 	"gotest.tools/v3/assert"
 )
 
@@ -50,14 +50,14 @@ func isApproval(t *testing.T, err error) {
 	if he.Output.HookSpecificOutput == nil {
 		t.Fatal("expected hookSpecificOutput, got nil")
 	}
-	hso, ok := he.Output.HookSpecificOutput.(models.HookSpecificOutputPermissionRequest)
+	hso, ok := he.Output.HookSpecificOutput.(*sdktypesv1.HookSpecificOutputPermissionRequest)
 	if !ok {
 		t.Fatalf("expected HookSpecificOutputPermissionRequest, got %T", he.Output.HookSpecificOutput)
 	}
 	if hso.Decision == nil {
 		t.Fatal("expected decision, got nil")
 	}
-	dec, ok := hso.Decision.(models.PermissionRequestDecisionAllow)
+	dec, ok := hso.Decision.(*sdktypesv1.PermissionRequestDecisionAllow)
 	if !ok {
 		t.Fatalf("expected PermissionRequestDecisionAllow, got %T", hso.Decision)
 	}
@@ -254,14 +254,14 @@ func TestHookAutoApprove_MultipleUnderDirs(t *testing.T) {
 func TestExtractFilePath(t *testing.T) {
 	tests := []struct {
 		name  string
-		input any
+		input json.RawMessage
 		want  string
 	}{
-		{"with file_path", map[string]any{"file_path": "/foo/bar.md", "content": "x"}, "/foo/bar.md"},
-		{"without file_path", map[string]any{"command": "ls"}, ""},
-		{"empty input", map[string]any{}, ""},
+		{"with file_path", json.RawMessage(`{"file_path":"/foo/bar.md","content":"x"}`), "/foo/bar.md"},
+		{"without file_path", json.RawMessage(`{"command":"ls"}`), ""},
+		{"empty input", json.RawMessage(`{}`), ""},
 		{"null input", nil, ""},
-		{"invalid json", make(chan int), ""},
+		{"invalid json", json.RawMessage(`{invalid`), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

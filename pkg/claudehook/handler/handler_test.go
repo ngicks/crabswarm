@@ -4,13 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ngicks/crabswarm/pkg/claudesdk/models"
+	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
 	"gotest.tools/v3/assert"
 )
-
-func ptr[V any](v V) *V {
-	return &v
-}
 
 func TestHandlerError_Error_Allow(t *testing.T) {
 	he := &HandlerError{}
@@ -19,9 +15,9 @@ func TestHandlerError_Error_Allow(t *testing.T) {
 
 func TestHandlerError_Error_Block(t *testing.T) {
 	he := &HandlerError{
-		Output: &models.SyncHookJSONOutput{
-			Decision: ptr(models.SyncHookJSONOutputDecision(HookDecisionBlock)),
-			Reason:   ptr("not allowed"),
+		Output: &sdktypesv1.SyncHookJSONOutput{
+			Decision: new(sdktypesv1.HookDecisionBlock),
+			Reason:   new("not allowed"),
 		},
 	}
 	assert.Equal(t, he.Error(), "hook: block: not allowed")
@@ -29,29 +25,29 @@ func TestHandlerError_Error_Block(t *testing.T) {
 
 func TestHandlerError_Error_BlockNoReason(t *testing.T) {
 	he := &HandlerError{
-		Output: &models.SyncHookJSONOutput{
-			Decision: ptr(models.SyncHookJSONOutputDecision(HookDecisionBlock)),
+		Output: &sdktypesv1.SyncHookJSONOutput{
+			Decision: new(sdktypesv1.HookDecisionBlock),
 		},
 	}
 	assert.Equal(t, he.Error(), "hook: block: ")
 }
 
 func TestNewPermissionRequestAllowError(t *testing.T) {
-	he := NewPermissionRequestAllowError()
+	he := Allow(nil, nil)
 
 	assert.Assert(t, he.Output != nil)
 	assert.Assert(t, he.Output.HookSpecificOutput != nil)
-	hso, ok := he.Output.HookSpecificOutput.(models.HookSpecificOutputPermissionRequest)
+	hso, ok := he.Output.HookSpecificOutput.(*sdktypesv1.HookSpecificOutputPermissionRequest)
 	assert.Assert(t, ok, "expected HookSpecificOutputPermissionRequest, got %T", he.Output.HookSpecificOutput)
 	assert.Equal(t, string(hso.HookEventName), "PermissionRequest")
 	assert.Assert(t, hso.Decision != nil)
-	dec, ok := hso.Decision.(models.PermissionRequestDecisionAllow)
+	dec, ok := hso.Decision.(*sdktypesv1.PermissionRequestDecisionAllow)
 	assert.Assert(t, ok, "expected PermissionRequestDecisionAllow, got %T", hso.Decision)
 	assert.Equal(t, string(dec.Behavior), "allow")
 }
 
 func TestNewPermissionRequestAllowError_JSON(t *testing.T) {
-	he := NewPermissionRequestAllowError()
+	he := Allow(nil, nil)
 
 	data, err := json.Marshal(he.Output)
 	assert.NilError(t, err)

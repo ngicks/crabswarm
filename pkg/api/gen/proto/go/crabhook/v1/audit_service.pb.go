@@ -7,7 +7,7 @@
 package crabhookv1
 
 import (
-	v1 "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
+	_ "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -26,7 +26,7 @@ const (
 type ReportHookInputEventRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	HookInput     *v1.HookInput          `protobuf:"bytes,2,opt,name=hook_input,json=hookInput,proto3" json:"hook_input,omitempty"`
+	HookInput     []byte                 `protobuf:"bytes,2,opt,name=hook_input,json=hookInput,proto3" json:"hook_input,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -68,7 +68,7 @@ func (x *ReportHookInputEventRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *ReportHookInputEventRequest) GetHookInput() *v1.HookInput {
+func (x *ReportHookInputEventRequest) GetHookInput() []byte {
 	if x != nil {
 		return x.HookInput
 	}
@@ -115,11 +115,11 @@ var File_crabhook_v1_audit_service_proto protoreflect.FileDescriptor
 
 const file_crabhook_v1_audit_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1fcrabhook/v1/audit_service.proto\x12\vcrabhook.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17sdktypes/v1/types.proto\"\x8e\x01\n" +
+	"\x1fcrabhook/v1/audit_service.proto\x12\vcrabhook.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17sdktypes/v1/types.proto\"v\n" +
 	"\x1bReportHookInputEventRequest\x128\n" +
-	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x125\n" +
+	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1d\n" +
 	"\n" +
-	"hook_input\x18\x02 \x01(\v2\x16.sdktypes.v1.HookInputR\thookInput\"\x1e\n" +
+	"hook_input\x18\x02 \x01(\fR\thookInput\"\x1e\n" +
 	"\x1cReportHookInputEventResponse2{\n" +
 	"\fAuditService\x12k\n" +
 	"\x14ReportHookInputEvent\x12(.crabhook.v1.ReportHookInputEventRequest\x1a).crabhook.v1.ReportHookInputEventResponseB\xba\x01\n" +
@@ -142,18 +142,16 @@ var file_crabhook_v1_audit_service_proto_goTypes = []any{
 	(*ReportHookInputEventRequest)(nil),  // 0: crabhook.v1.ReportHookInputEventRequest
 	(*ReportHookInputEventResponse)(nil), // 1: crabhook.v1.ReportHookInputEventResponse
 	(*timestamppb.Timestamp)(nil),        // 2: google.protobuf.Timestamp
-	(*v1.HookInput)(nil),                 // 3: sdktypes.v1.HookInput
 }
 var file_crabhook_v1_audit_service_proto_depIdxs = []int32{
 	2, // 0: crabhook.v1.ReportHookInputEventRequest.timestamp:type_name -> google.protobuf.Timestamp
-	3, // 1: crabhook.v1.ReportHookInputEventRequest.hook_input:type_name -> sdktypes.v1.HookInput
-	0, // 2: crabhook.v1.AuditService.ReportHookInputEvent:input_type -> crabhook.v1.ReportHookInputEventRequest
-	1, // 3: crabhook.v1.AuditService.ReportHookInputEvent:output_type -> crabhook.v1.ReportHookInputEventResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0, // 1: crabhook.v1.AuditService.ReportHookInputEvent:input_type -> crabhook.v1.ReportHookInputEventRequest
+	1, // 2: crabhook.v1.AuditService.ReportHookInputEvent:output_type -> crabhook.v1.ReportHookInputEventResponse
+	2, // [2:3] is the sub-list for method output_type
+	1, // [1:2] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_crabhook_v1_audit_service_proto_init() }

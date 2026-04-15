@@ -4,7 +4,7 @@ package sdktypes.v1;
 
 import "google/protobuf/struct.proto";
 
-option go_package = "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1;sdktypesv1";
+option go_package = "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1;sdktypesv1";
 
 // Claude Agent SDK types consolidated into a single proto source.
 // Source of truth:

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
+	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 )
 
 func mustProto[T any](t *testing.T, v T, err error) T {

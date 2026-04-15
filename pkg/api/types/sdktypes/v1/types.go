@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
+	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/structpb"

@@ -7,27 +7,28 @@ import (
 	"strings"
 	"testing"
 
-	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/claude_hook/v1"
-	sdktypes "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdk_types/v1"
+	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabhook/v1"
+	sdktypes "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"gotest.tools/v3/assert"
 )
 
 type mockAuditClient struct {
-	req  *pb.AuditRequest
+	req  *pb.ReportHookInputEventRequest
 	opts []grpc.CallOption
 	err  error
 }
 
-func (m *mockAuditClient) SendAuditEvent(ctx context.Context, in *pb.AuditRequest, opts ...grpc.CallOption) (*pb.AuditResponse, error) {
+func (m *mockAuditClient) ReportHookInputEvent(ctx context.Context, in *pb.ReportHookInputEventRequest, opts ...grpc.CallOption) (*pb.ReportHookInputEventResponse, error) {
 	m.req = in
 	m.opts = opts
 	if m.err != nil {
 		return nil, m.err
 	}
-	return &pb.AuditResponse{}, nil
+	return &pb.ReportHookInputEventResponse{}, nil
 }
 
 const validInput = `{
@@ -43,25 +44,28 @@ const validInput = `{
   "tool_use_id": "tooluse_12345"
 }`
 
-func ptr[V any](v V) *V {
-	return &v
-}
+var defaultPermissionMode = new("default")
 
-var expected = &sdktypes.PreToolUseHookInput{
-	SessionId:      "12345",
-	TranscriptPath: "/root/.config/claude/projects/-yay/12345.jsonl",
-	Cwd:            "/yay",
-	PermissionMode: ptr("default"),
-	HookEventName:  "PreToolUse",
-	ToolName:       "Read",
-	ToolInput: &sdktypes.ToolInput{
-		Input: &sdktypes.ToolInput_FileRead{
-			FileRead: &sdktypes.FileReadInput{
-				FilePath: "/yay/buf.gen.yaml",
+var expected = &sdktypes.HookInput{
+	Value: &sdktypes.HookInput_PreToolUse{
+		PreToolUse: &sdktypes.PreToolUseHookInput{
+			SessionId:      "12345",
+			TranscriptPath: "/root/.config/claude/projects/-yay/12345.jsonl",
+			Cwd:            "/yay",
+			PermissionMode: defaultPermissionMode,
+			HookEventName:  "PreToolUse",
+			ToolName:       "Read",
+			ToolInput: &sdktypes.ToolInput{
+				Input: &sdktypes.ToolInput_Unknown{
+					Unknown: &sdktypes.UnknownVariant{
+						Discriminator: "Read",
+						RawJson:       []byte("{\n    \"file_path\": \"/yay/buf.gen.yaml\"\n  }"),
+					},
+				},
 			},
+			ToolUseId: "tooluse_12345",
 		},
 	},
-	ToolUseId: "tooluse_12345",
 }
 
 func TestHookAudit_ValidInput(t *testing.T) {
@@ -73,10 +77,12 @@ func TestHookAudit_ValidInput(t *testing.T) {
 	}
 
 	if mock.req == nil {
-		t.Fatal("SendAuditEvent was not called")
+		t.Fatal("ReportHookInputEvent was not called")
 	}
 
-	assert.DeepEqual(t, mock.req.Input, expected, protocmp.Transform())
+	var got sdktypes.HookInput
+	assert.NilError(t, proto.Unmarshal(mock.req.HookInput, &got))
+	assert.DeepEqual(t, &got, expected, protocmp.Transform())
 
 	if mock.req.Timestamp == nil {
 		t.Error("timestamp is nil")

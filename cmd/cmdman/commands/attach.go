@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -53,7 +54,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	sigProxy, _ := cmd.Flags().GetBool("sig-proxy")
 	detachKeysStr, _ := cmd.Flags().GetString("detach-keys")
 
-	detachKeys, err := term.ToBytes(detachKeysStr)
+	detachKeys, err := parseDetachKeys(detachKeysStr)
 	if err != nil {
 		return fmt.Errorf("invalid detach-keys: %w", err)
 	}
@@ -212,6 +213,13 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	restoreTerminal()
 
 	return exitErr
+}
+
+func parseDetachKeys(detachKeys string) ([]byte, error) {
+	if detachKeys == "" {
+		return nil, nil
+	}
+	return term.ToBytes(strings.ToLower(detachKeys))
 }
 
 // handleAllSignals processes signals during attach:

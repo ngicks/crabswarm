@@ -53,7 +53,7 @@ func TestDetachKeys_Parse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, err := term.ToBytes(tt.input)
+			got, err := parseDetachKeys(tt.input)
 			if tt.wantErr {
 				assert.Assert(t, err != nil, "expected error for %q", tt.input)
 				return

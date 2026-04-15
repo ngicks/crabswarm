@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/ngicks/crabswarm/cmd/internal/stdiopipe"
-	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/claude_hook/v1"
+	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabhook/v1"
 	"github.com/ngicks/crabswarm/pkg/crabswarm"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
