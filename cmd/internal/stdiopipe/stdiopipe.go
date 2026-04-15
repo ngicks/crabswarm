@@ -10,7 +10,7 @@ import (
 
 var once sync.Once
 
-// Stdin returns an [io.ReadCloser] backed by [os.Stdin] through an [io.Pipe].
+// Stdin returns an [io.ReadCloser] which is pied to [os.Stdin] through an [io.Pipe].
 //
 // This is necessary because Read calls on [os.Stdin] cannot be unblocked by closing it.
 //
@@ -28,11 +28,7 @@ func Stdin(ctx context.Context) io.ReadCloser {
 		}()
 		go func() {
 			_, err := io.Copy(pw, os.Stdin)
-			if err != nil {
-				pw.CloseWithError(err)
-			} else {
-				pw.Close()
-			}
+			pw.CloseWithError(err)
 		}()
 	})
 	if !called {
