@@ -3,7 +3,7 @@ package commands
 import (
 	"log/slog"
 
-	"github.com/ngicks/crabswarm/pkg/crabswarm"
+	"github.com/ngicks/crabswarm/pkg/crabswarm/server"
 	"github.com/ngicks/go-common/contextkey"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +29,7 @@ func runServeCmd(cmd *cobra.Command, args []string) error {
 
 	sockPath := resolveSocketPath(cmd)
 
-	server := crabswarm.NewServer(logger, sockPath)
+	server := server.New(logger, sockPath)
 
 	return server.Serve(ctx)
 }

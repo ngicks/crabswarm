@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/ngicks/crabswarm/cmd/internal/stdiopipe"
-	"github.com/ngicks/crabswarm/pkg/crabswarm"
+	crabswarmhook "github.com/ngicks/crabswarm/pkg/crabswarm/hook"
 	"github.com/spf13/cobra"
 )
 
@@ -47,10 +47,10 @@ func runHookAutoApproveCmd(cmd *cobra.Command, args []string) error {
 		underDirs[i] = filepath.Join(projectDir, d)
 	}
 
-	cfg := crabswarm.AutoApproveConfig{
+	cfg := crabswarmhook.AutoApproveConfig{
 		ToolPatterns: toolPatterns,
 		UnderDirs:    underDirs,
 	}
 
-	return crabswarm.HookAutoApprove(ctx, reader, cfg)
+	return crabswarmhook.AutoApprove(ctx, reader, cfg)
 }

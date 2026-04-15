@@ -1,4 +1,4 @@
-package crabswarm
+package hook
 
 import (
 	"bytes"
@@ -42,9 +42,9 @@ const validInput = `{
   "tool_use_id": "tooluse_12345"
 }`
 
-func TestHookAudit_ValidInput(t *testing.T) {
+func TestAudit_ValidInput(t *testing.T) {
 	mock := &mockAuditClient{}
-	err := HookAudit(context.Background(), strings.NewReader(validInput), mock)
+	err := Audit(context.Background(), strings.NewReader(validInput), mock)
 
 	if _, ok := errors.AsType[*handler.HandlerError](err); !ok {
 		t.Fatalf("expected HandlerError, got %T: %v", err, err)
@@ -64,9 +64,9 @@ func TestHookAudit_ValidInput(t *testing.T) {
 	}
 }
 
-func TestHookAudit_InvalidJSON(t *testing.T) {
+func TestAudit_InvalidJSON(t *testing.T) {
 	mock := &mockAuditClient{}
-	err := HookAudit(context.Background(), strings.NewReader("not json"), mock)
+	err := Audit(context.Background(), strings.NewReader("not json"), mock)
 	if _, ok := errors.AsType[*handler.HandlerError](err); !ok {
 		t.Fatalf("expected HandlerError, got %T: %v", err, err)
 	}
@@ -78,9 +78,9 @@ func (errReader) Read([]byte) (int, error) {
 	return 0, errors.New("read failed")
 }
 
-func TestHookAudit_ReadError(t *testing.T) {
+func TestAudit_ReadError(t *testing.T) {
 	mock := &mockAuditClient{}
-	err := HookAudit(context.Background(), errReader{}, mock)
+	err := Audit(context.Background(), errReader{}, mock)
 
 	var he *handler.HandlerError
 	if errors.As(err, &he) {
@@ -91,9 +91,9 @@ func TestHookAudit_ReadError(t *testing.T) {
 	}
 }
 
-func TestHookAudit_SendError(t *testing.T) {
+func TestAudit_SendError(t *testing.T) {
 	mock := &mockAuditClient{err: io.ErrUnexpectedEOF}
-	err := HookAudit(context.Background(), strings.NewReader(validInput), mock)
+	err := Audit(context.Background(), strings.NewReader(validInput), mock)
 
 	var he *handler.HandlerError
 	if errors.As(err, &he) {

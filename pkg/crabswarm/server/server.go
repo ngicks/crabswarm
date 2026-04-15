@@ -1,4 +1,4 @@
-package crabswarm
+package server
 
 import (
 	"context"
@@ -26,8 +26,8 @@ type auditServiceServer struct {
 	logger *slog.Logger
 }
 
-// NewServer returns a new Server.
-func NewServer(
+// New returns a new Server.
+func New(
 	logger *slog.Logger,
 	sockPath string,
 ) *Server {

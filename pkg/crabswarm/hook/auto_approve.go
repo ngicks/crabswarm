@@ -1,4 +1,4 @@
-package crabswarm
+package hook
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 // AutoApproveConfig holds configuration for the auto-approve hook.
 type AutoApproveConfig struct {
 	ToolPatterns []string // regex patterns to match tool_name
-	UnderDirs    []string // directories — approve if file_path is under any
+	UnderDirs    []string // directories -- approve if file_path is under any
 }
 
 // Validate checks that both ToolPatterns and UnderDirs are populated.
@@ -30,9 +30,9 @@ func (c AutoApproveConfig) Validate() error {
 	return nil
 }
 
-// HookAutoApprove reads a PermissionRequestHookInput from r and auto-approves
+// AutoApprove reads a PermissionRequestHookInput from r and auto-approves
 // if all configured conditions are met. Both ToolPatterns and UnderDirs must be set.
-func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) error {
+func AutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func HookAutoApprove(_ context.Context, r io.Reader, cfg AutoApproveConfig) erro
 		return &handler.HandlerError{}
 	}
 
-	// All conditions matched — auto-approve.
+	// All conditions matched -- auto-approve.
 	return handler.PermissionAllow(nil, nil)
 }
 

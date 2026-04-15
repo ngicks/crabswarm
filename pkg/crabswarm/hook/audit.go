@@ -1,4 +1,4 @@
-package crabswarm
+package hook
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// HookAudit reads hook input from r and sends it as an audit event.
-func HookAudit(ctx context.Context, r io.Reader, client pb.AuditServiceClient) error {
+// Audit reads hook input from r and sends it as an audit event.
+func Audit(ctx context.Context, r io.Reader, client pb.AuditServiceClient) error {
 	raw, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("reading stdin: %w", err)
