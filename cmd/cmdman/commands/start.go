@@ -1,11 +1,6 @@
 package commands
 
-import (
-	"fmt"
-
-	"github.com/ngicks/crabswarm/pkg/cmdman"
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
 func init() {
 	rootCmd.AddCommand(startCmd)
@@ -24,38 +19,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 
 // doStart spawns the monitor for an existing command in "created" state.
 func doStart(cmd *cobra.Command, idOrName string) error {
-	dbPath := cmdman.DBPath()
-	store, err := cmdman.OpenStore(dbPath, true)
+	svc, err := cmdmanService()
 	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return err
 	}
-	defer store.Close()
-
-	id, _, cfg, err := store.GetCommandConfig(idOrName)
-	if err != nil {
-		return fmt.Errorf("get command config: %w", err)
-	}
-
-	state, _, _, err := store.GetCommandState(id)
-	if err != nil {
-		return fmt.Errorf("get command state: %w", err)
-	}
-	switch state {
-	case cmdman.StateCreated, cmdman.StateExited:
-		// OK to start.
-	default:
-		return fmt.Errorf("command %s is in state %q, must be %q or %q", idOrName, state, cmdman.StateCreated, cmdman.StateExited)
-	}
-
-	_, err = cmdman.SpawnMonitor(id, cfg.CommandDir, dbPath)
-	if err != nil {
-		return fmt.Errorf("spawn monitor: %w", err)
-	}
-
-	finalState, err := cmdman.WaitForState(store, id, cmdman.StateRunning, 100)
-	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v (state: %s)\n", err, finalState)
-	}
-
-	return nil
+	return svc.Start(cmd.Context(), idOrName)
 }

@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 
-	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
 )
 
@@ -39,17 +38,15 @@ func runRun(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(cmd.OutOrStdout(), displayName)
 
 	if attach {
-		dbPath := cmdman.DBPath()
-		store, err := cmdman.OpenStore(dbPath, true)
+		svc, err := cmdmanService()
 		if err != nil {
-			return fmt.Errorf("open store: %w", err)
+			return err
 		}
-		state, _, _, err := store.GetCommandState(id)
-		store.Close()
+		endpoint, err := svc.ResolveMonitor(cmd.Context(), id)
 		if err != nil {
-			return fmt.Errorf("get state: %w", err)
+			return err
 		}
-		if state == cmdman.StateRunning {
+		if endpoint.SocketPath != "" {
 			return runAttach(cmd, id)
 		}
 	}

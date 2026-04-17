@@ -15,10 +15,6 @@ import (
 	cmdsignals "github.com/ngicks/crabswarm/cmd/internal/signals"
 	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
-	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/cmdman/v1"
 )
 
 func init() {
@@ -59,44 +55,19 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		return fmt.Errorf("invalid detach-keys: %w", err)
 	}
 
-	store, err := cmdman.OpenStore(cmdman.DBPath(), true)
+	svc, err := cmdmanService()
 	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return err
 	}
-	defer store.Close()
-
-	id, err := store.ResolveID(idOrName)
-	if err != nil {
-		return fmt.Errorf("resolve command: %w", err)
-	}
-
-	_, _, stateJSON, err := store.GetCommandState(id)
-	if err != nil {
-		return fmt.Errorf("get state: %w", err)
-	}
-
-	if stateJSON.SocketPath == "" {
-		return fmt.Errorf("no socket path for command %s", id)
-	}
-
-	conn, err := grpc.NewClient(
-		"unix://"+stateJSON.SocketPath,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return fmt.Errorf("connect to monitor: %w", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewCommandMonitorServiceClient(conn)
 	ctx := cmd.Context()
 	attachCtx, cancelAttach := context.WithCancel(ctx)
 	defer cancelAttach()
 
-	stream, err := client.Attach(attachCtx)
+	session, err := svc.OpenAttachSession(attachCtx, idOrName)
 	if err != nil {
-		return fmt.Errorf("attach: %w", err)
+		return err
 	}
+	defer session.Close()
 
 	// Put terminal into raw mode so keystrokes pass through to the remote PTY.
 	var (
@@ -140,7 +111,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	signal.Reset(cmdsignals.ExitSignals[:]...)
 
 	// Send initial terminal size.
-	sendResize(stream)
+	sendResize(session)
 
 	// HandleAllSignals: forward signals to remote command, handle SIGWINCH
 	// locally as resize, and force-exit after 3 consecutive SIGINT/SIGTERM.
@@ -149,19 +120,19 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 		signal.Notify(sigCh, forwardedSignals...)
 		defer signal.Stop(sigCh)
 
-		go handleAllSignals(attachCtx, sigCh, client, stream, restoreTerminal)
+		go handleAllSignals(attachCtx, sigCh, session, restoreTerminal)
 	}
 
 	// Read from stream -> stdout.
 	errCh := make(chan error, 2)
 	go func() {
 		for {
-			msg, err := stream.Recv()
+			data, err := session.Recv()
 			if err != nil {
 				errCh <- err
 				return
 			}
-			os.Stdout.Write(msg.Stdout)
+			os.Stdout.Write(data)
 		}
 	}()
 
@@ -178,9 +149,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 				if n > 0 {
 					data := make([]byte, n)
 					copy(data, buf[:n])
-					if sendErr := stream.Send(&pb.AttachRequest{
-						Input: &pb.AttachRequest_Stdin{Stdin: data},
-					}); sendErr != nil {
+					if sendErr := session.SendStdin(data); sendErr != nil {
 						errCh <- sendErr
 						return
 					}
@@ -209,7 +178,7 @@ func runAttach(cmd *cobra.Command, idOrName string) error {
 	// Cancel the attach RPC so detach does not depend on transport-side
 	// half-close propagation, then best-effort close the send side.
 	cancelAttach()
-	stream.CloseSend()
+	session.CloseSend()
 	restoreTerminal()
 
 	return exitErr
@@ -229,8 +198,7 @@ func parseDetachKeys(detachKeys string) ([]byte, error) {
 func handleAllSignals(
 	ctx context.Context,
 	sigCh <-chan os.Signal,
-	client pb.CommandMonitorServiceClient,
-	stream pb.CommandMonitorService_AttachClient,
+	session *cmdman.Session,
 	restoreTerminal func(),
 ) {
 	forceCount := 0
@@ -246,13 +214,13 @@ func handleAllSignals(
 			}
 
 			if sigNum == syscall.SIGWINCH {
-				sendResize(stream)
+				sendResize(session)
 				forceCount = 0
 				continue
 			}
 
 			// Forward to remote command.
-			client.Signal(ctx, &pb.SignalRequest{Signal: int32(sigNum)})
+			_ = session.Signal(ctx, int32(sigNum))
 
 			// Count consecutive SIGINT/SIGTERM for forced exit.
 			if sigNum == syscall.SIGINT || sigNum == syscall.SIGTERM {
@@ -271,17 +239,10 @@ func handleAllSignals(
 	}
 }
 
-func sendResize(stream pb.CommandMonitorService_AttachClient) {
+func sendResize(session *cmdman.Session) {
 	rows, cols := getTerminalSize()
 	if rows > 0 && cols > 0 {
-		stream.Send(&pb.AttachRequest{
-			Input: &pb.AttachRequest_Resize{
-				Resize: &pb.ResizeEvent{
-					Rows: uint32(rows),
-					Cols: uint32(cols),
-				},
-			},
-		})
+		_ = session.Resize(rows, cols)
 	}
 }
 

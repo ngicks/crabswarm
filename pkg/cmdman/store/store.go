@@ -1,4 +1,4 @@
-package cmdman
+package store
 
 import (
 	"database/sql"
@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/ngicks/crabswarm/pkg/cmdman/internal/migrations"
+	"github.com/ngicks/crabswarm/pkg/cmdman/store/internal/migrations"
 	_ "modernc.org/sqlite"
 )
 
@@ -89,8 +90,6 @@ func configureDB(db *sql.DB) error {
 	}
 	return nil
 }
-
-var schemaMigrations = migrations.SchemaMigrations
 
 // initOrCheckSchema initializes the schema for a fresh DB or checks the
 // schema version for an existing DB. Returns an error if migration is needed.
@@ -176,7 +175,7 @@ func runMigrations(db *sql.DB) error {
 
 	// Run migrations one version at a time.
 	for v := ver + 1; v <= schemaVersion; v++ {
-		migrateFn, ok := schemaMigrations[v]
+		migrateFn, ok := migrations.SchemaMigrations[v]
 		if !ok {
 			return fmt.Errorf("no migration function for version %d", v)
 		}
@@ -405,9 +404,10 @@ type CommandEntry struct {
 
 // ListCommands lists commands, optionally filtering by state and labels.
 func (s *Store) ListCommands(allStates bool, labels map[string]string) ([]CommandEntry, error) {
-	query := `SELECT c.ID, c.Name, c.CreatedAt, s.State, s.ExitCode, c.JSON, s.JSON
+	var query strings.Builder
+	query.WriteString(`SELECT c.ID, c.Name, c.CreatedAt, s.State, s.ExitCode, c.JSON, s.JSON
 		FROM CommandConfig c
-		JOIN CommandState s ON c.ID = s.ID`
+		JOIN CommandState s ON c.ID = s.ID`)
 
 	var args []any
 	var conditions []string
@@ -422,18 +422,18 @@ func (s *Store) ListCommands(allStates bool, labels map[string]string) ([]Comman
 	}
 
 	if len(conditions) > 0 {
-		query += " WHERE "
+		query.WriteString(" WHERE ")
 		for i, c := range conditions {
 			if i > 0 {
-				query += " AND "
+				query.WriteString(" AND ")
 			}
-			query += c
+			query.WriteString(c)
 		}
 	}
 
-	query += " ORDER BY c.CreatedAt"
+	query.WriteString(" ORDER BY c.CreatedAt")
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.Query(query.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -570,13 +570,14 @@ func (s *Store) ResolveID(idOrName string) (string, error) {
 
 // FindByLabels returns command IDs matching all the given labels.
 func (s *Store) FindByLabels(labels map[string]string) ([]string, error) {
-	query := `SELECT ID FROM CommandConfig WHERE 1=1`
+	var query strings.Builder
+	query.WriteString(`SELECT ID FROM CommandConfig WHERE 1=1`)
 	var args []any
 	for k, v := range labels {
-		query += ` AND json_extract(JSON, '$.labels.' || ?) = ?`
+		query.WriteString(` AND json_extract(JSON, '$.labels.' || ?) = ?`)
 		args = append(args, k, v)
 	}
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.Query(query.String(), args...)
 	if err != nil {
 		return nil, err
 	}

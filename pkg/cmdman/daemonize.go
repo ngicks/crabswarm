@@ -6,20 +6,27 @@ import (
 	"os/exec"
 	"syscall"
 	"time"
+
+	"github.com/ngicks/crabswarm/pkg/cmdman/store"
 )
 
 // SpawnMonitor starts the monitor as a detached process via re-exec.
 // It launches the current executable with the __monitor subcommand.
-func SpawnMonitor(id, commandDir, dbPath string) (*os.Process, error) {
+func SpawnMonitor(cfg CmdmanConfig, id string) (*os.Process, error) {
+	commandCfg, err := cfg.WithDefaults()
+	if err != nil {
+		return nil, err
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("resolve executable: %w", err)
 	}
 
-	cmd := exec.Command(exe, "__monitor",
+	cmd := exec.Command(exe,
+		"--data-dir", commandCfg.DataDir,
+		"--runtime-dir", commandCfg.RuntimeDir,
+		"__monitor",
 		"--id", id,
-		"--command-dir", commandDir,
-		"--db", dbPath,
 	)
 
 	// Detach: new session, redirect stdio away from terminal.
@@ -51,20 +58,20 @@ func SpawnMonitor(id, commandDir, dbPath string) (*os.Process, error) {
 
 // WaitForState polls the store until the command reaches the desired state
 // or the timeout is reached. Returns the final state observed.
-func WaitForState(store *Store, id, desiredState string, maxAttempts int) (string, error) {
+func WaitForState(st *store.Store, id, desiredState string, maxAttempts int) (string, error) {
 	for range maxAttempts {
-		state, _, _, err := store.GetCommandState(id)
+		state, _, _, err := st.GetCommandState(id)
 		if err != nil {
 			return "", err
 		}
 		if state == desiredState {
 			return state, nil
 		}
-		if state == StateFailed {
+		if state == store.StateFailed {
 			return state, fmt.Errorf("monitor entered failed state")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	state, _, _, _ := store.GetCommandState(id)
+	state, _, _, _ := st.GetCommandState(id)
 	return state, fmt.Errorf("timeout waiting for state %q, last state: %q", desiredState, state)
 }

@@ -8,6 +8,7 @@ import (
 	"text/template"
 
 	"github.com/ngicks/crabswarm/pkg/cmdman"
+	"github.com/ngicks/crabswarm/pkg/cmdman/store"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +27,7 @@ var lsFuncMap = template.FuncMap{
 		}
 		return string(b)
 	},
-	"command": func(e cmdman.CommandEntry) string {
+	"command": func(e store.CommandEntry) string {
 		if e.ConfigJSON == nil || len(e.ConfigJSON.Argv) == 0 {
 			return "-"
 		}
@@ -63,18 +64,16 @@ func runLs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	store, err := cmdman.OpenStore(cmdman.DBPath(), true)
+	svc, err := cmdmanService()
 	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return err
 	}
-	defer store.Close()
-
-	// Clean stale entries.
-	cmdman.CleanStaleEntries(store)
-
-	entries, err := store.ListCommands(allStates, labels)
+	entries, err := svc.List(cmd.Context(), cmdman.ListRequest{
+		AllStates: allStates,
+		Labels:    labels,
+	})
 	if err != nil {
-		return fmt.Errorf("list commands: %w", err)
+		return err
 	}
 
 	if quiet {
@@ -104,7 +103,7 @@ func runLs(cmd *cobra.Command, args []string) error {
 }
 
 func buildFormatUsage() string {
-	t := reflect.TypeOf(cmdman.CommandEntry{})
+	t := reflect.TypeOf(store.CommandEntry{})
 	var fields []string
 	for i := range t.NumField() {
 		f := t.Field(i)

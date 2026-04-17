@@ -7,6 +7,7 @@ import (
 	"time"
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/cmdman/v1"
+	"github.com/ngicks/crabswarm/pkg/cmdman/store"
 )
 
 type monitorServer struct {
@@ -68,7 +69,7 @@ func (s *monitorServer) Attach(stream pb.CommandMonitorService_AttachServer) err
 			return err
 		case <-ticker.C:
 			state, _, _ := s.monitor.GetState()
-			if state != StateStarting && state != StateRunning {
+			if state != store.StateStarting && state != store.StateRunning {
 				return nil
 			}
 		case <-stream.Context().Done():

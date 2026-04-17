@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/cmdman/v1"
+	cmdstore "github.com/ngicks/crabswarm/pkg/cmdman/store"
 )
 
 // Monitor is the per-command monitor process.
@@ -26,11 +28,12 @@ type Monitor struct {
 	ID         string
 	CommandDir string
 	DBPath     string
+	Config     CmdmanConfig
 	Logger     *slog.Logger
 
-	store     *Store
-	cfg       *CommandConfigJSON
-	stateJSON *CommandStateJSON
+	store     *cmdstore.Store
+	cfg       *cmdstore.CommandConfigJSON
+	stateJSON *cmdstore.CommandStateJSON
 
 	ptmx    *os.File
 	cmd     *exec.Cmd
@@ -47,52 +50,71 @@ type Monitor struct {
 
 // RunMonitor is the main entry point for the monitor process.
 // It reads config, starts the command, and serves gRPC until the command exits.
-func RunMonitor(ctx context.Context, id, commandDir, dbPath string, logger *slog.Logger) error {
+func RunMonitor(ctx context.Context, id string, cfg CmdmanConfig, logger *slog.Logger) error {
+	commandDir, err := cfg.CommandDir(id)
+	if err != nil {
+		return err
+	}
+	dbPath, err := cfg.DBPath()
+	if err != nil {
+		return err
+	}
+
 	m := &Monitor{
 		ID:         id,
 		CommandDir: commandDir,
 		DBPath:     dbPath,
+		Config:     cfg,
 		Logger:     logger,
 		fanout:     NewFanout(),
 		stdinCh:    make(chan []byte, 64),
 	}
 
-	store, err := OpenStore(dbPath, true)
+	st, err := cmdstore.OpenStore(dbPath, true)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
-	m.store = store
+	defer st.Close()
+	m.store = st
 
-	cfg, err := ReadCommandConfig(commandDir)
+	commandCfg, err := cmdstore.ReadCommandConfig(commandDir)
 	if err != nil {
 		return fmt.Errorf("read config: %w", err)
 	}
-	m.cfg = cfg
-	m.ring = newRingBuffer(cfg.ScrollbackBytes)
-	m.stateJSON = &CommandStateJSON{}
+	m.cfg = commandCfg
+	m.ring = newRingBuffer(commandCfg.ScrollbackBytes)
+	m.stateJSON = &cmdstore.CommandStateJSON{}
 
 	// Update state to starting.
 	m.stateJSON.MonitorPID = os.Getpid()
-	if err := m.store.UpdateCommandState(m.ID, StateStarting, nil, m.stateJSON); err != nil {
+	if err := m.store.UpdateCommandState(m.ID, cmdstore.StateStarting, nil, m.stateJSON); err != nil {
 		return fmt.Errorf("update state to starting: %w", err)
 	}
 
 	// Create runtime directory and PID file.
-	runtimeDir := MonitorRuntimeDir(id)
+	runtimeDir, err := m.Config.MonitorRuntimeDir(id)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(runtimeDir, 0o700); err != nil {
 		return fmt.Errorf("create runtime dir: %w", err)
 	}
-	pidPath := MonitorPIDPath(id)
+	pidPath, err := m.Config.MonitorPIDPath(id)
+	if err != nil {
+		return err
+	}
 	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
 		return fmt.Errorf("write pid file: %w", err)
 	}
 	defer os.Remove(pidPath)
 
 	// Start gRPC server.
-	m.sockPath = MonitorSocketPath(id)
+	m.sockPath, err = m.Config.MonitorSocketPath(id)
+	if err != nil {
+		return err
+	}
 	m.stateJSON.SocketPath = m.sockPath
-	if err := m.store.UpdateCommandState(m.ID, StateStarting, nil, m.stateJSON); err != nil {
+	if err := m.store.UpdateCommandState(m.ID, cmdstore.StateStarting, nil, m.stateJSON); err != nil {
 		return fmt.Errorf("update state with socket: %w", err)
 	}
 
@@ -123,7 +145,7 @@ func RunMonitor(ctx context.Context, id, commandDir, dbPath string, logger *slog
 func (m *Monitor) runLoop(ctx context.Context) error {
 	for {
 		// Re-read config on each restart iteration.
-		cfg, err := ReadCommandConfig(m.CommandDir)
+		cfg, err := cmdstore.ReadCommandConfig(m.CommandDir)
 		if err != nil {
 			return fmt.Errorf("read config: %w", err)
 		}
@@ -147,15 +169,15 @@ func (m *Monitor) runLoop(ctx context.Context) error {
 
 		// Check restart policy.
 		switch m.cfg.RestartPolicy {
-		case RestartPolicyNo:
+		case cmdstore.RestartPolicyNo:
 			m.setExited(ec)
 			return m.maybeAutoRemove()
-		case RestartPolicyOnFailure:
+		case cmdstore.RestartPolicyOnFailure:
 			if exitCode == 0 {
 				m.setExited(ec)
 				return m.maybeAutoRemove()
 			}
-		case RestartPolicyAlways:
+		case cmdstore.RestartPolicyAlways:
 			// Continue loop unless context cancelled.
 		default:
 			m.setExited(ec)
@@ -183,8 +205,8 @@ func (m *Monitor) runOnce(ctx context.Context) (int, error) {
 	cmd := exec.CommandContext(ctx, m.cfg.Argv[0], m.cfg.Argv[1:]...)
 	cmd.Dir = m.cfg.Dir
 	cmd.Env = m.cfg.Env
-	if cmd.Env == nil {
-		cmd.Env = os.Environ()
+	if len(cmd.Env) == 0 {
+		return -1, fmt.Errorf("command config env is empty")
 	}
 	// Cancel via signal, not process kill.
 	cmd.Cancel = func() error {
@@ -201,7 +223,7 @@ func (m *Monitor) runOnce(ctx context.Context) (int, error) {
 
 	// Update state to running.
 	m.stateJSON.StartedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := m.store.UpdateCommandState(m.ID, StateRunning, nil, m.stateJSON); err != nil {
+	if err := m.store.UpdateCommandState(m.ID, cmdstore.StateRunning, nil, m.stateJSON); err != nil {
 		m.Logger.Error("update state to running failed", slog.String("error", err.Error()))
 	}
 
@@ -259,16 +281,16 @@ func (m *Monitor) runOnce(ctx context.Context) (int, error) {
 
 func (m *Monitor) setExited(exitCode int) {
 	ec := exitCode
-	_ = m.store.UpdateCommandState(m.ID, StateExited, &ec, m.stateJSON)
+	_ = m.store.UpdateCommandState(m.ID, cmdstore.StateExited, &ec, m.stateJSON)
 }
 
 func (m *Monitor) setFailed(errMsg string) {
 	m.stateJSON.Error = errMsg
-	_ = m.store.UpdateCommandState(m.ID, StateFailed, nil, m.stateJSON)
+	_ = m.store.UpdateCommandState(m.ID, cmdstore.StateFailed, nil, m.stateJSON)
 }
 
 func (m *Monitor) maybeAutoRemove() error {
-	if m.cfg.Annotations[AnnotationAutoRemove] == "true" {
+	if m.cfg.Annotations[cmdstore.AnnotationAutoRemove] == "true" {
 		m.Logger.Info("auto-removing command")
 		if err := m.store.DeleteCommand(m.ID); err != nil {
 			return fmt.Errorf("auto-remove db: %w", err)
@@ -323,17 +345,14 @@ func (m *Monitor) GetState() (string, int, int) {
 }
 
 func listenMonitorSocket(sockPath string) (net.Listener, error) {
-	if err := os.MkdirAll(MonitorRuntimeDir(extractIDFromSocketPath(sockPath)), 0o700); err != nil {
+	if sockPath == "" {
+		return nil, fmt.Errorf("socket path is empty")
+	}
+	if err := os.MkdirAll(filepath.Dir(sockPath), 0o700); err != nil {
 		return nil, err
 	}
 	_ = os.Remove(sockPath)
 	return net.Listen("unix", sockPath)
-}
-
-func extractIDFromSocketPath(sockPath string) string {
-	// sockPath is like .../cmd/<id>/monitor.sock
-	// We need the parent directory.
-	return ""
 }
 
 // CheckMonitorAlive checks if a monitor process is still alive by PID.
@@ -350,23 +369,27 @@ func CheckMonitorAlive(pid int) bool {
 }
 
 // CleanStaleEntries checks for stale monitors and marks them as failed.
-func CleanStaleEntries(store *Store) error {
-	entries, err := store.ListCommands(true, nil)
+func CleanStaleEntries(st *cmdstore.Store, cfg CmdmanConfig) error {
+	entries, err := st.ListCommands(true, nil)
 	if err != nil {
 		return err
 	}
 	for _, e := range entries {
-		if e.State != StateStarting && e.State != StateRunning {
+		if e.State != cmdstore.StateStarting && e.State != cmdstore.StateRunning {
 			continue
 		}
 		if e.StateJSON.MonitorPID > 0 && !CheckMonitorAlive(e.StateJSON.MonitorPID) {
 			e.StateJSON.Error = "monitor died unexpectedly"
-			_ = store.UpdateCommandState(e.ID, StateFailed, nil, e.StateJSON)
+			_ = st.UpdateCommandState(e.ID, cmdstore.StateFailed, nil, e.StateJSON)
 
 			// Auto-remove if requested.
-			if e.ConfigJSON.Annotations[AnnotationAutoRemove] == "true" {
-				_ = store.DeleteCommand(e.ID)
+			if e.ConfigJSON.Annotations[cmdstore.AnnotationAutoRemove] == "true" {
+				_ = st.DeleteCommand(e.ID)
 				_ = os.RemoveAll(e.ConfigJSON.CommandDir)
+				runtimeDir, err := cfg.MonitorRuntimeDir(e.ID)
+				if err == nil {
+					_ = os.RemoveAll(runtimeDir)
+				}
 			}
 		}
 	}

@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 
-	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
 )
 
@@ -18,14 +17,12 @@ var migrateCmd = &cobra.Command{
 }
 
 func runMigrate(cmd *cobra.Command, args []string) error {
-	store, err := cmdman.OpenStore(cmdman.DBPath(), false)
+	svc, err := cmdmanService()
 	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return err
 	}
-	defer store.Close()
-
-	if err := store.Migrate(); err != nil {
-		return fmt.Errorf("migrate: %w", err)
+	if err := svc.Migrate(cmd.Context()); err != nil {
+		return err
 	}
 
 	fmt.Fprintln(cmd.OutOrStdout(), "migrations complete")

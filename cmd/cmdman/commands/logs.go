@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -28,28 +27,17 @@ var logsCmd = &cobra.Command{
 func runLogs(cmd *cobra.Command, args []string) error {
 	follow, _ := cmd.Flags().GetBool("follow")
 
-	store, err := cmdman.OpenStore(cmdman.DBPath(), true)
+	svc, err := cmdmanService()
 	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return err
 	}
-	defer store.Close()
-
-	id, err := store.ResolveID(args[0])
+	endpoint, err := svc.ResolveMonitor(cmd.Context(), args[0])
 	if err != nil {
-		return fmt.Errorf("resolve command: %w", err)
-	}
-
-	_, _, stateJSON, err := store.GetCommandState(id)
-	if err != nil {
-		return fmt.Errorf("get state: %w", err)
-	}
-
-	if stateJSON.SocketPath == "" {
-		return fmt.Errorf("no socket path for command %s", id)
+		return err
 	}
 
 	conn, err := grpc.NewClient(
-		"unix://"+stateJSON.SocketPath,
+		"unix://"+endpoint.SocketPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {

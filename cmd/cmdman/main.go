@@ -8,6 +8,7 @@ import (
 
 	"github.com/ngicks/crabswarm/cmd/cmdman/commands"
 	cmdsignals "github.com/ngicks/crabswarm/cmd/internal/signals"
+	"github.com/ngicks/crabswarm/pkg/cmdman"
 	"github.com/ngicks/go-common/contextkey"
 )
 
@@ -26,7 +27,7 @@ func main() {
 	)
 	ctx = contextkey.WithSlogLogger(ctx, logger)
 
-	if err := commands.Execute(ctx); err != nil {
+	if err := commands.Execute(ctx, cmdman.CmdmanConfig{}); err != nil {
 		os.Exit(1)
 	}
 }

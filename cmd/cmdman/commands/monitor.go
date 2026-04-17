@@ -11,11 +11,7 @@ import (
 func init() {
 	rootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().String("id", "", "Command ID")
-	monitorCmd.Flags().String("command-dir", "", "Command directory path")
-	monitorCmd.Flags().String("db", "", "Database path")
 	monitorCmd.MarkFlagRequired("id")
-	monitorCmd.MarkFlagRequired("command-dir")
-	monitorCmd.MarkFlagRequired("db")
 }
 
 var monitorCmd = &cobra.Command{
@@ -27,13 +23,15 @@ var monitorCmd = &cobra.Command{
 
 func runMonitor(cmd *cobra.Command, args []string) error {
 	id, _ := cmd.Flags().GetString("id")
-	commandDir, _ := cmd.Flags().GetString("command-dir")
-	dbPath, _ := cmd.Flags().GetString("db")
+	cfg, err := cmdmanConfig()
+	if err != nil {
+		return err
+	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 		AddSource: true,
 		Level:     slog.LevelDebug,
 	}))
 
-	return cmdman.RunMonitor(cmd.Context(), id, commandDir, dbPath, logger)
+	return cmdman.RunMonitor(cmd.Context(), id, cfg, logger)
 }

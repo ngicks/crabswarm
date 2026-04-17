@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ngicks/crabswarm/pkg/cmdman"
+	"github.com/ngicks/crabswarm/pkg/cmdman/store"
 )
 
 // TestStale_DetectedOnLs verifies that stale entries (where the monitor
@@ -65,26 +65,28 @@ func TestStale_AutoRemoveOnStale(t *testing.T) {
 	// Use the store directly.
 	dbPath := filepath.Join(env.dataHome, "commands.db")
 
-	store, err := cmdman.OpenStore(dbPath, true)
+	st, err := store.OpenStore(dbPath, true)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
-	defer store.Close()
+	defer st.Close()
 
 	// Create a fake command that looks running but has a dead PID.
 	id := "stale-auto-rm-test-id"
-	cfg := &cmdman.CommandConfigJSON{
+	cfg := &store.CommandConfigJSON{
 		Argv:            []string{"/bin/sh", "-c", "echo fake"},
-		RestartPolicy:   cmdman.RestartPolicyNo,
+		Dir:             env.dataHome,
+		Env:             os.Environ(),
+		RestartPolicy:   store.RestartPolicyNo,
 		ScrollbackBytes: 1024,
-		Annotations:     map[string]string{cmdman.AnnotationAutoRemove: "true"},
+		Annotations:     map[string]string{store.AnnotationAutoRemove: "true"},
 		CommandDir:      filepath.Join(env.dataHome, "commands", id),
 	}
-	store.InsertCommandConfig(id, "stale-auto-rm", cfg)
-	store.InsertCommandState(id, cmdman.StateRunning, &cmdman.CommandStateJSON{
+	st.InsertCommandConfig(id, "stale-auto-rm", cfg)
+	st.InsertCommandState(id, store.StateRunning, &store.CommandStateJSON{
 		MonitorPID: 99999999, // A PID that is almost certainly not alive.
 	})
-	store.Close()
+	st.Close()
 
 	// Running ls triggers stale detection. Since the command has --rm annotation,
 	// it should be auto-removed.
