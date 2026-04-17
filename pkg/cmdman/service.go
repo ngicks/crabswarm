@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +21,11 @@ import (
 
 type Service struct {
 	cfg CmdmanConfig
+
+	mu sync.Mutex
+	// mutex guarded fields
+	// No direct access
+	store *store.Store
 }
 
 // NewService constructs a Service from an already-normalized config.
@@ -452,11 +458,17 @@ func (s *Service) Migrate(_ context.Context) error {
 }
 
 func (s *Service) openStore(validate bool) (*store.Store, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.store != nil {
+		return s.store, nil
+	}
 	dbPath, err := s.cfg.DBPath()
 	if err != nil {
 		return nil, err
 	}
-	return store.OpenStore(dbPath, validate)
+	s.store, err = store.OpenStore(dbPath, validate)
+	return s.store, err
 }
 
 func getLiveStatus(ctx context.Context, sockPath string) *LiveStatusInfo {
