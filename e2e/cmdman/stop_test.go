@@ -59,6 +59,19 @@ func TestStop_WithSignal(t *testing.T) {
 	env.waitForState(ctx, "sig-test", "exited", defaultTimeout)
 }
 
+func TestSignal_Subcommand(t *testing.T) {
+	t.Parallel()
+	ctx := testContext(t)
+	env := newTestEnv(t)
+
+	id := env.run(ctx, "run", "-n", "signal-test", "--", "/bin/sh", "-c", "sleep 300")
+	t.Cleanup(func() { env.cleanupCommand(ctx, id) })
+
+	env.waitForState(ctx, "signal-test", "running", defaultTimeout)
+	env.run(ctx, "signal", "-s", "SIGKILL", "signal-test")
+	env.waitForState(ctx, "signal-test", "exited", defaultTimeout)
+}
+
 func TestStop_AlreadyExited(t *testing.T) {
 	t.Parallel()
 	ctx := testContext(t)
@@ -84,14 +97,13 @@ func TestStop_AlreadyExited(t *testing.T) {
 	}
 }
 
-func TestStop_WithLabels(t *testing.T) {
+func TestStop_MultipleTargets(t *testing.T) {
 	t.Parallel()
 	ctx := testContext(t)
 	env := newTestEnv(t)
 
-	// Start two commands with the same label.
-	id1 := env.run(ctx, "run", "-l", "group=workers", "--", "/bin/sh", "-c", "sleep 300")
-	id2 := env.run(ctx, "run", "-l", "group=workers", "--", "/bin/sh", "-c", "sleep 300")
+	id1 := env.run(ctx, "run", "--", "/bin/sh", "-c", "sleep 300")
+	id2 := env.run(ctx, "run", "--", "/bin/sh", "-c", "sleep 300")
 	t.Cleanup(func() {
 		env.cleanupCommand(ctx, id1)
 		env.cleanupCommand(ctx, id2)
@@ -100,8 +112,7 @@ func TestStop_WithLabels(t *testing.T) {
 	env.waitForState(ctx, id1, "running", defaultTimeout)
 	env.waitForState(ctx, id2, "running", defaultTimeout)
 
-	// Stop all commands with the label.
-	env.run(ctx, "stop", "-l", "group=workers")
+	env.run(ctx, "stop", id1, id2)
 
 	env.waitForState(ctx, id1, "exited", defaultTimeout)
 	env.waitForState(ctx, id2, "exited", defaultTimeout)

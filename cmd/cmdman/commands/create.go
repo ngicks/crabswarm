@@ -20,6 +20,7 @@ func addCreateFlags(cmd *cobra.Command) {
 	f.StringArrayP("env", "E", nil, "Environment variable KEY=VALUE (repeatable)")
 	f.StringArrayP("label", "l", nil, "Metadata label KEY=VALUE (repeatable)")
 	f.String("restart", string(store.RestartPolicyNo), "Restart policy: no, on-failure, always")
+	f.String("stop-signal", store.DefaultStopSignal, "Default stop signal")
 	f.Bool("rm", false, "Auto-remove on exit")
 	f.Int("scrollback-bytes", store.DefaultScrollbackBytes, "Scrollback buffer size in bytes")
 }
@@ -57,6 +58,7 @@ func doCreate(cmd *cobra.Command, args []string) (id, name string, err error) {
 	envSlice, _ := f.GetStringArray("env")
 	labelSlice, _ := f.GetStringArray("label")
 	restartPolicy, _ := f.GetString("restart")
+	stopSignal, _ := f.GetString("stop-signal")
 	autoRemove, _ := f.GetBool("rm")
 	scrollbackBytes, _ := f.GetInt("scrollback-bytes")
 
@@ -71,6 +73,7 @@ func doCreate(cmd *cobra.Command, args []string) (id, name string, err error) {
 		Env:             envSlice,
 		Labels:          labels,
 		RestartPolicy:   store.RestartPolicy(restartPolicy),
+		StopSignal:      stopSignal,
 		AutoRemove:      autoRemove,
 		ScrollbackBytes: scrollbackBytes,
 		Argv:            args,

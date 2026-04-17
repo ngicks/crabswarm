@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -37,6 +38,7 @@ type CreateRequest struct {
 	Env             []string
 	Labels          map[string]string
 	RestartPolicy   store.RestartPolicy
+	StopSignal      string
 	AutoRemove      bool
 	ScrollbackBytes int
 	Argv            []string
@@ -57,8 +59,8 @@ type ListRequest struct {
 // StopRequest defines a stop operation across explicit targets and/or labels.
 type StopRequest struct {
 	Targets []string
-	Labels  map[string]string
-	Signal  int32
+	Signal  string
+	Timeout time.Duration
 }
 
 // RemoveRequest defines a remove operation across explicit targets and/or labels.
@@ -141,6 +143,15 @@ func (s *Service) buildCommandConfig(req CreateRequest) *store.CommandConfigJSON
 	if restartPolicy == "" {
 		restartPolicy = store.RestartPolicyNo
 	}
+	stopSignal := req.StopSignal
+	if stopSignal == "" {
+		stopSignal = store.DefaultStopSignal
+	} else {
+		_, canonical, err := store.ParseSignal(stopSignal)
+		if err == nil {
+			stopSignal = canonical
+		}
+	}
 
 	dir := req.Dir
 	if dir == "" {
@@ -167,6 +178,7 @@ func (s *Service) buildCommandConfig(req CreateRequest) *store.CommandConfigJSON
 		Dir:             dir,
 		Env:             env,
 		RestartPolicy:   restartPolicy,
+		StopSignal:      stopSignal,
 		ScrollbackBytes: scrollbackBytes,
 		Labels:          cloneStringMap(req.Labels),
 		Annotations:     annotations,
@@ -348,19 +360,60 @@ func (s *Service) Stop(ctx context.Context, req StopRequest) ([]CommandActionRes
 	}
 	defer st.Close()
 
-	ids, err := resolveTargets(st, req.Targets, req.Labels)
+	ids, err := resolveTargets(st, req.Targets, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	timeout := req.Timeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
 	results := make([]CommandActionResult, 0, len(ids))
 	for _, id := range ids {
 		results = append(results, CommandActionResult{
 			ID:  id,
-			Err: s.Signal(ctx, id, req.Signal),
+			Err: s.stopTarget(ctx, st, id, req.Signal, timeout),
 		})
 	}
 	return results, nil
+}
+
+func (s *Service) stopTarget(ctx context.Context, st *store.Store, id string, signalOverride string, timeout time.Duration) error {
+	_, _, cfg, err := st.GetCommandConfig(id)
+	if err != nil {
+		return fmt.Errorf("get command config: %w", err)
+	}
+
+	effective := cfg.StopSignal
+	if signalOverride != "" {
+		effective = signalOverride
+	}
+	if effective == "" {
+		effective = store.DefaultStopSignal
+	}
+	sig, _, err := store.ParseSignal(effective)
+	if err != nil {
+		return err
+	}
+
+	if err := stopOne(ctx, st, id, sig); err != nil {
+		return err
+	}
+	if err := waitForStopped(ctx, st, id, timeout); err == nil {
+		return nil
+	} else if !errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+
+	killSig, _, _ := store.ParseSignal("SIGKILL")
+	if err := stopOne(ctx, st, id, killSig); err != nil {
+		return fmt.Errorf("timeout waiting for stop, and SIGKILL failed: %w", err)
+	}
+	if err := waitForStopped(ctx, st, id, timeout); err != nil {
+		return fmt.Errorf("timeout waiting for stop after SIGKILL: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) Remove(ctx context.Context, req RemoveRequest) ([]CommandActionResult, error) {
@@ -449,6 +502,33 @@ func stopOne(ctx context.Context, st *store.Store, id string, sig int32) error {
 	client := cmdmanv1pb.NewCommandMonitorServiceClient(conn)
 	_, err = client.Signal(ctx, &cmdmanv1pb.SignalRequest{Signal: sig})
 	return err
+}
+
+func waitForStopped(ctx context.Context, st *store.Store, id string, timeout time.Duration) error {
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		state, _, _, err := st.GetCommandState(id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if state == store.StateExited || state == store.StateFailed {
+			return nil
+		}
+
+		select {
+		case <-waitCtx.Done():
+			return waitCtx.Err()
+		case <-ticker.C:
+		}
+	}
 }
 
 func rmOne(_ context.Context, cfg CmdmanConfig, st *store.Store, id string, force bool) error {

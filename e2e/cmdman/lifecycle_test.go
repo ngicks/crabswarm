@@ -150,8 +150,8 @@ func TestLifecycle_MultipleCommands(t *testing.T) {
 		t.Errorf("expected 3 entries with group=multi, got %d", len(entries))
 	}
 
-	// Stop all with label.
-	env.run(ctx, "stop", "-l", "group=multi")
+	// Stop all explicitly.
+	env.run(ctx, "stop", id1, id2, id3)
 
 	env.waitForState(ctx, id1, "exited", defaultTimeout)
 	env.waitForState(ctx, id2, "exited", defaultTimeout)

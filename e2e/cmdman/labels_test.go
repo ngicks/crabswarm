@@ -78,37 +78,6 @@ func TestLabels_NoMatch(t *testing.T) {
 	}
 }
 
-func TestLabels_StopByLabel(t *testing.T) {
-	t.Parallel()
-	ctx := testContext(t)
-	env := newTestEnv(t)
-
-	id1 := env.run(ctx, "run", "-l", "batch=morning", "--", "/bin/sh", "-c", "sleep 300")
-	id2 := env.run(ctx, "run", "-l", "batch=morning", "--", "/bin/sh", "-c", "sleep 300")
-	id3 := env.run(ctx, "run", "-l", "batch=evening", "--", "/bin/sh", "-c", "sleep 300")
-	t.Cleanup(func() {
-		env.cleanupCommand(ctx, id1)
-		env.cleanupCommand(ctx, id2)
-		env.cleanupCommand(ctx, id3)
-	})
-
-	env.waitForState(ctx, id1, "running", defaultTimeout)
-	env.waitForState(ctx, id2, "running", defaultTimeout)
-	env.waitForState(ctx, id3, "running", defaultTimeout)
-
-	// Stop only the morning batch.
-	env.run(ctx, "stop", "-l", "batch=morning")
-
-	env.waitForState(ctx, id1, "exited", defaultTimeout)
-	env.waitForState(ctx, id2, "exited", defaultTimeout)
-
-	// The evening one should still be running.
-	info := env.inspectJSON(ctx, id3)
-	if info["state"] != "running" {
-		t.Errorf("expected id3 to still be running, got %v", info["state"])
-	}
-}
-
 func TestLabels_RmByLabel(t *testing.T) {
 	t.Parallel()
 	ctx := testContext(t)

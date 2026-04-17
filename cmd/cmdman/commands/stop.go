@@ -2,33 +2,33 @@ package commands
 
 import (
 	"fmt"
-	"strings"
-	"syscall"
+	"time"
 
 	"github.com/ngicks/crabswarm/pkg/cmdman"
+	"github.com/ngicks/crabswarm/pkg/cmdman/store"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	rootCmd.AddCommand(stopCmd)
-	stopCmd.Flags().StringArrayP("label", "l", nil, "Target commands matching labels")
-	stopCmd.Flags().StringP("signal", "s", "SIGTERM", "Signal to send")
+	stopCmd.Flags().StringP("signal", "s", "", "Signal to send before waiting for shutdown")
+	stopCmd.Flags().IntP("timeout", "t", 10, "Seconds to wait before sending SIGKILL")
 }
 
 var stopCmd = &cobra.Command{
-	Use:   "stop [flags] [ID|NAME]",
-	Short: "Send signal to a running command",
+	Use:   "stop [flags] ID|NAME [ID|NAME...]",
+	Short: "Gracefully stop a running command",
+	Args:  cobra.MinimumNArgs(1),
 	RunE:  runStop,
 }
 
 func runStop(cmd *cobra.Command, args []string) error {
 	sigName, _ := cmd.Flags().GetString("signal")
-	labelSlice, _ := cmd.Flags().GetStringArray("label")
-
-	sig := parseSignal(sigName)
-	labels, err := parseLabels(labelSlice)
-	if err != nil {
-		return err
+	timeoutSeconds, _ := cmd.Flags().GetInt("timeout")
+	if sigName != "" {
+		if _, _, err := store.ParseSignal(sigName); err != nil {
+			return err
+		}
 	}
 
 	svc, err := cmdmanService()
@@ -38,8 +38,8 @@ func runStop(cmd *cobra.Command, args []string) error {
 
 	results, err := svc.Stop(cmd.Context(), cmdman.StopRequest{
 		Targets: args,
-		Labels:  labels,
-		Signal:  sig,
+		Signal:  sigName,
+		Timeout: time.Duration(timeoutSeconds) * time.Second,
 	})
 	if err != nil {
 		return err
@@ -50,27 +50,4 @@ func runStop(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
-}
-
-func parseSignal(s string) int32 {
-	s = strings.ToUpper(s)
-	s = strings.TrimPrefix(s, "SIG")
-	switch s {
-	case "HUP":
-		return int32(syscall.SIGHUP)
-	case "INT":
-		return int32(syscall.SIGINT)
-	case "QUIT":
-		return int32(syscall.SIGQUIT)
-	case "KILL":
-		return int32(syscall.SIGKILL)
-	case "TERM":
-		return int32(syscall.SIGTERM)
-	case "USR1":
-		return int32(syscall.SIGUSR1)
-	case "USR2":
-		return int32(syscall.SIGUSR2)
-	default:
-		return int32(syscall.SIGTERM)
-	}
 }

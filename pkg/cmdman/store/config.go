@@ -39,6 +39,8 @@ type CommandConfigJSON struct {
 	Env []string `json:"env,omitempty"`
 	// RestartPolicy is one of "no", "on-failure", "always".
 	RestartPolicy RestartPolicy `json:"restart_policy"`
+	// StopSignal is the default signal used by stop when no override is provided.
+	StopSignal string `json:"stop_signal,omitempty"`
 	// ScrollbackBytes is the scrollback buffer size in bytes.
 	ScrollbackBytes int `json:"scrollback_bytes"`
 	// Labels are user-defined key-value metadata.
@@ -78,6 +80,10 @@ func (c *CommandConfigJSON) ValidateCreate() error {
 		return errors.New("command config: env is empty")
 	case !IsRestartPolicy(string(c.RestartPolicy)):
 		return fmt.Errorf("command config: invalid restart policy %q", c.RestartPolicy)
+	case c.StopSignal != "":
+		if _, _, err := ParseSignal(c.StopSignal); err != nil {
+			return fmt.Errorf("command config: invalid stop_signal %q: %w", c.StopSignal, err)
+		}
 	case c.ScrollbackBytes <= 0:
 		return fmt.Errorf("command config: scrollback_bytes must be positive: %d", c.ScrollbackBytes)
 	}
