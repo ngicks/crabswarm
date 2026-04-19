@@ -39,7 +39,10 @@ func (s *monitorServer) Attach(stream pb.CommandMonitorService_AttachServer) err
 			}
 			switch input := msg.Input.(type) {
 			case *pb.AttachRequest_Stdin:
-				s.monitor.SendStdin(input.Stdin)
+				if err := s.monitor.QueueStdin(stream.Context(), input.Stdin); err != nil {
+					errCh <- err
+					return
+				}
 			case *pb.AttachRequest_Resize:
 				s.monitor.Resize(
 					uint16(input.Resize.Rows),
@@ -108,6 +111,13 @@ func (s *monitorServer) Logs(req *pb.LogsRequest, stream pb.CommandMonitorServic
 			return stream.Context().Err()
 		}
 	}
+}
+
+func (s *monitorServer) WriteStdin(ctx context.Context, req *pb.WriteStdinRequest) (*pb.WriteStdinResponse, error) {
+	if err := s.monitor.QueueStdin(ctx, req.Stdin); err != nil {
+		return nil, err
+	}
+	return &pb.WriteStdinResponse{}, nil
 }
 
 func (s *monitorServer) Signal(_ context.Context, req *pb.SignalRequest) (*pb.SignalResponse, error) {

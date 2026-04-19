@@ -254,7 +254,9 @@ func (m *Monitor) runOnce(ctx context.Context) (int, error) {
 		for {
 			select {
 			case data := <-m.stdinCh:
-				ptmx.Write(data)
+				if _, err := ptmx.Write(data); err != nil {
+					return
+				}
 			case <-done:
 				return
 			}
@@ -302,11 +304,19 @@ func (m *Monitor) maybeAutoRemove() error {
 	return nil
 }
 
-// SendStdin sends data to the monitor's stdin channel for the PTY.
-func (m *Monitor) SendStdin(data []byte) {
+// QueueStdin sends data to the monitor's stdin channel for the PTY.
+func (m *Monitor) QueueStdin(ctx context.Context, data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if m.ptmx == nil {
+		return fmt.Errorf("no pty")
+	}
 	select {
 	case m.stdinCh <- data:
-	default:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

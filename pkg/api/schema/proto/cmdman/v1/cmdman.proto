@@ -9,6 +9,9 @@ service CommandMonitorService {
   // Read scrollback buffer (non-interactive)
   rpc Logs(LogsRequest) returns (stream LogsResponse);
 
+  // Write raw stdin bytes to the command PTY
+  rpc WriteStdin(WriteStdinRequest) returns (WriteStdinResponse);
+
   // Send signal to the command process
   rpc Signal(SignalRequest) returns (SignalResponse);
 
@@ -39,6 +42,12 @@ message LogsRequest {
 message LogsResponse {
   bytes data = 1;
 }
+
+message WriteStdinRequest {
+  bytes stdin = 1; // raw bytes to write to PTY
+}
+
+message WriteStdinResponse {}
 
 message SignalRequest {
   int32 signal = 1; // e.g. 15 for SIGTERM

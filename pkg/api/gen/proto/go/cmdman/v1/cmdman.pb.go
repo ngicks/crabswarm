@@ -287,6 +287,86 @@ func (x *LogsResponse) GetData() []byte {
 	return nil
 }
 
+type WriteStdinRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stdin         []byte                 `protobuf:"bytes,1,opt,name=stdin,proto3" json:"stdin,omitempty"` // raw bytes to write to PTY
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteStdinRequest) Reset() {
+	*x = WriteStdinRequest{}
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteStdinRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteStdinRequest) ProtoMessage() {}
+
+func (x *WriteStdinRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteStdinRequest.ProtoReflect.Descriptor instead.
+func (*WriteStdinRequest) Descriptor() ([]byte, []int) {
+	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *WriteStdinRequest) GetStdin() []byte {
+	if x != nil {
+		return x.Stdin
+	}
+	return nil
+}
+
+type WriteStdinResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteStdinResponse) Reset() {
+	*x = WriteStdinResponse{}
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteStdinResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteStdinResponse) ProtoMessage() {}
+
+func (x *WriteStdinResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteStdinResponse.ProtoReflect.Descriptor instead.
+func (*WriteStdinResponse) Descriptor() ([]byte, []int) {
+	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{6}
+}
+
 type SignalRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Signal        int32                  `protobuf:"varint,1,opt,name=signal,proto3" json:"signal,omitempty"` // e.g. 15 for SIGTERM
@@ -296,7 +376,7 @@ type SignalRequest struct {
 
 func (x *SignalRequest) Reset() {
 	*x = SignalRequest{}
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[5]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -308,7 +388,7 @@ func (x *SignalRequest) String() string {
 func (*SignalRequest) ProtoMessage() {}
 
 func (x *SignalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[5]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -321,7 +401,7 @@ func (x *SignalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignalRequest.ProtoReflect.Descriptor instead.
 func (*SignalRequest) Descriptor() ([]byte, []int) {
-	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{5}
+	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SignalRequest) GetSignal() int32 {
@@ -339,7 +419,7 @@ type SignalResponse struct {
 
 func (x *SignalResponse) Reset() {
 	*x = SignalResponse{}
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[6]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -351,7 +431,7 @@ func (x *SignalResponse) String() string {
 func (*SignalResponse) ProtoMessage() {}
 
 func (x *SignalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[6]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -364,7 +444,7 @@ func (x *SignalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignalResponse.ProtoReflect.Descriptor instead.
 func (*SignalResponse) Descriptor() ([]byte, []int) {
-	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{6}
+	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{8}
 }
 
 type StatusRequest struct {
@@ -375,7 +455,7 @@ type StatusRequest struct {
 
 func (x *StatusRequest) Reset() {
 	*x = StatusRequest{}
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[7]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -387,7 +467,7 @@ func (x *StatusRequest) String() string {
 func (*StatusRequest) ProtoMessage() {}
 
 func (x *StatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[7]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -400,7 +480,7 @@ func (x *StatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusRequest.ProtoReflect.Descriptor instead.
 func (*StatusRequest) Descriptor() ([]byte, []int) {
-	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{7}
+	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{9}
 }
 
 type StatusResponse struct {
@@ -414,7 +494,7 @@ type StatusResponse struct {
 
 func (x *StatusResponse) Reset() {
 	*x = StatusResponse{}
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[8]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -426,7 +506,7 @@ func (x *StatusResponse) String() string {
 func (*StatusResponse) ProtoMessage() {}
 
 func (x *StatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cmdman_v1_cmdman_proto_msgTypes[8]
+	mi := &file_cmdman_v1_cmdman_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -439,7 +519,7 @@ func (x *StatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusResponse.ProtoReflect.Descriptor instead.
 func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{8}
+	return file_cmdman_v1_cmdman_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *StatusResponse) GetState() string {
@@ -480,7 +560,10 @@ const file_cmdman_v1_cmdman_proto_rawDesc = "" +
 	"\vLogsRequest\x12\x16\n" +
 	"\x06follow\x18\x01 \x01(\bR\x06follow\"\"\n" +
 	"\fLogsResponse\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04data\"'\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\")\n" +
+	"\x11WriteStdinRequest\x12\x14\n" +
+	"\x05stdin\x18\x01 \x01(\fR\x05stdin\"\x14\n" +
+	"\x12WriteStdinResponse\"'\n" +
 	"\rSignalRequest\x12\x16\n" +
 	"\x06signal\x18\x01 \x01(\x05R\x06signal\"\x10\n" +
 	"\x0eSignalResponse\"\x0f\n" +
@@ -488,10 +571,12 @@ const file_cmdman_v1_cmdman_proto_rawDesc = "" +
 	"\x0eStatusResponse\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x10\n" +
-	"\x03pid\x18\x03 \x01(\x05R\x03pid2\x93\x02\n" +
+	"\x03pid\x18\x03 \x01(\x05R\x03pid2\xde\x02\n" +
 	"\x15CommandMonitorService\x12A\n" +
 	"\x06Attach\x12\x18.cmdman.v1.AttachRequest\x1a\x19.cmdman.v1.AttachResponse(\x010\x01\x129\n" +
-	"\x04Logs\x12\x16.cmdman.v1.LogsRequest\x1a\x17.cmdman.v1.LogsResponse0\x01\x12=\n" +
+	"\x04Logs\x12\x16.cmdman.v1.LogsRequest\x1a\x17.cmdman.v1.LogsResponse0\x01\x12I\n" +
+	"\n" +
+	"WriteStdin\x12\x1c.cmdman.v1.WriteStdinRequest\x1a\x1d.cmdman.v1.WriteStdinResponse\x12=\n" +
 	"\x06Signal\x12\x18.cmdman.v1.SignalRequest\x1a\x19.cmdman.v1.SignalResponse\x12=\n" +
 	"\x06Status\x12\x18.cmdman.v1.StatusRequest\x1a\x19.cmdman.v1.StatusResponseB\xa6\x01\n" +
 	"\rcom.cmdman.v1B\vCmdmanProtoP\x01ZCgithub.com/ngicks/crabswarm/pkg/api/gen/proto/go/cmdman/v1;cmdmanv1\xa2\x02\x03CXX\xaa\x02\tCmdman.V1\xca\x02\tCmdman\\V1\xe2\x02\x15Cmdman\\V1\\GPBMetadata\xea\x02\n" +
@@ -509,33 +594,37 @@ func file_cmdman_v1_cmdman_proto_rawDescGZIP() []byte {
 	return file_cmdman_v1_cmdman_proto_rawDescData
 }
 
-var file_cmdman_v1_cmdman_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_cmdman_v1_cmdman_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_cmdman_v1_cmdman_proto_goTypes = []any{
-	(*AttachRequest)(nil),  // 0: cmdman.v1.AttachRequest
-	(*AttachResponse)(nil), // 1: cmdman.v1.AttachResponse
-	(*ResizeEvent)(nil),    // 2: cmdman.v1.ResizeEvent
-	(*LogsRequest)(nil),    // 3: cmdman.v1.LogsRequest
-	(*LogsResponse)(nil),   // 4: cmdman.v1.LogsResponse
-	(*SignalRequest)(nil),  // 5: cmdman.v1.SignalRequest
-	(*SignalResponse)(nil), // 6: cmdman.v1.SignalResponse
-	(*StatusRequest)(nil),  // 7: cmdman.v1.StatusRequest
-	(*StatusResponse)(nil), // 8: cmdman.v1.StatusResponse
+	(*AttachRequest)(nil),      // 0: cmdman.v1.AttachRequest
+	(*AttachResponse)(nil),     // 1: cmdman.v1.AttachResponse
+	(*ResizeEvent)(nil),        // 2: cmdman.v1.ResizeEvent
+	(*LogsRequest)(nil),        // 3: cmdman.v1.LogsRequest
+	(*LogsResponse)(nil),       // 4: cmdman.v1.LogsResponse
+	(*WriteStdinRequest)(nil),  // 5: cmdman.v1.WriteStdinRequest
+	(*WriteStdinResponse)(nil), // 6: cmdman.v1.WriteStdinResponse
+	(*SignalRequest)(nil),      // 7: cmdman.v1.SignalRequest
+	(*SignalResponse)(nil),     // 8: cmdman.v1.SignalResponse
+	(*StatusRequest)(nil),      // 9: cmdman.v1.StatusRequest
+	(*StatusResponse)(nil),     // 10: cmdman.v1.StatusResponse
 }
 var file_cmdman_v1_cmdman_proto_depIdxs = []int32{
-	2, // 0: cmdman.v1.AttachRequest.resize:type_name -> cmdman.v1.ResizeEvent
-	0, // 1: cmdman.v1.CommandMonitorService.Attach:input_type -> cmdman.v1.AttachRequest
-	3, // 2: cmdman.v1.CommandMonitorService.Logs:input_type -> cmdman.v1.LogsRequest
-	5, // 3: cmdman.v1.CommandMonitorService.Signal:input_type -> cmdman.v1.SignalRequest
-	7, // 4: cmdman.v1.CommandMonitorService.Status:input_type -> cmdman.v1.StatusRequest
-	1, // 5: cmdman.v1.CommandMonitorService.Attach:output_type -> cmdman.v1.AttachResponse
-	4, // 6: cmdman.v1.CommandMonitorService.Logs:output_type -> cmdman.v1.LogsResponse
-	6, // 7: cmdman.v1.CommandMonitorService.Signal:output_type -> cmdman.v1.SignalResponse
-	8, // 8: cmdman.v1.CommandMonitorService.Status:output_type -> cmdman.v1.StatusResponse
-	5, // [5:9] is the sub-list for method output_type
-	1, // [1:5] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2,  // 0: cmdman.v1.AttachRequest.resize:type_name -> cmdman.v1.ResizeEvent
+	0,  // 1: cmdman.v1.CommandMonitorService.Attach:input_type -> cmdman.v1.AttachRequest
+	3,  // 2: cmdman.v1.CommandMonitorService.Logs:input_type -> cmdman.v1.LogsRequest
+	5,  // 3: cmdman.v1.CommandMonitorService.WriteStdin:input_type -> cmdman.v1.WriteStdinRequest
+	7,  // 4: cmdman.v1.CommandMonitorService.Signal:input_type -> cmdman.v1.SignalRequest
+	9,  // 5: cmdman.v1.CommandMonitorService.Status:input_type -> cmdman.v1.StatusRequest
+	1,  // 6: cmdman.v1.CommandMonitorService.Attach:output_type -> cmdman.v1.AttachResponse
+	4,  // 7: cmdman.v1.CommandMonitorService.Logs:output_type -> cmdman.v1.LogsResponse
+	6,  // 8: cmdman.v1.CommandMonitorService.WriteStdin:output_type -> cmdman.v1.WriteStdinResponse
+	8,  // 9: cmdman.v1.CommandMonitorService.Signal:output_type -> cmdman.v1.SignalResponse
+	10, // 10: cmdman.v1.CommandMonitorService.Status:output_type -> cmdman.v1.StatusResponse
+	6,  // [6:11] is the sub-list for method output_type
+	1,  // [1:6] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_cmdman_v1_cmdman_proto_init() }
@@ -553,7 +642,7 @@ func file_cmdman_v1_cmdman_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cmdman_v1_cmdman_proto_rawDesc), len(file_cmdman_v1_cmdman_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

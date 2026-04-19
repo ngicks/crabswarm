@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CommandMonitorService_Attach_FullMethodName = "/cmdman.v1.CommandMonitorService/Attach"
-	CommandMonitorService_Logs_FullMethodName   = "/cmdman.v1.CommandMonitorService/Logs"
-	CommandMonitorService_Signal_FullMethodName = "/cmdman.v1.CommandMonitorService/Signal"
-	CommandMonitorService_Status_FullMethodName = "/cmdman.v1.CommandMonitorService/Status"
+	CommandMonitorService_Attach_FullMethodName     = "/cmdman.v1.CommandMonitorService/Attach"
+	CommandMonitorService_Logs_FullMethodName       = "/cmdman.v1.CommandMonitorService/Logs"
+	CommandMonitorService_WriteStdin_FullMethodName = "/cmdman.v1.CommandMonitorService/WriteStdin"
+	CommandMonitorService_Signal_FullMethodName     = "/cmdman.v1.CommandMonitorService/Signal"
+	CommandMonitorService_Status_FullMethodName     = "/cmdman.v1.CommandMonitorService/Status"
 )
 
 // CommandMonitorServiceClient is the client API for CommandMonitorService service.
@@ -33,6 +34,8 @@ type CommandMonitorServiceClient interface {
 	Attach(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AttachRequest, AttachResponse], error)
 	// Read scrollback buffer (non-interactive)
 	Logs(ctx context.Context, in *LogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogsResponse], error)
+	// Write raw stdin bytes to the command PTY
+	WriteStdin(ctx context.Context, in *WriteStdinRequest, opts ...grpc.CallOption) (*WriteStdinResponse, error)
 	// Send signal to the command process
 	Signal(ctx context.Context, in *SignalRequest, opts ...grpc.CallOption) (*SignalResponse, error)
 	// Query monitor status
@@ -79,6 +82,16 @@ func (c *commandMonitorServiceClient) Logs(ctx context.Context, in *LogsRequest,
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type CommandMonitorService_LogsClient = grpc.ServerStreamingClient[LogsResponse]
 
+func (c *commandMonitorServiceClient) WriteStdin(ctx context.Context, in *WriteStdinRequest, opts ...grpc.CallOption) (*WriteStdinResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WriteStdinResponse)
+	err := c.cc.Invoke(ctx, CommandMonitorService_WriteStdin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *commandMonitorServiceClient) Signal(ctx context.Context, in *SignalRequest, opts ...grpc.CallOption) (*SignalResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SignalResponse)
@@ -107,6 +120,8 @@ type CommandMonitorServiceServer interface {
 	Attach(grpc.BidiStreamingServer[AttachRequest, AttachResponse]) error
 	// Read scrollback buffer (non-interactive)
 	Logs(*LogsRequest, grpc.ServerStreamingServer[LogsResponse]) error
+	// Write raw stdin bytes to the command PTY
+	WriteStdin(context.Context, *WriteStdinRequest) (*WriteStdinResponse, error)
 	// Send signal to the command process
 	Signal(context.Context, *SignalRequest) (*SignalResponse, error)
 	// Query monitor status
@@ -126,6 +141,9 @@ func (UnimplementedCommandMonitorServiceServer) Attach(grpc.BidiStreamingServer[
 }
 func (UnimplementedCommandMonitorServiceServer) Logs(*LogsRequest, grpc.ServerStreamingServer[LogsResponse]) error {
 	return status.Error(codes.Unimplemented, "method Logs not implemented")
+}
+func (UnimplementedCommandMonitorServiceServer) WriteStdin(context.Context, *WriteStdinRequest) (*WriteStdinResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method WriteStdin not implemented")
 }
 func (UnimplementedCommandMonitorServiceServer) Signal(context.Context, *SignalRequest) (*SignalResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Signal not implemented")
@@ -172,6 +190,24 @@ func _CommandMonitorService_Logs_Handler(srv interface{}, stream grpc.ServerStre
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type CommandMonitorService_LogsServer = grpc.ServerStreamingServer[LogsResponse]
 
+func _CommandMonitorService_WriteStdin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WriteStdinRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandMonitorServiceServer).WriteStdin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CommandMonitorService_WriteStdin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandMonitorServiceServer).WriteStdin(ctx, req.(*WriteStdinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CommandMonitorService_Signal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SignalRequest)
 	if err := dec(in); err != nil {
@@ -215,6 +251,10 @@ var CommandMonitorService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "cmdman.v1.CommandMonitorService",
 	HandlerType: (*CommandMonitorServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "WriteStdin",
+			Handler:    _CommandMonitorService_WriteStdin_Handler,
+		},
 		{
 			MethodName: "Signal",
 			Handler:    _CommandMonitorService_Signal_Handler,
