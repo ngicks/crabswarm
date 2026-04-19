@@ -15,6 +15,9 @@ service CommandMonitorService {
   // Send signal to the command process
   rpc Signal(SignalRequest) returns (SignalResponse);
 
+  // Stop the command and prevent restart policy from re-spawning it
+  rpc Stop(StopRequest) returns (StopResponse);
+
   // Query monitor status
   rpc Status(StatusRequest) returns (StatusResponse);
 }
@@ -54,6 +57,12 @@ message SignalRequest {
 }
 
 message SignalResponse {}
+
+message StopRequest {
+  int32 signal = 1; // e.g. 15 for SIGTERM
+}
+
+message StopResponse {}
 
 message StatusRequest {}
 

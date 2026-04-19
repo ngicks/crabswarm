@@ -127,6 +127,13 @@ func (s *monitorServer) Signal(_ context.Context, req *pb.SignalRequest) (*pb.Si
 	return &pb.SignalResponse{}, nil
 }
 
+func (s *monitorServer) Stop(_ context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
+	if err := s.monitor.StopProcess(syscall.Signal(req.Signal)); err != nil {
+		return nil, err
+	}
+	return &pb.StopResponse{}, nil
+}
+
 func (s *monitorServer) Status(_ context.Context, _ *pb.StatusRequest) (*pb.StatusResponse, error) {
 	state, exitCode, pid := s.monitor.GetState()
 	return &pb.StatusResponse{

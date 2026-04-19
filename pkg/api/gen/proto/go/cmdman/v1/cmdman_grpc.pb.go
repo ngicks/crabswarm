@@ -23,6 +23,7 @@ const (
 	CommandMonitorService_Logs_FullMethodName       = "/cmdman.v1.CommandMonitorService/Logs"
 	CommandMonitorService_WriteStdin_FullMethodName = "/cmdman.v1.CommandMonitorService/WriteStdin"
 	CommandMonitorService_Signal_FullMethodName     = "/cmdman.v1.CommandMonitorService/Signal"
+	CommandMonitorService_Stop_FullMethodName       = "/cmdman.v1.CommandMonitorService/Stop"
 	CommandMonitorService_Status_FullMethodName     = "/cmdman.v1.CommandMonitorService/Status"
 )
 
@@ -38,6 +39,8 @@ type CommandMonitorServiceClient interface {
 	WriteStdin(ctx context.Context, in *WriteStdinRequest, opts ...grpc.CallOption) (*WriteStdinResponse, error)
 	// Send signal to the command process
 	Signal(ctx context.Context, in *SignalRequest, opts ...grpc.CallOption) (*SignalResponse, error)
+	// Stop the command and prevent restart policy from re-spawning it
+	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 	// Query monitor status
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 }
@@ -102,6 +105,16 @@ func (c *commandMonitorServiceClient) Signal(ctx context.Context, in *SignalRequ
 	return out, nil
 }
 
+func (c *commandMonitorServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopResponse)
+	err := c.cc.Invoke(ctx, CommandMonitorService_Stop_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *commandMonitorServiceClient) Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StatusResponse)
@@ -124,6 +137,8 @@ type CommandMonitorServiceServer interface {
 	WriteStdin(context.Context, *WriteStdinRequest) (*WriteStdinResponse, error)
 	// Send signal to the command process
 	Signal(context.Context, *SignalRequest) (*SignalResponse, error)
+	// Stop the command and prevent restart policy from re-spawning it
+	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	// Query monitor status
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	mustEmbedUnimplementedCommandMonitorServiceServer()
@@ -147,6 +162,9 @@ func (UnimplementedCommandMonitorServiceServer) WriteStdin(context.Context, *Wri
 }
 func (UnimplementedCommandMonitorServiceServer) Signal(context.Context, *SignalRequest) (*SignalResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Signal not implemented")
+}
+func (UnimplementedCommandMonitorServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedCommandMonitorServiceServer) Status(context.Context, *StatusRequest) (*StatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
@@ -226,6 +244,24 @@ func _CommandMonitorService_Signal_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CommandMonitorService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandMonitorServiceServer).Stop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CommandMonitorService_Stop_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandMonitorServiceServer).Stop(ctx, req.(*StopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CommandMonitorService_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StatusRequest)
 	if err := dec(in); err != nil {
@@ -258,6 +294,10 @@ var CommandMonitorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Signal",
 			Handler:    _CommandMonitorService_Signal_Handler,
+		},
+		{
+			MethodName: "Stop",
+			Handler:    _CommandMonitorService_Stop_Handler,
 		},
 		{
 			MethodName: "Status",

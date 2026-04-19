@@ -354,7 +354,7 @@ func (s *Service) Signal(ctx context.Context, idOrName string, sig int32) error 
 	if err != nil {
 		return fmt.Errorf("resolve command: %w", err)
 	}
-	if err := stopOne(ctx, st, id, sig); err != nil {
+	if err := signalOne(ctx, st, id, sig); err != nil {
 		return fmt.Errorf("signal command %s: %w", idOrName, err)
 	}
 	return nil
@@ -495,6 +495,29 @@ func getLiveStatus(ctx context.Context, sockPath string) *LiveStatusInfo {
 }
 
 func stopOne(ctx context.Context, st *store.Store, id string, sig int32) error {
+	_, _, stateJSON, err := st.GetCommandState(id)
+	if err != nil {
+		return err
+	}
+	if stateJSON.SocketPath == "" {
+		return fmt.Errorf("no socket path")
+	}
+
+	conn, err := grpc.NewClient(
+		"unix://"+stateJSON.SocketPath,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	client := cmdmanv1pb.NewCommandMonitorServiceClient(conn)
+	_, err = client.Stop(ctx, &cmdmanv1pb.StopRequest{Signal: sig})
+	return err
+}
+
+func signalOne(ctx context.Context, st *store.Store, id string, sig int32) error {
 	_, _, stateJSON, err := st.GetCommandState(id)
 	if err != nil {
 		return err

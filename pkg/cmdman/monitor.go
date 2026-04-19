@@ -328,16 +328,18 @@ func (m *Monitor) Resize(rows, cols uint16) error {
 	return pty.Setsize(m.ptmx, &pty.Winsize{Rows: rows, Cols: cols})
 }
 
-// SignalProcess sends a signal to the running command.
-// Sending SIGTERM or SIGKILL also sets the stop flag to prevent restarts.
+// SignalProcess sends a raw signal to the running command.
 func (m *Monitor) SignalProcess(sig syscall.Signal) error {
-	if sig == syscall.SIGTERM || sig == syscall.SIGKILL {
-		m.stopRequested.Store(true)
-	}
 	if m.cmd == nil || m.cmd.Process == nil {
 		return fmt.Errorf("no running process")
 	}
 	return m.cmd.Process.Signal(sig)
+}
+
+// StopProcess sends a signal to the running command and prevents restart.
+func (m *Monitor) StopProcess(sig syscall.Signal) error {
+	m.stopRequested.Store(true)
+	return m.SignalProcess(sig)
 }
 
 // GetState returns the current command state.
