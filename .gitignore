@@ -3,6 +3,7 @@
 .claude
 .mcp.json
 
+/cmdman
 /crabhook
 /crabswarm
 /splitpane
