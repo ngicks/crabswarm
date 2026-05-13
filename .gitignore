@@ -3,10 +3,19 @@
 .claude
 .mcp.json
 
-/cmdman
 /crabhook
 /crabswarm
 /splitpane
 /plugin/crabswarm/bin/crabswarm-*
 /hook_input.json*
 /doc/plans/**/state.json
+
+
+# APM dependencies
+apm_modules/
+
+/.agents
+/.claude
+/.codex
+/.github/instructions
+/.github/skills
