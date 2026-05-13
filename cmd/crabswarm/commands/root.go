@@ -3,35 +3,54 @@ package commands
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+	"os"
 
-	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
+	"github.com/ngicks/go-common/contextkey"
 	"github.com/spf13/cobra"
+
+	"github.com/ngicks/crabswarm/internal/loggerfactory"
 )
 
 // Execute runs the root command with the given context.
 func Execute(ctx context.Context) error {
-	err := rootCmd.ExecuteContext(ctx)
-	handler.Handle(err)
-	return err
+	return rootCmd().ExecuteContext(ctx)
 }
 
-var k = &struct{}{}
+func rootCmd() *cobra.Command {
+	var (
+		logConfig *loggerfactory.Config
+		flagSock  string
+	)
 
-var rootCmd = &cobra.Command{
-	Use:   "crabswarm",
-	Short: "crabswarm CLI",
-	Long:  `crabswarm is a CLI tool for managing Claude Code hooks.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		ctx, cancel := context.WithCancel(cmd.Context())
-		ctx = context.WithValue(ctx, k, cancel)
-		cmd.SetContext(ctx)
-	},
-	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		cancel := cmd.Context().Value(k).(context.CancelFunc)
-		cancel()
-	},
+	cmd := &cobra.Command{
+		Use:           "crabswarm",
+		Short:         "crabswarm CLI",
+		Long:          "crabswarm is a CLI tool for managing Claude Code hooks.",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.NoArgs,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if err := loggerfactory.ReadEnv(logConfig, "crabswarm", os.Environ()); err != nil {
+				fmt.Fprintln(os.Stderr, "warning:", err)
+			}
+			logger := loggerfactory.BuildLogger(logConfig)
+			slog.SetDefault(logger)
+			cmd.SetContext(contextkey.WithSlogLogger(cmd.Context(), logger))
+		},
+		RunE: runRoot,
+	}
+
+	logConfig = loggerfactory.RegisterFlags(cmd)
+	cmd.PersistentFlags().StringVar(&flagSock, "sock", "", "Unix socket path")
+
+	serveCmd(cmd, &flagSock)
+	hookCmd(cmd, &flagSock)
+
+	return cmd
 }
 
-func init() {
-	rootCmd.PersistentFlags().String("sock", "", "Unix socket path")
+func runRoot(cmd *cobra.Command, _ []string) error {
+	return cmd.Help()
 }

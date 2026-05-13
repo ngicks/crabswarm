@@ -1,23 +1,21 @@
-package commands
+package crabswarm
 
 import (
 	"path/filepath"
 	"testing"
-
-	"github.com/spf13/cobra"
 )
 
-func TestResolveSocketPath(t *testing.T) {
+func TestSocketPath(t *testing.T) {
 	tests := []struct {
 		name     string
-		sockFlag string
+		override string
 		envSock  string
 		envXDG   string
 		want     string
 	}{
 		{
-			name:     "flag takes precedence",
-			sockFlag: "/custom/path.sock",
+			name:     "override takes precedence",
+			override: "/custom/path.sock",
 			envSock:  "/env/path.sock",
 			envXDG:   "/run/user/1000",
 			want:     "/custom/path.sock",
@@ -41,16 +39,29 @@ func TestResolveSocketPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("CRABSWARM_SOCK", tt.envSock)
-			t.Setenv("XDG_RUNTIME_DIR", tt.envXDG)
+			t.Setenv(EnvSock, tt.envSock)
+			t.Setenv(envXDGRuntime, tt.envXDG)
 
-			cmd := &cobra.Command{}
-			cmd.Flags().String("sock", tt.sockFlag, "")
-
-			got := resolveSocketPath(cmd)
+			got := SocketPath(tt.override)
 			if got != tt.want {
-				t.Errorf("resolveSocketPath() = %q, want %q", got, tt.want)
+				t.Errorf("SocketPath(%q) = %q, want %q", tt.override, got, tt.want)
 			}
 		})
 	}
+}
+
+func TestProjectDir(t *testing.T) {
+	t.Run("returns env value", func(t *testing.T) {
+		t.Setenv(EnvProjectDir, "/work/proj")
+		if got := ProjectDir(); got != "/work/proj" {
+			t.Errorf("ProjectDir() = %q, want %q", got, "/work/proj")
+		}
+	})
+
+	t.Run("returns empty when unset", func(t *testing.T) {
+		t.Setenv(EnvProjectDir, "")
+		if got := ProjectDir(); got != "" {
+			t.Errorf("ProjectDir() = %q, want empty", got)
+		}
+	})
 }

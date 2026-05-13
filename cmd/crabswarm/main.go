@@ -3,31 +3,26 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
 	"os"
 	"os/signal"
 
 	"github.com/ngicks/crabswarm/cmd/crabswarm/commands"
-	cmdsignals "github.com/ngicks/crabswarm/cmd/internal/signals"
-	"github.com/ngicks/go-common/contextkey"
+	"github.com/ngicks/crabswarm/cmd/internal/cmdsignals"
+	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), cmdsignals.ExitSignals[:]...)
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		cmdsignals.ExitSignals[:]...,
+	)
 	defer stop()
 
-	logger := slog.New(
-		slog.NewJSONHandler(
-			os.Stderr,
-			&slog.HandlerOptions{
-				AddSource: true,
-				Level:     slog.LevelDebug,
-			},
-		),
-	)
-	ctx = contextkey.WithSlogLogger(ctx, logger)
-
 	if err := commands.Execute(ctx); err != nil {
+		// HandlerError carries hook-protocol output and its own exit code.
+		handler.Handle(err)
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }

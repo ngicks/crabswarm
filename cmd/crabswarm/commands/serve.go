@@ -3,23 +3,27 @@ package commands
 import (
 	"log/slog"
 
-	"github.com/ngicks/crabswarm/pkg/crabswarm/server"
 	"github.com/ngicks/go-common/contextkey"
 	"github.com/spf13/cobra"
+
+	"github.com/ngicks/crabswarm/pkg/crabswarm"
+	"github.com/ngicks/crabswarm/pkg/crabswarm/server"
 )
 
-func init() {
-	rootCmd.AddCommand(serveCmd)
+func serveCmd(parent *cobra.Command, flagSock *string) {
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start the crabswarm server",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runServe(cmd, args, *flagSock)
+		},
+	}
+
+	parent.AddCommand(cmd)
 }
 
-// serveCmd is the serve subcommand.
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start the crabswarm server",
-	RunE:  runServeCmd,
-}
-
-func runServeCmd(cmd *cobra.Command, args []string) error {
+func runServe(cmd *cobra.Command, _ []string, flagSock string) error {
 	ctx := cmd.Context()
 
 	logger, _ := contextkey.ValueSlogLogger(ctx)
@@ -27,9 +31,6 @@ func runServeCmd(cmd *cobra.Command, args []string) error {
 		logger = slog.Default()
 	}
 
-	sockPath := resolveSocketPath(cmd)
-
-	server := server.New(logger, sockPath)
-
-	return server.Serve(ctx)
+	srv := server.New(logger, crabswarm.SocketPath(flagSock))
+	return srv.Serve(ctx)
 }
