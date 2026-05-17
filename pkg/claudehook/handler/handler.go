@@ -18,7 +18,8 @@ type HandlerError struct {
 }
 
 func (e *HandlerError) Error() string {
-	if e.Output != nil && e.Output.Decision != nil && *e.Output.Decision == sdktypesv1.HookDecisionBlock {
+	if e.Output != nil && e.Output.Decision != nil &&
+		*e.Output.Decision == sdktypesv1.HookDecisionBlock {
 		reason := ""
 		if e.Output.Reason != nil {
 			reason = *e.Output.Reason
@@ -60,8 +61,12 @@ func Handle(err error) {
 }
 
 // PermissionAllow creates a HandlerError that outputs a PermissionRequest
-// approval response (hookSpecificOutput with decision.behavior = PermissionRequestDecisionBehaviorAllow).
-func PermissionAllow(updatedInput map[string]any, updatedPermission []sdktypesv1.PermissionUpdate) *HandlerError {
+// approval response (hookSpecificOutput with decision.behavior =
+// PermissionRequestDecisionBehaviorAllow).
+func PermissionAllow(
+	updatedInput map[string]any,
+	updatedPermission []sdktypesv1.PermissionUpdate,
+) *HandlerError {
 	return &HandlerError{
 		Output: &sdktypesv1.SyncHookJSONOutput{
 			HookSpecificOutput: &sdktypesv1.HookSpecificOutputPermissionRequest{
@@ -94,6 +99,19 @@ func PermissionDeny(message string, interrupt bool) *HandlerError {
 					Interrupt: opt(interrupt),
 				},
 			},
+		},
+	}
+}
+
+// Block creates a HandlerError that blocks the current hook event
+// with `reason` shown to the LLM. Generic across PreToolUse, PostToolUse,
+// Stop, and other events that accept decision=block. The exec hook uses
+// this to surface lint/formatter output back to the agent.
+func Block(reason string) *HandlerError {
+	return &HandlerError{
+		Output: &sdktypesv1.SyncHookJSONOutput{
+			Decision: new(sdktypesv1.HookDecisionBlock),
+			Reason:   &reason,
 		},
 	}
 }

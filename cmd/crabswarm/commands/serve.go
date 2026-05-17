@@ -31,6 +31,11 @@ func runServe(cmd *cobra.Command, _ []string, flagSock string) error {
 		logger = slog.Default()
 	}
 
-	srv := server.New(logger, crabswarm.SocketPath(flagSock))
+	cfg, err := crabswarm.Config{Sock: flagSock}.Load()
+	if err != nil {
+		return err
+	}
+
+	srv := server.New(logger, cfg.Sock)
 	return srv.Serve(ctx)
 }

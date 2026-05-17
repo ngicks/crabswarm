@@ -37,7 +37,11 @@ func runHookAudit(cmd *cobra.Command, _ []string, flagSock string) error {
 	reader := stdiopipe.Stdin(ctx)
 	defer reader.Close()
 
-	sockPath := crabswarm.SocketPath(flagSock)
+	cfg, err := crabswarm.Config{Sock: flagSock}.Load()
+	if err != nil {
+		return err
+	}
+	sockPath := cfg.Sock
 	_ = os.MkdirAll(filepath.Dir(sockPath), fs.ModePerm)
 
 	conn, err := grpc.NewClient(

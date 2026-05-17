@@ -1,0 +1,54 @@
+{
+  "filetypes": [
+    {
+      "ext": {"go": "go"},
+      "filename": {"go.mod": "go", "go.sum": "go", "go.work": "go"},
+      "root_markers": {"go": [["go.work"], ["go.mod"], [".git"]]}
+    },
+    {
+      "ext": {"rs": "rust"},
+      "filename": {"Cargo.toml": "rust"},
+      "root_markers": {"rust": [["Cargo.toml"], [".git"]]}
+    },
+    {
+      "ext": {"py": "python"},
+      "filename": {"pyproject.toml": "python", "setup.py": "python", "requirements.txt": "python"},
+      "root_markers": {"python": [["pyproject.toml", "setup.py"], [".git"]]}
+    },
+    {
+      "ext": {"js": "javascript", "mjs": "javascript", "cjs": "javascript", "jsx": "javascript"},
+      "filename": {"package.json": "javascript"},
+      "root_markers": {"javascript": [["package.json"], [".git"]]}
+    },
+    {
+      "ext": {"ts": "typescript", "tsx": "typescript", "mts": "typescript", "cts": "typescript"},
+      "filename": {"tsconfig.json": "typescript"},
+      "root_markers": {"typescript": [["tsconfig.json", "package.json"], [".git"]]}
+    },
+    {
+      "ext": {"sh": "shell", "bash": "shell", "zsh": "shell"},
+      "root_markers": {"shell": [[".git"]]}
+    },
+    {
+      "ext": {"yml": "yaml", "yaml": "yaml"},
+      "root_markers": {"yaml": [[".git"]]}
+    },
+    {
+      "ext": {"json": "json"},
+      "root_markers": {"json": [[".git"]]}
+    },
+    {
+      "ext": {"md": "markdown", "markdown": "markdown"},
+      "root_markers": {"markdown": [[".git"]]}
+    },
+    {
+      "filename": {"Makefile": "make"},
+      "root_markers": {"make": [[".git"]]}
+    },
+    {
+      "ext": {"mbt": "moonbit", "mbti": "moonbit"},
+      "filename": {"moon.pkg": "moonbit", "moon.mod.json": "moonbit", "moon.pkg.json": "moonbit"},
+      "root_markers": {"moonbit": [["moon.mod.json"], [".git"]]}
+    }
+  ]
+}

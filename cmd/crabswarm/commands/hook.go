@@ -9,7 +9,7 @@ func hookCmd(parent *cobra.Command, flagSock *string) {
 	}
 
 	hookAuditCmd(cmd, flagSock)
-	hookAutoApproveCmd(cmd)
+	hookExecCmd(cmd)
 
 	parent.AddCommand(cmd)
 }

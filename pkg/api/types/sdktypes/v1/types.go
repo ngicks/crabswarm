@@ -5,6 +5,7 @@ package sdktypesv1
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -1624,10 +1625,10 @@ func (HookInputUnknown) hookInput() {}
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#pretoolusehookinput
 type PreToolUseHookInput struct {
 	BaseHookInput
-	HookEventName HookEvent       `json:"hook_event_name"`
-	ToolName      string          `json:"tool_name"`
-	ToolInput     json.RawMessage `json:"tool_input"`
-	ToolUseID     string          `json:"tool_use_id"`
+	HookEventName HookEvent        `json:"hook_event_name"`
+	ToolName      string           `json:"tool_name"`
+	ToolInput     ToolInputSchemas `json:"tool_input"`
+	ToolUseID     string           `json:"tool_use_id"`
 }
 
 func (PreToolUseHookInput) hookInput() {}
@@ -1637,11 +1638,11 @@ func (PreToolUseHookInput) hookInput() {}
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusehookinput
 type PostToolUseHookInput struct {
 	BaseHookInput
-	HookEventName HookEvent       `json:"hook_event_name"`
-	ToolName      string          `json:"tool_name"`
-	ToolInput     json.RawMessage `json:"tool_input"`
-	ToolResponse  json.RawMessage `json:"tool_response"`
-	ToolUseID     string          `json:"tool_use_id"`
+	HookEventName HookEvent         `json:"hook_event_name"`
+	ToolName      string            `json:"tool_name"`
+	ToolInput     ToolInputSchemas  `json:"tool_input"`
+	ToolResponse  ToolOutputSchemas `json:"tool_response"`
+	ToolUseID     string            `json:"tool_use_id"`
 }
 
 func (PostToolUseHookInput) hookInput() {}
@@ -1651,12 +1652,12 @@ func (PostToolUseHookInput) hookInput() {}
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusefailurehookinput
 type PostToolUseFailureHookInput struct {
 	BaseHookInput
-	HookEventName HookEvent       `json:"hook_event_name"`
-	ToolName      string          `json:"tool_name"`
-	ToolInput     json.RawMessage `json:"tool_input"`
-	ToolUseID     string          `json:"tool_use_id"`
-	Error         string          `json:"error"`
-	IsInterrupt   *bool           `json:"is_interrupt,omitzero"`
+	HookEventName HookEvent        `json:"hook_event_name"`
+	ToolName      string           `json:"tool_name"`
+	ToolInput     ToolInputSchemas `json:"tool_input"`
+	ToolUseID     string           `json:"tool_use_id"`
+	Error         string           `json:"error"`
+	IsInterrupt   *bool            `json:"is_interrupt,omitzero"`
 }
 
 func (PostToolUseFailureHookInput) hookInput() {}
@@ -1760,7 +1761,7 @@ type PermissionRequestHookInput struct {
 	BaseHookInput
 	HookEventName         HookEvent          `json:"hook_event_name"`
 	ToolName              string             `json:"tool_name"`
-	ToolInput             json.RawMessage    `json:"tool_input"`
+	ToolInput             ToolInputSchemas   `json:"tool_input"`
 	ToolUseID             string             `json:"tool_use_id"`
 	PermissionSuggestions []PermissionUpdate `json:"permission_suggestions,omitzero"`
 }
@@ -2952,8 +2953,14 @@ func protoOpt[T comparable](msg interface{ ProtoReflect() protoreflect.Message }
 	return opt(v)
 }
 
-func rawToolInputToProto(raw json.RawMessage, discriminator string) *pb.ToolInput {
-	if len(raw) == 0 {
+// rawToolInputToProto marshals a typed ToolInputSchemas to JSON and wraps
+// it as the proto UnknownVariant. Returns nil for nil input.
+func rawToolInputToProto(v ToolInputSchemas, discriminator string) *pb.ToolInput {
+	if v == nil {
+		return nil
+	}
+	raw, err := json.Marshal(v)
+	if err != nil || len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
 	return &pb.ToolInput{
@@ -2966,8 +2973,12 @@ func rawToolInputToProto(raw json.RawMessage, discriminator string) *pb.ToolInpu
 	}
 }
 
-func rawToolOutputToProto(raw json.RawMessage, discriminator string) *pb.ToolOutput {
-	if len(raw) == 0 {
+func rawToolOutputToProto(v ToolOutputSchemas, discriminator string) *pb.ToolOutput {
+	if v == nil {
+		return nil
+	}
+	raw, err := json.Marshal(v)
+	if err != nil || len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
 	return &pb.ToolOutput{
@@ -2980,32 +2991,40 @@ func rawToolOutputToProto(raw json.RawMessage, discriminator string) *pb.ToolOut
 	}
 }
 
-func rawFromToolInputProto(v *pb.ToolInput) (json.RawMessage, error) {
+// rawFromToolInputProto extracts a typed ToolInputSchemas from the proto
+// wrapper. The discriminator (tool name) drives the dispatch.
+func rawFromToolInputProto(v *pb.ToolInput, discriminator string) (ToolInputSchemas, error) {
 	if v == nil {
 		return nil, nil
 	}
+	var raw json.RawMessage
 	if unknown := v.GetUnknown(); unknown != nil {
-		return cloneRawMessage(unknown.GetRawJson()), nil
+		raw = cloneRawMessage(unknown.GetRawJson())
+	} else {
+		b, err := protojson.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		raw = b
 	}
-	b, err := protojson.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return UnmarshalToolInputSchemas(discriminator, raw)
 }
 
-func rawFromToolOutputProto(v *pb.ToolOutput) (json.RawMessage, error) {
+func rawFromToolOutputProto(v *pb.ToolOutput, discriminator string) (ToolOutputSchemas, error) {
 	if v == nil {
 		return nil, nil
 	}
+	var raw json.RawMessage
 	if unknown := v.GetUnknown(); unknown != nil {
-		return cloneRawMessage(unknown.GetRawJson()), nil
+		raw = cloneRawMessage(unknown.GetRawJson())
+	} else {
+		b, err := protojson.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		raw = b
 	}
-	b, err := protojson.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return UnmarshalToolOutputSchemas(discriminator, raw)
 }
 
 func permissionRuleValuesToProto(v []PermissionRuleValue) []*pb.PermissionRuleValue {
@@ -3231,6 +3250,188 @@ func UnmarshalPermissionUpdate(data []byte) (PermissionUpdate, error) {
 		return &v, v.UnmarshalJSON(data)
 	default:
 		var v PermissionUpdateUnknown
+		return &v, v.UnmarshalJSON(data)
+	}
+}
+
+// Tool names recognized by the Claude Code SDK for typed dispatch in
+// [UnmarshalToolInputSchemas] / [UnmarshalToolOutputSchemas]. User-defined
+// MCP tools share the [McpToolNamePrefix] prefix.
+const (
+	ToolNameAskUserQuestion        = "AskUserQuestion"
+	ToolNameBash                   = "Bash"
+	ToolNameConfig                 = "Config"
+	ToolNameEdit                   = "Edit"
+	ToolNameEnterWorktree          = "EnterWorktree"
+	ToolNameExitPlanMode           = "ExitPlanMode"
+	ToolNameGlob                   = "Glob"
+	ToolNameGrep                   = "Grep"
+	ToolNameListMcpResources       = "ListMcpResources"
+	ToolNameNotebookEdit           = "NotebookEdit"
+	ToolNameRead                   = "Read"
+	ToolNameReadMcpResource        = "ReadMcpResource"
+	ToolNameSubscribeMcpResource   = "SubscribeMcpResource"
+	ToolNameSubscribePolling       = "SubscribePolling"
+	ToolNameTask                   = "Task"
+	ToolNameTaskOutput             = "TaskOutput"
+	ToolNameTaskStop               = "TaskStop"
+	ToolNameTodoWrite              = "TodoWrite"
+	ToolNameUnsubscribeMcpResource = "UnsubscribeMcpResource"
+	ToolNameUnsubscribePolling     = "UnsubscribePolling"
+	ToolNameWebFetch               = "WebFetch"
+	ToolNameWebSearch              = "WebSearch"
+)
+
+// McpToolNamePrefix marks user-defined MCP tools, e.g. "mcp__server__tool".
+const McpToolNamePrefix = "mcp__"
+
+// UnmarshalToolInputSchemas dispatches on toolName to the appropriate
+// ToolInputSchemas concrete type, then unmarshals data into it. Returns
+// a [ToolInputUnknown] for tool names not in the known set. Returns
+// (nil, nil) when data is empty or `null`.
+func UnmarshalToolInputSchemas(toolName string, data []byte) (ToolInputSchemas, error) {
+	if len(data) == 0 || string(data) == "null" {
+		return nil, nil
+	}
+	if strings.HasPrefix(toolName, McpToolNamePrefix) {
+		var v McpInput
+		return &v, json.Unmarshal(data, &v)
+	}
+	switch toolName {
+	case ToolNameAskUserQuestion:
+		var v AskUserQuestionInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameBash:
+		var v BashInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameConfig:
+		var v ConfigInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameEdit:
+		var v FileEditInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameEnterWorktree:
+		var v EnterWorktreeInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameExitPlanMode:
+		var v ExitPlanModeInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameGlob:
+		var v GlobInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameGrep:
+		var v GrepInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameListMcpResources:
+		var v ListMcpResourcesInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameNotebookEdit:
+		var v NotebookEditInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameRead:
+		var v FileReadInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameReadMcpResource:
+		var v ReadMcpResourceInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameSubscribeMcpResource:
+		var v SubscribeMcpResourceInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameSubscribePolling:
+		var v SubscribePollingInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTask:
+		var v AgentInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskOutput:
+		var v TaskOutputInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskStop:
+		var v TaskStopInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTodoWrite:
+		var v TodoWriteInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameUnsubscribeMcpResource:
+		var v UnsubscribeMcpResourceInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameUnsubscribePolling:
+		var v UnsubscribePollingInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameWebFetch:
+		var v WebFetchInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameWebSearch:
+		var v WebSearchInput
+		return &v, json.Unmarshal(data, &v)
+	default:
+		var v ToolInputUnknown
+		return &v, v.UnmarshalJSON(data)
+	}
+}
+
+// UnmarshalToolOutputSchemas dispatches on toolName to the appropriate
+// ToolOutputSchemas concrete type, then unmarshals data into it. Returns
+// a [ToolOutputUnknown] for tool names not in the known set or for tools
+// without a typed output (e.g. TodoWrite, ExitPlanMode are accepted as
+// best-effort; missing ones fall through to ToolOutputUnknown). Returns
+// (nil, nil) when data is empty or `null`.
+func UnmarshalToolOutputSchemas(toolName string, data []byte) (ToolOutputSchemas, error) {
+	if len(data) == 0 || string(data) == "null" {
+		return nil, nil
+	}
+	if strings.HasPrefix(toolName, McpToolNamePrefix) {
+		var v ToolOutputUnknown
+		return &v, v.UnmarshalJSON(data)
+	}
+	switch toolName {
+	case ToolNameAskUserQuestion:
+		var v AskUserQuestionOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameBash:
+		var v BashOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameConfig:
+		var v ConfigOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameEdit:
+		var v FileEditOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameEnterWorktree:
+		var v EnterWorktreeOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameExitPlanMode:
+		var v ExitPlanModeOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameGlob:
+		var v GlobOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameGrep:
+		var v GrepOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameListMcpResources:
+		var v ListMcpResourcesOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameNotebookEdit:
+		var v NotebookEditOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameReadMcpResource:
+		var v ReadMcpResourceOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskStop:
+		var v TaskStopOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTodoWrite:
+		var v TodoWriteOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameWebFetch:
+		var v WebFetchOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameWebSearch:
+		var v WebSearchOutput
+		return &v, json.Unmarshal(data, &v)
+	default:
+		var v ToolOutputUnknown
 		return &v, v.UnmarshalJSON(data)
 	}
 }
@@ -4158,12 +4359,157 @@ func (o *HookInputUnknown) UnmarshalJSON(data []byte) error {
 	return o.UnknownUnion.UnmarshalJSON(data)
 }
 
+func (o PreToolUseHookInput) MarshalJSON() ([]byte, error) {
+	type raw struct {
+		BaseHookInput
+		HookEventName HookEvent        `json:"hook_event_name"`
+		ToolName      string           `json:"tool_name"`
+		ToolInput     ToolInputSchemas `json:"tool_input"`
+		ToolUseID     string           `json:"tool_use_id"`
+	}
+	return json.Marshal(raw{
+		BaseHookInput: o.BaseHookInput,
+		HookEventName: HookEventPreToolUse,
+		ToolName:      o.ToolName,
+		ToolInput:     o.ToolInput,
+		ToolUseID:     o.ToolUseID,
+	})
+}
+
+func (o *PreToolUseHookInput) UnmarshalJSON(data []byte) error {
+	type raw struct {
+		BaseHookInput
+		HookEventName HookEvent       `json:"hook_event_name"`
+		ToolName      string          `json:"tool_name"`
+		ToolInput     json.RawMessage `json:"tool_input"`
+		ToolUseID     string          `json:"tool_use_id"`
+	}
+	var v raw
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	if err != nil {
+		return err
+	}
+	*o = PreToolUseHookInput{
+		BaseHookInput: v.BaseHookInput,
+		HookEventName: HookEventPreToolUse,
+		ToolName:      v.ToolName,
+		ToolInput:     toolInput,
+		ToolUseID:     v.ToolUseID,
+	}
+	return nil
+}
+
+func (o PostToolUseHookInput) MarshalJSON() ([]byte, error) {
+	type raw struct {
+		BaseHookInput
+		HookEventName HookEvent         `json:"hook_event_name"`
+		ToolName      string            `json:"tool_name"`
+		ToolInput     ToolInputSchemas  `json:"tool_input"`
+		ToolResponse  ToolOutputSchemas `json:"tool_response"`
+		ToolUseID     string            `json:"tool_use_id"`
+	}
+	return json.Marshal(raw{
+		BaseHookInput: o.BaseHookInput,
+		HookEventName: HookEventPostToolUse,
+		ToolName:      o.ToolName,
+		ToolInput:     o.ToolInput,
+		ToolResponse:  o.ToolResponse,
+		ToolUseID:     o.ToolUseID,
+	})
+}
+
+func (o *PostToolUseHookInput) UnmarshalJSON(data []byte) error {
+	type raw struct {
+		BaseHookInput
+		HookEventName HookEvent       `json:"hook_event_name"`
+		ToolName      string          `json:"tool_name"`
+		ToolInput     json.RawMessage `json:"tool_input"`
+		ToolResponse  json.RawMessage `json:"tool_response"`
+		ToolUseID     string          `json:"tool_use_id"`
+	}
+	var v raw
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	if err != nil {
+		return err
+	}
+	toolResponse, err := UnmarshalToolOutputSchemas(v.ToolName, v.ToolResponse)
+	if err != nil {
+		return err
+	}
+	*o = PostToolUseHookInput{
+		BaseHookInput: v.BaseHookInput,
+		HookEventName: HookEventPostToolUse,
+		ToolName:      v.ToolName,
+		ToolInput:     toolInput,
+		ToolResponse:  toolResponse,
+		ToolUseID:     v.ToolUseID,
+	}
+	return nil
+}
+
+func (o PostToolUseFailureHookInput) MarshalJSON() ([]byte, error) {
+	type raw struct {
+		BaseHookInput
+		HookEventName HookEvent        `json:"hook_event_name"`
+		ToolName      string           `json:"tool_name"`
+		ToolInput     ToolInputSchemas `json:"tool_input"`
+		ToolUseID     string           `json:"tool_use_id"`
+		Error         string           `json:"error"`
+		IsInterrupt   *bool            `json:"is_interrupt,omitzero"`
+	}
+	return json.Marshal(raw{
+		BaseHookInput: o.BaseHookInput,
+		HookEventName: HookEventPostToolUseFailure,
+		ToolName:      o.ToolName,
+		ToolInput:     o.ToolInput,
+		ToolUseID:     o.ToolUseID,
+		Error:         o.Error,
+		IsInterrupt:   o.IsInterrupt,
+	})
+}
+
+func (o *PostToolUseFailureHookInput) UnmarshalJSON(data []byte) error {
+	type raw struct {
+		BaseHookInput
+		HookEventName HookEvent       `json:"hook_event_name"`
+		ToolName      string          `json:"tool_name"`
+		ToolInput     json.RawMessage `json:"tool_input"`
+		ToolUseID     string          `json:"tool_use_id"`
+		Error         string          `json:"error"`
+		IsInterrupt   *bool           `json:"is_interrupt,omitzero"`
+	}
+	var v raw
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	if err != nil {
+		return err
+	}
+	*o = PostToolUseFailureHookInput{
+		BaseHookInput: v.BaseHookInput,
+		HookEventName: HookEventPostToolUseFailure,
+		ToolName:      v.ToolName,
+		ToolInput:     toolInput,
+		ToolUseID:     v.ToolUseID,
+		Error:         v.Error,
+		IsInterrupt:   v.IsInterrupt,
+	}
+	return nil
+}
+
 func (o PermissionRequestHookInput) MarshalJSON() ([]byte, error) {
 	type raw struct {
 		BaseHookInput
 		HookEventName         HookEvent         `json:"hook_event_name"`
 		ToolName              string            `json:"tool_name"`
-		ToolInput             json.RawMessage   `json:"tool_input"`
+		ToolInput             ToolInputSchemas  `json:"tool_input"`
 		ToolUseID             string            `json:"tool_use_id"`
 		PermissionSuggestions []json.RawMessage `json:"permission_suggestions,omitzero"`
 	}
@@ -4200,6 +4546,10 @@ func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
+	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	if err != nil {
+		return err
+	}
 	suggestions := make([]PermissionUpdate, 0, len(v.PermissionSuggestions))
 	for _, rawSuggestion := range v.PermissionSuggestions {
 		suggestion, err := UnmarshalPermissionUpdate(rawSuggestion)
@@ -4212,11 +4562,10 @@ func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 		BaseHookInput:         v.BaseHookInput,
 		HookEventName:         HookEventPermissionRequest,
 		ToolName:              v.ToolName,
-		ToolInput:             v.ToolInput,
+		ToolInput:             toolInput,
 		ToolUseID:             v.ToolUseID,
 		PermissionSuggestions: suggestions,
 	}
-	o.HookEventName = HookEventPermissionRequest
 	return nil
 }
 
@@ -4432,25 +4781,25 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 		return &HookInputUnknown{UnknownUnion: u}, nil
 	case *pb.HookInput_PreToolUse:
 		preToolUse := v.GetPreToolUse()
-		raw, err := rawFromToolInputProto(preToolUse.GetToolInput())
+		raw, err := rawFromToolInputProto(preToolUse.GetToolInput(), preToolUse.GetToolName())
 		if err != nil {
 			return nil, err
 		}
 		return &PreToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: preToolUse.GetSessionId(), TranscriptPath: preToolUse.GetTranscriptPath(), Cwd: preToolUse.GetCwd(), PermissionMode: protoOpt(preToolUse, "permission_mode", preToolUse.GetPermissionMode()), AgentID: protoOpt(preToolUse, "agent_id", preToolUse.GetAgentId()), AgentType: protoOpt(preToolUse, "agent_type", preToolUse.GetAgentType())}, HookEventName: HookEvent(preToolUse.GetHookEventName()), ToolName: preToolUse.GetToolName(), ToolInput: raw, ToolUseID: preToolUse.GetToolUseId()}, nil
 	case *pb.HookInput_PostToolUse:
 		postToolUse := v.GetPostToolUse()
-		rawIn, err := rawFromToolInputProto(postToolUse.GetToolInput())
+		rawIn, err := rawFromToolInputProto(postToolUse.GetToolInput(), postToolUse.GetToolName())
 		if err != nil {
 			return nil, err
 		}
-		rawOut, err := rawFromToolOutputProto(postToolUse.GetToolResponse())
+		rawOut, err := rawFromToolOutputProto(postToolUse.GetToolResponse(), postToolUse.GetToolName())
 		if err != nil {
 			return nil, err
 		}
 		return &PostToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: postToolUse.GetSessionId(), TranscriptPath: postToolUse.GetTranscriptPath(), Cwd: postToolUse.GetCwd(), PermissionMode: protoOpt(postToolUse, "permission_mode", postToolUse.GetPermissionMode()), AgentID: protoOpt(postToolUse, "agent_id", postToolUse.GetAgentId()), AgentType: protoOpt(postToolUse, "agent_type", postToolUse.GetAgentType())}, HookEventName: HookEvent(postToolUse.GetHookEventName()), ToolName: postToolUse.GetToolName(), ToolInput: rawIn, ToolResponse: rawOut, ToolUseID: postToolUse.GetToolUseId()}, nil
 	case *pb.HookInput_PostToolUseFailure:
 		postToolUseFailure := v.GetPostToolUseFailure()
-		raw, err := rawFromToolInputProto(postToolUseFailure.GetToolInput())
+		raw, err := rawFromToolInputProto(postToolUseFailure.GetToolInput(), postToolUseFailure.GetToolName())
 		if err != nil {
 			return nil, err
 		}
@@ -4481,7 +4830,7 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 		return &PreCompactHookInput{BaseHookInput: BaseHookInput{SessionID: preCompact.GetSessionId(), TranscriptPath: preCompact.GetTranscriptPath(), Cwd: preCompact.GetCwd(), PermissionMode: protoOpt(preCompact, "permission_mode", preCompact.GetPermissionMode()), AgentID: protoOpt(preCompact, "agent_id", preCompact.GetAgentId()), AgentType: protoOpt(preCompact, "agent_type", preCompact.GetAgentType())}, HookEventName: HookEvent(preCompact.GetHookEventName()), Trigger: preCompact.GetTrigger(), CustomInstructions: preCompact.GetCustomInstructions()}, nil
 	case *pb.HookInput_PermissionRequest:
 		permissionRequest := v.GetPermissionRequest()
-		raw, err := rawFromToolInputProto(permissionRequest.GetToolInput())
+		raw, err := rawFromToolInputProto(permissionRequest.GetToolInput(), permissionRequest.GetToolName())
 		if err != nil {
 			return nil, err
 		}
