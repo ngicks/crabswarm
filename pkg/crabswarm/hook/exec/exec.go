@@ -47,9 +47,9 @@ var defaultConfigJSON []byte
 //
 // Each filetypes element is a self-contained leaf with the same shape as
 // the merged table (see [filetype.Config]). The runtime folds the slice
-// via [filetype.MergeAll]; later leaves win on key conflicts. Defaults
-// are NOT auto-applied — call [Default] explicitly to inspect or copy
-// from them.
+// via [filetype.MergeAll]; later leaves win on key conflicts. The
+// built-in [Default] leaves are folded underneath at the lowest priority
+// so they apply out of the box; caller-supplied entries override them.
 type Config struct {
 	Filetypes []filetype.Config `json:"filetypes,omitzero"`
 }
@@ -92,10 +92,11 @@ type Data struct {
 // set of common filetypes with conventional module-root markers, embedded
 // from default_config.json at build time.
 //
-// Default is reference-only — the CLI exposes it through
-// --dump-default-config so users can copy entries into their own config.
-// Run and Render do NOT layer Default in automatically; whatever the
-// caller passes is exactly what is used.
+// [Run] and [Render] layer Default underneath the caller-supplied
+// [Config.Filetypes] as the lowest-priority overlay, so the built-ins
+// apply out of the box and the caller's leaves win on key conflicts. The
+// CLI also exposes the full snapshot via --dump-default-config for
+// inspection or as a starting point for a user config.
 func Default() Config {
 	var c Config
 	if err := json.Unmarshal(defaultConfigJSON, &c); err != nil {
@@ -184,7 +185,9 @@ func prepare(r io.Reader, cfg Config, opt Option) (string, Data, error) {
 		return "", Data{}, fmt.Errorf("reading stdin: %w", err)
 	}
 
-	ft := filetype.MergeAll(cfg.Filetypes)
+	// Default leaves go first so caller-supplied leaves take precedence
+	// on key conflicts (later leaves win in MergeAll).
+	ft := filetype.MergeAll(slices.Concat(Default().Filetypes, cfg.Filetypes))
 	data, err := parseInput(bin, ft)
 	if err != nil {
 		return "", Data{}, err

@@ -30,10 +30,12 @@ The template receives some helper functions and claude hook input as Go struct.
 The final output of the template is treated as shell string.
 For interpolation behavior see github.com/mattn/go-shellwords
 
-It also detects the \"module root\" and sets it to command's cwd.
-exec holds some default module detection configuration and also
-you can extend it by modifying the config file.
-See output of --dump-default-config as examples of config.
+It also detects the "module root" and sets it to command's cwd.
+exec ships with a built-in module-detection configuration that is
+layered underneath any user config as the lowest-priority overlay —
+your entries override defaults on key conflicts. See the output of
+--dump-default-config to inspect the built-ins or use it as a
+starting point for your own config.
 
 The positional argument is the Go template to render and execute, e.g.:
 

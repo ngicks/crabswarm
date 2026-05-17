@@ -80,9 +80,10 @@ func assertPassThrough(t *testing.T, err error) {
 	}
 }
 
-// goRustTables is the explicit filetype config used by tests that need
-// detection. Run / Render no longer auto-merge defaults, so tests carry
-// their own leaves.
+// goRustTables is an explicit filetype config used by tests that want to
+// exercise the overlay path independently of the embedded defaults.
+// Run / Render already layer Default underneath, so callers that just
+// need "go" / "rust" detection can omit this and rely on defaults.
 func goRustTables() []filetype.Config {
 	return []filetype.Config{
 		{
@@ -196,20 +197,39 @@ func TestRender_MissingTemplateErrors(t *testing.T) {
 	assert.Assert(t, strings.Contains(err.Error(), "Template is required"))
 }
 
-func TestRender_NoFiletypeConfigMeansEmptyFiletype(t *testing.T) {
-	// Run/Render do not auto-merge defaults. Without a leaf mapping for
-	// ".go", detection finds nothing and .Filetype is empty.
+func TestRender_DefaultFiletypesApplyWithoutCallerConfig(t *testing.T) {
+	// Run/Render layer Default underneath. A .go file is detected even
+	// when the caller passes Config{} (no leaves of their own).
+	tmp := t.TempDir()
+	touch(t, filepath.Join(tmp, "go.mod"))
+	editPath := filepath.Join(tmp, "pkg", "x.go")
+	touch(t, editPath)
+
+	cfg := Config{}
+	opt := Option{Template: "ft={{ .Filetype }} root={{ .Root }}"}
+	r := editEnvelope(t, editPath)
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), "ft=go root="+tmp+"\n")
+}
+
+func TestRender_CallerLeafOverridesDefault(t *testing.T) {
+	// Caller-supplied leaves win on key conflicts. Re-mapping ".go" to
+	// a different name proves Default is the lowest-priority overlay.
 	tmp := t.TempDir()
 	editPath := filepath.Join(tmp, "x.go")
 	touch(t, editPath)
 
-	cfg := Config{}
+	cfg := Config{Filetypes: []filetype.Config{
+		{Ext: map[string]string{"go": "golang-override"}},
+	}}
 	opt := Option{Template: "ft={{ .Filetype }}"}
 	r := editEnvelope(t, editPath)
 
 	var buf bytes.Buffer
 	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
-	assert.Equal(t, buf.String(), "ft=\n")
+	assert.Equal(t, buf.String(), "ft=golang-override\n")
 }
 
 func TestRun_RunsRenderedCommand(t *testing.T) {
