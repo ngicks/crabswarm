@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-05-13T18:03:56.576035+00:00'
+generated_at: '2026-05-15T01:53:47.517810+00:00'
 apm_version: 0.13.0
 dependencies:
 - repo_url: ngicks/agents-package
@@ -8,6 +8,10 @@ dependencies:
   virtual_path: hooks/golangci-lint-fmt-after-edit
   is_virtual: true
   package_type: hook_package
+  deployed_files:
+  - .codex/hooks/golangci-lint-fmt-after-edit/run.sh
+  deployed_file_hashes:
+    .codex/hooks/golangci-lint-fmt-after-edit/run.sh: sha256:05dcba49f30037770e70540e21189d8655d15e07cdf2c6c0276787700d8745d4
   content_hash: sha256:c956c399c34ce1468b4e81dea94a3b3382c3ed2341e7c8572cd9ab96588c6eb9
 - repo_url: ngicks/agents-package
   host: github.com
@@ -15,12 +19,17 @@ dependencies:
   virtual_path: hooks/golangci-lint-run-after-edit
   is_virtual: true
   package_type: hook_package
+  deployed_files:
+  - .codex/hooks/golangci-lint-run-after-edit/run.sh
+  deployed_file_hashes:
+    .codex/hooks/golangci-lint-run-after-edit/run.sh: sha256:9a162367d07a4682a3f64fc3e3e6881f40c253f370bb2b7733f4385a97dff124
   content_hash: sha256:90aa94a431e868a98a8f1982c9d5ed6502e42419fae62b5783677b662ce87ee7
 - repo_url: ngicks/agents-package
   host: github.com
   resolved_commit: 5a252bce7c72f8839a0f0f3102ae66e8e05e2795
   virtual_path: instructions/base-env.instructions.md
   is_virtual: true
+  package_type: apm_package
   deployed_files:
   - .claude/rules/base-env.md
   deployed_file_hashes:
@@ -31,6 +40,7 @@ dependencies:
   resolved_commit: 5a252bce7c72f8839a0f0f3102ae66e8e05e2795
   virtual_path: instructions/go/go-basics.instructions.md
   is_virtual: true
+  package_type: apm_package
   deployed_files:
   - .claude/rules/go-basics.md
   deployed_file_hashes:
@@ -41,6 +51,7 @@ dependencies:
   resolved_commit: 5a252bce7c72f8839a0f0f3102ae66e8e05e2795
   virtual_path: instructions/go/go-design-preference.instructions.md
   is_virtual: true
+  package_type: apm_package
   deployed_files:
   - .claude/rules/go-design-preference.md
   deployed_file_hashes:
@@ -76,3 +87,7 @@ dependencies:
   - .agents/skills/go-review-checklist
   - .claude/skills/go-review-checklist
   content_hash: sha256:d1f2432180ac2de13a6a23d83bb879f5c1c552218f7cf55aea9af4c6ffe51f92
+local_deployed_files:
+- .claude/rules/base.md
+local_deployed_file_hashes:
+  .claude/rules/base.md: sha256:a72996c11d8f62d688b667cfb4bf3a77d5da08500689ded31d66598d1cc21ac3
