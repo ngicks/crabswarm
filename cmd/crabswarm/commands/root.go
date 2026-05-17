@@ -20,8 +20,9 @@ func Execute(ctx context.Context) error {
 
 func rootCmd() *cobra.Command {
 	var (
-		logConfig *loggerfactory.Config
-		flagSock  string
+		logConfig   *loggerfactory.Config
+		flagSock    string
+		flagVersion bool
 	)
 
 	cmd := &cobra.Command{
@@ -39,12 +40,19 @@ func rootCmd() *cobra.Command {
 			slog.SetDefault(logger)
 			cmd.SetContext(contextkey.WithSlogLogger(cmd.Context(), logger))
 		},
-		RunE: runRoot,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagVersion {
+				return runVersion(cmd, args)
+			}
+			return runRoot(cmd, args)
+		},
 	}
 
 	logConfig = loggerfactory.RegisterFlags(cmd)
 	cmd.PersistentFlags().StringVar(&flagSock, "sock", "", "Unix socket path")
+	cmd.Flags().BoolVar(&flagVersion, "version", false, "alias for the version subcommand")
 
+	versionCmd(cmd)
 	serveCmd(cmd, &flagSock)
 	hookCmd(cmd, &flagSock)
 
