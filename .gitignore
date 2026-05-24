@@ -19,3 +19,6 @@ apm_modules/
 /.codex
 /.github/instructions
 /.github/skills
+
+CLAUDE.md
+AGENTS.md
