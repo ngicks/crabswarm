@@ -3285,6 +3285,7 @@ const (
 	ToolNameUnsubscribePolling     = "UnsubscribePolling"
 	ToolNameWebFetch               = "WebFetch"
 	ToolNameWebSearch              = "WebSearch"
+	ToolNameWrite                  = "Write"
 )
 
 // McpToolNamePrefix marks user-defined MCP tools, e.g. "mcp__server__tool".
@@ -3369,6 +3370,9 @@ func UnmarshalToolInputSchemas(toolName string, data []byte) (ToolInputSchemas, 
 	case ToolNameWebSearch:
 		var v WebSearchInput
 		return &v, json.Unmarshal(data, &v)
+	case ToolNameWrite:
+		var v FileWriteInput
+		return &v, json.Unmarshal(data, &v)
 	default:
 		var v ToolInputUnknown
 		return &v, v.UnmarshalJSON(data)
@@ -3434,6 +3438,9 @@ func UnmarshalToolOutputSchemas(toolName string, data []byte) (ToolOutputSchemas
 		return &v, json.Unmarshal(data, &v)
 	case ToolNameWebSearch:
 		var v WebSearchOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameWrite:
+		var v FileWriteOutput
 		return &v, json.Unmarshal(data, &v)
 	default:
 		var v ToolOutputUnknown
