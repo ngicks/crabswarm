@@ -3085,9 +3085,14 @@ func (u UnknownUnion) MarshalJSON() ([]byte, error) {
 
 func (u *UnknownUnion) UnmarshalJSON(data []byte) error {
 	u.Raw = cloneRawMessage(data)
+	// An unknown union member can be any JSON value, not just an object:
+	// Codex, for example, sends apply_patch's tool_response as a bare
+	// string. Only objects carry a discriminator, so attempt the lookup
+	// but tolerate a non-object value — the raw bytes are preserved either
+	// way, and failing here would abort the whole hook-input parse.
 	var m map[string]json.RawMessage
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
+	if json.Unmarshal(data, &m) != nil {
+		return nil
 	}
 	for _, key := range []string{"type", "hookEventName", "hook_event_name", "status", "subtype", "behavior"} {
 		if raw, ok := m[key]; ok {

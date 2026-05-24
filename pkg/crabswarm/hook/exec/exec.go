@@ -74,9 +74,16 @@ type Data struct {
 	Event sdktypesv1.HookEvent
 	// ToolName mirrors tool_name for tool events; empty otherwise.
 	ToolName string
-	// File is a best-effort tool_input.file_path; empty when not
-	// applicable (e.g. Bash tool, non-tool events).
+	// File is a best-effort path of the edited file; empty when not
+	// applicable (e.g. Bash tool, non-tool events). For Claude it's
+	// tool_input.file_path; for a Codex apply_patch it's the first path
+	// in Files. Filetype and Root are detected from this path.
 	File string
+	// Files holds every edited file for tools that touch more than one in
+	// a single call — notably Codex's apply_patch, where the paths are
+	// resolved to absolute against Cwd. For single-file Claude edits it's
+	// a one-element slice; empty when File is empty.
+	Files []string
 	// Filetype is the detected filetype Name; empty when nothing matches.
 	Filetype string
 	// Root is the detected module root. At Run time, the child process's
@@ -224,70 +231,4 @@ func blockReason(command string, runErr error, output string) string {
 		fmt.Fprintf(&sb, "output:\n%s\n", output)
 	}
 	return sb.String()
-}
-
-func parseInput(raw []byte, ftCfg filetype.Config) (Data, error) {
-	var envelope struct {
-		sdktypesv1.BaseHookInput
-		HookEventName sdktypesv1.HookEvent `json:"hook_event_name"`
-		ToolName      string               `json:"tool_name"`
-	}
-	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return Data{}, fmt.Errorf("parsing hook input: %w", err)
-	}
-
-	input, err := sdktypesv1.UnmarshalHookInput(raw)
-	if err != nil {
-		return Data{}, fmt.Errorf("parsing hook input: %w", err)
-	}
-
-	d := Data{
-		Input:     input,
-		Event:     envelope.HookEventName,
-		ToolName:  envelope.ToolName,
-		SessionID: envelope.SessionID,
-		Cwd:       envelope.Cwd,
-		File:      extractFilePath(toolInputOf(input)),
-	}
-	if d.File != "" {
-		if name, ok := ftCfg.Detect(d.File); ok {
-			d.Filetype = name
-			if root, ok := ftCfg.FindRoot(name, d.File); ok {
-				d.Root = root
-			}
-		}
-	}
-	return d, nil
-}
-
-// toolInputOf returns the parsed ToolInputSchemas from a hook input,
-// or nil when the event doesn't carry one.
-func toolInputOf(input sdktypesv1.HookInput) sdktypesv1.ToolInputSchemas {
-	switch v := input.(type) {
-	case *sdktypesv1.PreToolUseHookInput:
-		return v.ToolInput
-	case *sdktypesv1.PostToolUseHookInput:
-		return v.ToolInput
-	case *sdktypesv1.PostToolUseFailureHookInput:
-		return v.ToolInput
-	case *sdktypesv1.PermissionRequestHookInput:
-		return v.ToolInput
-	}
-	return nil
-}
-
-// extractFilePath returns the file path for tool inputs that carry one,
-// or "" for tool inputs that don't (Bash, Glob, Grep, ...).
-func extractFilePath(input sdktypesv1.ToolInputSchemas) string {
-	switch v := input.(type) {
-	case *sdktypesv1.FileEditInput:
-		return v.FilePath
-	case *sdktypesv1.FileReadInput:
-		return v.FilePath
-	case *sdktypesv1.FileWriteInput:
-		return v.FilePath
-	case *sdktypesv1.NotebookEditInput:
-		return v.NotebookPath
-	}
-	return ""
 }

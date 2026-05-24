@@ -520,5 +520,140 @@ func TestRender_UnknownEvent(t *testing.T) {
 	assert.Equal(t, buf.String(), "event=SomeFutureEvent\n")
 }
 
+// codexApplyPatchEnvelope builds a raw Codex PostToolUse + apply_patch
+// envelope. Unlike the typed helpers above it emits JSON by hand so the
+// shape matches what Codex actually sends — notably tool_response as a
+// bare string, which is the payload that used to break parsing.
+func codexApplyPatchEnvelope(t *testing.T, cwd, command, toolResponse string) *bytes.Reader {
+	t.Helper()
+	data, err := json.Marshal(map[string]any{
+		"session_id":      "sess-codex",
+		"transcript_path": "/tmp/x.jsonl",
+		"cwd":             cwd,
+		"hook_event_name": "PostToolUse",
+		"tool_name":       "apply_patch",
+		"tool_input":      map[string]any{"command": command},
+		"tool_response":   toolResponse,
+		"tool_use_id":     "call_codex",
+	})
+	assert.NilError(t, err)
+	return bytes.NewReader(data)
+}
+
+// The report's exact scenario: --ft go 'golangci-lint fmt {{.File}}' on a
+// Codex apply_patch that adds one .go file. .File must resolve to the
+// path made absolute against cwd, with filetype and root detected from it.
+func TestRender_CodexApplyPatch_SingleFile(t *testing.T) {
+	tmp := t.TempDir()
+	touch(t, filepath.Join(tmp, "go.mod"))
+	rel := filepath.Join("pkg", "foo.go")
+	touch(t, filepath.Join(tmp, rel))
+
+	cfg := Config{Filetypes: goRustTables()}
+	opt := Option{
+		Template: "ft={{ .Filetype }} root={{ .Root }} file={{ .File }}",
+		Filter:   []string{"go"},
+	}
+	cmd := "*** Begin Patch\n*** Add File: " + rel + "\n+package foo\n*** End Patch\n"
+	r := codexApplyPatchEnvelope(t, tmp, cmd, "Exit code: 0\nOutput: ok\n")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), "ft=go root="+tmp+" file="+filepath.Join(tmp, rel)+"\n")
+}
+
+// apply_patch can touch several files at once. .Files exposes them all
+// (resolved absolute), rename targets replace the old path, deletes are
+// dropped, and .File is the first surviving path.
+func TestRender_CodexApplyPatch_MultipleFilesAndRename(t *testing.T) {
+	cfg := Config{}
+	opt := Option{Template: "first={{ .File }}\n{{ range .Files }}f={{ . }}\n{{ end }}"}
+	cmd := "*** Begin Patch\n" +
+		"*** Update File: pkg/old.go\n*** Move to: pkg/new.go\n@@\n-x\n+y\n" +
+		"*** Add File: cmd/added.go\n+package cmd\n" +
+		"*** Delete File: pkg/gone.go\n" +
+		"*** End Patch\n"
+	r := codexApplyPatchEnvelope(t, "/repo", cmd, "ok")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(
+		t,
+		buf.String(),
+		"first=/repo/pkg/new.go\nf=/repo/pkg/new.go\nf=/repo/cmd/added.go\n\n",
+	)
+}
+
+// A delete-only patch leaves no file to act on; with an --ft gate the
+// invocation passes through without rendering — the report's "nothing to
+// format" case.
+func TestRender_CodexApplyPatch_DeleteOnlyFilteredPassThrough(t *testing.T) {
+	cfg := Config{Filetypes: goRustTables()}
+	opt := Option{Template: "fmt {{ .File }}", Filter: []string{"go"}}
+	cmd := "*** Begin Patch\n*** Delete File: pkg/gone.go\n*** End Patch\n"
+	r := codexApplyPatchEnvelope(t, "/repo", cmd, "ok")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), "")
+}
+
+// Regression: a string-valued tool_response (Codex apply_patch) must not
+// abort parsing before the template runs.
+func TestRender_CodexApplyPatch_StringToolResponseParses(t *testing.T) {
+	cfg := Config{}
+	opt := Option{Template: "ok={{ .ToolName }}"}
+	cmd := "*** Begin Patch\n*** Add File: a.go\n+package a\n*** End Patch\n"
+	r := codexApplyPatchEnvelope(t, "/repo", cmd, "Exit code: 0\nWall time: 0.5 seconds\n")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), "ok=apply_patch\n")
+}
+
+// Run executes the rendered command for a Codex apply_patch just like a
+// Claude edit, with cwd set to the detected module root.
+func TestRun_CodexApplyPatch_ExecutesAgainstResolvedFile(t *testing.T) {
+	tmp := t.TempDir()
+	tmpResolved, err := filepath.EvalSymlinks(tmp)
+	assert.NilError(t, err)
+	touch(t, filepath.Join(tmpResolved, "go.mod"))
+	rel := filepath.Join("pkg", "foo.go")
+	touch(t, filepath.Join(tmpResolved, rel))
+
+	cfg := Config{Filetypes: goRustTables()}
+	opt := Option{Template: "touch {{ quote .File }}.formatted", Filter: []string{"go"}}
+	cmd := "*** Begin Patch\n*** Add File: " + rel + "\n+package foo\n*** End Patch\n"
+	r := codexApplyPatchEnvelope(t, tmpResolved, cmd, "ok")
+
+	assertPassThrough(t, Run(context.Background(), r, cfg, opt))
+	_, statErr := os.Stat(filepath.Join(tmpResolved, rel) + ".formatted")
+	assert.NilError(t, statErr)
+}
+
+// A Claude Write PostToolUse resolves .File the same way Edit does, now
+// that the Write tool name dispatches to FileWriteInput. Before the wiring
+// it deserialized to ToolInputUnknown and .File came back empty.
+func TestRender_WriteToolResolvesFile(t *testing.T) {
+	tmp := t.TempDir()
+	touch(t, filepath.Join(tmp, "go.mod"))
+	writePath := filepath.Join(tmp, "pkg", "w.go")
+	touch(t, writePath)
+
+	cfg := Config{Filetypes: goRustTables()}
+	opt := Option{Template: "ft={{ .Filetype }} file={{ .File }}", Filter: []string{"go"}}
+	r := marshalHookInput(t, &sdktypesv1.PostToolUseHookInput{
+		BaseHookInput: sdktypesv1.BaseHookInput{SessionID: "s", TranscriptPath: "/t", Cwd: tmp},
+		HookEventName: sdktypesv1.HookEventPostToolUse,
+		ToolName:      sdktypesv1.ToolNameWrite,
+		ToolInput:     &sdktypesv1.FileWriteInput{FilePath: writePath, Content: "package w\n"},
+		ToolUseID:     "tu",
+	})
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), "ft=go file="+writePath+"\n")
+}
+
 // Compile-time check that .Input is the SDK interface.
 var _ sdktypesv1.HookInput = (Data{}).Input
