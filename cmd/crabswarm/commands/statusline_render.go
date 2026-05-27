@@ -36,6 +36,8 @@ Configure it in Claude Code settings.json, for example:
     }
   }
 `,
+		Example: `  # "model@effort | context usage in percent | cwd"
+  crabswarm statusline render '{{ .Model.DisplayName }}{{ with .Effort }}@{{ .Level }}{{ end }} | {{ .ContextWindow.UsedPercentage }}% | {{ .Workspace.CurrentDir }}'`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE:              runStatuslineRender,
