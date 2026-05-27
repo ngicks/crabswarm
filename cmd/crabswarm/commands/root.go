@@ -55,6 +55,7 @@ func rootCmd() *cobra.Command {
 	versionCmd(cmd)
 	serveCmd(cmd, &flagSock)
 	hookCmd(cmd, &flagSock)
+	statuslineCmd(cmd)
 
 	return cmd
 }
