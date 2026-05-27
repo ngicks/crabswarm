@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-05-27T13:08:06.748481+00:00'
+generated_at: '2026-05-27T14:19:33.152604+00:00'
 apm_version: 0.14.2
 dependencies:
 - repo_url: ngicks/agents-package
@@ -21,6 +21,7 @@ dependencies:
   resolved_commit: 6bfa1e67336c4a77837643b544f75b08c6fba209
   virtual_path: instructions/base-env.instructions.md
   is_virtual: true
+  package_type: apm_package
   deployed_files:
   - .claude/rules/base-env.md
   deployed_file_hashes:
@@ -31,6 +32,7 @@ dependencies:
   resolved_commit: 6bfa1e67336c4a77837643b544f75b08c6fba209
   virtual_path: instructions/go/go-basics.instructions.md
   is_virtual: true
+  package_type: apm_package
   deployed_files:
   - .claude/rules/go-basics.md
   deployed_file_hashes:
@@ -41,6 +43,7 @@ dependencies:
   resolved_commit: 6bfa1e67336c4a77837643b544f75b08c6fba209
   virtual_path: instructions/go/go-design-preference.instructions.md
   is_virtual: true
+  package_type: apm_package
   deployed_files:
   - .claude/rules/go-design-preference.md
   deployed_file_hashes:
