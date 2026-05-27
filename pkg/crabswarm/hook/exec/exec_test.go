@@ -655,5 +655,35 @@ func TestRender_WriteToolResolvesFile(t *testing.T) {
 	assert.Equal(t, buf.String(), "ft=go file="+writePath+"\n")
 }
 
+// End-to-end through Run with the real captured Codex apply_patch payload
+// (an Update File hunk; tool_response is a bare string — the exact shape
+// from the failure report, kept verbatim in testdata/). Driven like
+// `crabswarm hook exec --ft go ...`, it exercises the whole path on a real
+// payload: parse (the string tool_response no longer aborts it),
+// apply_patch file extraction, cwd resolution, template render, shellwords
+// split, and actually spawning the process. Run executes argv directly (no
+// shell), so we go through `sh -c` to redirect the resolved .File into a
+// temp file and read it back.
+func TestRun_CodexApplyPatchUpdateFixture(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "codex_apply_patch_update.json"))
+	assert.NilError(t, err)
+
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "ran.txt")
+
+	cfg := Config{}
+	opt := Option{
+		Template: "sh -c " + shellQuote("printf %s {{ .File }} > "+shellQuote(out)),
+		Filter:   []string{"go"},
+	}
+
+	assertPassThrough(t, Run(context.Background(), bytes.NewReader(raw), cfg, opt))
+
+	got, err := os.ReadFile(out)
+	assert.NilError(t, err)
+	assert.Equal(t, string(got),
+		"/home/watage/.dotfiles/snapshot_home/snapshotter/codex_hook_probe.go")
+}
+
 // Compile-time check that .Input is the SDK interface.
 var _ sdktypesv1.HookInput = (Data{}).Input
