@@ -15,10 +15,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"strings"
 	"text/template"
+
+	"github.com/ngicks/crabswarm/pkg/internal/templateutil"
 )
 
 // Input is the status line JSON payload Claude Code writes to stdin. Field
@@ -219,7 +218,7 @@ func Render(r io.Reader, w io.Writer, tmpl string) error {
 
 	t, err := template.New("statusline").
 		Option("missingkey=zero").
-		Funcs(funcMap()).
+		Funcs(templateutil.FuncMap()).
 		Parse(tmpl)
 	if err != nil {
 		return fmt.Errorf("parsing template: %w", err)
@@ -233,14 +232,4 @@ func Render(r io.Reader, w io.Writer, tmpl string) error {
 		return fmt.Errorf("writing rendered statusline: %w", err)
 	}
 	return nil
-}
-
-func funcMap() template.FuncMap {
-	return template.FuncMap{
-		"env":      os.Getenv,
-		"basename": filepath.Base,
-		"dirname":  filepath.Dir,
-		"ext":      filepath.Ext,
-		"trim":     strings.TrimSpace,
-	}
 }

@@ -13,6 +13,7 @@ import (
 	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 	"github.com/ngicks/crabswarm/pkg/filetype"
+	"github.com/ngicks/crabswarm/pkg/internal/templateutil"
 	"gotest.tools/v3/assert"
 )
 
@@ -272,7 +273,9 @@ func TestRun_SetsCwdToModuleRoot(t *testing.T) {
 	cfg := Config{Filetypes: goRustTables()}
 	// `sh -c 'pwd > out'` so we still get a value into the file even though
 	// Run doesn't go through a shell — the rendered argv is [sh -c "pwd > out"].
-	opt := Option{Template: "sh -c " + shellQuote("pwd > "+shellQuote(out))}
+	opt := Option{
+		Template: "sh -c " + templateutil.ShellQuote("pwd > "+templateutil.ShellQuote(out)),
+	}
 	r := editEnvelope(t, editPath)
 
 	assertPassThrough(t, Run(context.Background(), r, cfg, opt))
@@ -307,7 +310,7 @@ func TestRun_FailureReturnsBlockDecision(t *testing.T) {
 
 func TestRun_FailureCapturesStderrAsReason(t *testing.T) {
 	cfg := Config{}
-	opt := Option{Template: "sh -c " + shellQuote("echo lint-error >&2; exit 1")}
+	opt := Option{Template: "sh -c " + templateutil.ShellQuote("echo lint-error >&2; exit 1")}
 	r := bashEnvelope(t, "ls")
 
 	err := Run(context.Background(), r, cfg, opt)
@@ -329,7 +332,7 @@ func TestRun_FailureCapturesStderrAsReason(t *testing.T) {
 
 func TestRun_FailureCapturesStdoutAsReason(t *testing.T) {
 	cfg := Config{}
-	opt := Option{Template: "sh -c " + shellQuote("echo on-stdout; exit 7")}
+	opt := Option{Template: "sh -c " + templateutil.ShellQuote("echo on-stdout; exit 7")}
 	r := bashEnvelope(t, "ls")
 
 	err := Run(context.Background(), r, cfg, opt)
@@ -673,8 +676,10 @@ func TestRun_CodexApplyPatchUpdateFixture(t *testing.T) {
 
 	cfg := Config{}
 	opt := Option{
-		Template: "sh -c " + shellQuote("printf %s {{ .File }} > "+shellQuote(out)),
-		Filter:   []string{"go"},
+		Template: "sh -c " + templateutil.ShellQuote(
+			"printf %s {{ .File }} > "+templateutil.ShellQuote(out),
+		),
+		Filter: []string{"go"},
 	}
 
 	assertPassThrough(t, Run(context.Background(), bytes.NewReader(raw), cfg, opt))
