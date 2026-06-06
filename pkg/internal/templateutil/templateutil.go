@@ -6,6 +6,7 @@ package templateutil
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -21,6 +22,7 @@ import (
 //	ext PATH         → filepath.Ext
 //	trim STRING      → strings.TrimSpace
 //	quote STRING     → ShellQuote (POSIX shell single-quoting)
+//	which NAME       → Which (resolve a command to its absolute path)
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
 		"env":      os.Getenv,
@@ -29,7 +31,23 @@ func FuncMap() template.FuncMap {
 		"ext":      filepath.Ext,
 		"trim":     strings.TrimSpace,
 		"quote":    ShellQuote,
+		"which":    Which,
 	}
+}
+
+// Which resolves command name to its absolute path, like the which(1) shell
+// command: it searches the directories in $PATH (via [exec.LookPath]) and
+// returns the absolute path of the first match. A name containing a path
+// separator is resolved directly relative to the working directory rather than
+// searched in $PATH. It returns an error when name cannot be found or is not
+// executable, so a template referencing a missing command fails to render
+// instead of emitting a broken command line.
+func Which(name string) (string, error) {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(path)
 }
 
 // ShellQuote returns s wrapped in POSIX shell single-quotes. Embedded single

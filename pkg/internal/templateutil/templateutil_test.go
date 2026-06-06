@@ -1,6 +1,8 @@
 package templateutil
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"text/template"
@@ -10,7 +12,7 @@ import (
 
 func TestFuncMap_ExposesExpectedFuncs(t *testing.T) {
 	fm := FuncMap()
-	for _, name := range []string{"env", "basename", "dirname", "ext", "trim", "quote"} {
+	for _, name := range []string{"env", "basename", "dirname", "ext", "trim", "quote", "which"} {
 		if _, ok := fm[name]; !ok {
 			t.Errorf("FuncMap missing %q", name)
 		}
@@ -51,4 +53,22 @@ func TestShellQuote(t *testing.T) {
 	} {
 		assert.Equal(t, ShellQuote(tc.in), tc.want)
 	}
+}
+
+func TestWhich(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "crabswarm-which-tool")
+	assert.NilError(t, os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755))
+	t.Setenv("PATH", dir)
+
+	got, err := Which("crabswarm-which-tool")
+	assert.NilError(t, err)
+	assert.Equal(t, got, bin)
+	assert.Assert(t, filepath.IsAbs(got))
+}
+
+func TestWhich_NotFoundErrors(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	_, err := Which("crabswarm-no-such-command")
+	assert.Assert(t, err != nil)
 }
