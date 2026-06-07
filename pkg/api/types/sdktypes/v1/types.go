@@ -123,6 +123,7 @@ const (
 	EffortLow    Effort = "low"
 	EffortMedium Effort = "medium"
 	EffortHigh   Effort = "high"
+	EffortXHigh  Effort = "xhigh"
 	EffortMax    Effort = "max"
 )
 
@@ -209,6 +210,7 @@ const (
 	HookEventPreToolUse         HookEvent = "PreToolUse"
 	HookEventPostToolUse        HookEvent = "PostToolUse"
 	HookEventPostToolUseFailure HookEvent = "PostToolUseFailure"
+	HookEventPostToolBatch      HookEvent = "PostToolBatch"
 	HookEventNotification       HookEvent = "Notification"
 	HookEventUserPromptSubmit   HookEvent = "UserPromptSubmit"
 	HookEventSessionStart       HookEvent = "SessionStart"
@@ -224,6 +226,7 @@ const (
 	HookEventConfigChange       HookEvent = "ConfigChange"
 	HookEventWorktreeCreate     HookEvent = "WorktreeCreate"
 	HookEventWorktreeRemove     HookEvent = "WorktreeRemove"
+	HookEventMessageDisplay     HookEvent = "MessageDisplay"
 )
 
 // SessionStartSource is a handwritten Claude Agent SDK type.
@@ -280,6 +283,7 @@ const (
 	HookPermissionDecisionAllow HookPermissionDecision = "allow"
 	HookPermissionDecisionDeny  HookPermissionDecision = "deny"
 	HookPermissionDecisionAsk   HookPermissionDecision = "ask"
+	HookPermissionDecisionDefer HookPermissionDecision = "defer"
 )
 
 // PermissionResultBehavior is a handwritten Claude Agent SDK type.
@@ -324,7 +328,9 @@ const (
 	PermissionRequestDecisionBehaviorDeny  PermissionRequestDecisionBehavior = "deny"
 )
 
-func permissionRequestDecisionBehaviorToProto(v PermissionRequestDecisionBehavior) pb.PermissionRequestDecisionBehavior {
+func permissionRequestDecisionBehaviorToProto(
+	v PermissionRequestDecisionBehavior,
+) pb.PermissionRequestDecisionBehavior {
 	switch v {
 	case PermissionRequestDecisionBehaviorAllow:
 		return pb.PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW
@@ -335,7 +341,9 @@ func permissionRequestDecisionBehaviorToProto(v PermissionRequestDecisionBehavio
 	}
 }
 
-func permissionRequestDecisionBehaviorFromProto(v pb.PermissionRequestDecisionBehavior) PermissionRequestDecisionBehavior {
+func permissionRequestDecisionBehaviorFromProto(
+	v pb.PermissionRequestDecisionBehavior,
+) PermissionRequestDecisionBehavior {
 	switch v {
 	case pb.PermissionRequestDecisionBehavior_PERMISSION_REQUEST_DECISION_BEHAVIOR_ALLOW:
 		return PermissionRequestDecisionBehaviorAllow
@@ -414,6 +422,67 @@ const (
 	McpServerStatusStateDisabled  McpServerStatusState = "disabled"
 )
 
+// McpServerStatusServerInfo is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#mcpserverstatus
+type McpServerStatusServerInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// McpServerStatusToolAnnotations is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#mcpserverstatus
+type McpServerStatusToolAnnotations struct {
+	ReadOnly    *bool `json:"readOnly,omitzero"`
+	Destructive *bool `json:"destructive,omitzero"`
+	OpenWorld   *bool `json:"openWorld,omitzero"`
+}
+
+// McpServerStatusTool is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#mcpserverstatus
+type McpServerStatusTool struct {
+	Name        string                          `json:"name"`
+	Description *string                         `json:"description,omitzero"`
+	Annotations *McpServerStatusToolAnnotations `json:"annotations,omitzero"`
+}
+
+// McpServerStatus is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#mcpserverstatus
+type McpServerStatus struct {
+	Name       string                     `json:"name"`
+	Status     McpServerStatusState       `json:"status"`
+	ServerInfo *McpServerStatusServerInfo `json:"serverInfo,omitzero"`
+	Error      *string                    `json:"error,omitzero"`
+	// Config is the reported server transport config (a McpServerStatusConfig
+	// union, kept opaque as raw JSON since it is only read back, never produced).
+	Config json.RawMessage       `json:"config,omitzero"`
+	Scope  *string               `json:"scope,omitzero"`
+	Tools  []McpServerStatusTool `json:"tools,omitzero"`
+}
+
+// McpSetServersResult is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#mcpsetserversresult
+type McpSetServersResult struct {
+	Added   []string          `json:"added"`
+	Removed []string          `json:"removed"`
+	Errors  map[string]string `json:"errors"`
+}
+
+// RewindFilesResult is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#rewindfilesresult
+type RewindFilesResult struct {
+	CanRewind    bool     `json:"canRewind"`
+	Error        *string  `json:"error,omitzero"`
+	FilesChanged []string `json:"filesChanged,omitzero"`
+	Insertions   *int64   `json:"insertions,omitzero"`
+	Deletions    *int64   `json:"deletions,omitzero"`
+}
+
 // RateLimitStatus is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#ratelimitinfo
@@ -474,8 +543,12 @@ const (
 	SystemSubtypeHookResponse       SystemSubtype = "hook_response"
 	SystemSubtypeTaskStarted        SystemSubtype = "task_started"
 	SystemSubtypeTaskProgress       SystemSubtype = "task_progress"
+	SystemSubtypeTaskUpdated        SystemSubtype = "task_updated"
 	SystemSubtypeFilesPersisted     SystemSubtype = "files_persisted"
 	SystemSubtypeLocalCommandOutput SystemSubtype = "local_command_output"
+	SystemSubtypeCommandsChanged    SystemSubtype = "commands_changed"
+	SystemSubtypePluginInstall      SystemSubtype = "plugin_install"
+	SystemSubtypePermissionDenied   SystemSubtype = "permission_denied"
 )
 
 // SDKAssistantMessageError is a handwritten Claude Agent SDK type.
@@ -485,13 +558,83 @@ type SDKAssistantMessageError string
 
 const (
 	SDKAssistantMessageErrorAuthenticationFailed SDKAssistantMessageError = "authentication_failed"
+	SDKAssistantMessageErrorOauthOrgNotAllowed   SDKAssistantMessageError = "oauth_org_not_allowed"
 	SDKAssistantMessageErrorBillingError         SDKAssistantMessageError = "billing_error"
 	SDKAssistantMessageErrorRateLimit            SDKAssistantMessageError = "rate_limit"
+	SDKAssistantMessageErrorOverloaded           SDKAssistantMessageError = "overloaded"
 	SDKAssistantMessageErrorInvalidRequest       SDKAssistantMessageError = "invalid_request"
+	SDKAssistantMessageErrorModelNotFound        SDKAssistantMessageError = "model_not_found"
 	SDKAssistantMessageErrorServerError          SDKAssistantMessageError = "server_error"
 	SDKAssistantMessageErrorMaxOutputTokens      SDKAssistantMessageError = "max_output_tokens"
 	SDKAssistantMessageErrorUnknown              SDKAssistantMessageError = "unknown"
 )
+
+// TerminalReason is a handwritten Claude Agent SDK type. It reports why the
+// agent loop ended, carried on SDKResultMessage.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
+type TerminalReason string
+
+const (
+	TerminalReasonCompleted          TerminalReason = "completed"
+	TerminalReasonMaxTurns           TerminalReason = "max_turns"
+	TerminalReasonToolDeferred       TerminalReason = "tool_deferred"
+	TerminalReasonAbortedStreaming   TerminalReason = "aborted_streaming"
+	TerminalReasonAbortedTools       TerminalReason = "aborted_tools"
+	TerminalReasonHookStopped        TerminalReason = "hook_stopped"
+	TerminalReasonStopHookPrevented  TerminalReason = "stop_hook_prevented"
+	TerminalReasonBlockingLimit      TerminalReason = "blocking_limit"
+	TerminalReasonRapidRefillBreaker TerminalReason = "rapid_refill_breaker"
+	TerminalReasonPromptTooLong      TerminalReason = "prompt_too_long"
+	TerminalReasonImageError         TerminalReason = "image_error"
+	TerminalReasonModelError         TerminalReason = "model_error"
+)
+
+// FastModeState is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
+type FastModeState string
+
+const (
+	FastModeStateOn       FastModeState = "on"
+	FastModeStateOff      FastModeState = "off"
+	FastModeStateCooldown FastModeState = "cooldown"
+)
+
+// SDKMessageOriginKind is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkmessageorigin
+type SDKMessageOriginKind string
+
+const (
+	SDKMessageOriginKindHuman            SDKMessageOriginKind = "human"
+	SDKMessageOriginKindChannel          SDKMessageOriginKind = "channel"
+	SDKMessageOriginKindPeer             SDKMessageOriginKind = "peer"
+	SDKMessageOriginKindTaskNotification SDKMessageOriginKind = "task-notification"
+	SDKMessageOriginKindCoordinator      SDKMessageOriginKind = "coordinator"
+)
+
+// SDKMessageOrigin is a handwritten Claude Agent SDK type. It is the provenance
+// of a user-role message, discriminated on kind. The variant-specific fields
+// (server for channel; from/name for peer) are present only for their kind.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkmessageorigin
+type SDKMessageOrigin struct {
+	Kind   SDKMessageOriginKind `json:"kind"`
+	Server *string              `json:"server,omitzero"`
+	From   *string              `json:"from,omitzero"`
+	Name   *string              `json:"name,omitzero"`
+}
+
+// DeferredToolUse is a handwritten Claude Agent SDK type. It carries a tool
+// call deferred by a PreToolUse hook returning permissionDecision "defer".
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
+type DeferredToolUse struct {
+	ID    string         `json:"id"`
+	Name  string         `json:"name"`
+	Input map[string]any `json:"input"`
+}
 
 // SDKResultSubtype is a handwritten Claude Agent SDK type.
 //
@@ -620,9 +763,10 @@ type SystemPromptString struct{ Value string }
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPromptPreset struct {
-	Type   string                 `json:"type"`
-	Preset SystemPromptPresetName `json:"preset"`
-	Append *string                `json:"append,omitzero"`
+	Type                   string                 `json:"type"`
+	Preset                 SystemPromptPresetName `json:"preset"`
+	Append                 *string                `json:"append,omitzero"`
+	ExcludeDynamicSections *bool                  `json:"excludeDynamicSections,omitzero"`
 }
 
 func (SystemPromptUnknown) systemPrompt() {}
@@ -646,19 +790,31 @@ var (
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfigUnknown struct{ UnknownUnion }
 
+// ThinkingDisplay is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#thinkingconfig
+type ThinkingDisplay string
+
+const (
+	ThinkingDisplaySummarized ThinkingDisplay = "summarized"
+	ThinkingDisplayOmitted    ThinkingDisplay = "omitted"
+)
+
 // ThinkingConfigAdaptive is a handwritten Claude Agent SDK type.
 //
-// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#thinkingconfig
 type ThinkingConfigAdaptive struct {
-	Type string `json:"type"`
+	Type    string           `json:"type"`
+	Display *ThinkingDisplay `json:"display,omitzero"`
 }
 
 // ThinkingConfigEnabled is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfigEnabled struct {
-	Type         string `json:"type"`
-	BudgetTokens *int64 `json:"budgetTokens,omitzero"`
+	Type         string           `json:"type"`
+	BudgetTokens *int64           `json:"budgetTokens,omitzero"`
+	Display      *ThinkingDisplay `json:"display,omitzero"`
 }
 
 // ThinkingConfigDisabled is a handwritten Claude Agent SDK type.
@@ -926,6 +1082,7 @@ type SdkPluginConfig struct {
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SandboxNetworkConfig struct {
 	AllowedDomains          []string `json:"allowedDomains,omitzero"`
+	DeniedDomains           []string `json:"deniedDomains,omitzero"`
 	AllowManagedDomainsOnly *bool    `json:"allowManagedDomainsOnly,omitzero"`
 	AllowLocalBinding       *bool    `json:"allowLocalBinding,omitzero"`
 	AllowUnixSockets        []string `json:"allowUnixSockets,omitzero"`
@@ -956,6 +1113,7 @@ type RipgrepConfig struct {
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SandboxSettings struct {
 	Enabled                   *bool                    `json:"enabled,omitzero"`
+	FailIfUnavailable         *bool                    `json:"failIfUnavailable,omitzero"`
 	AutoAllowBashIfSandboxed  *bool                    `json:"autoAllowBashIfSandboxed,omitzero"`
 	ExcludedCommands          []string                 `json:"excludedCommands,omitzero"`
 	AllowUnsandboxedCommands  *bool                    `json:"allowUnsandboxedCommands,omitzero"`
@@ -977,9 +1135,25 @@ type AgentDefinition struct {
 	Model                              *AgentModel       `json:"model,omitzero"`
 	McpServers                         []json.RawMessage `json:"mcpServers,omitzero"`
 	Skills                             []string          `json:"skills,omitzero"`
+	InitialPrompt                      *string           `json:"initialPrompt,omitzero"`
 	MaxTurns                           *int64            `json:"maxTurns,omitzero"`
+	Background                         *bool             `json:"background,omitzero"`
+	Memory                             *AgentMemory      `json:"memory,omitzero"`
+	Effort                             json.RawMessage   `json:"effort,omitzero"`
+	PermissionMode                     *PermissionMode   `json:"permissionMode,omitzero"`
 	CriticalSystemReminderExperimental *string           `json:"criticalSystemReminder_EXPERIMENTAL,omitzero"`
 }
+
+// AgentMemory is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition
+type AgentMemory string
+
+const (
+	AgentMemoryUser    AgentMemory = "user"
+	AgentMemoryProject AgentMemory = "project"
+	AgentMemoryLocal   AgentMemory = "local"
+)
 
 // Options is a handwritten Claude Agent SDK type.
 //
@@ -1027,15 +1201,45 @@ type Options struct {
 	Thinking                        ThinkingConfig             `json:"thinking,omitzero"`
 	ToolConfig                      *ToolConfig                `json:"toolConfig,omitzero"`
 	Tools                           ToolsConfig                `json:"tools,omitzero"`
+	AgentProgressSummaries          *bool                      `json:"agentProgressSummaries,omitzero"`
+	ForwardSubagentText             *bool                      `json:"forwardSubagentText,omitzero"`
+	IncludeHookEvents               *bool                      `json:"includeHookEvents,omitzero"`
+	LoadTimeoutMs                   *int64                     `json:"loadTimeoutMs,omitzero"`
+	ManagedSettings                 json.RawMessage            `json:"managedSettings,omitzero"`
+	PlanModeInstructions            *string                    `json:"planModeInstructions,omitzero"`
+	SessionStoreFlush               *SessionStoreFlush         `json:"sessionStoreFlush,omitzero"`
+	Settings                        json.RawMessage            `json:"settings,omitzero"`
+	Skills                          json.RawMessage            `json:"skills,omitzero"`
+	TaskBudget                      *OptionsTaskBudget         `json:"taskBudget,omitzero"`
+	Title                           *string                    `json:"title,omitzero"`
+	ToolAliases                     map[string]string          `json:"toolAliases,omitzero"`
+}
+
+// SessionStoreFlush is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+type SessionStoreFlush string
+
+const (
+	SessionStoreFlushBatched SessionStoreFlush = "batched"
+	SessionStoreFlushEager   SessionStoreFlush = "eager"
+)
+
+// OptionsTaskBudget is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+type OptionsTaskBudget struct {
+	Total int64 `json:"total"`
 }
 
 // SlashCommand is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#slashcommand
 type SlashCommand struct {
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	ArgumentHint string `json:"argumentHint"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	ArgumentHint string   `json:"argumentHint"`
+	Aliases      []string `json:"aliases,omitzero"`
 }
 
 // ModelInfo is a handwritten Claude Agent SDK type.
@@ -1089,20 +1293,61 @@ type ModelUsage struct {
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
 type Usage struct {
-	InputTokens              *int64 `json:"input_tokens"`
-	OutputTokens             *int64 `json:"output_tokens"`
-	CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
+	InputTokens              *int64              `json:"input_tokens"`
+	OutputTokens             *int64              `json:"output_tokens"`
+	CacheCreationInputTokens *int64              `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     *int64              `json:"cache_read_input_tokens"`
+	CacheCreation            *UsageCacheCreation `json:"cache_creation"`
+	ServerToolUse            json.RawMessage     `json:"server_tool_use"`
+	ServiceTier              *UsageServiceTier   `json:"service_tier"`
+	Speed                    *UsageSpeed         `json:"speed"`
+	InferenceGeo             *string             `json:"inference_geo"`
+	Iterations               json.RawMessage     `json:"iterations"`
 }
+
+// UsageCacheCreation is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
+type UsageCacheCreation struct {
+	Ephemeral5mInputTokens int64 `json:"ephemeral_5m_input_tokens"`
+	Ephemeral1hInputTokens int64 `json:"ephemeral_1h_input_tokens"`
+}
+
+// UsageServiceTier is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
+type UsageServiceTier string
+
+const (
+	UsageServiceTierStandard UsageServiceTier = "standard"
+	UsageServiceTierPriority UsageServiceTier = "priority"
+	UsageServiceTierBatch    UsageServiceTier = "batch"
+)
+
+// UsageSpeed is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
+type UsageSpeed string
+
+const (
+	UsageSpeedStandard UsageSpeed = "standard"
+	UsageSpeedFast     UsageSpeed = "fast"
+)
 
 // NonNullableUsage is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#nonnullableusage
 type NonNullableUsage struct {
-	InputTokens              int64 `json:"input_tokens"`
-	OutputTokens             int64 `json:"output_tokens"`
-	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+	InputTokens              int64              `json:"input_tokens"`
+	OutputTokens             int64              `json:"output_tokens"`
+	CacheCreationInputTokens int64              `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int64              `json:"cache_read_input_tokens"`
+	CacheCreation            UsageCacheCreation `json:"cache_creation"`
+	ServerToolUse            json.RawMessage    `json:"server_tool_use"`
+	ServiceTier              UsageServiceTier   `json:"service_tier"`
+	Speed                    UsageSpeed         `json:"speed"`
+	InferenceGeo             string             `json:"inference_geo"`
+	Iterations               json.RawMessage    `json:"iterations"`
 }
 
 // CallToolResultContent is a handwritten Claude Agent SDK type.
@@ -1117,8 +1362,9 @@ type CallToolResultContent struct {
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#calltoolresult
 type CallToolResult struct {
-	Content []CallToolResultContent `json:"content"`
-	IsError *bool                   `json:"isError,omitzero"`
+	Content           []CallToolResultContent `json:"content"`
+	StructuredContent map[string]any          `json:"structuredContent,omitzero"`
+	IsError           *bool                   `json:"isError,omitzero"`
 }
 
 // SDKPermissionDenial is a handwritten Claude Agent SDK type.
@@ -1177,6 +1423,10 @@ var (
 	_ SDKMessage = (*SDKToolUseSummaryMessage)(nil)
 	_ SDKMessage = (*SDKRateLimitEvent)(nil)
 	_ SDKMessage = (*SDKPromptSuggestionMessage)(nil)
+	_ SDKMessage = (*SDKTaskUpdatedMessage)(nil)
+	_ SDKMessage = (*SDKCommandsChangedMessage)(nil)
+	_ SDKMessage = (*SDKPluginInstallMessage)(nil)
+	_ SDKMessage = (*SDKPermissionDeniedMessage)(nil)
 )
 
 // SDKMessageUnknown is a handwritten Claude Agent SDK type.
@@ -1204,13 +1454,15 @@ func (SDKAssistantMessage) sdkMessage() {}
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessage
 type SDKUserMessage struct {
-	Type            string          `json:"type"`
-	UUID            *UUID           `json:"uuid,omitzero"`
-	SessionID       string          `json:"session_id"`
-	Message         MessageParam    `json:"message"`
-	ParentToolUseID *string         `json:"parent_tool_use_id"`
-	IsSynthetic     *bool           `json:"isSynthetic,omitzero"`
-	ToolUseResult   json.RawMessage `json:"tool_use_result,omitzero"`
+	Type            string            `json:"type"`
+	UUID            *UUID             `json:"uuid,omitzero"`
+	SessionID       string            `json:"session_id"`
+	Message         MessageParam      `json:"message"`
+	ParentToolUseID *string           `json:"parent_tool_use_id"`
+	IsSynthetic     *bool             `json:"isSynthetic,omitzero"`
+	ShouldQuery     *bool             `json:"shouldQuery,omitzero"`
+	ToolUseResult   json.RawMessage   `json:"tool_use_result,omitzero"`
+	Origin          *SDKMessageOrigin `json:"origin,omitzero"`
 }
 
 func (SDKUserMessage) sdkMessage() {}
@@ -1219,14 +1471,15 @@ func (SDKUserMessage) sdkMessage() {}
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessagereplay
 type SDKUserMessageReplay struct {
-	Type            string          `json:"type"`
-	UUID            UUID            `json:"uuid"`
-	SessionID       string          `json:"session_id"`
-	Message         MessageParam    `json:"message"`
-	ParentToolUseID *string         `json:"parent_tool_use_id"`
-	IsSynthetic     *bool           `json:"isSynthetic,omitzero"`
-	ToolUseResult   json.RawMessage `json:"tool_use_result,omitzero"`
-	IsReplay        bool            `json:"isReplay"`
+	Type            string            `json:"type"`
+	UUID            UUID              `json:"uuid"`
+	SessionID       string            `json:"session_id"`
+	Message         MessageParam      `json:"message"`
+	ParentToolUseID *string           `json:"parent_tool_use_id"`
+	IsSynthetic     *bool             `json:"isSynthetic,omitzero"`
+	ToolUseResult   json.RawMessage   `json:"tool_use_result,omitzero"`
+	Origin          *SDKMessageOrigin `json:"origin,omitzero"`
+	IsReplay        bool              `json:"isReplay"`
 }
 
 func (SDKUserMessageReplay) sdkMessage() {}
@@ -1258,14 +1511,20 @@ type SDKResultMessageSuccess struct {
 	DurationMs        int64                 `json:"duration_ms"`
 	DurationAPIMs     int64                 `json:"duration_api_ms"`
 	IsError           bool                  `json:"is_error"`
+	APIErrorStatus    *int64                `json:"api_error_status,omitzero"`
 	NumTurns          int64                 `json:"num_turns"`
 	Result            string                `json:"result"`
 	StopReason        *string               `json:"stop_reason"`
+	TTFTMs            *int64                `json:"ttft_ms,omitzero"`
 	TotalCostUSD      float64               `json:"total_cost_usd"`
 	Usage             NonNullableUsage      `json:"usage"`
 	ModelUsage        map[string]ModelUsage `json:"modelUsage"`
 	PermissionDenials []SDKPermissionDenial `json:"permission_denials"`
 	StructuredOutput  json.RawMessage       `json:"structured_output,omitzero"`
+	DeferredToolUse   *DeferredToolUse      `json:"deferred_tool_use,omitzero"`
+	TerminalReason    *TerminalReason       `json:"terminal_reason,omitzero"`
+	FastModeState     *FastModeState        `json:"fast_mode_state,omitzero"`
+	Origin            *SDKMessageOrigin     `json:"origin,omitzero"`
 }
 
 func (SDKResultMessageSuccess) sdkMessage()       {}
@@ -1289,6 +1548,9 @@ type SDKResultMessageError struct {
 	ModelUsage        map[string]ModelUsage `json:"modelUsage"`
 	PermissionDenials []SDKPermissionDenial `json:"permission_denials"`
 	Errors            []string              `json:"errors"`
+	TerminalReason    *TerminalReason       `json:"terminal_reason,omitzero"`
+	FastModeState     *FastModeState        `json:"fast_mode_state,omitzero"`
+	Origin            *SDKMessageOrigin     `json:"origin,omitzero"`
 }
 
 func (SDKResultMessageError) sdkMessage()       {}
@@ -1514,13 +1776,112 @@ type SDKTaskProgressMessage struct {
 	TaskID       string           `json:"task_id"`
 	ToolUseID    *string          `json:"tool_use_id,omitzero"`
 	Description  string           `json:"description"`
+	SubagentType *string          `json:"subagent_type,omitzero"`
 	Usage        TaskUsageSummary `json:"usage"`
 	LastToolName *string          `json:"last_tool_name,omitzero"`
+	Summary      *string          `json:"summary,omitzero"`
 	UUID         UUID             `json:"uuid"`
 	SessionID    string           `json:"session_id"`
 }
 
 func (SDKTaskProgressMessage) sdkMessage() {}
+
+// SDKTaskUpdatedPatchStatus is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskupdatedmessage
+type SDKTaskUpdatedPatchStatus string
+
+const (
+	SDKTaskUpdatedPatchStatusPending   SDKTaskUpdatedPatchStatus = "pending"
+	SDKTaskUpdatedPatchStatusRunning   SDKTaskUpdatedPatchStatus = "running"
+	SDKTaskUpdatedPatchStatusCompleted SDKTaskUpdatedPatchStatus = "completed"
+	SDKTaskUpdatedPatchStatusFailed    SDKTaskUpdatedPatchStatus = "failed"
+	SDKTaskUpdatedPatchStatusKilled    SDKTaskUpdatedPatchStatus = "killed"
+)
+
+// SDKTaskUpdatedPatch is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskupdatedmessage
+type SDKTaskUpdatedPatch struct {
+	Status         *SDKTaskUpdatedPatchStatus `json:"status,omitzero"`
+	Description    *string                    `json:"description,omitzero"`
+	EndTime        *int64                     `json:"end_time,omitzero"`
+	TotalPausedMs  *int64                     `json:"total_paused_ms,omitzero"`
+	Error          *string                    `json:"error,omitzero"`
+	IsBackgrounded *bool                      `json:"is_backgrounded,omitzero"`
+}
+
+// SDKTaskUpdatedMessage is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskupdatedmessage
+type SDKTaskUpdatedMessage struct {
+	Type      string              `json:"type"`
+	Subtype   SystemSubtype       `json:"subtype"`
+	TaskID    string              `json:"task_id"`
+	Patch     SDKTaskUpdatedPatch `json:"patch"`
+	UUID      UUID                `json:"uuid"`
+	SessionID string              `json:"session_id"`
+}
+
+func (SDKTaskUpdatedMessage) sdkMessage() {}
+
+// SDKCommandsChangedMessage is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkcommandschangedmessage
+type SDKCommandsChangedMessage struct {
+	Type      string         `json:"type"`
+	Subtype   SystemSubtype  `json:"subtype"`
+	Commands  []SlashCommand `json:"commands"`
+	UUID      UUID           `json:"uuid"`
+	SessionID string         `json:"session_id"`
+}
+
+func (SDKCommandsChangedMessage) sdkMessage() {}
+
+// SDKPluginInstallStatus is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkplugininstallmessage
+type SDKPluginInstallStatus string
+
+const (
+	SDKPluginInstallStatusStarted   SDKPluginInstallStatus = "started"
+	SDKPluginInstallStatusInstalled SDKPluginInstallStatus = "installed"
+	SDKPluginInstallStatusFailed    SDKPluginInstallStatus = "failed"
+	SDKPluginInstallStatusCompleted SDKPluginInstallStatus = "completed"
+)
+
+// SDKPluginInstallMessage is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkplugininstallmessage
+type SDKPluginInstallMessage struct {
+	Type      string                 `json:"type"`
+	Subtype   SystemSubtype          `json:"subtype"`
+	Status    SDKPluginInstallStatus `json:"status"`
+	Name      *string                `json:"name,omitzero"`
+	Error     *string                `json:"error,omitzero"`
+	UUID      UUID                   `json:"uuid"`
+	SessionID string                 `json:"session_id"`
+}
+
+func (SDKPluginInstallMessage) sdkMessage() {}
+
+// SDKPermissionDeniedMessage is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpermissiondeniedmessage
+type SDKPermissionDeniedMessage struct {
+	Type               string        `json:"type"`
+	Subtype            SystemSubtype `json:"subtype"`
+	ToolName           string        `json:"tool_name"`
+	ToolUseID          string        `json:"tool_use_id"`
+	AgentID            *string       `json:"agent_id,omitzero"`
+	DecisionReasonType *string       `json:"decision_reason_type,omitzero"`
+	DecisionReason     *string       `json:"decision_reason,omitzero"`
+	Message            string        `json:"message"`
+	UUID               UUID          `json:"uuid"`
+	SessionID          string        `json:"session_id"`
+}
+
+func (SDKPermissionDeniedMessage) sdkMessage() {}
 
 // SDKFilesPersistedEvent is a handwritten Claude Agent SDK type.
 //
@@ -1578,12 +1939,45 @@ func (SDKPromptSuggestionMessage) sdkMessage() {}
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
 type BaseHookInput struct {
-	SessionID      string  `json:"session_id"`
-	TranscriptPath string  `json:"transcript_path"`
-	Cwd            string  `json:"cwd"`
-	PermissionMode *string `json:"permission_mode,omitzero"`
-	AgentID        *string `json:"agent_id,omitzero"`
-	AgentType      *string `json:"agent_type,omitzero"`
+	SessionID      string               `json:"session_id"`
+	TranscriptPath string               `json:"transcript_path"`
+	Cwd            string               `json:"cwd"`
+	PermissionMode *string              `json:"permission_mode,omitzero"`
+	Effort         *BaseHookInputEffort `json:"effort,omitzero"`
+	AgentID        *string              `json:"agent_id,omitzero"`
+	AgentType      *string              `json:"agent_type,omitzero"`
+}
+
+// BaseHookInputEffort is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#basehookinput
+type BaseHookInputEffort struct {
+	Level string `json:"level"`
+}
+
+// BackgroundTaskSummary is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
+type BackgroundTaskSummary struct {
+	ID          string  `json:"id"`
+	Type        string  `json:"type"`
+	Status      string  `json:"status"`
+	Description string  `json:"description"`
+	Command     *string `json:"command,omitzero"`
+	AgentType   *string `json:"agent_type,omitzero"`
+	Server      *string `json:"server,omitzero"`
+	Tool        *string `json:"tool,omitzero"`
+	Name        *string `json:"name,omitzero"`
+}
+
+// SessionCronSummary is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
+type SessionCronSummary struct {
+	ID        string `json:"id"`
+	Schedule  string `json:"schedule"`
+	Recurring bool   `json:"recurring"`
+	Prompt    string `json:"prompt"`
 }
 
 // HookInput is a handwritten Claude Agent SDK type.
@@ -1611,6 +2005,8 @@ var (
 	_ HookInput = (*ConfigChangeHookInput)(nil)
 	_ HookInput = (*WorktreeCreateHookInput)(nil)
 	_ HookInput = (*WorktreeRemoveHookInput)(nil)
+	_ HookInput = (*PostToolBatchHookInput)(nil)
+	_ HookInput = (*MessageDisplayHookInput)(nil)
 )
 
 // HookInputUnknown is a handwritten Claude Agent SDK type.
@@ -1643,6 +2039,7 @@ type PostToolUseHookInput struct {
 	ToolInput     ToolInputSchemas  `json:"tool_input"`
 	ToolResponse  ToolOutputSchemas `json:"tool_response"`
 	ToolUseID     string            `json:"tool_use_id"`
+	DurationMs    *int64            `json:"duration_ms,omitzero"`
 }
 
 func (PostToolUseHookInput) hookInput() {}
@@ -1658,9 +2055,31 @@ type PostToolUseFailureHookInput struct {
 	ToolUseID     string           `json:"tool_use_id"`
 	Error         string           `json:"error"`
 	IsInterrupt   *bool            `json:"is_interrupt,omitzero"`
+	DurationMs    *int64           `json:"duration_ms,omitzero"`
 }
 
 func (PostToolUseFailureHookInput) hookInput() {}
+
+// PostToolBatchHookInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolbatchhookinput
+type PostToolBatchHookInput struct {
+	BaseHookInput
+	HookEventName HookEvent               `json:"hook_event_name"`
+	ToolCalls     []PostToolBatchToolCall `json:"tool_calls"`
+}
+
+func (PostToolBatchHookInput) hookInput() {}
+
+// PostToolBatchToolCall is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolbatchhookinput
+type PostToolBatchToolCall struct {
+	ToolName     string          `json:"tool_name"`
+	ToolInput    json.RawMessage `json:"tool_input"`
+	ToolUseID    string          `json:"tool_use_id"`
+	ToolResponse json.RawMessage `json:"tool_response,omitzero"`
+}
 
 // NotificationHookInput is a handwritten Claude Agent SDK type.
 //
@@ -1714,8 +2133,11 @@ func (SessionEndHookInput) hookInput() {}
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#stophookinput
 type StopHookInput struct {
 	BaseHookInput
-	HookEventName  HookEvent `json:"hook_event_name"`
-	StopHookActive bool      `json:"stop_hook_active"`
+	HookEventName        HookEvent               `json:"hook_event_name"`
+	StopHookActive       bool                    `json:"stop_hook_active"`
+	LastAssistantMessage *string                 `json:"last_assistant_message,omitzero"`
+	BackgroundTasks      []BackgroundTaskSummary `json:"background_tasks,omitzero"`
+	SessionCrons         []SessionCronSummary    `json:"session_crons,omitzero"`
 }
 
 func (StopHookInput) hookInput() {}
@@ -1726,7 +2148,6 @@ func (StopHookInput) hookInput() {}
 type SubagentStartHookInput struct {
 	BaseHookInput
 	HookEventName HookEvent `json:"hook_event_name"`
-	Prompt        string    `json:"prompt"`
 }
 
 func (SubagentStartHookInput) hookInput() {}
@@ -1736,8 +2157,12 @@ func (SubagentStartHookInput) hookInput() {}
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
 type SubagentStopHookInput struct {
 	BaseHookInput
-	HookEventName HookEvent `json:"hook_event_name"`
-	StopReason    string    `json:"stop_reason"`
+	HookEventName        HookEvent               `json:"hook_event_name"`
+	StopHookActive       bool                    `json:"stop_hook_active"`
+	AgentTranscriptPath  string                  `json:"agent_transcript_path"`
+	LastAssistantMessage *string                 `json:"last_assistant_message,omitzero"`
+	BackgroundTasks      []BackgroundTaskSummary `json:"background_tasks,omitzero"`
+	SessionCrons         []SessionCronSummary    `json:"session_crons,omitzero"`
 }
 
 func (SubagentStopHookInput) hookInput() {}
@@ -1749,7 +2174,7 @@ type PreCompactHookInput struct {
 	BaseHookInput
 	HookEventName      HookEvent `json:"hook_event_name"`
 	Trigger            string    `json:"trigger"`
-	CustomInstructions string    `json:"custom_instructions"`
+	CustomInstructions *string   `json:"custom_instructions"`
 }
 
 func (PreCompactHookInput) hookInput() {}
@@ -1785,6 +2210,8 @@ func (SetupHookInput) hookInput() {}
 type TeammateIdleHookInput struct {
 	BaseHookInput
 	HookEventName HookEvent `json:"hook_event_name"`
+	TeammateName  string    `json:"teammate_name"`
+	TeamName      string    `json:"team_name"`
 }
 
 func (TeammateIdleHookInput) hookInput() {}
@@ -1838,6 +2265,21 @@ type WorktreeRemoveHookInput struct {
 
 func (WorktreeRemoveHookInput) hookInput() {}
 
+// MessageDisplayHookInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#messagedisplayhookinput
+type MessageDisplayHookInput struct {
+	BaseHookInput
+	HookEventName HookEvent `json:"hook_event_name"`
+	TurnID        string    `json:"turn_id"`
+	MessageID     string    `json:"message_id"`
+	Index         int64     `json:"index"`
+	Final         bool      `json:"final"`
+	Delta         string    `json:"delta"`
+}
+
+func (MessageDisplayHookInput) hookInput() {}
+
 // HookJSONOutput is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-json-output
@@ -1880,6 +2322,7 @@ var (
 	_ HookSpecificOutput = (*HookSpecificOutputSubagentStart)(nil)
 	_ HookSpecificOutput = (*HookSpecificOutputPostToolUse)(nil)
 	_ HookSpecificOutput = (*HookSpecificOutputPostToolUseFailure)(nil)
+	_ HookSpecificOutput = (*HookSpecificOutputPostToolBatch)(nil)
 	_ HookSpecificOutput = (*HookSpecificOutputNotification)(nil)
 	_ HookSpecificOutput = (*HookSpecificOutputPermissionRequest)(nil)
 )
@@ -1948,8 +2391,10 @@ func (HookSpecificOutputSubagentStart) hookSpecificOutput() {}
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputPostToolUse struct {
-	HookEventName        HookEvent       `json:"hookEventName"`
-	AdditionalContext    *string         `json:"additionalContext,omitzero"`
+	HookEventName     HookEvent       `json:"hookEventName"`
+	AdditionalContext *string         `json:"additionalContext,omitzero"`
+	UpdatedToolOutput json.RawMessage `json:"updatedToolOutput,omitzero"`
+	// UpdatedMCPToolOutput is deprecated; use UpdatedToolOutput, which works for all tools.
 	UpdatedMCPToolOutput json.RawMessage `json:"updatedMCPToolOutput,omitzero"`
 }
 
@@ -1964,6 +2409,16 @@ type HookSpecificOutputPostToolUseFailure struct {
 }
 
 func (HookSpecificOutputPostToolUseFailure) hookSpecificOutput() {}
+
+// HookSpecificOutputPostToolBatch is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+type HookSpecificOutputPostToolBatch struct {
+	HookEventName     HookEvent `json:"hookEventName"`
+	AdditionalContext *string   `json:"additionalContext,omitzero"`
+}
+
+func (HookSpecificOutputPostToolBatch) hookSpecificOutput() {}
 
 // HookSpecificOutputNotification is a handwritten Claude Agent SDK type.
 //
@@ -2061,6 +2516,12 @@ var (
 	_ ToolInputSchemas = (*GrepInput)(nil)
 	_ ToolInputSchemas = (*ListMcpResourcesInput)(nil)
 	_ ToolInputSchemas = (*McpInput)(nil)
+	_ ToolInputSchemas = (*MonitorInput)(nil)
+	_ ToolInputSchemas = (*WorkflowInput)(nil)
+	_ ToolInputSchemas = (*TaskCreateInput)(nil)
+	_ ToolInputSchemas = (*TaskUpdateInput)(nil)
+	_ ToolInputSchemas = (*TaskGetInput)(nil)
+	_ ToolInputSchemas = (*TaskListInput)(nil)
 	_ ToolInputSchemas = (*NotebookEditInput)(nil)
 	_ ToolInputSchemas = (*ReadMcpResourceInput)(nil)
 	_ ToolInputSchemas = (*SubscribeMcpResourceInput)(nil)
@@ -2098,6 +2559,88 @@ type AgentInput struct {
 }
 
 func (AgentInput) toolInputSchemas() {}
+
+// MonitorInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#monitor
+type MonitorInput struct {
+	Command     string `json:"command"`
+	Description string `json:"description"`
+	TimeoutMs   *int64 `json:"timeout_ms,omitzero"`
+	Persistent  *bool  `json:"persistent,omitzero"`
+}
+
+func (MonitorInput) toolInputSchemas() {}
+
+// WorkflowInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#workflow
+type WorkflowInput struct {
+	Script          *string         `json:"script,omitzero"`
+	Name            *string         `json:"name,omitzero"`
+	ScriptPath      *string         `json:"scriptPath,omitzero"`
+	Args            json.RawMessage `json:"args,omitzero"`
+	ResumeFromRunID *string         `json:"resumeFromRunId,omitzero"`
+}
+
+func (WorkflowInput) toolInputSchemas() {}
+
+// TaskCreateInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcreate
+type TaskCreateInput struct {
+	Subject     string         `json:"subject"`
+	Description string         `json:"description"`
+	ActiveForm  *string        `json:"activeForm,omitzero"`
+	Metadata    map[string]any `json:"metadata,omitzero"`
+}
+
+func (TaskCreateInput) toolInputSchemas() {}
+
+// TaskUpdateStatus is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskupdate
+type TaskUpdateStatus string
+
+const (
+	TaskUpdateStatusPending    TaskUpdateStatus = "pending"
+	TaskUpdateStatusInProgress TaskUpdateStatus = "in_progress"
+	TaskUpdateStatusCompleted  TaskUpdateStatus = "completed"
+	TaskUpdateStatusDeleted    TaskUpdateStatus = "deleted"
+)
+
+// TaskUpdateInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskupdate
+type TaskUpdateInput struct {
+	TaskID       string            `json:"taskId"`
+	Status       *TaskUpdateStatus `json:"status,omitzero"`
+	Subject      *string           `json:"subject,omitzero"`
+	Description  *string           `json:"description,omitzero"`
+	ActiveForm   *string           `json:"activeForm,omitzero"`
+	AddBlocks    []string          `json:"addBlocks,omitzero"`
+	AddBlockedBy []string          `json:"addBlockedBy,omitzero"`
+	Owner        *string           `json:"owner,omitzero"`
+	Metadata     map[string]any    `json:"metadata,omitzero"`
+}
+
+func (TaskUpdateInput) toolInputSchemas() {}
+
+// TaskGetInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskget
+type TaskGetInput struct {
+	TaskID string `json:"taskId"`
+}
+
+func (TaskGetInput) toolInputSchemas() {}
+
+// TaskListInput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tasklist
+type TaskListInput struct{}
+
+func (TaskListInput) toolInputSchemas() {}
 
 // AskUserQuestionInputOption is a handwritten Claude Agent SDK type.
 //
@@ -2166,6 +2709,7 @@ func (ConfigInput) toolInputSchemas() {}
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#enterworktree
 type EnterWorktreeInput struct {
 	Name *string `json:"name,omitzero"`
+	Path *string `json:"path,omitzero"`
 }
 
 func (EnterWorktreeInput) toolInputSchemas() {}
@@ -2402,6 +2946,12 @@ var (
 	_ ToolOutputSchemas = (*ReadMcpResourceOutput)(nil)
 	_ ToolOutputSchemas = (*ConfigOutput)(nil)
 	_ ToolOutputSchemas = (*EnterWorktreeOutput)(nil)
+	_ ToolOutputSchemas = (*MonitorOutput)(nil)
+	_ ToolOutputSchemas = (*WorkflowOutput)(nil)
+	_ ToolOutputSchemas = (*TaskCreateOutput)(nil)
+	_ ToolOutputSchemas = (*TaskUpdateOutput)(nil)
+	_ ToolOutputSchemas = (*TaskGetOutput)(nil)
+	_ ToolOutputSchemas = (*TaskListOutput)(nil)
 )
 
 // ToolOutputUnknown is a handwritten Claude Agent SDK type.
@@ -2521,6 +3071,7 @@ func (AgentOutputSubAgentEntered) agentOutput()       {}
 type AskUserQuestionOutput struct {
 	Questions []AskUserQuestionInputQuestion `json:"questions"`
 	Answers   map[string]string              `json:"answers"`
+	Response  *string                        `json:"response,omitzero"`
 }
 
 func (AskUserQuestionOutput) toolOutputSchemas() {}
@@ -2807,31 +3358,123 @@ type WebFetchOutput struct {
 
 func (WebFetchOutput) toolOutputSchemas() {}
 
-// WebSearchOutputResultEntry is a handwritten Claude Agent SDK type.
+// WebSearchOutputResult is a handwritten Claude Agent SDK type.
+//
+// Each result is either a structured block or a bare string. The union is
+// untagged, so decoding dispatches on the JSON token (object vs string).
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
-type WebSearchOutputResultEntry struct {
-	Title   string `json:"title"`
-	URL     string `json:"url"`
-	Snippet string `json:"snippet"`
+type WebSearchOutputResult interface{ webSearchOutputResult() }
+
+var (
+	_ WebSearchOutputResult = (*WebSearchOutputResultUnknown)(nil)
+	_ WebSearchOutputResult = WebSearchOutputResultText("")
+	_ WebSearchOutputResult = (*WebSearchOutputResultBlock)(nil)
+)
+
+// WebSearchOutputResultText is the bare-string variant of WebSearchOutputResult.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
+type WebSearchOutputResultText string
+
+func (WebSearchOutputResultText) webSearchOutputResult() {}
+
+func (o WebSearchOutputResultText) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(o))
+}
+
+// WebSearchOutputResultContent is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
+type WebSearchOutputResultContent struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+// WebSearchOutputResultBlock is the object variant of WebSearchOutputResult.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
+type WebSearchOutputResultBlock struct {
+	ToolUseID string                         `json:"tool_use_id"`
+	Content   []WebSearchOutputResultContent `json:"content"`
+}
+
+func (*WebSearchOutputResultBlock) webSearchOutputResult() {}
+
+// WebSearchOutputResultUnknown preserves an unrecognized WebSearchOutputResult.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
+type WebSearchOutputResultUnknown struct{ UnknownUnion }
+
+func (*WebSearchOutputResultUnknown) webSearchOutputResult() {}
+
+func unmarshalWebSearchOutputResult(data []byte) (WebSearchOutputResult, error) {
+	trimmed := strings.TrimSpace(string(data))
+	switch {
+	case trimmed == "":
+		return nil, nil
+	case trimmed[0] == '"':
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return nil, err
+		}
+		return WebSearchOutputResultText(s), nil
+	case trimmed[0] == '{':
+		var v WebSearchOutputResultBlock
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, err
+		}
+		return &v, nil
+	default:
+		var u WebSearchOutputResultUnknown
+		return &u, u.UnmarshalJSON(data)
+	}
 }
 
 // WebSearchOutput is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
 type WebSearchOutput struct {
-	Query   string                       `json:"query"`
-	Results []WebSearchOutputResultEntry `json:"results"`
+	Query           string                  `json:"query"`
+	Results         []WebSearchOutputResult `json:"results"`
+	DurationSeconds float64                 `json:"durationSeconds"`
 }
 
 func (WebSearchOutput) toolOutputSchemas() {}
+
+func (o WebSearchOutput) MarshalJSON() ([]byte, error) {
+	type alias WebSearchOutput
+	return json.Marshal(alias(o))
+}
+
+func (o *WebSearchOutput) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Query           string            `json:"query"`
+		Results         []json.RawMessage `json:"results"`
+		DurationSeconds float64           `json:"durationSeconds"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	o.Query = raw.Query
+	o.DurationSeconds = raw.DurationSeconds
+	o.Results = make([]WebSearchOutputResult, 0, len(raw.Results))
+	for _, r := range raw.Results {
+		v, err := unmarshalWebSearchOutputResult(r)
+		if err != nil {
+			return err
+		}
+		o.Results = append(o.Results, v)
+	}
+	return nil
+}
 
 // TodoWriteOutput is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#todowrite-2
 type TodoWriteOutput struct {
-	OldTodos string `json:"oldTodos"`
-	NewTodos string `json:"newTodos"`
+	OldTodos []TodoItem `json:"oldTodos"`
+	NewTodos []TodoItem `json:"newTodos"`
 }
 
 func (TodoWriteOutput) toolOutputSchemas() {}
@@ -2840,7 +3483,12 @@ func (TodoWriteOutput) toolOutputSchemas() {}
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#exitplanmode-2
 type ExitPlanModeOutput struct {
-	ApprovedPrompts []string `json:"approvedPrompts"`
+	Plan                   *string `json:"plan"`
+	IsAgent                bool    `json:"isAgent"`
+	FilePath               *string `json:"filePath,omitzero"`
+	HasTaskTool            *bool   `json:"hasTaskTool,omitzero"`
+	AwaitingLeaderApproval *bool   `json:"awaitingLeaderApproval,omitzero"`
+	RequestID              *string `json:"requestId,omitzero"`
 }
 
 func (ExitPlanModeOutput) toolOutputSchemas() {}
@@ -2851,18 +3499,135 @@ func (ExitPlanModeOutput) toolOutputSchemas() {}
 type McpResource struct {
 	URI         string  `json:"uri"`
 	Name        string  `json:"name"`
-	Description *string `json:"description,omitzero"`
 	MimeType    *string `json:"mimeType,omitzero"`
+	Description *string `json:"description,omitzero"`
+	Server      string  `json:"server"`
 }
 
-// ListMcpResourcesOutput is a handwritten Claude Agent SDK type.
+// ListMcpResourcesOutput is a handwritten Claude Agent SDK type. It is a bare
+// JSON array of resources.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#listmcpresources-2
-type ListMcpResourcesOutput struct {
-	Resources []McpResource `json:"resources"`
-}
+type ListMcpResourcesOutput []McpResource
 
 func (ListMcpResourcesOutput) toolOutputSchemas() {}
+
+// TaskStatus is a handwritten Claude Agent SDK type. It is the lifecycle status
+// reported by the Task read tools (TaskGet, TaskList).
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskget
+type TaskStatus string
+
+const (
+	TaskStatusPending    TaskStatus = "pending"
+	TaskStatusInProgress TaskStatus = "in_progress"
+	TaskStatusCompleted  TaskStatus = "completed"
+)
+
+// MonitorOutput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#monitor-2
+type MonitorOutput struct {
+	TaskID     string `json:"taskId"`
+	TimeoutMs  int64  `json:"timeoutMs"`
+	Persistent *bool  `json:"persistent,omitzero"`
+}
+
+func (MonitorOutput) toolOutputSchemas() {}
+
+// WorkflowOutput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#workflow-2
+type WorkflowOutput struct {
+	Status        string  `json:"status"`
+	TaskID        string  `json:"taskId"`
+	RunID         *string `json:"runId,omitzero"`
+	Summary       *string `json:"summary,omitzero"`
+	TranscriptDir *string `json:"transcriptDir,omitzero"`
+	ScriptPath    *string `json:"scriptPath,omitzero"`
+	Error         *string `json:"error,omitzero"`
+}
+
+func (WorkflowOutput) toolOutputSchemas() {}
+
+// TaskCreateOutputTask is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcreate-2
+type TaskCreateOutputTask struct {
+	ID      string `json:"id"`
+	Subject string `json:"subject"`
+}
+
+// TaskCreateOutput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcreate-2
+type TaskCreateOutput struct {
+	Task TaskCreateOutputTask `json:"task"`
+}
+
+func (TaskCreateOutput) toolOutputSchemas() {}
+
+// TaskUpdateOutputStatusChange is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskupdate-2
+type TaskUpdateOutputStatusChange struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// TaskUpdateOutput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskupdate-2
+type TaskUpdateOutput struct {
+	Success       bool                          `json:"success"`
+	TaskID        string                        `json:"taskId"`
+	UpdatedFields []string                      `json:"updatedFields"`
+	Error         *string                       `json:"error,omitzero"`
+	StatusChange  *TaskUpdateOutputStatusChange `json:"statusChange,omitzero"`
+}
+
+func (TaskUpdateOutput) toolOutputSchemas() {}
+
+// TaskGetOutputTask is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskget-2
+type TaskGetOutputTask struct {
+	ID          string     `json:"id"`
+	Subject     string     `json:"subject"`
+	Description string     `json:"description"`
+	Status      TaskStatus `json:"status"`
+	Blocks      []string   `json:"blocks"`
+	BlockedBy   []string   `json:"blockedBy"`
+}
+
+// TaskGetOutput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskget-2
+type TaskGetOutput struct {
+	Task *TaskGetOutputTask `json:"task"`
+}
+
+func (TaskGetOutput) toolOutputSchemas() {}
+
+// TaskListOutputTask is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tasklist-2
+type TaskListOutputTask struct {
+	ID        string     `json:"id"`
+	Subject   string     `json:"subject"`
+	Status    TaskStatus `json:"status"`
+	Owner     *string    `json:"owner,omitzero"`
+	BlockedBy []string   `json:"blockedBy"`
+}
+
+// TaskListOutput is a handwritten Claude Agent SDK type.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tasklist-2
+type TaskListOutput struct {
+	Tasks []TaskListOutputTask `json:"tasks"`
+}
+
+func (TaskListOutput) toolOutputSchemas() {}
 
 // ReadMcpResourceOutputContent is a handwritten Claude Agent SDK type.
 //
@@ -2945,12 +3710,150 @@ func opt[T comparable](v T) *T {
 	return &v
 }
 
-func protoOpt[T comparable](msg interface{ ProtoReflect() protoreflect.Message }, fieldName protoreflect.Name, v T) *T {
+func protoOpt[T comparable](
+	msg interface{ ProtoReflect() protoreflect.Message },
+	fieldName protoreflect.Name,
+	v T,
+) *T {
 	field := msg.ProtoReflect().Descriptor().Fields().ByName(fieldName)
 	if field == nil || !msg.ProtoReflect().Has(field) {
 		return nil
 	}
 	return opt(v)
+}
+
+func baseEffortToProto(e *BaseHookInputEffort) *pb.BaseHookInputEffort {
+	if e == nil {
+		return nil
+	}
+	return &pb.BaseHookInputEffort{Level: e.Level}
+}
+
+func baseEffortFromProto(e *pb.BaseHookInputEffort) *BaseHookInputEffort {
+	if e == nil {
+		return nil
+	}
+	return &BaseHookInputEffort{Level: e.GetLevel()}
+}
+
+func backgroundTasksToProto(in []BackgroundTaskSummary) []*pb.BackgroundTaskSummary {
+	if in == nil {
+		return nil
+	}
+	out := make([]*pb.BackgroundTaskSummary, len(in))
+	for i, t := range in {
+		out[i] = &pb.BackgroundTaskSummary{
+			Id:          t.ID,
+			Type:        t.Type,
+			Status:      t.Status,
+			Description: t.Description,
+			Command:     t.Command,
+			AgentType:   t.AgentType,
+			Server:      t.Server,
+			Tool:        t.Tool,
+			Name:        t.Name,
+		}
+	}
+	return out
+}
+
+func backgroundTasksFromProto(in []*pb.BackgroundTaskSummary) []BackgroundTaskSummary {
+	if in == nil {
+		return nil
+	}
+	out := make([]BackgroundTaskSummary, len(in))
+	for i, t := range in {
+		out[i] = BackgroundTaskSummary{
+			ID:          t.GetId(),
+			Type:        t.GetType(),
+			Status:      t.GetStatus(),
+			Description: t.GetDescription(),
+			Command:     protoOpt(t, "command", t.GetCommand()),
+			AgentType:   protoOpt(t, "agent_type", t.GetAgentType()),
+			Server:      protoOpt(t, "server", t.GetServer()),
+			Tool:        protoOpt(t, "tool", t.GetTool()),
+			Name:        protoOpt(t, "name", t.GetName()),
+		}
+	}
+	return out
+}
+
+func sessionCronsToProto(in []SessionCronSummary) []*pb.SessionCronSummary {
+	if in == nil {
+		return nil
+	}
+	out := make([]*pb.SessionCronSummary, len(in))
+	for i, c := range in {
+		out[i] = &pb.SessionCronSummary{
+			Id:        c.ID,
+			Schedule:  c.Schedule,
+			Recurring: c.Recurring,
+			Prompt:    c.Prompt,
+		}
+	}
+	return out
+}
+
+func sessionCronsFromProto(in []*pb.SessionCronSummary) []SessionCronSummary {
+	if in == nil {
+		return nil
+	}
+	out := make([]SessionCronSummary, len(in))
+	for i, c := range in {
+		out[i] = SessionCronSummary{
+			ID:        c.GetId(),
+			Schedule:  c.GetSchedule(),
+			Recurring: c.GetRecurring(),
+			Prompt:    c.GetPrompt(),
+		}
+	}
+	return out
+}
+
+func rawJSONToProto(raw json.RawMessage) *pb.JsonRawMessage {
+	if len(raw) == 0 {
+		return nil
+	}
+	return &pb.JsonRawMessage{RawJson: cloneRawMessage(raw)}
+}
+
+func rawJSONFromProto(m *pb.JsonRawMessage) json.RawMessage {
+	if m == nil {
+		return nil
+	}
+	return cloneRawMessage(m.GetRawJson())
+}
+
+func postToolBatchToolCallsToProto(in []PostToolBatchToolCall) []*pb.PostToolBatchToolCall {
+	if in == nil {
+		return nil
+	}
+	out := make([]*pb.PostToolBatchToolCall, len(in))
+	for i, c := range in {
+		out[i] = &pb.PostToolBatchToolCall{
+			ToolName:     c.ToolName,
+			ToolInput:    rawJSONToProto(c.ToolInput),
+			ToolUseId:    c.ToolUseID,
+			ToolResponse: rawJSONToProto(c.ToolResponse),
+		}
+	}
+	return out
+}
+
+func postToolBatchToolCallsFromProto(in []*pb.PostToolBatchToolCall) []PostToolBatchToolCall {
+	if in == nil {
+		return nil
+	}
+	out := make([]PostToolBatchToolCall, len(in))
+	for i, c := range in {
+		out[i] = PostToolBatchToolCall{
+			ToolName:     c.GetToolName(),
+			ToolInput:    rawJSONFromProto(c.GetToolInput()),
+			ToolUseID:    c.GetToolUseId(),
+			ToolResponse: rawJSONFromProto(c.GetToolResponse()),
+		}
+	}
+	return out
 }
 
 // rawToolInputToProto marshals a typed ToolInputSchemas to JSON and wraps
@@ -3263,28 +4166,36 @@ func UnmarshalPermissionUpdate(data []byte) (PermissionUpdate, error) {
 // [UnmarshalToolInputSchemas] / [UnmarshalToolOutputSchemas]. User-defined
 // MCP tools share the [McpToolNamePrefix] prefix.
 const (
-	ToolNameAskUserQuestion        = "AskUserQuestion"
-	ToolNameBash                   = "Bash"
-	ToolNameConfig                 = "Config"
-	ToolNameEdit                   = "Edit"
-	ToolNameEnterWorktree          = "EnterWorktree"
-	ToolNameExitPlanMode           = "ExitPlanMode"
-	ToolNameGlob                   = "Glob"
-	ToolNameGrep                   = "Grep"
-	ToolNameListMcpResources       = "ListMcpResources"
-	ToolNameNotebookEdit           = "NotebookEdit"
-	ToolNameRead                   = "Read"
-	ToolNameReadMcpResource        = "ReadMcpResource"
-	ToolNameSubscribeMcpResource   = "SubscribeMcpResource"
-	ToolNameSubscribePolling       = "SubscribePolling"
+	ToolNameAgent                = "Agent"
+	ToolNameAskUserQuestion      = "AskUserQuestion"
+	ToolNameBash                 = "Bash"
+	ToolNameConfig               = "Config"
+	ToolNameEdit                 = "Edit"
+	ToolNameEnterWorktree        = "EnterWorktree"
+	ToolNameExitPlanMode         = "ExitPlanMode"
+	ToolNameGlob                 = "Glob"
+	ToolNameGrep                 = "Grep"
+	ToolNameListMcpResources     = "ListMcpResources"
+	ToolNameMonitor              = "Monitor"
+	ToolNameNotebookEdit         = "NotebookEdit"
+	ToolNameRead                 = "Read"
+	ToolNameReadMcpResource      = "ReadMcpResource"
+	ToolNameSubscribeMcpResource = "SubscribeMcpResource"
+	ToolNameSubscribePolling     = "SubscribePolling"
+	// ToolNameTask is the legacy alias for ToolNameAgent; still accepted on input.
 	ToolNameTask                   = "Task"
+	ToolNameTaskCreate             = "TaskCreate"
+	ToolNameTaskGet                = "TaskGet"
+	ToolNameTaskList               = "TaskList"
 	ToolNameTaskOutput             = "TaskOutput"
 	ToolNameTaskStop               = "TaskStop"
+	ToolNameTaskUpdate             = "TaskUpdate"
 	ToolNameTodoWrite              = "TodoWrite"
 	ToolNameUnsubscribeMcpResource = "UnsubscribeMcpResource"
 	ToolNameUnsubscribePolling     = "UnsubscribePolling"
 	ToolNameWebFetch               = "WebFetch"
 	ToolNameWebSearch              = "WebSearch"
+	ToolNameWorkflow               = "Workflow"
 	ToolNameWrite                  = "Write"
 )
 
@@ -3346,8 +4257,26 @@ func UnmarshalToolInputSchemas(toolName string, data []byte) (ToolInputSchemas, 
 	case ToolNameSubscribePolling:
 		var v SubscribePollingInput
 		return &v, json.Unmarshal(data, &v)
-	case ToolNameTask:
+	case ToolNameAgent, ToolNameTask:
 		var v AgentInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameMonitor:
+		var v MonitorInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameWorkflow:
+		var v WorkflowInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskCreate:
+		var v TaskCreateInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskUpdate:
+		var v TaskUpdateInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskGet:
+		var v TaskGetInput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskList:
+		var v TaskListInput
 		return &v, json.Unmarshal(data, &v)
 	case ToolNameTaskOutput:
 		var v TaskOutputInput
@@ -3427,6 +4356,24 @@ func UnmarshalToolOutputSchemas(toolName string, data []byte) (ToolOutputSchemas
 	case ToolNameReadMcpResource:
 		var v ReadMcpResourceOutput
 		return &v, json.Unmarshal(data, &v)
+	case ToolNameMonitor:
+		var v MonitorOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameWorkflow:
+		var v WorkflowOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskCreate:
+		var v TaskCreateOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskUpdate:
+		var v TaskUpdateOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskGet:
+		var v TaskGetOutput
+		return &v, json.Unmarshal(data, &v)
+	case ToolNameTaskList:
+		var v TaskListOutput
+		return &v, json.Unmarshal(data, &v)
 	case ToolNameTaskStop:
 		var v TaskStopOutput
 		return &v, json.Unmarshal(data, &v)
@@ -3453,44 +4400,60 @@ func PermissionUpdateToProto(v PermissionUpdate) (*pb.PermissionUpdate, error) {
 	case *PermissionUpdateUnknown:
 		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_Unknown{Unknown: x.ToProto()}}, nil
 	case *PermissionUpdateAddRules:
-		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_AddRules{AddRules: &pb.PermissionUpdateAddRules{
-			Type:        "addRules",
-			Rules:       permissionRuleValuesToProto(x.Rules),
-			Behavior:    string(x.Behavior),
-			Destination: string(x.Destination),
-		}}}, nil
+		return &pb.PermissionUpdate{
+			Value: &pb.PermissionUpdate_AddRules{AddRules: &pb.PermissionUpdateAddRules{
+				Type:        "addRules",
+				Rules:       permissionRuleValuesToProto(x.Rules),
+				Behavior:    string(x.Behavior),
+				Destination: string(x.Destination),
+			}},
+		}, nil
 	case *PermissionUpdateReplaceRules:
-		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_ReplaceRules{ReplaceRules: &pb.PermissionUpdateReplaceRules{
-			Type:        "replaceRules",
-			Rules:       permissionRuleValuesToProto(x.Rules),
-			Behavior:    string(x.Behavior),
-			Destination: string(x.Destination),
-		}}}, nil
+		return &pb.PermissionUpdate{
+			Value: &pb.PermissionUpdate_ReplaceRules{ReplaceRules: &pb.PermissionUpdateReplaceRules{
+				Type:        "replaceRules",
+				Rules:       permissionRuleValuesToProto(x.Rules),
+				Behavior:    string(x.Behavior),
+				Destination: string(x.Destination),
+			}},
+		}, nil
 	case *PermissionUpdateRemoveRules:
-		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_RemoveRules{RemoveRules: &pb.PermissionUpdateRemoveRules{
-			Type:        "removeRules",
-			Rules:       permissionRuleValuesToProto(x.Rules),
-			Behavior:    string(x.Behavior),
-			Destination: string(x.Destination),
-		}}}, nil
+		return &pb.PermissionUpdate{
+			Value: &pb.PermissionUpdate_RemoveRules{RemoveRules: &pb.PermissionUpdateRemoveRules{
+				Type:        "removeRules",
+				Rules:       permissionRuleValuesToProto(x.Rules),
+				Behavior:    string(x.Behavior),
+				Destination: string(x.Destination),
+			}},
+		}, nil
 	case *PermissionUpdateSetMode:
-		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_SetMode{SetMode: &pb.PermissionUpdateSetMode{
-			Type:        "setMode",
-			Mode:        string(x.Mode),
-			Destination: string(x.Destination),
-		}}}, nil
+		return &pb.PermissionUpdate{
+			Value: &pb.PermissionUpdate_SetMode{SetMode: &pb.PermissionUpdateSetMode{
+				Type:        "setMode",
+				Mode:        string(x.Mode),
+				Destination: string(x.Destination),
+			}},
+		}, nil
 	case *PermissionUpdateAddDirectories:
-		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_AddDirectories{AddDirectories: &pb.PermissionUpdateAddDirectories{
-			Type:        "addDirectories",
-			Directories: append([]string(nil), x.Directories...),
-			Destination: string(x.Destination),
-		}}}, nil
+		return &pb.PermissionUpdate{
+			Value: &pb.PermissionUpdate_AddDirectories{
+				AddDirectories: &pb.PermissionUpdateAddDirectories{
+					Type:        "addDirectories",
+					Directories: append([]string(nil), x.Directories...),
+					Destination: string(x.Destination),
+				},
+			},
+		}, nil
 	case *PermissionUpdateRemoveDirectories:
-		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_RemoveDirectories{RemoveDirectories: &pb.PermissionUpdateRemoveDirectories{
-			Type:        "removeDirectories",
-			Directories: append([]string(nil), x.Directories...),
-			Destination: string(x.Destination),
-		}}}, nil
+		return &pb.PermissionUpdate{
+			Value: &pb.PermissionUpdate_RemoveDirectories{
+				RemoveDirectories: &pb.PermissionUpdateRemoveDirectories{
+					Type:        "removeDirectories",
+					Directories: append([]string(nil), x.Directories...),
+					Destination: string(x.Destination),
+				},
+			},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported PermissionUpdate %T", v)
 	}
@@ -3627,12 +4590,14 @@ func PermissionResultToProto(v PermissionResult) (*pb.PermissionResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &pb.PermissionResult{Value: &pb.PermissionResult_Allow{Allow: &pb.PermissionResultAllow{
-			Behavior:           permissionResultBehaviorToProto(PermissionResultBehaviorAllow),
-			UpdatedInput:       updatedInput,
-			UpdatedPermissions: updatedPermissions,
-			ToolUseId:          x.ToolUseID,
-		}}}, nil
+		return &pb.PermissionResult{
+			Value: &pb.PermissionResult_Allow{Allow: &pb.PermissionResultAllow{
+				Behavior:           permissionResultBehaviorToProto(PermissionResultBehaviorAllow),
+				UpdatedInput:       updatedInput,
+				UpdatedPermissions: updatedPermissions,
+				ToolUseId:          x.ToolUseID,
+			}},
+		}, nil
 	case *PermissionResultDeny:
 		return &pb.PermissionResult{Value: &pb.PermissionResult_Deny{Deny: &pb.PermissionResultDeny{
 			Behavior:  permissionResultBehaviorToProto(PermissionResultBehaviorDeny),
@@ -3758,10 +4723,14 @@ func UnmarshalPermissionRequestDecision(data []byte) (PermissionRequestDecision,
 	}
 }
 
-func PermissionRequestDecisionToProto(v PermissionRequestDecision) (*pb.PermissionRequestDecision, error) {
+func PermissionRequestDecisionToProto(
+	v PermissionRequestDecision,
+) (*pb.PermissionRequestDecision, error) {
 	switch x := v.(type) {
 	case *PermissionRequestDecisionUnknown:
-		return &pb.PermissionRequestDecision{Value: &pb.PermissionRequestDecision_Unknown{Unknown: x.ToProto()}}, nil
+		return &pb.PermissionRequestDecision{
+			Value: &pb.PermissionRequestDecision_Unknown{Unknown: x.ToProto()},
+		}, nil
 	case *PermissionRequestDecisionAllow:
 		updatedInput, err := mapToProtoStruct(x.UpdatedInput)
 		if err != nil {
@@ -3771,23 +4740,33 @@ func PermissionRequestDecisionToProto(v PermissionRequestDecision) (*pb.Permissi
 		if err != nil {
 			return nil, err
 		}
-		return &pb.PermissionRequestDecision{Value: &pb.PermissionRequestDecision_Allow{Allow: &pb.PermissionRequestDecisionAllow{
-			Behavior:           permissionRequestDecisionBehaviorToProto(PermissionRequestDecisionBehaviorAllow),
-			UpdatedInput:       updatedInput,
-			UpdatedPermissions: updatedPermissions,
-		}}}, nil
+		return &pb.PermissionRequestDecision{
+			Value: &pb.PermissionRequestDecision_Allow{Allow: &pb.PermissionRequestDecisionAllow{
+				Behavior: permissionRequestDecisionBehaviorToProto(
+					PermissionRequestDecisionBehaviorAllow,
+				),
+				UpdatedInput:       updatedInput,
+				UpdatedPermissions: updatedPermissions,
+			}},
+		}, nil
 	case *PermissionRequestDecisionDeny:
-		return &pb.PermissionRequestDecision{Value: &pb.PermissionRequestDecision_Deny{Deny: &pb.PermissionRequestDecisionDeny{
-			Behavior:  permissionRequestDecisionBehaviorToProto(PermissionRequestDecisionBehaviorDeny),
-			Message:   x.Message,
-			Interrupt: x.Interrupt,
-		}}}, nil
+		return &pb.PermissionRequestDecision{
+			Value: &pb.PermissionRequestDecision_Deny{Deny: &pb.PermissionRequestDecisionDeny{
+				Behavior: permissionRequestDecisionBehaviorToProto(
+					PermissionRequestDecisionBehaviorDeny,
+				),
+				Message:   x.Message,
+				Interrupt: x.Interrupt,
+			}},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported PermissionRequestDecision %T", v)
 	}
 }
 
-func PermissionRequestDecisionFromProto(v *pb.PermissionRequestDecision) (PermissionRequestDecision, error) {
+func PermissionRequestDecisionFromProto(
+	v *pb.PermissionRequestDecision,
+) (PermissionRequestDecision, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -3943,6 +4922,23 @@ func (o *HookSpecificOutputPostToolUseFailure) UnmarshalJSON(data []byte) error 
 	return nil
 }
 
+func (o HookSpecificOutputPostToolBatch) MarshalJSON() ([]byte, error) {
+	type alias HookSpecificOutputPostToolBatch
+	o.HookEventName = HookEventPostToolBatch
+	return json.Marshal(alias(o))
+}
+
+func (o *HookSpecificOutputPostToolBatch) UnmarshalJSON(data []byte) error {
+	type alias HookSpecificOutputPostToolBatch
+	var v alias
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	*o = HookSpecificOutputPostToolBatch(v)
+	o.HookEventName = HookEventPostToolBatch
+	return nil
+}
+
 func (o HookSpecificOutputNotification) MarshalJSON() ([]byte, error) {
 	type alias HookSpecificOutputNotification
 	o.HookEventName = HookEventNotification
@@ -4039,6 +5035,9 @@ func UnmarshalHookSpecificOutput(data []byte) (HookSpecificOutput, error) {
 	case HookEventPostToolUseFailure:
 		var v HookSpecificOutputPostToolUseFailure
 		return &v, v.UnmarshalJSON(data)
+	case HookEventPostToolBatch:
+		var v HookSpecificOutputPostToolBatch
+		return &v, v.UnmarshalJSON(data)
 	case HookEventNotification:
 		var v HookSpecificOutputNotification
 		return &v, v.UnmarshalJSON(data)
@@ -4054,7 +5053,9 @@ func UnmarshalHookSpecificOutput(data []byte) (HookSpecificOutput, error) {
 func HookSpecificOutputToProto(v HookSpecificOutput) (*pb.HookSpecificOutput, error) {
 	switch x := v.(type) {
 	case *HookSpecificOutputUnknown:
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_Unknown{Unknown: x.ToProto()}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_Unknown{Unknown: x.ToProto()},
+		}, nil
 	case *HookSpecificOutputPreToolUse:
 		updatedInput, err := mapToProtoStruct(x.UpdatedInput)
 		if err != nil {
@@ -4065,53 +5066,118 @@ func HookSpecificOutputToProto(v HookSpecificOutput) (*pb.HookSpecificOutput, er
 			s := string(*x.PermissionDecision)
 			permissionDecision = &s
 		}
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_PreToolUse{PreToolUse: &pb.HookSpecificOutputPreToolUse{
-			HookEventName:            string(HookEventPreToolUse),
-			PermissionDecision:       permissionDecision,
-			PermissionDecisionReason: x.PermissionDecisionReason,
-			UpdatedInput:             updatedInput,
-			AdditionalContext:        x.AdditionalContext,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_PreToolUse{PreToolUse: &pb.HookSpecificOutputPreToolUse{
+				HookEventName:            string(HookEventPreToolUse),
+				PermissionDecision:       permissionDecision,
+				PermissionDecisionReason: x.PermissionDecisionReason,
+				UpdatedInput:             updatedInput,
+				AdditionalContext:        x.AdditionalContext,
+			}},
+		}, nil
 	case *HookSpecificOutputUserPromptSubmit:
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_UserPromptSubmit{UserPromptSubmit: &pb.HookSpecificOutputUserPromptSubmit{
-			HookEventName: string(HookEventUserPromptSubmit), AdditionalContext: x.AdditionalContext,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_UserPromptSubmit{
+				UserPromptSubmit: &pb.HookSpecificOutputUserPromptSubmit{
+					HookEventName: string(
+						HookEventUserPromptSubmit,
+					),
+					AdditionalContext: x.AdditionalContext,
+				},
+			},
+		}, nil
 	case *HookSpecificOutputSessionStart:
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_SessionStart{SessionStart: &pb.HookSpecificOutputSessionStart{
-			HookEventName: string(HookEventSessionStart), AdditionalContext: x.AdditionalContext,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_SessionStart{
+				SessionStart: &pb.HookSpecificOutputSessionStart{
+					HookEventName: string(
+						HookEventSessionStart,
+					),
+					AdditionalContext: x.AdditionalContext,
+				},
+			},
+		}, nil
 	case *HookSpecificOutputSetup:
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_Setup{Setup: &pb.HookSpecificOutputSetup{
-			HookEventName: string(HookEventSetup), AdditionalContext: x.AdditionalContext,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_Setup{Setup: &pb.HookSpecificOutputSetup{
+				HookEventName: string(HookEventSetup), AdditionalContext: x.AdditionalContext,
+			}},
+		}, nil
 	case *HookSpecificOutputSubagentStart:
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_SubagentStart{SubagentStart: &pb.HookSpecificOutputSubagentStart{
-			HookEventName: string(HookEventSubagentStart), AdditionalContext: x.AdditionalContext,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_SubagentStart{
+				SubagentStart: &pb.HookSpecificOutputSubagentStart{
+					HookEventName: string(
+						HookEventSubagentStart,
+					),
+					AdditionalContext: x.AdditionalContext,
+				},
+			},
+		}, nil
 	case *HookSpecificOutputPostToolUse:
-		var updated *pb.JsonRawMessage
+		var updatedMCP *pb.JsonRawMessage
 		if len(x.UpdatedMCPToolOutput) > 0 {
-			updated = &pb.JsonRawMessage{RawJson: cloneRawMessage(x.UpdatedMCPToolOutput)}
+			updatedMCP = &pb.JsonRawMessage{RawJson: cloneRawMessage(x.UpdatedMCPToolOutput)}
 		}
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_PostToolUse{PostToolUse: &pb.HookSpecificOutputPostToolUse{
-			HookEventName: string(HookEventPostToolUse), AdditionalContext: x.AdditionalContext, UpdatedMcpToolOutput: updated,
-		}}}, nil
+		var updated *pb.JsonRawMessage
+		if len(x.UpdatedToolOutput) > 0 {
+			updated = &pb.JsonRawMessage{RawJson: cloneRawMessage(x.UpdatedToolOutput)}
+		}
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_PostToolUse{
+				PostToolUse: &pb.HookSpecificOutputPostToolUse{
+					HookEventName: string(
+						HookEventPostToolUse,
+					),
+					AdditionalContext:    x.AdditionalContext,
+					UpdatedToolOutput:    updated,
+					UpdatedMcpToolOutput: updatedMCP,
+				},
+			},
+		}, nil
+	case *HookSpecificOutputPostToolBatch:
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_PostToolBatch{
+				PostToolBatch: &pb.HookSpecificOutputPostToolBatch{
+					HookEventName:     string(HookEventPostToolBatch),
+					AdditionalContext: x.AdditionalContext,
+				},
+			},
+		}, nil
 	case *HookSpecificOutputPostToolUseFailure:
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_PostToolUseFailure{PostToolUseFailure: &pb.HookSpecificOutputPostToolUseFailure{
-			HookEventName: string(HookEventPostToolUseFailure), AdditionalContext: x.AdditionalContext,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_PostToolUseFailure{
+				PostToolUseFailure: &pb.HookSpecificOutputPostToolUseFailure{
+					HookEventName: string(
+						HookEventPostToolUseFailure,
+					),
+					AdditionalContext: x.AdditionalContext,
+				},
+			},
+		}, nil
 	case *HookSpecificOutputNotification:
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_Notification{Notification: &pb.HookSpecificOutputNotification{
-			HookEventName: string(HookEventNotification), AdditionalContext: x.AdditionalContext,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_Notification{
+				Notification: &pb.HookSpecificOutputNotification{
+					HookEventName: string(
+						HookEventNotification,
+					),
+					AdditionalContext: x.AdditionalContext,
+				},
+			},
+		}, nil
 	case *HookSpecificOutputPermissionRequest:
 		dec, err := PermissionRequestDecisionToProto(x.Decision)
 		if err != nil {
 			return nil, err
 		}
-		return &pb.HookSpecificOutput{Value: &pb.HookSpecificOutput_PermissionRequest{PermissionRequest: &pb.HookSpecificOutputPermissionRequest{
-			HookEventName: string(HookEventPermissionRequest), Decision: dec,
-		}}}, nil
+		return &pb.HookSpecificOutput{
+			Value: &pb.HookSpecificOutput_PermissionRequest{
+				PermissionRequest: &pb.HookSpecificOutputPermissionRequest{
+					HookEventName: string(HookEventPermissionRequest), Decision: dec,
+				},
+			},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported HookSpecificOutput %T", v)
 	}
@@ -4135,43 +5201,115 @@ func HookSpecificOutputFromProto(v *pb.HookSpecificOutput) (HookSpecificOutput, 
 			pd = &t
 		}
 		return &HookSpecificOutputPreToolUse{
-			HookEventName:            HookEventPreToolUse,
-			PermissionDecision:       pd,
-			PermissionDecisionReason: protoOpt(preToolUse, "permission_decision_reason", preToolUse.GetPermissionDecisionReason()),
-			UpdatedInput:             protoStructToMap(preToolUse.GetUpdatedInput()),
-			AdditionalContext:        protoOpt(preToolUse, "additional_context", preToolUse.GetAdditionalContext()),
+			HookEventName:      HookEventPreToolUse,
+			PermissionDecision: pd,
+			PermissionDecisionReason: protoOpt(
+				preToolUse,
+				"permission_decision_reason",
+				preToolUse.GetPermissionDecisionReason(),
+			),
+			UpdatedInput: protoStructToMap(preToolUse.GetUpdatedInput()),
+			AdditionalContext: protoOpt(
+				preToolUse,
+				"additional_context",
+				preToolUse.GetAdditionalContext(),
+			),
 		}, nil
 	case *pb.HookSpecificOutput_UserPromptSubmit:
 		userPromptSubmit := v.GetUserPromptSubmit()
-		return &HookSpecificOutputUserPromptSubmit{HookEventName: HookEventUserPromptSubmit, AdditionalContext: protoOpt(userPromptSubmit, "additional_context", userPromptSubmit.GetAdditionalContext())}, nil
+		return &HookSpecificOutputUserPromptSubmit{
+			HookEventName: HookEventUserPromptSubmit,
+			AdditionalContext: protoOpt(
+				userPromptSubmit,
+				"additional_context",
+				userPromptSubmit.GetAdditionalContext(),
+			),
+		}, nil
 	case *pb.HookSpecificOutput_SessionStart:
 		sessionStart := v.GetSessionStart()
-		return &HookSpecificOutputSessionStart{HookEventName: HookEventSessionStart, AdditionalContext: protoOpt(sessionStart, "additional_context", sessionStart.GetAdditionalContext())}, nil
+		return &HookSpecificOutputSessionStart{
+			HookEventName: HookEventSessionStart,
+			AdditionalContext: protoOpt(
+				sessionStart,
+				"additional_context",
+				sessionStart.GetAdditionalContext(),
+			),
+		}, nil
 	case *pb.HookSpecificOutput_Setup:
 		setup := v.GetSetup()
-		return &HookSpecificOutputSetup{HookEventName: HookEventSetup, AdditionalContext: protoOpt(setup, "additional_context", setup.GetAdditionalContext())}, nil
+		return &HookSpecificOutputSetup{
+			HookEventName:     HookEventSetup,
+			AdditionalContext: protoOpt(setup, "additional_context", setup.GetAdditionalContext()),
+		}, nil
 	case *pb.HookSpecificOutput_SubagentStart:
 		subagentStart := v.GetSubagentStart()
-		return &HookSpecificOutputSubagentStart{HookEventName: HookEventSubagentStart, AdditionalContext: protoOpt(subagentStart, "additional_context", subagentStart.GetAdditionalContext())}, nil
+		return &HookSpecificOutputSubagentStart{
+			HookEventName: HookEventSubagentStart,
+			AdditionalContext: protoOpt(
+				subagentStart,
+				"additional_context",
+				subagentStart.GetAdditionalContext(),
+			),
+		}, nil
 	case *pb.HookSpecificOutput_PostToolUse:
 		postToolUse := v.GetPostToolUse()
-		var updated json.RawMessage
+		var updatedMCP json.RawMessage
 		if postToolUse.GetUpdatedMcpToolOutput() != nil {
-			updated = cloneRawMessage(postToolUse.GetUpdatedMcpToolOutput().GetRawJson())
+			updatedMCP = cloneRawMessage(postToolUse.GetUpdatedMcpToolOutput().GetRawJson())
 		}
-		return &HookSpecificOutputPostToolUse{HookEventName: HookEventPostToolUse, AdditionalContext: protoOpt(postToolUse, "additional_context", postToolUse.GetAdditionalContext()), UpdatedMCPToolOutput: updated}, nil
+		var updated json.RawMessage
+		if postToolUse.GetUpdatedToolOutput() != nil {
+			updated = cloneRawMessage(postToolUse.GetUpdatedToolOutput().GetRawJson())
+		}
+		return &HookSpecificOutputPostToolUse{
+			HookEventName: HookEventPostToolUse,
+			AdditionalContext: protoOpt(
+				postToolUse,
+				"additional_context",
+				postToolUse.GetAdditionalContext(),
+			),
+			UpdatedToolOutput:    updated,
+			UpdatedMCPToolOutput: updatedMCP,
+		}, nil
 	case *pb.HookSpecificOutput_PostToolUseFailure:
 		postToolUseFailure := v.GetPostToolUseFailure()
-		return &HookSpecificOutputPostToolUseFailure{HookEventName: HookEventPostToolUseFailure, AdditionalContext: protoOpt(postToolUseFailure, "additional_context", postToolUseFailure.GetAdditionalContext())}, nil
+		return &HookSpecificOutputPostToolUseFailure{
+			HookEventName: HookEventPostToolUseFailure,
+			AdditionalContext: protoOpt(
+				postToolUseFailure,
+				"additional_context",
+				postToolUseFailure.GetAdditionalContext(),
+			),
+		}, nil
+	case *pb.HookSpecificOutput_PostToolBatch:
+		postToolBatch := v.GetPostToolBatch()
+		return &HookSpecificOutputPostToolBatch{
+			HookEventName: HookEventPostToolBatch,
+			AdditionalContext: protoOpt(
+				postToolBatch,
+				"additional_context",
+				postToolBatch.GetAdditionalContext(),
+			),
+		}, nil
 	case *pb.HookSpecificOutput_Notification:
 		notification := v.GetNotification()
-		return &HookSpecificOutputNotification{HookEventName: HookEventNotification, AdditionalContext: protoOpt(notification, "additional_context", notification.GetAdditionalContext())}, nil
+		return &HookSpecificOutputNotification{
+			HookEventName: HookEventNotification,
+			AdditionalContext: protoOpt(
+				notification,
+				"additional_context",
+				notification.GetAdditionalContext(),
+			),
+		}, nil
 	case *pb.HookSpecificOutput_PermissionRequest:
 		dec, err := PermissionRequestDecisionFromProto(v.GetPermissionRequest().GetDecision())
 		if err != nil {
 			return nil, err
 		}
-		return &HookSpecificOutputPermissionRequest{HookEventName: HookEventPermissionRequest, Decision: dec}, nil
+		return &HookSpecificOutputPermissionRequest{
+			HookEventName: HookEventPermissionRequest,
+			Decision:      dec,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proto HookSpecificOutput %T", x)
 	}
@@ -4216,8 +5354,13 @@ func (o SyncHookJSONOutput) MarshalJSON() ([]byte, error) {
 		hso = b
 	}
 	return json.Marshal(raw{
-		Continue: o.Continue, SuppressOutput: o.SuppressOutput, StopReason: o.StopReason,
-		Decision: o.Decision, SystemMessage: o.SystemMessage, Reason: o.Reason, HookSpecificOutput: hso,
+		Continue:           o.Continue,
+		SuppressOutput:     o.SuppressOutput,
+		StopReason:         o.StopReason,
+		Decision:           o.Decision,
+		SystemMessage:      o.SystemMessage,
+		Reason:             o.Reason,
+		HookSpecificOutput: hso,
 	})
 }
 
@@ -4291,7 +5434,10 @@ func UnmarshalHookJSONOutput(data []byte) (HookJSONOutput, error) {
 		return &v, v.UnmarshalJSON(data)
 	}
 	var syncV SyncHookJSONOutput
-	if err := syncV.UnmarshalJSON(data); err == nil && (syncV.Continue != nil || syncV.SuppressOutput != nil || syncV.StopReason != nil || syncV.Decision != nil || syncV.SystemMessage != nil || syncV.Reason != nil || syncV.HookSpecificOutput != nil) {
+	if err := syncV.UnmarshalJSON(
+		data,
+	); err == nil &&
+		(syncV.Continue != nil || syncV.SuppressOutput != nil || syncV.StopReason != nil || syncV.Decision != nil || syncV.SystemMessage != nil || syncV.Reason != nil || syncV.HookSpecificOutput != nil) {
 		return &syncV, nil
 	}
 	var unknown HookJSONOutputUnknown
@@ -4303,9 +5449,11 @@ func HookJSONOutputToProto(v HookJSONOutput) (*pb.HookJSONOutput, error) {
 	case *HookJSONOutputUnknown:
 		return &pb.HookJSONOutput{Value: &pb.HookJSONOutput_Unknown{Unknown: x.ToProto()}}, nil
 	case *AsyncHookJSONOutput:
-		return &pb.HookJSONOutput{Value: &pb.HookJSONOutput_AsyncOutput{AsyncOutput: &pb.AsyncHookJSONOutput{
-			Async: x.Async, AsyncTimeout: x.AsyncTimeout,
-		}}}, nil
+		return &pb.HookJSONOutput{
+			Value: &pb.HookJSONOutput_AsyncOutput{AsyncOutput: &pb.AsyncHookJSONOutput{
+				Async: x.Async, AsyncTimeout: x.AsyncTimeout,
+			}},
+		}, nil
 	case *SyncHookJSONOutput:
 		var hso *pb.HookSpecificOutput
 		var err error
@@ -4320,10 +5468,17 @@ func HookJSONOutputToProto(v HookJSONOutput) (*pb.HookJSONOutput, error) {
 			s := string(*x.Decision)
 			decision = &s
 		}
-		return &pb.HookJSONOutput{Value: &pb.HookJSONOutput_SyncOutput{SyncOutput: &pb.SyncHookJSONOutput{
-			Continue: x.Continue, SuppressOutput: x.SuppressOutput, StopReason: x.StopReason,
-			Decision: decision, SystemMessage: x.SystemMessage, Reason: x.Reason, HookSpecificOutput: hso,
-		}}}, nil
+		return &pb.HookJSONOutput{
+			Value: &pb.HookJSONOutput_SyncOutput{SyncOutput: &pb.SyncHookJSONOutput{
+				Continue:           x.Continue,
+				SuppressOutput:     x.SuppressOutput,
+				StopReason:         x.StopReason,
+				Decision:           decision,
+				SystemMessage:      x.SystemMessage,
+				Reason:             x.Reason,
+				HookSpecificOutput: hso,
+			}},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported HookJSONOutput %T", v)
 	}
@@ -4340,7 +5495,10 @@ func HookJSONOutputFromProto(v *pb.HookJSONOutput) (HookJSONOutput, error) {
 		return &HookJSONOutputUnknown{UnknownUnion: u}, nil
 	case *pb.HookJSONOutput_AsyncOutput:
 		asyncOutput := v.GetAsyncOutput()
-		return &AsyncHookJSONOutput{Async: asyncOutput.GetAsync(), AsyncTimeout: protoOpt(asyncOutput, "async_timeout", asyncOutput.GetAsyncTimeout())}, nil
+		return &AsyncHookJSONOutput{
+			Async:        asyncOutput.GetAsync(),
+			AsyncTimeout: protoOpt(asyncOutput, "async_timeout", asyncOutput.GetAsyncTimeout()),
+		}, nil
 	case *pb.HookJSONOutput_SyncOutput:
 		syncOutput := v.GetSyncOutput()
 		var decision *HookDecision
@@ -4353,11 +5511,19 @@ func HookJSONOutputFromProto(v *pb.HookJSONOutput) (HookJSONOutput, error) {
 			return nil, err
 		}
 		return &SyncHookJSONOutput{
-			Continue:           protoOpt(syncOutput, "continue", syncOutput.GetContinue()),
-			SuppressOutput:     protoOpt(syncOutput, "suppress_output", syncOutput.GetSuppressOutput()),
-			StopReason:         protoOpt(syncOutput, "stop_reason", syncOutput.GetStopReason()),
-			Decision:           decision,
-			SystemMessage:      protoOpt(syncOutput, "system_message", syncOutput.GetSystemMessage()),
+			Continue: protoOpt(syncOutput, "continue", syncOutput.GetContinue()),
+			SuppressOutput: protoOpt(
+				syncOutput,
+				"suppress_output",
+				syncOutput.GetSuppressOutput(),
+			),
+			StopReason: protoOpt(syncOutput, "stop_reason", syncOutput.GetStopReason()),
+			Decision:   decision,
+			SystemMessage: protoOpt(
+				syncOutput,
+				"system_message",
+				syncOutput.GetSystemMessage(),
+			),
 			Reason:             protoOpt(syncOutput, "reason", syncOutput.GetReason()),
 			HookSpecificOutput: hso,
 		}, nil
@@ -4644,6 +5810,12 @@ func UnmarshalHookInput(data []byte) (HookInput, error) {
 	case HookEventWorktreeRemove:
 		var v WorktreeRemoveHookInput
 		return &v, json.Unmarshal(data, &v)
+	case HookEventPostToolBatch:
+		var v PostToolBatchHookInput
+		return &v, json.Unmarshal(data, &v)
+	case HookEventMessageDisplay:
+		var v MessageDisplayHookInput
+		return &v, json.Unmarshal(data, &v)
 	default:
 		var v HookInputUnknown
 		return &v, v.UnmarshalJSON(data)
@@ -4666,6 +5838,7 @@ func HookInputToProto(v HookInput) (*pb.HookInput, error) {
 			ToolName:       x.ToolName,
 			ToolInput:      rawToolInputToProto(x.ToolInput, x.ToolName),
 			ToolUseId:      x.ToolUseID,
+			Effort:         baseEffortToProto(x.Effort),
 		}}}, nil
 	case *PostToolUseHookInput:
 		return &pb.HookInput{Value: &pb.HookInput_PostToolUse{PostToolUse: &pb.PostToolUseHookInput{
@@ -4680,9 +5853,91 @@ func HookInputToProto(v HookInput) (*pb.HookInput, error) {
 			ToolInput:      rawToolInputToProto(x.ToolInput, x.ToolName),
 			ToolResponse:   rawToolOutputToProto(x.ToolResponse, x.ToolName),
 			ToolUseId:      x.ToolUseID,
+			DurationMs:     x.DurationMs,
+			Effort:         baseEffortToProto(x.Effort),
 		}}}, nil
+	case *PostToolBatchHookInput:
+		return &pb.HookInput{
+			Value: &pb.HookInput_PostToolBatch{PostToolBatch: &pb.PostToolBatchHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				ToolCalls:      postToolBatchToolCallsToProto(x.ToolCalls),
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	case *PostToolUseFailureHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_PostToolUseFailure{PostToolUseFailure: &pb.PostToolUseFailureHookInput{
+		return &pb.HookInput{
+			Value: &pb.HookInput_PostToolUseFailure{
+				PostToolUseFailure: &pb.PostToolUseFailureHookInput{
+					SessionId:      x.SessionID,
+					TranscriptPath: x.TranscriptPath,
+					Cwd:            x.Cwd,
+					PermissionMode: x.PermissionMode,
+					AgentId:        x.AgentID,
+					AgentType:      x.AgentType,
+					HookEventName:  string(x.HookEventName),
+					ToolName:       x.ToolName,
+					ToolInput:      rawToolInputToProto(x.ToolInput, x.ToolName),
+					ToolUseId:      x.ToolUseID,
+					Error:          x.Error,
+					IsInterrupt:    x.IsInterrupt,
+					DurationMs:     x.DurationMs,
+					Effort:         baseEffortToProto(x.Effort),
+				},
+			},
+		}, nil
+	case *NotificationHookInput:
+		return &pb.HookInput{
+			Value: &pb.HookInput_Notification{Notification: &pb.NotificationHookInput{
+				SessionId:        x.SessionID,
+				TranscriptPath:   x.TranscriptPath,
+				Cwd:              x.Cwd,
+				PermissionMode:   x.PermissionMode,
+				AgentId:          x.AgentID,
+				AgentType:        x.AgentType,
+				HookEventName:    string(x.HookEventName),
+				Message:          x.Message,
+				Title:            x.Title,
+				NotificationType: x.NotificationType,
+				Effort:           baseEffortToProto(x.Effort),
+			}},
+		}, nil
+	case *UserPromptSubmitHookInput:
+		return &pb.HookInput{
+			Value: &pb.HookInput_UserPromptSubmit{UserPromptSubmit: &pb.UserPromptSubmitHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				Prompt:         x.Prompt,
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
+	case *SessionStartHookInput:
+		return &pb.HookInput{
+			Value: &pb.HookInput_SessionStart{SessionStart: &pb.SessionStartHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				Source:         string(x.Source),
+				Model:          x.Model,
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
+	case *SessionEndHookInput:
+		return &pb.HookInput{Value: &pb.HookInput_SessionEnd{SessionEnd: &pb.SessionEndHookInput{
 			SessionId:      x.SessionID,
 			TranscriptPath: x.TranscriptPath,
 			Cwd:            x.Cwd,
@@ -4690,93 +5945,199 @@ func HookInputToProto(v HookInput) (*pb.HookInput, error) {
 			AgentId:        x.AgentID,
 			AgentType:      x.AgentType,
 			HookEventName:  string(x.HookEventName),
-			ToolName:       x.ToolName,
-			ToolInput:      rawToolInputToProto(x.ToolInput, x.ToolName),
-			ToolUseId:      x.ToolUseID,
-			Error:          x.Error,
-			IsInterrupt:    x.IsInterrupt,
-		}}}, nil
-	case *NotificationHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_Notification{Notification: &pb.NotificationHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Message: x.Message, Title: x.Title, NotificationType: x.NotificationType,
-		}}}, nil
-	case *UserPromptSubmitHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_UserPromptSubmit{UserPromptSubmit: &pb.UserPromptSubmitHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Prompt: x.Prompt,
-		}}}, nil
-	case *SessionStartHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_SessionStart{SessionStart: &pb.SessionStartHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Source: string(x.Source), Model: x.Model,
-		}}}, nil
-	case *SessionEndHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_SessionEnd{SessionEnd: &pb.SessionEndHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Reason: x.Reason,
+			Reason:         x.Reason,
+			Effort:         baseEffortToProto(x.Effort),
 		}}}, nil
 	case *StopHookInput:
 		return &pb.HookInput{Value: &pb.HookInput_Stop{Stop: &pb.StopHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), StopHookActive: x.StopHookActive,
+			SessionId:            x.SessionID,
+			TranscriptPath:       x.TranscriptPath,
+			Cwd:                  x.Cwd,
+			PermissionMode:       x.PermissionMode,
+			AgentId:              x.AgentID,
+			AgentType:            x.AgentType,
+			HookEventName:        string(x.HookEventName),
+			StopHookActive:       x.StopHookActive,
+			LastAssistantMessage: x.LastAssistantMessage,
+			BackgroundTasks:      backgroundTasksToProto(x.BackgroundTasks),
+			SessionCrons:         sessionCronsToProto(x.SessionCrons),
+			Effort:               baseEffortToProto(x.Effort),
 		}}}, nil
 	case *SubagentStartHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_SubagentStart{SubagentStart: &pb.SubagentStartHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Prompt: x.Prompt,
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_SubagentStart{SubagentStart: &pb.SubagentStartHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	case *SubagentStopHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_SubagentStop{SubagentStop: &pb.SubagentStopHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), StopReason: x.StopReason,
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_SubagentStop{SubagentStop: &pb.SubagentStopHookInput{
+				SessionId:            x.SessionID,
+				TranscriptPath:       x.TranscriptPath,
+				Cwd:                  x.Cwd,
+				PermissionMode:       x.PermissionMode,
+				AgentId:              x.AgentID,
+				AgentType:            x.AgentType,
+				HookEventName:        string(x.HookEventName),
+				StopHookActive:       x.StopHookActive,
+				AgentTranscriptPath:  x.AgentTranscriptPath,
+				LastAssistantMessage: x.LastAssistantMessage,
+				BackgroundTasks:      backgroundTasksToProto(x.BackgroundTasks),
+				SessionCrons:         sessionCronsToProto(x.SessionCrons),
+				Effort:               baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	case *PreCompactHookInput:
 		return &pb.HookInput{Value: &pb.HookInput_PreCompact{PreCompact: &pb.PreCompactHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Trigger: x.Trigger, CustomInstructions: x.CustomInstructions,
+			SessionId:          x.SessionID,
+			TranscriptPath:     x.TranscriptPath,
+			Cwd:                x.Cwd,
+			PermissionMode:     x.PermissionMode,
+			AgentId:            x.AgentID,
+			AgentType:          x.AgentType,
+			HookEventName:      string(x.HookEventName),
+			Trigger:            x.Trigger,
+			CustomInstructions: x.CustomInstructions,
+			Effort:             baseEffortToProto(x.Effort),
 		}}}, nil
 	case *PermissionRequestHookInput:
 		updates, err := permissionUpdatesToProto(x.PermissionSuggestions)
 		if err != nil {
 			return nil, err
 		}
-		return &pb.HookInput{Value: &pb.HookInput_PermissionRequest{PermissionRequest: &pb.PermissionRequestHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), ToolName: x.ToolName,
-			ToolInput: rawToolInputToProto(x.ToolInput, x.ToolName), ToolUseId: x.ToolUseID, PermissionSuggestions: updates,
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_PermissionRequest{
+				PermissionRequest: &pb.PermissionRequestHookInput{
+					SessionId:      x.SessionID,
+					TranscriptPath: x.TranscriptPath,
+					Cwd:            x.Cwd,
+					PermissionMode: x.PermissionMode,
+					AgentId:        x.AgentID,
+					AgentType:      x.AgentType,
+					HookEventName:  string(x.HookEventName),
+					ToolName:       x.ToolName,
+					ToolInput: rawToolInputToProto(
+						x.ToolInput,
+						x.ToolName,
+					),
+					ToolUseId:             x.ToolUseID,
+					PermissionSuggestions: updates,
+				},
+			},
+		}, nil
 	case *SetupHookInput:
 		return &pb.HookInput{Value: &pb.HookInput_Setup{Setup: &pb.SetupHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Trigger: string(x.Trigger),
+			SessionId:      x.SessionID,
+			TranscriptPath: x.TranscriptPath,
+			Cwd:            x.Cwd,
+			PermissionMode: x.PermissionMode,
+			AgentId:        x.AgentID,
+			AgentType:      x.AgentType,
+			HookEventName:  string(x.HookEventName),
+			Trigger:        string(x.Trigger),
+			Effort:         baseEffortToProto(x.Effort),
 		}}}, nil
 	case *TeammateIdleHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_TeammateIdle{TeammateIdle: &pb.TeammateIdleHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName),
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_TeammateIdle{TeammateIdle: &pb.TeammateIdleHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				TeammateName:   x.TeammateName,
+				TeamName:       x.TeamName,
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	case *TaskCompletedHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_TaskCompleted{TaskCompleted: &pb.TaskCompletedHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), TaskId: x.TaskID, TaskSubject: x.TaskSubject,
-			TaskDescription: x.TaskDescription, TeammateName: x.TeammateName, TeamName: x.TeamName,
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_TaskCompleted{TaskCompleted: &pb.TaskCompletedHookInput{
+				SessionId:       x.SessionID,
+				TranscriptPath:  x.TranscriptPath,
+				Cwd:             x.Cwd,
+				PermissionMode:  x.PermissionMode,
+				AgentId:         x.AgentID,
+				AgentType:       x.AgentType,
+				HookEventName:   string(x.HookEventName),
+				TaskId:          x.TaskID,
+				TaskSubject:     x.TaskSubject,
+				TaskDescription: x.TaskDescription,
+				TeammateName:    x.TeammateName,
+				TeamName:        x.TeamName,
+				Effort:          baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	case *ConfigChangeHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_ConfigChange{ConfigChange: &pb.ConfigChangeHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Source: string(x.Source), FilePath: x.FilePath,
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_ConfigChange{ConfigChange: &pb.ConfigChangeHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				Source:         string(x.Source),
+				FilePath:       x.FilePath,
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	case *WorktreeCreateHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_WorktreeCreate{WorktreeCreate: &pb.WorktreeCreateHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), Name: x.Name,
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_WorktreeCreate{WorktreeCreate: &pb.WorktreeCreateHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				Name:           x.Name,
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	case *WorktreeRemoveHookInput:
-		return &pb.HookInput{Value: &pb.HookInput_WorktreeRemove{WorktreeRemove: &pb.WorktreeRemoveHookInput{
-			SessionId: x.SessionID, TranscriptPath: x.TranscriptPath, Cwd: x.Cwd, PermissionMode: x.PermissionMode,
-			AgentId: x.AgentID, AgentType: x.AgentType, HookEventName: string(x.HookEventName), WorktreePath: x.WorktreePath,
-		}}}, nil
+		return &pb.HookInput{
+			Value: &pb.HookInput_WorktreeRemove{WorktreeRemove: &pb.WorktreeRemoveHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				WorktreePath:   x.WorktreePath,
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
+	case *MessageDisplayHookInput:
+		return &pb.HookInput{
+			Value: &pb.HookInput_MessageDisplay{MessageDisplay: &pb.MessageDisplayHookInput{
+				SessionId:      x.SessionID,
+				TranscriptPath: x.TranscriptPath,
+				Cwd:            x.Cwd,
+				PermissionMode: x.PermissionMode,
+				AgentId:        x.AgentID,
+				AgentType:      x.AgentType,
+				HookEventName:  string(x.HookEventName),
+				TurnId:         x.TurnID,
+				MessageId:      x.MessageID,
+				Index:          x.Index,
+				Final:          x.Final,
+				Delta:          x.Delta,
+				Effort:         baseEffortToProto(x.Effort),
+			}},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported HookInput %T", v)
 	}
@@ -4797,52 +6158,290 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &PreToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: preToolUse.GetSessionId(), TranscriptPath: preToolUse.GetTranscriptPath(), Cwd: preToolUse.GetCwd(), PermissionMode: protoOpt(preToolUse, "permission_mode", preToolUse.GetPermissionMode()), AgentID: protoOpt(preToolUse, "agent_id", preToolUse.GetAgentId()), AgentType: protoOpt(preToolUse, "agent_type", preToolUse.GetAgentType())}, HookEventName: HookEvent(preToolUse.GetHookEventName()), ToolName: preToolUse.GetToolName(), ToolInput: raw, ToolUseID: preToolUse.GetToolUseId()}, nil
+		return &PreToolUseHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      preToolUse.GetSessionId(),
+				TranscriptPath: preToolUse.GetTranscriptPath(),
+				Cwd:            preToolUse.GetCwd(),
+				PermissionMode: protoOpt(
+					preToolUse,
+					"permission_mode",
+					preToolUse.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(preToolUse, "agent_id", preToolUse.GetAgentId()),
+				AgentType: protoOpt(preToolUse, "agent_type", preToolUse.GetAgentType()),
+				Effort:    baseEffortFromProto(preToolUse.GetEffort()),
+			},
+			HookEventName: HookEvent(preToolUse.GetHookEventName()),
+			ToolName:      preToolUse.GetToolName(),
+			ToolInput:     raw,
+			ToolUseID:     preToolUse.GetToolUseId(),
+		}, nil
 	case *pb.HookInput_PostToolUse:
 		postToolUse := v.GetPostToolUse()
 		rawIn, err := rawFromToolInputProto(postToolUse.GetToolInput(), postToolUse.GetToolName())
 		if err != nil {
 			return nil, err
 		}
-		rawOut, err := rawFromToolOutputProto(postToolUse.GetToolResponse(), postToolUse.GetToolName())
+		rawOut, err := rawFromToolOutputProto(
+			postToolUse.GetToolResponse(),
+			postToolUse.GetToolName(),
+		)
 		if err != nil {
 			return nil, err
 		}
-		return &PostToolUseHookInput{BaseHookInput: BaseHookInput{SessionID: postToolUse.GetSessionId(), TranscriptPath: postToolUse.GetTranscriptPath(), Cwd: postToolUse.GetCwd(), PermissionMode: protoOpt(postToolUse, "permission_mode", postToolUse.GetPermissionMode()), AgentID: protoOpt(postToolUse, "agent_id", postToolUse.GetAgentId()), AgentType: protoOpt(postToolUse, "agent_type", postToolUse.GetAgentType())}, HookEventName: HookEvent(postToolUse.GetHookEventName()), ToolName: postToolUse.GetToolName(), ToolInput: rawIn, ToolResponse: rawOut, ToolUseID: postToolUse.GetToolUseId()}, nil
+		return &PostToolUseHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      postToolUse.GetSessionId(),
+				TranscriptPath: postToolUse.GetTranscriptPath(),
+				Cwd:            postToolUse.GetCwd(),
+				PermissionMode: protoOpt(
+					postToolUse,
+					"permission_mode",
+					postToolUse.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(postToolUse, "agent_id", postToolUse.GetAgentId()),
+				AgentType: protoOpt(postToolUse, "agent_type", postToolUse.GetAgentType()),
+				Effort:    baseEffortFromProto(postToolUse.GetEffort()),
+			},
+			HookEventName: HookEvent(postToolUse.GetHookEventName()),
+			ToolName:      postToolUse.GetToolName(),
+			ToolInput:     rawIn,
+			ToolResponse:  rawOut,
+			ToolUseID:     postToolUse.GetToolUseId(),
+			DurationMs:    protoOpt(postToolUse, "duration_ms", postToolUse.GetDurationMs()),
+		}, nil
 	case *pb.HookInput_PostToolUseFailure:
 		postToolUseFailure := v.GetPostToolUseFailure()
-		raw, err := rawFromToolInputProto(postToolUseFailure.GetToolInput(), postToolUseFailure.GetToolName())
+		raw, err := rawFromToolInputProto(
+			postToolUseFailure.GetToolInput(),
+			postToolUseFailure.GetToolName(),
+		)
 		if err != nil {
 			return nil, err
 		}
-		return &PostToolUseFailureHookInput{BaseHookInput: BaseHookInput{SessionID: postToolUseFailure.GetSessionId(), TranscriptPath: postToolUseFailure.GetTranscriptPath(), Cwd: postToolUseFailure.GetCwd(), PermissionMode: protoOpt(postToolUseFailure, "permission_mode", postToolUseFailure.GetPermissionMode()), AgentID: protoOpt(postToolUseFailure, "agent_id", postToolUseFailure.GetAgentId()), AgentType: protoOpt(postToolUseFailure, "agent_type", postToolUseFailure.GetAgentType())}, HookEventName: HookEvent(postToolUseFailure.GetHookEventName()), ToolName: postToolUseFailure.GetToolName(), ToolInput: raw, ToolUseID: postToolUseFailure.GetToolUseId(), Error: postToolUseFailure.GetError(), IsInterrupt: protoOpt(postToolUseFailure, "is_interrupt", postToolUseFailure.GetIsInterrupt())}, nil
+		return &PostToolUseFailureHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      postToolUseFailure.GetSessionId(),
+				TranscriptPath: postToolUseFailure.GetTranscriptPath(),
+				Cwd:            postToolUseFailure.GetCwd(),
+				PermissionMode: protoOpt(
+					postToolUseFailure,
+					"permission_mode",
+					postToolUseFailure.GetPermissionMode(),
+				),
+				AgentID: protoOpt(
+					postToolUseFailure,
+					"agent_id",
+					postToolUseFailure.GetAgentId(),
+				),
+				AgentType: protoOpt(
+					postToolUseFailure,
+					"agent_type",
+					postToolUseFailure.GetAgentType(),
+				),
+				Effort: baseEffortFromProto(postToolUseFailure.GetEffort()),
+			},
+			HookEventName: HookEvent(postToolUseFailure.GetHookEventName()),
+			ToolName:      postToolUseFailure.GetToolName(),
+			ToolInput:     raw,
+			ToolUseID:     postToolUseFailure.GetToolUseId(),
+			Error:         postToolUseFailure.GetError(),
+			IsInterrupt: protoOpt(
+				postToolUseFailure,
+				"is_interrupt",
+				postToolUseFailure.GetIsInterrupt(),
+			),
+			DurationMs: protoOpt(
+				postToolUseFailure,
+				"duration_ms",
+				postToolUseFailure.GetDurationMs(),
+			),
+		}, nil
 	case *pb.HookInput_Notification:
 		notification := v.GetNotification()
-		return &NotificationHookInput{BaseHookInput: BaseHookInput{SessionID: notification.GetSessionId(), TranscriptPath: notification.GetTranscriptPath(), Cwd: notification.GetCwd(), PermissionMode: protoOpt(notification, "permission_mode", notification.GetPermissionMode()), AgentID: protoOpt(notification, "agent_id", notification.GetAgentId()), AgentType: protoOpt(notification, "agent_type", notification.GetAgentType())}, HookEventName: HookEvent(notification.GetHookEventName()), Message: notification.GetMessage(), Title: protoOpt(notification, "title", notification.GetTitle()), NotificationType: notification.GetNotificationType()}, nil
+		return &NotificationHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      notification.GetSessionId(),
+				TranscriptPath: notification.GetTranscriptPath(),
+				Cwd:            notification.GetCwd(),
+				PermissionMode: protoOpt(
+					notification,
+					"permission_mode",
+					notification.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(notification, "agent_id", notification.GetAgentId()),
+				AgentType: protoOpt(notification, "agent_type", notification.GetAgentType()),
+				Effort:    baseEffortFromProto(notification.GetEffort()),
+			},
+			HookEventName:    HookEvent(notification.GetHookEventName()),
+			Message:          notification.GetMessage(),
+			Title:            protoOpt(notification, "title", notification.GetTitle()),
+			NotificationType: notification.GetNotificationType(),
+		}, nil
 	case *pb.HookInput_UserPromptSubmit:
 		userPromptSubmit := v.GetUserPromptSubmit()
-		return &UserPromptSubmitHookInput{BaseHookInput: BaseHookInput{SessionID: userPromptSubmit.GetSessionId(), TranscriptPath: userPromptSubmit.GetTranscriptPath(), Cwd: userPromptSubmit.GetCwd(), PermissionMode: protoOpt(userPromptSubmit, "permission_mode", userPromptSubmit.GetPermissionMode()), AgentID: protoOpt(userPromptSubmit, "agent_id", userPromptSubmit.GetAgentId()), AgentType: protoOpt(userPromptSubmit, "agent_type", userPromptSubmit.GetAgentType())}, HookEventName: HookEvent(userPromptSubmit.GetHookEventName()), Prompt: userPromptSubmit.GetPrompt()}, nil
+		return &UserPromptSubmitHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      userPromptSubmit.GetSessionId(),
+				TranscriptPath: userPromptSubmit.GetTranscriptPath(),
+				Cwd:            userPromptSubmit.GetCwd(),
+				PermissionMode: protoOpt(
+					userPromptSubmit,
+					"permission_mode",
+					userPromptSubmit.GetPermissionMode(),
+				),
+				AgentID: protoOpt(
+					userPromptSubmit,
+					"agent_id",
+					userPromptSubmit.GetAgentId(),
+				),
+				AgentType: protoOpt(
+					userPromptSubmit,
+					"agent_type",
+					userPromptSubmit.GetAgentType(),
+				),
+				Effort: baseEffortFromProto(userPromptSubmit.GetEffort()),
+			},
+			HookEventName: HookEvent(userPromptSubmit.GetHookEventName()),
+			Prompt:        userPromptSubmit.GetPrompt(),
+		}, nil
 	case *pb.HookInput_SessionStart:
 		sessionStart := v.GetSessionStart()
-		return &SessionStartHookInput{BaseHookInput: BaseHookInput{SessionID: sessionStart.GetSessionId(), TranscriptPath: sessionStart.GetTranscriptPath(), Cwd: sessionStart.GetCwd(), PermissionMode: protoOpt(sessionStart, "permission_mode", sessionStart.GetPermissionMode()), AgentID: protoOpt(sessionStart, "agent_id", sessionStart.GetAgentId()), AgentType: protoOpt(sessionStart, "agent_type", sessionStart.GetAgentType())}, HookEventName: HookEvent(sessionStart.GetHookEventName()), Source: SessionStartSource(sessionStart.GetSource()), Model: protoOpt(sessionStart, "model", sessionStart.GetModel())}, nil
+		return &SessionStartHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      sessionStart.GetSessionId(),
+				TranscriptPath: sessionStart.GetTranscriptPath(),
+				Cwd:            sessionStart.GetCwd(),
+				PermissionMode: protoOpt(
+					sessionStart,
+					"permission_mode",
+					sessionStart.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(sessionStart, "agent_id", sessionStart.GetAgentId()),
+				AgentType: protoOpt(sessionStart, "agent_type", sessionStart.GetAgentType()),
+				Effort:    baseEffortFromProto(sessionStart.GetEffort()),
+			},
+			HookEventName: HookEvent(sessionStart.GetHookEventName()),
+			Source:        SessionStartSource(sessionStart.GetSource()),
+			Model:         protoOpt(sessionStart, "model", sessionStart.GetModel()),
+		}, nil
 	case *pb.HookInput_SessionEnd:
 		sessionEnd := v.GetSessionEnd()
-		return &SessionEndHookInput{BaseHookInput: BaseHookInput{SessionID: sessionEnd.GetSessionId(), TranscriptPath: sessionEnd.GetTranscriptPath(), Cwd: sessionEnd.GetCwd(), PermissionMode: protoOpt(sessionEnd, "permission_mode", sessionEnd.GetPermissionMode()), AgentID: protoOpt(sessionEnd, "agent_id", sessionEnd.GetAgentId()), AgentType: protoOpt(sessionEnd, "agent_type", sessionEnd.GetAgentType())}, HookEventName: HookEvent(sessionEnd.GetHookEventName()), Reason: sessionEnd.GetReason()}, nil
+		return &SessionEndHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      sessionEnd.GetSessionId(),
+				TranscriptPath: sessionEnd.GetTranscriptPath(),
+				Cwd:            sessionEnd.GetCwd(),
+				PermissionMode: protoOpt(
+					sessionEnd,
+					"permission_mode",
+					sessionEnd.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(sessionEnd, "agent_id", sessionEnd.GetAgentId()),
+				AgentType: protoOpt(sessionEnd, "agent_type", sessionEnd.GetAgentType()),
+				Effort:    baseEffortFromProto(sessionEnd.GetEffort()),
+			},
+			HookEventName: HookEvent(sessionEnd.GetHookEventName()),
+			Reason:        sessionEnd.GetReason(),
+		}, nil
 	case *pb.HookInput_Stop:
 		stop := v.GetStop()
-		return &StopHookInput{BaseHookInput: BaseHookInput{SessionID: stop.GetSessionId(), TranscriptPath: stop.GetTranscriptPath(), Cwd: stop.GetCwd(), PermissionMode: protoOpt(stop, "permission_mode", stop.GetPermissionMode()), AgentID: protoOpt(stop, "agent_id", stop.GetAgentId()), AgentType: protoOpt(stop, "agent_type", stop.GetAgentType())}, HookEventName: HookEvent(stop.GetHookEventName()), StopHookActive: stop.GetStopHookActive()}, nil
+		return &StopHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      stop.GetSessionId(),
+				TranscriptPath: stop.GetTranscriptPath(),
+				Cwd:            stop.GetCwd(),
+				PermissionMode: protoOpt(stop, "permission_mode", stop.GetPermissionMode()),
+				AgentID:        protoOpt(stop, "agent_id", stop.GetAgentId()),
+				AgentType:      protoOpt(stop, "agent_type", stop.GetAgentType()),
+				Effort:         baseEffortFromProto(stop.GetEffort()),
+			},
+			HookEventName:  HookEvent(stop.GetHookEventName()),
+			StopHookActive: stop.GetStopHookActive(),
+			LastAssistantMessage: protoOpt(
+				stop,
+				"last_assistant_message",
+				stop.GetLastAssistantMessage(),
+			),
+			BackgroundTasks: backgroundTasksFromProto(stop.GetBackgroundTasks()),
+			SessionCrons:    sessionCronsFromProto(stop.GetSessionCrons()),
+		}, nil
 	case *pb.HookInput_SubagentStart:
 		subagentStart := v.GetSubagentStart()
-		return &SubagentStartHookInput{BaseHookInput: BaseHookInput{SessionID: subagentStart.GetSessionId(), TranscriptPath: subagentStart.GetTranscriptPath(), Cwd: subagentStart.GetCwd(), PermissionMode: protoOpt(subagentStart, "permission_mode", subagentStart.GetPermissionMode()), AgentID: protoOpt(subagentStart, "agent_id", subagentStart.GetAgentId()), AgentType: protoOpt(subagentStart, "agent_type", subagentStart.GetAgentType())}, HookEventName: HookEvent(subagentStart.GetHookEventName()), Prompt: subagentStart.GetPrompt()}, nil
+		return &SubagentStartHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      subagentStart.GetSessionId(),
+				TranscriptPath: subagentStart.GetTranscriptPath(),
+				Cwd:            subagentStart.GetCwd(),
+				PermissionMode: protoOpt(
+					subagentStart,
+					"permission_mode",
+					subagentStart.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(subagentStart, "agent_id", subagentStart.GetAgentId()),
+				AgentType: protoOpt(subagentStart, "agent_type", subagentStart.GetAgentType()),
+				Effort:    baseEffortFromProto(subagentStart.GetEffort()),
+			},
+			HookEventName: HookEvent(subagentStart.GetHookEventName()),
+		}, nil
 	case *pb.HookInput_SubagentStop:
 		subagentStop := v.GetSubagentStop()
-		return &SubagentStopHookInput{BaseHookInput: BaseHookInput{SessionID: subagentStop.GetSessionId(), TranscriptPath: subagentStop.GetTranscriptPath(), Cwd: subagentStop.GetCwd(), PermissionMode: protoOpt(subagentStop, "permission_mode", subagentStop.GetPermissionMode()), AgentID: protoOpt(subagentStop, "agent_id", subagentStop.GetAgentId()), AgentType: protoOpt(subagentStop, "agent_type", subagentStop.GetAgentType())}, HookEventName: HookEvent(subagentStop.GetHookEventName()), StopReason: subagentStop.GetStopReason()}, nil
+		return &SubagentStopHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      subagentStop.GetSessionId(),
+				TranscriptPath: subagentStop.GetTranscriptPath(),
+				Cwd:            subagentStop.GetCwd(),
+				PermissionMode: protoOpt(
+					subagentStop,
+					"permission_mode",
+					subagentStop.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(subagentStop, "agent_id", subagentStop.GetAgentId()),
+				AgentType: protoOpt(subagentStop, "agent_type", subagentStop.GetAgentType()),
+				Effort:    baseEffortFromProto(subagentStop.GetEffort()),
+			},
+			HookEventName:       HookEvent(subagentStop.GetHookEventName()),
+			StopHookActive:      subagentStop.GetStopHookActive(),
+			AgentTranscriptPath: subagentStop.GetAgentTranscriptPath(),
+			LastAssistantMessage: protoOpt(
+				subagentStop,
+				"last_assistant_message",
+				subagentStop.GetLastAssistantMessage(),
+			),
+			BackgroundTasks: backgroundTasksFromProto(subagentStop.GetBackgroundTasks()),
+			SessionCrons:    sessionCronsFromProto(subagentStop.GetSessionCrons()),
+		}, nil
 	case *pb.HookInput_PreCompact:
 		preCompact := v.GetPreCompact()
-		return &PreCompactHookInput{BaseHookInput: BaseHookInput{SessionID: preCompact.GetSessionId(), TranscriptPath: preCompact.GetTranscriptPath(), Cwd: preCompact.GetCwd(), PermissionMode: protoOpt(preCompact, "permission_mode", preCompact.GetPermissionMode()), AgentID: protoOpt(preCompact, "agent_id", preCompact.GetAgentId()), AgentType: protoOpt(preCompact, "agent_type", preCompact.GetAgentType())}, HookEventName: HookEvent(preCompact.GetHookEventName()), Trigger: preCompact.GetTrigger(), CustomInstructions: preCompact.GetCustomInstructions()}, nil
+		return &PreCompactHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      preCompact.GetSessionId(),
+				TranscriptPath: preCompact.GetTranscriptPath(),
+				Cwd:            preCompact.GetCwd(),
+				PermissionMode: protoOpt(
+					preCompact,
+					"permission_mode",
+					preCompact.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(preCompact, "agent_id", preCompact.GetAgentId()),
+				AgentType: protoOpt(preCompact, "agent_type", preCompact.GetAgentType()),
+				Effort:    baseEffortFromProto(preCompact.GetEffort()),
+			},
+			HookEventName: HookEvent(preCompact.GetHookEventName()),
+			Trigger:       preCompact.GetTrigger(),
+			CustomInstructions: protoOpt(
+				preCompact,
+				"custom_instructions",
+				preCompact.GetCustomInstructions(),
+			),
+		}, nil
 	case *pb.HookInput_PermissionRequest:
 		permissionRequest := v.GetPermissionRequest()
-		raw, err := rawFromToolInputProto(permissionRequest.GetToolInput(), permissionRequest.GetToolName())
+		raw, err := rawFromToolInputProto(
+			permissionRequest.GetToolInput(),
+			permissionRequest.GetToolName(),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -4850,25 +6449,212 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &PermissionRequestHookInput{BaseHookInput: BaseHookInput{SessionID: permissionRequest.GetSessionId(), TranscriptPath: permissionRequest.GetTranscriptPath(), Cwd: permissionRequest.GetCwd(), PermissionMode: protoOpt(permissionRequest, "permission_mode", permissionRequest.GetPermissionMode()), AgentID: protoOpt(permissionRequest, "agent_id", permissionRequest.GetAgentId()), AgentType: protoOpt(permissionRequest, "agent_type", permissionRequest.GetAgentType())}, HookEventName: HookEvent(permissionRequest.GetHookEventName()), ToolName: permissionRequest.GetToolName(), ToolInput: raw, ToolUseID: permissionRequest.GetToolUseId(), PermissionSuggestions: updates}, nil
+		return &PermissionRequestHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      permissionRequest.GetSessionId(),
+				TranscriptPath: permissionRequest.GetTranscriptPath(),
+				Cwd:            permissionRequest.GetCwd(),
+				PermissionMode: protoOpt(
+					permissionRequest,
+					"permission_mode",
+					permissionRequest.GetPermissionMode(),
+				),
+				AgentID: protoOpt(
+					permissionRequest,
+					"agent_id",
+					permissionRequest.GetAgentId(),
+				),
+				AgentType: protoOpt(
+					permissionRequest,
+					"agent_type",
+					permissionRequest.GetAgentType(),
+				),
+				Effort: baseEffortFromProto(permissionRequest.GetEffort()),
+			},
+			HookEventName:         HookEvent(permissionRequest.GetHookEventName()),
+			ToolName:              permissionRequest.GetToolName(),
+			ToolInput:             raw,
+			ToolUseID:             permissionRequest.GetToolUseId(),
+			PermissionSuggestions: updates,
+		}, nil
 	case *pb.HookInput_Setup:
 		setup := v.GetSetup()
-		return &SetupHookInput{BaseHookInput: BaseHookInput{SessionID: setup.GetSessionId(), TranscriptPath: setup.GetTranscriptPath(), Cwd: setup.GetCwd(), PermissionMode: protoOpt(setup, "permission_mode", setup.GetPermissionMode()), AgentID: protoOpt(setup, "agent_id", setup.GetAgentId()), AgentType: protoOpt(setup, "agent_type", setup.GetAgentType())}, HookEventName: HookEvent(setup.GetHookEventName()), Trigger: SetupTrigger(setup.GetTrigger())}, nil
+		return &SetupHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      setup.GetSessionId(),
+				TranscriptPath: setup.GetTranscriptPath(),
+				Cwd:            setup.GetCwd(),
+				PermissionMode: protoOpt(setup, "permission_mode", setup.GetPermissionMode()),
+				AgentID:        protoOpt(setup, "agent_id", setup.GetAgentId()),
+				AgentType:      protoOpt(setup, "agent_type", setup.GetAgentType()),
+				Effort:         baseEffortFromProto(setup.GetEffort()),
+			},
+			HookEventName: HookEvent(setup.GetHookEventName()),
+			Trigger:       SetupTrigger(setup.GetTrigger()),
+		}, nil
 	case *pb.HookInput_TeammateIdle:
 		teammateIdle := v.GetTeammateIdle()
-		return &TeammateIdleHookInput{BaseHookInput: BaseHookInput{SessionID: teammateIdle.GetSessionId(), TranscriptPath: teammateIdle.GetTranscriptPath(), Cwd: teammateIdle.GetCwd(), PermissionMode: protoOpt(teammateIdle, "permission_mode", teammateIdle.GetPermissionMode()), AgentID: protoOpt(teammateIdle, "agent_id", teammateIdle.GetAgentId()), AgentType: protoOpt(teammateIdle, "agent_type", teammateIdle.GetAgentType())}, HookEventName: HookEvent(teammateIdle.GetHookEventName())}, nil
+		return &TeammateIdleHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      teammateIdle.GetSessionId(),
+				TranscriptPath: teammateIdle.GetTranscriptPath(),
+				Cwd:            teammateIdle.GetCwd(),
+				PermissionMode: protoOpt(
+					teammateIdle,
+					"permission_mode",
+					teammateIdle.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(teammateIdle, "agent_id", teammateIdle.GetAgentId()),
+				AgentType: protoOpt(teammateIdle, "agent_type", teammateIdle.GetAgentType()),
+				Effort:    baseEffortFromProto(teammateIdle.GetEffort()),
+			},
+			HookEventName: HookEvent(teammateIdle.GetHookEventName()),
+			TeammateName:  teammateIdle.GetTeammateName(),
+			TeamName:      teammateIdle.GetTeamName(),
+		}, nil
 	case *pb.HookInput_TaskCompleted:
 		taskCompleted := v.GetTaskCompleted()
-		return &TaskCompletedHookInput{BaseHookInput: BaseHookInput{SessionID: taskCompleted.GetSessionId(), TranscriptPath: taskCompleted.GetTranscriptPath(), Cwd: taskCompleted.GetCwd(), PermissionMode: protoOpt(taskCompleted, "permission_mode", taskCompleted.GetPermissionMode()), AgentID: protoOpt(taskCompleted, "agent_id", taskCompleted.GetAgentId()), AgentType: protoOpt(taskCompleted, "agent_type", taskCompleted.GetAgentType())}, HookEventName: HookEvent(taskCompleted.GetHookEventName()), TaskID: taskCompleted.GetTaskId(), TaskSubject: taskCompleted.GetTaskSubject(), TaskDescription: protoOpt(taskCompleted, "task_description", taskCompleted.GetTaskDescription()), TeammateName: protoOpt(taskCompleted, "teammate_name", taskCompleted.GetTeammateName()), TeamName: protoOpt(taskCompleted, "team_name", taskCompleted.GetTeamName())}, nil
+		return &TaskCompletedHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      taskCompleted.GetSessionId(),
+				TranscriptPath: taskCompleted.GetTranscriptPath(),
+				Cwd:            taskCompleted.GetCwd(),
+				PermissionMode: protoOpt(
+					taskCompleted,
+					"permission_mode",
+					taskCompleted.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(taskCompleted, "agent_id", taskCompleted.GetAgentId()),
+				AgentType: protoOpt(taskCompleted, "agent_type", taskCompleted.GetAgentType()),
+				Effort:    baseEffortFromProto(taskCompleted.GetEffort()),
+			},
+			HookEventName: HookEvent(taskCompleted.GetHookEventName()),
+			TaskID:        taskCompleted.GetTaskId(),
+			TaskSubject:   taskCompleted.GetTaskSubject(),
+			TaskDescription: protoOpt(
+				taskCompleted,
+				"task_description",
+				taskCompleted.GetTaskDescription(),
+			),
+			TeammateName: protoOpt(
+				taskCompleted,
+				"teammate_name",
+				taskCompleted.GetTeammateName(),
+			),
+			TeamName: protoOpt(taskCompleted, "team_name", taskCompleted.GetTeamName()),
+		}, nil
 	case *pb.HookInput_ConfigChange:
 		configChange := v.GetConfigChange()
-		return &ConfigChangeHookInput{BaseHookInput: BaseHookInput{SessionID: configChange.GetSessionId(), TranscriptPath: configChange.GetTranscriptPath(), Cwd: configChange.GetCwd(), PermissionMode: protoOpt(configChange, "permission_mode", configChange.GetPermissionMode()), AgentID: protoOpt(configChange, "agent_id", configChange.GetAgentId()), AgentType: protoOpt(configChange, "agent_type", configChange.GetAgentType())}, HookEventName: HookEvent(configChange.GetHookEventName()), Source: ConfigChangeSource(configChange.GetSource()), FilePath: protoOpt(configChange, "file_path", configChange.GetFilePath())}, nil
+		return &ConfigChangeHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      configChange.GetSessionId(),
+				TranscriptPath: configChange.GetTranscriptPath(),
+				Cwd:            configChange.GetCwd(),
+				PermissionMode: protoOpt(
+					configChange,
+					"permission_mode",
+					configChange.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(configChange, "agent_id", configChange.GetAgentId()),
+				AgentType: protoOpt(configChange, "agent_type", configChange.GetAgentType()),
+				Effort:    baseEffortFromProto(configChange.GetEffort()),
+			},
+			HookEventName: HookEvent(configChange.GetHookEventName()),
+			Source:        ConfigChangeSource(configChange.GetSource()),
+			FilePath:      protoOpt(configChange, "file_path", configChange.GetFilePath()),
+		}, nil
 	case *pb.HookInput_WorktreeCreate:
 		worktreeCreate := v.GetWorktreeCreate()
-		return &WorktreeCreateHookInput{BaseHookInput: BaseHookInput{SessionID: worktreeCreate.GetSessionId(), TranscriptPath: worktreeCreate.GetTranscriptPath(), Cwd: worktreeCreate.GetCwd(), PermissionMode: protoOpt(worktreeCreate, "permission_mode", worktreeCreate.GetPermissionMode()), AgentID: protoOpt(worktreeCreate, "agent_id", worktreeCreate.GetAgentId()), AgentType: protoOpt(worktreeCreate, "agent_type", worktreeCreate.GetAgentType())}, HookEventName: HookEvent(worktreeCreate.GetHookEventName()), Name: worktreeCreate.GetName()}, nil
+		return &WorktreeCreateHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      worktreeCreate.GetSessionId(),
+				TranscriptPath: worktreeCreate.GetTranscriptPath(),
+				Cwd:            worktreeCreate.GetCwd(),
+				PermissionMode: protoOpt(
+					worktreeCreate,
+					"permission_mode",
+					worktreeCreate.GetPermissionMode(),
+				),
+				AgentID: protoOpt(worktreeCreate, "agent_id", worktreeCreate.GetAgentId()),
+				AgentType: protoOpt(
+					worktreeCreate,
+					"agent_type",
+					worktreeCreate.GetAgentType(),
+				),
+				Effort: baseEffortFromProto(worktreeCreate.GetEffort()),
+			},
+			HookEventName: HookEvent(worktreeCreate.GetHookEventName()),
+			Name:          worktreeCreate.GetName(),
+		}, nil
 	case *pb.HookInput_WorktreeRemove:
 		worktreeRemove := v.GetWorktreeRemove()
-		return &WorktreeRemoveHookInput{BaseHookInput: BaseHookInput{SessionID: worktreeRemove.GetSessionId(), TranscriptPath: worktreeRemove.GetTranscriptPath(), Cwd: worktreeRemove.GetCwd(), PermissionMode: protoOpt(worktreeRemove, "permission_mode", worktreeRemove.GetPermissionMode()), AgentID: protoOpt(worktreeRemove, "agent_id", worktreeRemove.GetAgentId()), AgentType: protoOpt(worktreeRemove, "agent_type", worktreeRemove.GetAgentType())}, HookEventName: HookEvent(worktreeRemove.GetHookEventName()), WorktreePath: worktreeRemove.GetWorktreePath()}, nil
+		return &WorktreeRemoveHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      worktreeRemove.GetSessionId(),
+				TranscriptPath: worktreeRemove.GetTranscriptPath(),
+				Cwd:            worktreeRemove.GetCwd(),
+				PermissionMode: protoOpt(
+					worktreeRemove,
+					"permission_mode",
+					worktreeRemove.GetPermissionMode(),
+				),
+				AgentID: protoOpt(worktreeRemove, "agent_id", worktreeRemove.GetAgentId()),
+				AgentType: protoOpt(
+					worktreeRemove,
+					"agent_type",
+					worktreeRemove.GetAgentType(),
+				),
+				Effort: baseEffortFromProto(worktreeRemove.GetEffort()),
+			},
+			HookEventName: HookEvent(worktreeRemove.GetHookEventName()),
+			WorktreePath:  worktreeRemove.GetWorktreePath(),
+		}, nil
+	case *pb.HookInput_PostToolBatch:
+		postToolBatch := v.GetPostToolBatch()
+		return &PostToolBatchHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      postToolBatch.GetSessionId(),
+				TranscriptPath: postToolBatch.GetTranscriptPath(),
+				Cwd:            postToolBatch.GetCwd(),
+				PermissionMode: protoOpt(
+					postToolBatch,
+					"permission_mode",
+					postToolBatch.GetPermissionMode(),
+				),
+				AgentID:   protoOpt(postToolBatch, "agent_id", postToolBatch.GetAgentId()),
+				AgentType: protoOpt(postToolBatch, "agent_type", postToolBatch.GetAgentType()),
+				Effort:    baseEffortFromProto(postToolBatch.GetEffort()),
+			},
+			HookEventName: HookEvent(postToolBatch.GetHookEventName()),
+			ToolCalls:     postToolBatchToolCallsFromProto(postToolBatch.GetToolCalls()),
+		}, nil
+	case *pb.HookInput_MessageDisplay:
+		messageDisplay := v.GetMessageDisplay()
+		return &MessageDisplayHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      messageDisplay.GetSessionId(),
+				TranscriptPath: messageDisplay.GetTranscriptPath(),
+				Cwd:            messageDisplay.GetCwd(),
+				PermissionMode: protoOpt(
+					messageDisplay,
+					"permission_mode",
+					messageDisplay.GetPermissionMode(),
+				),
+				AgentID: protoOpt(messageDisplay, "agent_id", messageDisplay.GetAgentId()),
+				AgentType: protoOpt(
+					messageDisplay,
+					"agent_type",
+					messageDisplay.GetAgentType(),
+				),
+				Effort: baseEffortFromProto(messageDisplay.GetEffort()),
+			},
+			HookEventName: HookEvent(messageDisplay.GetHookEventName()),
+			TurnID:        messageDisplay.GetTurnId(),
+			MessageID:     messageDisplay.GetMessageId(),
+			Index:         messageDisplay.GetIndex(),
+			Final:         messageDisplay.GetFinal(),
+			Delta:         messageDisplay.GetDelta(),
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proto HookInput %T", x)
 	}

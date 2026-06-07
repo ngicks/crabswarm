@@ -30,6 +30,7 @@ const (
 	HookPermissionDecision_HOOK_PERMISSION_DECISION_ALLOW       HookPermissionDecision = 1
 	HookPermissionDecision_HOOK_PERMISSION_DECISION_DENY        HookPermissionDecision = 2
 	HookPermissionDecision_HOOK_PERMISSION_DECISION_ASK         HookPermissionDecision = 3
+	HookPermissionDecision_HOOK_PERMISSION_DECISION_DEFER       HookPermissionDecision = 4
 )
 
 // Enum value maps for HookPermissionDecision.
@@ -39,12 +40,14 @@ var (
 		1: "HOOK_PERMISSION_DECISION_ALLOW",
 		2: "HOOK_PERMISSION_DECISION_DENY",
 		3: "HOOK_PERMISSION_DECISION_ASK",
+		4: "HOOK_PERMISSION_DECISION_DEFER",
 	}
 	HookPermissionDecision_value = map[string]int32{
 		"HOOK_PERMISSION_DECISION_UNSPECIFIED": 0,
 		"HOOK_PERMISSION_DECISION_ALLOW":       1,
 		"HOOK_PERMISSION_DECISION_DENY":        2,
 		"HOOK_PERMISSION_DECISION_ASK":         3,
+		"HOOK_PERMISSION_DECISION_DEFER":       4,
 	}
 )
 
@@ -1633,6 +1636,7 @@ func (x *SdkPluginConfig) GetPath() string {
 type SandboxNetworkConfig struct {
 	state                   protoimpl.MessageState `protogen:"open.v1"`
 	AllowedDomains          []string               `protobuf:"bytes,1,rep,name=allowed_domains,json=allowedDomains,proto3" json:"allowed_domains,omitempty"`
+	DeniedDomains           []string               `protobuf:"bytes,8,rep,name=denied_domains,json=deniedDomains,proto3" json:"denied_domains,omitempty"`
 	AllowManagedDomainsOnly *bool                  `protobuf:"varint,2,opt,name=allow_managed_domains_only,json=allowManagedDomainsOnly,proto3,oneof" json:"allow_managed_domains_only,omitempty"`
 	AllowLocalBinding       *bool                  `protobuf:"varint,3,opt,name=allow_local_binding,json=allowLocalBinding,proto3,oneof" json:"allow_local_binding,omitempty"`
 	AllowUnixSockets        []string               `protobuf:"bytes,4,rep,name=allow_unix_sockets,json=allowUnixSockets,proto3" json:"allow_unix_sockets,omitempty"`
@@ -1676,6 +1680,13 @@ func (*SandboxNetworkConfig) Descriptor() ([]byte, []int) {
 func (x *SandboxNetworkConfig) GetAllowedDomains() []string {
 	if x != nil {
 		return x.AllowedDomains
+	}
+	return nil
+}
+
+func (x *SandboxNetworkConfig) GetDeniedDomains() []string {
+	if x != nil {
+		return x.DeniedDomains
 	}
 	return nil
 }
@@ -1840,6 +1851,7 @@ func (x *RipgrepConfig) GetArgs() []string {
 type SandboxSettings struct {
 	state                     protoimpl.MessageState     `protogen:"open.v1"`
 	Enabled                   *bool                      `protobuf:"varint,1,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	FailIfUnavailable         *bool                      `protobuf:"varint,10,opt,name=fail_if_unavailable,json=failIfUnavailable,proto3,oneof" json:"fail_if_unavailable,omitempty"`
 	AutoAllowBashIfSandboxed  *bool                      `protobuf:"varint,2,opt,name=auto_allow_bash_if_sandboxed,json=autoAllowBashIfSandboxed,proto3,oneof" json:"auto_allow_bash_if_sandboxed,omitempty"`
 	ExcludedCommands          []string                   `protobuf:"bytes,3,rep,name=excluded_commands,json=excludedCommands,proto3" json:"excluded_commands,omitempty"`
 	AllowUnsandboxedCommands  *bool                      `protobuf:"varint,4,opt,name=allow_unsandboxed_commands,json=allowUnsandboxedCommands,proto3,oneof" json:"allow_unsandboxed_commands,omitempty"`
@@ -1885,6 +1897,13 @@ func (*SandboxSettings) Descriptor() ([]byte, []int) {
 func (x *SandboxSettings) GetEnabled() bool {
 	if x != nil && x.Enabled != nil {
 		return *x.Enabled
+	}
+	return false
+}
+
+func (x *SandboxSettings) GetFailIfUnavailable() bool {
+	if x != nil && x.FailIfUnavailable != nil {
+		return *x.FailIfUnavailable
 	}
 	return false
 }
@@ -1955,7 +1974,12 @@ type AgentDefinition struct {
 	Model                              *string                `protobuf:"bytes,5,opt,name=model,proto3,oneof" json:"model,omitempty"`
 	McpServers                         []*JsonRawMessage      `protobuf:"bytes,6,rep,name=mcp_servers,json=mcpServers,proto3" json:"mcp_servers,omitempty"`
 	Skills                             []string               `protobuf:"bytes,7,rep,name=skills,proto3" json:"skills,omitempty"`
+	InitialPrompt                      *string                `protobuf:"bytes,10,opt,name=initial_prompt,json=initialPrompt,proto3,oneof" json:"initial_prompt,omitempty"`
 	MaxTurns                           *int64                 `protobuf:"varint,8,opt,name=max_turns,json=maxTurns,proto3,oneof" json:"max_turns,omitempty"`
+	Background                         *bool                  `protobuf:"varint,11,opt,name=background,proto3,oneof" json:"background,omitempty"`
+	Memory                             *string                `protobuf:"bytes,12,opt,name=memory,proto3,oneof" json:"memory,omitempty"`
+	Effort                             *JsonRawMessage        `protobuf:"bytes,13,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
+	PermissionMode                     *string                `protobuf:"bytes,14,opt,name=permission_mode,json=permissionMode,proto3,oneof" json:"permission_mode,omitempty"`
 	CriticalSystemReminderExperimental *string                `protobuf:"bytes,9,opt,name=critical_system_reminder_experimental,json=criticalSystemReminder_EXPERIMENTAL,proto3,oneof" json:"critical_system_reminder_experimental,omitempty"`
 	unknownFields                      protoimpl.UnknownFields
 	sizeCache                          protoimpl.SizeCache
@@ -2040,11 +2064,46 @@ func (x *AgentDefinition) GetSkills() []string {
 	return nil
 }
 
+func (x *AgentDefinition) GetInitialPrompt() string {
+	if x != nil && x.InitialPrompt != nil {
+		return *x.InitialPrompt
+	}
+	return ""
+}
+
 func (x *AgentDefinition) GetMaxTurns() int64 {
 	if x != nil && x.MaxTurns != nil {
 		return *x.MaxTurns
 	}
 	return 0
+}
+
+func (x *AgentDefinition) GetBackground() bool {
+	if x != nil && x.Background != nil {
+		return *x.Background
+	}
+	return false
+}
+
+func (x *AgentDefinition) GetMemory() string {
+	if x != nil && x.Memory != nil {
+		return *x.Memory
+	}
+	return ""
+}
+
+func (x *AgentDefinition) GetEffort() *JsonRawMessage {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
+func (x *AgentDefinition) GetPermissionMode() string {
+	if x != nil && x.PermissionMode != nil {
+		return *x.PermissionMode
+	}
+	return ""
 }
 
 func (x *AgentDefinition) GetCriticalSystemReminderExperimental() string {
@@ -2154,12 +2213,13 @@ func (x *SystemPromptString) GetValue() string {
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPromptPreset struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	Preset        string                 `protobuf:"bytes,2,opt,name=preset,proto3" json:"preset,omitempty"`
-	Append        *string                `protobuf:"bytes,3,opt,name=append,proto3,oneof" json:"append,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Type                   string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Preset                 string                 `protobuf:"bytes,2,opt,name=preset,proto3" json:"preset,omitempty"`
+	Append                 *string                `protobuf:"bytes,3,opt,name=append,proto3,oneof" json:"append,omitempty"`
+	ExcludeDynamicSections *bool                  `protobuf:"varint,4,opt,name=exclude_dynamic_sections,json=excludeDynamicSections,proto3,oneof" json:"exclude_dynamic_sections,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *SystemPromptPreset) Reset() {
@@ -2211,6 +2271,13 @@ func (x *SystemPromptPreset) GetAppend() string {
 		return *x.Append
 	}
 	return ""
+}
+
+func (x *SystemPromptPreset) GetExcludeDynamicSections() bool {
+	if x != nil && x.ExcludeDynamicSections != nil {
+		return *x.ExcludeDynamicSections
+	}
+	return false
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
@@ -2316,6 +2383,7 @@ func (*SystemPrompt_Unknown) isSystemPrompt_Value() {}
 type ThinkingConfigAdaptive struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Display       *string                `protobuf:"bytes,2,opt,name=display,proto3,oneof" json:"display,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2357,11 +2425,19 @@ func (x *ThinkingConfigAdaptive) GetType() string {
 	return ""
 }
 
+func (x *ThinkingConfigAdaptive) GetDisplay() string {
+	if x != nil && x.Display != nil {
+		return *x.Display
+	}
+	return ""
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ThinkingConfigEnabled struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
 	BudgetTokens  *int64                 `protobuf:"varint,2,opt,name=budget_tokens,json=budgetTokens,proto3,oneof" json:"budget_tokens,omitempty"`
+	Display       *string                `protobuf:"bytes,3,opt,name=display,proto3,oneof" json:"display,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2408,6 +2484,13 @@ func (x *ThinkingConfigEnabled) GetBudgetTokens() int64 {
 		return *x.BudgetTokens
 	}
 	return 0
+}
+
+func (x *ThinkingConfigEnabled) GetDisplay() string {
+	if x != nil && x.Display != nil {
+		return *x.Display
+	}
+	return ""
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
@@ -2902,6 +2985,18 @@ type Options struct {
 	Thinking                        *ThinkingConfig             `protobuf:"bytes,40,opt,name=thinking,proto3,oneof" json:"thinking,omitempty"`
 	ToolConfig                      *ToolConfig                 `protobuf:"bytes,41,opt,name=tool_config,json=toolConfig,proto3,oneof" json:"tool_config,omitempty"`
 	Tools                           *ToolsConfig                `protobuf:"bytes,42,opt,name=tools,proto3,oneof" json:"tools,omitempty"`
+	AgentProgressSummaries          *bool                       `protobuf:"varint,43,opt,name=agent_progress_summaries,json=agentProgressSummaries,proto3,oneof" json:"agent_progress_summaries,omitempty"`
+	ForwardSubagentText             *bool                       `protobuf:"varint,44,opt,name=forward_subagent_text,json=forwardSubagentText,proto3,oneof" json:"forward_subagent_text,omitempty"`
+	IncludeHookEvents               *bool                       `protobuf:"varint,45,opt,name=include_hook_events,json=includeHookEvents,proto3,oneof" json:"include_hook_events,omitempty"`
+	LoadTimeoutMs                   *int64                      `protobuf:"varint,46,opt,name=load_timeout_ms,json=loadTimeoutMs,proto3,oneof" json:"load_timeout_ms,omitempty"`
+	ManagedSettings                 *JsonRawMessage             `protobuf:"bytes,47,opt,name=managed_settings,json=managedSettings,proto3,oneof" json:"managed_settings,omitempty"`
+	PlanModeInstructions            *string                     `protobuf:"bytes,48,opt,name=plan_mode_instructions,json=planModeInstructions,proto3,oneof" json:"plan_mode_instructions,omitempty"`
+	SessionStoreFlush               *string                     `protobuf:"bytes,49,opt,name=session_store_flush,json=sessionStoreFlush,proto3,oneof" json:"session_store_flush,omitempty"`
+	Settings                        *JsonRawMessage             `protobuf:"bytes,50,opt,name=settings,proto3,oneof" json:"settings,omitempty"`
+	Skills                          *JsonRawMessage             `protobuf:"bytes,51,opt,name=skills,proto3,oneof" json:"skills,omitempty"`
+	TaskBudget                      *OptionsTaskBudget          `protobuf:"bytes,52,opt,name=task_budget,json=taskBudget,proto3,oneof" json:"task_budget,omitempty"`
+	Title                           *string                     `protobuf:"bytes,53,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	ToolAliases                     map[string]string           `protobuf:"bytes,54,rep,name=tool_aliases,json=toolAliases,proto3" json:"tool_aliases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields                   protoimpl.UnknownFields
 	sizeCache                       protoimpl.SizeCache
 }
@@ -3230,19 +3325,149 @@ func (x *Options) GetTools() *ToolsConfig {
 	return nil
 }
 
+func (x *Options) GetAgentProgressSummaries() bool {
+	if x != nil && x.AgentProgressSummaries != nil {
+		return *x.AgentProgressSummaries
+	}
+	return false
+}
+
+func (x *Options) GetForwardSubagentText() bool {
+	if x != nil && x.ForwardSubagentText != nil {
+		return *x.ForwardSubagentText
+	}
+	return false
+}
+
+func (x *Options) GetIncludeHookEvents() bool {
+	if x != nil && x.IncludeHookEvents != nil {
+		return *x.IncludeHookEvents
+	}
+	return false
+}
+
+func (x *Options) GetLoadTimeoutMs() int64 {
+	if x != nil && x.LoadTimeoutMs != nil {
+		return *x.LoadTimeoutMs
+	}
+	return 0
+}
+
+func (x *Options) GetManagedSettings() *JsonRawMessage {
+	if x != nil {
+		return x.ManagedSettings
+	}
+	return nil
+}
+
+func (x *Options) GetPlanModeInstructions() string {
+	if x != nil && x.PlanModeInstructions != nil {
+		return *x.PlanModeInstructions
+	}
+	return ""
+}
+
+func (x *Options) GetSessionStoreFlush() string {
+	if x != nil && x.SessionStoreFlush != nil {
+		return *x.SessionStoreFlush
+	}
+	return ""
+}
+
+func (x *Options) GetSettings() *JsonRawMessage {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *Options) GetSkills() *JsonRawMessage {
+	if x != nil {
+		return x.Skills
+	}
+	return nil
+}
+
+func (x *Options) GetTaskBudget() *OptionsTaskBudget {
+	if x != nil {
+		return x.TaskBudget
+	}
+	return nil
+}
+
+func (x *Options) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *Options) GetToolAliases() map[string]string {
+	if x != nil {
+		return x.ToolAliases
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+type OptionsTaskBudget struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Total         int64                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OptionsTaskBudget) Reset() {
+	*x = OptionsTaskBudget{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OptionsTaskBudget) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OptionsTaskBudget) ProtoMessage() {}
+
+func (x *OptionsTaskBudget) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OptionsTaskBudget.ProtoReflect.Descriptor instead.
+func (*OptionsTaskBudget) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *OptionsTaskBudget) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#slashcommand
 type SlashCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	ArgumentHint  string                 `protobuf:"bytes,3,opt,name=argument_hint,json=argumentHint,proto3" json:"argument_hint,omitempty"`
+	Aliases       []string               `protobuf:"bytes,4,rep,name=aliases,proto3" json:"aliases,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SlashCommand) Reset() {
 	*x = SlashCommand{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[39]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3254,7 +3479,7 @@ func (x *SlashCommand) String() string {
 func (*SlashCommand) ProtoMessage() {}
 
 func (x *SlashCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[39]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3267,7 +3492,7 @@ func (x *SlashCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SlashCommand.ProtoReflect.Descriptor instead.
 func (*SlashCommand) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{39}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *SlashCommand) GetName() string {
@@ -3291,6 +3516,13 @@ func (x *SlashCommand) GetArgumentHint() string {
 	return ""
 }
 
+func (x *SlashCommand) GetAliases() []string {
+	if x != nil {
+		return x.Aliases
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#modelinfo
 type ModelInfo struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
@@ -3307,7 +3539,7 @@ type ModelInfo struct {
 
 func (x *ModelInfo) Reset() {
 	*x = ModelInfo{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[40]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3319,7 +3551,7 @@ func (x *ModelInfo) String() string {
 func (*ModelInfo) ProtoMessage() {}
 
 func (x *ModelInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[40]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3332,7 +3564,7 @@ func (x *ModelInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelInfo.ProtoReflect.Descriptor instead.
 func (*ModelInfo) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{40}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ModelInfo) GetValue() string {
@@ -3396,7 +3628,7 @@ type AgentInfo struct {
 
 func (x *AgentInfo) Reset() {
 	*x = AgentInfo{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[41]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3408,7 +3640,7 @@ func (x *AgentInfo) String() string {
 func (*AgentInfo) ProtoMessage() {}
 
 func (x *AgentInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[41]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3421,7 +3653,7 @@ func (x *AgentInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentInfo.ProtoReflect.Descriptor instead.
 func (*AgentInfo) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{41}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *AgentInfo) GetName() string {
@@ -3459,7 +3691,7 @@ type AccountInfo struct {
 
 func (x *AccountInfo) Reset() {
 	*x = AccountInfo{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[42]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3471,7 +3703,7 @@ func (x *AccountInfo) String() string {
 func (*AccountInfo) ProtoMessage() {}
 
 func (x *AccountInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[42]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3484,7 +3716,7 @@ func (x *AccountInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccountInfo.ProtoReflect.Descriptor instead.
 func (*AccountInfo) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{42}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *AccountInfo) GetEmail() string {
@@ -3539,7 +3771,7 @@ type ModelUsage struct {
 
 func (x *ModelUsage) Reset() {
 	*x = ModelUsage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[43]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3551,7 +3783,7 @@ func (x *ModelUsage) String() string {
 func (*ModelUsage) ProtoMessage() {}
 
 func (x *ModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[43]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3564,7 +3796,7 @@ func (x *ModelUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelUsage.ProtoReflect.Descriptor instead.
 func (*ModelUsage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{43}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ModelUsage) GetInputTokens() int64 {
@@ -3624,19 +3856,78 @@ func (x *ModelUsage) GetMaxOutputTokens() int64 {
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#usage
+type UsageCacheCreation struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Ephemeral_5MInputTokens int64                  `protobuf:"varint,1,opt,name=ephemeral_5m_input_tokens,proto3" json:"ephemeral_5m_input_tokens,omitempty"`
+	Ephemeral_1HInputTokens int64                  `protobuf:"varint,2,opt,name=ephemeral_1h_input_tokens,proto3" json:"ephemeral_1h_input_tokens,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *UsageCacheCreation) Reset() {
+	*x = UsageCacheCreation{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UsageCacheCreation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UsageCacheCreation) ProtoMessage() {}
+
+func (x *UsageCacheCreation) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UsageCacheCreation.ProtoReflect.Descriptor instead.
+func (*UsageCacheCreation) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *UsageCacheCreation) GetEphemeral_5MInputTokens() int64 {
+	if x != nil {
+		return x.Ephemeral_5MInputTokens
+	}
+	return 0
+}
+
+func (x *UsageCacheCreation) GetEphemeral_1HInputTokens() int64 {
+	if x != nil {
+		return x.Ephemeral_1HInputTokens
+	}
+	return 0
+}
+
 type Usage struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
 	InputTokens              *int64                 `protobuf:"varint,1,opt,name=input_tokens,proto3,oneof" json:"input_tokens,omitempty"`
 	OutputTokens             *int64                 `protobuf:"varint,2,opt,name=output_tokens,proto3,oneof" json:"output_tokens,omitempty"`
 	CacheCreationInputTokens *int64                 `protobuf:"varint,3,opt,name=cache_creation_input_tokens,proto3,oneof" json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     *int64                 `protobuf:"varint,4,opt,name=cache_read_input_tokens,proto3,oneof" json:"cache_read_input_tokens,omitempty"`
+	CacheCreation            *UsageCacheCreation    `protobuf:"bytes,5,opt,name=cache_creation,proto3,oneof" json:"cache_creation,omitempty"`
+	ServerToolUse            *JsonRawMessage        `protobuf:"bytes,6,opt,name=server_tool_use,proto3,oneof" json:"server_tool_use,omitempty"`
+	ServiceTier              *string                `protobuf:"bytes,7,opt,name=service_tier,proto3,oneof" json:"service_tier,omitempty"`
+	Speed                    *string                `protobuf:"bytes,8,opt,name=speed,proto3,oneof" json:"speed,omitempty"`
+	InferenceGeo             *string                `protobuf:"bytes,9,opt,name=inference_geo,proto3,oneof" json:"inference_geo,omitempty"`
+	Iterations               *JsonRawMessage        `protobuf:"bytes,10,opt,name=iterations,proto3,oneof" json:"iterations,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
 
 func (x *Usage) Reset() {
 	*x = Usage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[44]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3648,7 +3939,7 @@ func (x *Usage) String() string {
 func (*Usage) ProtoMessage() {}
 
 func (x *Usage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[44]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3661,7 +3952,7 @@ func (x *Usage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Usage.ProtoReflect.Descriptor instead.
 func (*Usage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{44}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *Usage) GetInputTokens() int64 {
@@ -3692,6 +3983,48 @@ func (x *Usage) GetCacheReadInputTokens() int64 {
 	return 0
 }
 
+func (x *Usage) GetCacheCreation() *UsageCacheCreation {
+	if x != nil {
+		return x.CacheCreation
+	}
+	return nil
+}
+
+func (x *Usage) GetServerToolUse() *JsonRawMessage {
+	if x != nil {
+		return x.ServerToolUse
+	}
+	return nil
+}
+
+func (x *Usage) GetServiceTier() string {
+	if x != nil && x.ServiceTier != nil {
+		return *x.ServiceTier
+	}
+	return ""
+}
+
+func (x *Usage) GetSpeed() string {
+	if x != nil && x.Speed != nil {
+		return *x.Speed
+	}
+	return ""
+}
+
+func (x *Usage) GetInferenceGeo() string {
+	if x != nil && x.InferenceGeo != nil {
+		return *x.InferenceGeo
+	}
+	return ""
+}
+
+func (x *Usage) GetIterations() *JsonRawMessage {
+	if x != nil {
+		return x.Iterations
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#nonnullableusage
 type NonNullableUsage struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
@@ -3699,13 +4032,19 @@ type NonNullableUsage struct {
 	OutputTokens             int64                  `protobuf:"varint,2,opt,name=output_tokens,proto3" json:"output_tokens,omitempty"`
 	CacheCreationInputTokens int64                  `protobuf:"varint,3,opt,name=cache_creation_input_tokens,proto3" json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     int64                  `protobuf:"varint,4,opt,name=cache_read_input_tokens,proto3" json:"cache_read_input_tokens,omitempty"`
+	CacheCreation            *UsageCacheCreation    `protobuf:"bytes,5,opt,name=cache_creation,proto3" json:"cache_creation,omitempty"`
+	ServerToolUse            *JsonRawMessage        `protobuf:"bytes,6,opt,name=server_tool_use,proto3" json:"server_tool_use,omitempty"`
+	ServiceTier              string                 `protobuf:"bytes,7,opt,name=service_tier,proto3" json:"service_tier,omitempty"`
+	Speed                    string                 `protobuf:"bytes,8,opt,name=speed,proto3" json:"speed,omitempty"`
+	InferenceGeo             string                 `protobuf:"bytes,9,opt,name=inference_geo,proto3" json:"inference_geo,omitempty"`
+	Iterations               *JsonRawMessage        `protobuf:"bytes,10,opt,name=iterations,proto3" json:"iterations,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
 
 func (x *NonNullableUsage) Reset() {
 	*x = NonNullableUsage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[45]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3717,7 +4056,7 @@ func (x *NonNullableUsage) String() string {
 func (*NonNullableUsage) ProtoMessage() {}
 
 func (x *NonNullableUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[45]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3730,7 +4069,7 @@ func (x *NonNullableUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NonNullableUsage.ProtoReflect.Descriptor instead.
 func (*NonNullableUsage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{45}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *NonNullableUsage) GetInputTokens() int64 {
@@ -3761,6 +4100,48 @@ func (x *NonNullableUsage) GetCacheReadInputTokens() int64 {
 	return 0
 }
 
+func (x *NonNullableUsage) GetCacheCreation() *UsageCacheCreation {
+	if x != nil {
+		return x.CacheCreation
+	}
+	return nil
+}
+
+func (x *NonNullableUsage) GetServerToolUse() *JsonRawMessage {
+	if x != nil {
+		return x.ServerToolUse
+	}
+	return nil
+}
+
+func (x *NonNullableUsage) GetServiceTier() string {
+	if x != nil {
+		return x.ServiceTier
+	}
+	return ""
+}
+
+func (x *NonNullableUsage) GetSpeed() string {
+	if x != nil {
+		return x.Speed
+	}
+	return ""
+}
+
+func (x *NonNullableUsage) GetInferenceGeo() string {
+	if x != nil {
+		return x.InferenceGeo
+	}
+	return ""
+}
+
+func (x *NonNullableUsage) GetIterations() *JsonRawMessage {
+	if x != nil {
+		return x.Iterations
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#calltoolresult
 type CallToolResultContent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3772,7 +4153,7 @@ type CallToolResultContent struct {
 
 func (x *CallToolResultContent) Reset() {
 	*x = CallToolResultContent{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[46]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3784,7 +4165,7 @@ func (x *CallToolResultContent) String() string {
 func (*CallToolResultContent) ProtoMessage() {}
 
 func (x *CallToolResultContent) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[46]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3797,7 +4178,7 @@ func (x *CallToolResultContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallToolResultContent.ProtoReflect.Descriptor instead.
 func (*CallToolResultContent) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{46}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CallToolResultContent) GetType() string {
@@ -3816,16 +4197,17 @@ func (x *CallToolResultContent) GetData() *structpb.Struct {
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#calltoolresult
 type CallToolResult struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	Content       []*CallToolResultContent `protobuf:"bytes,1,rep,name=content,proto3" json:"content,omitempty"`
-	IsError       *bool                    `protobuf:"varint,2,opt,name=is_error,json=isError,proto3,oneof" json:"is_error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState   `protogen:"open.v1"`
+	Content           []*CallToolResultContent `protobuf:"bytes,1,rep,name=content,proto3" json:"content,omitempty"`
+	StructuredContent *structpb.Struct         `protobuf:"bytes,3,opt,name=structured_content,json=structuredContent,proto3" json:"structured_content,omitempty"`
+	IsError           *bool                    `protobuf:"varint,2,opt,name=is_error,json=isError,proto3,oneof" json:"is_error,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *CallToolResult) Reset() {
 	*x = CallToolResult{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[47]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3837,7 +4219,7 @@ func (x *CallToolResult) String() string {
 func (*CallToolResult) ProtoMessage() {}
 
 func (x *CallToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[47]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3850,12 +4232,19 @@ func (x *CallToolResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallToolResult.ProtoReflect.Descriptor instead.
 func (*CallToolResult) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{47}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *CallToolResult) GetContent() []*CallToolResultContent {
 	if x != nil {
 		return x.Content
+	}
+	return nil
+}
+
+func (x *CallToolResult) GetStructuredContent() *structpb.Struct {
+	if x != nil {
+		return x.StructuredContent
 	}
 	return nil
 }
@@ -3879,7 +4268,7 @@ type SDKPermissionDenial struct {
 
 func (x *SDKPermissionDenial) Reset() {
 	*x = SDKPermissionDenial{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[48]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3891,7 +4280,7 @@ func (x *SDKPermissionDenial) String() string {
 func (*SDKPermissionDenial) ProtoMessage() {}
 
 func (x *SDKPermissionDenial) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[48]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3904,7 +4293,7 @@ func (x *SDKPermissionDenial) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKPermissionDenial.ProtoReflect.Descriptor instead.
 func (*SDKPermissionDenial) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{48}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *SDKPermissionDenial) GetToolName() string {
@@ -3939,7 +4328,7 @@ type CompactMetadata struct {
 
 func (x *CompactMetadata) Reset() {
 	*x = CompactMetadata{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[49]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3951,7 +4340,7 @@ func (x *CompactMetadata) String() string {
 func (*CompactMetadata) ProtoMessage() {}
 
 func (x *CompactMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[49]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3964,7 +4353,7 @@ func (x *CompactMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompactMetadata.ProtoReflect.Descriptor instead.
 func (*CompactMetadata) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{49}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *CompactMetadata) GetTrigger() string {
@@ -3993,7 +4382,7 @@ type TaskUsageSummary struct {
 
 func (x *TaskUsageSummary) Reset() {
 	*x = TaskUsageSummary{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[50]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4005,7 +4394,7 @@ func (x *TaskUsageSummary) String() string {
 func (*TaskUsageSummary) ProtoMessage() {}
 
 func (x *TaskUsageSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[50]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4018,7 +4407,7 @@ func (x *TaskUsageSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskUsageSummary.ProtoReflect.Descriptor instead.
 func (*TaskUsageSummary) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{50}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *TaskUsageSummary) GetTotalTokens() int64 {
@@ -4057,7 +4446,7 @@ type SDKAssistantMessage struct {
 
 func (x *SDKAssistantMessage) Reset() {
 	*x = SDKAssistantMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[51]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4069,7 +4458,7 @@ func (x *SDKAssistantMessage) String() string {
 func (*SDKAssistantMessage) ProtoMessage() {}
 
 func (x *SDKAssistantMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[51]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4082,7 +4471,7 @@ func (x *SDKAssistantMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKAssistantMessage.ProtoReflect.Descriptor instead.
 func (*SDKAssistantMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{51}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *SDKAssistantMessage) GetType() string {
@@ -4136,14 +4525,16 @@ type SDKUserMessage struct {
 	Message         *JsonRawMessage        `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	ParentToolUseId *string                `protobuf:"bytes,5,opt,name=parent_tool_use_id,proto3,oneof" json:"parent_tool_use_id,omitempty"`
 	IsSynthetic     *bool                  `protobuf:"varint,6,opt,name=is_synthetic,json=isSynthetic,proto3,oneof" json:"is_synthetic,omitempty"`
+	ShouldQuery     *bool                  `protobuf:"varint,8,opt,name=should_query,json=shouldQuery,proto3,oneof" json:"should_query,omitempty"`
 	ToolUseResult   *JsonRawMessage        `protobuf:"bytes,7,opt,name=tool_use_result,proto3,oneof" json:"tool_use_result,omitempty"`
+	Origin          *SDKMessageOrigin      `protobuf:"bytes,9,opt,name=origin,proto3,oneof" json:"origin,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SDKUserMessage) Reset() {
 	*x = SDKUserMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[52]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4155,7 +4546,7 @@ func (x *SDKUserMessage) String() string {
 func (*SDKUserMessage) ProtoMessage() {}
 
 func (x *SDKUserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[52]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4168,7 +4559,7 @@ func (x *SDKUserMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKUserMessage.ProtoReflect.Descriptor instead.
 func (*SDKUserMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{52}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *SDKUserMessage) GetType() string {
@@ -4213,9 +4604,23 @@ func (x *SDKUserMessage) GetIsSynthetic() bool {
 	return false
 }
 
+func (x *SDKUserMessage) GetShouldQuery() bool {
+	if x != nil && x.ShouldQuery != nil {
+		return *x.ShouldQuery
+	}
+	return false
+}
+
 func (x *SDKUserMessage) GetToolUseResult() *JsonRawMessage {
 	if x != nil {
 		return x.ToolUseResult
+	}
+	return nil
+}
+
+func (x *SDKUserMessage) GetOrigin() *SDKMessageOrigin {
+	if x != nil {
+		return x.Origin
 	}
 	return nil
 }
@@ -4230,6 +4635,7 @@ type SDKUserMessageReplay struct {
 	ParentToolUseId *string                `protobuf:"bytes,5,opt,name=parent_tool_use_id,proto3,oneof" json:"parent_tool_use_id,omitempty"`
 	IsSynthetic     *bool                  `protobuf:"varint,6,opt,name=is_synthetic,json=isSynthetic,proto3,oneof" json:"is_synthetic,omitempty"`
 	ToolUseResult   *JsonRawMessage        `protobuf:"bytes,7,opt,name=tool_use_result,proto3,oneof" json:"tool_use_result,omitempty"`
+	Origin          *SDKMessageOrigin      `protobuf:"bytes,9,opt,name=origin,proto3,oneof" json:"origin,omitempty"`
 	IsReplay        bool                   `protobuf:"varint,8,opt,name=is_replay,json=isReplay,proto3" json:"is_replay,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -4237,7 +4643,7 @@ type SDKUserMessageReplay struct {
 
 func (x *SDKUserMessageReplay) Reset() {
 	*x = SDKUserMessageReplay{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[53]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4249,7 +4655,7 @@ func (x *SDKUserMessageReplay) String() string {
 func (*SDKUserMessageReplay) ProtoMessage() {}
 
 func (x *SDKUserMessageReplay) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[53]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4262,7 +4668,7 @@ func (x *SDKUserMessageReplay) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKUserMessageReplay.ProtoReflect.Descriptor instead.
 func (*SDKUserMessageReplay) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{53}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *SDKUserMessageReplay) GetType() string {
@@ -4314,6 +4720,13 @@ func (x *SDKUserMessageReplay) GetToolUseResult() *JsonRawMessage {
 	return nil
 }
 
+func (x *SDKUserMessageReplay) GetOrigin() *SDKMessageOrigin {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
 func (x *SDKUserMessageReplay) GetIsReplay() bool {
 	if x != nil {
 		return x.IsReplay
@@ -4339,13 +4752,19 @@ type SDKResultMessageSuccess struct {
 	ModelUsage        map[string]*ModelUsage `protobuf:"bytes,13,rep,name=model_usage,json=modelUsage,proto3" json:"model_usage,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	PermissionDenials []*SDKPermissionDenial `protobuf:"bytes,14,rep,name=permission_denials,proto3" json:"permission_denials,omitempty"`
 	StructuredOutput  *JsonRawMessage        `protobuf:"bytes,15,opt,name=structured_output,proto3,oneof" json:"structured_output,omitempty"`
+	ApiErrorStatus    *int64                 `protobuf:"varint,16,opt,name=api_error_status,proto3,oneof" json:"api_error_status,omitempty"`
+	TtftMs            *int64                 `protobuf:"varint,17,opt,name=ttft_ms,proto3,oneof" json:"ttft_ms,omitempty"`
+	DeferredToolUse   *DeferredToolUse       `protobuf:"bytes,18,opt,name=deferred_tool_use,proto3,oneof" json:"deferred_tool_use,omitempty"`
+	TerminalReason    *string                `protobuf:"bytes,19,opt,name=terminal_reason,proto3,oneof" json:"terminal_reason,omitempty"`
+	FastModeState     *string                `protobuf:"bytes,20,opt,name=fast_mode_state,proto3,oneof" json:"fast_mode_state,omitempty"`
+	Origin            *SDKMessageOrigin      `protobuf:"bytes,21,opt,name=origin,proto3,oneof" json:"origin,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *SDKResultMessageSuccess) Reset() {
 	*x = SDKResultMessageSuccess{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[54]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4357,7 +4776,7 @@ func (x *SDKResultMessageSuccess) String() string {
 func (*SDKResultMessageSuccess) ProtoMessage() {}
 
 func (x *SDKResultMessageSuccess) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[54]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4370,7 +4789,7 @@ func (x *SDKResultMessageSuccess) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKResultMessageSuccess.ProtoReflect.Descriptor instead.
 func (*SDKResultMessageSuccess) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{54}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *SDKResultMessageSuccess) GetType() string {
@@ -4478,6 +4897,48 @@ func (x *SDKResultMessageSuccess) GetStructuredOutput() *JsonRawMessage {
 	return nil
 }
 
+func (x *SDKResultMessageSuccess) GetApiErrorStatus() int64 {
+	if x != nil && x.ApiErrorStatus != nil {
+		return *x.ApiErrorStatus
+	}
+	return 0
+}
+
+func (x *SDKResultMessageSuccess) GetTtftMs() int64 {
+	if x != nil && x.TtftMs != nil {
+		return *x.TtftMs
+	}
+	return 0
+}
+
+func (x *SDKResultMessageSuccess) GetDeferredToolUse() *DeferredToolUse {
+	if x != nil {
+		return x.DeferredToolUse
+	}
+	return nil
+}
+
+func (x *SDKResultMessageSuccess) GetTerminalReason() string {
+	if x != nil && x.TerminalReason != nil {
+		return *x.TerminalReason
+	}
+	return ""
+}
+
+func (x *SDKResultMessageSuccess) GetFastModeState() string {
+	if x != nil && x.FastModeState != nil {
+		return *x.FastModeState
+	}
+	return ""
+}
+
+func (x *SDKResultMessageSuccess) GetOrigin() *SDKMessageOrigin {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
 type SDKResultMessageError struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -4495,13 +4956,16 @@ type SDKResultMessageError struct {
 	ModelUsage        map[string]*ModelUsage `protobuf:"bytes,12,rep,name=model_usage,json=modelUsage,proto3" json:"model_usage,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	PermissionDenials []*SDKPermissionDenial `protobuf:"bytes,13,rep,name=permission_denials,proto3" json:"permission_denials,omitempty"`
 	Errors            []string               `protobuf:"bytes,14,rep,name=errors,proto3" json:"errors,omitempty"`
+	TerminalReason    *string                `protobuf:"bytes,15,opt,name=terminal_reason,proto3,oneof" json:"terminal_reason,omitempty"`
+	FastModeState     *string                `protobuf:"bytes,16,opt,name=fast_mode_state,proto3,oneof" json:"fast_mode_state,omitempty"`
+	Origin            *SDKMessageOrigin      `protobuf:"bytes,17,opt,name=origin,proto3,oneof" json:"origin,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *SDKResultMessageError) Reset() {
 	*x = SDKResultMessageError{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[55]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4513,7 +4977,7 @@ func (x *SDKResultMessageError) String() string {
 func (*SDKResultMessageError) ProtoMessage() {}
 
 func (x *SDKResultMessageError) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[55]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4526,7 +4990,7 @@ func (x *SDKResultMessageError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKResultMessageError.ProtoReflect.Descriptor instead.
 func (*SDKResultMessageError) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{55}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SDKResultMessageError) GetType() string {
@@ -4627,6 +5091,27 @@ func (x *SDKResultMessageError) GetErrors() []string {
 	return nil
 }
 
+func (x *SDKResultMessageError) GetTerminalReason() string {
+	if x != nil && x.TerminalReason != nil {
+		return *x.TerminalReason
+	}
+	return ""
+}
+
+func (x *SDKResultMessageError) GetFastModeState() string {
+	if x != nil && x.FastModeState != nil {
+		return *x.FastModeState
+	}
+	return ""
+}
+
+func (x *SDKResultMessageError) GetOrigin() *SDKMessageOrigin {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdksystemmessage
 type SDKSystemServer struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -4638,7 +5123,7 @@ type SDKSystemServer struct {
 
 func (x *SDKSystemServer) Reset() {
 	*x = SDKSystemServer{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[56]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4650,7 +5135,7 @@ func (x *SDKSystemServer) String() string {
 func (*SDKSystemServer) ProtoMessage() {}
 
 func (x *SDKSystemServer) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[56]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4663,7 +5148,7 @@ func (x *SDKSystemServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKSystemServer.ProtoReflect.Descriptor instead.
 func (*SDKSystemServer) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{56}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *SDKSystemServer) GetName() string {
@@ -4691,7 +5176,7 @@ type SDKSystemPlugin struct {
 
 func (x *SDKSystemPlugin) Reset() {
 	*x = SDKSystemPlugin{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[57]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4703,7 +5188,7 @@ func (x *SDKSystemPlugin) String() string {
 func (*SDKSystemPlugin) ProtoMessage() {}
 
 func (x *SDKSystemPlugin) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[57]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4716,7 +5201,7 @@ func (x *SDKSystemPlugin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKSystemPlugin.ProtoReflect.Descriptor instead.
 func (*SDKSystemPlugin) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{57}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *SDKSystemPlugin) GetName() string {
@@ -4759,7 +5244,7 @@ type SDKSystemMessage struct {
 
 func (x *SDKSystemMessage) Reset() {
 	*x = SDKSystemMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[58]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4771,7 +5256,7 @@ func (x *SDKSystemMessage) String() string {
 func (*SDKSystemMessage) ProtoMessage() {}
 
 func (x *SDKSystemMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[58]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4784,7 +5269,7 @@ func (x *SDKSystemMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKSystemMessage.ProtoReflect.Descriptor instead.
 func (*SDKSystemMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{58}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *SDKSystemMessage) GetType() string {
@@ -4920,7 +5405,7 @@ type SDKPartialAssistantMessage struct {
 
 func (x *SDKPartialAssistantMessage) Reset() {
 	*x = SDKPartialAssistantMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[59]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4932,7 +5417,7 @@ func (x *SDKPartialAssistantMessage) String() string {
 func (*SDKPartialAssistantMessage) ProtoMessage() {}
 
 func (x *SDKPartialAssistantMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[59]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4945,7 +5430,7 @@ func (x *SDKPartialAssistantMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKPartialAssistantMessage.ProtoReflect.Descriptor instead.
 func (*SDKPartialAssistantMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{59}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *SDKPartialAssistantMessage) GetType() string {
@@ -4997,7 +5482,7 @@ type SDKCompactBoundaryMessage struct {
 
 func (x *SDKCompactBoundaryMessage) Reset() {
 	*x = SDKCompactBoundaryMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[60]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5009,7 +5494,7 @@ func (x *SDKCompactBoundaryMessage) String() string {
 func (*SDKCompactBoundaryMessage) ProtoMessage() {}
 
 func (x *SDKCompactBoundaryMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[60]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5022,7 +5507,7 @@ func (x *SDKCompactBoundaryMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKCompactBoundaryMessage.ProtoReflect.Descriptor instead.
 func (*SDKCompactBoundaryMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{60}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *SDKCompactBoundaryMessage) GetType() string {
@@ -5075,7 +5560,7 @@ type SDKStatusMessage struct {
 
 func (x *SDKStatusMessage) Reset() {
 	*x = SDKStatusMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[61]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5087,7 +5572,7 @@ func (x *SDKStatusMessage) String() string {
 func (*SDKStatusMessage) ProtoMessage() {}
 
 func (x *SDKStatusMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[61]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5100,7 +5585,7 @@ func (x *SDKStatusMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKStatusMessage.ProtoReflect.Descriptor instead.
 func (*SDKStatusMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{61}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *SDKStatusMessage) GetType() string {
@@ -5159,7 +5644,7 @@ type SDKLocalCommandOutputMessage struct {
 
 func (x *SDKLocalCommandOutputMessage) Reset() {
 	*x = SDKLocalCommandOutputMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[62]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5171,7 +5656,7 @@ func (x *SDKLocalCommandOutputMessage) String() string {
 func (*SDKLocalCommandOutputMessage) ProtoMessage() {}
 
 func (x *SDKLocalCommandOutputMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[62]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5184,7 +5669,7 @@ func (x *SDKLocalCommandOutputMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKLocalCommandOutputMessage.ProtoReflect.Descriptor instead.
 func (*SDKLocalCommandOutputMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{62}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *SDKLocalCommandOutputMessage) GetType() string {
@@ -5238,7 +5723,7 @@ type SDKHookStartedMessage struct {
 
 func (x *SDKHookStartedMessage) Reset() {
 	*x = SDKHookStartedMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[63]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5250,7 +5735,7 @@ func (x *SDKHookStartedMessage) String() string {
 func (*SDKHookStartedMessage) ProtoMessage() {}
 
 func (x *SDKHookStartedMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[63]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5263,7 +5748,7 @@ func (x *SDKHookStartedMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKHookStartedMessage.ProtoReflect.Descriptor instead.
 func (*SDKHookStartedMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{63}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *SDKHookStartedMessage) GetType() string {
@@ -5334,7 +5819,7 @@ type SDKHookProgressMessage struct {
 
 func (x *SDKHookProgressMessage) Reset() {
 	*x = SDKHookProgressMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[64]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5346,7 +5831,7 @@ func (x *SDKHookProgressMessage) String() string {
 func (*SDKHookProgressMessage) ProtoMessage() {}
 
 func (x *SDKHookProgressMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[64]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5359,7 +5844,7 @@ func (x *SDKHookProgressMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKHookProgressMessage.ProtoReflect.Descriptor instead.
 func (*SDKHookProgressMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{64}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *SDKHookProgressMessage) GetType() string {
@@ -5453,7 +5938,7 @@ type SDKHookResponseMessage struct {
 
 func (x *SDKHookResponseMessage) Reset() {
 	*x = SDKHookResponseMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[65]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5465,7 +5950,7 @@ func (x *SDKHookResponseMessage) String() string {
 func (*SDKHookResponseMessage) ProtoMessage() {}
 
 func (x *SDKHookResponseMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[65]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5478,7 +5963,7 @@ func (x *SDKHookResponseMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKHookResponseMessage.ProtoReflect.Descriptor instead.
 func (*SDKHookResponseMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{65}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *SDKHookResponseMessage) GetType() string {
@@ -5582,7 +6067,7 @@ type SDKToolProgressMessage struct {
 
 func (x *SDKToolProgressMessage) Reset() {
 	*x = SDKToolProgressMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[66]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5594,7 +6079,7 @@ func (x *SDKToolProgressMessage) String() string {
 func (*SDKToolProgressMessage) ProtoMessage() {}
 
 func (x *SDKToolProgressMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[66]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5607,7 +6092,7 @@ func (x *SDKToolProgressMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKToolProgressMessage.ProtoReflect.Descriptor instead.
 func (*SDKToolProgressMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{66}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *SDKToolProgressMessage) GetType() string {
@@ -5681,7 +6166,7 @@ type SDKAuthStatusMessage struct {
 
 func (x *SDKAuthStatusMessage) Reset() {
 	*x = SDKAuthStatusMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[67]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5693,7 +6178,7 @@ func (x *SDKAuthStatusMessage) String() string {
 func (*SDKAuthStatusMessage) ProtoMessage() {}
 
 func (x *SDKAuthStatusMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[67]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5706,7 +6191,7 @@ func (x *SDKAuthStatusMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKAuthStatusMessage.ProtoReflect.Descriptor instead.
 func (*SDKAuthStatusMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{67}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *SDKAuthStatusMessage) GetType() string {
@@ -5770,7 +6255,7 @@ type SDKTaskNotificationMessage struct {
 
 func (x *SDKTaskNotificationMessage) Reset() {
 	*x = SDKTaskNotificationMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[68]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5782,7 +6267,7 @@ func (x *SDKTaskNotificationMessage) String() string {
 func (*SDKTaskNotificationMessage) ProtoMessage() {}
 
 func (x *SDKTaskNotificationMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[68]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5795,7 +6280,7 @@ func (x *SDKTaskNotificationMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKTaskNotificationMessage.ProtoReflect.Descriptor instead.
 func (*SDKTaskNotificationMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{68}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *SDKTaskNotificationMessage) GetType() string {
@@ -5885,7 +6370,7 @@ type SDKTaskStartedMessage struct {
 
 func (x *SDKTaskStartedMessage) Reset() {
 	*x = SDKTaskStartedMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[69]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5897,7 +6382,7 @@ func (x *SDKTaskStartedMessage) String() string {
 func (*SDKTaskStartedMessage) ProtoMessage() {}
 
 func (x *SDKTaskStartedMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[69]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5910,7 +6395,7 @@ func (x *SDKTaskStartedMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKTaskStartedMessage.ProtoReflect.Descriptor instead.
 func (*SDKTaskStartedMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{69}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *SDKTaskStartedMessage) GetType() string {
@@ -5979,6 +6464,8 @@ type SDKTaskProgressMessage struct {
 	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	Usage         *TaskUsageSummary      `protobuf:"bytes,6,opt,name=usage,proto3" json:"usage,omitempty"`
 	LastToolName  *string                `protobuf:"bytes,7,opt,name=last_tool_name,proto3,oneof" json:"last_tool_name,omitempty"`
+	SubagentType  *string                `protobuf:"bytes,10,opt,name=subagent_type,proto3,oneof" json:"subagent_type,omitempty"`
+	Summary       *string                `protobuf:"bytes,11,opt,name=summary,proto3,oneof" json:"summary,omitempty"`
 	Uuid          string                 `protobuf:"bytes,8,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	SessionId     string                 `protobuf:"bytes,9,opt,name=session_id,proto3" json:"session_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -5987,7 +6474,7 @@ type SDKTaskProgressMessage struct {
 
 func (x *SDKTaskProgressMessage) Reset() {
 	*x = SDKTaskProgressMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[70]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5999,7 +6486,7 @@ func (x *SDKTaskProgressMessage) String() string {
 func (*SDKTaskProgressMessage) ProtoMessage() {}
 
 func (x *SDKTaskProgressMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[70]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6012,7 +6499,7 @@ func (x *SDKTaskProgressMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKTaskProgressMessage.ProtoReflect.Descriptor instead.
 func (*SDKTaskProgressMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{70}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *SDKTaskProgressMessage) GetType() string {
@@ -6064,6 +6551,20 @@ func (x *SDKTaskProgressMessage) GetLastToolName() string {
 	return ""
 }
 
+func (x *SDKTaskProgressMessage) GetSubagentType() string {
+	if x != nil && x.SubagentType != nil {
+		return *x.SubagentType
+	}
+	return ""
+}
+
+func (x *SDKTaskProgressMessage) GetSummary() string {
+	if x != nil && x.Summary != nil {
+		return *x.Summary
+	}
+	return ""
+}
+
 func (x *SDKTaskProgressMessage) GetUuid() string {
 	if x != nil {
 		return x.Uuid
@@ -6089,7 +6590,7 @@ type FilesPersistedFile struct {
 
 func (x *FilesPersistedFile) Reset() {
 	*x = FilesPersistedFile{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[71]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6101,7 +6602,7 @@ func (x *FilesPersistedFile) String() string {
 func (*FilesPersistedFile) ProtoMessage() {}
 
 func (x *FilesPersistedFile) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[71]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6114,7 +6615,7 @@ func (x *FilesPersistedFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilesPersistedFile.ProtoReflect.Descriptor instead.
 func (*FilesPersistedFile) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{71}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *FilesPersistedFile) GetFilename() string {
@@ -6142,7 +6643,7 @@ type FilesPersistedFailure struct {
 
 func (x *FilesPersistedFailure) Reset() {
 	*x = FilesPersistedFailure{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[72]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6154,7 +6655,7 @@ func (x *FilesPersistedFailure) String() string {
 func (*FilesPersistedFailure) ProtoMessage() {}
 
 func (x *FilesPersistedFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[72]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6167,7 +6668,7 @@ func (x *FilesPersistedFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilesPersistedFailure.ProtoReflect.Descriptor instead.
 func (*FilesPersistedFailure) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{72}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *FilesPersistedFailure) GetFilename() string {
@@ -6200,7 +6701,7 @@ type SDKFilesPersistedEvent struct {
 
 func (x *SDKFilesPersistedEvent) Reset() {
 	*x = SDKFilesPersistedEvent{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[73]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6212,7 +6713,7 @@ func (x *SDKFilesPersistedEvent) String() string {
 func (*SDKFilesPersistedEvent) ProtoMessage() {}
 
 func (x *SDKFilesPersistedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[73]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6225,7 +6726,7 @@ func (x *SDKFilesPersistedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKFilesPersistedEvent.ProtoReflect.Descriptor instead.
 func (*SDKFilesPersistedEvent) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{73}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *SDKFilesPersistedEvent) GetType() string {
@@ -6289,7 +6790,7 @@ type RateLimitInfo struct {
 
 func (x *RateLimitInfo) Reset() {
 	*x = RateLimitInfo{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[74]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6301,7 +6802,7 @@ func (x *RateLimitInfo) String() string {
 func (*RateLimitInfo) ProtoMessage() {}
 
 func (x *RateLimitInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[74]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6314,7 +6815,7 @@ func (x *RateLimitInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RateLimitInfo.ProtoReflect.Descriptor instead.
 func (*RateLimitInfo) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{74}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *RateLimitInfo) GetStatus() string {
@@ -6352,7 +6853,7 @@ type SDKToolUseSummaryMessage struct {
 
 func (x *SDKToolUseSummaryMessage) Reset() {
 	*x = SDKToolUseSummaryMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[75]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6364,7 +6865,7 @@ func (x *SDKToolUseSummaryMessage) String() string {
 func (*SDKToolUseSummaryMessage) ProtoMessage() {}
 
 func (x *SDKToolUseSummaryMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[75]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6377,7 +6878,7 @@ func (x *SDKToolUseSummaryMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKToolUseSummaryMessage.ProtoReflect.Descriptor instead.
 func (*SDKToolUseSummaryMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{75}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *SDKToolUseSummaryMessage) GetType() string {
@@ -6428,7 +6929,7 @@ type SDKRateLimitEvent struct {
 
 func (x *SDKRateLimitEvent) Reset() {
 	*x = SDKRateLimitEvent{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[76]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6440,7 +6941,7 @@ func (x *SDKRateLimitEvent) String() string {
 func (*SDKRateLimitEvent) ProtoMessage() {}
 
 func (x *SDKRateLimitEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[76]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6453,7 +6954,7 @@ func (x *SDKRateLimitEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKRateLimitEvent.ProtoReflect.Descriptor instead.
 func (*SDKRateLimitEvent) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{76}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *SDKRateLimitEvent) GetType() string {
@@ -6497,7 +6998,7 @@ type SDKPromptSuggestionMessage struct {
 
 func (x *SDKPromptSuggestionMessage) Reset() {
 	*x = SDKPromptSuggestionMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[77]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6509,7 +7010,7 @@ func (x *SDKPromptSuggestionMessage) String() string {
 func (*SDKPromptSuggestionMessage) ProtoMessage() {}
 
 func (x *SDKPromptSuggestionMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[77]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6522,7 +7023,7 @@ func (x *SDKPromptSuggestionMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKPromptSuggestionMessage.ProtoReflect.Descriptor instead.
 func (*SDKPromptSuggestionMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{77}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *SDKPromptSuggestionMessage) GetType() string {
@@ -6580,6 +7081,10 @@ type SDKMessage struct {
 	//	*SDKMessage_ToolUseSummary
 	//	*SDKMessage_RateLimitEvent
 	//	*SDKMessage_PromptSuggestion
+	//	*SDKMessage_TaskUpdated
+	//	*SDKMessage_CommandsChanged
+	//	*SDKMessage_PluginInstall
+	//	*SDKMessage_PermissionDenied
 	//	*SDKMessage_Unknown
 	Value         isSDKMessage_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
@@ -6588,7 +7093,7 @@ type SDKMessage struct {
 
 func (x *SDKMessage) Reset() {
 	*x = SDKMessage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[78]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6600,7 +7105,7 @@ func (x *SDKMessage) String() string {
 func (*SDKMessage) ProtoMessage() {}
 
 func (x *SDKMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[78]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6613,7 +7118,7 @@ func (x *SDKMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDKMessage.ProtoReflect.Descriptor instead.
 func (*SDKMessage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{78}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *SDKMessage) GetValue() isSDKMessage_Value {
@@ -6821,6 +7326,42 @@ func (x *SDKMessage) GetPromptSuggestion() *SDKPromptSuggestionMessage {
 	return nil
 }
 
+func (x *SDKMessage) GetTaskUpdated() *SDKTaskUpdatedMessage {
+	if x != nil {
+		if x, ok := x.Value.(*SDKMessage_TaskUpdated); ok {
+			return x.TaskUpdated
+		}
+	}
+	return nil
+}
+
+func (x *SDKMessage) GetCommandsChanged() *SDKCommandsChangedMessage {
+	if x != nil {
+		if x, ok := x.Value.(*SDKMessage_CommandsChanged); ok {
+			return x.CommandsChanged
+		}
+	}
+	return nil
+}
+
+func (x *SDKMessage) GetPluginInstall() *SDKPluginInstallMessage {
+	if x != nil {
+		if x, ok := x.Value.(*SDKMessage_PluginInstall); ok {
+			return x.PluginInstall
+		}
+	}
+	return nil
+}
+
+func (x *SDKMessage) GetPermissionDenied() *SDKPermissionDeniedMessage {
+	if x != nil {
+		if x, ok := x.Value.(*SDKMessage_PermissionDenied); ok {
+			return x.PermissionDenied
+		}
+	}
+	return nil
+}
+
 func (x *SDKMessage) GetUnknown() *UnknownVariant {
 	if x != nil {
 		if x, ok := x.Value.(*SDKMessage_Unknown); ok {
@@ -6922,6 +7463,22 @@ type SDKMessage_PromptSuggestion struct {
 	PromptSuggestion *SDKPromptSuggestionMessage `protobuf:"bytes,22,opt,name=prompt_suggestion,json=promptSuggestion,proto3,oneof"`
 }
 
+type SDKMessage_TaskUpdated struct {
+	TaskUpdated *SDKTaskUpdatedMessage `protobuf:"bytes,23,opt,name=task_updated,json=taskUpdated,proto3,oneof"`
+}
+
+type SDKMessage_CommandsChanged struct {
+	CommandsChanged *SDKCommandsChangedMessage `protobuf:"bytes,24,opt,name=commands_changed,json=commandsChanged,proto3,oneof"`
+}
+
+type SDKMessage_PluginInstall struct {
+	PluginInstall *SDKPluginInstallMessage `protobuf:"bytes,25,opt,name=plugin_install,json=pluginInstall,proto3,oneof"`
+}
+
+type SDKMessage_PermissionDenied struct {
+	PermissionDenied *SDKPermissionDeniedMessage `protobuf:"bytes,26,opt,name=permission_denied,json=permissionDenied,proto3,oneof"`
+}
+
 type SDKMessage_Unknown struct {
 	Unknown *UnknownVariant `protobuf:"bytes,99,opt,name=unknown,proto3,oneof"`
 }
@@ -6970,7 +7527,602 @@ func (*SDKMessage_RateLimitEvent) isSDKMessage_Value() {}
 
 func (*SDKMessage_PromptSuggestion) isSDKMessage_Value() {}
 
+func (*SDKMessage_TaskUpdated) isSDKMessage_Value() {}
+
+func (*SDKMessage_CommandsChanged) isSDKMessage_Value() {}
+
+func (*SDKMessage_PluginInstall) isSDKMessage_Value() {}
+
+func (*SDKMessage_PermissionDenied) isSDKMessage_Value() {}
+
 func (*SDKMessage_Unknown) isSDKMessage_Value() {}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkmessageorigin
+type SDKMessageOrigin struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Server        *string                `protobuf:"bytes,2,opt,name=server,proto3,oneof" json:"server,omitempty"`
+	From          *string                `protobuf:"bytes,3,opt,name=from,proto3,oneof" json:"from,omitempty"`
+	Name          *string                `protobuf:"bytes,4,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SDKMessageOrigin) Reset() {
+	*x = SDKMessageOrigin{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SDKMessageOrigin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SDKMessageOrigin) ProtoMessage() {}
+
+func (x *SDKMessageOrigin) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SDKMessageOrigin.ProtoReflect.Descriptor instead.
+func (*SDKMessageOrigin) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *SDKMessageOrigin) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *SDKMessageOrigin) GetServer() string {
+	if x != nil && x.Server != nil {
+		return *x.Server
+	}
+	return ""
+}
+
+func (x *SDKMessageOrigin) GetFrom() string {
+	if x != nil && x.From != nil {
+		return *x.From
+	}
+	return ""
+}
+
+func (x *SDKMessageOrigin) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage
+type DeferredToolUse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Input         *structpb.Struct       `protobuf:"bytes,3,opt,name=input,proto3" json:"input,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeferredToolUse) Reset() {
+	*x = DeferredToolUse{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeferredToolUse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeferredToolUse) ProtoMessage() {}
+
+func (x *DeferredToolUse) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeferredToolUse.ProtoReflect.Descriptor instead.
+func (*DeferredToolUse) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *DeferredToolUse) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeferredToolUse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DeferredToolUse) GetInput() *structpb.Struct {
+	if x != nil {
+		return x.Input
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskupdatedmessage
+type SDKTaskUpdatedPatch struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Status         *string                `protobuf:"bytes,1,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Description    *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	EndTime        *int64                 `protobuf:"varint,3,opt,name=end_time,proto3,oneof" json:"end_time,omitempty"`
+	TotalPausedMs  *int64                 `protobuf:"varint,4,opt,name=total_paused_ms,proto3,oneof" json:"total_paused_ms,omitempty"`
+	Error          *string                `protobuf:"bytes,5,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	IsBackgrounded *bool                  `protobuf:"varint,6,opt,name=is_backgrounded,proto3,oneof" json:"is_backgrounded,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SDKTaskUpdatedPatch) Reset() {
+	*x = SDKTaskUpdatedPatch{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SDKTaskUpdatedPatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SDKTaskUpdatedPatch) ProtoMessage() {}
+
+func (x *SDKTaskUpdatedPatch) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SDKTaskUpdatedPatch.ProtoReflect.Descriptor instead.
+func (*SDKTaskUpdatedPatch) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *SDKTaskUpdatedPatch) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *SDKTaskUpdatedPatch) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *SDKTaskUpdatedPatch) GetEndTime() int64 {
+	if x != nil && x.EndTime != nil {
+		return *x.EndTime
+	}
+	return 0
+}
+
+func (x *SDKTaskUpdatedPatch) GetTotalPausedMs() int64 {
+	if x != nil && x.TotalPausedMs != nil {
+		return *x.TotalPausedMs
+	}
+	return 0
+}
+
+func (x *SDKTaskUpdatedPatch) GetError() string {
+	if x != nil && x.Error != nil {
+		return *x.Error
+	}
+	return ""
+}
+
+func (x *SDKTaskUpdatedPatch) GetIsBackgrounded() bool {
+	if x != nil && x.IsBackgrounded != nil {
+		return *x.IsBackgrounded
+	}
+	return false
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdktaskupdatedmessage
+type SDKTaskUpdatedMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Subtype       string                 `protobuf:"bytes,2,opt,name=subtype,proto3" json:"subtype,omitempty"`
+	TaskId        string                 `protobuf:"bytes,3,opt,name=task_id,proto3" json:"task_id,omitempty"`
+	Patch         *SDKTaskUpdatedPatch   `protobuf:"bytes,4,opt,name=patch,proto3" json:"patch,omitempty"`
+	Uuid          string                 `protobuf:"bytes,5,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	SessionId     string                 `protobuf:"bytes,6,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SDKTaskUpdatedMessage) Reset() {
+	*x = SDKTaskUpdatedMessage{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SDKTaskUpdatedMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SDKTaskUpdatedMessage) ProtoMessage() {}
+
+func (x *SDKTaskUpdatedMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SDKTaskUpdatedMessage.ProtoReflect.Descriptor instead.
+func (*SDKTaskUpdatedMessage) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *SDKTaskUpdatedMessage) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SDKTaskUpdatedMessage) GetSubtype() string {
+	if x != nil {
+		return x.Subtype
+	}
+	return ""
+}
+
+func (x *SDKTaskUpdatedMessage) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *SDKTaskUpdatedMessage) GetPatch() *SDKTaskUpdatedPatch {
+	if x != nil {
+		return x.Patch
+	}
+	return nil
+}
+
+func (x *SDKTaskUpdatedMessage) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *SDKTaskUpdatedMessage) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkcommandschangedmessage
+type SDKCommandsChangedMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Subtype       string                 `protobuf:"bytes,2,opt,name=subtype,proto3" json:"subtype,omitempty"`
+	Commands      []*SlashCommand        `protobuf:"bytes,3,rep,name=commands,proto3" json:"commands,omitempty"`
+	Uuid          string                 `protobuf:"bytes,4,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	SessionId     string                 `protobuf:"bytes,5,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SDKCommandsChangedMessage) Reset() {
+	*x = SDKCommandsChangedMessage{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SDKCommandsChangedMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SDKCommandsChangedMessage) ProtoMessage() {}
+
+func (x *SDKCommandsChangedMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SDKCommandsChangedMessage.ProtoReflect.Descriptor instead.
+func (*SDKCommandsChangedMessage) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *SDKCommandsChangedMessage) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SDKCommandsChangedMessage) GetSubtype() string {
+	if x != nil {
+		return x.Subtype
+	}
+	return ""
+}
+
+func (x *SDKCommandsChangedMessage) GetCommands() []*SlashCommand {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
+func (x *SDKCommandsChangedMessage) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *SDKCommandsChangedMessage) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkplugininstallmessage
+type SDKPluginInstallMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Subtype       string                 `protobuf:"bytes,2,opt,name=subtype,proto3" json:"subtype,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	Name          *string                `protobuf:"bytes,4,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Error         *string                `protobuf:"bytes,5,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	Uuid          string                 `protobuf:"bytes,6,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	SessionId     string                 `protobuf:"bytes,7,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SDKPluginInstallMessage) Reset() {
+	*x = SDKPluginInstallMessage{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SDKPluginInstallMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SDKPluginInstallMessage) ProtoMessage() {}
+
+func (x *SDKPluginInstallMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SDKPluginInstallMessage.ProtoReflect.Descriptor instead.
+func (*SDKPluginInstallMessage) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *SDKPluginInstallMessage) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SDKPluginInstallMessage) GetSubtype() string {
+	if x != nil {
+		return x.Subtype
+	}
+	return ""
+}
+
+func (x *SDKPluginInstallMessage) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *SDKPluginInstallMessage) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *SDKPluginInstallMessage) GetError() string {
+	if x != nil && x.Error != nil {
+		return *x.Error
+	}
+	return ""
+}
+
+func (x *SDKPluginInstallMessage) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *SDKPluginInstallMessage) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#sdkpermissiondeniedmessage
+type SDKPermissionDeniedMessage struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Type               string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Subtype            string                 `protobuf:"bytes,2,opt,name=subtype,proto3" json:"subtype,omitempty"`
+	ToolName           string                 `protobuf:"bytes,3,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
+	ToolUseId          string                 `protobuf:"bytes,4,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
+	AgentId            *string                `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
+	DecisionReasonType *string                `protobuf:"bytes,6,opt,name=decision_reason_type,proto3,oneof" json:"decision_reason_type,omitempty"`
+	DecisionReason     *string                `protobuf:"bytes,7,opt,name=decision_reason,proto3,oneof" json:"decision_reason,omitempty"`
+	Message            string                 `protobuf:"bytes,8,opt,name=message,proto3" json:"message,omitempty"`
+	Uuid               string                 `protobuf:"bytes,9,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	SessionId          string                 `protobuf:"bytes,10,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SDKPermissionDeniedMessage) Reset() {
+	*x = SDKPermissionDeniedMessage{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SDKPermissionDeniedMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SDKPermissionDeniedMessage) ProtoMessage() {}
+
+func (x *SDKPermissionDeniedMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SDKPermissionDeniedMessage.ProtoReflect.Descriptor instead.
+func (*SDKPermissionDeniedMessage) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *SDKPermissionDeniedMessage) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetSubtype() string {
+	if x != nil {
+		return x.Subtype
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetToolName() string {
+	if x != nil {
+		return x.ToolName
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetToolUseId() string {
+	if x != nil {
+		return x.ToolUseId
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetAgentId() string {
+	if x != nil && x.AgentId != nil {
+		return *x.AgentId
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetDecisionReasonType() string {
+	if x != nil && x.DecisionReasonType != nil {
+		return *x.DecisionReasonType
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetDecisionReason() string {
+	if x != nil && x.DecisionReason != nil {
+		return *x.DecisionReason
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *SDKPermissionDeniedMessage) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type QuestionOption struct {
@@ -6984,7 +8136,7 @@ type QuestionOption struct {
 
 func (x *QuestionOption) Reset() {
 	*x = QuestionOption{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[79]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6996,7 +8148,7 @@ func (x *QuestionOption) String() string {
 func (*QuestionOption) ProtoMessage() {}
 
 func (x *QuestionOption) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[79]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7009,7 +8161,7 @@ func (x *QuestionOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QuestionOption.ProtoReflect.Descriptor instead.
 func (*QuestionOption) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{79}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *QuestionOption) GetLabel() string {
@@ -7046,7 +8198,7 @@ type Question struct {
 
 func (x *Question) Reset() {
 	*x = Question{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[80]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7058,7 +8210,7 @@ func (x *Question) String() string {
 func (*Question) ProtoMessage() {}
 
 func (x *Question) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[80]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7071,7 +8223,7 @@ func (x *Question) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Question.ProtoReflect.Descriptor instead.
 func (*Question) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{80}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *Question) GetQuestion() string {
@@ -7116,7 +8268,7 @@ type ToolInput struct {
 	//	*ToolInput_FileWrite
 	//	*ToolInput_Glob
 	//	*ToolInput_Grep
-	//	*ToolInput_KillShell
+	//	*ToolInput_TaskStop
 	//	*ToolInput_NotebookEdit
 	//	*ToolInput_WebFetch
 	//	*ToolInput_WebSearch
@@ -7125,6 +8277,14 @@ type ToolInput struct {
 	//	*ToolInput_ListMcpResources
 	//	*ToolInput_ReadMcpResource
 	//	*ToolInput_McpTool
+	//	*ToolInput_Monitor
+	//	*ToolInput_Workflow
+	//	*ToolInput_TaskCreate
+	//	*ToolInput_TaskUpdate
+	//	*ToolInput_TaskGet
+	//	*ToolInput_TaskList
+	//	*ToolInput_TaskOutput
+	//	*ToolInput_EnterWorktree
 	//	*ToolInput_Unknown
 	Input         isToolInput_Input `protobuf_oneof:"input"`
 	unknownFields protoimpl.UnknownFields
@@ -7133,7 +8293,7 @@ type ToolInput struct {
 
 func (x *ToolInput) Reset() {
 	*x = ToolInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[81]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7145,7 +8305,7 @@ func (x *ToolInput) String() string {
 func (*ToolInput) ProtoMessage() {}
 
 func (x *ToolInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[81]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7158,7 +8318,7 @@ func (x *ToolInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolInput.ProtoReflect.Descriptor instead.
 func (*ToolInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{81}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *ToolInput) GetInput() isToolInput_Input {
@@ -7249,10 +8409,10 @@ func (x *ToolInput) GetGrep() *GrepInput {
 	return nil
 }
 
-func (x *ToolInput) GetKillShell() *KillShellInput {
+func (x *ToolInput) GetTaskStop() *TaskStopInput {
 	if x != nil {
-		if x, ok := x.Input.(*ToolInput_KillShell); ok {
-			return x.KillShell
+		if x, ok := x.Input.(*ToolInput_TaskStop); ok {
+			return x.TaskStop
 		}
 	}
 	return nil
@@ -7330,6 +8490,78 @@ func (x *ToolInput) GetMcpTool() *structpb.Struct {
 	return nil
 }
 
+func (x *ToolInput) GetMonitor() *MonitorInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_Monitor); ok {
+			return x.Monitor
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetWorkflow() *WorkflowInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_Workflow); ok {
+			return x.Workflow
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetTaskCreate() *TaskCreateInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_TaskCreate); ok {
+			return x.TaskCreate
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetTaskUpdate() *TaskUpdateInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_TaskUpdate); ok {
+			return x.TaskUpdate
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetTaskGet() *TaskGetInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_TaskGet); ok {
+			return x.TaskGet
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetTaskList() *TaskListInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_TaskList); ok {
+			return x.TaskList
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetTaskOutput() *TaskOutputInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_TaskOutput); ok {
+			return x.TaskOutput
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetEnterWorktree() *EnterWorktreeInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_EnterWorktree); ok {
+			return x.EnterWorktree
+		}
+	}
+	return nil
+}
+
 func (x *ToolInput) GetUnknown() *UnknownVariant {
 	if x != nil {
 		if x, ok := x.Input.(*ToolInput_Unknown); ok {
@@ -7379,8 +8611,8 @@ type ToolInput_Grep struct {
 	Grep *GrepInput `protobuf:"bytes,9,opt,name=grep,proto3,oneof"`
 }
 
-type ToolInput_KillShell struct {
-	KillShell *KillShellInput `protobuf:"bytes,10,opt,name=kill_shell,json=killShell,proto3,oneof"`
+type ToolInput_TaskStop struct {
+	TaskStop *TaskStopInput `protobuf:"bytes,10,opt,name=task_stop,json=taskStop,proto3,oneof"`
 }
 
 type ToolInput_NotebookEdit struct {
@@ -7415,6 +8647,38 @@ type ToolInput_McpTool struct {
 	McpTool *structpb.Struct `protobuf:"bytes,18,opt,name=mcp_tool,json=mcpTool,proto3,oneof"`
 }
 
+type ToolInput_Monitor struct {
+	Monitor *MonitorInput `protobuf:"bytes,19,opt,name=monitor,proto3,oneof"`
+}
+
+type ToolInput_Workflow struct {
+	Workflow *WorkflowInput `protobuf:"bytes,20,opt,name=workflow,proto3,oneof"`
+}
+
+type ToolInput_TaskCreate struct {
+	TaskCreate *TaskCreateInput `protobuf:"bytes,21,opt,name=task_create,json=taskCreate,proto3,oneof"`
+}
+
+type ToolInput_TaskUpdate struct {
+	TaskUpdate *TaskUpdateInput `protobuf:"bytes,22,opt,name=task_update,json=taskUpdate,proto3,oneof"`
+}
+
+type ToolInput_TaskGet struct {
+	TaskGet *TaskGetInput `protobuf:"bytes,23,opt,name=task_get,json=taskGet,proto3,oneof"`
+}
+
+type ToolInput_TaskList struct {
+	TaskList *TaskListInput `protobuf:"bytes,24,opt,name=task_list,json=taskList,proto3,oneof"`
+}
+
+type ToolInput_TaskOutput struct {
+	TaskOutput *TaskOutputInput `protobuf:"bytes,25,opt,name=task_output,json=taskOutput,proto3,oneof"`
+}
+
+type ToolInput_EnterWorktree struct {
+	EnterWorktree *EnterWorktreeInput `protobuf:"bytes,26,opt,name=enter_worktree,json=enterWorktree,proto3,oneof"`
+}
+
 type ToolInput_Unknown struct {
 	Unknown *UnknownVariant `protobuf:"bytes,99,opt,name=unknown,proto3,oneof"`
 }
@@ -7437,7 +8701,7 @@ func (*ToolInput_Glob) isToolInput_Input() {}
 
 func (*ToolInput_Grep) isToolInput_Input() {}
 
-func (*ToolInput_KillShell) isToolInput_Input() {}
+func (*ToolInput_TaskStop) isToolInput_Input() {}
 
 func (*ToolInput_NotebookEdit) isToolInput_Input() {}
 
@@ -7455,6 +8719,22 @@ func (*ToolInput_ReadMcpResource) isToolInput_Input() {}
 
 func (*ToolInput_McpTool) isToolInput_Input() {}
 
+func (*ToolInput_Monitor) isToolInput_Input() {}
+
+func (*ToolInput_Workflow) isToolInput_Input() {}
+
+func (*ToolInput_TaskCreate) isToolInput_Input() {}
+
+func (*ToolInput_TaskUpdate) isToolInput_Input() {}
+
+func (*ToolInput_TaskGet) isToolInput_Input() {}
+
+func (*ToolInput_TaskList) isToolInput_Input() {}
+
+func (*ToolInput_TaskOutput) isToolInput_Input() {}
+
+func (*ToolInput_EnterWorktree) isToolInput_Input() {}
+
 func (*ToolInput_Unknown) isToolInput_Input() {}
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#task
@@ -7469,7 +8749,7 @@ type AgentInput struct {
 
 func (x *AgentInput) Reset() {
 	*x = AgentInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[82]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7481,7 +8761,7 @@ func (x *AgentInput) String() string {
 func (*AgentInput) ProtoMessage() {}
 
 func (x *AgentInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[82]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7494,7 +8774,7 @@ func (x *AgentInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentInput.ProtoReflect.Descriptor instead.
 func (*AgentInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{82}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *AgentInput) GetDescription() string {
@@ -7518,6 +8798,412 @@ func (x *AgentInput) GetSubagentType() string {
 	return ""
 }
 
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#monitor
+type MonitorInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Command       string                 `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	TimeoutMs     *int64                 `protobuf:"varint,3,opt,name=timeout_ms,proto3,oneof" json:"timeout_ms,omitempty"`
+	Persistent    *bool                  `protobuf:"varint,4,opt,name=persistent,proto3,oneof" json:"persistent,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MonitorInput) Reset() {
+	*x = MonitorInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[92]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MonitorInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MonitorInput) ProtoMessage() {}
+
+func (x *MonitorInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[92]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MonitorInput.ProtoReflect.Descriptor instead.
+func (*MonitorInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{92}
+}
+
+func (x *MonitorInput) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *MonitorInput) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *MonitorInput) GetTimeoutMs() int64 {
+	if x != nil && x.TimeoutMs != nil {
+		return *x.TimeoutMs
+	}
+	return 0
+}
+
+func (x *MonitorInput) GetPersistent() bool {
+	if x != nil && x.Persistent != nil {
+		return *x.Persistent
+	}
+	return false
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#workflow
+type WorkflowInput struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Script          *string                `protobuf:"bytes,1,opt,name=script,proto3,oneof" json:"script,omitempty"`
+	Name            *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	ScriptPath      *string                `protobuf:"bytes,3,opt,name=script_path,json=scriptPath,proto3,oneof" json:"script_path,omitempty"`
+	Args            *JsonRawMessage        `protobuf:"bytes,4,opt,name=args,proto3,oneof" json:"args,omitempty"`
+	ResumeFromRunId *string                `protobuf:"bytes,5,opt,name=resume_from_run_id,json=resumeFromRunId,proto3,oneof" json:"resume_from_run_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *WorkflowInput) Reset() {
+	*x = WorkflowInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[93]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowInput) ProtoMessage() {}
+
+func (x *WorkflowInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[93]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowInput.ProtoReflect.Descriptor instead.
+func (*WorkflowInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{93}
+}
+
+func (x *WorkflowInput) GetScript() string {
+	if x != nil && x.Script != nil {
+		return *x.Script
+	}
+	return ""
+}
+
+func (x *WorkflowInput) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *WorkflowInput) GetScriptPath() string {
+	if x != nil && x.ScriptPath != nil {
+		return *x.ScriptPath
+	}
+	return ""
+}
+
+func (x *WorkflowInput) GetArgs() *JsonRawMessage {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *WorkflowInput) GetResumeFromRunId() string {
+	if x != nil && x.ResumeFromRunId != nil {
+		return *x.ResumeFromRunId
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcreate
+type TaskCreateInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Subject       string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	ActiveForm    *string                `protobuf:"bytes,3,opt,name=active_form,json=activeForm,proto3,oneof" json:"active_form,omitempty"`
+	Metadata      *structpb.Struct       `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskCreateInput) Reset() {
+	*x = TaskCreateInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[94]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskCreateInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskCreateInput) ProtoMessage() {}
+
+func (x *TaskCreateInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[94]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskCreateInput.ProtoReflect.Descriptor instead.
+func (*TaskCreateInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{94}
+}
+
+func (x *TaskCreateInput) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *TaskCreateInput) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *TaskCreateInput) GetActiveForm() string {
+	if x != nil && x.ActiveForm != nil {
+		return *x.ActiveForm
+	}
+	return ""
+}
+
+func (x *TaskCreateInput) GetMetadata() *structpb.Struct {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskupdate
+type TaskUpdateInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Status        *string                `protobuf:"bytes,2,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Subject       *string                `protobuf:"bytes,3,opt,name=subject,proto3,oneof" json:"subject,omitempty"`
+	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	ActiveForm    *string                `protobuf:"bytes,5,opt,name=active_form,json=activeForm,proto3,oneof" json:"active_form,omitempty"`
+	AddBlocks     []string               `protobuf:"bytes,6,rep,name=add_blocks,json=addBlocks,proto3" json:"add_blocks,omitempty"`
+	AddBlockedBy  []string               `protobuf:"bytes,7,rep,name=add_blocked_by,json=addBlockedBy,proto3" json:"add_blocked_by,omitempty"`
+	Owner         *string                `protobuf:"bytes,8,opt,name=owner,proto3,oneof" json:"owner,omitempty"`
+	Metadata      *structpb.Struct       `protobuf:"bytes,9,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskUpdateInput) Reset() {
+	*x = TaskUpdateInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[95]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskUpdateInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskUpdateInput) ProtoMessage() {}
+
+func (x *TaskUpdateInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[95]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskUpdateInput.ProtoReflect.Descriptor instead.
+func (*TaskUpdateInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{95}
+}
+
+func (x *TaskUpdateInput) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskUpdateInput) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *TaskUpdateInput) GetSubject() string {
+	if x != nil && x.Subject != nil {
+		return *x.Subject
+	}
+	return ""
+}
+
+func (x *TaskUpdateInput) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *TaskUpdateInput) GetActiveForm() string {
+	if x != nil && x.ActiveForm != nil {
+		return *x.ActiveForm
+	}
+	return ""
+}
+
+func (x *TaskUpdateInput) GetAddBlocks() []string {
+	if x != nil {
+		return x.AddBlocks
+	}
+	return nil
+}
+
+func (x *TaskUpdateInput) GetAddBlockedBy() []string {
+	if x != nil {
+		return x.AddBlockedBy
+	}
+	return nil
+}
+
+func (x *TaskUpdateInput) GetOwner() string {
+	if x != nil && x.Owner != nil {
+		return *x.Owner
+	}
+	return ""
+}
+
+func (x *TaskUpdateInput) GetMetadata() *structpb.Struct {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskget
+type TaskGetInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskGetInput) Reset() {
+	*x = TaskGetInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[96]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskGetInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskGetInput) ProtoMessage() {}
+
+func (x *TaskGetInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[96]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskGetInput.ProtoReflect.Descriptor instead.
+func (*TaskGetInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{96}
+}
+
+func (x *TaskGetInput) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tasklist
+type TaskListInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskListInput) Reset() {
+	*x = TaskListInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[97]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskListInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskListInput) ProtoMessage() {}
+
+func (x *TaskListInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[97]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskListInput.ProtoReflect.Descriptor instead.
+func (*TaskListInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{97}
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#askuserquestion
 type AskUserQuestionInput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -7529,7 +9215,7 @@ type AskUserQuestionInput struct {
 
 func (x *AskUserQuestionInput) Reset() {
 	*x = AskUserQuestionInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[83]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7541,7 +9227,7 @@ func (x *AskUserQuestionInput) String() string {
 func (*AskUserQuestionInput) ProtoMessage() {}
 
 func (x *AskUserQuestionInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[83]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7554,7 +9240,7 @@ func (x *AskUserQuestionInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AskUserQuestionInput.ProtoReflect.Descriptor instead.
 func (*AskUserQuestionInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{83}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *AskUserQuestionInput) GetQuestions() []*Question {
@@ -7584,7 +9270,7 @@ type BashInput struct {
 
 func (x *BashInput) Reset() {
 	*x = BashInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[84]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7596,7 +9282,7 @@ func (x *BashInput) String() string {
 func (*BashInput) ProtoMessage() {}
 
 func (x *BashInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[84]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7609,7 +9295,7 @@ func (x *BashInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BashInput.ProtoReflect.Descriptor instead.
 func (*BashInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{84}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *BashInput) GetCommand() string {
@@ -7651,7 +9337,7 @@ type BashOutputInput struct {
 
 func (x *BashOutputInput) Reset() {
 	*x = BashOutputInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[85]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7663,7 +9349,7 @@ func (x *BashOutputInput) String() string {
 func (*BashOutputInput) ProtoMessage() {}
 
 func (x *BashOutputInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[85]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7676,7 +9362,7 @@ func (x *BashOutputInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BashOutputInput.ProtoReflect.Descriptor instead.
 func (*BashOutputInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{85}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *BashOutputInput) GetBashId() string {
@@ -7706,7 +9392,7 @@ type FileEditInput struct {
 
 func (x *FileEditInput) Reset() {
 	*x = FileEditInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[86]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7718,7 +9404,7 @@ func (x *FileEditInput) String() string {
 func (*FileEditInput) ProtoMessage() {}
 
 func (x *FileEditInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[86]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7731,7 +9417,7 @@ func (x *FileEditInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileEditInput.ProtoReflect.Descriptor instead.
 func (*FileEditInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{86}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *FileEditInput) GetFilePath() string {
@@ -7774,7 +9460,7 @@ type FileReadInput struct {
 
 func (x *FileReadInput) Reset() {
 	*x = FileReadInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[87]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7786,7 +9472,7 @@ func (x *FileReadInput) String() string {
 func (*FileReadInput) ProtoMessage() {}
 
 func (x *FileReadInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[87]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7799,7 +9485,7 @@ func (x *FileReadInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadInput.ProtoReflect.Descriptor instead.
 func (*FileReadInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{87}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *FileReadInput) GetFilePath() string {
@@ -7834,7 +9520,7 @@ type FileWriteInput struct {
 
 func (x *FileWriteInput) Reset() {
 	*x = FileWriteInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[88]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7846,7 +9532,7 @@ func (x *FileWriteInput) String() string {
 func (*FileWriteInput) ProtoMessage() {}
 
 func (x *FileWriteInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[88]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7859,7 +9545,7 @@ func (x *FileWriteInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileWriteInput.ProtoReflect.Descriptor instead.
 func (*FileWriteInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{88}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *FileWriteInput) GetFilePath() string {
@@ -7887,7 +9573,7 @@ type GlobInput struct {
 
 func (x *GlobInput) Reset() {
 	*x = GlobInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[89]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7899,7 +9585,7 @@ func (x *GlobInput) String() string {
 func (*GlobInput) ProtoMessage() {}
 
 func (x *GlobInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[89]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7912,7 +9598,7 @@ func (x *GlobInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GlobInput.ProtoReflect.Descriptor instead.
 func (*GlobInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{89}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *GlobInput) GetPattern() string {
@@ -7950,7 +9636,7 @@ type GrepInput struct {
 
 func (x *GrepInput) Reset() {
 	*x = GrepInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[90]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7962,7 +9648,7 @@ func (x *GrepInput) String() string {
 func (*GrepInput) ProtoMessage() {}
 
 func (x *GrepInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[90]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7975,7 +9661,7 @@ func (x *GrepInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrepInput.ProtoReflect.Descriptor instead.
 func (*GrepInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{90}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *GrepInput) GetPattern() string {
@@ -8063,28 +9749,31 @@ func (x *GrepInput) GetMultiline() bool {
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
-type KillShellInput struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ShellId       string                 `protobuf:"bytes,1,opt,name=shell_id,proto3" json:"shell_id,omitempty"`
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskstop
+type TaskStopInput struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	TaskId *string                `protobuf:"bytes,1,opt,name=task_id,proto3,oneof" json:"task_id,omitempty"`
+	// shell_id is deprecated; use task_id.
+	ShellId       *string `protobuf:"bytes,2,opt,name=shell_id,proto3,oneof" json:"shell_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KillShellInput) Reset() {
-	*x = KillShellInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[91]
+func (x *TaskStopInput) Reset() {
+	*x = TaskStopInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KillShellInput) String() string {
+func (x *TaskStopInput) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KillShellInput) ProtoMessage() {}
+func (*TaskStopInput) ProtoMessage() {}
 
-func (x *KillShellInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[91]
+func (x *TaskStopInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8095,14 +9784,135 @@ func (x *KillShellInput) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KillShellInput.ProtoReflect.Descriptor instead.
-func (*KillShellInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{91}
+// Deprecated: Use TaskStopInput.ProtoReflect.Descriptor instead.
+func (*TaskStopInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{106}
 }
 
-func (x *KillShellInput) GetShellId() string {
+func (x *TaskStopInput) GetTaskId() string {
+	if x != nil && x.TaskId != nil {
+		return *x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskStopInput) GetShellId() string {
+	if x != nil && x.ShellId != nil {
+		return *x.ShellId
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskoutput
+type TaskOutputInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,proto3" json:"task_id,omitempty"`
+	Block         bool                   `protobuf:"varint,2,opt,name=block,proto3" json:"block,omitempty"`
+	Timeout       int64                  `protobuf:"varint,3,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskOutputInput) Reset() {
+	*x = TaskOutputInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[107]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskOutputInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskOutputInput) ProtoMessage() {}
+
+func (x *TaskOutputInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[107]
 	if x != nil {
-		return x.ShellId
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskOutputInput.ProtoReflect.Descriptor instead.
+func (*TaskOutputInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{107}
+}
+
+func (x *TaskOutputInput) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskOutputInput) GetBlock() bool {
+	if x != nil {
+		return x.Block
+	}
+	return false
+}
+
+func (x *TaskOutputInput) GetTimeout() int64 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#enterworktree
+type EnterWorktreeInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Path          *string                `protobuf:"bytes,2,opt,name=path,proto3,oneof" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnterWorktreeInput) Reset() {
+	*x = EnterWorktreeInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[108]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnterWorktreeInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnterWorktreeInput) ProtoMessage() {}
+
+func (x *EnterWorktreeInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[108]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnterWorktreeInput.ProtoReflect.Descriptor instead.
+func (*EnterWorktreeInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{108}
+}
+
+func (x *EnterWorktreeInput) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *EnterWorktreeInput) GetPath() string {
+	if x != nil && x.Path != nil {
+		return *x.Path
 	}
 	return ""
 }
@@ -8121,7 +9931,7 @@ type NotebookEditInput struct {
 
 func (x *NotebookEditInput) Reset() {
 	*x = NotebookEditInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[92]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8133,7 +9943,7 @@ func (x *NotebookEditInput) String() string {
 func (*NotebookEditInput) ProtoMessage() {}
 
 func (x *NotebookEditInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[92]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8146,7 +9956,7 @@ func (x *NotebookEditInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotebookEditInput.ProtoReflect.Descriptor instead.
 func (*NotebookEditInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{92}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *NotebookEditInput) GetNotebookPath() string {
@@ -8195,7 +10005,7 @@ type WebFetchInput struct {
 
 func (x *WebFetchInput) Reset() {
 	*x = WebFetchInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[93]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8207,7 +10017,7 @@ func (x *WebFetchInput) String() string {
 func (*WebFetchInput) ProtoMessage() {}
 
 func (x *WebFetchInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[93]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8220,7 +10030,7 @@ func (x *WebFetchInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebFetchInput.ProtoReflect.Descriptor instead.
 func (*WebFetchInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{93}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *WebFetchInput) GetUrl() string {
@@ -8249,7 +10059,7 @@ type WebSearchInput struct {
 
 func (x *WebSearchInput) Reset() {
 	*x = WebSearchInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[94]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8261,7 +10071,7 @@ func (x *WebSearchInput) String() string {
 func (*WebSearchInput) ProtoMessage() {}
 
 func (x *WebSearchInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[94]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8274,7 +10084,7 @@ func (x *WebSearchInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebSearchInput.ProtoReflect.Descriptor instead.
 func (*WebSearchInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{94}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *WebSearchInput) GetQuery() string {
@@ -8310,7 +10120,7 @@ type TodoItem struct {
 
 func (x *TodoItem) Reset() {
 	*x = TodoItem{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[95]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8322,7 +10132,7 @@ func (x *TodoItem) String() string {
 func (*TodoItem) ProtoMessage() {}
 
 func (x *TodoItem) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[95]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8335,7 +10145,7 @@ func (x *TodoItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TodoItem.ProtoReflect.Descriptor instead.
 func (*TodoItem) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{95}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *TodoItem) GetContent() string {
@@ -8369,7 +10179,7 @@ type TodoWriteInput struct {
 
 func (x *TodoWriteInput) Reset() {
 	*x = TodoWriteInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[96]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8381,7 +10191,7 @@ func (x *TodoWriteInput) String() string {
 func (*TodoWriteInput) ProtoMessage() {}
 
 func (x *TodoWriteInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[96]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8394,7 +10204,7 @@ func (x *TodoWriteInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TodoWriteInput.ProtoReflect.Descriptor instead.
 func (*TodoWriteInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{96}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *TodoWriteInput) GetTodos() []*TodoItem {
@@ -8414,7 +10224,7 @@ type ExitPlanModeInput struct {
 
 func (x *ExitPlanModeInput) Reset() {
 	*x = ExitPlanModeInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[97]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8426,7 +10236,7 @@ func (x *ExitPlanModeInput) String() string {
 func (*ExitPlanModeInput) ProtoMessage() {}
 
 func (x *ExitPlanModeInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[97]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8439,7 +10249,7 @@ func (x *ExitPlanModeInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExitPlanModeInput.ProtoReflect.Descriptor instead.
 func (*ExitPlanModeInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{97}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *ExitPlanModeInput) GetApprovedPrompts() []string {
@@ -8459,7 +10269,7 @@ type ListMcpResourcesInput struct {
 
 func (x *ListMcpResourcesInput) Reset() {
 	*x = ListMcpResourcesInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[98]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8471,7 +10281,7 @@ func (x *ListMcpResourcesInput) String() string {
 func (*ListMcpResourcesInput) ProtoMessage() {}
 
 func (x *ListMcpResourcesInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[98]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8484,7 +10294,7 @@ func (x *ListMcpResourcesInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMcpResourcesInput.ProtoReflect.Descriptor instead.
 func (*ListMcpResourcesInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{98}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *ListMcpResourcesInput) GetServer() string {
@@ -8505,7 +10315,7 @@ type ReadMcpResourceInput struct {
 
 func (x *ReadMcpResourceInput) Reset() {
 	*x = ReadMcpResourceInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[99]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8517,7 +10327,7 @@ func (x *ReadMcpResourceInput) String() string {
 func (*ReadMcpResourceInput) ProtoMessage() {}
 
 func (x *ReadMcpResourceInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[99]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8530,7 +10340,7 @@ func (x *ReadMcpResourceInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadMcpResourceInput.ProtoReflect.Descriptor instead.
 func (*ReadMcpResourceInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{99}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *ReadMcpResourceInput) GetServer() string {
@@ -8571,6 +10381,12 @@ type ToolOutput struct {
 	//	*ToolOutput_Config
 	//	*ToolOutput_EnterWorktree
 	//	*ToolOutput_McpTool
+	//	*ToolOutput_Monitor
+	//	*ToolOutput_Workflow
+	//	*ToolOutput_TaskCreate
+	//	*ToolOutput_TaskUpdate
+	//	*ToolOutput_TaskGet
+	//	*ToolOutput_TaskList
 	//	*ToolOutput_Unknown
 	Output        isToolOutput_Output `protobuf_oneof:"output"`
 	unknownFields protoimpl.UnknownFields
@@ -8579,7 +10395,7 @@ type ToolOutput struct {
 
 func (x *ToolOutput) Reset() {
 	*x = ToolOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[100]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8591,7 +10407,7 @@ func (x *ToolOutput) String() string {
 func (*ToolOutput) ProtoMessage() {}
 
 func (x *ToolOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[100]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8604,7 +10420,7 @@ func (x *ToolOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolOutput.ProtoReflect.Descriptor instead.
 func (*ToolOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{100}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *ToolOutput) GetOutput() isToolOutput_Output {
@@ -8785,6 +10601,60 @@ func (x *ToolOutput) GetMcpTool() *structpb.Struct {
 	return nil
 }
 
+func (x *ToolOutput) GetMonitor() *MonitorOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_Monitor); ok {
+			return x.Monitor
+		}
+	}
+	return nil
+}
+
+func (x *ToolOutput) GetWorkflow() *WorkflowOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_Workflow); ok {
+			return x.Workflow
+		}
+	}
+	return nil
+}
+
+func (x *ToolOutput) GetTaskCreate() *TaskCreateOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_TaskCreate); ok {
+			return x.TaskCreate
+		}
+	}
+	return nil
+}
+
+func (x *ToolOutput) GetTaskUpdate() *TaskUpdateOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_TaskUpdate); ok {
+			return x.TaskUpdate
+		}
+	}
+	return nil
+}
+
+func (x *ToolOutput) GetTaskGet() *TaskGetOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_TaskGet); ok {
+			return x.TaskGet
+		}
+	}
+	return nil
+}
+
+func (x *ToolOutput) GetTaskList() *TaskListOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_TaskList); ok {
+			return x.TaskList
+		}
+	}
+	return nil
+}
+
 func (x *ToolOutput) GetUnknown() *UnknownVariant {
 	if x != nil {
 		if x, ok := x.Output.(*ToolOutput_Unknown); ok {
@@ -8874,6 +10744,30 @@ type ToolOutput_McpTool struct {
 	McpTool *structpb.Struct `protobuf:"bytes,19,opt,name=mcp_tool,json=mcpTool,proto3,oneof"`
 }
 
+type ToolOutput_Monitor struct {
+	Monitor *MonitorOutput `protobuf:"bytes,20,opt,name=monitor,proto3,oneof"`
+}
+
+type ToolOutput_Workflow struct {
+	Workflow *WorkflowOutput `protobuf:"bytes,21,opt,name=workflow,proto3,oneof"`
+}
+
+type ToolOutput_TaskCreate struct {
+	TaskCreate *TaskCreateOutput `protobuf:"bytes,22,opt,name=task_create,json=taskCreate,proto3,oneof"`
+}
+
+type ToolOutput_TaskUpdate struct {
+	TaskUpdate *TaskUpdateOutput `protobuf:"bytes,23,opt,name=task_update,json=taskUpdate,proto3,oneof"`
+}
+
+type ToolOutput_TaskGet struct {
+	TaskGet *TaskGetOutput `protobuf:"bytes,24,opt,name=task_get,json=taskGet,proto3,oneof"`
+}
+
+type ToolOutput_TaskList struct {
+	TaskList *TaskListOutput `protobuf:"bytes,25,opt,name=task_list,json=taskList,proto3,oneof"`
+}
+
 type ToolOutput_Unknown struct {
 	Unknown *UnknownVariant `protobuf:"bytes,99,opt,name=unknown,proto3,oneof"`
 }
@@ -8916,7 +10810,653 @@ func (*ToolOutput_EnterWorktree) isToolOutput_Output() {}
 
 func (*ToolOutput_McpTool) isToolOutput_Output() {}
 
+func (*ToolOutput_Monitor) isToolOutput_Output() {}
+
+func (*ToolOutput_Workflow) isToolOutput_Output() {}
+
+func (*ToolOutput_TaskCreate) isToolOutput_Output() {}
+
+func (*ToolOutput_TaskUpdate) isToolOutput_Output() {}
+
+func (*ToolOutput_TaskGet) isToolOutput_Output() {}
+
+func (*ToolOutput_TaskList) isToolOutput_Output() {}
+
 func (*ToolOutput_Unknown) isToolOutput_Output() {}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#monitor-2
+type MonitorOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TimeoutMs     int64                  `protobuf:"varint,2,opt,name=timeout_ms,json=timeoutMs,proto3" json:"timeout_ms,omitempty"`
+	Persistent    *bool                  `protobuf:"varint,3,opt,name=persistent,proto3,oneof" json:"persistent,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MonitorOutput) Reset() {
+	*x = MonitorOutput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[118]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MonitorOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MonitorOutput) ProtoMessage() {}
+
+func (x *MonitorOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[118]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MonitorOutput.ProtoReflect.Descriptor instead.
+func (*MonitorOutput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{118}
+}
+
+func (x *MonitorOutput) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *MonitorOutput) GetTimeoutMs() int64 {
+	if x != nil {
+		return x.TimeoutMs
+	}
+	return 0
+}
+
+func (x *MonitorOutput) GetPersistent() bool {
+	if x != nil && x.Persistent != nil {
+		return *x.Persistent
+	}
+	return false
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#workflow-2
+type WorkflowOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	TaskId        string                 `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	RunId         *string                `protobuf:"bytes,3,opt,name=run_id,json=runId,proto3,oneof" json:"run_id,omitempty"`
+	Summary       *string                `protobuf:"bytes,4,opt,name=summary,proto3,oneof" json:"summary,omitempty"`
+	TranscriptDir *string                `protobuf:"bytes,5,opt,name=transcript_dir,json=transcriptDir,proto3,oneof" json:"transcript_dir,omitempty"`
+	ScriptPath    *string                `protobuf:"bytes,6,opt,name=script_path,json=scriptPath,proto3,oneof" json:"script_path,omitempty"`
+	Error         *string                `protobuf:"bytes,7,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkflowOutput) Reset() {
+	*x = WorkflowOutput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[119]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowOutput) ProtoMessage() {}
+
+func (x *WorkflowOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[119]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowOutput.ProtoReflect.Descriptor instead.
+func (*WorkflowOutput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{119}
+}
+
+func (x *WorkflowOutput) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WorkflowOutput) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *WorkflowOutput) GetRunId() string {
+	if x != nil && x.RunId != nil {
+		return *x.RunId
+	}
+	return ""
+}
+
+func (x *WorkflowOutput) GetSummary() string {
+	if x != nil && x.Summary != nil {
+		return *x.Summary
+	}
+	return ""
+}
+
+func (x *WorkflowOutput) GetTranscriptDir() string {
+	if x != nil && x.TranscriptDir != nil {
+		return *x.TranscriptDir
+	}
+	return ""
+}
+
+func (x *WorkflowOutput) GetScriptPath() string {
+	if x != nil && x.ScriptPath != nil {
+		return *x.ScriptPath
+	}
+	return ""
+}
+
+func (x *WorkflowOutput) GetError() string {
+	if x != nil && x.Error != nil {
+		return *x.Error
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcreate-2
+type TaskCreateOutputTask struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Subject       string                 `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskCreateOutputTask) Reset() {
+	*x = TaskCreateOutputTask{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[120]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskCreateOutputTask) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskCreateOutputTask) ProtoMessage() {}
+
+func (x *TaskCreateOutputTask) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[120]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskCreateOutputTask.ProtoReflect.Descriptor instead.
+func (*TaskCreateOutputTask) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{120}
+}
+
+func (x *TaskCreateOutputTask) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TaskCreateOutputTask) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcreate-2
+type TaskCreateOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Task          *TaskCreateOutputTask  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskCreateOutput) Reset() {
+	*x = TaskCreateOutput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[121]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskCreateOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskCreateOutput) ProtoMessage() {}
+
+func (x *TaskCreateOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[121]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskCreateOutput.ProtoReflect.Descriptor instead.
+func (*TaskCreateOutput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{121}
+}
+
+func (x *TaskCreateOutput) GetTask() *TaskCreateOutputTask {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskupdate-2
+type TaskUpdateOutputStatusChange struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskUpdateOutputStatusChange) Reset() {
+	*x = TaskUpdateOutputStatusChange{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[122]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskUpdateOutputStatusChange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskUpdateOutputStatusChange) ProtoMessage() {}
+
+func (x *TaskUpdateOutputStatusChange) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[122]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskUpdateOutputStatusChange.ProtoReflect.Descriptor instead.
+func (*TaskUpdateOutputStatusChange) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{122}
+}
+
+func (x *TaskUpdateOutputStatusChange) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *TaskUpdateOutputStatusChange) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskupdate-2
+type TaskUpdateOutput struct {
+	state         protoimpl.MessageState        `protogen:"open.v1"`
+	Success       bool                          `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	TaskId        string                        `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	UpdatedFields []string                      `protobuf:"bytes,3,rep,name=updated_fields,json=updatedFields,proto3" json:"updated_fields,omitempty"`
+	Error         *string                       `protobuf:"bytes,4,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	StatusChange  *TaskUpdateOutputStatusChange `protobuf:"bytes,5,opt,name=status_change,json=statusChange,proto3,oneof" json:"status_change,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskUpdateOutput) Reset() {
+	*x = TaskUpdateOutput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[123]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskUpdateOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskUpdateOutput) ProtoMessage() {}
+
+func (x *TaskUpdateOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[123]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskUpdateOutput.ProtoReflect.Descriptor instead.
+func (*TaskUpdateOutput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{123}
+}
+
+func (x *TaskUpdateOutput) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *TaskUpdateOutput) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskUpdateOutput) GetUpdatedFields() []string {
+	if x != nil {
+		return x.UpdatedFields
+	}
+	return nil
+}
+
+func (x *TaskUpdateOutput) GetError() string {
+	if x != nil && x.Error != nil {
+		return *x.Error
+	}
+	return ""
+}
+
+func (x *TaskUpdateOutput) GetStatusChange() *TaskUpdateOutputStatusChange {
+	if x != nil {
+		return x.StatusChange
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskget-2
+type TaskGetOutputTask struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Subject       string                 `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Blocks        []string               `protobuf:"bytes,5,rep,name=blocks,proto3" json:"blocks,omitempty"`
+	BlockedBy     []string               `protobuf:"bytes,6,rep,name=blocked_by,json=blockedBy,proto3" json:"blocked_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskGetOutputTask) Reset() {
+	*x = TaskGetOutputTask{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[124]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskGetOutputTask) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskGetOutputTask) ProtoMessage() {}
+
+func (x *TaskGetOutputTask) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[124]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskGetOutputTask.ProtoReflect.Descriptor instead.
+func (*TaskGetOutputTask) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{124}
+}
+
+func (x *TaskGetOutputTask) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TaskGetOutputTask) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *TaskGetOutputTask) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *TaskGetOutputTask) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TaskGetOutputTask) GetBlocks() []string {
+	if x != nil {
+		return x.Blocks
+	}
+	return nil
+}
+
+func (x *TaskGetOutputTask) GetBlockedBy() []string {
+	if x != nil {
+		return x.BlockedBy
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskget-2
+type TaskGetOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Task          *TaskGetOutputTask     `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskGetOutput) Reset() {
+	*x = TaskGetOutput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[125]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskGetOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskGetOutput) ProtoMessage() {}
+
+func (x *TaskGetOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[125]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskGetOutput.ProtoReflect.Descriptor instead.
+func (*TaskGetOutput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{125}
+}
+
+func (x *TaskGetOutput) GetTask() *TaskGetOutputTask {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tasklist-2
+type TaskListOutputTask struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Subject       string                 `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	Owner         *string                `protobuf:"bytes,4,opt,name=owner,proto3,oneof" json:"owner,omitempty"`
+	BlockedBy     []string               `protobuf:"bytes,5,rep,name=blocked_by,json=blockedBy,proto3" json:"blocked_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskListOutputTask) Reset() {
+	*x = TaskListOutputTask{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[126]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskListOutputTask) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskListOutputTask) ProtoMessage() {}
+
+func (x *TaskListOutputTask) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[126]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskListOutputTask.ProtoReflect.Descriptor instead.
+func (*TaskListOutputTask) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{126}
+}
+
+func (x *TaskListOutputTask) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TaskListOutputTask) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *TaskListOutputTask) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TaskListOutputTask) GetOwner() string {
+	if x != nil && x.Owner != nil {
+		return *x.Owner
+	}
+	return ""
+}
+
+func (x *TaskListOutputTask) GetBlockedBy() []string {
+	if x != nil {
+		return x.BlockedBy
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tasklist-2
+type TaskListOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tasks         []*TaskListOutputTask  `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskListOutput) Reset() {
+	*x = TaskListOutput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[127]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskListOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskListOutput) ProtoMessage() {}
+
+func (x *TaskListOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[127]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskListOutput.ProtoReflect.Descriptor instead.
+func (*TaskListOutput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{127}
+}
+
+func (x *TaskListOutput) GetTasks() []*TaskListOutputTask {
+	if x != nil {
+		return x.Tasks
+	}
+	return nil
+}
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
 type UsageInfo struct {
@@ -8931,7 +11471,7 @@ type UsageInfo struct {
 
 func (x *UsageInfo) Reset() {
 	*x = UsageInfo{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[101]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8943,7 +11483,7 @@ func (x *UsageInfo) String() string {
 func (*UsageInfo) ProtoMessage() {}
 
 func (x *UsageInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[101]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8956,7 +11496,7 @@ func (x *UsageInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageInfo.ProtoReflect.Descriptor instead.
 func (*UsageInfo) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{101}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *UsageInfo) GetInputTokens() int32 {
@@ -9000,7 +11540,7 @@ type TaskOutput struct {
 
 func (x *TaskOutput) Reset() {
 	*x = TaskOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[102]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9012,7 +11552,7 @@ func (x *TaskOutput) String() string {
 func (*TaskOutput) ProtoMessage() {}
 
 func (x *TaskOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[102]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9025,7 +11565,7 @@ func (x *TaskOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskOutput.ProtoReflect.Descriptor instead.
 func (*TaskOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{102}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *TaskOutput) GetResult() string {
@@ -9067,7 +11607,7 @@ type AskUserQuestionOutput struct {
 
 func (x *AskUserQuestionOutput) Reset() {
 	*x = AskUserQuestionOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[103]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9079,7 +11619,7 @@ func (x *AskUserQuestionOutput) String() string {
 func (*AskUserQuestionOutput) ProtoMessage() {}
 
 func (x *AskUserQuestionOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[103]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9092,7 +11632,7 @@ func (x *AskUserQuestionOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AskUserQuestionOutput.ProtoReflect.Descriptor instead.
 func (*AskUserQuestionOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{103}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *AskUserQuestionOutput) GetQuestions() []*Question {
@@ -9122,7 +11662,7 @@ type BashOutput struct {
 
 func (x *BashOutput) Reset() {
 	*x = BashOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[104]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9134,7 +11674,7 @@ func (x *BashOutput) String() string {
 func (*BashOutput) ProtoMessage() {}
 
 func (x *BashOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[104]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9147,7 +11687,7 @@ func (x *BashOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BashOutput.ProtoReflect.Descriptor instead.
 func (*BashOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{104}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *BashOutput) GetOutput() string {
@@ -9191,7 +11731,7 @@ type FileEditOutput struct {
 
 func (x *FileEditOutput) Reset() {
 	*x = FileEditOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[105]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9203,7 +11743,7 @@ func (x *FileEditOutput) String() string {
 func (*FileEditOutput) ProtoMessage() {}
 
 func (x *FileEditOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[105]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9216,7 +11756,7 @@ func (x *FileEditOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileEditOutput.ProtoReflect.Descriptor instead.
 func (*FileEditOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{105}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *FileEditOutput) GetFilePath() string {
@@ -9261,7 +11801,7 @@ type FileReadOutputTextFile struct {
 
 func (x *FileReadOutputTextFile) Reset() {
 	*x = FileReadOutputTextFile{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[106]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9273,7 +11813,7 @@ func (x *FileReadOutputTextFile) String() string {
 func (*FileReadOutputTextFile) ProtoMessage() {}
 
 func (x *FileReadOutputTextFile) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[106]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9286,7 +11826,7 @@ func (x *FileReadOutputTextFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputTextFile.ProtoReflect.Descriptor instead.
 func (*FileReadOutputTextFile) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{106}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *FileReadOutputTextFile) GetFilePath() string {
@@ -9336,7 +11876,7 @@ type FileReadOutputImageFile struct {
 
 func (x *FileReadOutputImageFile) Reset() {
 	*x = FileReadOutputImageFile{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[107]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9348,7 +11888,7 @@ func (x *FileReadOutputImageFile) String() string {
 func (*FileReadOutputImageFile) ProtoMessage() {}
 
 func (x *FileReadOutputImageFile) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[107]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9361,7 +11901,7 @@ func (x *FileReadOutputImageFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputImageFile.ProtoReflect.Descriptor instead.
 func (*FileReadOutputImageFile) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{107}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *FileReadOutputImageFile) GetBase64() string {
@@ -9396,7 +11936,7 @@ type FileReadOutputNotebookFile struct {
 
 func (x *FileReadOutputNotebookFile) Reset() {
 	*x = FileReadOutputNotebookFile{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[108]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9408,7 +11948,7 @@ func (x *FileReadOutputNotebookFile) String() string {
 func (*FileReadOutputNotebookFile) ProtoMessage() {}
 
 func (x *FileReadOutputNotebookFile) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[108]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9421,7 +11961,7 @@ func (x *FileReadOutputNotebookFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputNotebookFile.ProtoReflect.Descriptor instead.
 func (*FileReadOutputNotebookFile) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{108}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *FileReadOutputNotebookFile) GetFilePath() string {
@@ -9450,7 +11990,7 @@ type FileReadOutputPdfFile struct {
 
 func (x *FileReadOutputPdfFile) Reset() {
 	*x = FileReadOutputPdfFile{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[109]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9462,7 +12002,7 @@ func (x *FileReadOutputPdfFile) String() string {
 func (*FileReadOutputPdfFile) ProtoMessage() {}
 
 func (x *FileReadOutputPdfFile) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[109]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9475,7 +12015,7 @@ func (x *FileReadOutputPdfFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputPdfFile.ProtoReflect.Descriptor instead.
 func (*FileReadOutputPdfFile) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{109}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *FileReadOutputPdfFile) GetFilePath() string {
@@ -9512,7 +12052,7 @@ type FileReadOutputPartsFile struct {
 
 func (x *FileReadOutputPartsFile) Reset() {
 	*x = FileReadOutputPartsFile{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[110]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9524,7 +12064,7 @@ func (x *FileReadOutputPartsFile) String() string {
 func (*FileReadOutputPartsFile) ProtoMessage() {}
 
 func (x *FileReadOutputPartsFile) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[110]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9537,7 +12077,7 @@ func (x *FileReadOutputPartsFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputPartsFile.ProtoReflect.Descriptor instead.
 func (*FileReadOutputPartsFile) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{110}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *FileReadOutputPartsFile) GetFilePath() string {
@@ -9579,7 +12119,7 @@ type FileReadOutputText struct {
 
 func (x *FileReadOutputText) Reset() {
 	*x = FileReadOutputText{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[111]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9591,7 +12131,7 @@ func (x *FileReadOutputText) String() string {
 func (*FileReadOutputText) ProtoMessage() {}
 
 func (x *FileReadOutputText) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[111]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9604,7 +12144,7 @@ func (x *FileReadOutputText) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputText.ProtoReflect.Descriptor instead.
 func (*FileReadOutputText) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{111}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *FileReadOutputText) GetType() string {
@@ -9632,7 +12172,7 @@ type FileReadOutputImage struct {
 
 func (x *FileReadOutputImage) Reset() {
 	*x = FileReadOutputImage{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[112]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9644,7 +12184,7 @@ func (x *FileReadOutputImage) String() string {
 func (*FileReadOutputImage) ProtoMessage() {}
 
 func (x *FileReadOutputImage) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[112]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9657,7 +12197,7 @@ func (x *FileReadOutputImage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputImage.ProtoReflect.Descriptor instead.
 func (*FileReadOutputImage) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{112}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *FileReadOutputImage) GetType() string {
@@ -9685,7 +12225,7 @@ type FileReadOutputNotebook struct {
 
 func (x *FileReadOutputNotebook) Reset() {
 	*x = FileReadOutputNotebook{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[113]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9697,7 +12237,7 @@ func (x *FileReadOutputNotebook) String() string {
 func (*FileReadOutputNotebook) ProtoMessage() {}
 
 func (x *FileReadOutputNotebook) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[113]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9710,7 +12250,7 @@ func (x *FileReadOutputNotebook) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputNotebook.ProtoReflect.Descriptor instead.
 func (*FileReadOutputNotebook) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{113}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *FileReadOutputNotebook) GetType() string {
@@ -9738,7 +12278,7 @@ type FileReadOutputPdf struct {
 
 func (x *FileReadOutputPdf) Reset() {
 	*x = FileReadOutputPdf{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[114]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9750,7 +12290,7 @@ func (x *FileReadOutputPdf) String() string {
 func (*FileReadOutputPdf) ProtoMessage() {}
 
 func (x *FileReadOutputPdf) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[114]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9763,7 +12303,7 @@ func (x *FileReadOutputPdf) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputPdf.ProtoReflect.Descriptor instead.
 func (*FileReadOutputPdf) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{114}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *FileReadOutputPdf) GetType() string {
@@ -9791,7 +12331,7 @@ type FileReadOutputParts struct {
 
 func (x *FileReadOutputParts) Reset() {
 	*x = FileReadOutputParts{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[115]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9803,7 +12343,7 @@ func (x *FileReadOutputParts) String() string {
 func (*FileReadOutputParts) ProtoMessage() {}
 
 func (x *FileReadOutputParts) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[115]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9816,7 +12356,7 @@ func (x *FileReadOutputParts) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutputParts.ProtoReflect.Descriptor instead.
 func (*FileReadOutputParts) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{115}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *FileReadOutputParts) GetType() string {
@@ -9851,7 +12391,7 @@ type FileReadOutput struct {
 
 func (x *FileReadOutput) Reset() {
 	*x = FileReadOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[116]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9863,7 +12403,7 @@ func (x *FileReadOutput) String() string {
 func (*FileReadOutput) ProtoMessage() {}
 
 func (x *FileReadOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[116]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9876,7 +12416,7 @@ func (x *FileReadOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadOutput.ProtoReflect.Descriptor instead.
 func (*FileReadOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{116}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *FileReadOutput) GetOutput() isFileReadOutput_Output {
@@ -9991,7 +12531,7 @@ type FileWriteOutput struct {
 
 func (x *FileWriteOutput) Reset() {
 	*x = FileWriteOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[117]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10003,7 +12543,7 @@ func (x *FileWriteOutput) String() string {
 func (*FileWriteOutput) ProtoMessage() {}
 
 func (x *FileWriteOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[117]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10016,7 +12556,7 @@ func (x *FileWriteOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileWriteOutput.ProtoReflect.Descriptor instead.
 func (*FileWriteOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{117}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *FileWriteOutput) GetFilePath() string {
@@ -10046,7 +12586,7 @@ type GlobOutput struct {
 
 func (x *GlobOutput) Reset() {
 	*x = GlobOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[118]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10058,7 +12598,7 @@ func (x *GlobOutput) String() string {
 func (*GlobOutput) ProtoMessage() {}
 
 func (x *GlobOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[118]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10071,7 +12611,7 @@ func (x *GlobOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GlobOutput.ProtoReflect.Descriptor instead.
 func (*GlobOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{118}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *GlobOutput) GetDurationMs() int64 {
@@ -10119,7 +12659,7 @@ type GrepOutput struct {
 
 func (x *GrepOutput) Reset() {
 	*x = GrepOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[119]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10131,7 +12671,7 @@ func (x *GrepOutput) String() string {
 func (*GrepOutput) ProtoMessage() {}
 
 func (x *GrepOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[119]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10144,7 +12684,7 @@ func (x *GrepOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrepOutput.ProtoReflect.Descriptor instead.
 func (*GrepOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{119}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *GrepOutput) GetMode() string {
@@ -10216,7 +12756,7 @@ type TaskStopOutput struct {
 
 func (x *TaskStopOutput) Reset() {
 	*x = TaskStopOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[120]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10228,7 +12768,7 @@ func (x *TaskStopOutput) String() string {
 func (*TaskStopOutput) ProtoMessage() {}
 
 func (x *TaskStopOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[120]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10241,7 +12781,7 @@ func (x *TaskStopOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskStopOutput.ProtoReflect.Descriptor instead.
 func (*TaskStopOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{120}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *TaskStopOutput) GetMessage() string {
@@ -10290,7 +12830,7 @@ type NotebookEditOutput struct {
 
 func (x *NotebookEditOutput) Reset() {
 	*x = NotebookEditOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[121]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10302,7 +12842,7 @@ func (x *NotebookEditOutput) String() string {
 func (*NotebookEditOutput) ProtoMessage() {}
 
 func (x *NotebookEditOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[121]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10315,7 +12855,7 @@ func (x *NotebookEditOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotebookEditOutput.ProtoReflect.Descriptor instead.
 func (*NotebookEditOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{121}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *NotebookEditOutput) GetNewSource() string {
@@ -10396,7 +12936,7 @@ type WebFetchOutput struct {
 
 func (x *WebFetchOutput) Reset() {
 	*x = WebFetchOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[122]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10408,7 +12948,7 @@ func (x *WebFetchOutput) String() string {
 func (*WebFetchOutput) ProtoMessage() {}
 
 func (x *WebFetchOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[122]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10421,7 +12961,7 @@ func (x *WebFetchOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebFetchOutput.ProtoReflect.Descriptor instead.
 func (*WebFetchOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{122}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *WebFetchOutput) GetBytes() int64 {
@@ -10478,7 +13018,7 @@ type WebSearchOutputResultEntry struct {
 
 func (x *WebSearchOutputResultEntry) Reset() {
 	*x = WebSearchOutputResultEntry{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[123]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10490,7 +13030,7 @@ func (x *WebSearchOutputResultEntry) String() string {
 func (*WebSearchOutputResultEntry) ProtoMessage() {}
 
 func (x *WebSearchOutputResultEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[123]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10503,7 +13043,7 @@ func (x *WebSearchOutputResultEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebSearchOutputResultEntry.ProtoReflect.Descriptor instead.
 func (*WebSearchOutputResultEntry) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{123}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *WebSearchOutputResultEntry) GetTitle() string {
@@ -10538,7 +13078,7 @@ type WebSearchOutput struct {
 
 func (x *WebSearchOutput) Reset() {
 	*x = WebSearchOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[124]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10550,7 +13090,7 @@ func (x *WebSearchOutput) String() string {
 func (*WebSearchOutput) ProtoMessage() {}
 
 func (x *WebSearchOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[124]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10563,7 +13103,7 @@ func (x *WebSearchOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebSearchOutput.ProtoReflect.Descriptor instead.
 func (*WebSearchOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{124}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *WebSearchOutput) GetQuery() string {
@@ -10591,7 +13131,7 @@ type TodoWriteOutput struct {
 
 func (x *TodoWriteOutput) Reset() {
 	*x = TodoWriteOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[125]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10603,7 +13143,7 @@ func (x *TodoWriteOutput) String() string {
 func (*TodoWriteOutput) ProtoMessage() {}
 
 func (x *TodoWriteOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[125]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10616,7 +13156,7 @@ func (x *TodoWriteOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TodoWriteOutput.ProtoReflect.Descriptor instead.
 func (*TodoWriteOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{125}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *TodoWriteOutput) GetOldTodos() string {
@@ -10643,7 +13183,7 @@ type ExitPlanModeOutput struct {
 
 func (x *ExitPlanModeOutput) Reset() {
 	*x = ExitPlanModeOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[126]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10655,7 +13195,7 @@ func (x *ExitPlanModeOutput) String() string {
 func (*ExitPlanModeOutput) ProtoMessage() {}
 
 func (x *ExitPlanModeOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[126]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10668,7 +13208,7 @@ func (x *ExitPlanModeOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExitPlanModeOutput.ProtoReflect.Descriptor instead.
 func (*ExitPlanModeOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{126}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *ExitPlanModeOutput) GetApprovedPrompts() []string {
@@ -10691,7 +13231,7 @@ type McpResource struct {
 
 func (x *McpResource) Reset() {
 	*x = McpResource{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[127]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10703,7 +13243,7 @@ func (x *McpResource) String() string {
 func (*McpResource) ProtoMessage() {}
 
 func (x *McpResource) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[127]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10716,7 +13256,7 @@ func (x *McpResource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpResource.ProtoReflect.Descriptor instead.
 func (*McpResource) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{127}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *McpResource) GetUri() string {
@@ -10757,7 +13297,7 @@ type ListMcpResourcesOutput struct {
 
 func (x *ListMcpResourcesOutput) Reset() {
 	*x = ListMcpResourcesOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[128]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10769,7 +13309,7 @@ func (x *ListMcpResourcesOutput) String() string {
 func (*ListMcpResourcesOutput) ProtoMessage() {}
 
 func (x *ListMcpResourcesOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[128]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10782,7 +13322,7 @@ func (x *ListMcpResourcesOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMcpResourcesOutput.ProtoReflect.Descriptor instead.
 func (*ListMcpResourcesOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{128}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *ListMcpResourcesOutput) GetResources() []*McpResource {
@@ -10804,7 +13344,7 @@ type ReadMcpResourceOutputContent struct {
 
 func (x *ReadMcpResourceOutputContent) Reset() {
 	*x = ReadMcpResourceOutputContent{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[129]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10816,7 +13356,7 @@ func (x *ReadMcpResourceOutputContent) String() string {
 func (*ReadMcpResourceOutputContent) ProtoMessage() {}
 
 func (x *ReadMcpResourceOutputContent) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[129]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10829,7 +13369,7 @@ func (x *ReadMcpResourceOutputContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadMcpResourceOutputContent.ProtoReflect.Descriptor instead.
 func (*ReadMcpResourceOutputContent) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{129}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *ReadMcpResourceOutputContent) GetUri() string {
@@ -10863,7 +13403,7 @@ type ReadMcpResourceOutput struct {
 
 func (x *ReadMcpResourceOutput) Reset() {
 	*x = ReadMcpResourceOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[130]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10875,7 +13415,7 @@ func (x *ReadMcpResourceOutput) String() string {
 func (*ReadMcpResourceOutput) ProtoMessage() {}
 
 func (x *ReadMcpResourceOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[130]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10888,7 +13428,7 @@ func (x *ReadMcpResourceOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadMcpResourceOutput.ProtoReflect.Descriptor instead.
 func (*ReadMcpResourceOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{130}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *ReadMcpResourceOutput) GetContents() []*ReadMcpResourceOutputContent {
@@ -10914,7 +13454,7 @@ type ConfigOutput struct {
 
 func (x *ConfigOutput) Reset() {
 	*x = ConfigOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[131]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10926,7 +13466,7 @@ func (x *ConfigOutput) String() string {
 func (*ConfigOutput) ProtoMessage() {}
 
 func (x *ConfigOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[131]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10939,7 +13479,7 @@ func (x *ConfigOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigOutput.ProtoReflect.Descriptor instead.
 func (*ConfigOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{131}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *ConfigOutput) GetSuccess() bool {
@@ -11003,7 +13543,7 @@ type EnterWorktreeOutput struct {
 
 func (x *EnterWorktreeOutput) Reset() {
 	*x = EnterWorktreeOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[132]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11015,7 +13555,7 @@ func (x *EnterWorktreeOutput) String() string {
 func (*EnterWorktreeOutput) ProtoMessage() {}
 
 func (x *EnterWorktreeOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[132]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11028,7 +13568,7 @@ func (x *EnterWorktreeOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnterWorktreeOutput.ProtoReflect.Descriptor instead.
 func (*EnterWorktreeOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{132}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *EnterWorktreeOutput) GetWorktreePath() string {
@@ -11053,6 +13593,298 @@ func (x *EnterWorktreeOutput) GetMessage() string {
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#pretoolusehookinput
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#basehookinput
+type BaseHookInputEffort struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Level         string                 `protobuf:"bytes,1,opt,name=level,proto3" json:"level,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BaseHookInputEffort) Reset() {
+	*x = BaseHookInputEffort{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[160]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BaseHookInputEffort) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BaseHookInputEffort) ProtoMessage() {}
+
+func (x *BaseHookInputEffort) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[160]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BaseHookInputEffort.ProtoReflect.Descriptor instead.
+func (*BaseHookInputEffort) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{160}
+}
+
+func (x *BaseHookInputEffort) GetLevel() string {
+	if x != nil {
+		return x.Level
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
+type BackgroundTaskSummary struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Command       *string                `protobuf:"bytes,5,opt,name=command,proto3,oneof" json:"command,omitempty"`
+	AgentType     *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
+	Server        *string                `protobuf:"bytes,7,opt,name=server,proto3,oneof" json:"server,omitempty"`
+	Tool          *string                `protobuf:"bytes,8,opt,name=tool,proto3,oneof" json:"tool,omitempty"`
+	Name          *string                `protobuf:"bytes,9,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackgroundTaskSummary) Reset() {
+	*x = BackgroundTaskSummary{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[161]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackgroundTaskSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackgroundTaskSummary) ProtoMessage() {}
+
+func (x *BackgroundTaskSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[161]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackgroundTaskSummary.ProtoReflect.Descriptor instead.
+func (*BackgroundTaskSummary) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{161}
+}
+
+func (x *BackgroundTaskSummary) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetCommand() string {
+	if x != nil && x.Command != nil {
+		return *x.Command
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetAgentType() string {
+	if x != nil && x.AgentType != nil {
+		return *x.AgentType
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetServer() string {
+	if x != nil && x.Server != nil {
+		return *x.Server
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetTool() string {
+	if x != nil && x.Tool != nil {
+		return *x.Tool
+	}
+	return ""
+}
+
+func (x *BackgroundTaskSummary) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
+type SessionCronSummary struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Schedule      string                 `protobuf:"bytes,2,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	Recurring     bool                   `protobuf:"varint,3,opt,name=recurring,proto3" json:"recurring,omitempty"`
+	Prompt        string                 `protobuf:"bytes,4,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionCronSummary) Reset() {
+	*x = SessionCronSummary{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[162]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionCronSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionCronSummary) ProtoMessage() {}
+
+func (x *SessionCronSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[162]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionCronSummary.ProtoReflect.Descriptor instead.
+func (*SessionCronSummary) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{162}
+}
+
+func (x *SessionCronSummary) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SessionCronSummary) GetSchedule() string {
+	if x != nil {
+		return x.Schedule
+	}
+	return ""
+}
+
+func (x *SessionCronSummary) GetRecurring() bool {
+	if x != nil {
+		return x.Recurring
+	}
+	return false
+}
+
+func (x *SessionCronSummary) GetPrompt() string {
+	if x != nil {
+		return x.Prompt
+	}
+	return ""
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolbatchhookinput
+type PostToolBatchToolCall struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ToolName      string                 `protobuf:"bytes,1,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
+	ToolInput     *JsonRawMessage        `protobuf:"bytes,2,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
+	ToolUseId     string                 `protobuf:"bytes,3,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
+	ToolResponse  *JsonRawMessage        `protobuf:"bytes,4,opt,name=tool_response,proto3,oneof" json:"tool_response,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PostToolBatchToolCall) Reset() {
+	*x = PostToolBatchToolCall{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[163]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PostToolBatchToolCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PostToolBatchToolCall) ProtoMessage() {}
+
+func (x *PostToolBatchToolCall) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[163]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PostToolBatchToolCall.ProtoReflect.Descriptor instead.
+func (*PostToolBatchToolCall) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{163}
+}
+
+func (x *PostToolBatchToolCall) GetToolName() string {
+	if x != nil {
+		return x.ToolName
+	}
+	return ""
+}
+
+func (x *PostToolBatchToolCall) GetToolInput() *JsonRawMessage {
+	if x != nil {
+		return x.ToolInput
+	}
+	return nil
+}
+
+func (x *PostToolBatchToolCall) GetToolUseId() string {
+	if x != nil {
+		return x.ToolUseId
+	}
+	return ""
+}
+
+func (x *PostToolBatchToolCall) GetToolResponse() *JsonRawMessage {
+	if x != nil {
+		return x.ToolResponse
+	}
+	return nil
+}
+
 type PreToolUseHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
@@ -11065,13 +13897,14 @@ type PreToolUseHookInput struct {
 	ToolName       string                 `protobuf:"bytes,8,opt,name=tool_name,proto3" json:"tool_name,omitempty"`
 	ToolInput      *ToolInput             `protobuf:"bytes,9,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
 	ToolUseId      string                 `protobuf:"bytes,10,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,11,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PreToolUseHookInput) Reset() {
 	*x = PreToolUseHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[133]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11083,7 +13916,7 @@ func (x *PreToolUseHookInput) String() string {
 func (*PreToolUseHookInput) ProtoMessage() {}
 
 func (x *PreToolUseHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[133]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11096,7 +13929,7 @@ func (x *PreToolUseHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreToolUseHookInput.ProtoReflect.Descriptor instead.
 func (*PreToolUseHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{133}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *PreToolUseHookInput) GetSessionId() string {
@@ -11169,6 +14002,13 @@ func (x *PreToolUseHookInput) GetToolUseId() string {
 	return ""
 }
 
+func (x *PreToolUseHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusehookinput
 type PostToolUseHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -11183,13 +14023,15 @@ type PostToolUseHookInput struct {
 	ToolInput      *ToolInput             `protobuf:"bytes,9,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
 	ToolResponse   *ToolOutput            `protobuf:"bytes,10,opt,name=tool_response,proto3" json:"tool_response,omitempty"`
 	ToolUseId      string                 `protobuf:"bytes,11,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
+	DurationMs     *int64                 `protobuf:"varint,12,opt,name=duration_ms,proto3,oneof" json:"duration_ms,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,13,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PostToolUseHookInput) Reset() {
 	*x = PostToolUseHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[134]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11201,7 +14043,7 @@ func (x *PostToolUseHookInput) String() string {
 func (*PostToolUseHookInput) ProtoMessage() {}
 
 func (x *PostToolUseHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[134]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11214,7 +14056,7 @@ func (x *PostToolUseHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PostToolUseHookInput.ProtoReflect.Descriptor instead.
 func (*PostToolUseHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{134}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *PostToolUseHookInput) GetSessionId() string {
@@ -11294,6 +14136,20 @@ func (x *PostToolUseHookInput) GetToolUseId() string {
 	return ""
 }
 
+func (x *PostToolUseHookInput) GetDurationMs() int64 {
+	if x != nil && x.DurationMs != nil {
+		return *x.DurationMs
+	}
+	return 0
+}
+
+func (x *PostToolUseHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolusefailurehookinput
 type PostToolUseFailureHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -11309,13 +14165,15 @@ type PostToolUseFailureHookInput struct {
 	ToolUseId      string                 `protobuf:"bytes,10,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
 	Error          string                 `protobuf:"bytes,11,opt,name=error,proto3" json:"error,omitempty"`
 	IsInterrupt    *bool                  `protobuf:"varint,12,opt,name=is_interrupt,proto3,oneof" json:"is_interrupt,omitempty"`
+	DurationMs     *int64                 `protobuf:"varint,13,opt,name=duration_ms,proto3,oneof" json:"duration_ms,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,14,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PostToolUseFailureHookInput) Reset() {
 	*x = PostToolUseFailureHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[135]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11327,7 +14185,7 @@ func (x *PostToolUseFailureHookInput) String() string {
 func (*PostToolUseFailureHookInput) ProtoMessage() {}
 
 func (x *PostToolUseFailureHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[135]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11340,7 +14198,7 @@ func (x *PostToolUseFailureHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PostToolUseFailureHookInput.ProtoReflect.Descriptor instead.
 func (*PostToolUseFailureHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{135}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *PostToolUseFailureHookInput) GetSessionId() string {
@@ -11427,6 +14285,129 @@ func (x *PostToolUseFailureHookInput) GetIsInterrupt() bool {
 	return false
 }
 
+func (x *PostToolUseFailureHookInput) GetDurationMs() int64 {
+	if x != nil && x.DurationMs != nil {
+		return *x.DurationMs
+	}
+	return 0
+}
+
+func (x *PostToolUseFailureHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#posttoolbatchhookinput
+type PostToolBatchHookInput struct {
+	state          protoimpl.MessageState   `protogen:"open.v1"`
+	SessionId      string                   `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                   `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
+	Cwd            string                   `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	PermissionMode *string                  `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	AgentId        *string                  `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
+	AgentType      *string                  `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
+	HookEventName  string                   `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	ToolCalls      []*PostToolBatchToolCall `protobuf:"bytes,8,rep,name=tool_calls,proto3" json:"tool_calls,omitempty"`
+	Effort         *BaseHookInputEffort     `protobuf:"bytes,9,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *PostToolBatchHookInput) Reset() {
+	*x = PostToolBatchHookInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[167]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PostToolBatchHookInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PostToolBatchHookInput) ProtoMessage() {}
+
+func (x *PostToolBatchHookInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[167]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PostToolBatchHookInput.ProtoReflect.Descriptor instead.
+func (*PostToolBatchHookInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{167}
+}
+
+func (x *PostToolBatchHookInput) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *PostToolBatchHookInput) GetTranscriptPath() string {
+	if x != nil {
+		return x.TranscriptPath
+	}
+	return ""
+}
+
+func (x *PostToolBatchHookInput) GetCwd() string {
+	if x != nil {
+		return x.Cwd
+	}
+	return ""
+}
+
+func (x *PostToolBatchHookInput) GetPermissionMode() string {
+	if x != nil && x.PermissionMode != nil {
+		return *x.PermissionMode
+	}
+	return ""
+}
+
+func (x *PostToolBatchHookInput) GetAgentId() string {
+	if x != nil && x.AgentId != nil {
+		return *x.AgentId
+	}
+	return ""
+}
+
+func (x *PostToolBatchHookInput) GetAgentType() string {
+	if x != nil && x.AgentType != nil {
+		return *x.AgentType
+	}
+	return ""
+}
+
+func (x *PostToolBatchHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
+func (x *PostToolBatchHookInput) GetToolCalls() []*PostToolBatchToolCall {
+	if x != nil {
+		return x.ToolCalls
+	}
+	return nil
+}
+
+func (x *PostToolBatchHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#notificationhookinput
 type NotificationHookInput struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
@@ -11440,13 +14421,14 @@ type NotificationHookInput struct {
 	Message          string                 `protobuf:"bytes,8,opt,name=message,proto3" json:"message,omitempty"`
 	Title            *string                `protobuf:"bytes,9,opt,name=title,proto3,oneof" json:"title,omitempty"`
 	NotificationType string                 `protobuf:"bytes,10,opt,name=notification_type,proto3" json:"notification_type,omitempty"`
+	Effort           *BaseHookInputEffort   `protobuf:"bytes,11,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *NotificationHookInput) Reset() {
 	*x = NotificationHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[136]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11458,7 +14440,7 @@ func (x *NotificationHookInput) String() string {
 func (*NotificationHookInput) ProtoMessage() {}
 
 func (x *NotificationHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[136]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11471,7 +14453,7 @@ func (x *NotificationHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotificationHookInput.ProtoReflect.Descriptor instead.
 func (*NotificationHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{136}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *NotificationHookInput) GetSessionId() string {
@@ -11544,6 +14526,13 @@ func (x *NotificationHookInput) GetNotificationType() string {
 	return ""
 }
 
+func (x *NotificationHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#userpromptsubmithookinput
 type UserPromptSubmitHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -11555,13 +14544,14 @@ type UserPromptSubmitHookInput struct {
 	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	Prompt         string                 `protobuf:"bytes,8,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,9,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UserPromptSubmitHookInput) Reset() {
 	*x = UserPromptSubmitHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[137]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11573,7 +14563,7 @@ func (x *UserPromptSubmitHookInput) String() string {
 func (*UserPromptSubmitHookInput) ProtoMessage() {}
 
 func (x *UserPromptSubmitHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[137]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11586,7 +14576,7 @@ func (x *UserPromptSubmitHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserPromptSubmitHookInput.ProtoReflect.Descriptor instead.
 func (*UserPromptSubmitHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{137}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *UserPromptSubmitHookInput) GetSessionId() string {
@@ -11645,6 +14635,13 @@ func (x *UserPromptSubmitHookInput) GetPrompt() string {
 	return ""
 }
 
+func (x *UserPromptSubmitHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sessionstarthookinput
 type SessionStartHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -11657,13 +14654,14 @@ type SessionStartHookInput struct {
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	Source         string                 `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
 	Model          *string                `protobuf:"bytes,9,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,10,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SessionStartHookInput) Reset() {
 	*x = SessionStartHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[138]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11675,7 +14673,7 @@ func (x *SessionStartHookInput) String() string {
 func (*SessionStartHookInput) ProtoMessage() {}
 
 func (x *SessionStartHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[138]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11688,7 +14686,7 @@ func (x *SessionStartHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStartHookInput.ProtoReflect.Descriptor instead.
 func (*SessionStartHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{138}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *SessionStartHookInput) GetSessionId() string {
@@ -11754,6 +14752,13 @@ func (x *SessionStartHookInput) GetModel() string {
 	return ""
 }
 
+func (x *SessionStartHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#sessionendhookinput
 type SessionEndHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -11765,13 +14770,14 @@ type SessionEndHookInput struct {
 	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	Reason         string                 `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,9,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SessionEndHookInput) Reset() {
 	*x = SessionEndHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[139]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11783,7 +14789,7 @@ func (x *SessionEndHookInput) String() string {
 func (*SessionEndHookInput) ProtoMessage() {}
 
 func (x *SessionEndHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[139]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11796,7 +14802,7 @@ func (x *SessionEndHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionEndHookInput.ProtoReflect.Descriptor instead.
 func (*SessionEndHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{139}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *SessionEndHookInput) GetSessionId() string {
@@ -11855,24 +14861,35 @@ func (x *SessionEndHookInput) GetReason() string {
 	return ""
 }
 
+func (x *SessionEndHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#stophookinput
 type StopHookInput struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
-	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
-	AgentId        *string                `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
-	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
-	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
-	StopHookActive bool                   `protobuf:"varint,8,opt,name=stop_hook_active,proto3" json:"stop_hook_active,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                protoimpl.MessageState   `protogen:"open.v1"`
+	SessionId            string                   `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath       string                   `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
+	Cwd                  string                   `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	PermissionMode       *string                  `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	AgentId              *string                  `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
+	AgentType            *string                  `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
+	HookEventName        string                   `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	StopHookActive       bool                     `protobuf:"varint,8,opt,name=stop_hook_active,proto3" json:"stop_hook_active,omitempty"`
+	LastAssistantMessage *string                  `protobuf:"bytes,9,opt,name=last_assistant_message,proto3,oneof" json:"last_assistant_message,omitempty"`
+	BackgroundTasks      []*BackgroundTaskSummary `protobuf:"bytes,10,rep,name=background_tasks,proto3" json:"background_tasks,omitempty"`
+	SessionCrons         []*SessionCronSummary    `protobuf:"bytes,11,rep,name=session_crons,proto3" json:"session_crons,omitempty"`
+	Effort               *BaseHookInputEffort     `protobuf:"bytes,12,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *StopHookInput) Reset() {
 	*x = StopHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[140]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11884,7 +14901,7 @@ func (x *StopHookInput) String() string {
 func (*StopHookInput) ProtoMessage() {}
 
 func (x *StopHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[140]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11897,7 +14914,7 @@ func (x *StopHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopHookInput.ProtoReflect.Descriptor instead.
 func (*StopHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{140}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *StopHookInput) GetSessionId() string {
@@ -11956,6 +14973,34 @@ func (x *StopHookInput) GetStopHookActive() bool {
 	return false
 }
 
+func (x *StopHookInput) GetLastAssistantMessage() string {
+	if x != nil && x.LastAssistantMessage != nil {
+		return *x.LastAssistantMessage
+	}
+	return ""
+}
+
+func (x *StopHookInput) GetBackgroundTasks() []*BackgroundTaskSummary {
+	if x != nil {
+		return x.BackgroundTasks
+	}
+	return nil
+}
+
+func (x *StopHookInput) GetSessionCrons() []*SessionCronSummary {
+	if x != nil {
+		return x.SessionCrons
+	}
+	return nil
+}
+
+func (x *StopHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstarthookinput
 type SubagentStartHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -11966,14 +15011,14 @@ type SubagentStartHookInput struct {
 	AgentId        *string                `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
 	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
-	Prompt         string                 `protobuf:"bytes,8,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,8,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SubagentStartHookInput) Reset() {
 	*x = SubagentStartHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[141]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11985,7 +15030,7 @@ func (x *SubagentStartHookInput) String() string {
 func (*SubagentStartHookInput) ProtoMessage() {}
 
 func (x *SubagentStartHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[141]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11998,7 +15043,7 @@ func (x *SubagentStartHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubagentStartHookInput.ProtoReflect.Descriptor instead.
 func (*SubagentStartHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{141}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *SubagentStartHookInput) GetSessionId() string {
@@ -12050,31 +15095,36 @@ func (x *SubagentStartHookInput) GetHookEventName() string {
 	return ""
 }
 
-func (x *SubagentStartHookInput) GetPrompt() string {
+func (x *SubagentStartHookInput) GetEffort() *BaseHookInputEffort {
 	if x != nil {
-		return x.Prompt
+		return x.Effort
 	}
-	return ""
+	return nil
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#subagentstophookinput
 type SubagentStopHookInput struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
-	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
-	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
-	AgentId        *string                `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
-	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
-	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
-	StopReason     string                 `protobuf:"bytes,8,opt,name=stop_reason,proto3" json:"stop_reason,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                protoimpl.MessageState   `protogen:"open.v1"`
+	SessionId            string                   `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath       string                   `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
+	Cwd                  string                   `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	PermissionMode       *string                  `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	AgentId              *string                  `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
+	AgentType            *string                  `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
+	HookEventName        string                   `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	StopHookActive       bool                     `protobuf:"varint,8,opt,name=stop_hook_active,proto3" json:"stop_hook_active,omitempty"`
+	AgentTranscriptPath  string                   `protobuf:"bytes,9,opt,name=agent_transcript_path,proto3" json:"agent_transcript_path,omitempty"`
+	LastAssistantMessage *string                  `protobuf:"bytes,10,opt,name=last_assistant_message,proto3,oneof" json:"last_assistant_message,omitempty"`
+	BackgroundTasks      []*BackgroundTaskSummary `protobuf:"bytes,11,rep,name=background_tasks,proto3" json:"background_tasks,omitempty"`
+	SessionCrons         []*SessionCronSummary    `protobuf:"bytes,12,rep,name=session_crons,proto3" json:"session_crons,omitempty"`
+	Effort               *BaseHookInputEffort     `protobuf:"bytes,13,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *SubagentStopHookInput) Reset() {
 	*x = SubagentStopHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[142]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12086,7 +15136,7 @@ func (x *SubagentStopHookInput) String() string {
 func (*SubagentStopHookInput) ProtoMessage() {}
 
 func (x *SubagentStopHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[142]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12099,7 +15149,7 @@ func (x *SubagentStopHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubagentStopHookInput.ProtoReflect.Descriptor instead.
 func (*SubagentStopHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{142}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *SubagentStopHookInput) GetSessionId() string {
@@ -12151,11 +15201,46 @@ func (x *SubagentStopHookInput) GetHookEventName() string {
 	return ""
 }
 
-func (x *SubagentStopHookInput) GetStopReason() string {
+func (x *SubagentStopHookInput) GetStopHookActive() bool {
 	if x != nil {
-		return x.StopReason
+		return x.StopHookActive
+	}
+	return false
+}
+
+func (x *SubagentStopHookInput) GetAgentTranscriptPath() string {
+	if x != nil {
+		return x.AgentTranscriptPath
 	}
 	return ""
+}
+
+func (x *SubagentStopHookInput) GetLastAssistantMessage() string {
+	if x != nil && x.LastAssistantMessage != nil {
+		return *x.LastAssistantMessage
+	}
+	return ""
+}
+
+func (x *SubagentStopHookInput) GetBackgroundTasks() []*BackgroundTaskSummary {
+	if x != nil {
+		return x.BackgroundTasks
+	}
+	return nil
+}
+
+func (x *SubagentStopHookInput) GetSessionCrons() []*SessionCronSummary {
+	if x != nil {
+		return x.SessionCrons
+	}
+	return nil
+}
+
+func (x *SubagentStopHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#precompacthookinput
@@ -12169,14 +15254,15 @@ type PreCompactHookInput struct {
 	AgentType          *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName      string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	Trigger            string                 `protobuf:"bytes,8,opt,name=trigger,proto3" json:"trigger,omitempty"`
-	CustomInstructions string                 `protobuf:"bytes,9,opt,name=custom_instructions,proto3" json:"custom_instructions,omitempty"`
+	CustomInstructions *string                `protobuf:"bytes,9,opt,name=custom_instructions,proto3,oneof" json:"custom_instructions,omitempty"`
+	Effort             *BaseHookInputEffort   `protobuf:"bytes,10,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *PreCompactHookInput) Reset() {
 	*x = PreCompactHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[143]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12188,7 +15274,7 @@ func (x *PreCompactHookInput) String() string {
 func (*PreCompactHookInput) ProtoMessage() {}
 
 func (x *PreCompactHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[143]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12201,7 +15287,7 @@ func (x *PreCompactHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreCompactHookInput.ProtoReflect.Descriptor instead.
 func (*PreCompactHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{143}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *PreCompactHookInput) GetSessionId() string {
@@ -12261,10 +15347,17 @@ func (x *PreCompactHookInput) GetTrigger() string {
 }
 
 func (x *PreCompactHookInput) GetCustomInstructions() string {
-	if x != nil {
-		return x.CustomInstructions
+	if x != nil && x.CustomInstructions != nil {
+		return *x.CustomInstructions
 	}
 	return ""
+}
+
+func (x *PreCompactHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permissionrequesthookinput
@@ -12281,13 +15374,14 @@ type PermissionRequestHookInput struct {
 	ToolInput             *ToolInput             `protobuf:"bytes,9,opt,name=tool_input,proto3" json:"tool_input,omitempty"`
 	ToolUseId             string                 `protobuf:"bytes,10,opt,name=tool_use_id,proto3" json:"tool_use_id,omitempty"`
 	PermissionSuggestions []*PermissionUpdate    `protobuf:"bytes,11,rep,name=permission_suggestions,proto3" json:"permission_suggestions,omitempty"`
+	Effort                *BaseHookInputEffort   `protobuf:"bytes,12,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
 
 func (x *PermissionRequestHookInput) Reset() {
 	*x = PermissionRequestHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[144]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12299,7 +15393,7 @@ func (x *PermissionRequestHookInput) String() string {
 func (*PermissionRequestHookInput) ProtoMessage() {}
 
 func (x *PermissionRequestHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[144]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12312,7 +15406,7 @@ func (x *PermissionRequestHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermissionRequestHookInput.ProtoReflect.Descriptor instead.
 func (*PermissionRequestHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{144}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *PermissionRequestHookInput) GetSessionId() string {
@@ -12392,6 +15486,13 @@ func (x *PermissionRequestHookInput) GetPermissionSuggestions() []*PermissionUpd
 	return nil
 }
 
+func (x *PermissionRequestHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#setuphookinput
 type SetupHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -12403,13 +15504,14 @@ type SetupHookInput struct {
 	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	Trigger        string                 `protobuf:"bytes,8,opt,name=trigger,proto3" json:"trigger,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,9,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SetupHookInput) Reset() {
 	*x = SetupHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[145]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12421,7 +15523,7 @@ func (x *SetupHookInput) String() string {
 func (*SetupHookInput) ProtoMessage() {}
 
 func (x *SetupHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[145]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12434,7 +15536,7 @@ func (x *SetupHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetupHookInput.ProtoReflect.Descriptor instead.
 func (*SetupHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{145}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *SetupHookInput) GetSessionId() string {
@@ -12493,6 +15595,13 @@ func (x *SetupHookInput) GetTrigger() string {
 	return ""
 }
 
+func (x *SetupHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#teammateidlehookinput
 type TeammateIdleHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -12503,13 +15612,16 @@ type TeammateIdleHookInput struct {
 	AgentId        *string                `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
 	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	TeammateName   string                 `protobuf:"bytes,8,opt,name=teammate_name,proto3" json:"teammate_name,omitempty"`
+	TeamName       string                 `protobuf:"bytes,9,opt,name=team_name,proto3" json:"team_name,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,10,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *TeammateIdleHookInput) Reset() {
 	*x = TeammateIdleHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[146]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12521,7 +15633,7 @@ func (x *TeammateIdleHookInput) String() string {
 func (*TeammateIdleHookInput) ProtoMessage() {}
 
 func (x *TeammateIdleHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[146]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12534,7 +15646,7 @@ func (x *TeammateIdleHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TeammateIdleHookInput.ProtoReflect.Descriptor instead.
 func (*TeammateIdleHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{146}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *TeammateIdleHookInput) GetSessionId() string {
@@ -12586,6 +15698,27 @@ func (x *TeammateIdleHookInput) GetHookEventName() string {
 	return ""
 }
 
+func (x *TeammateIdleHookInput) GetTeammateName() string {
+	if x != nil {
+		return x.TeammateName
+	}
+	return ""
+}
+
+func (x *TeammateIdleHookInput) GetTeamName() string {
+	if x != nil {
+		return x.TeamName
+	}
+	return ""
+}
+
+func (x *TeammateIdleHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#taskcompletedhookinput
 type TaskCompletedHookInput struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
@@ -12601,13 +15734,14 @@ type TaskCompletedHookInput struct {
 	TaskDescription *string                `protobuf:"bytes,10,opt,name=task_description,proto3,oneof" json:"task_description,omitempty"`
 	TeammateName    *string                `protobuf:"bytes,11,opt,name=teammate_name,proto3,oneof" json:"teammate_name,omitempty"`
 	TeamName        *string                `protobuf:"bytes,12,opt,name=team_name,proto3,oneof" json:"team_name,omitempty"`
+	Effort          *BaseHookInputEffort   `protobuf:"bytes,13,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *TaskCompletedHookInput) Reset() {
 	*x = TaskCompletedHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[147]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12619,7 +15753,7 @@ func (x *TaskCompletedHookInput) String() string {
 func (*TaskCompletedHookInput) ProtoMessage() {}
 
 func (x *TaskCompletedHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[147]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12632,7 +15766,7 @@ func (x *TaskCompletedHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskCompletedHookInput.ProtoReflect.Descriptor instead.
 func (*TaskCompletedHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{147}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *TaskCompletedHookInput) GetSessionId() string {
@@ -12719,6 +15853,13 @@ func (x *TaskCompletedHookInput) GetTeamName() string {
 	return ""
 }
 
+func (x *TaskCompletedHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#configchangehookinput
 type ConfigChangeHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -12731,13 +15872,14 @@ type ConfigChangeHookInput struct {
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	Source         string                 `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
 	FilePath       *string                `protobuf:"bytes,9,opt,name=file_path,proto3,oneof" json:"file_path,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,10,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ConfigChangeHookInput) Reset() {
 	*x = ConfigChangeHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[148]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12749,7 +15891,7 @@ func (x *ConfigChangeHookInput) String() string {
 func (*ConfigChangeHookInput) ProtoMessage() {}
 
 func (x *ConfigChangeHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[148]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12762,7 +15904,7 @@ func (x *ConfigChangeHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigChangeHookInput.ProtoReflect.Descriptor instead.
 func (*ConfigChangeHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{148}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *ConfigChangeHookInput) GetSessionId() string {
@@ -12828,6 +15970,13 @@ func (x *ConfigChangeHookInput) GetFilePath() string {
 	return ""
 }
 
+func (x *ConfigChangeHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#worktreecreatehookinput
 type WorktreeCreateHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -12839,13 +15988,14 @@ type WorktreeCreateHookInput struct {
 	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	Name           string                 `protobuf:"bytes,8,opt,name=name,proto3" json:"name,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,9,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *WorktreeCreateHookInput) Reset() {
 	*x = WorktreeCreateHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[149]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12857,7 +16007,7 @@ func (x *WorktreeCreateHookInput) String() string {
 func (*WorktreeCreateHookInput) ProtoMessage() {}
 
 func (x *WorktreeCreateHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[149]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12870,7 +16020,7 @@ func (x *WorktreeCreateHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorktreeCreateHookInput.ProtoReflect.Descriptor instead.
 func (*WorktreeCreateHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{149}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *WorktreeCreateHookInput) GetSessionId() string {
@@ -12929,6 +16079,13 @@ func (x *WorktreeCreateHookInput) GetName() string {
 	return ""
 }
 
+func (x *WorktreeCreateHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#worktreeremovehookinput
 type WorktreeRemoveHookInput struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -12940,13 +16097,14 @@ type WorktreeRemoveHookInput struct {
 	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
 	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
 	WorktreePath   string                 `protobuf:"bytes,8,opt,name=worktree_path,proto3" json:"worktree_path,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,9,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *WorktreeRemoveHookInput) Reset() {
 	*x = WorktreeRemoveHookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[150]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12958,7 +16116,7 @@ func (x *WorktreeRemoveHookInput) String() string {
 func (*WorktreeRemoveHookInput) ProtoMessage() {}
 
 func (x *WorktreeRemoveHookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[150]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12971,7 +16129,7 @@ func (x *WorktreeRemoveHookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorktreeRemoveHookInput.ProtoReflect.Descriptor instead.
 func (*WorktreeRemoveHookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{150}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *WorktreeRemoveHookInput) GetSessionId() string {
@@ -13030,6 +16188,154 @@ func (x *WorktreeRemoveHookInput) GetWorktreePath() string {
 	return ""
 }
 
+func (x *WorktreeRemoveHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#messagedisplayhookinput
+type MessageDisplayHookInput struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	SessionId      string                 `protobuf:"bytes,1,opt,name=session_id,proto3" json:"session_id,omitempty"`
+	TranscriptPath string                 `protobuf:"bytes,2,opt,name=transcript_path,proto3" json:"transcript_path,omitempty"`
+	Cwd            string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	PermissionMode *string                `protobuf:"bytes,4,opt,name=permission_mode,proto3,oneof" json:"permission_mode,omitempty"`
+	AgentId        *string                `protobuf:"bytes,5,opt,name=agent_id,proto3,oneof" json:"agent_id,omitempty"`
+	AgentType      *string                `protobuf:"bytes,6,opt,name=agent_type,proto3,oneof" json:"agent_type,omitempty"`
+	HookEventName  string                 `protobuf:"bytes,7,opt,name=hook_event_name,proto3" json:"hook_event_name,omitempty"`
+	TurnId         string                 `protobuf:"bytes,8,opt,name=turn_id,proto3" json:"turn_id,omitempty"`
+	MessageId      string                 `protobuf:"bytes,9,opt,name=message_id,proto3" json:"message_id,omitempty"`
+	Index          int64                  `protobuf:"varint,10,opt,name=index,proto3" json:"index,omitempty"`
+	Final          bool                   `protobuf:"varint,11,opt,name=final,proto3" json:"final,omitempty"`
+	Delta          string                 `protobuf:"bytes,12,opt,name=delta,proto3" json:"delta,omitempty"`
+	Effort         *BaseHookInputEffort   `protobuf:"bytes,13,opt,name=effort,proto3,oneof" json:"effort,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *MessageDisplayHookInput) Reset() {
+	*x = MessageDisplayHookInput{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[183]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageDisplayHookInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageDisplayHookInput) ProtoMessage() {}
+
+func (x *MessageDisplayHookInput) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[183]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MessageDisplayHookInput.ProtoReflect.Descriptor instead.
+func (*MessageDisplayHookInput) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{183}
+}
+
+func (x *MessageDisplayHookInput) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetTranscriptPath() string {
+	if x != nil {
+		return x.TranscriptPath
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetCwd() string {
+	if x != nil {
+		return x.Cwd
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetPermissionMode() string {
+	if x != nil && x.PermissionMode != nil {
+		return *x.PermissionMode
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetAgentId() string {
+	if x != nil && x.AgentId != nil {
+		return *x.AgentId
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetAgentType() string {
+	if x != nil && x.AgentType != nil {
+		return *x.AgentType
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetIndex() int64 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *MessageDisplayHookInput) GetFinal() bool {
+	if x != nil {
+		return x.Final
+	}
+	return false
+}
+
+func (x *MessageDisplayHookInput) GetDelta() string {
+	if x != nil {
+		return x.Delta
+	}
+	return ""
+}
+
+func (x *MessageDisplayHookInput) GetEffort() *BaseHookInputEffort {
+	if x != nil {
+		return x.Effort
+	}
+	return nil
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
 type HookInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -13053,6 +16359,8 @@ type HookInput struct {
 	//	*HookInput_ConfigChange
 	//	*HookInput_WorktreeCreate
 	//	*HookInput_WorktreeRemove
+	//	*HookInput_PostToolBatch
+	//	*HookInput_MessageDisplay
 	//	*HookInput_Unknown
 	Value         isHookInput_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
@@ -13061,7 +16369,7 @@ type HookInput struct {
 
 func (x *HookInput) Reset() {
 	*x = HookInput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[151]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13073,7 +16381,7 @@ func (x *HookInput) String() string {
 func (*HookInput) ProtoMessage() {}
 
 func (x *HookInput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[151]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13086,7 +16394,7 @@ func (x *HookInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookInput.ProtoReflect.Descriptor instead.
 func (*HookInput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{151}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{184}
 }
 
 func (x *HookInput) GetValue() isHookInput_Value {
@@ -13258,6 +16566,24 @@ func (x *HookInput) GetWorktreeRemove() *WorktreeRemoveHookInput {
 	return nil
 }
 
+func (x *HookInput) GetPostToolBatch() *PostToolBatchHookInput {
+	if x != nil {
+		if x, ok := x.Value.(*HookInput_PostToolBatch); ok {
+			return x.PostToolBatch
+		}
+	}
+	return nil
+}
+
+func (x *HookInput) GetMessageDisplay() *MessageDisplayHookInput {
+	if x != nil {
+		if x, ok := x.Value.(*HookInput_MessageDisplay); ok {
+			return x.MessageDisplay
+		}
+	}
+	return nil
+}
+
 func (x *HookInput) GetUnknown() *UnknownVariant {
 	if x != nil {
 		if x, ok := x.Value.(*HookInput_Unknown); ok {
@@ -13343,6 +16669,14 @@ type HookInput_WorktreeRemove struct {
 	WorktreeRemove *WorktreeRemoveHookInput `protobuf:"bytes,18,opt,name=worktree_remove,json=worktreeRemove,proto3,oneof"`
 }
 
+type HookInput_PostToolBatch struct {
+	PostToolBatch *PostToolBatchHookInput `protobuf:"bytes,19,opt,name=post_tool_batch,json=postToolBatch,proto3,oneof"`
+}
+
+type HookInput_MessageDisplay struct {
+	MessageDisplay *MessageDisplayHookInput `protobuf:"bytes,20,opt,name=message_display,json=messageDisplay,proto3,oneof"`
+}
+
 type HookInput_Unknown struct {
 	Unknown *UnknownVariant `protobuf:"bytes,99,opt,name=unknown,proto3,oneof"`
 }
@@ -13383,6 +16717,10 @@ func (*HookInput_WorktreeCreate) isHookInput_Value() {}
 
 func (*HookInput_WorktreeRemove) isHookInput_Value() {}
 
+func (*HookInput_PostToolBatch) isHookInput_Value() {}
+
+func (*HookInput_MessageDisplay) isHookInput_Value() {}
+
 func (*HookInput_Unknown) isHookInput_Value() {}
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
@@ -13399,7 +16737,7 @@ type HookSpecificOutputPreToolUse struct {
 
 func (x *HookSpecificOutputPreToolUse) Reset() {
 	*x = HookSpecificOutputPreToolUse{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[152]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[185]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13411,7 +16749,7 @@ func (x *HookSpecificOutputPreToolUse) String() string {
 func (*HookSpecificOutputPreToolUse) ProtoMessage() {}
 
 func (x *HookSpecificOutputPreToolUse) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[152]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[185]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13424,7 +16762,7 @@ func (x *HookSpecificOutputPreToolUse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutputPreToolUse.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputPreToolUse) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{152}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{185}
 }
 
 func (x *HookSpecificOutputPreToolUse) GetHookEventName() string {
@@ -13473,7 +16811,7 @@ type HookSpecificOutputUserPromptSubmit struct {
 
 func (x *HookSpecificOutputUserPromptSubmit) Reset() {
 	*x = HookSpecificOutputUserPromptSubmit{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[153]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[186]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13485,7 +16823,7 @@ func (x *HookSpecificOutputUserPromptSubmit) String() string {
 func (*HookSpecificOutputUserPromptSubmit) ProtoMessage() {}
 
 func (x *HookSpecificOutputUserPromptSubmit) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[153]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[186]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13498,7 +16836,7 @@ func (x *HookSpecificOutputUserPromptSubmit) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use HookSpecificOutputUserPromptSubmit.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputUserPromptSubmit) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{153}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{186}
 }
 
 func (x *HookSpecificOutputUserPromptSubmit) GetHookEventName() string {
@@ -13526,7 +16864,7 @@ type HookSpecificOutputSessionStart struct {
 
 func (x *HookSpecificOutputSessionStart) Reset() {
 	*x = HookSpecificOutputSessionStart{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[154]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[187]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13538,7 +16876,7 @@ func (x *HookSpecificOutputSessionStart) String() string {
 func (*HookSpecificOutputSessionStart) ProtoMessage() {}
 
 func (x *HookSpecificOutputSessionStart) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[154]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[187]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13551,7 +16889,7 @@ func (x *HookSpecificOutputSessionStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutputSessionStart.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputSessionStart) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{154}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{187}
 }
 
 func (x *HookSpecificOutputSessionStart) GetHookEventName() string {
@@ -13579,7 +16917,7 @@ type HookSpecificOutputSetup struct {
 
 func (x *HookSpecificOutputSetup) Reset() {
 	*x = HookSpecificOutputSetup{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[155]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[188]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13591,7 +16929,7 @@ func (x *HookSpecificOutputSetup) String() string {
 func (*HookSpecificOutputSetup) ProtoMessage() {}
 
 func (x *HookSpecificOutputSetup) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[155]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[188]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13604,7 +16942,7 @@ func (x *HookSpecificOutputSetup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutputSetup.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputSetup) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{155}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{188}
 }
 
 func (x *HookSpecificOutputSetup) GetHookEventName() string {
@@ -13632,7 +16970,7 @@ type HookSpecificOutputSubagentStart struct {
 
 func (x *HookSpecificOutputSubagentStart) Reset() {
 	*x = HookSpecificOutputSubagentStart{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[156]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[189]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13644,7 +16982,7 @@ func (x *HookSpecificOutputSubagentStart) String() string {
 func (*HookSpecificOutputSubagentStart) ProtoMessage() {}
 
 func (x *HookSpecificOutputSubagentStart) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[156]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[189]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13657,7 +16995,7 @@ func (x *HookSpecificOutputSubagentStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutputSubagentStart.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputSubagentStart) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{156}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{189}
 }
 
 func (x *HookSpecificOutputSubagentStart) GetHookEventName() string {
@@ -13680,13 +17018,14 @@ type HookSpecificOutputPostToolUse struct {
 	HookEventName        string                 `protobuf:"bytes,1,opt,name=hook_event_name,json=hookEventName,proto3" json:"hook_event_name,omitempty"`
 	AdditionalContext    *string                `protobuf:"bytes,2,opt,name=additional_context,json=additionalContext,proto3,oneof" json:"additional_context,omitempty"`
 	UpdatedMcpToolOutput *JsonRawMessage        `protobuf:"bytes,3,opt,name=updated_mcp_tool_output,json=updatedMCPToolOutput,proto3,oneof" json:"updated_mcp_tool_output,omitempty"`
+	UpdatedToolOutput    *JsonRawMessage        `protobuf:"bytes,4,opt,name=updated_tool_output,json=updatedToolOutput,proto3,oneof" json:"updated_tool_output,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
 
 func (x *HookSpecificOutputPostToolUse) Reset() {
 	*x = HookSpecificOutputPostToolUse{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[157]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[190]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13698,7 +17037,7 @@ func (x *HookSpecificOutputPostToolUse) String() string {
 func (*HookSpecificOutputPostToolUse) ProtoMessage() {}
 
 func (x *HookSpecificOutputPostToolUse) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[157]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[190]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13711,7 +17050,7 @@ func (x *HookSpecificOutputPostToolUse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutputPostToolUse.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputPostToolUse) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{157}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{190}
 }
 
 func (x *HookSpecificOutputPostToolUse) GetHookEventName() string {
@@ -13735,6 +17074,66 @@ func (x *HookSpecificOutputPostToolUse) GetUpdatedMcpToolOutput() *JsonRawMessag
 	return nil
 }
 
+func (x *HookSpecificOutputPostToolUse) GetUpdatedToolOutput() *JsonRawMessage {
+	if x != nil {
+		return x.UpdatedToolOutput
+	}
+	return nil
+}
+
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+type HookSpecificOutputPostToolBatch struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	HookEventName     string                 `protobuf:"bytes,1,opt,name=hook_event_name,json=hookEventName,proto3" json:"hook_event_name,omitempty"`
+	AdditionalContext *string                `protobuf:"bytes,2,opt,name=additional_context,json=additionalContext,proto3,oneof" json:"additional_context,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *HookSpecificOutputPostToolBatch) Reset() {
+	*x = HookSpecificOutputPostToolBatch{}
+	mi := &file_sdktypes_v1_types_proto_msgTypes[191]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HookSpecificOutputPostToolBatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HookSpecificOutputPostToolBatch) ProtoMessage() {}
+
+func (x *HookSpecificOutputPostToolBatch) ProtoReflect() protoreflect.Message {
+	mi := &file_sdktypes_v1_types_proto_msgTypes[191]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HookSpecificOutputPostToolBatch.ProtoReflect.Descriptor instead.
+func (*HookSpecificOutputPostToolBatch) Descriptor() ([]byte, []int) {
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{191}
+}
+
+func (x *HookSpecificOutputPostToolBatch) GetHookEventName() string {
+	if x != nil {
+		return x.HookEventName
+	}
+	return ""
+}
+
+func (x *HookSpecificOutputPostToolBatch) GetAdditionalContext() string {
+	if x != nil && x.AdditionalContext != nil {
+		return *x.AdditionalContext
+	}
+	return ""
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
 type HookSpecificOutputPostToolUseFailure struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -13746,7 +17145,7 @@ type HookSpecificOutputPostToolUseFailure struct {
 
 func (x *HookSpecificOutputPostToolUseFailure) Reset() {
 	*x = HookSpecificOutputPostToolUseFailure{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[158]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[192]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13758,7 +17157,7 @@ func (x *HookSpecificOutputPostToolUseFailure) String() string {
 func (*HookSpecificOutputPostToolUseFailure) ProtoMessage() {}
 
 func (x *HookSpecificOutputPostToolUseFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[158]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[192]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13771,7 +17170,7 @@ func (x *HookSpecificOutputPostToolUseFailure) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use HookSpecificOutputPostToolUseFailure.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputPostToolUseFailure) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{158}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{192}
 }
 
 func (x *HookSpecificOutputPostToolUseFailure) GetHookEventName() string {
@@ -13799,7 +17198,7 @@ type HookSpecificOutputNotification struct {
 
 func (x *HookSpecificOutputNotification) Reset() {
 	*x = HookSpecificOutputNotification{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[159]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[193]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13811,7 +17210,7 @@ func (x *HookSpecificOutputNotification) String() string {
 func (*HookSpecificOutputNotification) ProtoMessage() {}
 
 func (x *HookSpecificOutputNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[159]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[193]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13824,7 +17223,7 @@ func (x *HookSpecificOutputNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutputNotification.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputNotification) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{159}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{193}
 }
 
 func (x *HookSpecificOutputNotification) GetHookEventName() string {
@@ -13853,7 +17252,7 @@ type PermissionRequestDecisionAllow struct {
 
 func (x *PermissionRequestDecisionAllow) Reset() {
 	*x = PermissionRequestDecisionAllow{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[160]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[194]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13865,7 +17264,7 @@ func (x *PermissionRequestDecisionAllow) String() string {
 func (*PermissionRequestDecisionAllow) ProtoMessage() {}
 
 func (x *PermissionRequestDecisionAllow) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[160]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[194]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13878,7 +17277,7 @@ func (x *PermissionRequestDecisionAllow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermissionRequestDecisionAllow.ProtoReflect.Descriptor instead.
 func (*PermissionRequestDecisionAllow) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{160}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{194}
 }
 
 func (x *PermissionRequestDecisionAllow) GetBehavior() PermissionRequestDecisionBehavior {
@@ -13914,7 +17313,7 @@ type PermissionRequestDecisionDeny struct {
 
 func (x *PermissionRequestDecisionDeny) Reset() {
 	*x = PermissionRequestDecisionDeny{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[161]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[195]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13926,7 +17325,7 @@ func (x *PermissionRequestDecisionDeny) String() string {
 func (*PermissionRequestDecisionDeny) ProtoMessage() {}
 
 func (x *PermissionRequestDecisionDeny) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[161]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[195]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13939,7 +17338,7 @@ func (x *PermissionRequestDecisionDeny) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermissionRequestDecisionDeny.ProtoReflect.Descriptor instead.
 func (*PermissionRequestDecisionDeny) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{161}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{195}
 }
 
 func (x *PermissionRequestDecisionDeny) GetBehavior() PermissionRequestDecisionBehavior {
@@ -13978,7 +17377,7 @@ type PermissionRequestDecision struct {
 
 func (x *PermissionRequestDecision) Reset() {
 	*x = PermissionRequestDecision{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[162]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[196]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13990,7 +17389,7 @@ func (x *PermissionRequestDecision) String() string {
 func (*PermissionRequestDecision) ProtoMessage() {}
 
 func (x *PermissionRequestDecision) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[162]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[196]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14003,7 +17402,7 @@ func (x *PermissionRequestDecision) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermissionRequestDecision.ProtoReflect.Descriptor instead.
 func (*PermissionRequestDecision) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{162}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{196}
 }
 
 func (x *PermissionRequestDecision) GetValue() isPermissionRequestDecision_Value {
@@ -14073,7 +17472,7 @@ type HookSpecificOutputPermissionRequest struct {
 
 func (x *HookSpecificOutputPermissionRequest) Reset() {
 	*x = HookSpecificOutputPermissionRequest{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[163]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[197]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14085,7 +17484,7 @@ func (x *HookSpecificOutputPermissionRequest) String() string {
 func (*HookSpecificOutputPermissionRequest) ProtoMessage() {}
 
 func (x *HookSpecificOutputPermissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[163]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[197]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14098,7 +17497,7 @@ func (x *HookSpecificOutputPermissionRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use HookSpecificOutputPermissionRequest.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutputPermissionRequest) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{163}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{197}
 }
 
 func (x *HookSpecificOutputPermissionRequest) GetHookEventName() string {
@@ -14129,6 +17528,7 @@ type HookSpecificOutput struct {
 	//	*HookSpecificOutput_PostToolUseFailure
 	//	*HookSpecificOutput_Notification
 	//	*HookSpecificOutput_PermissionRequest
+	//	*HookSpecificOutput_PostToolBatch
 	//	*HookSpecificOutput_Unknown
 	Value         isHookSpecificOutput_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
@@ -14137,7 +17537,7 @@ type HookSpecificOutput struct {
 
 func (x *HookSpecificOutput) Reset() {
 	*x = HookSpecificOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[164]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[198]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14149,7 +17549,7 @@ func (x *HookSpecificOutput) String() string {
 func (*HookSpecificOutput) ProtoMessage() {}
 
 func (x *HookSpecificOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[164]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[198]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14162,7 +17562,7 @@ func (x *HookSpecificOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookSpecificOutput.ProtoReflect.Descriptor instead.
 func (*HookSpecificOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{164}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{198}
 }
 
 func (x *HookSpecificOutput) GetValue() isHookSpecificOutput_Value {
@@ -14253,6 +17653,15 @@ func (x *HookSpecificOutput) GetPermissionRequest() *HookSpecificOutputPermissio
 	return nil
 }
 
+func (x *HookSpecificOutput) GetPostToolBatch() *HookSpecificOutputPostToolBatch {
+	if x != nil {
+		if x, ok := x.Value.(*HookSpecificOutput_PostToolBatch); ok {
+			return x.PostToolBatch
+		}
+	}
+	return nil
+}
+
 func (x *HookSpecificOutput) GetUnknown() *UnknownVariant {
 	if x != nil {
 		if x, ok := x.Value.(*HookSpecificOutput_Unknown); ok {
@@ -14302,6 +17711,10 @@ type HookSpecificOutput_PermissionRequest struct {
 	PermissionRequest *HookSpecificOutputPermissionRequest `protobuf:"bytes,9,opt,name=permission_request,json=permissionRequest,proto3,oneof"`
 }
 
+type HookSpecificOutput_PostToolBatch struct {
+	PostToolBatch *HookSpecificOutputPostToolBatch `protobuf:"bytes,10,opt,name=post_tool_batch,json=postToolBatch,proto3,oneof"`
+}
+
 type HookSpecificOutput_Unknown struct {
 	Unknown *UnknownVariant `protobuf:"bytes,99,opt,name=unknown,proto3,oneof"`
 }
@@ -14324,6 +17737,8 @@ func (*HookSpecificOutput_Notification) isHookSpecificOutput_Value() {}
 
 func (*HookSpecificOutput_PermissionRequest) isHookSpecificOutput_Value() {}
 
+func (*HookSpecificOutput_PostToolBatch) isHookSpecificOutput_Value() {}
+
 func (*HookSpecificOutput_Unknown) isHookSpecificOutput_Value() {}
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#async-hook-json-output
@@ -14337,7 +17752,7 @@ type AsyncHookJSONOutput struct {
 
 func (x *AsyncHookJSONOutput) Reset() {
 	*x = AsyncHookJSONOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[165]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[199]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14349,7 +17764,7 @@ func (x *AsyncHookJSONOutput) String() string {
 func (*AsyncHookJSONOutput) ProtoMessage() {}
 
 func (x *AsyncHookJSONOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[165]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[199]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14362,7 +17777,7 @@ func (x *AsyncHookJSONOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AsyncHookJSONOutput.ProtoReflect.Descriptor instead.
 func (*AsyncHookJSONOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{165}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{199}
 }
 
 func (x *AsyncHookJSONOutput) GetAsync() bool {
@@ -14395,7 +17810,7 @@ type SyncHookJSONOutput struct {
 
 func (x *SyncHookJSONOutput) Reset() {
 	*x = SyncHookJSONOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[166]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[200]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14407,7 +17822,7 @@ func (x *SyncHookJSONOutput) String() string {
 func (*SyncHookJSONOutput) ProtoMessage() {}
 
 func (x *SyncHookJSONOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[166]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[200]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14420,7 +17835,7 @@ func (x *SyncHookJSONOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncHookJSONOutput.ProtoReflect.Descriptor instead.
 func (*SyncHookJSONOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{166}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{200}
 }
 
 func (x *SyncHookJSONOutput) GetContinue() bool {
@@ -14487,7 +17902,7 @@ type HookJSONOutput struct {
 
 func (x *HookJSONOutput) Reset() {
 	*x = HookJSONOutput{}
-	mi := &file_sdktypes_v1_types_proto_msgTypes[167]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[201]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14499,7 +17914,7 @@ func (x *HookJSONOutput) String() string {
 func (*HookJSONOutput) ProtoMessage() {}
 
 func (x *HookJSONOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_sdktypes_v1_types_proto_msgTypes[167]
+	mi := &file_sdktypes_v1_types_proto_msgTypes[201]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14512,7 +17927,7 @@ func (x *HookJSONOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookJSONOutput.ProtoReflect.Descriptor instead.
 func (*HookJSONOutput) Descriptor() ([]byte, []int) {
-	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{167}
+	return file_sdktypes_v1_types_proto_rawDescGZIP(), []int{201}
 }
 
 func (x *HookJSONOutput) GetValue() isHookJSONOutput_Value {
@@ -14681,9 +18096,10 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x05value\"9\n" +
 	"\x0fSdkPluginConfig\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
-	"\x04path\x18\x02 \x01(\tR\x04path\"\xf5\x03\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x9c\x04\n" +
 	"\x14SandboxNetworkConfig\x12'\n" +
-	"\x0fallowed_domains\x18\x01 \x03(\tR\x0eallowedDomains\x12@\n" +
+	"\x0fallowed_domains\x18\x01 \x03(\tR\x0eallowedDomains\x12%\n" +
+	"\x0edenied_domains\x18\b \x03(\tR\rdeniedDomains\x12@\n" +
 	"\x1aallow_managed_domains_only\x18\x02 \x01(\bH\x00R\x17allowManagedDomainsOnly\x88\x01\x01\x123\n" +
 	"\x13allow_local_binding\x18\x03 \x01(\bH\x01R\x11allowLocalBinding\x88\x01\x01\x12,\n" +
 	"\x12allow_unix_sockets\x18\x04 \x03(\tR\x10allowUnixSockets\x128\n" +
@@ -14703,24 +18119,27 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\tdeny_read\x18\x03 \x03(\tR\bdenyRead\"=\n" +
 	"\rRipgrepConfig\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\tR\acommand\x12\x12\n" +
-	"\x04args\x18\x02 \x03(\tR\x04args\"\xca\x06\n" +
+	"\x04args\x18\x02 \x03(\tR\x04args\"\x97\a\n" +
 	"\x0fSandboxSettings\x12\x1d\n" +
-	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01\x12C\n" +
-	"\x1cauto_allow_bash_if_sandboxed\x18\x02 \x01(\bH\x01R\x18autoAllowBashIfSandboxed\x88\x01\x01\x12+\n" +
+	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01\x123\n" +
+	"\x13fail_if_unavailable\x18\n" +
+	" \x01(\bH\x01R\x11failIfUnavailable\x88\x01\x01\x12C\n" +
+	"\x1cauto_allow_bash_if_sandboxed\x18\x02 \x01(\bH\x02R\x18autoAllowBashIfSandboxed\x88\x01\x01\x12+\n" +
 	"\x11excluded_commands\x18\x03 \x03(\tR\x10excludedCommands\x12A\n" +
-	"\x1aallow_unsandboxed_commands\x18\x04 \x01(\bH\x02R\x18allowUnsandboxedCommands\x88\x01\x01\x12@\n" +
-	"\anetwork\x18\x05 \x01(\v2!.sdktypes.v1.SandboxNetworkConfigH\x03R\anetwork\x88\x01\x01\x12I\n" +
+	"\x1aallow_unsandboxed_commands\x18\x04 \x01(\bH\x03R\x18allowUnsandboxedCommands\x88\x01\x01\x12@\n" +
+	"\anetwork\x18\x05 \x01(\v2!.sdktypes.v1.SandboxNetworkConfigH\x04R\anetwork\x88\x01\x01\x12I\n" +
 	"\n" +
-	"filesystem\x18\x06 \x01(\v2$.sdktypes.v1.SandboxFilesystemConfigH\x04R\n" +
+	"filesystem\x18\x06 \x01(\v2$.sdktypes.v1.SandboxFilesystemConfigH\x05R\n" +
 	"filesystem\x88\x01\x01\x12_\n" +
 	"\x11ignore_violations\x18\a \x03(\v22.sdktypes.v1.SandboxSettings.IgnoreViolationsEntryR\x10ignoreViolations\x12D\n" +
-	"\x1cenable_weaker_nested_sandbox\x18\b \x01(\bH\x05R\x19enableWeakerNestedSandbox\x88\x01\x01\x129\n" +
-	"\aripgrep\x18\t \x01(\v2\x1a.sdktypes.v1.RipgrepConfigH\x06R\aripgrep\x88\x01\x01\x1a`\n" +
+	"\x1cenable_weaker_nested_sandbox\x18\b \x01(\bH\x06R\x19enableWeakerNestedSandbox\x88\x01\x01\x129\n" +
+	"\aripgrep\x18\t \x01(\v2\x1a.sdktypes.v1.RipgrepConfigH\aR\aripgrep\x88\x01\x01\x1a`\n" +
 	"\x15IgnoreViolationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
 	"\x05value\x18\x02 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\x05value:\x028\x01B\n" +
 	"\n" +
-	"\b_enabledB\x1f\n" +
+	"\b_enabledB\x16\n" +
+	"\x14_fail_if_unavailableB\x1f\n" +
 	"\x1d_auto_allow_bash_if_sandboxedB\x1d\n" +
 	"\x1b_allow_unsandboxed_commandsB\n" +
 	"\n" +
@@ -14728,7 +18147,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\v_filesystemB\x1f\n" +
 	"\x1d_enable_weaker_nested_sandboxB\n" +
 	"\n" +
-	"\b_ripgrep\"\xba\x03\n" +
+	"\b_ripgrep\"\xdc\x05\n" +
 	"\x0fAgentDefinition\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x14\n" +
 	"\x05tools\x18\x02 \x03(\tR\x05tools\x12)\n" +
@@ -14737,34 +18156,55 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x05model\x18\x05 \x01(\tH\x00R\x05model\x88\x01\x01\x12<\n" +
 	"\vmcp_servers\x18\x06 \x03(\v2\x1b.sdktypes.v1.JsonRawMessageR\n" +
 	"mcpServers\x12\x16\n" +
-	"\x06skills\x18\a \x03(\tR\x06skills\x12 \n" +
-	"\tmax_turns\x18\b \x01(\x03H\x01R\bmaxTurns\x88\x01\x01\x12W\n" +
-	"%critical_system_reminder_experimental\x18\t \x01(\tH\x02R#criticalSystemReminder_EXPERIMENTAL\x88\x01\x01B\b\n" +
-	"\x06_modelB\f\n" +
+	"\x06skills\x18\a \x03(\tR\x06skills\x12*\n" +
+	"\x0einitial_prompt\x18\n" +
+	" \x01(\tH\x01R\rinitialPrompt\x88\x01\x01\x12 \n" +
+	"\tmax_turns\x18\b \x01(\x03H\x02R\bmaxTurns\x88\x01\x01\x12#\n" +
 	"\n" +
-	"_max_turnsB(\n" +
+	"background\x18\v \x01(\bH\x03R\n" +
+	"background\x88\x01\x01\x12\x1b\n" +
+	"\x06memory\x18\f \x01(\tH\x04R\x06memory\x88\x01\x01\x128\n" +
+	"\x06effort\x18\r \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x05R\x06effort\x88\x01\x01\x12,\n" +
+	"\x0fpermission_mode\x18\x0e \x01(\tH\x06R\x0epermissionMode\x88\x01\x01\x12W\n" +
+	"%critical_system_reminder_experimental\x18\t \x01(\tH\aR#criticalSystemReminder_EXPERIMENTAL\x88\x01\x01B\b\n" +
+	"\x06_modelB\x11\n" +
+	"\x0f_initial_promptB\f\n" +
+	"\n" +
+	"_max_turnsB\r\n" +
+	"\v_backgroundB\t\n" +
+	"\a_memoryB\t\n" +
+	"\a_effortB\x12\n" +
+	"\x10_permission_modeB(\n" +
 	"&_critical_system_reminder_experimental\"W\n" +
 	"\fOutputFormat\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x123\n" +
 	"\x06schema\x18\x02 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\x06schema\"*\n" +
 	"\x12SystemPromptString\x12\x14\n" +
-	"\x05value\x18\x01 \x01(\tR\x05value\"h\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\"\xc4\x01\n" +
 	"\x12SystemPromptPreset\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06preset\x18\x02 \x01(\tR\x06preset\x12\x1b\n" +
-	"\x06append\x18\x03 \x01(\tH\x00R\x06append\x88\x01\x01B\t\n" +
-	"\a_append\"\xd1\x01\n" +
+	"\x06append\x18\x03 \x01(\tH\x00R\x06append\x88\x01\x01\x12=\n" +
+	"\x18exclude_dynamic_sections\x18\x04 \x01(\bH\x01R\x16excludeDynamicSections\x88\x01\x01B\t\n" +
+	"\a_appendB\x1b\n" +
+	"\x19_exclude_dynamic_sections\"\xd1\x01\n" +
 	"\fSystemPrompt\x12D\n" +
 	"\fstring_value\x18\x01 \x01(\v2\x1f.sdktypes.v1.SystemPromptStringH\x00R\vstringValue\x129\n" +
 	"\x06preset\x18\x02 \x01(\v2\x1f.sdktypes.v1.SystemPromptPresetH\x00R\x06preset\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
-	"\x05value\",\n" +
+	"\x05value\"W\n" +
 	"\x16ThinkingConfigAdaptive\x12\x12\n" +
-	"\x04type\x18\x01 \x01(\tR\x04type\"g\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x1d\n" +
+	"\adisplay\x18\x02 \x01(\tH\x00R\adisplay\x88\x01\x01B\n" +
+	"\n" +
+	"\b_display\"\x92\x01\n" +
 	"\x15ThinkingConfigEnabled\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12(\n" +
-	"\rbudget_tokens\x18\x02 \x01(\x03H\x00R\fbudgetTokens\x88\x01\x01B\x10\n" +
-	"\x0e_budget_tokens\",\n" +
+	"\rbudget_tokens\x18\x02 \x01(\x03H\x00R\fbudgetTokens\x88\x01\x01\x12\x1d\n" +
+	"\adisplay\x18\x03 \x01(\tH\x01R\adisplay\x88\x01\x01B\x10\n" +
+	"\x0e_budget_tokensB\n" +
+	"\n" +
+	"\b_display\",\n" +
 	"\x16ThinkingConfigDisabled\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\"\x98\x02\n" +
 	"\x0eThinkingConfig\x12A\n" +
@@ -14789,7 +18229,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x04list\x18\x01 \x01(\v2\x1c.sdktypes.v1.ToolsConfigListH\x00R\x04list\x128\n" +
 	"\x06preset\x18\x02 \x01(\v2\x1e.sdktypes.v1.ToolsConfigPresetH\x00R\x06preset\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
-	"\x05value\"\x96\x17\n" +
+	"\x05value\"\xed\x1e\n" +
 	"\aOptions\x125\n" +
 	"\x16additional_directories\x18\x01 \x03(\tR\x15additionalDirectories\x12\x19\n" +
 	"\x05agent\x18\x02 \x01(\tH\x00R\x05agent\x88\x01\x01\x128\n" +
@@ -14841,7 +18281,20 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\bthinking\x18( \x01(\v2\x1b.sdktypes.v1.ThinkingConfigH\x1cR\bthinking\x88\x01\x01\x12=\n" +
 	"\vtool_config\x18) \x01(\v2\x17.sdktypes.v1.ToolConfigH\x1dR\n" +
 	"toolConfig\x88\x01\x01\x123\n" +
-	"\x05tools\x18* \x01(\v2\x18.sdktypes.v1.ToolsConfigH\x1eR\x05tools\x88\x01\x01\x1aW\n" +
+	"\x05tools\x18* \x01(\v2\x18.sdktypes.v1.ToolsConfigH\x1eR\x05tools\x88\x01\x01\x12=\n" +
+	"\x18agent_progress_summaries\x18+ \x01(\bH\x1fR\x16agentProgressSummaries\x88\x01\x01\x127\n" +
+	"\x15forward_subagent_text\x18, \x01(\bH R\x13forwardSubagentText\x88\x01\x01\x123\n" +
+	"\x13include_hook_events\x18- \x01(\bH!R\x11includeHookEvents\x88\x01\x01\x12+\n" +
+	"\x0fload_timeout_ms\x18. \x01(\x03H\"R\rloadTimeoutMs\x88\x01\x01\x12K\n" +
+	"\x10managed_settings\x18/ \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH#R\x0fmanagedSettings\x88\x01\x01\x129\n" +
+	"\x16plan_mode_instructions\x180 \x01(\tH$R\x14planModeInstructions\x88\x01\x01\x123\n" +
+	"\x13session_store_flush\x181 \x01(\tH%R\x11sessionStoreFlush\x88\x01\x01\x12<\n" +
+	"\bsettings\x182 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH&R\bsettings\x88\x01\x01\x128\n" +
+	"\x06skills\x183 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH'R\x06skills\x88\x01\x01\x12D\n" +
+	"\vtask_budget\x184 \x01(\v2\x1e.sdktypes.v1.OptionsTaskBudgetH(R\n" +
+	"taskBudget\x88\x01\x01\x12\x19\n" +
+	"\x05title\x185 \x01(\tH)R\x05title\x88\x01\x01\x12H\n" +
+	"\ftool_aliases\x186 \x03(\v2%.sdktypes.v1.Options.ToolAliasesEntryR\vtoolAliases\x1aW\n" +
 	"\vAgentsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
 	"\x05value\x18\x02 \x01(\v2\x1c.sdktypes.v1.AgentDefinitionR\x05value:\x028\x01\x1aS\n" +
@@ -14853,7 +18306,10 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\x05value:\x028\x01\x1a[\n" +
 	"\x0fMcpServersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
-	"\x05value\x18\x02 \x01(\v2\x1c.sdktypes.v1.McpServerConfigR\x05value:\x028\x01B\b\n" +
+	"\x05value\x18\x02 \x01(\v2\x1c.sdktypes.v1.McpServerConfigR\x05value:\x028\x01\x1a>\n" +
+	"\x10ToolAliasesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\b\n" +
 	"\x06_agentB%\n" +
 	"#_allow_dangerously_skip_permissionsB\v\n" +
 	"\t_continueB\x06\n" +
@@ -14886,11 +18342,25 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x0e_system_promptB\v\n" +
 	"\t_thinkingB\x0e\n" +
 	"\f_tool_configB\b\n" +
-	"\x06_tools\"i\n" +
+	"\x06_toolsB\x1b\n" +
+	"\x19_agent_progress_summariesB\x18\n" +
+	"\x16_forward_subagent_textB\x16\n" +
+	"\x14_include_hook_eventsB\x12\n" +
+	"\x10_load_timeout_msB\x13\n" +
+	"\x11_managed_settingsB\x19\n" +
+	"\x17_plan_mode_instructionsB\x16\n" +
+	"\x14_session_store_flushB\v\n" +
+	"\t_settingsB\t\n" +
+	"\a_skillsB\x0e\n" +
+	"\f_task_budgetB\b\n" +
+	"\x06_title\")\n" +
+	"\x11OptionsTaskBudget\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x03R\x05total\"\x83\x01\n" +
 	"\fSlashCommand\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12#\n" +
-	"\rargument_hint\x18\x03 \x01(\tR\fargumentHint\"\x8c\x03\n" +
+	"\rargument_hint\x18\x03 \x01(\tR\fargumentHint\x12\x18\n" +
+	"\aaliases\x18\x04 \x03(\tR\aaliases\"\x8c\x03\n" +
 	"\tModelInfo\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\tR\x05value\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12 \n" +
@@ -14927,26 +18397,54 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x13web_search_requests\x18\x05 \x01(\x03R\x11webSearchRequests\x12\x19\n" +
 	"\bcost_usd\x18\x06 \x01(\x01R\acostUSD\x12%\n" +
 	"\x0econtext_window\x18\a \x01(\x03R\rcontextWindow\x12*\n" +
-	"\x11max_output_tokens\x18\b \x01(\x03R\x0fmaxOutputTokens\"\xc0\x02\n" +
+	"\x11max_output_tokens\x18\b \x01(\x03R\x0fmaxOutputTokens\"\x90\x01\n" +
+	"\x12UsageCacheCreation\x12<\n" +
+	"\x19ephemeral_5m_input_tokens\x18\x01 \x01(\x03R\x19ephemeral_5m_input_tokens\x12<\n" +
+	"\x19ephemeral_1h_input_tokens\x18\x02 \x01(\x03R\x19ephemeral_1h_input_tokens\"\xee\x05\n" +
 	"\x05Usage\x12'\n" +
 	"\finput_tokens\x18\x01 \x01(\x03H\x00R\finput_tokens\x88\x01\x01\x12)\n" +
 	"\routput_tokens\x18\x02 \x01(\x03H\x01R\routput_tokens\x88\x01\x01\x12E\n" +
 	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x03H\x02R\x1bcache_creation_input_tokens\x88\x01\x01\x12=\n" +
-	"\x17cache_read_input_tokens\x18\x04 \x01(\x03H\x03R\x17cache_read_input_tokens\x88\x01\x01B\x0f\n" +
+	"\x17cache_read_input_tokens\x18\x04 \x01(\x03H\x03R\x17cache_read_input_tokens\x88\x01\x01\x12L\n" +
+	"\x0ecache_creation\x18\x05 \x01(\v2\x1f.sdktypes.v1.UsageCacheCreationH\x04R\x0ecache_creation\x88\x01\x01\x12J\n" +
+	"\x0fserver_tool_use\x18\x06 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x05R\x0fserver_tool_use\x88\x01\x01\x12'\n" +
+	"\fservice_tier\x18\a \x01(\tH\x06R\fservice_tier\x88\x01\x01\x12\x19\n" +
+	"\x05speed\x18\b \x01(\tH\aR\x05speed\x88\x01\x01\x12)\n" +
+	"\rinference_geo\x18\t \x01(\tH\bR\rinference_geo\x88\x01\x01\x12@\n" +
+	"\n" +
+	"iterations\x18\n" +
+	" \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\tR\n" +
+	"iterations\x88\x01\x01B\x0f\n" +
 	"\r_input_tokensB\x10\n" +
 	"\x0e_output_tokensB\x1e\n" +
 	"\x1c_cache_creation_input_tokensB\x1a\n" +
-	"\x18_cache_read_input_tokens\"\xd8\x01\n" +
+	"\x18_cache_read_input_tokensB\x11\n" +
+	"\x0f_cache_creationB\x12\n" +
+	"\x10_server_tool_useB\x0f\n" +
+	"\r_service_tierB\b\n" +
+	"\x06_speedB\x10\n" +
+	"\x0e_inference_geoB\r\n" +
+	"\v_iterations\"\x85\x04\n" +
 	"\x10NonNullableUsage\x12\"\n" +
 	"\finput_tokens\x18\x01 \x01(\x03R\finput_tokens\x12$\n" +
 	"\routput_tokens\x18\x02 \x01(\x03R\routput_tokens\x12@\n" +
 	"\x1bcache_creation_input_tokens\x18\x03 \x01(\x03R\x1bcache_creation_input_tokens\x128\n" +
-	"\x17cache_read_input_tokens\x18\x04 \x01(\x03R\x17cache_read_input_tokens\"X\n" +
+	"\x17cache_read_input_tokens\x18\x04 \x01(\x03R\x17cache_read_input_tokens\x12G\n" +
+	"\x0ecache_creation\x18\x05 \x01(\v2\x1f.sdktypes.v1.UsageCacheCreationR\x0ecache_creation\x12E\n" +
+	"\x0fserver_tool_use\x18\x06 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\x0fserver_tool_use\x12\"\n" +
+	"\fservice_tier\x18\a \x01(\tR\fservice_tier\x12\x14\n" +
+	"\x05speed\x18\b \x01(\tR\x05speed\x12$\n" +
+	"\rinference_geo\x18\t \x01(\tR\rinference_geo\x12;\n" +
+	"\n" +
+	"iterations\x18\n" +
+	" \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\n" +
+	"iterations\"X\n" +
 	"\x15CallToolResultContent\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12+\n" +
-	"\x04data\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x04data\"{\n" +
+	"\x04data\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x04data\"\xc3\x01\n" +
 	"\x0eCallToolResult\x12<\n" +
-	"\acontent\x18\x01 \x03(\v2\".sdktypes.v1.CallToolResultContentR\acontent\x12\x1e\n" +
+	"\acontent\x18\x01 \x03(\v2\".sdktypes.v1.CallToolResultContentR\acontent\x12F\n" +
+	"\x12structured_content\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x11structuredContent\x12\x1e\n" +
 	"\bis_error\x18\x02 \x01(\bH\x00R\aisError\x88\x01\x01B\v\n" +
 	"\t_is_error\"\x8e\x01\n" +
 	"\x13SDKPermissionDenial\x12\x1c\n" +
@@ -14974,7 +18472,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x12parent_tool_use_id\x18\x05 \x01(\tH\x00R\x12parent_tool_use_id\x88\x01\x01\x12\x19\n" +
 	"\x05error\x18\x06 \x01(\tH\x01R\x05error\x88\x01\x01B\x15\n" +
 	"\x13_parent_tool_use_idB\b\n" +
-	"\x06_error\"\x82\x03\n" +
+	"\x06_error\"\x82\x04\n" +
 	"\x0eSDKUserMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x17\n" +
 	"\x04uuid\x18\x02 \x01(\tH\x00R\x04uuid\x88\x01\x01\x12\x1e\n" +
@@ -14983,12 +18481,16 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"session_id\x125\n" +
 	"\amessage\x18\x04 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\amessage\x123\n" +
 	"\x12parent_tool_use_id\x18\x05 \x01(\tH\x01R\x12parent_tool_use_id\x88\x01\x01\x12&\n" +
-	"\fis_synthetic\x18\x06 \x01(\bH\x02R\visSynthetic\x88\x01\x01\x12J\n" +
-	"\x0ftool_use_result\x18\a \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x03R\x0ftool_use_result\x88\x01\x01B\a\n" +
+	"\fis_synthetic\x18\x06 \x01(\bH\x02R\visSynthetic\x88\x01\x01\x12&\n" +
+	"\fshould_query\x18\b \x01(\bH\x03R\vshouldQuery\x88\x01\x01\x12J\n" +
+	"\x0ftool_use_result\x18\a \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x04R\x0ftool_use_result\x88\x01\x01\x12:\n" +
+	"\x06origin\x18\t \x01(\v2\x1d.sdktypes.v1.SDKMessageOriginH\x05R\x06origin\x88\x01\x01B\a\n" +
 	"\x05_uuidB\x15\n" +
 	"\x13_parent_tool_use_idB\x0f\n" +
-	"\r_is_syntheticB\x12\n" +
-	"\x10_tool_use_result\"\x97\x03\n" +
+	"\r_is_syntheticB\x0f\n" +
+	"\r_should_queryB\x12\n" +
+	"\x10_tool_use_resultB\t\n" +
+	"\a_origin\"\xde\x03\n" +
 	"\x14SDKUserMessageReplay\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
 	"\x04uuid\x18\x02 \x01(\tR\x04uuid\x12\x1e\n" +
@@ -14998,11 +18500,13 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\amessage\x18\x04 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\amessage\x123\n" +
 	"\x12parent_tool_use_id\x18\x05 \x01(\tH\x00R\x12parent_tool_use_id\x88\x01\x01\x12&\n" +
 	"\fis_synthetic\x18\x06 \x01(\bH\x01R\visSynthetic\x88\x01\x01\x12J\n" +
-	"\x0ftool_use_result\x18\a \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x02R\x0ftool_use_result\x88\x01\x01\x12\x1b\n" +
+	"\x0ftool_use_result\x18\a \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x02R\x0ftool_use_result\x88\x01\x01\x12:\n" +
+	"\x06origin\x18\t \x01(\v2\x1d.sdktypes.v1.SDKMessageOriginH\x03R\x06origin\x88\x01\x01\x12\x1b\n" +
 	"\tis_replay\x18\b \x01(\bR\bisReplayB\x15\n" +
 	"\x13_parent_tool_use_idB\x0f\n" +
 	"\r_is_syntheticB\x12\n" +
-	"\x10_tool_use_result\"\x94\x06\n" +
+	"\x10_tool_use_resultB\t\n" +
+	"\a_origin\"\xb9\t\n" +
 	"\x17SDKResultMessageSuccess\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
 	"\asubtype\x18\x02 \x01(\tR\asubtype\x12\x12\n" +
@@ -15022,12 +18526,25 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\vmodel_usage\x18\r \x03(\v24.sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntryR\n" +
 	"modelUsage\x12P\n" +
 	"\x12permission_denials\x18\x0e \x03(\v2 .sdktypes.v1.SDKPermissionDenialR\x12permission_denials\x12N\n" +
-	"\x11structured_output\x18\x0f \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x01R\x11structured_output\x88\x01\x01\x1aV\n" +
+	"\x11structured_output\x18\x0f \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x01R\x11structured_output\x88\x01\x01\x12/\n" +
+	"\x10api_error_status\x18\x10 \x01(\x03H\x02R\x10api_error_status\x88\x01\x01\x12\x1d\n" +
+	"\attft_ms\x18\x11 \x01(\x03H\x03R\attft_ms\x88\x01\x01\x12O\n" +
+	"\x11deferred_tool_use\x18\x12 \x01(\v2\x1c.sdktypes.v1.DeferredToolUseH\x04R\x11deferred_tool_use\x88\x01\x01\x12-\n" +
+	"\x0fterminal_reason\x18\x13 \x01(\tH\x05R\x0fterminal_reason\x88\x01\x01\x12-\n" +
+	"\x0ffast_mode_state\x18\x14 \x01(\tH\x06R\x0ffast_mode_state\x88\x01\x01\x12:\n" +
+	"\x06origin\x18\x15 \x01(\v2\x1d.sdktypes.v1.SDKMessageOriginH\aR\x06origin\x88\x01\x01\x1aV\n" +
 	"\x0fModelUsageEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
 	"\x05value\x18\x02 \x01(\v2\x17.sdktypes.v1.ModelUsageR\x05value:\x028\x01B\x0e\n" +
 	"\f_stop_reasonB\x14\n" +
-	"\x12_structured_output\"\xaa\x05\n" +
+	"\x12_structured_outputB\x13\n" +
+	"\x11_api_error_statusB\n" +
+	"\n" +
+	"\b_ttft_msB\x14\n" +
+	"\x12_deferred_tool_useB\x12\n" +
+	"\x10_terminal_reasonB\x12\n" +
+	"\x10_fast_mode_stateB\t\n" +
+	"\a_origin\"\xf7\x06\n" +
 	"\x15SDKResultMessageError\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
 	"\asubtype\x18\x02 \x01(\tR\asubtype\x12\x12\n" +
@@ -15046,11 +18563,17 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\vmodel_usage\x18\f \x03(\v22.sdktypes.v1.SDKResultMessageError.ModelUsageEntryR\n" +
 	"modelUsage\x12P\n" +
 	"\x12permission_denials\x18\r \x03(\v2 .sdktypes.v1.SDKPermissionDenialR\x12permission_denials\x12\x16\n" +
-	"\x06errors\x18\x0e \x03(\tR\x06errors\x1aV\n" +
+	"\x06errors\x18\x0e \x03(\tR\x06errors\x12-\n" +
+	"\x0fterminal_reason\x18\x0f \x01(\tH\x01R\x0fterminal_reason\x88\x01\x01\x12-\n" +
+	"\x0ffast_mode_state\x18\x10 \x01(\tH\x02R\x0ffast_mode_state\x88\x01\x01\x12:\n" +
+	"\x06origin\x18\x11 \x01(\v2\x1d.sdktypes.v1.SDKMessageOriginH\x03R\x06origin\x88\x01\x01\x1aV\n" +
 	"\x0fModelUsageEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
 	"\x05value\x18\x02 \x01(\v2\x17.sdktypes.v1.ModelUsageR\x05value:\x028\x01B\x0e\n" +
-	"\f_stop_reason\"=\n" +
+	"\f_stop_reasonB\x12\n" +
+	"\x10_terminal_reasonB\x12\n" +
+	"\x10_fast_mode_stateB\t\n" +
+	"\a_origin\"=\n" +
 	"\x0fSDKSystemServer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\"9\n" +
@@ -15215,7 +18738,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"session_idB\x0e\n" +
 	"\f_tool_use_idB\f\n" +
 	"\n" +
-	"_task_type\"\xe2\x02\n" +
+	"_task_type\"\xca\x03\n" +
 	"\x16SDKTaskProgressMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
 	"\asubtype\x18\x02 \x01(\tR\asubtype\x12\x18\n" +
@@ -15223,13 +18746,19 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\vtool_use_id\x18\x04 \x01(\tH\x00R\vtool_use_id\x88\x01\x01\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x123\n" +
 	"\x05usage\x18\x06 \x01(\v2\x1d.sdktypes.v1.TaskUsageSummaryR\x05usage\x12+\n" +
-	"\x0elast_tool_name\x18\a \x01(\tH\x01R\x0elast_tool_name\x88\x01\x01\x12\x12\n" +
+	"\x0elast_tool_name\x18\a \x01(\tH\x01R\x0elast_tool_name\x88\x01\x01\x12)\n" +
+	"\rsubagent_type\x18\n" +
+	" \x01(\tH\x02R\rsubagent_type\x88\x01\x01\x12\x1d\n" +
+	"\asummary\x18\v \x01(\tH\x03R\asummary\x88\x01\x01\x12\x12\n" +
 	"\x04uuid\x18\b \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\t \x01(\tR\n" +
 	"session_idB\x0e\n" +
 	"\f_tool_use_idB\x11\n" +
-	"\x0f_last_tool_name\"J\n" +
+	"\x0f_last_tool_nameB\x10\n" +
+	"\x0e_subagent_typeB\n" +
+	"\n" +
+	"\b_summary\"J\n" +
 	"\x12FilesPersistedFile\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x18\n" +
 	"\afile_id\x18\x02 \x01(\tR\afile_id\"I\n" +
@@ -15276,7 +18805,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x04uuid\x18\x03 \x01(\tR\x04uuid\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x04 \x01(\tR\n" +
-	"session_id\"\xc6\r\n" +
+	"session_id\"\x8b\x10\n" +
 	"\n" +
 	"SDKMessage\x12@\n" +
 	"\tassistant\x18\x01 \x01(\v2 .sdktypes.v1.SDKAssistantMessageH\x00R\tassistant\x121\n" +
@@ -15303,9 +18832,84 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x0ffiles_persisted\x18\x13 \x01(\v2#.sdktypes.v1.SDKFilesPersistedEventH\x00R\x0efilesPersisted\x12Q\n" +
 	"\x10tool_use_summary\x18\x14 \x01(\v2%.sdktypes.v1.SDKToolUseSummaryMessageH\x00R\x0etoolUseSummary\x12J\n" +
 	"\x10rate_limit_event\x18\x15 \x01(\v2\x1e.sdktypes.v1.SDKRateLimitEventH\x00R\x0erateLimitEvent\x12V\n" +
-	"\x11prompt_suggestion\x18\x16 \x01(\v2'.sdktypes.v1.SDKPromptSuggestionMessageH\x00R\x10promptSuggestion\x127\n" +
+	"\x11prompt_suggestion\x18\x16 \x01(\v2'.sdktypes.v1.SDKPromptSuggestionMessageH\x00R\x10promptSuggestion\x12G\n" +
+	"\ftask_updated\x18\x17 \x01(\v2\".sdktypes.v1.SDKTaskUpdatedMessageH\x00R\vtaskUpdated\x12S\n" +
+	"\x10commands_changed\x18\x18 \x01(\v2&.sdktypes.v1.SDKCommandsChangedMessageH\x00R\x0fcommandsChanged\x12M\n" +
+	"\x0eplugin_install\x18\x19 \x01(\v2$.sdktypes.v1.SDKPluginInstallMessageH\x00R\rpluginInstall\x12V\n" +
+	"\x11permission_denied\x18\x1a \x01(\v2'.sdktypes.v1.SDKPermissionDeniedMessageH\x00R\x10permissionDenied\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
-	"\x05value\"s\n" +
+	"\x05value\"\x92\x01\n" +
+	"\x10SDKMessageOrigin\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1b\n" +
+	"\x06server\x18\x02 \x01(\tH\x00R\x06server\x88\x01\x01\x12\x17\n" +
+	"\x04from\x18\x03 \x01(\tH\x01R\x04from\x88\x01\x01\x12\x17\n" +
+	"\x04name\x18\x04 \x01(\tH\x02R\x04name\x88\x01\x01B\t\n" +
+	"\a_serverB\a\n" +
+	"\x05_fromB\a\n" +
+	"\x05_name\"d\n" +
+	"\x0fDeferredToolUse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12-\n" +
+	"\x05input\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05input\"\xcd\x02\n" +
+	"\x13SDKTaskUpdatedPatch\x12\x1b\n" +
+	"\x06status\x18\x01 \x01(\tH\x00R\x06status\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1f\n" +
+	"\bend_time\x18\x03 \x01(\x03H\x02R\bend_time\x88\x01\x01\x12-\n" +
+	"\x0ftotal_paused_ms\x18\x04 \x01(\x03H\x03R\x0ftotal_paused_ms\x88\x01\x01\x12\x19\n" +
+	"\x05error\x18\x05 \x01(\tH\x04R\x05error\x88\x01\x01\x12-\n" +
+	"\x0fis_backgrounded\x18\x06 \x01(\bH\x05R\x0fis_backgrounded\x88\x01\x01B\t\n" +
+	"\a_statusB\x0e\n" +
+	"\f_descriptionB\v\n" +
+	"\t_end_timeB\x12\n" +
+	"\x10_total_paused_msB\b\n" +
+	"\x06_errorB\x12\n" +
+	"\x10_is_backgrounded\"\xcb\x01\n" +
+	"\x15SDKTaskUpdatedMessage\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
+	"\asubtype\x18\x02 \x01(\tR\asubtype\x12\x18\n" +
+	"\atask_id\x18\x03 \x01(\tR\atask_id\x126\n" +
+	"\x05patch\x18\x04 \x01(\v2 .sdktypes.v1.SDKTaskUpdatedPatchR\x05patch\x12\x12\n" +
+	"\x04uuid\x18\x05 \x01(\tR\x04uuid\x12\x1e\n" +
+	"\n" +
+	"session_id\x18\x06 \x01(\tR\n" +
+	"session_id\"\xb4\x01\n" +
+	"\x19SDKCommandsChangedMessage\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
+	"\asubtype\x18\x02 \x01(\tR\asubtype\x125\n" +
+	"\bcommands\x18\x03 \x03(\v2\x19.sdktypes.v1.SlashCommandR\bcommands\x12\x12\n" +
+	"\x04uuid\x18\x04 \x01(\tR\x04uuid\x12\x1e\n" +
+	"\n" +
+	"session_id\x18\x05 \x01(\tR\n" +
+	"session_id\"\xda\x01\n" +
+	"\x17SDKPluginInstallMessage\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
+	"\asubtype\x18\x02 \x01(\tR\asubtype\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x17\n" +
+	"\x04name\x18\x04 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x19\n" +
+	"\x05error\x18\x05 \x01(\tH\x01R\x05error\x88\x01\x01\x12\x12\n" +
+	"\x04uuid\x18\x06 \x01(\tR\x04uuid\x12\x1e\n" +
+	"\n" +
+	"session_id\x18\a \x01(\tR\n" +
+	"session_idB\a\n" +
+	"\x05_nameB\b\n" +
+	"\x06_error\"\x9b\x03\n" +
+	"\x1aSDKPermissionDeniedMessage\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
+	"\asubtype\x18\x02 \x01(\tR\asubtype\x12\x1c\n" +
+	"\ttool_name\x18\x03 \x01(\tR\ttool_name\x12 \n" +
+	"\vtool_use_id\x18\x04 \x01(\tR\vtool_use_id\x12\x1f\n" +
+	"\bagent_id\x18\x05 \x01(\tH\x00R\bagent_id\x88\x01\x01\x127\n" +
+	"\x14decision_reason_type\x18\x06 \x01(\tH\x01R\x14decision_reason_type\x88\x01\x01\x12-\n" +
+	"\x0fdecision_reason\x18\a \x01(\tH\x02R\x0fdecision_reason\x88\x01\x01\x12\x18\n" +
+	"\amessage\x18\b \x01(\tR\amessage\x12\x12\n" +
+	"\x04uuid\x18\t \x01(\tR\x04uuid\x12\x1e\n" +
+	"\n" +
+	"session_id\x18\n" +
+	" \x01(\tR\n" +
+	"session_idB\v\n" +
+	"\t_agent_idB\x17\n" +
+	"\x15_decision_reason_typeB\x12\n" +
+	"\x10_decision_reason\"s\n" +
 	"\x0eQuestionOption\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1d\n" +
@@ -15316,7 +18920,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\bquestion\x18\x01 \x01(\tR\bquestion\x12\x16\n" +
 	"\x06header\x18\x02 \x01(\tR\x06header\x125\n" +
 	"\aoptions\x18\x03 \x03(\v2\x1b.sdktypes.v1.QuestionOptionR\aoptions\x12!\n" +
-	"\fmulti_select\x18\x04 \x01(\bR\vmultiSelect\"\xad\t\n" +
+	"\fmulti_select\x18\x04 \x01(\bR\vmultiSelect\"\x9b\r\n" +
 	"\tToolInput\x12/\n" +
 	"\x05agent\x18\x01 \x01(\v2\x17.sdktypes.v1.AgentInputH\x00R\x05agent\x12O\n" +
 	"\x11ask_user_question\x18\x02 \x01(\v2!.sdktypes.v1.AskUserQuestionInputH\x00R\x0faskUserQuestion\x12,\n" +
@@ -15328,10 +18932,9 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"file_write\x18\a \x01(\v2\x1b.sdktypes.v1.FileWriteInputH\x00R\tfileWrite\x12,\n" +
 	"\x04glob\x18\b \x01(\v2\x16.sdktypes.v1.GlobInputH\x00R\x04glob\x12,\n" +
-	"\x04grep\x18\t \x01(\v2\x16.sdktypes.v1.GrepInputH\x00R\x04grep\x12<\n" +
-	"\n" +
-	"kill_shell\x18\n" +
-	" \x01(\v2\x1b.sdktypes.v1.KillShellInputH\x00R\tkillShell\x12E\n" +
+	"\x04grep\x18\t \x01(\v2\x16.sdktypes.v1.GrepInputH\x00R\x04grep\x129\n" +
+	"\ttask_stop\x18\n" +
+	" \x01(\v2\x1a.sdktypes.v1.TaskStopInputH\x00R\btaskStop\x12E\n" +
 	"\rnotebook_edit\x18\v \x01(\v2\x1e.sdktypes.v1.NotebookEditInputH\x00R\fnotebookEdit\x129\n" +
 	"\tweb_fetch\x18\f \x01(\v2\x1a.sdktypes.v1.WebFetchInputH\x00R\bwebFetch\x12<\n" +
 	"\n" +
@@ -15341,14 +18944,76 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x0eexit_plan_mode\x18\x0f \x01(\v2\x1e.sdktypes.v1.ExitPlanModeInputH\x00R\fexitPlanMode\x12R\n" +
 	"\x12list_mcp_resources\x18\x10 \x01(\v2\".sdktypes.v1.ListMcpResourcesInputH\x00R\x10listMcpResources\x12O\n" +
 	"\x11read_mcp_resource\x18\x11 \x01(\v2!.sdktypes.v1.ReadMcpResourceInputH\x00R\x0freadMcpResource\x124\n" +
-	"\bmcp_tool\x18\x12 \x01(\v2\x17.google.protobuf.StructH\x00R\amcpTool\x127\n" +
+	"\bmcp_tool\x18\x12 \x01(\v2\x17.google.protobuf.StructH\x00R\amcpTool\x125\n" +
+	"\amonitor\x18\x13 \x01(\v2\x19.sdktypes.v1.MonitorInputH\x00R\amonitor\x128\n" +
+	"\bworkflow\x18\x14 \x01(\v2\x1a.sdktypes.v1.WorkflowInputH\x00R\bworkflow\x12?\n" +
+	"\vtask_create\x18\x15 \x01(\v2\x1c.sdktypes.v1.TaskCreateInputH\x00R\n" +
+	"taskCreate\x12?\n" +
+	"\vtask_update\x18\x16 \x01(\v2\x1c.sdktypes.v1.TaskUpdateInputH\x00R\n" +
+	"taskUpdate\x126\n" +
+	"\btask_get\x18\x17 \x01(\v2\x19.sdktypes.v1.TaskGetInputH\x00R\ataskGet\x129\n" +
+	"\ttask_list\x18\x18 \x01(\v2\x1a.sdktypes.v1.TaskListInputH\x00R\btaskList\x12?\n" +
+	"\vtask_output\x18\x19 \x01(\v2\x1c.sdktypes.v1.TaskOutputInputH\x00R\n" +
+	"taskOutput\x12H\n" +
+	"\x0eenter_worktree\x18\x1a \x01(\v2\x1f.sdktypes.v1.EnterWorktreeInputH\x00R\renterWorktree\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
 	"\x05input\"l\n" +
 	"\n" +
 	"AgentInput\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x16\n" +
 	"\x06prompt\x18\x02 \x01(\tR\x06prompt\x12$\n" +
-	"\rsubagent_type\x18\x03 \x01(\tR\rsubagent_type\"\xd1\x01\n" +
+	"\rsubagent_type\x18\x03 \x01(\tR\rsubagent_type\"\xb2\x01\n" +
+	"\fMonitorInput\x12\x18\n" +
+	"\acommand\x18\x01 \x01(\tR\acommand\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12#\n" +
+	"\n" +
+	"timeout_ms\x18\x03 \x01(\x03H\x00R\n" +
+	"timeout_ms\x88\x01\x01\x12#\n" +
+	"\n" +
+	"persistent\x18\x04 \x01(\bH\x01R\n" +
+	"persistent\x88\x01\x01B\r\n" +
+	"\v_timeout_msB\r\n" +
+	"\v_persistent\"\x97\x02\n" +
+	"\rWorkflowInput\x12\x1b\n" +
+	"\x06script\x18\x01 \x01(\tH\x00R\x06script\x88\x01\x01\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12$\n" +
+	"\vscript_path\x18\x03 \x01(\tH\x02R\n" +
+	"scriptPath\x88\x01\x01\x124\n" +
+	"\x04args\x18\x04 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x03R\x04args\x88\x01\x01\x120\n" +
+	"\x12resume_from_run_id\x18\x05 \x01(\tH\x04R\x0fresumeFromRunId\x88\x01\x01B\t\n" +
+	"\a_scriptB\a\n" +
+	"\x05_nameB\x0e\n" +
+	"\f_script_pathB\a\n" +
+	"\x05_argsB\x15\n" +
+	"\x13_resume_from_run_id\"\xb8\x01\n" +
+	"\x0fTaskCreateInput\x12\x18\n" +
+	"\asubject\x18\x01 \x01(\tR\asubject\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12$\n" +
+	"\vactive_form\x18\x03 \x01(\tH\x00R\n" +
+	"activeForm\x88\x01\x01\x123\n" +
+	"\bmetadata\x18\x04 \x01(\v2\x17.google.protobuf.StructR\bmetadataB\x0e\n" +
+	"\f_active_form\"\x89\x03\n" +
+	"\x0fTaskUpdateInput\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
+	"\x06status\x18\x02 \x01(\tH\x00R\x06status\x88\x01\x01\x12\x1d\n" +
+	"\asubject\x18\x03 \x01(\tH\x01R\asubject\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x04 \x01(\tH\x02R\vdescription\x88\x01\x01\x12$\n" +
+	"\vactive_form\x18\x05 \x01(\tH\x03R\n" +
+	"activeForm\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"add_blocks\x18\x06 \x03(\tR\taddBlocks\x12$\n" +
+	"\x0eadd_blocked_by\x18\a \x03(\tR\faddBlockedBy\x12\x19\n" +
+	"\x05owner\x18\b \x01(\tH\x04R\x05owner\x88\x01\x01\x123\n" +
+	"\bmetadata\x18\t \x01(\v2\x17.google.protobuf.StructR\bmetadataB\t\n" +
+	"\a_statusB\n" +
+	"\n" +
+	"\b_subjectB\x0e\n" +
+	"\f_descriptionB\x0e\n" +
+	"\f_active_formB\b\n" +
+	"\x06_owner\"'\n" +
+	"\fTaskGetInput\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\x0f\n" +
+	"\rTaskListInput\"\xd1\x01\n" +
 	"\x14AskUserQuestionInput\x123\n" +
 	"\tquestions\x18\x01 \x03(\v2\x15.sdktypes.v1.QuestionR\tquestions\x12H\n" +
 	"\aanswers\x18\x02 \x03(\v2..sdktypes.v1.AskUserQuestionInput.AnswersEntryR\aanswers\x1a:\n" +
@@ -15418,9 +19083,22 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\b_contextB\r\n" +
 	"\v_head_limitB\f\n" +
 	"\n" +
-	"_multiline\",\n" +
-	"\x0eKillShellInput\x12\x1a\n" +
-	"\bshell_id\x18\x01 \x01(\tR\bshell_id\"\xc0\x01\n" +
+	"_multiline\"h\n" +
+	"\rTaskStopInput\x12\x1d\n" +
+	"\atask_id\x18\x01 \x01(\tH\x00R\atask_id\x88\x01\x01\x12\x1f\n" +
+	"\bshell_id\x18\x02 \x01(\tH\x01R\bshell_id\x88\x01\x01B\n" +
+	"\n" +
+	"\b_task_idB\v\n" +
+	"\t_shell_id\"[\n" +
+	"\x0fTaskOutputInput\x12\x18\n" +
+	"\atask_id\x18\x01 \x01(\tR\atask_id\x12\x14\n" +
+	"\x05block\x18\x02 \x01(\bR\x05block\x12\x18\n" +
+	"\atimeout\x18\x03 \x01(\x03R\atimeout\"X\n" +
+	"\x12EnterWorktreeInput\x12\x17\n" +
+	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
+	"\x04path\x18\x02 \x01(\tH\x01R\x04path\x88\x01\x01B\a\n" +
+	"\x05_nameB\a\n" +
+	"\x05_path\"\xc0\x01\n" +
 	"\x11NotebookEditInput\x12$\n" +
 	"\rnotebook_path\x18\x01 \x01(\tR\rnotebook_path\x12\x1d\n" +
 	"\acell_id\x18\x02 \x01(\tH\x00R\acell_id\x88\x01\x01\x12\x1e\n" +
@@ -15452,7 +19130,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\a_server\"@\n" +
 	"\x14ReadMcpResourceInput\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x10\n" +
-	"\x03uri\x18\x02 \x01(\tR\x03uri\"\xf8\t\n" +
+	"\x03uri\x18\x02 \x01(\tR\x03uri\"\xe4\f\n" +
 	"\n" +
 	"ToolOutput\x12-\n" +
 	"\x04task\x18\x01 \x01(\v2\x17.sdktypes.v1.TaskOutputH\x00R\x04task\x12P\n" +
@@ -15477,9 +19155,77 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x11read_mcp_resource\x18\x10 \x01(\v2\".sdktypes.v1.ReadMcpResourceOutputH\x00R\x0freadMcpResource\x123\n" +
 	"\x06config\x18\x11 \x01(\v2\x19.sdktypes.v1.ConfigOutputH\x00R\x06config\x12I\n" +
 	"\x0eenter_worktree\x18\x12 \x01(\v2 .sdktypes.v1.EnterWorktreeOutputH\x00R\renterWorktree\x124\n" +
-	"\bmcp_tool\x18\x13 \x01(\v2\x17.google.protobuf.StructH\x00R\amcpTool\x127\n" +
+	"\bmcp_tool\x18\x13 \x01(\v2\x17.google.protobuf.StructH\x00R\amcpTool\x126\n" +
+	"\amonitor\x18\x14 \x01(\v2\x1a.sdktypes.v1.MonitorOutputH\x00R\amonitor\x129\n" +
+	"\bworkflow\x18\x15 \x01(\v2\x1b.sdktypes.v1.WorkflowOutputH\x00R\bworkflow\x12@\n" +
+	"\vtask_create\x18\x16 \x01(\v2\x1d.sdktypes.v1.TaskCreateOutputH\x00R\n" +
+	"taskCreate\x12@\n" +
+	"\vtask_update\x18\x17 \x01(\v2\x1d.sdktypes.v1.TaskUpdateOutputH\x00R\n" +
+	"taskUpdate\x127\n" +
+	"\btask_get\x18\x18 \x01(\v2\x1a.sdktypes.v1.TaskGetOutputH\x00R\ataskGet\x12:\n" +
+	"\ttask_list\x18\x19 \x01(\v2\x1b.sdktypes.v1.TaskListOutputH\x00R\btaskList\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\b\n" +
-	"\x06output\"\x97\x02\n" +
+	"\x06output\"{\n" +
+	"\rMonitorOutput\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1d\n" +
+	"\n" +
+	"timeout_ms\x18\x02 \x01(\x03R\ttimeoutMs\x12#\n" +
+	"\n" +
+	"persistent\x18\x03 \x01(\bH\x00R\n" +
+	"persistent\x88\x01\x01B\r\n" +
+	"\v_persistent\"\xad\x02\n" +
+	"\x0eWorkflowOutput\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1a\n" +
+	"\x06run_id\x18\x03 \x01(\tH\x00R\x05runId\x88\x01\x01\x12\x1d\n" +
+	"\asummary\x18\x04 \x01(\tH\x01R\asummary\x88\x01\x01\x12*\n" +
+	"\x0etranscript_dir\x18\x05 \x01(\tH\x02R\rtranscriptDir\x88\x01\x01\x12$\n" +
+	"\vscript_path\x18\x06 \x01(\tH\x03R\n" +
+	"scriptPath\x88\x01\x01\x12\x19\n" +
+	"\x05error\x18\a \x01(\tH\x04R\x05error\x88\x01\x01B\t\n" +
+	"\a_run_idB\n" +
+	"\n" +
+	"\b_summaryB\x11\n" +
+	"\x0f_transcript_dirB\x0e\n" +
+	"\f_script_pathB\b\n" +
+	"\x06_error\"@\n" +
+	"\x14TaskCreateOutputTask\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\"I\n" +
+	"\x10TaskCreateOutput\x125\n" +
+	"\x04task\x18\x01 \x01(\v2!.sdktypes.v1.TaskCreateOutputTaskR\x04task\"B\n" +
+	"\x1cTaskUpdateOutputStatusChange\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\"\xf8\x01\n" +
+	"\x10TaskUpdateOutput\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12%\n" +
+	"\x0eupdated_fields\x18\x03 \x03(\tR\rupdatedFields\x12\x19\n" +
+	"\x05error\x18\x04 \x01(\tH\x00R\x05error\x88\x01\x01\x12S\n" +
+	"\rstatus_change\x18\x05 \x01(\v2).sdktypes.v1.TaskUpdateOutputStatusChangeH\x01R\fstatusChange\x88\x01\x01B\b\n" +
+	"\x06_errorB\x10\n" +
+	"\x0e_status_change\"\xae\x01\n" +
+	"\x11TaskGetOutputTask\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x16\n" +
+	"\x06blocks\x18\x05 \x03(\tR\x06blocks\x12\x1d\n" +
+	"\n" +
+	"blocked_by\x18\x06 \x03(\tR\tblockedBy\"Q\n" +
+	"\rTaskGetOutput\x127\n" +
+	"\x04task\x18\x01 \x01(\v2\x1e.sdktypes.v1.TaskGetOutputTaskH\x00R\x04task\x88\x01\x01B\a\n" +
+	"\x05_task\"\x9a\x01\n" +
+	"\x12TaskListOutputTask\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x19\n" +
+	"\x05owner\x18\x04 \x01(\tH\x00R\x05owner\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"blocked_by\x18\x05 \x03(\tR\tblockedByB\b\n" +
+	"\x06_owner\"G\n" +
+	"\x0eTaskListOutput\x125\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x1f.sdktypes.v1.TaskListOutputTaskR\x05tasks\"\x97\x02\n" +
 	"\tUsageInfo\x12\"\n" +
 	"\finput_tokens\x18\x01 \x01(\x05R\finput_tokens\x12$\n" +
 	"\routput_tokens\x18\x02 \x01(\x05R\routput_tokens\x12E\n" +
@@ -15675,7 +19421,40 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\rworktree_path\x18\x01 \x01(\tR\fworktreePath\x12,\n" +
 	"\x0fworktree_branch\x18\x02 \x01(\tH\x00R\x0eworktreeBranch\x88\x01\x01\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessageB\x12\n" +
-	"\x10_worktree_branch\"\xb8\x03\n" +
+	"\x10_worktree_branch\"+\n" +
+	"\x13BaseHookInputEffort\x12\x14\n" +
+	"\x05level\x18\x01 \x01(\tR\x05level\"\xc0\x02\n" +
+	"\x15BackgroundTaskSummary\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1d\n" +
+	"\acommand\x18\x05 \x01(\tH\x00R\acommand\x88\x01\x01\x12#\n" +
+	"\n" +
+	"agent_type\x18\x06 \x01(\tH\x01R\n" +
+	"agent_type\x88\x01\x01\x12\x1b\n" +
+	"\x06server\x18\a \x01(\tH\x02R\x06server\x88\x01\x01\x12\x17\n" +
+	"\x04tool\x18\b \x01(\tH\x03R\x04tool\x88\x01\x01\x12\x17\n" +
+	"\x04name\x18\t \x01(\tH\x04R\x04name\x88\x01\x01B\n" +
+	"\n" +
+	"\b_commandB\r\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_serverB\a\n" +
+	"\x05_toolB\a\n" +
+	"\x05_name\"v\n" +
+	"\x12SessionCronSummary\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bschedule\x18\x02 \x01(\tR\bschedule\x12\x1c\n" +
+	"\trecurring\x18\x03 \x01(\bR\trecurring\x12\x16\n" +
+	"\x06prompt\x18\x04 \x01(\tR\x06prompt\"\xee\x01\n" +
+	"\x15PostToolBatchToolCall\x12\x1c\n" +
+	"\ttool_name\x18\x01 \x01(\tR\ttool_name\x12;\n" +
+	"\n" +
+	"tool_input\x18\x02 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageR\n" +
+	"tool_input\x12 \n" +
+	"\vtool_use_id\x18\x03 \x01(\tR\vtool_use_id\x12F\n" +
+	"\rtool_response\x18\x04 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x00R\rtool_response\x88\x01\x01B\x10\n" +
+	"\x0e_tool_response\"\x82\x04\n" +
 	"\x13PreToolUseHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15693,10 +19472,12 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"tool_input\x18\t \x01(\v2\x16.sdktypes.v1.ToolInputR\n" +
 	"tool_input\x12 \n" +
 	"\vtool_use_id\x18\n" +
-	" \x01(\tR\vtool_use_idB\x12\n" +
+	" \x01(\tR\vtool_use_id\x12=\n" +
+	"\x06effort\x18\v \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xf8\x03\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xf9\x04\n" +
 	"\x14PostToolUseHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15715,10 +19496,14 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"tool_input\x12=\n" +
 	"\rtool_response\x18\n" +
 	" \x01(\v2\x17.sdktypes.v1.ToolOutputR\rtool_response\x12 \n" +
-	"\vtool_use_id\x18\v \x01(\tR\vtool_use_idB\x12\n" +
+	"\vtool_use_id\x18\v \x01(\tR\vtool_use_id\x12%\n" +
+	"\vduration_ms\x18\f \x01(\x03H\x03R\vduration_ms\x88\x01\x01\x12=\n" +
+	"\x06effort\x18\r \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x04R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\x90\x04\n" +
+	"\v_agent_typeB\x0e\n" +
+	"\f_duration_msB\t\n" +
+	"\a_effort\"\x91\x05\n" +
 	"\x1bPostToolUseFailureHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15738,11 +19523,35 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\vtool_use_id\x18\n" +
 	" \x01(\tR\vtool_use_id\x12\x14\n" +
 	"\x05error\x18\v \x01(\tR\x05error\x12'\n" +
-	"\fis_interrupt\x18\f \x01(\bH\x03R\fis_interrupt\x88\x01\x01B\x12\n" +
+	"\fis_interrupt\x18\f \x01(\bH\x03R\fis_interrupt\x88\x01\x01\x12%\n" +
+	"\vduration_ms\x18\r \x01(\x03H\x04R\vduration_ms\x88\x01\x01\x12=\n" +
+	"\x06effort\x18\x0e \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x05R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
 	"\v_agent_typeB\x0f\n" +
-	"\r_is_interrupt\"\xaf\x03\n" +
+	"\r_is_interruptB\x0e\n" +
+	"\f_duration_msB\t\n" +
+	"\a_effort\"\xd1\x03\n" +
+	"\x16PostToolBatchHookInput\x12\x1e\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x1f\n" +
+	"\bagent_id\x18\x05 \x01(\tH\x01R\bagent_id\x88\x01\x01\x12#\n" +
+	"\n" +
+	"agent_type\x18\x06 \x01(\tH\x02R\n" +
+	"agent_type\x88\x01\x01\x12(\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12B\n" +
+	"\n" +
+	"tool_calls\x18\b \x03(\v2\".sdktypes.v1.PostToolBatchToolCallR\n" +
+	"tool_calls\x12=\n" +
+	"\x06effort\x18\t \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
+	"\x10_permission_modeB\v\n" +
+	"\t_agent_idB\r\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xf9\x03\n" +
 	"\x15NotificationHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15758,11 +19567,13 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\amessage\x18\b \x01(\tR\amessage\x12\x19\n" +
 	"\x05title\x18\t \x01(\tH\x03R\x05title\x88\x01\x01\x12,\n" +
 	"\x11notification_type\x18\n" +
-	" \x01(\tR\x11notification_typeB\x12\n" +
+	" \x01(\tR\x11notification_type\x12=\n" +
+	"\x06effort\x18\v \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x04R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
 	"\v_agent_typeB\b\n" +
-	"\x06_title\"\xde\x02\n" +
+	"\x06_titleB\t\n" +
+	"\a_effort\"\xa8\x03\n" +
 	"\x19UserPromptSubmitHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15775,10 +19586,12 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x16\n" +
-	"\x06prompt\x18\b \x01(\tR\x06promptB\x12\n" +
+	"\x06prompt\x18\b \x01(\tR\x06prompt\x12=\n" +
+	"\x06effort\x18\t \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xff\x02\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xc9\x03\n" +
 	"\x15SessionStartHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15792,11 +19605,14 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x16\n" +
 	"\x06source\x18\b \x01(\tR\x06source\x12\x19\n" +
-	"\x05model\x18\t \x01(\tH\x03R\x05model\x88\x01\x01B\x12\n" +
+	"\x05model\x18\t \x01(\tH\x03R\x05model\x88\x01\x01\x12=\n" +
+	"\x06effort\x18\n" +
+	" \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x04R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
 	"\v_agent_typeB\b\n" +
-	"\x06_model\"\xd8\x02\n" +
+	"\x06_modelB\t\n" +
+	"\a_effort\"\xa2\x03\n" +
 	"\x13SessionEndHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15809,10 +19625,12 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x16\n" +
-	"\x06reason\x18\b \x01(\tR\x06reasonB\x12\n" +
+	"\x06reason\x18\b \x01(\tR\x06reason\x12=\n" +
+	"\x06effort\x18\t \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xe6\x02\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\x9f\x05\n" +
 	"\rStopHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15825,10 +19643,17 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12*\n" +
-	"\x10stop_hook_active\x18\b \x01(\bR\x10stop_hook_activeB\x12\n" +
+	"\x10stop_hook_active\x18\b \x01(\bR\x10stop_hook_active\x12;\n" +
+	"\x16last_assistant_message\x18\t \x01(\tH\x03R\x16last_assistant_message\x88\x01\x01\x12N\n" +
+	"\x10background_tasks\x18\n" +
+	" \x03(\v2\".sdktypes.v1.BackgroundTaskSummaryR\x10background_tasks\x12E\n" +
+	"\rsession_crons\x18\v \x03(\v2\x1f.sdktypes.v1.SessionCronSummaryR\rsession_crons\x12=\n" +
+	"\x06effort\x18\f \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x04R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xdb\x02\n" +
+	"\v_agent_typeB\x19\n" +
+	"\x17_last_assistant_messageB\t\n" +
+	"\a_effort\"\x8d\x03\n" +
 	"\x16SubagentStartHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15840,11 +19665,12 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
-	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x16\n" +
-	"\x06prompt\x18\b \x01(\tR\x06promptB\x12\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12=\n" +
+	"\x06effort\x18\b \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xe4\x02\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xdd\x05\n" +
 	"\x15SubagentStopHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15856,11 +19682,19 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
-	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12 \n" +
-	"\vstop_reason\x18\b \x01(\tR\vstop_reasonB\x12\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12*\n" +
+	"\x10stop_hook_active\x18\b \x01(\bR\x10stop_hook_active\x124\n" +
+	"\x15agent_transcript_path\x18\t \x01(\tR\x15agent_transcript_path\x12;\n" +
+	"\x16last_assistant_message\x18\n" +
+	" \x01(\tH\x03R\x16last_assistant_message\x88\x01\x01\x12N\n" +
+	"\x10background_tasks\x18\v \x03(\v2\".sdktypes.v1.BackgroundTaskSummaryR\x10background_tasks\x12E\n" +
+	"\rsession_crons\x18\f \x03(\v2\x1f.sdktypes.v1.SessionCronSummaryR\rsession_crons\x12=\n" +
+	"\x06effort\x18\r \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x04R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\x8c\x03\n" +
+	"\v_agent_typeB\x19\n" +
+	"\x17_last_assistant_messageB\t\n" +
+	"\a_effort\"\xf3\x03\n" +
 	"\x13PreCompactHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15873,11 +19707,15 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x18\n" +
-	"\atrigger\x18\b \x01(\tR\atrigger\x120\n" +
-	"\x13custom_instructions\x18\t \x01(\tR\x13custom_instructionsB\x12\n" +
+	"\atrigger\x18\b \x01(\tR\atrigger\x125\n" +
+	"\x13custom_instructions\x18\t \x01(\tH\x03R\x13custom_instructions\x88\x01\x01\x12=\n" +
+	"\x06effort\x18\n" +
+	" \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x04R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\x96\x04\n" +
+	"\v_agent_typeB\x16\n" +
+	"\x14_custom_instructionsB\t\n" +
+	"\a_effort\"\xe0\x04\n" +
 	"\x1aPermissionRequestHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15896,10 +19734,12 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"tool_input\x12 \n" +
 	"\vtool_use_id\x18\n" +
 	" \x01(\tR\vtool_use_id\x12U\n" +
-	"\x16permission_suggestions\x18\v \x03(\v2\x1d.sdktypes.v1.PermissionUpdateR\x16permission_suggestionsB\x12\n" +
+	"\x16permission_suggestions\x18\v \x03(\v2\x1d.sdktypes.v1.PermissionUpdateR\x16permission_suggestions\x12=\n" +
+	"\x06effort\x18\f \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xd5\x02\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\x9f\x03\n" +
 	"\x0eSetupHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15912,10 +19752,12 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x18\n" +
-	"\atrigger\x18\b \x01(\tR\atriggerB\x12\n" +
+	"\atrigger\x18\b \x01(\tR\atrigger\x12=\n" +
+	"\x06effort\x18\t \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xc2\x02\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xd0\x03\n" +
 	"\x15TeammateIdleHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15927,10 +19769,15 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
-	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_nameB\x12\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12$\n" +
+	"\rteammate_name\x18\b \x01(\tR\rteammate_name\x12\x1c\n" +
+	"\tteam_name\x18\t \x01(\tR\tteam_name\x12=\n" +
+	"\x06effort\x18\n" +
+	" \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xb5\x04\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xff\x04\n" +
 	"\x16TaskCompletedHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15948,14 +19795,16 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x10task_description\x18\n" +
 	" \x01(\tH\x03R\x10task_description\x88\x01\x01\x12)\n" +
 	"\rteammate_name\x18\v \x01(\tH\x04R\rteammate_name\x88\x01\x01\x12!\n" +
-	"\tteam_name\x18\f \x01(\tH\x05R\tteam_name\x88\x01\x01B\x12\n" +
+	"\tteam_name\x18\f \x01(\tH\x05R\tteam_name\x88\x01\x01\x12=\n" +
+	"\x06effort\x18\r \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x06R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
 	"\v_agent_typeB\x13\n" +
 	"\x11_task_descriptionB\x10\n" +
 	"\x0e_teammate_nameB\f\n" +
 	"\n" +
-	"_team_name\"\x8b\x03\n" +
+	"_team_nameB\t\n" +
+	"\a_effort\"\xd5\x03\n" +
 	"\x15ConfigChangeHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15969,12 +19818,15 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x16\n" +
 	"\x06source\x18\b \x01(\tR\x06source\x12!\n" +
-	"\tfile_path\x18\t \x01(\tH\x03R\tfile_path\x88\x01\x01B\x12\n" +
+	"\tfile_path\x18\t \x01(\tH\x03R\tfile_path\x88\x01\x01\x12=\n" +
+	"\x06effort\x18\n" +
+	" \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x04R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
 	"\v_agent_typeB\f\n" +
 	"\n" +
-	"_file_path\"\xd8\x02\n" +
+	"_file_pathB\t\n" +
+	"\a_effort\"\xa2\x03\n" +
 	"\x17WorktreeCreateHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -15987,10 +19839,12 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x12\n" +
-	"\x04name\x18\b \x01(\tR\x04nameB\x12\n" +
+	"\x04name\x18\b \x01(\tR\x04name\x12=\n" +
+	"\x06effort\x18\t \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\xea\x02\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xb4\x03\n" +
 	"\x17WorktreeRemoveHookInput\x12\x1e\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\n" +
@@ -16003,10 +19857,37 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"agent_type\x18\x06 \x01(\tH\x02R\n" +
 	"agent_type\x88\x01\x01\x12(\n" +
 	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12$\n" +
-	"\rworktree_path\x18\b \x01(\tR\rworktree_pathB\x12\n" +
+	"\rworktree_path\x18\b \x01(\tR\rworktree_path\x12=\n" +
+	"\x06effort\x18\t \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
 	"\x10_permission_modeB\v\n" +
 	"\t_agent_idB\r\n" +
-	"\v_agent_type\"\x92\v\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\x8a\x04\n" +
+	"\x17MessageDisplayHookInput\x12\x1e\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\n" +
+	"session_id\x12(\n" +
+	"\x0ftranscript_path\x18\x02 \x01(\tR\x0ftranscript_path\x12\x10\n" +
+	"\x03cwd\x18\x03 \x01(\tR\x03cwd\x12-\n" +
+	"\x0fpermission_mode\x18\x04 \x01(\tH\x00R\x0fpermission_mode\x88\x01\x01\x12\x1f\n" +
+	"\bagent_id\x18\x05 \x01(\tH\x01R\bagent_id\x88\x01\x01\x12#\n" +
+	"\n" +
+	"agent_type\x18\x06 \x01(\tH\x02R\n" +
+	"agent_type\x88\x01\x01\x12(\n" +
+	"\x0fhook_event_name\x18\a \x01(\tR\x0fhook_event_name\x12\x18\n" +
+	"\aturn_id\x18\b \x01(\tR\aturn_id\x12\x1e\n" +
+	"\n" +
+	"message_id\x18\t \x01(\tR\n" +
+	"message_id\x12\x14\n" +
+	"\x05index\x18\n" +
+	" \x01(\x03R\x05index\x12\x14\n" +
+	"\x05final\x18\v \x01(\bR\x05final\x12\x14\n" +
+	"\x05delta\x18\f \x01(\tR\x05delta\x12=\n" +
+	"\x06effort\x18\r \x01(\v2 .sdktypes.v1.BaseHookInputEffortH\x03R\x06effort\x88\x01\x01B\x12\n" +
+	"\x10_permission_modeB\v\n" +
+	"\t_agent_idB\r\n" +
+	"\v_agent_typeB\t\n" +
+	"\a_effort\"\xb2\f\n" +
 	"\tHookInput\x12D\n" +
 	"\fpre_tool_use\x18\x01 \x01(\v2 .sdktypes.v1.PreToolUseHookInputH\x00R\n" +
 	"preToolUse\x12G\n" +
@@ -16029,7 +19910,9 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x0etask_completed\x18\x0f \x01(\v2#.sdktypes.v1.TaskCompletedHookInputH\x00R\rtaskCompleted\x12I\n" +
 	"\rconfig_change\x18\x10 \x01(\v2\".sdktypes.v1.ConfigChangeHookInputH\x00R\fconfigChange\x12O\n" +
 	"\x0fworktree_create\x18\x11 \x01(\v2$.sdktypes.v1.WorktreeCreateHookInputH\x00R\x0eworktreeCreate\x12O\n" +
-	"\x0fworktree_remove\x18\x12 \x01(\v2$.sdktypes.v1.WorktreeRemoveHookInputH\x00R\x0eworktreeRemove\x127\n" +
+	"\x0fworktree_remove\x18\x12 \x01(\v2$.sdktypes.v1.WorktreeRemoveHookInputH\x00R\x0eworktreeRemove\x12M\n" +
+	"\x0fpost_tool_batch\x18\x13 \x01(\v2#.sdktypes.v1.PostToolBatchHookInputH\x00R\rpostToolBatch\x12O\n" +
+	"\x0fmessage_display\x18\x14 \x01(\v2$.sdktypes.v1.MessageDisplayHookInputH\x00R\x0emessageDisplay\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
 	"\x05value\"\xff\x02\n" +
 	"\x1cHookSpecificOutputPreToolUse\x12&\n" +
@@ -16056,13 +19939,19 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x1fHookSpecificOutputSubagentStart\x12&\n" +
 	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x122\n" +
 	"\x12additional_context\x18\x02 \x01(\tH\x00R\x11additionalContext\x88\x01\x01B\x15\n" +
-	"\x13_additional_context\"\x87\x02\n" +
+	"\x13_additional_context\"\xf1\x02\n" +
 	"\x1dHookSpecificOutputPostToolUse\x12&\n" +
 	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x122\n" +
 	"\x12additional_context\x18\x02 \x01(\tH\x00R\x11additionalContext\x88\x01\x01\x12W\n" +
-	"\x17updated_mcp_tool_output\x18\x03 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x01R\x14updatedMCPToolOutput\x88\x01\x01B\x15\n" +
+	"\x17updated_mcp_tool_output\x18\x03 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x01R\x14updatedMCPToolOutput\x88\x01\x01\x12P\n" +
+	"\x13updated_tool_output\x18\x04 \x01(\v2\x1b.sdktypes.v1.JsonRawMessageH\x02R\x11updatedToolOutput\x88\x01\x01B\x15\n" +
 	"\x13_additional_contextB\x1a\n" +
-	"\x18_updated_mcp_tool_output\"\x99\x01\n" +
+	"\x18_updated_mcp_tool_outputB\x16\n" +
+	"\x14_updated_tool_output\"\x94\x01\n" +
+	"\x1fHookSpecificOutputPostToolBatch\x12&\n" +
+	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x122\n" +
+	"\x12additional_context\x18\x02 \x01(\tH\x00R\x11additionalContext\x88\x01\x01B\x15\n" +
+	"\x13_additional_context\"\x99\x01\n" +
 	"$HookSpecificOutputPostToolUseFailure\x12&\n" +
 	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x122\n" +
 	"\x12additional_context\x18\x02 \x01(\tH\x00R\x11additionalContext\x88\x01\x01B\x15\n" +
@@ -16090,7 +19979,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\x05value\"\x91\x01\n" +
 	"#HookSpecificOutputPermissionRequest\x12&\n" +
 	"\x0fhook_event_name\x18\x01 \x01(\tR\rhookEventName\x12B\n" +
-	"\bdecision\x18\x02 \x01(\v2&.sdktypes.v1.PermissionRequestDecisionR\bdecision\"\xdf\x06\n" +
+	"\bdecision\x18\x02 \x01(\v2&.sdktypes.v1.PermissionRequestDecisionR\bdecision\"\xb7\a\n" +
 	"\x12HookSpecificOutput\x12M\n" +
 	"\fpre_tool_use\x18\x01 \x01(\v2).sdktypes.v1.HookSpecificOutputPreToolUseH\x00R\n" +
 	"preToolUse\x12_\n" +
@@ -16101,7 +19990,9 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\rpost_tool_use\x18\x06 \x01(\v2*.sdktypes.v1.HookSpecificOutputPostToolUseH\x00R\vpostToolUse\x12f\n" +
 	"\x15post_tool_use_failure\x18\a \x01(\v21.sdktypes.v1.HookSpecificOutputPostToolUseFailureH\x00R\x12postToolUseFailure\x12Q\n" +
 	"\fnotification\x18\b \x01(\v2+.sdktypes.v1.HookSpecificOutputNotificationH\x00R\fnotification\x12a\n" +
-	"\x12permission_request\x18\t \x01(\v20.sdktypes.v1.HookSpecificOutputPermissionRequestH\x00R\x11permissionRequest\x127\n" +
+	"\x12permission_request\x18\t \x01(\v20.sdktypes.v1.HookSpecificOutputPermissionRequestH\x00R\x11permissionRequest\x12V\n" +
+	"\x0fpost_tool_batch\x18\n" +
+	" \x01(\v2,.sdktypes.v1.HookSpecificOutputPostToolBatchH\x00R\rpostToolBatch\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
 	"\x05value\"g\n" +
 	"\x13AsyncHookJSONOutput\x12\x14\n" +
@@ -16129,12 +20020,13 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\vsync_output\x18\x02 \x01(\v2\x1f.sdktypes.v1.SyncHookJSONOutputH\x00R\n" +
 	"syncOutput\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
-	"\x05value*\xab\x01\n" +
+	"\x05value*\xcf\x01\n" +
 	"\x16HookPermissionDecision\x12(\n" +
 	"$HOOK_PERMISSION_DECISION_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eHOOK_PERMISSION_DECISION_ALLOW\x10\x01\x12!\n" +
 	"\x1dHOOK_PERMISSION_DECISION_DENY\x10\x02\x12 \n" +
-	"\x1cHOOK_PERMISSION_DECISION_ASK\x10\x03*\x91\x01\n" +
+	"\x1cHOOK_PERMISSION_DECISION_ASK\x10\x03\x12\"\n" +
+	"\x1eHOOK_PERMISSION_DECISION_DEFER\x10\x04*\x91\x01\n" +
 	"\x18PermissionResultBehavior\x12*\n" +
 	"&PERMISSION_RESULT_BEHAVIOR_UNSPECIFIED\x10\x00\x12$\n" +
 	" PERMISSION_RESULT_BEHAVIOR_ALLOW\x10\x01\x12#\n" +
@@ -16159,7 +20051,7 @@ func file_sdktypes_v1_types_proto_rawDescGZIP() []byte {
 }
 
 var file_sdktypes_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_sdktypes_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 180)
+var file_sdktypes_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 215)
 var file_sdktypes_v1_types_proto_goTypes = []any{
 	(HookPermissionDecision)(0),                  // 0: sdktypes.v1.HookPermissionDecision
 	(PermissionResultBehavior)(0),                // 1: sdktypes.v1.PermissionResultBehavior
@@ -16203,148 +20095,183 @@ var file_sdktypes_v1_types_proto_goTypes = []any{
 	(*ToolsConfigPreset)(nil),                    // 39: sdktypes.v1.ToolsConfigPreset
 	(*ToolsConfig)(nil),                          // 40: sdktypes.v1.ToolsConfig
 	(*Options)(nil),                              // 41: sdktypes.v1.Options
-	(*SlashCommand)(nil),                         // 42: sdktypes.v1.SlashCommand
-	(*ModelInfo)(nil),                            // 43: sdktypes.v1.ModelInfo
-	(*AgentInfo)(nil),                            // 44: sdktypes.v1.AgentInfo
-	(*AccountInfo)(nil),                          // 45: sdktypes.v1.AccountInfo
-	(*ModelUsage)(nil),                           // 46: sdktypes.v1.ModelUsage
-	(*Usage)(nil),                                // 47: sdktypes.v1.Usage
-	(*NonNullableUsage)(nil),                     // 48: sdktypes.v1.NonNullableUsage
-	(*CallToolResultContent)(nil),                // 49: sdktypes.v1.CallToolResultContent
-	(*CallToolResult)(nil),                       // 50: sdktypes.v1.CallToolResult
-	(*SDKPermissionDenial)(nil),                  // 51: sdktypes.v1.SDKPermissionDenial
-	(*CompactMetadata)(nil),                      // 52: sdktypes.v1.CompactMetadata
-	(*TaskUsageSummary)(nil),                     // 53: sdktypes.v1.TaskUsageSummary
-	(*SDKAssistantMessage)(nil),                  // 54: sdktypes.v1.SDKAssistantMessage
-	(*SDKUserMessage)(nil),                       // 55: sdktypes.v1.SDKUserMessage
-	(*SDKUserMessageReplay)(nil),                 // 56: sdktypes.v1.SDKUserMessageReplay
-	(*SDKResultMessageSuccess)(nil),              // 57: sdktypes.v1.SDKResultMessageSuccess
-	(*SDKResultMessageError)(nil),                // 58: sdktypes.v1.SDKResultMessageError
-	(*SDKSystemServer)(nil),                      // 59: sdktypes.v1.SDKSystemServer
-	(*SDKSystemPlugin)(nil),                      // 60: sdktypes.v1.SDKSystemPlugin
-	(*SDKSystemMessage)(nil),                     // 61: sdktypes.v1.SDKSystemMessage
-	(*SDKPartialAssistantMessage)(nil),           // 62: sdktypes.v1.SDKPartialAssistantMessage
-	(*SDKCompactBoundaryMessage)(nil),            // 63: sdktypes.v1.SDKCompactBoundaryMessage
-	(*SDKStatusMessage)(nil),                     // 64: sdktypes.v1.SDKStatusMessage
-	(*SDKLocalCommandOutputMessage)(nil),         // 65: sdktypes.v1.SDKLocalCommandOutputMessage
-	(*SDKHookStartedMessage)(nil),                // 66: sdktypes.v1.SDKHookStartedMessage
-	(*SDKHookProgressMessage)(nil),               // 67: sdktypes.v1.SDKHookProgressMessage
-	(*SDKHookResponseMessage)(nil),               // 68: sdktypes.v1.SDKHookResponseMessage
-	(*SDKToolProgressMessage)(nil),               // 69: sdktypes.v1.SDKToolProgressMessage
-	(*SDKAuthStatusMessage)(nil),                 // 70: sdktypes.v1.SDKAuthStatusMessage
-	(*SDKTaskNotificationMessage)(nil),           // 71: sdktypes.v1.SDKTaskNotificationMessage
-	(*SDKTaskStartedMessage)(nil),                // 72: sdktypes.v1.SDKTaskStartedMessage
-	(*SDKTaskProgressMessage)(nil),               // 73: sdktypes.v1.SDKTaskProgressMessage
-	(*FilesPersistedFile)(nil),                   // 74: sdktypes.v1.FilesPersistedFile
-	(*FilesPersistedFailure)(nil),                // 75: sdktypes.v1.FilesPersistedFailure
-	(*SDKFilesPersistedEvent)(nil),               // 76: sdktypes.v1.SDKFilesPersistedEvent
-	(*RateLimitInfo)(nil),                        // 77: sdktypes.v1.RateLimitInfo
-	(*SDKToolUseSummaryMessage)(nil),             // 78: sdktypes.v1.SDKToolUseSummaryMessage
-	(*SDKRateLimitEvent)(nil),                    // 79: sdktypes.v1.SDKRateLimitEvent
-	(*SDKPromptSuggestionMessage)(nil),           // 80: sdktypes.v1.SDKPromptSuggestionMessage
-	(*SDKMessage)(nil),                           // 81: sdktypes.v1.SDKMessage
-	(*QuestionOption)(nil),                       // 82: sdktypes.v1.QuestionOption
-	(*Question)(nil),                             // 83: sdktypes.v1.Question
-	(*ToolInput)(nil),                            // 84: sdktypes.v1.ToolInput
-	(*AgentInput)(nil),                           // 85: sdktypes.v1.AgentInput
-	(*AskUserQuestionInput)(nil),                 // 86: sdktypes.v1.AskUserQuestionInput
-	(*BashInput)(nil),                            // 87: sdktypes.v1.BashInput
-	(*BashOutputInput)(nil),                      // 88: sdktypes.v1.BashOutputInput
-	(*FileEditInput)(nil),                        // 89: sdktypes.v1.FileEditInput
-	(*FileReadInput)(nil),                        // 90: sdktypes.v1.FileReadInput
-	(*FileWriteInput)(nil),                       // 91: sdktypes.v1.FileWriteInput
-	(*GlobInput)(nil),                            // 92: sdktypes.v1.GlobInput
-	(*GrepInput)(nil),                            // 93: sdktypes.v1.GrepInput
-	(*KillShellInput)(nil),                       // 94: sdktypes.v1.KillShellInput
-	(*NotebookEditInput)(nil),                    // 95: sdktypes.v1.NotebookEditInput
-	(*WebFetchInput)(nil),                        // 96: sdktypes.v1.WebFetchInput
-	(*WebSearchInput)(nil),                       // 97: sdktypes.v1.WebSearchInput
-	(*TodoItem)(nil),                             // 98: sdktypes.v1.TodoItem
-	(*TodoWriteInput)(nil),                       // 99: sdktypes.v1.TodoWriteInput
-	(*ExitPlanModeInput)(nil),                    // 100: sdktypes.v1.ExitPlanModeInput
-	(*ListMcpResourcesInput)(nil),                // 101: sdktypes.v1.ListMcpResourcesInput
-	(*ReadMcpResourceInput)(nil),                 // 102: sdktypes.v1.ReadMcpResourceInput
-	(*ToolOutput)(nil),                           // 103: sdktypes.v1.ToolOutput
-	(*UsageInfo)(nil),                            // 104: sdktypes.v1.UsageInfo
-	(*TaskOutput)(nil),                           // 105: sdktypes.v1.TaskOutput
-	(*AskUserQuestionOutput)(nil),                // 106: sdktypes.v1.AskUserQuestionOutput
-	(*BashOutput)(nil),                           // 107: sdktypes.v1.BashOutput
-	(*FileEditOutput)(nil),                       // 108: sdktypes.v1.FileEditOutput
-	(*FileReadOutputTextFile)(nil),               // 109: sdktypes.v1.FileReadOutputTextFile
-	(*FileReadOutputImageFile)(nil),              // 110: sdktypes.v1.FileReadOutputImageFile
-	(*FileReadOutputNotebookFile)(nil),           // 111: sdktypes.v1.FileReadOutputNotebookFile
-	(*FileReadOutputPdfFile)(nil),                // 112: sdktypes.v1.FileReadOutputPdfFile
-	(*FileReadOutputPartsFile)(nil),              // 113: sdktypes.v1.FileReadOutputPartsFile
-	(*FileReadOutputText)(nil),                   // 114: sdktypes.v1.FileReadOutputText
-	(*FileReadOutputImage)(nil),                  // 115: sdktypes.v1.FileReadOutputImage
-	(*FileReadOutputNotebook)(nil),               // 116: sdktypes.v1.FileReadOutputNotebook
-	(*FileReadOutputPdf)(nil),                    // 117: sdktypes.v1.FileReadOutputPdf
-	(*FileReadOutputParts)(nil),                  // 118: sdktypes.v1.FileReadOutputParts
-	(*FileReadOutput)(nil),                       // 119: sdktypes.v1.FileReadOutput
-	(*FileWriteOutput)(nil),                      // 120: sdktypes.v1.FileWriteOutput
-	(*GlobOutput)(nil),                           // 121: sdktypes.v1.GlobOutput
-	(*GrepOutput)(nil),                           // 122: sdktypes.v1.GrepOutput
-	(*TaskStopOutput)(nil),                       // 123: sdktypes.v1.TaskStopOutput
-	(*NotebookEditOutput)(nil),                   // 124: sdktypes.v1.NotebookEditOutput
-	(*WebFetchOutput)(nil),                       // 125: sdktypes.v1.WebFetchOutput
-	(*WebSearchOutputResultEntry)(nil),           // 126: sdktypes.v1.WebSearchOutputResultEntry
-	(*WebSearchOutput)(nil),                      // 127: sdktypes.v1.WebSearchOutput
-	(*TodoWriteOutput)(nil),                      // 128: sdktypes.v1.TodoWriteOutput
-	(*ExitPlanModeOutput)(nil),                   // 129: sdktypes.v1.ExitPlanModeOutput
-	(*McpResource)(nil),                          // 130: sdktypes.v1.McpResource
-	(*ListMcpResourcesOutput)(nil),               // 131: sdktypes.v1.ListMcpResourcesOutput
-	(*ReadMcpResourceOutputContent)(nil),         // 132: sdktypes.v1.ReadMcpResourceOutputContent
-	(*ReadMcpResourceOutput)(nil),                // 133: sdktypes.v1.ReadMcpResourceOutput
-	(*ConfigOutput)(nil),                         // 134: sdktypes.v1.ConfigOutput
-	(*EnterWorktreeOutput)(nil),                  // 135: sdktypes.v1.EnterWorktreeOutput
-	(*PreToolUseHookInput)(nil),                  // 136: sdktypes.v1.PreToolUseHookInput
-	(*PostToolUseHookInput)(nil),                 // 137: sdktypes.v1.PostToolUseHookInput
-	(*PostToolUseFailureHookInput)(nil),          // 138: sdktypes.v1.PostToolUseFailureHookInput
-	(*NotificationHookInput)(nil),                // 139: sdktypes.v1.NotificationHookInput
-	(*UserPromptSubmitHookInput)(nil),            // 140: sdktypes.v1.UserPromptSubmitHookInput
-	(*SessionStartHookInput)(nil),                // 141: sdktypes.v1.SessionStartHookInput
-	(*SessionEndHookInput)(nil),                  // 142: sdktypes.v1.SessionEndHookInput
-	(*StopHookInput)(nil),                        // 143: sdktypes.v1.StopHookInput
-	(*SubagentStartHookInput)(nil),               // 144: sdktypes.v1.SubagentStartHookInput
-	(*SubagentStopHookInput)(nil),                // 145: sdktypes.v1.SubagentStopHookInput
-	(*PreCompactHookInput)(nil),                  // 146: sdktypes.v1.PreCompactHookInput
-	(*PermissionRequestHookInput)(nil),           // 147: sdktypes.v1.PermissionRequestHookInput
-	(*SetupHookInput)(nil),                       // 148: sdktypes.v1.SetupHookInput
-	(*TeammateIdleHookInput)(nil),                // 149: sdktypes.v1.TeammateIdleHookInput
-	(*TaskCompletedHookInput)(nil),               // 150: sdktypes.v1.TaskCompletedHookInput
-	(*ConfigChangeHookInput)(nil),                // 151: sdktypes.v1.ConfigChangeHookInput
-	(*WorktreeCreateHookInput)(nil),              // 152: sdktypes.v1.WorktreeCreateHookInput
-	(*WorktreeRemoveHookInput)(nil),              // 153: sdktypes.v1.WorktreeRemoveHookInput
-	(*HookInput)(nil),                            // 154: sdktypes.v1.HookInput
-	(*HookSpecificOutputPreToolUse)(nil),         // 155: sdktypes.v1.HookSpecificOutputPreToolUse
-	(*HookSpecificOutputUserPromptSubmit)(nil),   // 156: sdktypes.v1.HookSpecificOutputUserPromptSubmit
-	(*HookSpecificOutputSessionStart)(nil),       // 157: sdktypes.v1.HookSpecificOutputSessionStart
-	(*HookSpecificOutputSetup)(nil),              // 158: sdktypes.v1.HookSpecificOutputSetup
-	(*HookSpecificOutputSubagentStart)(nil),      // 159: sdktypes.v1.HookSpecificOutputSubagentStart
-	(*HookSpecificOutputPostToolUse)(nil),        // 160: sdktypes.v1.HookSpecificOutputPostToolUse
-	(*HookSpecificOutputPostToolUseFailure)(nil), // 161: sdktypes.v1.HookSpecificOutputPostToolUseFailure
-	(*HookSpecificOutputNotification)(nil),       // 162: sdktypes.v1.HookSpecificOutputNotification
-	(*PermissionRequestDecisionAllow)(nil),       // 163: sdktypes.v1.PermissionRequestDecisionAllow
-	(*PermissionRequestDecisionDeny)(nil),        // 164: sdktypes.v1.PermissionRequestDecisionDeny
-	(*PermissionRequestDecision)(nil),            // 165: sdktypes.v1.PermissionRequestDecision
-	(*HookSpecificOutputPermissionRequest)(nil),  // 166: sdktypes.v1.HookSpecificOutputPermissionRequest
-	(*HookSpecificOutput)(nil),                   // 167: sdktypes.v1.HookSpecificOutput
-	(*AsyncHookJSONOutput)(nil),                  // 168: sdktypes.v1.AsyncHookJSONOutput
-	(*SyncHookJSONOutput)(nil),                   // 169: sdktypes.v1.SyncHookJSONOutput
-	(*HookJSONOutput)(nil),                       // 170: sdktypes.v1.HookJSONOutput
-	nil,                                          // 171: sdktypes.v1.McpStdioServerConfig.EnvEntry
-	nil,                                          // 172: sdktypes.v1.McpSSEServerConfig.HeadersEntry
-	nil,                                          // 173: sdktypes.v1.McpHttpServerConfig.HeadersEntry
-	nil,                                          // 174: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
-	nil,                                          // 175: sdktypes.v1.Options.AgentsEntry
-	nil,                                          // 176: sdktypes.v1.Options.EnvEntry
-	nil,                                          // 177: sdktypes.v1.Options.ExtraArgsEntry
-	nil,                                          // 178: sdktypes.v1.Options.McpServersEntry
-	nil,                                          // 179: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
-	nil,                                          // 180: sdktypes.v1.SDKResultMessageError.ModelUsageEntry
-	nil,                                          // 181: sdktypes.v1.AskUserQuestionInput.AnswersEntry
-	nil,                                          // 182: sdktypes.v1.AskUserQuestionOutput.AnswersEntry
-	(*structpb.Struct)(nil),                      // 183: google.protobuf.Struct
+	(*OptionsTaskBudget)(nil),                    // 42: sdktypes.v1.OptionsTaskBudget
+	(*SlashCommand)(nil),                         // 43: sdktypes.v1.SlashCommand
+	(*ModelInfo)(nil),                            // 44: sdktypes.v1.ModelInfo
+	(*AgentInfo)(nil),                            // 45: sdktypes.v1.AgentInfo
+	(*AccountInfo)(nil),                          // 46: sdktypes.v1.AccountInfo
+	(*ModelUsage)(nil),                           // 47: sdktypes.v1.ModelUsage
+	(*UsageCacheCreation)(nil),                   // 48: sdktypes.v1.UsageCacheCreation
+	(*Usage)(nil),                                // 49: sdktypes.v1.Usage
+	(*NonNullableUsage)(nil),                     // 50: sdktypes.v1.NonNullableUsage
+	(*CallToolResultContent)(nil),                // 51: sdktypes.v1.CallToolResultContent
+	(*CallToolResult)(nil),                       // 52: sdktypes.v1.CallToolResult
+	(*SDKPermissionDenial)(nil),                  // 53: sdktypes.v1.SDKPermissionDenial
+	(*CompactMetadata)(nil),                      // 54: sdktypes.v1.CompactMetadata
+	(*TaskUsageSummary)(nil),                     // 55: sdktypes.v1.TaskUsageSummary
+	(*SDKAssistantMessage)(nil),                  // 56: sdktypes.v1.SDKAssistantMessage
+	(*SDKUserMessage)(nil),                       // 57: sdktypes.v1.SDKUserMessage
+	(*SDKUserMessageReplay)(nil),                 // 58: sdktypes.v1.SDKUserMessageReplay
+	(*SDKResultMessageSuccess)(nil),              // 59: sdktypes.v1.SDKResultMessageSuccess
+	(*SDKResultMessageError)(nil),                // 60: sdktypes.v1.SDKResultMessageError
+	(*SDKSystemServer)(nil),                      // 61: sdktypes.v1.SDKSystemServer
+	(*SDKSystemPlugin)(nil),                      // 62: sdktypes.v1.SDKSystemPlugin
+	(*SDKSystemMessage)(nil),                     // 63: sdktypes.v1.SDKSystemMessage
+	(*SDKPartialAssistantMessage)(nil),           // 64: sdktypes.v1.SDKPartialAssistantMessage
+	(*SDKCompactBoundaryMessage)(nil),            // 65: sdktypes.v1.SDKCompactBoundaryMessage
+	(*SDKStatusMessage)(nil),                     // 66: sdktypes.v1.SDKStatusMessage
+	(*SDKLocalCommandOutputMessage)(nil),         // 67: sdktypes.v1.SDKLocalCommandOutputMessage
+	(*SDKHookStartedMessage)(nil),                // 68: sdktypes.v1.SDKHookStartedMessage
+	(*SDKHookProgressMessage)(nil),               // 69: sdktypes.v1.SDKHookProgressMessage
+	(*SDKHookResponseMessage)(nil),               // 70: sdktypes.v1.SDKHookResponseMessage
+	(*SDKToolProgressMessage)(nil),               // 71: sdktypes.v1.SDKToolProgressMessage
+	(*SDKAuthStatusMessage)(nil),                 // 72: sdktypes.v1.SDKAuthStatusMessage
+	(*SDKTaskNotificationMessage)(nil),           // 73: sdktypes.v1.SDKTaskNotificationMessage
+	(*SDKTaskStartedMessage)(nil),                // 74: sdktypes.v1.SDKTaskStartedMessage
+	(*SDKTaskProgressMessage)(nil),               // 75: sdktypes.v1.SDKTaskProgressMessage
+	(*FilesPersistedFile)(nil),                   // 76: sdktypes.v1.FilesPersistedFile
+	(*FilesPersistedFailure)(nil),                // 77: sdktypes.v1.FilesPersistedFailure
+	(*SDKFilesPersistedEvent)(nil),               // 78: sdktypes.v1.SDKFilesPersistedEvent
+	(*RateLimitInfo)(nil),                        // 79: sdktypes.v1.RateLimitInfo
+	(*SDKToolUseSummaryMessage)(nil),             // 80: sdktypes.v1.SDKToolUseSummaryMessage
+	(*SDKRateLimitEvent)(nil),                    // 81: sdktypes.v1.SDKRateLimitEvent
+	(*SDKPromptSuggestionMessage)(nil),           // 82: sdktypes.v1.SDKPromptSuggestionMessage
+	(*SDKMessage)(nil),                           // 83: sdktypes.v1.SDKMessage
+	(*SDKMessageOrigin)(nil),                     // 84: sdktypes.v1.SDKMessageOrigin
+	(*DeferredToolUse)(nil),                      // 85: sdktypes.v1.DeferredToolUse
+	(*SDKTaskUpdatedPatch)(nil),                  // 86: sdktypes.v1.SDKTaskUpdatedPatch
+	(*SDKTaskUpdatedMessage)(nil),                // 87: sdktypes.v1.SDKTaskUpdatedMessage
+	(*SDKCommandsChangedMessage)(nil),            // 88: sdktypes.v1.SDKCommandsChangedMessage
+	(*SDKPluginInstallMessage)(nil),              // 89: sdktypes.v1.SDKPluginInstallMessage
+	(*SDKPermissionDeniedMessage)(nil),           // 90: sdktypes.v1.SDKPermissionDeniedMessage
+	(*QuestionOption)(nil),                       // 91: sdktypes.v1.QuestionOption
+	(*Question)(nil),                             // 92: sdktypes.v1.Question
+	(*ToolInput)(nil),                            // 93: sdktypes.v1.ToolInput
+	(*AgentInput)(nil),                           // 94: sdktypes.v1.AgentInput
+	(*MonitorInput)(nil),                         // 95: sdktypes.v1.MonitorInput
+	(*WorkflowInput)(nil),                        // 96: sdktypes.v1.WorkflowInput
+	(*TaskCreateInput)(nil),                      // 97: sdktypes.v1.TaskCreateInput
+	(*TaskUpdateInput)(nil),                      // 98: sdktypes.v1.TaskUpdateInput
+	(*TaskGetInput)(nil),                         // 99: sdktypes.v1.TaskGetInput
+	(*TaskListInput)(nil),                        // 100: sdktypes.v1.TaskListInput
+	(*AskUserQuestionInput)(nil),                 // 101: sdktypes.v1.AskUserQuestionInput
+	(*BashInput)(nil),                            // 102: sdktypes.v1.BashInput
+	(*BashOutputInput)(nil),                      // 103: sdktypes.v1.BashOutputInput
+	(*FileEditInput)(nil),                        // 104: sdktypes.v1.FileEditInput
+	(*FileReadInput)(nil),                        // 105: sdktypes.v1.FileReadInput
+	(*FileWriteInput)(nil),                       // 106: sdktypes.v1.FileWriteInput
+	(*GlobInput)(nil),                            // 107: sdktypes.v1.GlobInput
+	(*GrepInput)(nil),                            // 108: sdktypes.v1.GrepInput
+	(*TaskStopInput)(nil),                        // 109: sdktypes.v1.TaskStopInput
+	(*TaskOutputInput)(nil),                      // 110: sdktypes.v1.TaskOutputInput
+	(*EnterWorktreeInput)(nil),                   // 111: sdktypes.v1.EnterWorktreeInput
+	(*NotebookEditInput)(nil),                    // 112: sdktypes.v1.NotebookEditInput
+	(*WebFetchInput)(nil),                        // 113: sdktypes.v1.WebFetchInput
+	(*WebSearchInput)(nil),                       // 114: sdktypes.v1.WebSearchInput
+	(*TodoItem)(nil),                             // 115: sdktypes.v1.TodoItem
+	(*TodoWriteInput)(nil),                       // 116: sdktypes.v1.TodoWriteInput
+	(*ExitPlanModeInput)(nil),                    // 117: sdktypes.v1.ExitPlanModeInput
+	(*ListMcpResourcesInput)(nil),                // 118: sdktypes.v1.ListMcpResourcesInput
+	(*ReadMcpResourceInput)(nil),                 // 119: sdktypes.v1.ReadMcpResourceInput
+	(*ToolOutput)(nil),                           // 120: sdktypes.v1.ToolOutput
+	(*MonitorOutput)(nil),                        // 121: sdktypes.v1.MonitorOutput
+	(*WorkflowOutput)(nil),                       // 122: sdktypes.v1.WorkflowOutput
+	(*TaskCreateOutputTask)(nil),                 // 123: sdktypes.v1.TaskCreateOutputTask
+	(*TaskCreateOutput)(nil),                     // 124: sdktypes.v1.TaskCreateOutput
+	(*TaskUpdateOutputStatusChange)(nil),         // 125: sdktypes.v1.TaskUpdateOutputStatusChange
+	(*TaskUpdateOutput)(nil),                     // 126: sdktypes.v1.TaskUpdateOutput
+	(*TaskGetOutputTask)(nil),                    // 127: sdktypes.v1.TaskGetOutputTask
+	(*TaskGetOutput)(nil),                        // 128: sdktypes.v1.TaskGetOutput
+	(*TaskListOutputTask)(nil),                   // 129: sdktypes.v1.TaskListOutputTask
+	(*TaskListOutput)(nil),                       // 130: sdktypes.v1.TaskListOutput
+	(*UsageInfo)(nil),                            // 131: sdktypes.v1.UsageInfo
+	(*TaskOutput)(nil),                           // 132: sdktypes.v1.TaskOutput
+	(*AskUserQuestionOutput)(nil),                // 133: sdktypes.v1.AskUserQuestionOutput
+	(*BashOutput)(nil),                           // 134: sdktypes.v1.BashOutput
+	(*FileEditOutput)(nil),                       // 135: sdktypes.v1.FileEditOutput
+	(*FileReadOutputTextFile)(nil),               // 136: sdktypes.v1.FileReadOutputTextFile
+	(*FileReadOutputImageFile)(nil),              // 137: sdktypes.v1.FileReadOutputImageFile
+	(*FileReadOutputNotebookFile)(nil),           // 138: sdktypes.v1.FileReadOutputNotebookFile
+	(*FileReadOutputPdfFile)(nil),                // 139: sdktypes.v1.FileReadOutputPdfFile
+	(*FileReadOutputPartsFile)(nil),              // 140: sdktypes.v1.FileReadOutputPartsFile
+	(*FileReadOutputText)(nil),                   // 141: sdktypes.v1.FileReadOutputText
+	(*FileReadOutputImage)(nil),                  // 142: sdktypes.v1.FileReadOutputImage
+	(*FileReadOutputNotebook)(nil),               // 143: sdktypes.v1.FileReadOutputNotebook
+	(*FileReadOutputPdf)(nil),                    // 144: sdktypes.v1.FileReadOutputPdf
+	(*FileReadOutputParts)(nil),                  // 145: sdktypes.v1.FileReadOutputParts
+	(*FileReadOutput)(nil),                       // 146: sdktypes.v1.FileReadOutput
+	(*FileWriteOutput)(nil),                      // 147: sdktypes.v1.FileWriteOutput
+	(*GlobOutput)(nil),                           // 148: sdktypes.v1.GlobOutput
+	(*GrepOutput)(nil),                           // 149: sdktypes.v1.GrepOutput
+	(*TaskStopOutput)(nil),                       // 150: sdktypes.v1.TaskStopOutput
+	(*NotebookEditOutput)(nil),                   // 151: sdktypes.v1.NotebookEditOutput
+	(*WebFetchOutput)(nil),                       // 152: sdktypes.v1.WebFetchOutput
+	(*WebSearchOutputResultEntry)(nil),           // 153: sdktypes.v1.WebSearchOutputResultEntry
+	(*WebSearchOutput)(nil),                      // 154: sdktypes.v1.WebSearchOutput
+	(*TodoWriteOutput)(nil),                      // 155: sdktypes.v1.TodoWriteOutput
+	(*ExitPlanModeOutput)(nil),                   // 156: sdktypes.v1.ExitPlanModeOutput
+	(*McpResource)(nil),                          // 157: sdktypes.v1.McpResource
+	(*ListMcpResourcesOutput)(nil),               // 158: sdktypes.v1.ListMcpResourcesOutput
+	(*ReadMcpResourceOutputContent)(nil),         // 159: sdktypes.v1.ReadMcpResourceOutputContent
+	(*ReadMcpResourceOutput)(nil),                // 160: sdktypes.v1.ReadMcpResourceOutput
+	(*ConfigOutput)(nil),                         // 161: sdktypes.v1.ConfigOutput
+	(*EnterWorktreeOutput)(nil),                  // 162: sdktypes.v1.EnterWorktreeOutput
+	(*BaseHookInputEffort)(nil),                  // 163: sdktypes.v1.BaseHookInputEffort
+	(*BackgroundTaskSummary)(nil),                // 164: sdktypes.v1.BackgroundTaskSummary
+	(*SessionCronSummary)(nil),                   // 165: sdktypes.v1.SessionCronSummary
+	(*PostToolBatchToolCall)(nil),                // 166: sdktypes.v1.PostToolBatchToolCall
+	(*PreToolUseHookInput)(nil),                  // 167: sdktypes.v1.PreToolUseHookInput
+	(*PostToolUseHookInput)(nil),                 // 168: sdktypes.v1.PostToolUseHookInput
+	(*PostToolUseFailureHookInput)(nil),          // 169: sdktypes.v1.PostToolUseFailureHookInput
+	(*PostToolBatchHookInput)(nil),               // 170: sdktypes.v1.PostToolBatchHookInput
+	(*NotificationHookInput)(nil),                // 171: sdktypes.v1.NotificationHookInput
+	(*UserPromptSubmitHookInput)(nil),            // 172: sdktypes.v1.UserPromptSubmitHookInput
+	(*SessionStartHookInput)(nil),                // 173: sdktypes.v1.SessionStartHookInput
+	(*SessionEndHookInput)(nil),                  // 174: sdktypes.v1.SessionEndHookInput
+	(*StopHookInput)(nil),                        // 175: sdktypes.v1.StopHookInput
+	(*SubagentStartHookInput)(nil),               // 176: sdktypes.v1.SubagentStartHookInput
+	(*SubagentStopHookInput)(nil),                // 177: sdktypes.v1.SubagentStopHookInput
+	(*PreCompactHookInput)(nil),                  // 178: sdktypes.v1.PreCompactHookInput
+	(*PermissionRequestHookInput)(nil),           // 179: sdktypes.v1.PermissionRequestHookInput
+	(*SetupHookInput)(nil),                       // 180: sdktypes.v1.SetupHookInput
+	(*TeammateIdleHookInput)(nil),                // 181: sdktypes.v1.TeammateIdleHookInput
+	(*TaskCompletedHookInput)(nil),               // 182: sdktypes.v1.TaskCompletedHookInput
+	(*ConfigChangeHookInput)(nil),                // 183: sdktypes.v1.ConfigChangeHookInput
+	(*WorktreeCreateHookInput)(nil),              // 184: sdktypes.v1.WorktreeCreateHookInput
+	(*WorktreeRemoveHookInput)(nil),              // 185: sdktypes.v1.WorktreeRemoveHookInput
+	(*MessageDisplayHookInput)(nil),              // 186: sdktypes.v1.MessageDisplayHookInput
+	(*HookInput)(nil),                            // 187: sdktypes.v1.HookInput
+	(*HookSpecificOutputPreToolUse)(nil),         // 188: sdktypes.v1.HookSpecificOutputPreToolUse
+	(*HookSpecificOutputUserPromptSubmit)(nil),   // 189: sdktypes.v1.HookSpecificOutputUserPromptSubmit
+	(*HookSpecificOutputSessionStart)(nil),       // 190: sdktypes.v1.HookSpecificOutputSessionStart
+	(*HookSpecificOutputSetup)(nil),              // 191: sdktypes.v1.HookSpecificOutputSetup
+	(*HookSpecificOutputSubagentStart)(nil),      // 192: sdktypes.v1.HookSpecificOutputSubagentStart
+	(*HookSpecificOutputPostToolUse)(nil),        // 193: sdktypes.v1.HookSpecificOutputPostToolUse
+	(*HookSpecificOutputPostToolBatch)(nil),      // 194: sdktypes.v1.HookSpecificOutputPostToolBatch
+	(*HookSpecificOutputPostToolUseFailure)(nil), // 195: sdktypes.v1.HookSpecificOutputPostToolUseFailure
+	(*HookSpecificOutputNotification)(nil),       // 196: sdktypes.v1.HookSpecificOutputNotification
+	(*PermissionRequestDecisionAllow)(nil),       // 197: sdktypes.v1.PermissionRequestDecisionAllow
+	(*PermissionRequestDecisionDeny)(nil),        // 198: sdktypes.v1.PermissionRequestDecisionDeny
+	(*PermissionRequestDecision)(nil),            // 199: sdktypes.v1.PermissionRequestDecision
+	(*HookSpecificOutputPermissionRequest)(nil),  // 200: sdktypes.v1.HookSpecificOutputPermissionRequest
+	(*HookSpecificOutput)(nil),                   // 201: sdktypes.v1.HookSpecificOutput
+	(*AsyncHookJSONOutput)(nil),                  // 202: sdktypes.v1.AsyncHookJSONOutput
+	(*SyncHookJSONOutput)(nil),                   // 203: sdktypes.v1.SyncHookJSONOutput
+	(*HookJSONOutput)(nil),                       // 204: sdktypes.v1.HookJSONOutput
+	nil,                                          // 205: sdktypes.v1.McpStdioServerConfig.EnvEntry
+	nil,                                          // 206: sdktypes.v1.McpSSEServerConfig.HeadersEntry
+	nil,                                          // 207: sdktypes.v1.McpHttpServerConfig.HeadersEntry
+	nil,                                          // 208: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
+	nil,                                          // 209: sdktypes.v1.Options.AgentsEntry
+	nil,                                          // 210: sdktypes.v1.Options.EnvEntry
+	nil,                                          // 211: sdktypes.v1.Options.ExtraArgsEntry
+	nil,                                          // 212: sdktypes.v1.Options.McpServersEntry
+	nil,                                          // 213: sdktypes.v1.Options.ToolAliasesEntry
+	nil,                                          // 214: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
+	nil,                                          // 215: sdktypes.v1.SDKResultMessageError.ModelUsageEntry
+	nil,                                          // 216: sdktypes.v1.AskUserQuestionInput.AnswersEntry
+	nil,                                          // 217: sdktypes.v1.AskUserQuestionOutput.AnswersEntry
+	(*structpb.Struct)(nil),                      // 218: google.protobuf.Struct
 }
 var file_sdktypes_v1_types_proto_depIdxs = []int32{
 	5,   // 0: sdktypes.v1.PermissionUpdateAddRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
@@ -16358,15 +20285,15 @@ var file_sdktypes_v1_types_proto_depIdxs = []int32{
 	11,  // 8: sdktypes.v1.PermissionUpdate.remove_directories:type_name -> sdktypes.v1.PermissionUpdateRemoveDirectories
 	4,   // 9: sdktypes.v1.PermissionUpdate.unknown:type_name -> sdktypes.v1.UnknownVariant
 	1,   // 10: sdktypes.v1.PermissionResultAllow.behavior:type_name -> sdktypes.v1.PermissionResultBehavior
-	183, // 11: sdktypes.v1.PermissionResultAllow.updated_input:type_name -> google.protobuf.Struct
+	218, // 11: sdktypes.v1.PermissionResultAllow.updated_input:type_name -> google.protobuf.Struct
 	12,  // 12: sdktypes.v1.PermissionResultAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
 	1,   // 13: sdktypes.v1.PermissionResultDeny.behavior:type_name -> sdktypes.v1.PermissionResultBehavior
 	13,  // 14: sdktypes.v1.PermissionResult.allow:type_name -> sdktypes.v1.PermissionResultAllow
 	14,  // 15: sdktypes.v1.PermissionResult.deny:type_name -> sdktypes.v1.PermissionResultDeny
 	4,   // 16: sdktypes.v1.PermissionResult.unknown:type_name -> sdktypes.v1.UnknownVariant
-	171, // 17: sdktypes.v1.McpStdioServerConfig.env:type_name -> sdktypes.v1.McpStdioServerConfig.EnvEntry
-	172, // 18: sdktypes.v1.McpSSEServerConfig.headers:type_name -> sdktypes.v1.McpSSEServerConfig.HeadersEntry
-	173, // 19: sdktypes.v1.McpHttpServerConfig.headers:type_name -> sdktypes.v1.McpHttpServerConfig.HeadersEntry
+	205, // 17: sdktypes.v1.McpStdioServerConfig.env:type_name -> sdktypes.v1.McpStdioServerConfig.EnvEntry
+	206, // 18: sdktypes.v1.McpSSEServerConfig.headers:type_name -> sdktypes.v1.McpSSEServerConfig.HeadersEntry
+	207, // 19: sdktypes.v1.McpHttpServerConfig.headers:type_name -> sdktypes.v1.McpHttpServerConfig.HeadersEntry
 	3,   // 20: sdktypes.v1.McpSdkServerConfigWithInstance.instance:type_name -> sdktypes.v1.JsonRawMessage
 	16,  // 21: sdktypes.v1.McpServerConfig.stdio:type_name -> sdktypes.v1.McpStdioServerConfig
 	17,  // 22: sdktypes.v1.McpServerConfig.sse:type_name -> sdktypes.v1.McpSSEServerConfig
@@ -16376,204 +20303,281 @@ var file_sdktypes_v1_types_proto_depIdxs = []int32{
 	4,   // 26: sdktypes.v1.McpServerConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
 	23,  // 27: sdktypes.v1.SandboxSettings.network:type_name -> sdktypes.v1.SandboxNetworkConfig
 	24,  // 28: sdktypes.v1.SandboxSettings.filesystem:type_name -> sdktypes.v1.SandboxFilesystemConfig
-	174, // 29: sdktypes.v1.SandboxSettings.ignore_violations:type_name -> sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
+	208, // 29: sdktypes.v1.SandboxSettings.ignore_violations:type_name -> sdktypes.v1.SandboxSettings.IgnoreViolationsEntry
 	25,  // 30: sdktypes.v1.SandboxSettings.ripgrep:type_name -> sdktypes.v1.RipgrepConfig
 	3,   // 31: sdktypes.v1.AgentDefinition.mcp_servers:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 32: sdktypes.v1.OutputFormat.schema:type_name -> sdktypes.v1.JsonRawMessage
-	29,  // 33: sdktypes.v1.SystemPrompt.string_value:type_name -> sdktypes.v1.SystemPromptString
-	30,  // 34: sdktypes.v1.SystemPrompt.preset:type_name -> sdktypes.v1.SystemPromptPreset
-	4,   // 35: sdktypes.v1.SystemPrompt.unknown:type_name -> sdktypes.v1.UnknownVariant
-	32,  // 36: sdktypes.v1.ThinkingConfig.adaptive:type_name -> sdktypes.v1.ThinkingConfigAdaptive
-	33,  // 37: sdktypes.v1.ThinkingConfig.enabled:type_name -> sdktypes.v1.ThinkingConfigEnabled
-	34,  // 38: sdktypes.v1.ThinkingConfig.disabled:type_name -> sdktypes.v1.ThinkingConfigDisabled
-	4,   // 39: sdktypes.v1.ThinkingConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
-	36,  // 40: sdktypes.v1.ToolConfig.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionToolConfig
-	38,  // 41: sdktypes.v1.ToolsConfig.list:type_name -> sdktypes.v1.ToolsConfigList
-	39,  // 42: sdktypes.v1.ToolsConfig.preset:type_name -> sdktypes.v1.ToolsConfigPreset
-	4,   // 43: sdktypes.v1.ToolsConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
-	175, // 44: sdktypes.v1.Options.agents:type_name -> sdktypes.v1.Options.AgentsEntry
-	176, // 45: sdktypes.v1.Options.env:type_name -> sdktypes.v1.Options.EnvEntry
-	177, // 46: sdktypes.v1.Options.extra_args:type_name -> sdktypes.v1.Options.ExtraArgsEntry
-	178, // 47: sdktypes.v1.Options.mcp_servers:type_name -> sdktypes.v1.Options.McpServersEntry
-	28,  // 48: sdktypes.v1.Options.output_format:type_name -> sdktypes.v1.OutputFormat
-	22,  // 49: sdktypes.v1.Options.plugins:type_name -> sdktypes.v1.SdkPluginConfig
-	26,  // 50: sdktypes.v1.Options.sandbox:type_name -> sdktypes.v1.SandboxSettings
-	31,  // 51: sdktypes.v1.Options.system_prompt:type_name -> sdktypes.v1.SystemPrompt
-	35,  // 52: sdktypes.v1.Options.thinking:type_name -> sdktypes.v1.ThinkingConfig
-	37,  // 53: sdktypes.v1.Options.tool_config:type_name -> sdktypes.v1.ToolConfig
-	40,  // 54: sdktypes.v1.Options.tools:type_name -> sdktypes.v1.ToolsConfig
-	183, // 55: sdktypes.v1.CallToolResultContent.data:type_name -> google.protobuf.Struct
-	49,  // 56: sdktypes.v1.CallToolResult.content:type_name -> sdktypes.v1.CallToolResultContent
-	183, // 57: sdktypes.v1.SDKPermissionDenial.tool_input:type_name -> google.protobuf.Struct
-	3,   // 58: sdktypes.v1.SDKAssistantMessage.message:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 59: sdktypes.v1.SDKUserMessage.message:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 60: sdktypes.v1.SDKUserMessage.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 61: sdktypes.v1.SDKUserMessageReplay.message:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 62: sdktypes.v1.SDKUserMessageReplay.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
-	48,  // 63: sdktypes.v1.SDKResultMessageSuccess.usage:type_name -> sdktypes.v1.NonNullableUsage
-	179, // 64: sdktypes.v1.SDKResultMessageSuccess.model_usage:type_name -> sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
-	51,  // 65: sdktypes.v1.SDKResultMessageSuccess.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
-	3,   // 66: sdktypes.v1.SDKResultMessageSuccess.structured_output:type_name -> sdktypes.v1.JsonRawMessage
-	48,  // 67: sdktypes.v1.SDKResultMessageError.usage:type_name -> sdktypes.v1.NonNullableUsage
-	180, // 68: sdktypes.v1.SDKResultMessageError.model_usage:type_name -> sdktypes.v1.SDKResultMessageError.ModelUsageEntry
-	51,  // 69: sdktypes.v1.SDKResultMessageError.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
-	59,  // 70: sdktypes.v1.SDKSystemMessage.mcp_servers:type_name -> sdktypes.v1.SDKSystemServer
-	60,  // 71: sdktypes.v1.SDKSystemMessage.plugins:type_name -> sdktypes.v1.SDKSystemPlugin
-	3,   // 72: sdktypes.v1.SDKPartialAssistantMessage.event:type_name -> sdktypes.v1.JsonRawMessage
-	52,  // 73: sdktypes.v1.SDKCompactBoundaryMessage.compact_metadata:type_name -> sdktypes.v1.CompactMetadata
-	53,  // 74: sdktypes.v1.SDKTaskNotificationMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
-	53,  // 75: sdktypes.v1.SDKTaskProgressMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
-	74,  // 76: sdktypes.v1.SDKFilesPersistedEvent.files:type_name -> sdktypes.v1.FilesPersistedFile
-	75,  // 77: sdktypes.v1.SDKFilesPersistedEvent.failed:type_name -> sdktypes.v1.FilesPersistedFailure
-	77,  // 78: sdktypes.v1.SDKRateLimitEvent.rate_limit_info:type_name -> sdktypes.v1.RateLimitInfo
-	54,  // 79: sdktypes.v1.SDKMessage.assistant:type_name -> sdktypes.v1.SDKAssistantMessage
-	55,  // 80: sdktypes.v1.SDKMessage.user:type_name -> sdktypes.v1.SDKUserMessage
-	56,  // 81: sdktypes.v1.SDKMessage.user_replay:type_name -> sdktypes.v1.SDKUserMessageReplay
-	57,  // 82: sdktypes.v1.SDKMessage.result_success:type_name -> sdktypes.v1.SDKResultMessageSuccess
-	58,  // 83: sdktypes.v1.SDKMessage.result_error:type_name -> sdktypes.v1.SDKResultMessageError
-	61,  // 84: sdktypes.v1.SDKMessage.system:type_name -> sdktypes.v1.SDKSystemMessage
-	62,  // 85: sdktypes.v1.SDKMessage.partial_assistant:type_name -> sdktypes.v1.SDKPartialAssistantMessage
-	63,  // 86: sdktypes.v1.SDKMessage.compact_boundary:type_name -> sdktypes.v1.SDKCompactBoundaryMessage
-	64,  // 87: sdktypes.v1.SDKMessage.status:type_name -> sdktypes.v1.SDKStatusMessage
-	65,  // 88: sdktypes.v1.SDKMessage.local_command_output:type_name -> sdktypes.v1.SDKLocalCommandOutputMessage
-	66,  // 89: sdktypes.v1.SDKMessage.hook_started:type_name -> sdktypes.v1.SDKHookStartedMessage
-	67,  // 90: sdktypes.v1.SDKMessage.hook_progress:type_name -> sdktypes.v1.SDKHookProgressMessage
-	68,  // 91: sdktypes.v1.SDKMessage.hook_response:type_name -> sdktypes.v1.SDKHookResponseMessage
-	69,  // 92: sdktypes.v1.SDKMessage.tool_progress:type_name -> sdktypes.v1.SDKToolProgressMessage
-	70,  // 93: sdktypes.v1.SDKMessage.auth_status:type_name -> sdktypes.v1.SDKAuthStatusMessage
-	71,  // 94: sdktypes.v1.SDKMessage.task_notification:type_name -> sdktypes.v1.SDKTaskNotificationMessage
-	72,  // 95: sdktypes.v1.SDKMessage.task_started:type_name -> sdktypes.v1.SDKTaskStartedMessage
-	73,  // 96: sdktypes.v1.SDKMessage.task_progress:type_name -> sdktypes.v1.SDKTaskProgressMessage
-	76,  // 97: sdktypes.v1.SDKMessage.files_persisted:type_name -> sdktypes.v1.SDKFilesPersistedEvent
-	78,  // 98: sdktypes.v1.SDKMessage.tool_use_summary:type_name -> sdktypes.v1.SDKToolUseSummaryMessage
-	79,  // 99: sdktypes.v1.SDKMessage.rate_limit_event:type_name -> sdktypes.v1.SDKRateLimitEvent
-	80,  // 100: sdktypes.v1.SDKMessage.prompt_suggestion:type_name -> sdktypes.v1.SDKPromptSuggestionMessage
-	4,   // 101: sdktypes.v1.SDKMessage.unknown:type_name -> sdktypes.v1.UnknownVariant
-	82,  // 102: sdktypes.v1.Question.options:type_name -> sdktypes.v1.QuestionOption
-	85,  // 103: sdktypes.v1.ToolInput.agent:type_name -> sdktypes.v1.AgentInput
-	86,  // 104: sdktypes.v1.ToolInput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionInput
-	87,  // 105: sdktypes.v1.ToolInput.bash:type_name -> sdktypes.v1.BashInput
-	88,  // 106: sdktypes.v1.ToolInput.bash_output:type_name -> sdktypes.v1.BashOutputInput
-	89,  // 107: sdktypes.v1.ToolInput.file_edit:type_name -> sdktypes.v1.FileEditInput
-	90,  // 108: sdktypes.v1.ToolInput.file_read:type_name -> sdktypes.v1.FileReadInput
-	91,  // 109: sdktypes.v1.ToolInput.file_write:type_name -> sdktypes.v1.FileWriteInput
-	92,  // 110: sdktypes.v1.ToolInput.glob:type_name -> sdktypes.v1.GlobInput
-	93,  // 111: sdktypes.v1.ToolInput.grep:type_name -> sdktypes.v1.GrepInput
-	94,  // 112: sdktypes.v1.ToolInput.kill_shell:type_name -> sdktypes.v1.KillShellInput
-	95,  // 113: sdktypes.v1.ToolInput.notebook_edit:type_name -> sdktypes.v1.NotebookEditInput
-	96,  // 114: sdktypes.v1.ToolInput.web_fetch:type_name -> sdktypes.v1.WebFetchInput
-	97,  // 115: sdktypes.v1.ToolInput.web_search:type_name -> sdktypes.v1.WebSearchInput
-	99,  // 116: sdktypes.v1.ToolInput.todo_write:type_name -> sdktypes.v1.TodoWriteInput
-	100, // 117: sdktypes.v1.ToolInput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeInput
-	101, // 118: sdktypes.v1.ToolInput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesInput
-	102, // 119: sdktypes.v1.ToolInput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceInput
-	183, // 120: sdktypes.v1.ToolInput.mcp_tool:type_name -> google.protobuf.Struct
-	4,   // 121: sdktypes.v1.ToolInput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	83,  // 122: sdktypes.v1.AskUserQuestionInput.questions:type_name -> sdktypes.v1.Question
-	181, // 123: sdktypes.v1.AskUserQuestionInput.answers:type_name -> sdktypes.v1.AskUserQuestionInput.AnswersEntry
-	98,  // 124: sdktypes.v1.TodoWriteInput.todos:type_name -> sdktypes.v1.TodoItem
-	105, // 125: sdktypes.v1.ToolOutput.task:type_name -> sdktypes.v1.TaskOutput
-	106, // 126: sdktypes.v1.ToolOutput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionOutput
-	107, // 127: sdktypes.v1.ToolOutput.bash:type_name -> sdktypes.v1.BashOutput
-	108, // 128: sdktypes.v1.ToolOutput.file_edit:type_name -> sdktypes.v1.FileEditOutput
-	119, // 129: sdktypes.v1.ToolOutput.file_read:type_name -> sdktypes.v1.FileReadOutput
-	120, // 130: sdktypes.v1.ToolOutput.file_write:type_name -> sdktypes.v1.FileWriteOutput
-	121, // 131: sdktypes.v1.ToolOutput.glob:type_name -> sdktypes.v1.GlobOutput
-	122, // 132: sdktypes.v1.ToolOutput.grep:type_name -> sdktypes.v1.GrepOutput
-	123, // 133: sdktypes.v1.ToolOutput.task_stop:type_name -> sdktypes.v1.TaskStopOutput
-	124, // 134: sdktypes.v1.ToolOutput.notebook_edit:type_name -> sdktypes.v1.NotebookEditOutput
-	125, // 135: sdktypes.v1.ToolOutput.web_fetch:type_name -> sdktypes.v1.WebFetchOutput
-	127, // 136: sdktypes.v1.ToolOutput.web_search:type_name -> sdktypes.v1.WebSearchOutput
-	128, // 137: sdktypes.v1.ToolOutput.todo_write:type_name -> sdktypes.v1.TodoWriteOutput
-	129, // 138: sdktypes.v1.ToolOutput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeOutput
-	131, // 139: sdktypes.v1.ToolOutput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesOutput
-	133, // 140: sdktypes.v1.ToolOutput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceOutput
-	134, // 141: sdktypes.v1.ToolOutput.config:type_name -> sdktypes.v1.ConfigOutput
-	135, // 142: sdktypes.v1.ToolOutput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeOutput
-	183, // 143: sdktypes.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
-	4,   // 144: sdktypes.v1.ToolOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	104, // 145: sdktypes.v1.TaskOutput.usage:type_name -> sdktypes.v1.UsageInfo
-	83,  // 146: sdktypes.v1.AskUserQuestionOutput.questions:type_name -> sdktypes.v1.Question
-	182, // 147: sdktypes.v1.AskUserQuestionOutput.answers:type_name -> sdktypes.v1.AskUserQuestionOutput.AnswersEntry
-	3,   // 148: sdktypes.v1.FileReadOutputNotebookFile.cells:type_name -> sdktypes.v1.JsonRawMessage
-	109, // 149: sdktypes.v1.FileReadOutputText.file:type_name -> sdktypes.v1.FileReadOutputTextFile
-	110, // 150: sdktypes.v1.FileReadOutputImage.file:type_name -> sdktypes.v1.FileReadOutputImageFile
-	111, // 151: sdktypes.v1.FileReadOutputNotebook.file:type_name -> sdktypes.v1.FileReadOutputNotebookFile
-	112, // 152: sdktypes.v1.FileReadOutputPdf.file:type_name -> sdktypes.v1.FileReadOutputPdfFile
-	113, // 153: sdktypes.v1.FileReadOutputParts.file:type_name -> sdktypes.v1.FileReadOutputPartsFile
-	114, // 154: sdktypes.v1.FileReadOutput.text:type_name -> sdktypes.v1.FileReadOutputText
-	115, // 155: sdktypes.v1.FileReadOutput.image:type_name -> sdktypes.v1.FileReadOutputImage
-	116, // 156: sdktypes.v1.FileReadOutput.notebook:type_name -> sdktypes.v1.FileReadOutputNotebook
-	117, // 157: sdktypes.v1.FileReadOutput.pdf:type_name -> sdktypes.v1.FileReadOutputPdf
-	118, // 158: sdktypes.v1.FileReadOutput.parts:type_name -> sdktypes.v1.FileReadOutputParts
-	4,   // 159: sdktypes.v1.FileReadOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	126, // 160: sdktypes.v1.WebSearchOutput.results:type_name -> sdktypes.v1.WebSearchOutputResultEntry
-	130, // 161: sdktypes.v1.ListMcpResourcesOutput.resources:type_name -> sdktypes.v1.McpResource
-	132, // 162: sdktypes.v1.ReadMcpResourceOutput.contents:type_name -> sdktypes.v1.ReadMcpResourceOutputContent
-	3,   // 163: sdktypes.v1.ConfigOutput.value:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 164: sdktypes.v1.ConfigOutput.previous_value:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 165: sdktypes.v1.ConfigOutput.new_value:type_name -> sdktypes.v1.JsonRawMessage
-	84,  // 166: sdktypes.v1.PreToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	84,  // 167: sdktypes.v1.PostToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	103, // 168: sdktypes.v1.PostToolUseHookInput.tool_response:type_name -> sdktypes.v1.ToolOutput
-	84,  // 169: sdktypes.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	84,  // 170: sdktypes.v1.PermissionRequestHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	12,  // 171: sdktypes.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdktypes.v1.PermissionUpdate
-	136, // 172: sdktypes.v1.HookInput.pre_tool_use:type_name -> sdktypes.v1.PreToolUseHookInput
-	137, // 173: sdktypes.v1.HookInput.post_tool_use:type_name -> sdktypes.v1.PostToolUseHookInput
-	138, // 174: sdktypes.v1.HookInput.post_tool_use_failure:type_name -> sdktypes.v1.PostToolUseFailureHookInput
-	139, // 175: sdktypes.v1.HookInput.notification:type_name -> sdktypes.v1.NotificationHookInput
-	140, // 176: sdktypes.v1.HookInput.user_prompt_submit:type_name -> sdktypes.v1.UserPromptSubmitHookInput
-	141, // 177: sdktypes.v1.HookInput.session_start:type_name -> sdktypes.v1.SessionStartHookInput
-	142, // 178: sdktypes.v1.HookInput.session_end:type_name -> sdktypes.v1.SessionEndHookInput
-	143, // 179: sdktypes.v1.HookInput.stop:type_name -> sdktypes.v1.StopHookInput
-	144, // 180: sdktypes.v1.HookInput.subagent_start:type_name -> sdktypes.v1.SubagentStartHookInput
-	145, // 181: sdktypes.v1.HookInput.subagent_stop:type_name -> sdktypes.v1.SubagentStopHookInput
-	146, // 182: sdktypes.v1.HookInput.pre_compact:type_name -> sdktypes.v1.PreCompactHookInput
-	147, // 183: sdktypes.v1.HookInput.permission_request:type_name -> sdktypes.v1.PermissionRequestHookInput
-	148, // 184: sdktypes.v1.HookInput.setup:type_name -> sdktypes.v1.SetupHookInput
-	149, // 185: sdktypes.v1.HookInput.teammate_idle:type_name -> sdktypes.v1.TeammateIdleHookInput
-	150, // 186: sdktypes.v1.HookInput.task_completed:type_name -> sdktypes.v1.TaskCompletedHookInput
-	151, // 187: sdktypes.v1.HookInput.config_change:type_name -> sdktypes.v1.ConfigChangeHookInput
-	152, // 188: sdktypes.v1.HookInput.worktree_create:type_name -> sdktypes.v1.WorktreeCreateHookInput
-	153, // 189: sdktypes.v1.HookInput.worktree_remove:type_name -> sdktypes.v1.WorktreeRemoveHookInput
-	4,   // 190: sdktypes.v1.HookInput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	183, // 191: sdktypes.v1.HookSpecificOutputPreToolUse.updated_input:type_name -> google.protobuf.Struct
-	3,   // 192: sdktypes.v1.HookSpecificOutputPostToolUse.updated_mcp_tool_output:type_name -> sdktypes.v1.JsonRawMessage
-	2,   // 193: sdktypes.v1.PermissionRequestDecisionAllow.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
-	183, // 194: sdktypes.v1.PermissionRequestDecisionAllow.updated_input:type_name -> google.protobuf.Struct
-	12,  // 195: sdktypes.v1.PermissionRequestDecisionAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
-	2,   // 196: sdktypes.v1.PermissionRequestDecisionDeny.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
-	163, // 197: sdktypes.v1.PermissionRequestDecision.allow:type_name -> sdktypes.v1.PermissionRequestDecisionAllow
-	164, // 198: sdktypes.v1.PermissionRequestDecision.deny:type_name -> sdktypes.v1.PermissionRequestDecisionDeny
-	4,   // 199: sdktypes.v1.PermissionRequestDecision.unknown:type_name -> sdktypes.v1.UnknownVariant
-	165, // 200: sdktypes.v1.HookSpecificOutputPermissionRequest.decision:type_name -> sdktypes.v1.PermissionRequestDecision
-	155, // 201: sdktypes.v1.HookSpecificOutput.pre_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPreToolUse
-	156, // 202: sdktypes.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdktypes.v1.HookSpecificOutputUserPromptSubmit
-	157, // 203: sdktypes.v1.HookSpecificOutput.session_start:type_name -> sdktypes.v1.HookSpecificOutputSessionStart
-	158, // 204: sdktypes.v1.HookSpecificOutput.setup:type_name -> sdktypes.v1.HookSpecificOutputSetup
-	159, // 205: sdktypes.v1.HookSpecificOutput.subagent_start:type_name -> sdktypes.v1.HookSpecificOutputSubagentStart
-	160, // 206: sdktypes.v1.HookSpecificOutput.post_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPostToolUse
-	161, // 207: sdktypes.v1.HookSpecificOutput.post_tool_use_failure:type_name -> sdktypes.v1.HookSpecificOutputPostToolUseFailure
-	162, // 208: sdktypes.v1.HookSpecificOutput.notification:type_name -> sdktypes.v1.HookSpecificOutputNotification
-	166, // 209: sdktypes.v1.HookSpecificOutput.permission_request:type_name -> sdktypes.v1.HookSpecificOutputPermissionRequest
-	4,   // 210: sdktypes.v1.HookSpecificOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	167, // 211: sdktypes.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdktypes.v1.HookSpecificOutput
-	168, // 212: sdktypes.v1.HookJSONOutput.async_output:type_name -> sdktypes.v1.AsyncHookJSONOutput
-	169, // 213: sdktypes.v1.HookJSONOutput.sync_output:type_name -> sdktypes.v1.SyncHookJSONOutput
-	4,   // 214: sdktypes.v1.HookJSONOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	3,   // 215: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	27,  // 216: sdktypes.v1.Options.AgentsEntry.value:type_name -> sdktypes.v1.AgentDefinition
-	3,   // 217: sdktypes.v1.Options.EnvEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 218: sdktypes.v1.Options.ExtraArgsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	21,  // 219: sdktypes.v1.Options.McpServersEntry.value:type_name -> sdktypes.v1.McpServerConfig
-	46,  // 220: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
-	46,  // 221: sdktypes.v1.SDKResultMessageError.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
-	222, // [222:222] is the sub-list for method output_type
-	222, // [222:222] is the sub-list for method input_type
-	222, // [222:222] is the sub-list for extension type_name
-	222, // [222:222] is the sub-list for extension extendee
-	0,   // [0:222] is the sub-list for field type_name
+	3,   // 32: sdktypes.v1.AgentDefinition.effort:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 33: sdktypes.v1.OutputFormat.schema:type_name -> sdktypes.v1.JsonRawMessage
+	29,  // 34: sdktypes.v1.SystemPrompt.string_value:type_name -> sdktypes.v1.SystemPromptString
+	30,  // 35: sdktypes.v1.SystemPrompt.preset:type_name -> sdktypes.v1.SystemPromptPreset
+	4,   // 36: sdktypes.v1.SystemPrompt.unknown:type_name -> sdktypes.v1.UnknownVariant
+	32,  // 37: sdktypes.v1.ThinkingConfig.adaptive:type_name -> sdktypes.v1.ThinkingConfigAdaptive
+	33,  // 38: sdktypes.v1.ThinkingConfig.enabled:type_name -> sdktypes.v1.ThinkingConfigEnabled
+	34,  // 39: sdktypes.v1.ThinkingConfig.disabled:type_name -> sdktypes.v1.ThinkingConfigDisabled
+	4,   // 40: sdktypes.v1.ThinkingConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
+	36,  // 41: sdktypes.v1.ToolConfig.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionToolConfig
+	38,  // 42: sdktypes.v1.ToolsConfig.list:type_name -> sdktypes.v1.ToolsConfigList
+	39,  // 43: sdktypes.v1.ToolsConfig.preset:type_name -> sdktypes.v1.ToolsConfigPreset
+	4,   // 44: sdktypes.v1.ToolsConfig.unknown:type_name -> sdktypes.v1.UnknownVariant
+	209, // 45: sdktypes.v1.Options.agents:type_name -> sdktypes.v1.Options.AgentsEntry
+	210, // 46: sdktypes.v1.Options.env:type_name -> sdktypes.v1.Options.EnvEntry
+	211, // 47: sdktypes.v1.Options.extra_args:type_name -> sdktypes.v1.Options.ExtraArgsEntry
+	212, // 48: sdktypes.v1.Options.mcp_servers:type_name -> sdktypes.v1.Options.McpServersEntry
+	28,  // 49: sdktypes.v1.Options.output_format:type_name -> sdktypes.v1.OutputFormat
+	22,  // 50: sdktypes.v1.Options.plugins:type_name -> sdktypes.v1.SdkPluginConfig
+	26,  // 51: sdktypes.v1.Options.sandbox:type_name -> sdktypes.v1.SandboxSettings
+	31,  // 52: sdktypes.v1.Options.system_prompt:type_name -> sdktypes.v1.SystemPrompt
+	35,  // 53: sdktypes.v1.Options.thinking:type_name -> sdktypes.v1.ThinkingConfig
+	37,  // 54: sdktypes.v1.Options.tool_config:type_name -> sdktypes.v1.ToolConfig
+	40,  // 55: sdktypes.v1.Options.tools:type_name -> sdktypes.v1.ToolsConfig
+	3,   // 56: sdktypes.v1.Options.managed_settings:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 57: sdktypes.v1.Options.settings:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 58: sdktypes.v1.Options.skills:type_name -> sdktypes.v1.JsonRawMessage
+	42,  // 59: sdktypes.v1.Options.task_budget:type_name -> sdktypes.v1.OptionsTaskBudget
+	213, // 60: sdktypes.v1.Options.tool_aliases:type_name -> sdktypes.v1.Options.ToolAliasesEntry
+	48,  // 61: sdktypes.v1.Usage.cache_creation:type_name -> sdktypes.v1.UsageCacheCreation
+	3,   // 62: sdktypes.v1.Usage.server_tool_use:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 63: sdktypes.v1.Usage.iterations:type_name -> sdktypes.v1.JsonRawMessage
+	48,  // 64: sdktypes.v1.NonNullableUsage.cache_creation:type_name -> sdktypes.v1.UsageCacheCreation
+	3,   // 65: sdktypes.v1.NonNullableUsage.server_tool_use:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 66: sdktypes.v1.NonNullableUsage.iterations:type_name -> sdktypes.v1.JsonRawMessage
+	218, // 67: sdktypes.v1.CallToolResultContent.data:type_name -> google.protobuf.Struct
+	51,  // 68: sdktypes.v1.CallToolResult.content:type_name -> sdktypes.v1.CallToolResultContent
+	218, // 69: sdktypes.v1.CallToolResult.structured_content:type_name -> google.protobuf.Struct
+	218, // 70: sdktypes.v1.SDKPermissionDenial.tool_input:type_name -> google.protobuf.Struct
+	3,   // 71: sdktypes.v1.SDKAssistantMessage.message:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 72: sdktypes.v1.SDKUserMessage.message:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 73: sdktypes.v1.SDKUserMessage.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
+	84,  // 74: sdktypes.v1.SDKUserMessage.origin:type_name -> sdktypes.v1.SDKMessageOrigin
+	3,   // 75: sdktypes.v1.SDKUserMessageReplay.message:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 76: sdktypes.v1.SDKUserMessageReplay.tool_use_result:type_name -> sdktypes.v1.JsonRawMessage
+	84,  // 77: sdktypes.v1.SDKUserMessageReplay.origin:type_name -> sdktypes.v1.SDKMessageOrigin
+	50,  // 78: sdktypes.v1.SDKResultMessageSuccess.usage:type_name -> sdktypes.v1.NonNullableUsage
+	214, // 79: sdktypes.v1.SDKResultMessageSuccess.model_usage:type_name -> sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry
+	53,  // 80: sdktypes.v1.SDKResultMessageSuccess.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
+	3,   // 81: sdktypes.v1.SDKResultMessageSuccess.structured_output:type_name -> sdktypes.v1.JsonRawMessage
+	85,  // 82: sdktypes.v1.SDKResultMessageSuccess.deferred_tool_use:type_name -> sdktypes.v1.DeferredToolUse
+	84,  // 83: sdktypes.v1.SDKResultMessageSuccess.origin:type_name -> sdktypes.v1.SDKMessageOrigin
+	50,  // 84: sdktypes.v1.SDKResultMessageError.usage:type_name -> sdktypes.v1.NonNullableUsage
+	215, // 85: sdktypes.v1.SDKResultMessageError.model_usage:type_name -> sdktypes.v1.SDKResultMessageError.ModelUsageEntry
+	53,  // 86: sdktypes.v1.SDKResultMessageError.permission_denials:type_name -> sdktypes.v1.SDKPermissionDenial
+	84,  // 87: sdktypes.v1.SDKResultMessageError.origin:type_name -> sdktypes.v1.SDKMessageOrigin
+	61,  // 88: sdktypes.v1.SDKSystemMessage.mcp_servers:type_name -> sdktypes.v1.SDKSystemServer
+	62,  // 89: sdktypes.v1.SDKSystemMessage.plugins:type_name -> sdktypes.v1.SDKSystemPlugin
+	3,   // 90: sdktypes.v1.SDKPartialAssistantMessage.event:type_name -> sdktypes.v1.JsonRawMessage
+	54,  // 91: sdktypes.v1.SDKCompactBoundaryMessage.compact_metadata:type_name -> sdktypes.v1.CompactMetadata
+	55,  // 92: sdktypes.v1.SDKTaskNotificationMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
+	55,  // 93: sdktypes.v1.SDKTaskProgressMessage.usage:type_name -> sdktypes.v1.TaskUsageSummary
+	76,  // 94: sdktypes.v1.SDKFilesPersistedEvent.files:type_name -> sdktypes.v1.FilesPersistedFile
+	77,  // 95: sdktypes.v1.SDKFilesPersistedEvent.failed:type_name -> sdktypes.v1.FilesPersistedFailure
+	79,  // 96: sdktypes.v1.SDKRateLimitEvent.rate_limit_info:type_name -> sdktypes.v1.RateLimitInfo
+	56,  // 97: sdktypes.v1.SDKMessage.assistant:type_name -> sdktypes.v1.SDKAssistantMessage
+	57,  // 98: sdktypes.v1.SDKMessage.user:type_name -> sdktypes.v1.SDKUserMessage
+	58,  // 99: sdktypes.v1.SDKMessage.user_replay:type_name -> sdktypes.v1.SDKUserMessageReplay
+	59,  // 100: sdktypes.v1.SDKMessage.result_success:type_name -> sdktypes.v1.SDKResultMessageSuccess
+	60,  // 101: sdktypes.v1.SDKMessage.result_error:type_name -> sdktypes.v1.SDKResultMessageError
+	63,  // 102: sdktypes.v1.SDKMessage.system:type_name -> sdktypes.v1.SDKSystemMessage
+	64,  // 103: sdktypes.v1.SDKMessage.partial_assistant:type_name -> sdktypes.v1.SDKPartialAssistantMessage
+	65,  // 104: sdktypes.v1.SDKMessage.compact_boundary:type_name -> sdktypes.v1.SDKCompactBoundaryMessage
+	66,  // 105: sdktypes.v1.SDKMessage.status:type_name -> sdktypes.v1.SDKStatusMessage
+	67,  // 106: sdktypes.v1.SDKMessage.local_command_output:type_name -> sdktypes.v1.SDKLocalCommandOutputMessage
+	68,  // 107: sdktypes.v1.SDKMessage.hook_started:type_name -> sdktypes.v1.SDKHookStartedMessage
+	69,  // 108: sdktypes.v1.SDKMessage.hook_progress:type_name -> sdktypes.v1.SDKHookProgressMessage
+	70,  // 109: sdktypes.v1.SDKMessage.hook_response:type_name -> sdktypes.v1.SDKHookResponseMessage
+	71,  // 110: sdktypes.v1.SDKMessage.tool_progress:type_name -> sdktypes.v1.SDKToolProgressMessage
+	72,  // 111: sdktypes.v1.SDKMessage.auth_status:type_name -> sdktypes.v1.SDKAuthStatusMessage
+	73,  // 112: sdktypes.v1.SDKMessage.task_notification:type_name -> sdktypes.v1.SDKTaskNotificationMessage
+	74,  // 113: sdktypes.v1.SDKMessage.task_started:type_name -> sdktypes.v1.SDKTaskStartedMessage
+	75,  // 114: sdktypes.v1.SDKMessage.task_progress:type_name -> sdktypes.v1.SDKTaskProgressMessage
+	78,  // 115: sdktypes.v1.SDKMessage.files_persisted:type_name -> sdktypes.v1.SDKFilesPersistedEvent
+	80,  // 116: sdktypes.v1.SDKMessage.tool_use_summary:type_name -> sdktypes.v1.SDKToolUseSummaryMessage
+	81,  // 117: sdktypes.v1.SDKMessage.rate_limit_event:type_name -> sdktypes.v1.SDKRateLimitEvent
+	82,  // 118: sdktypes.v1.SDKMessage.prompt_suggestion:type_name -> sdktypes.v1.SDKPromptSuggestionMessage
+	87,  // 119: sdktypes.v1.SDKMessage.task_updated:type_name -> sdktypes.v1.SDKTaskUpdatedMessage
+	88,  // 120: sdktypes.v1.SDKMessage.commands_changed:type_name -> sdktypes.v1.SDKCommandsChangedMessage
+	89,  // 121: sdktypes.v1.SDKMessage.plugin_install:type_name -> sdktypes.v1.SDKPluginInstallMessage
+	90,  // 122: sdktypes.v1.SDKMessage.permission_denied:type_name -> sdktypes.v1.SDKPermissionDeniedMessage
+	4,   // 123: sdktypes.v1.SDKMessage.unknown:type_name -> sdktypes.v1.UnknownVariant
+	218, // 124: sdktypes.v1.DeferredToolUse.input:type_name -> google.protobuf.Struct
+	86,  // 125: sdktypes.v1.SDKTaskUpdatedMessage.patch:type_name -> sdktypes.v1.SDKTaskUpdatedPatch
+	43,  // 126: sdktypes.v1.SDKCommandsChangedMessage.commands:type_name -> sdktypes.v1.SlashCommand
+	91,  // 127: sdktypes.v1.Question.options:type_name -> sdktypes.v1.QuestionOption
+	94,  // 128: sdktypes.v1.ToolInput.agent:type_name -> sdktypes.v1.AgentInput
+	101, // 129: sdktypes.v1.ToolInput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionInput
+	102, // 130: sdktypes.v1.ToolInput.bash:type_name -> sdktypes.v1.BashInput
+	103, // 131: sdktypes.v1.ToolInput.bash_output:type_name -> sdktypes.v1.BashOutputInput
+	104, // 132: sdktypes.v1.ToolInput.file_edit:type_name -> sdktypes.v1.FileEditInput
+	105, // 133: sdktypes.v1.ToolInput.file_read:type_name -> sdktypes.v1.FileReadInput
+	106, // 134: sdktypes.v1.ToolInput.file_write:type_name -> sdktypes.v1.FileWriteInput
+	107, // 135: sdktypes.v1.ToolInput.glob:type_name -> sdktypes.v1.GlobInput
+	108, // 136: sdktypes.v1.ToolInput.grep:type_name -> sdktypes.v1.GrepInput
+	109, // 137: sdktypes.v1.ToolInput.task_stop:type_name -> sdktypes.v1.TaskStopInput
+	112, // 138: sdktypes.v1.ToolInput.notebook_edit:type_name -> sdktypes.v1.NotebookEditInput
+	113, // 139: sdktypes.v1.ToolInput.web_fetch:type_name -> sdktypes.v1.WebFetchInput
+	114, // 140: sdktypes.v1.ToolInput.web_search:type_name -> sdktypes.v1.WebSearchInput
+	116, // 141: sdktypes.v1.ToolInput.todo_write:type_name -> sdktypes.v1.TodoWriteInput
+	117, // 142: sdktypes.v1.ToolInput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeInput
+	118, // 143: sdktypes.v1.ToolInput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesInput
+	119, // 144: sdktypes.v1.ToolInput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceInput
+	218, // 145: sdktypes.v1.ToolInput.mcp_tool:type_name -> google.protobuf.Struct
+	95,  // 146: sdktypes.v1.ToolInput.monitor:type_name -> sdktypes.v1.MonitorInput
+	96,  // 147: sdktypes.v1.ToolInput.workflow:type_name -> sdktypes.v1.WorkflowInput
+	97,  // 148: sdktypes.v1.ToolInput.task_create:type_name -> sdktypes.v1.TaskCreateInput
+	98,  // 149: sdktypes.v1.ToolInput.task_update:type_name -> sdktypes.v1.TaskUpdateInput
+	99,  // 150: sdktypes.v1.ToolInput.task_get:type_name -> sdktypes.v1.TaskGetInput
+	100, // 151: sdktypes.v1.ToolInput.task_list:type_name -> sdktypes.v1.TaskListInput
+	110, // 152: sdktypes.v1.ToolInput.task_output:type_name -> sdktypes.v1.TaskOutputInput
+	111, // 153: sdktypes.v1.ToolInput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeInput
+	4,   // 154: sdktypes.v1.ToolInput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	3,   // 155: sdktypes.v1.WorkflowInput.args:type_name -> sdktypes.v1.JsonRawMessage
+	218, // 156: sdktypes.v1.TaskCreateInput.metadata:type_name -> google.protobuf.Struct
+	218, // 157: sdktypes.v1.TaskUpdateInput.metadata:type_name -> google.protobuf.Struct
+	92,  // 158: sdktypes.v1.AskUserQuestionInput.questions:type_name -> sdktypes.v1.Question
+	216, // 159: sdktypes.v1.AskUserQuestionInput.answers:type_name -> sdktypes.v1.AskUserQuestionInput.AnswersEntry
+	115, // 160: sdktypes.v1.TodoWriteInput.todos:type_name -> sdktypes.v1.TodoItem
+	132, // 161: sdktypes.v1.ToolOutput.task:type_name -> sdktypes.v1.TaskOutput
+	133, // 162: sdktypes.v1.ToolOutput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionOutput
+	134, // 163: sdktypes.v1.ToolOutput.bash:type_name -> sdktypes.v1.BashOutput
+	135, // 164: sdktypes.v1.ToolOutput.file_edit:type_name -> sdktypes.v1.FileEditOutput
+	146, // 165: sdktypes.v1.ToolOutput.file_read:type_name -> sdktypes.v1.FileReadOutput
+	147, // 166: sdktypes.v1.ToolOutput.file_write:type_name -> sdktypes.v1.FileWriteOutput
+	148, // 167: sdktypes.v1.ToolOutput.glob:type_name -> sdktypes.v1.GlobOutput
+	149, // 168: sdktypes.v1.ToolOutput.grep:type_name -> sdktypes.v1.GrepOutput
+	150, // 169: sdktypes.v1.ToolOutput.task_stop:type_name -> sdktypes.v1.TaskStopOutput
+	151, // 170: sdktypes.v1.ToolOutput.notebook_edit:type_name -> sdktypes.v1.NotebookEditOutput
+	152, // 171: sdktypes.v1.ToolOutput.web_fetch:type_name -> sdktypes.v1.WebFetchOutput
+	154, // 172: sdktypes.v1.ToolOutput.web_search:type_name -> sdktypes.v1.WebSearchOutput
+	155, // 173: sdktypes.v1.ToolOutput.todo_write:type_name -> sdktypes.v1.TodoWriteOutput
+	156, // 174: sdktypes.v1.ToolOutput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeOutput
+	158, // 175: sdktypes.v1.ToolOutput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesOutput
+	160, // 176: sdktypes.v1.ToolOutput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceOutput
+	161, // 177: sdktypes.v1.ToolOutput.config:type_name -> sdktypes.v1.ConfigOutput
+	162, // 178: sdktypes.v1.ToolOutput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeOutput
+	218, // 179: sdktypes.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
+	121, // 180: sdktypes.v1.ToolOutput.monitor:type_name -> sdktypes.v1.MonitorOutput
+	122, // 181: sdktypes.v1.ToolOutput.workflow:type_name -> sdktypes.v1.WorkflowOutput
+	124, // 182: sdktypes.v1.ToolOutput.task_create:type_name -> sdktypes.v1.TaskCreateOutput
+	126, // 183: sdktypes.v1.ToolOutput.task_update:type_name -> sdktypes.v1.TaskUpdateOutput
+	128, // 184: sdktypes.v1.ToolOutput.task_get:type_name -> sdktypes.v1.TaskGetOutput
+	130, // 185: sdktypes.v1.ToolOutput.task_list:type_name -> sdktypes.v1.TaskListOutput
+	4,   // 186: sdktypes.v1.ToolOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	123, // 187: sdktypes.v1.TaskCreateOutput.task:type_name -> sdktypes.v1.TaskCreateOutputTask
+	125, // 188: sdktypes.v1.TaskUpdateOutput.status_change:type_name -> sdktypes.v1.TaskUpdateOutputStatusChange
+	127, // 189: sdktypes.v1.TaskGetOutput.task:type_name -> sdktypes.v1.TaskGetOutputTask
+	129, // 190: sdktypes.v1.TaskListOutput.tasks:type_name -> sdktypes.v1.TaskListOutputTask
+	131, // 191: sdktypes.v1.TaskOutput.usage:type_name -> sdktypes.v1.UsageInfo
+	92,  // 192: sdktypes.v1.AskUserQuestionOutput.questions:type_name -> sdktypes.v1.Question
+	217, // 193: sdktypes.v1.AskUserQuestionOutput.answers:type_name -> sdktypes.v1.AskUserQuestionOutput.AnswersEntry
+	3,   // 194: sdktypes.v1.FileReadOutputNotebookFile.cells:type_name -> sdktypes.v1.JsonRawMessage
+	136, // 195: sdktypes.v1.FileReadOutputText.file:type_name -> sdktypes.v1.FileReadOutputTextFile
+	137, // 196: sdktypes.v1.FileReadOutputImage.file:type_name -> sdktypes.v1.FileReadOutputImageFile
+	138, // 197: sdktypes.v1.FileReadOutputNotebook.file:type_name -> sdktypes.v1.FileReadOutputNotebookFile
+	139, // 198: sdktypes.v1.FileReadOutputPdf.file:type_name -> sdktypes.v1.FileReadOutputPdfFile
+	140, // 199: sdktypes.v1.FileReadOutputParts.file:type_name -> sdktypes.v1.FileReadOutputPartsFile
+	141, // 200: sdktypes.v1.FileReadOutput.text:type_name -> sdktypes.v1.FileReadOutputText
+	142, // 201: sdktypes.v1.FileReadOutput.image:type_name -> sdktypes.v1.FileReadOutputImage
+	143, // 202: sdktypes.v1.FileReadOutput.notebook:type_name -> sdktypes.v1.FileReadOutputNotebook
+	144, // 203: sdktypes.v1.FileReadOutput.pdf:type_name -> sdktypes.v1.FileReadOutputPdf
+	145, // 204: sdktypes.v1.FileReadOutput.parts:type_name -> sdktypes.v1.FileReadOutputParts
+	4,   // 205: sdktypes.v1.FileReadOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	153, // 206: sdktypes.v1.WebSearchOutput.results:type_name -> sdktypes.v1.WebSearchOutputResultEntry
+	157, // 207: sdktypes.v1.ListMcpResourcesOutput.resources:type_name -> sdktypes.v1.McpResource
+	159, // 208: sdktypes.v1.ReadMcpResourceOutput.contents:type_name -> sdktypes.v1.ReadMcpResourceOutputContent
+	3,   // 209: sdktypes.v1.ConfigOutput.value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 210: sdktypes.v1.ConfigOutput.previous_value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 211: sdktypes.v1.ConfigOutput.new_value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 212: sdktypes.v1.PostToolBatchToolCall.tool_input:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 213: sdktypes.v1.PostToolBatchToolCall.tool_response:type_name -> sdktypes.v1.JsonRawMessage
+	93,  // 214: sdktypes.v1.PreToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	163, // 215: sdktypes.v1.PreToolUseHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	93,  // 216: sdktypes.v1.PostToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	120, // 217: sdktypes.v1.PostToolUseHookInput.tool_response:type_name -> sdktypes.v1.ToolOutput
+	163, // 218: sdktypes.v1.PostToolUseHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	93,  // 219: sdktypes.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	163, // 220: sdktypes.v1.PostToolUseFailureHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	166, // 221: sdktypes.v1.PostToolBatchHookInput.tool_calls:type_name -> sdktypes.v1.PostToolBatchToolCall
+	163, // 222: sdktypes.v1.PostToolBatchHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 223: sdktypes.v1.NotificationHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 224: sdktypes.v1.UserPromptSubmitHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 225: sdktypes.v1.SessionStartHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 226: sdktypes.v1.SessionEndHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	164, // 227: sdktypes.v1.StopHookInput.background_tasks:type_name -> sdktypes.v1.BackgroundTaskSummary
+	165, // 228: sdktypes.v1.StopHookInput.session_crons:type_name -> sdktypes.v1.SessionCronSummary
+	163, // 229: sdktypes.v1.StopHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 230: sdktypes.v1.SubagentStartHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	164, // 231: sdktypes.v1.SubagentStopHookInput.background_tasks:type_name -> sdktypes.v1.BackgroundTaskSummary
+	165, // 232: sdktypes.v1.SubagentStopHookInput.session_crons:type_name -> sdktypes.v1.SessionCronSummary
+	163, // 233: sdktypes.v1.SubagentStopHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 234: sdktypes.v1.PreCompactHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	93,  // 235: sdktypes.v1.PermissionRequestHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	12,  // 236: sdktypes.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdktypes.v1.PermissionUpdate
+	163, // 237: sdktypes.v1.PermissionRequestHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 238: sdktypes.v1.SetupHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 239: sdktypes.v1.TeammateIdleHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 240: sdktypes.v1.TaskCompletedHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 241: sdktypes.v1.ConfigChangeHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 242: sdktypes.v1.WorktreeCreateHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 243: sdktypes.v1.WorktreeRemoveHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 244: sdktypes.v1.MessageDisplayHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	167, // 245: sdktypes.v1.HookInput.pre_tool_use:type_name -> sdktypes.v1.PreToolUseHookInput
+	168, // 246: sdktypes.v1.HookInput.post_tool_use:type_name -> sdktypes.v1.PostToolUseHookInput
+	169, // 247: sdktypes.v1.HookInput.post_tool_use_failure:type_name -> sdktypes.v1.PostToolUseFailureHookInput
+	171, // 248: sdktypes.v1.HookInput.notification:type_name -> sdktypes.v1.NotificationHookInput
+	172, // 249: sdktypes.v1.HookInput.user_prompt_submit:type_name -> sdktypes.v1.UserPromptSubmitHookInput
+	173, // 250: sdktypes.v1.HookInput.session_start:type_name -> sdktypes.v1.SessionStartHookInput
+	174, // 251: sdktypes.v1.HookInput.session_end:type_name -> sdktypes.v1.SessionEndHookInput
+	175, // 252: sdktypes.v1.HookInput.stop:type_name -> sdktypes.v1.StopHookInput
+	176, // 253: sdktypes.v1.HookInput.subagent_start:type_name -> sdktypes.v1.SubagentStartHookInput
+	177, // 254: sdktypes.v1.HookInput.subagent_stop:type_name -> sdktypes.v1.SubagentStopHookInput
+	178, // 255: sdktypes.v1.HookInput.pre_compact:type_name -> sdktypes.v1.PreCompactHookInput
+	179, // 256: sdktypes.v1.HookInput.permission_request:type_name -> sdktypes.v1.PermissionRequestHookInput
+	180, // 257: sdktypes.v1.HookInput.setup:type_name -> sdktypes.v1.SetupHookInput
+	181, // 258: sdktypes.v1.HookInput.teammate_idle:type_name -> sdktypes.v1.TeammateIdleHookInput
+	182, // 259: sdktypes.v1.HookInput.task_completed:type_name -> sdktypes.v1.TaskCompletedHookInput
+	183, // 260: sdktypes.v1.HookInput.config_change:type_name -> sdktypes.v1.ConfigChangeHookInput
+	184, // 261: sdktypes.v1.HookInput.worktree_create:type_name -> sdktypes.v1.WorktreeCreateHookInput
+	185, // 262: sdktypes.v1.HookInput.worktree_remove:type_name -> sdktypes.v1.WorktreeRemoveHookInput
+	170, // 263: sdktypes.v1.HookInput.post_tool_batch:type_name -> sdktypes.v1.PostToolBatchHookInput
+	186, // 264: sdktypes.v1.HookInput.message_display:type_name -> sdktypes.v1.MessageDisplayHookInput
+	4,   // 265: sdktypes.v1.HookInput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	218, // 266: sdktypes.v1.HookSpecificOutputPreToolUse.updated_input:type_name -> google.protobuf.Struct
+	3,   // 267: sdktypes.v1.HookSpecificOutputPostToolUse.updated_mcp_tool_output:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 268: sdktypes.v1.HookSpecificOutputPostToolUse.updated_tool_output:type_name -> sdktypes.v1.JsonRawMessage
+	2,   // 269: sdktypes.v1.PermissionRequestDecisionAllow.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
+	218, // 270: sdktypes.v1.PermissionRequestDecisionAllow.updated_input:type_name -> google.protobuf.Struct
+	12,  // 271: sdktypes.v1.PermissionRequestDecisionAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
+	2,   // 272: sdktypes.v1.PermissionRequestDecisionDeny.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
+	197, // 273: sdktypes.v1.PermissionRequestDecision.allow:type_name -> sdktypes.v1.PermissionRequestDecisionAllow
+	198, // 274: sdktypes.v1.PermissionRequestDecision.deny:type_name -> sdktypes.v1.PermissionRequestDecisionDeny
+	4,   // 275: sdktypes.v1.PermissionRequestDecision.unknown:type_name -> sdktypes.v1.UnknownVariant
+	199, // 276: sdktypes.v1.HookSpecificOutputPermissionRequest.decision:type_name -> sdktypes.v1.PermissionRequestDecision
+	188, // 277: sdktypes.v1.HookSpecificOutput.pre_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPreToolUse
+	189, // 278: sdktypes.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdktypes.v1.HookSpecificOutputUserPromptSubmit
+	190, // 279: sdktypes.v1.HookSpecificOutput.session_start:type_name -> sdktypes.v1.HookSpecificOutputSessionStart
+	191, // 280: sdktypes.v1.HookSpecificOutput.setup:type_name -> sdktypes.v1.HookSpecificOutputSetup
+	192, // 281: sdktypes.v1.HookSpecificOutput.subagent_start:type_name -> sdktypes.v1.HookSpecificOutputSubagentStart
+	193, // 282: sdktypes.v1.HookSpecificOutput.post_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPostToolUse
+	195, // 283: sdktypes.v1.HookSpecificOutput.post_tool_use_failure:type_name -> sdktypes.v1.HookSpecificOutputPostToolUseFailure
+	196, // 284: sdktypes.v1.HookSpecificOutput.notification:type_name -> sdktypes.v1.HookSpecificOutputNotification
+	200, // 285: sdktypes.v1.HookSpecificOutput.permission_request:type_name -> sdktypes.v1.HookSpecificOutputPermissionRequest
+	194, // 286: sdktypes.v1.HookSpecificOutput.post_tool_batch:type_name -> sdktypes.v1.HookSpecificOutputPostToolBatch
+	4,   // 287: sdktypes.v1.HookSpecificOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	201, // 288: sdktypes.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdktypes.v1.HookSpecificOutput
+	202, // 289: sdktypes.v1.HookJSONOutput.async_output:type_name -> sdktypes.v1.AsyncHookJSONOutput
+	203, // 290: sdktypes.v1.HookJSONOutput.sync_output:type_name -> sdktypes.v1.SyncHookJSONOutput
+	4,   // 291: sdktypes.v1.HookJSONOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	3,   // 292: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	27,  // 293: sdktypes.v1.Options.AgentsEntry.value:type_name -> sdktypes.v1.AgentDefinition
+	3,   // 294: sdktypes.v1.Options.EnvEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 295: sdktypes.v1.Options.ExtraArgsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	21,  // 296: sdktypes.v1.Options.McpServersEntry.value:type_name -> sdktypes.v1.McpServerConfig
+	47,  // 297: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
+	47,  // 298: sdktypes.v1.SDKResultMessageError.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
+	299, // [299:299] is the sub-list for method output_type
+	299, // [299:299] is the sub-list for method input_type
+	299, // [299:299] is the sub-list for extension type_name
+	299, // [299:299] is the sub-list for extension extendee
+	0,   // [0:299] is the sub-list for field type_name
 }
 
 func init() { file_sdktypes_v1_types_proto_init() }
@@ -16616,6 +20620,7 @@ func file_sdktypes_v1_types_proto_init() {
 		(*SystemPrompt_Preset)(nil),
 		(*SystemPrompt_Unknown)(nil),
 	}
+	file_sdktypes_v1_types_proto_msgTypes[29].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[30].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[32].OneofWrappers = []any{
 		(*ThinkingConfig_Adaptive)(nil),
@@ -16631,26 +20636,26 @@ func file_sdktypes_v1_types_proto_init() {
 		(*ToolsConfig_Unknown)(nil),
 	}
 	file_sdktypes_v1_types_proto_msgTypes[38].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[40].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[41].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[42].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[44].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[47].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[51].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[52].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[43].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[46].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[49].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[53].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[54].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[55].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[59].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[56].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[57].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[61].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[65].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[66].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[63].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[67].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[68].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[69].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[70].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[74].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[78].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[71].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[72].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[76].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[80].OneofWrappers = []any{
 		(*SDKMessage_Assistant)(nil),
 		(*SDKMessage_User)(nil),
 		(*SDKMessage_UserReplay)(nil),
@@ -16673,10 +20678,18 @@ func file_sdktypes_v1_types_proto_init() {
 		(*SDKMessage_ToolUseSummary)(nil),
 		(*SDKMessage_RateLimitEvent)(nil),
 		(*SDKMessage_PromptSuggestion)(nil),
+		(*SDKMessage_TaskUpdated)(nil),
+		(*SDKMessage_CommandsChanged)(nil),
+		(*SDKMessage_PluginInstall)(nil),
+		(*SDKMessage_PermissionDenied)(nil),
 		(*SDKMessage_Unknown)(nil),
 	}
-	file_sdktypes_v1_types_proto_msgTypes[79].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[81].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[81].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[83].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[86].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[87].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[88].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[90].OneofWrappers = []any{
 		(*ToolInput_Agent)(nil),
 		(*ToolInput_AskUserQuestion)(nil),
 		(*ToolInput_Bash)(nil),
@@ -16686,7 +20699,7 @@ func file_sdktypes_v1_types_proto_init() {
 		(*ToolInput_FileWrite)(nil),
 		(*ToolInput_Glob)(nil),
 		(*ToolInput_Grep)(nil),
-		(*ToolInput_KillShell)(nil),
+		(*ToolInput_TaskStop)(nil),
 		(*ToolInput_NotebookEdit)(nil),
 		(*ToolInput_WebFetch)(nil),
 		(*ToolInput_WebSearch)(nil),
@@ -16695,17 +20708,31 @@ func file_sdktypes_v1_types_proto_init() {
 		(*ToolInput_ListMcpResources)(nil),
 		(*ToolInput_ReadMcpResource)(nil),
 		(*ToolInput_McpTool)(nil),
+		(*ToolInput_Monitor)(nil),
+		(*ToolInput_Workflow)(nil),
+		(*ToolInput_TaskCreate)(nil),
+		(*ToolInput_TaskUpdate)(nil),
+		(*ToolInput_TaskGet)(nil),
+		(*ToolInput_TaskList)(nil),
+		(*ToolInput_TaskOutput)(nil),
+		(*ToolInput_EnterWorktree)(nil),
 		(*ToolInput_Unknown)(nil),
 	}
-	file_sdktypes_v1_types_proto_msgTypes[84].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[85].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[86].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[87].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[89].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[90].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[92].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[98].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[100].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[93].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[94].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[95].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[99].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[100].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[101].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[102].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[104].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[105].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[106].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[108].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[109].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[115].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[117].OneofWrappers = []any{
 		(*ToolOutput_Task)(nil),
 		(*ToolOutput_AskUserQuestion)(nil),
 		(*ToolOutput_Bash)(nil),
@@ -16725,12 +20752,23 @@ func file_sdktypes_v1_types_proto_init() {
 		(*ToolOutput_Config)(nil),
 		(*ToolOutput_EnterWorktree)(nil),
 		(*ToolOutput_McpTool)(nil),
+		(*ToolOutput_Monitor)(nil),
+		(*ToolOutput_Workflow)(nil),
+		(*ToolOutput_TaskCreate)(nil),
+		(*ToolOutput_TaskUpdate)(nil),
+		(*ToolOutput_TaskGet)(nil),
+		(*ToolOutput_TaskList)(nil),
 		(*ToolOutput_Unknown)(nil),
 	}
-	file_sdktypes_v1_types_proto_msgTypes[101].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[102].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[104].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[116].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[118].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[119].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[123].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[125].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[126].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[128].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[129].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[131].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[143].OneofWrappers = []any{
 		(*FileReadOutput_Text)(nil),
 		(*FileReadOutput_Image)(nil),
 		(*FileReadOutput_Notebook)(nil),
@@ -16738,32 +20776,36 @@ func file_sdktypes_v1_types_proto_init() {
 		(*FileReadOutput_Parts)(nil),
 		(*FileReadOutput_Unknown)(nil),
 	}
-	file_sdktypes_v1_types_proto_msgTypes[119].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[120].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[121].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[127].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[129].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[131].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[132].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[133].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[134].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[135].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[136].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[137].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[138].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[139].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[140].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[141].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[142].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[143].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[144].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[145].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[146].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[147].OneofWrappers = []any{}
 	file_sdktypes_v1_types_proto_msgTypes[148].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[149].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[150].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[151].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[154].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[156].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[158].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[159].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[161].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[163].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[164].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[165].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[166].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[167].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[168].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[169].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[170].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[171].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[172].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[173].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[174].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[175].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[176].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[177].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[178].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[179].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[180].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[181].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[182].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[183].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[184].OneofWrappers = []any{
 		(*HookInput_PreToolUse)(nil),
 		(*HookInput_PostToolUse)(nil),
 		(*HookInput_PostToolUseFailure)(nil),
@@ -16782,23 +20824,26 @@ func file_sdktypes_v1_types_proto_init() {
 		(*HookInput_ConfigChange)(nil),
 		(*HookInput_WorktreeCreate)(nil),
 		(*HookInput_WorktreeRemove)(nil),
+		(*HookInput_PostToolBatch)(nil),
+		(*HookInput_MessageDisplay)(nil),
 		(*HookInput_Unknown)(nil),
 	}
-	file_sdktypes_v1_types_proto_msgTypes[152].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[153].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[154].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[155].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[156].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[157].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[158].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[159].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[161].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[162].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[185].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[186].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[187].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[188].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[189].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[190].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[191].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[192].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[193].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[195].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[196].OneofWrappers = []any{
 		(*PermissionRequestDecision_Allow)(nil),
 		(*PermissionRequestDecision_Deny)(nil),
 		(*PermissionRequestDecision_Unknown)(nil),
 	}
-	file_sdktypes_v1_types_proto_msgTypes[164].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[198].OneofWrappers = []any{
 		(*HookSpecificOutput_PreToolUse)(nil),
 		(*HookSpecificOutput_UserPromptSubmit)(nil),
 		(*HookSpecificOutput_SessionStart)(nil),
@@ -16808,11 +20853,12 @@ func file_sdktypes_v1_types_proto_init() {
 		(*HookSpecificOutput_PostToolUseFailure)(nil),
 		(*HookSpecificOutput_Notification)(nil),
 		(*HookSpecificOutput_PermissionRequest)(nil),
+		(*HookSpecificOutput_PostToolBatch)(nil),
 		(*HookSpecificOutput_Unknown)(nil),
 	}
-	file_sdktypes_v1_types_proto_msgTypes[165].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[166].OneofWrappers = []any{}
-	file_sdktypes_v1_types_proto_msgTypes[167].OneofWrappers = []any{
+	file_sdktypes_v1_types_proto_msgTypes[199].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[200].OneofWrappers = []any{}
+	file_sdktypes_v1_types_proto_msgTypes[201].OneofWrappers = []any{
 		(*HookJSONOutput_AsyncOutput)(nil),
 		(*HookJSONOutput_SyncOutput)(nil),
 		(*HookJSONOutput_Unknown)(nil),
@@ -16823,7 +20869,7 @@ func file_sdktypes_v1_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sdktypes_v1_types_proto_rawDesc), len(file_sdktypes_v1_types_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   180,
+			NumMessages:   215,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
