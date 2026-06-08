@@ -69,14 +69,18 @@ func PermissionAllow(
 ) *HandlerError {
 	return &HandlerError{
 		Output: &sdktypesv1.SyncHookJSONOutput{
-			HookSpecificOutput: &sdktypesv1.HookSpecificOutputPermissionRequest{
-				HookEventName: sdktypesv1.HookEventPermissionRequest,
-				Decision: &sdktypesv1.PermissionRequestDecisionAllow{
-					Behavior:           sdktypesv1.PermissionRequestDecisionBehaviorAllow,
-					UpdatedInput:       updatedInput,
-					UpdatedPermissions: updatedPermission,
+			HookSpecificOutput: sdktypesv1.NewHookSpecificOutput(
+				&sdktypesv1.HookSpecificOutputPermissionRequest{
+					HookEventName: sdktypesv1.HookEventPermissionRequest,
+					Decision: sdktypesv1.NewPermissionRequestDecision(
+						&sdktypesv1.PermissionRequestDecisionAllow{
+							Behavior:           sdktypesv1.PermissionRequestDecisionBehaviorAllow,
+							UpdatedInput:       updatedInput,
+							UpdatedPermissions: updatedPermission,
+						},
+					),
 				},
-			},
+			),
 		},
 	}
 }
@@ -91,14 +95,18 @@ func opt[T comparable](t T) *T {
 func PermissionDeny(message string, interrupt bool) *HandlerError {
 	return &HandlerError{
 		Output: &sdktypesv1.SyncHookJSONOutput{
-			HookSpecificOutput: &sdktypesv1.HookSpecificOutputPermissionRequest{
-				HookEventName: sdktypesv1.HookEventPermissionRequest,
-				Decision: &sdktypesv1.PermissionRequestDecisionDeny{
-					Behavior:  sdktypesv1.PermissionRequestDecisionBehaviorDeny,
-					Message:   opt(message),
-					Interrupt: opt(interrupt),
+			HookSpecificOutput: sdktypesv1.NewHookSpecificOutput(
+				&sdktypesv1.HookSpecificOutputPermissionRequest{
+					HookEventName: sdktypesv1.HookEventPermissionRequest,
+					Decision: sdktypesv1.NewPermissionRequestDecision(
+						&sdktypesv1.PermissionRequestDecisionDeny{
+							Behavior:  sdktypesv1.PermissionRequestDecisionBehaviorDeny,
+							Message:   opt(message),
+							Interrupt: opt(interrupt),
+						},
+					),
 				},
-			},
+			),
 		},
 	}
 }

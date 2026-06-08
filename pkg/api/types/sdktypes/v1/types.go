@@ -741,12 +741,58 @@ type OutputFormat struct {
 // SystemPrompt is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
-type SystemPrompt interface{ systemPrompt() }
+type SystemPrompt struct {
+	value SystemPrompt_Value
+}
+
+// SystemPrompt_Value is the variant interface implemented by every [SystemPrompt] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+type SystemPrompt_Value interface{ systemPrompt() }
+
+// MarshalJSON marshals the active [SystemPrompt] variant.
+func (o SystemPrompt) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [SystemPrompt] union value from JSON. The SDK emits a
+// bare string or a {"type":"preset",...} object, so dispatch is by JSON token.
+func (o *SystemPrompt) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "" || trimmed == "null" {
+		return nil
+	}
+	var (
+		v   SystemPrompt_Value
+		err error
+	)
+	switch trimmed[0] {
+	case '"':
+		v, err = decodeUnionVariant[SystemPromptString](data)
+	case '{':
+		var disc struct {
+			Type string `json:"type"`
+		}
+		if e := json.Unmarshal(data, &disc); e != nil {
+			return e
+		}
+		if disc.Type == "preset" {
+			v, err = decodeUnionVariant[SystemPromptPreset](data)
+		} else {
+			v, err = decodeUnionVariant[SystemPromptUnknown](data)
+		}
+	default:
+		v, err = decodeUnionVariant[SystemPromptUnknown](data)
+	}
+	if err != nil {
+		return err
+	}
+	o.value = v
+	return nil
+}
 
 var (
-	_ SystemPrompt = (*SystemPromptUnknown)(nil)
-	_ SystemPrompt = (*SystemPromptString)(nil)
-	_ SystemPrompt = (*SystemPromptPreset)(nil)
+	_ SystemPrompt_Value = (*SystemPromptUnknown)(nil)
+	_ SystemPrompt_Value = (*SystemPromptString)(nil)
+	_ SystemPrompt_Value = (*SystemPromptPreset)(nil)
 )
 
 // SystemPromptUnknown is a handwritten Claude Agent SDK type.
@@ -758,6 +804,14 @@ type SystemPromptUnknown struct{ UnknownUnion }
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type SystemPromptString struct{ Value string }
+
+// MarshalJSON encodes [SystemPromptString] as the bare SDK string form.
+func (o SystemPromptString) MarshalJSON() ([]byte, error) { return json.Marshal(o.Value) }
+
+// UnmarshalJSON decodes the bare SDK string form into [SystemPromptString].
+func (o *SystemPromptString) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &o.Value)
+}
 
 // SystemPromptPreset is a handwritten Claude Agent SDK type.
 //
@@ -776,13 +830,52 @@ func (SystemPromptPreset) systemPrompt()  {}
 // ThinkingConfig is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
-type ThinkingConfig interface{ thinkingConfig() }
+type ThinkingConfig struct {
+	value ThinkingConfig_Value
+}
+
+// ThinkingConfig_Value is the variant interface implemented by every [ThinkingConfig] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+type ThinkingConfig_Value interface{ thinkingConfig() }
+
+// MarshalJSON marshals the active [ThinkingConfig] variant.
+func (o ThinkingConfig) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [ThinkingConfig] union value from JSON, dispatching on `type`.
+func (o *ThinkingConfig) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	var (
+		v   ThinkingConfig_Value
+		err error
+	)
+	switch disc.Type {
+	case "adaptive":
+		v, err = decodeUnionVariant[ThinkingConfigAdaptive](data)
+	case "enabled":
+		v, err = decodeUnionVariant[ThinkingConfigEnabled](data)
+	case "disabled":
+		v, err = decodeUnionVariant[ThinkingConfigDisabled](data)
+	default:
+		v, err = decodeUnionVariant[ThinkingConfigUnknown](data)
+	}
+	if err != nil {
+		return err
+	}
+	o.value = v
+	return nil
+}
 
 var (
-	_ ThinkingConfig = (*ThinkingConfigUnknown)(nil)
-	_ ThinkingConfig = (*ThinkingConfigAdaptive)(nil)
-	_ ThinkingConfig = (*ThinkingConfigEnabled)(nil)
-	_ ThinkingConfig = (*ThinkingConfigDisabled)(nil)
+	_ ThinkingConfig_Value = (*ThinkingConfigUnknown)(nil)
+	_ ThinkingConfig_Value = (*ThinkingConfigAdaptive)(nil)
+	_ ThinkingConfig_Value = (*ThinkingConfigEnabled)(nil)
+	_ ThinkingConfig_Value = (*ThinkingConfigDisabled)(nil)
 )
 
 // ThinkingConfigUnknown is a handwritten Claude Agent SDK type.
@@ -832,12 +925,58 @@ func (ThinkingConfigDisabled) thinkingConfig() {}
 // ToolsConfig is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
-type ToolsConfig interface{ toolsConfig() }
+type ToolsConfig struct {
+	value ToolsConfig_Value
+}
+
+// ToolsConfig_Value is the variant interface implemented by every [ToolsConfig] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+type ToolsConfig_Value interface{ toolsConfig() }
+
+// MarshalJSON marshals the active [ToolsConfig] variant.
+func (o ToolsConfig) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [ToolsConfig] union value from JSON. The SDK emits a
+// string array or a {"type":"preset",...} object, so dispatch is by JSON token.
+func (o *ToolsConfig) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "" || trimmed == "null" {
+		return nil
+	}
+	var (
+		v   ToolsConfig_Value
+		err error
+	)
+	switch trimmed[0] {
+	case '[':
+		v, err = decodeUnionVariant[ToolsConfigList](data)
+	case '{':
+		var disc struct {
+			Type string `json:"type"`
+		}
+		if e := json.Unmarshal(data, &disc); e != nil {
+			return e
+		}
+		if disc.Type == "preset" {
+			v, err = decodeUnionVariant[ToolsConfigPreset](data)
+		} else {
+			v, err = decodeUnionVariant[ToolsConfigUnknown](data)
+		}
+	default:
+		v, err = decodeUnionVariant[ToolsConfigUnknown](data)
+	}
+	if err != nil {
+		return err
+	}
+	o.value = v
+	return nil
+}
 
 var (
-	_ ToolsConfig = (*ToolsConfigUnknown)(nil)
-	_ ToolsConfig = (*ToolsConfigList)(nil)
-	_ ToolsConfig = (*ToolsConfigPreset)(nil)
+	_ ToolsConfig_Value = (*ToolsConfigUnknown)(nil)
+	_ ToolsConfig_Value = (*ToolsConfigList)(nil)
+	_ ToolsConfig_Value = (*ToolsConfigPreset)(nil)
 )
 
 // ToolsConfigUnknown is a handwritten Claude Agent SDK type.
@@ -850,6 +989,14 @@ type ToolsConfigUnknown struct{ UnknownUnion }
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
 type ToolsConfigList struct {
 	Tools []string `json:"-"`
+}
+
+// MarshalJSON encodes [ToolsConfigList] as the bare SDK string-array form.
+func (o ToolsConfigList) MarshalJSON() ([]byte, error) { return json.Marshal(o.Tools) }
+
+// UnmarshalJSON decodes the bare SDK string-array form into [ToolsConfigList].
+func (o *ToolsConfigList) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &o.Tools)
 }
 
 // ToolsConfigPreset is a handwritten Claude Agent SDK type.
@@ -875,16 +1022,66 @@ type PermissionRuleValue struct {
 // PermissionUpdate is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
-type PermissionUpdate interface{ permissionUpdate() }
+type PermissionUpdate struct {
+	value PermissionUpdate_Value
+}
+
+// PermissionUpdate_Value is the variant interface implemented by every [PermissionUpdate] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permission-update
+type PermissionUpdate_Value interface{ permissionUpdate() }
+
+// MarshalJSON marshals the active [PermissionUpdate] variant.
+func (o PermissionUpdate) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [PermissionUpdate] union value from JSON.
+func (o *PermissionUpdate) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "addRules":
+		var v PermissionUpdateAddRules
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case "replaceRules":
+		var v PermissionUpdateReplaceRules
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case "removeRules":
+		var v PermissionUpdateRemoveRules
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case "setMode":
+		var v PermissionUpdateSetMode
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case "addDirectories":
+		var v PermissionUpdateAddDirectories
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case "removeDirectories":
+		var v PermissionUpdateRemoveDirectories
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	default:
+		var v PermissionUpdateUnknown
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+}
 
 var (
-	_ PermissionUpdate = (*PermissionUpdateUnknown)(nil)
-	_ PermissionUpdate = (*PermissionUpdateAddRules)(nil)
-	_ PermissionUpdate = (*PermissionUpdateReplaceRules)(nil)
-	_ PermissionUpdate = (*PermissionUpdateRemoveRules)(nil)
-	_ PermissionUpdate = (*PermissionUpdateSetMode)(nil)
-	_ PermissionUpdate = (*PermissionUpdateAddDirectories)(nil)
-	_ PermissionUpdate = (*PermissionUpdateRemoveDirectories)(nil)
+	_ PermissionUpdate_Value = (*PermissionUpdateUnknown)(nil)
+	_ PermissionUpdate_Value = (*PermissionUpdateAddRules)(nil)
+	_ PermissionUpdate_Value = (*PermissionUpdateReplaceRules)(nil)
+	_ PermissionUpdate_Value = (*PermissionUpdateRemoveRules)(nil)
+	_ PermissionUpdate_Value = (*PermissionUpdateSetMode)(nil)
+	_ PermissionUpdate_Value = (*PermissionUpdateAddDirectories)(nil)
+	_ PermissionUpdate_Value = (*PermissionUpdateRemoveDirectories)(nil)
 )
 
 // PermissionUpdateUnknown is a handwritten Claude Agent SDK type.
@@ -960,12 +1157,49 @@ func (PermissionUpdateRemoveDirectories) permissionUpdate() {}
 // PermissionResult is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
-type PermissionResult interface{ permissionResult() }
+type PermissionResult struct {
+	value PermissionResult_Value
+}
+
+// PermissionResult_Value is the variant interface implemented by every [PermissionResult] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#canusetool
+type PermissionResult_Value interface{ permissionResult() }
+
+// MarshalJSON marshals the active [PermissionResult] variant.
+func (o PermissionResult) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [PermissionResult] union value from JSON, dispatching on `behavior`.
+func (o *PermissionResult) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Behavior PermissionResultBehavior `json:"behavior"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	var (
+		v   PermissionResult_Value
+		err error
+	)
+	switch disc.Behavior {
+	case PermissionResultBehaviorAllow:
+		v, err = decodeUnionVariant[PermissionResultAllow](data)
+	case PermissionResultBehaviorDeny:
+		v, err = decodeUnionVariant[PermissionResultDeny](data)
+	default:
+		v, err = decodeUnionVariant[PermissionResultUnknown](data)
+	}
+	if err != nil {
+		return err
+	}
+	o.value = v
+	return nil
+}
 
 var (
-	_ PermissionResult = (*PermissionResultUnknown)(nil)
-	_ PermissionResult = (*PermissionResultAllow)(nil)
-	_ PermissionResult = (*PermissionResultDeny)(nil)
+	_ PermissionResult_Value = (*PermissionResultUnknown)(nil)
+	_ PermissionResult_Value = (*PermissionResultAllow)(nil)
+	_ PermissionResult_Value = (*PermissionResultDeny)(nil)
 )
 
 // PermissionResultUnknown is a handwritten Claude Agent SDK type.
@@ -1000,15 +1234,62 @@ func (PermissionResultDeny) permissionResult()    {}
 // McpServerConfig is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
-type McpServerConfig interface{ mcpServerConfig() }
+type McpServerConfig struct {
+	value McpServerConfig_Value
+}
+
+// McpServerConfig_Value is the variant interface implemented by every [McpServerConfig] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#options
+type McpServerConfig_Value interface{ mcpServerConfig() }
+
+// MarshalJSON marshals the active [McpServerConfig] variant.
+func (o McpServerConfig) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes an [McpServerConfig] union value from JSON, dispatching
+// on `type` (absent or "stdio" selects the stdio variant). The Claude-AI proxy
+// variant has no confirmed `type` literal, so it is preserved as the unknown variant.
+func (o *McpServerConfig) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type *string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	t := ""
+	if disc.Type != nil {
+		t = *disc.Type
+	}
+	var (
+		v   McpServerConfig_Value
+		err error
+	)
+	switch t {
+	case "", "stdio":
+		v, err = decodeUnionVariant[McpStdioServerConfig](data)
+	case "sse":
+		v, err = decodeUnionVariant[McpSSEServerConfig](data)
+	case "http":
+		v, err = decodeUnionVariant[McpHttpServerConfig](data)
+	case "sdk":
+		v, err = decodeUnionVariant[McpSdkServerConfigWithInstance](data)
+	default:
+		v, err = decodeUnionVariant[McpServerConfigUnknown](data)
+	}
+	if err != nil {
+		return err
+	}
+	o.value = v
+	return nil
+}
 
 var (
-	_ McpServerConfig = (*McpServerConfigUnknown)(nil)
-	_ McpServerConfig = (*McpStdioServerConfig)(nil)
-	_ McpServerConfig = (*McpSSEServerConfig)(nil)
-	_ McpServerConfig = (*McpHttpServerConfig)(nil)
-	_ McpServerConfig = (*McpSdkServerConfigWithInstance)(nil)
-	_ McpServerConfig = (*McpClaudeAIProxyServerConfig)(nil)
+	_ McpServerConfig_Value = (*McpServerConfigUnknown)(nil)
+	_ McpServerConfig_Value = (*McpStdioServerConfig)(nil)
+	_ McpServerConfig_Value = (*McpSSEServerConfig)(nil)
+	_ McpServerConfig_Value = (*McpHttpServerConfig)(nil)
+	_ McpServerConfig_Value = (*McpSdkServerConfigWithInstance)(nil)
+	_ McpServerConfig_Value = (*McpClaudeAIProxyServerConfig)(nil)
 )
 
 // McpServerConfigUnknown is a handwritten Claude Agent SDK type.
@@ -1396,37 +1677,141 @@ type TaskUsageSummary struct {
 // SDKMessage is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
-type SDKMessage interface{ sdkMessage() }
+type SDKMessage struct {
+	value SDKMessage_Value
+}
+
+// SDKMessage_Value is the variant interface implemented by every [SDKMessage] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#message-types
+type SDKMessage_Value interface{ sdkMessage() }
+
+// MarshalJSON marshals the active [SDKMessage] variant.
+func (o SDKMessage) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes an [SDKMessage] union value from JSON, dispatching on
+// `type` and, for system messages and results, `subtype`. Unrecognized
+// type/subtype pairs are preserved through the unknown variant.
+func (o *SDKMessage) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type    SystemMessageType `json:"type"`
+		Subtype string            `json:"subtype"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	var (
+		v   SDKMessage_Value
+		err error
+	)
+	switch disc.Type {
+	case SystemMessageTypeAssistant:
+		v, err = decodeUnionVariant[SDKAssistantMessage](data)
+	case SystemMessageTypeUser:
+		var probe struct {
+			IsReplay bool `json:"isReplay"`
+		}
+		if e := json.Unmarshal(data, &probe); e != nil {
+			return e
+		}
+		if probe.IsReplay {
+			v, err = decodeUnionVariant[SDKUserMessageReplay](data)
+		} else {
+			v, err = decodeUnionVariant[SDKUserMessage](data)
+		}
+	case SystemMessageTypeResult:
+		if SDKResultSubtype(disc.Subtype) == SDKResultSubtypeSuccess {
+			v, err = decodeUnionVariant[SDKResultMessageSuccess](data)
+		} else {
+			v, err = decodeUnionVariant[SDKResultMessageError](data)
+		}
+	case SystemMessageTypeStreamEvent:
+		v, err = decodeUnionVariant[SDKPartialAssistantMessage](data)
+	case SystemMessageTypeAuthStatus:
+		v, err = decodeUnionVariant[SDKAuthStatusMessage](data)
+	case SystemMessageTypeToolProgress:
+		v, err = decodeUnionVariant[SDKToolProgressMessage](data)
+	case SystemMessageTypeRateLimitEvent:
+		v, err = decodeUnionVariant[SDKRateLimitEvent](data)
+	case SystemMessageTypeSystem:
+		v, err = decodeSDKSystemMessage(disc.Subtype, data)
+	default:
+		v, err = decodeUnionVariant[SDKMessageUnknown](data)
+	}
+	if err != nil {
+		return err
+	}
+	o.value = v
+	return nil
+}
+
+// decodeSDKSystemMessage decodes a type:"system" [SDKMessage] by its subtype.
+func decodeSDKSystemMessage(subtype string, data []byte) (SDKMessage_Value, error) {
+	switch SystemSubtype(subtype) {
+	case SystemSubtypeInit:
+		return decodeUnionVariant[SDKSystemMessage](data)
+	case SystemSubtypeCompactBoundary:
+		return decodeUnionVariant[SDKCompactBoundaryMessage](data)
+	case SystemSubtypeStatus:
+		return decodeUnionVariant[SDKStatusMessage](data)
+	case SystemSubtypeTaskNotification:
+		return decodeUnionVariant[SDKTaskNotificationMessage](data)
+	case SystemSubtypeHookStarted:
+		return decodeUnionVariant[SDKHookStartedMessage](data)
+	case SystemSubtypeHookProgress:
+		return decodeUnionVariant[SDKHookProgressMessage](data)
+	case SystemSubtypeHookResponse:
+		return decodeUnionVariant[SDKHookResponseMessage](data)
+	case SystemSubtypeTaskStarted:
+		return decodeUnionVariant[SDKTaskStartedMessage](data)
+	case SystemSubtypeTaskProgress:
+		return decodeUnionVariant[SDKTaskProgressMessage](data)
+	case SystemSubtypeTaskUpdated:
+		return decodeUnionVariant[SDKTaskUpdatedMessage](data)
+	case SystemSubtypeFilesPersisted:
+		return decodeUnionVariant[SDKFilesPersistedEvent](data)
+	case SystemSubtypeLocalCommandOutput:
+		return decodeUnionVariant[SDKLocalCommandOutputMessage](data)
+	case SystemSubtypeCommandsChanged:
+		return decodeUnionVariant[SDKCommandsChangedMessage](data)
+	case SystemSubtypePluginInstall:
+		return decodeUnionVariant[SDKPluginInstallMessage](data)
+	case SystemSubtypePermissionDenied:
+		return decodeUnionVariant[SDKPermissionDeniedMessage](data)
+	default:
+		return decodeUnionVariant[SDKMessageUnknown](data)
+	}
+}
 
 var (
-	_ SDKMessage = (*SDKMessageUnknown)(nil)
-	_ SDKMessage = (*SDKAssistantMessage)(nil)
-	_ SDKMessage = (*SDKUserMessage)(nil)
-	_ SDKMessage = (*SDKUserMessageReplay)(nil)
-	_ SDKMessage = (*SDKResultMessageUnknown)(nil)
-	_ SDKMessage = (*SDKResultMessageSuccess)(nil)
-	_ SDKMessage = (*SDKResultMessageError)(nil)
-	_ SDKMessage = (*SDKSystemMessage)(nil)
-	_ SDKMessage = (*SDKPartialAssistantMessage)(nil)
-	_ SDKMessage = (*SDKCompactBoundaryMessage)(nil)
-	_ SDKMessage = (*SDKStatusMessage)(nil)
-	_ SDKMessage = (*SDKLocalCommandOutputMessage)(nil)
-	_ SDKMessage = (*SDKHookStartedMessage)(nil)
-	_ SDKMessage = (*SDKHookProgressMessage)(nil)
-	_ SDKMessage = (*SDKHookResponseMessage)(nil)
-	_ SDKMessage = (*SDKToolProgressMessage)(nil)
-	_ SDKMessage = (*SDKAuthStatusMessage)(nil)
-	_ SDKMessage = (*SDKTaskNotificationMessage)(nil)
-	_ SDKMessage = (*SDKTaskStartedMessage)(nil)
-	_ SDKMessage = (*SDKTaskProgressMessage)(nil)
-	_ SDKMessage = (*SDKFilesPersistedEvent)(nil)
-	_ SDKMessage = (*SDKToolUseSummaryMessage)(nil)
-	_ SDKMessage = (*SDKRateLimitEvent)(nil)
-	_ SDKMessage = (*SDKPromptSuggestionMessage)(nil)
-	_ SDKMessage = (*SDKTaskUpdatedMessage)(nil)
-	_ SDKMessage = (*SDKCommandsChangedMessage)(nil)
-	_ SDKMessage = (*SDKPluginInstallMessage)(nil)
-	_ SDKMessage = (*SDKPermissionDeniedMessage)(nil)
+	_ SDKMessage_Value = (*SDKMessageUnknown)(nil)
+	_ SDKMessage_Value = (*SDKAssistantMessage)(nil)
+	_ SDKMessage_Value = (*SDKUserMessage)(nil)
+	_ SDKMessage_Value = (*SDKUserMessageReplay)(nil)
+	_ SDKMessage_Value = (*SDKResultMessageUnknown)(nil)
+	_ SDKMessage_Value = (*SDKResultMessageSuccess)(nil)
+	_ SDKMessage_Value = (*SDKResultMessageError)(nil)
+	_ SDKMessage_Value = (*SDKSystemMessage)(nil)
+	_ SDKMessage_Value = (*SDKPartialAssistantMessage)(nil)
+	_ SDKMessage_Value = (*SDKCompactBoundaryMessage)(nil)
+	_ SDKMessage_Value = (*SDKStatusMessage)(nil)
+	_ SDKMessage_Value = (*SDKLocalCommandOutputMessage)(nil)
+	_ SDKMessage_Value = (*SDKHookStartedMessage)(nil)
+	_ SDKMessage_Value = (*SDKHookProgressMessage)(nil)
+	_ SDKMessage_Value = (*SDKHookResponseMessage)(nil)
+	_ SDKMessage_Value = (*SDKToolProgressMessage)(nil)
+	_ SDKMessage_Value = (*SDKAuthStatusMessage)(nil)
+	_ SDKMessage_Value = (*SDKTaskNotificationMessage)(nil)
+	_ SDKMessage_Value = (*SDKTaskStartedMessage)(nil)
+	_ SDKMessage_Value = (*SDKTaskProgressMessage)(nil)
+	_ SDKMessage_Value = (*SDKFilesPersistedEvent)(nil)
+	_ SDKMessage_Value = (*SDKToolUseSummaryMessage)(nil)
+	_ SDKMessage_Value = (*SDKRateLimitEvent)(nil)
+	_ SDKMessage_Value = (*SDKPromptSuggestionMessage)(nil)
+	_ SDKMessage_Value = (*SDKTaskUpdatedMessage)(nil)
+	_ SDKMessage_Value = (*SDKCommandsChangedMessage)(nil)
+	_ SDKMessage_Value = (*SDKPluginInstallMessage)(nil)
+	_ SDKMessage_Value = (*SDKPermissionDeniedMessage)(nil)
 )
 
 // SDKMessageUnknown is a handwritten Claude Agent SDK type.
@@ -1983,30 +2368,136 @@ type SessionCronSummary struct {
 // HookInput is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
-type HookInput interface{ hookInput() }
+type HookInput struct {
+	value HookInput_Value
+}
+
+// HookInput_Value is the variant interface implemented by every [HookInput] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-input
+type HookInput_Value interface{ hookInput() }
+
+// MarshalJSON marshals the active [HookInput] variant.
+func (o HookInput) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [HookInput] union value from JSON.
+func (o *HookInput) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		HookEventName HookEvent `json:"hook_event_name"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.HookEventName {
+	case HookEventPreToolUse:
+		var v PreToolUseHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventPostToolUse:
+		var v PostToolUseHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventPostToolUseFailure:
+		var v PostToolUseFailureHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventNotification:
+		var v NotificationHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventUserPromptSubmit:
+		var v UserPromptSubmitHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventSessionStart:
+		var v SessionStartHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventSessionEnd:
+		var v SessionEndHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventStop:
+		var v StopHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventSubagentStart:
+		var v SubagentStartHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventSubagentStop:
+		var v SubagentStopHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventPreCompact:
+		var v PreCompactHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventPermissionRequest:
+		var v PermissionRequestHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventSetup:
+		var v SetupHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventTeammateIdle:
+		var v TeammateIdleHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventTaskCompleted:
+		var v TaskCompletedHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventConfigChange:
+		var v ConfigChangeHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventWorktreeCreate:
+		var v WorktreeCreateHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventWorktreeRemove:
+		var v WorktreeRemoveHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventPostToolBatch:
+		var v PostToolBatchHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case HookEventMessageDisplay:
+		var v MessageDisplayHookInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	default:
+		var v HookInputUnknown
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+}
 
 var (
-	_ HookInput = (*HookInputUnknown)(nil)
-	_ HookInput = (*PreToolUseHookInput)(nil)
-	_ HookInput = (*PostToolUseHookInput)(nil)
-	_ HookInput = (*PostToolUseFailureHookInput)(nil)
-	_ HookInput = (*NotificationHookInput)(nil)
-	_ HookInput = (*UserPromptSubmitHookInput)(nil)
-	_ HookInput = (*SessionStartHookInput)(nil)
-	_ HookInput = (*SessionEndHookInput)(nil)
-	_ HookInput = (*StopHookInput)(nil)
-	_ HookInput = (*SubagentStartHookInput)(nil)
-	_ HookInput = (*SubagentStopHookInput)(nil)
-	_ HookInput = (*PreCompactHookInput)(nil)
-	_ HookInput = (*PermissionRequestHookInput)(nil)
-	_ HookInput = (*SetupHookInput)(nil)
-	_ HookInput = (*TeammateIdleHookInput)(nil)
-	_ HookInput = (*TaskCompletedHookInput)(nil)
-	_ HookInput = (*ConfigChangeHookInput)(nil)
-	_ HookInput = (*WorktreeCreateHookInput)(nil)
-	_ HookInput = (*WorktreeRemoveHookInput)(nil)
-	_ HookInput = (*PostToolBatchHookInput)(nil)
-	_ HookInput = (*MessageDisplayHookInput)(nil)
+	_ HookInput_Value = (*HookInputUnknown)(nil)
+	_ HookInput_Value = (*PreToolUseHookInput)(nil)
+	_ HookInput_Value = (*PostToolUseHookInput)(nil)
+	_ HookInput_Value = (*PostToolUseFailureHookInput)(nil)
+	_ HookInput_Value = (*NotificationHookInput)(nil)
+	_ HookInput_Value = (*UserPromptSubmitHookInput)(nil)
+	_ HookInput_Value = (*SessionStartHookInput)(nil)
+	_ HookInput_Value = (*SessionEndHookInput)(nil)
+	_ HookInput_Value = (*StopHookInput)(nil)
+	_ HookInput_Value = (*SubagentStartHookInput)(nil)
+	_ HookInput_Value = (*SubagentStopHookInput)(nil)
+	_ HookInput_Value = (*PreCompactHookInput)(nil)
+	_ HookInput_Value = (*PermissionRequestHookInput)(nil)
+	_ HookInput_Value = (*SetupHookInput)(nil)
+	_ HookInput_Value = (*TeammateIdleHookInput)(nil)
+	_ HookInput_Value = (*TaskCompletedHookInput)(nil)
+	_ HookInput_Value = (*ConfigChangeHookInput)(nil)
+	_ HookInput_Value = (*WorktreeCreateHookInput)(nil)
+	_ HookInput_Value = (*WorktreeRemoveHookInput)(nil)
+	_ HookInput_Value = (*PostToolBatchHookInput)(nil)
+	_ HookInput_Value = (*MessageDisplayHookInput)(nil)
 )
 
 // HookInputUnknown is a handwritten Claude Agent SDK type.
@@ -2283,12 +2774,48 @@ func (MessageDisplayHookInput) hookInput() {}
 // HookJSONOutput is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-json-output
-type HookJSONOutput interface{ hookJSONOutput() }
+type HookJSONOutput struct {
+	value HookJSONOutput_Value
+}
+
+// HookJSONOutput_Value is the variant interface implemented by every [HookJSONOutput] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-json-output
+type HookJSONOutput_Value interface{ hookJSONOutput() }
+
+// MarshalJSON marshals the active [HookJSONOutput] variant.
+func (o HookJSONOutput) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [HookJSONOutput] union value from JSON.
+func (o *HookJSONOutput) UnmarshalJSON(data []byte) error {
+	var probe struct {
+		Async *bool `json:"async"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return err
+	}
+	if probe.Async != nil && *probe.Async {
+		var v AsyncHookJSONOutput
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+	var syncV SyncHookJSONOutput
+	if err := syncV.UnmarshalJSON(
+		data,
+	); err == nil &&
+		(syncV.Continue != nil || syncV.SuppressOutput != nil || syncV.StopReason != nil || syncV.Decision != nil || syncV.SystemMessage != nil || syncV.Reason != nil || syncV.HookSpecificOutput.GetValue() != nil) {
+		o.value = &syncV
+		return nil
+	}
+	var unknown HookJSONOutputUnknown
+	o.value = &unknown
+	return unknown.UnmarshalJSON(data)
+}
 
 var (
-	_ HookJSONOutput = (*HookJSONOutputUnknown)(nil)
-	_ HookJSONOutput = (*AsyncHookJSONOutput)(nil)
-	_ HookJSONOutput = (*SyncHookJSONOutput)(nil)
+	_ HookJSONOutput_Value = (*HookJSONOutputUnknown)(nil)
+	_ HookJSONOutput_Value = (*AsyncHookJSONOutput)(nil)
+	_ HookJSONOutput_Value = (*SyncHookJSONOutput)(nil)
 )
 
 // HookJSONOutputUnknown is a handwritten Claude Agent SDK type.
@@ -2311,20 +2838,86 @@ func (AsyncHookJSONOutput) hookJSONOutput() {}
 // HookSpecificOutput is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
-type HookSpecificOutput interface{ hookSpecificOutput() }
+type HookSpecificOutput struct {
+	value HookSpecificOutput_Value
+}
+
+// HookSpecificOutput_Value is the variant interface implemented by every [HookSpecificOutput] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+type HookSpecificOutput_Value interface{ hookSpecificOutput() }
+
+// MarshalJSON marshals the active [HookSpecificOutput] variant.
+func (o HookSpecificOutput) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [HookSpecificOutput] union value from JSON.
+func (o *HookSpecificOutput) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		HookEventName HookEvent `json:"hookEventName"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.HookEventName {
+	case HookEventPreToolUse:
+		var v HookSpecificOutputPreToolUse
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventUserPromptSubmit:
+		var v HookSpecificOutputUserPromptSubmit
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventSessionStart:
+		var v HookSpecificOutputSessionStart
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventSetup:
+		var v HookSpecificOutputSetup
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventSubagentStart:
+		var v HookSpecificOutputSubagentStart
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventPostToolUse:
+		var v HookSpecificOutputPostToolUse
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventPostToolUseFailure:
+		var v HookSpecificOutputPostToolUseFailure
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventPostToolBatch:
+		var v HookSpecificOutputPostToolBatch
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventNotification:
+		var v HookSpecificOutputNotification
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case HookEventPermissionRequest:
+		var v HookSpecificOutputPermissionRequest
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	default:
+		var v HookSpecificOutputUnknown
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+}
 
 var (
-	_ HookSpecificOutput = (*HookSpecificOutputUnknown)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputPreToolUse)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputUserPromptSubmit)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputSessionStart)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputSetup)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputSubagentStart)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputPostToolUse)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputPostToolUseFailure)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputPostToolBatch)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputNotification)(nil)
-	_ HookSpecificOutput = (*HookSpecificOutputPermissionRequest)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputUnknown)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputPreToolUse)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputUserPromptSubmit)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputSessionStart)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputSetup)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputSubagentStart)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputPostToolUse)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputPostToolUseFailure)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputPostToolBatch)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputNotification)(nil)
+	_ HookSpecificOutput_Value = (*HookSpecificOutputPermissionRequest)(nil)
 )
 
 // HookSpecificOutputUnknown is a handwritten Claude Agent SDK type.
@@ -2433,12 +3026,47 @@ func (HookSpecificOutputNotification) hookSpecificOutput() {}
 // PermissionRequestDecision is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
-type PermissionRequestDecision interface{ permissionRequestDecision() }
+type PermissionRequestDecision struct {
+	value PermissionRequestDecision_Value
+}
+
+// PermissionRequestDecision_Value is the variant interface implemented by every
+// [PermissionRequestDecision] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#hookspecificoutput
+type PermissionRequestDecision_Value interface{ permissionRequestDecision() }
+
+// MarshalJSON marshals the active [PermissionRequestDecision] variant.
+func (o PermissionRequestDecision) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [PermissionRequestDecision] union value from JSON.
+func (o *PermissionRequestDecision) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Behavior PermissionRequestDecisionBehavior `json:"behavior"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Behavior {
+	case PermissionRequestDecisionBehaviorAllow:
+		var v PermissionRequestDecisionAllow
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	case PermissionRequestDecisionBehaviorDeny:
+		var v PermissionRequestDecisionDeny
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	default:
+		var v PermissionRequestDecisionUnknown
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+}
 
 var (
-	_ PermissionRequestDecision = (*PermissionRequestDecisionUnknown)(nil)
-	_ PermissionRequestDecision = (*PermissionRequestDecisionAllow)(nil)
-	_ PermissionRequestDecision = (*PermissionRequestDecisionDeny)(nil)
+	_ PermissionRequestDecision_Value = (*PermissionRequestDecisionUnknown)(nil)
+	_ PermissionRequestDecision_Value = (*PermissionRequestDecisionAllow)(nil)
+	_ PermissionRequestDecision_Value = (*PermissionRequestDecisionDeny)(nil)
 )
 
 // PermissionRequestDecisionUnknown is a handwritten Claude Agent SDK type.
@@ -2498,40 +3126,184 @@ func (SyncHookJSONOutput) hookJSONOutput() {}
 // ToolInputSchemas is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
-type ToolInputSchemas interface{ toolInputSchemas() }
+type ToolInputSchemas struct {
+	value ToolInputSchemas_Value
+}
+
+// ToolInputSchemas_Value is the variant interface implemented by every [ToolInputSchemas] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-input-types
+type ToolInputSchemas_Value interface{ toolInputSchemas() }
+
+// MarshalJSON marshals the active [ToolInputSchemas] variant.
+func (o ToolInputSchemas) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalForTool decodes data into the [ToolInputSchemas] variant selected by toolName.
+func (o *ToolInputSchemas) UnmarshalForTool(toolName string, data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if strings.HasPrefix(toolName, McpToolNamePrefix) {
+		var v McpInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	}
+	switch toolName {
+	case ToolNameAskUserQuestion:
+		var v AskUserQuestionInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameBash:
+		var v BashInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameConfig:
+		var v ConfigInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameEdit:
+		var v FileEditInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameEnterWorktree:
+		var v EnterWorktreeInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameExitPlanMode:
+		var v ExitPlanModeInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameGlob:
+		var v GlobInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameGrep:
+		var v GrepInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameListMcpResources:
+		var v ListMcpResourcesInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameNotebookEdit:
+		var v NotebookEditInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameRead:
+		var v FileReadInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameReadMcpResource:
+		var v ReadMcpResourceInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameSubscribeMcpResource:
+		var v SubscribeMcpResourceInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameSubscribePolling:
+		var v SubscribePollingInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameAgent, ToolNameTask:
+		var v AgentInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameMonitor:
+		var v MonitorInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWorkflow:
+		var v WorkflowInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskCreate:
+		var v TaskCreateInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskUpdate:
+		var v TaskUpdateInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskGet:
+		var v TaskGetInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskList:
+		var v TaskListInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskOutput:
+		var v TaskOutputInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskStop:
+		var v TaskStopInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTodoWrite:
+		var v TodoWriteInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameUnsubscribeMcpResource:
+		var v UnsubscribeMcpResourceInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameUnsubscribePolling:
+		var v UnsubscribePollingInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWebFetch:
+		var v WebFetchInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWebSearch:
+		var v WebSearchInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWrite:
+		var v FileWriteInput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	default:
+		var v ToolInputUnknown
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+}
 
 var (
-	_ ToolInputSchemas = (*ToolInputUnknown)(nil)
-	_ ToolInputSchemas = (*AgentInput)(nil)
-	_ ToolInputSchemas = (*AskUserQuestionInput)(nil)
-	_ ToolInputSchemas = (*BashInput)(nil)
-	_ ToolInputSchemas = (*TaskOutputInput)(nil)
-	_ ToolInputSchemas = (*ConfigInput)(nil)
-	_ ToolInputSchemas = (*EnterWorktreeInput)(nil)
-	_ ToolInputSchemas = (*ExitPlanModeInput)(nil)
-	_ ToolInputSchemas = (*FileEditInput)(nil)
-	_ ToolInputSchemas = (*FileReadInput)(nil)
-	_ ToolInputSchemas = (*FileWriteInput)(nil)
-	_ ToolInputSchemas = (*GlobInput)(nil)
-	_ ToolInputSchemas = (*GrepInput)(nil)
-	_ ToolInputSchemas = (*ListMcpResourcesInput)(nil)
-	_ ToolInputSchemas = (*McpInput)(nil)
-	_ ToolInputSchemas = (*MonitorInput)(nil)
-	_ ToolInputSchemas = (*WorkflowInput)(nil)
-	_ ToolInputSchemas = (*TaskCreateInput)(nil)
-	_ ToolInputSchemas = (*TaskUpdateInput)(nil)
-	_ ToolInputSchemas = (*TaskGetInput)(nil)
-	_ ToolInputSchemas = (*TaskListInput)(nil)
-	_ ToolInputSchemas = (*NotebookEditInput)(nil)
-	_ ToolInputSchemas = (*ReadMcpResourceInput)(nil)
-	_ ToolInputSchemas = (*SubscribeMcpResourceInput)(nil)
-	_ ToolInputSchemas = (*SubscribePollingInput)(nil)
-	_ ToolInputSchemas = (*TaskStopInput)(nil)
-	_ ToolInputSchemas = (*TodoWriteInput)(nil)
-	_ ToolInputSchemas = (*UnsubscribeMcpResourceInput)(nil)
-	_ ToolInputSchemas = (*UnsubscribePollingInput)(nil)
-	_ ToolInputSchemas = (*WebFetchInput)(nil)
-	_ ToolInputSchemas = (*WebSearchInput)(nil)
+	_ ToolInputSchemas_Value = (*ToolInputUnknown)(nil)
+	_ ToolInputSchemas_Value = (*AgentInput)(nil)
+	_ ToolInputSchemas_Value = (*AskUserQuestionInput)(nil)
+	_ ToolInputSchemas_Value = (*BashInput)(nil)
+	_ ToolInputSchemas_Value = (*TaskOutputInput)(nil)
+	_ ToolInputSchemas_Value = (*ConfigInput)(nil)
+	_ ToolInputSchemas_Value = (*EnterWorktreeInput)(nil)
+	_ ToolInputSchemas_Value = (*ExitPlanModeInput)(nil)
+	_ ToolInputSchemas_Value = (*FileEditInput)(nil)
+	_ ToolInputSchemas_Value = (*FileReadInput)(nil)
+	_ ToolInputSchemas_Value = (*FileWriteInput)(nil)
+	_ ToolInputSchemas_Value = (*GlobInput)(nil)
+	_ ToolInputSchemas_Value = (*GrepInput)(nil)
+	_ ToolInputSchemas_Value = (*ListMcpResourcesInput)(nil)
+	_ ToolInputSchemas_Value = (*McpInput)(nil)
+	_ ToolInputSchemas_Value = (*MonitorInput)(nil)
+	_ ToolInputSchemas_Value = (*WorkflowInput)(nil)
+	_ ToolInputSchemas_Value = (*TaskCreateInput)(nil)
+	_ ToolInputSchemas_Value = (*TaskUpdateInput)(nil)
+	_ ToolInputSchemas_Value = (*TaskGetInput)(nil)
+	_ ToolInputSchemas_Value = (*TaskListInput)(nil)
+	_ ToolInputSchemas_Value = (*NotebookEditInput)(nil)
+	_ ToolInputSchemas_Value = (*ReadMcpResourceInput)(nil)
+	_ ToolInputSchemas_Value = (*SubscribeMcpResourceInput)(nil)
+	_ ToolInputSchemas_Value = (*SubscribePollingInput)(nil)
+	_ ToolInputSchemas_Value = (*TaskStopInput)(nil)
+	_ ToolInputSchemas_Value = (*TodoWriteInput)(nil)
+	_ ToolInputSchemas_Value = (*UnsubscribeMcpResourceInput)(nil)
+	_ ToolInputSchemas_Value = (*UnsubscribePollingInput)(nil)
+	_ ToolInputSchemas_Value = (*WebFetchInput)(nil)
+	_ ToolInputSchemas_Value = (*WebSearchInput)(nil)
 )
 
 // ToolInputUnknown is a handwritten Claude Agent SDK type.
@@ -2916,42 +3688,158 @@ func (WebSearchInput) toolInputSchemas() {}
 // ToolOutputSchemas is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-output-schemas
-type ToolOutputSchemas interface{ toolOutputSchemas() }
+type ToolOutputSchemas struct {
+	value ToolOutputSchemas_Value
+}
+
+// ToolOutputSchemas_Value is the variant interface implemented by every [ToolOutputSchemas] case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#tool-output-schemas
+type ToolOutputSchemas_Value interface{ toolOutputSchemas() }
+
+// MarshalJSON marshals the active [ToolOutputSchemas] variant.
+func (o ToolOutputSchemas) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalForTool decodes data into the [ToolOutputSchemas] variant selected by toolName.
+func (o *ToolOutputSchemas) UnmarshalForTool(toolName string, data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if strings.HasPrefix(toolName, McpToolNamePrefix) {
+		var v ToolOutputUnknown
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+	switch toolName {
+	case ToolNameAskUserQuestion:
+		var v AskUserQuestionOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameBash:
+		var v BashOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameConfig:
+		var v ConfigOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameEdit:
+		var v FileEditOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameEnterWorktree:
+		var v EnterWorktreeOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameExitPlanMode:
+		var v ExitPlanModeOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameGlob:
+		var v GlobOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameGrep:
+		var v GrepOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameListMcpResources:
+		var v ListMcpResourcesOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameNotebookEdit:
+		var v NotebookEditOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameReadMcpResource:
+		var v ReadMcpResourceOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameMonitor:
+		var v MonitorOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWorkflow:
+		var v WorkflowOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskCreate:
+		var v TaskCreateOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskUpdate:
+		var v TaskUpdateOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskGet:
+		var v TaskGetOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskList:
+		var v TaskListOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTaskStop:
+		var v TaskStopOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameTodoWrite:
+		var v TodoWriteOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWebFetch:
+		var v WebFetchOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWebSearch:
+		var v WebSearchOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	case ToolNameWrite:
+		var v FileWriteOutput
+		o.value = &v
+		return json.Unmarshal(data, &v)
+	default:
+		var v ToolOutputUnknown
+		o.value = &v
+		return v.UnmarshalJSON(data)
+	}
+}
 
 var (
-	_ ToolOutputSchemas = (*ToolOutputUnknown)(nil)
-	_ ToolOutputSchemas = (*AgentOutputUnknown)(nil)
-	_ ToolOutputSchemas = (*AgentOutputCompleted)(nil)
-	_ ToolOutputSchemas = (*AgentOutputAsyncLaunched)(nil)
-	_ ToolOutputSchemas = (*AgentOutputSubAgentEntered)(nil)
-	_ ToolOutputSchemas = (*AskUserQuestionOutput)(nil)
-	_ ToolOutputSchemas = (*BashOutput)(nil)
-	_ ToolOutputSchemas = (*FileEditOutput)(nil)
-	_ ToolOutputSchemas = (*FileReadOutputUnknown)(nil)
-	_ ToolOutputSchemas = (*FileReadOutputText)(nil)
-	_ ToolOutputSchemas = (*FileReadOutputImage)(nil)
-	_ ToolOutputSchemas = (*FileReadOutputNotebook)(nil)
-	_ ToolOutputSchemas = (*FileReadOutputPdf)(nil)
-	_ ToolOutputSchemas = (*FileReadOutputParts)(nil)
-	_ ToolOutputSchemas = (*FileWriteOutput)(nil)
-	_ ToolOutputSchemas = (*GlobOutput)(nil)
-	_ ToolOutputSchemas = (*GrepOutput)(nil)
-	_ ToolOutputSchemas = (*TaskStopOutput)(nil)
-	_ ToolOutputSchemas = (*NotebookEditOutput)(nil)
-	_ ToolOutputSchemas = (*WebFetchOutput)(nil)
-	_ ToolOutputSchemas = (*WebSearchOutput)(nil)
-	_ ToolOutputSchemas = (*TodoWriteOutput)(nil)
-	_ ToolOutputSchemas = (*ExitPlanModeOutput)(nil)
-	_ ToolOutputSchemas = (*ListMcpResourcesOutput)(nil)
-	_ ToolOutputSchemas = (*ReadMcpResourceOutput)(nil)
-	_ ToolOutputSchemas = (*ConfigOutput)(nil)
-	_ ToolOutputSchemas = (*EnterWorktreeOutput)(nil)
-	_ ToolOutputSchemas = (*MonitorOutput)(nil)
-	_ ToolOutputSchemas = (*WorkflowOutput)(nil)
-	_ ToolOutputSchemas = (*TaskCreateOutput)(nil)
-	_ ToolOutputSchemas = (*TaskUpdateOutput)(nil)
-	_ ToolOutputSchemas = (*TaskGetOutput)(nil)
-	_ ToolOutputSchemas = (*TaskListOutput)(nil)
+	_ ToolOutputSchemas_Value = (*ToolOutputUnknown)(nil)
+	_ ToolOutputSchemas_Value = (*AgentOutputUnknown)(nil)
+	_ ToolOutputSchemas_Value = (*AgentOutputCompleted)(nil)
+	_ ToolOutputSchemas_Value = (*AgentOutputAsyncLaunched)(nil)
+	_ ToolOutputSchemas_Value = (*AgentOutputSubAgentEntered)(nil)
+	_ ToolOutputSchemas_Value = (*AskUserQuestionOutput)(nil)
+	_ ToolOutputSchemas_Value = (*BashOutput)(nil)
+	_ ToolOutputSchemas_Value = (*FileEditOutput)(nil)
+	_ ToolOutputSchemas_Value = (*FileReadOutputUnknown)(nil)
+	_ ToolOutputSchemas_Value = (*FileReadOutputText)(nil)
+	_ ToolOutputSchemas_Value = (*FileReadOutputImage)(nil)
+	_ ToolOutputSchemas_Value = (*FileReadOutputNotebook)(nil)
+	_ ToolOutputSchemas_Value = (*FileReadOutputPdf)(nil)
+	_ ToolOutputSchemas_Value = (*FileReadOutputParts)(nil)
+	_ ToolOutputSchemas_Value = (*FileWriteOutput)(nil)
+	_ ToolOutputSchemas_Value = (*GlobOutput)(nil)
+	_ ToolOutputSchemas_Value = (*GrepOutput)(nil)
+	_ ToolOutputSchemas_Value = (*TaskStopOutput)(nil)
+	_ ToolOutputSchemas_Value = (*NotebookEditOutput)(nil)
+	_ ToolOutputSchemas_Value = (*WebFetchOutput)(nil)
+	_ ToolOutputSchemas_Value = (*WebSearchOutput)(nil)
+	_ ToolOutputSchemas_Value = (*TodoWriteOutput)(nil)
+	_ ToolOutputSchemas_Value = (*ExitPlanModeOutput)(nil)
+	_ ToolOutputSchemas_Value = (*ListMcpResourcesOutput)(nil)
+	_ ToolOutputSchemas_Value = (*ReadMcpResourceOutput)(nil)
+	_ ToolOutputSchemas_Value = (*ConfigOutput)(nil)
+	_ ToolOutputSchemas_Value = (*EnterWorktreeOutput)(nil)
+	_ ToolOutputSchemas_Value = (*MonitorOutput)(nil)
+	_ ToolOutputSchemas_Value = (*WorkflowOutput)(nil)
+	_ ToolOutputSchemas_Value = (*TaskCreateOutput)(nil)
+	_ ToolOutputSchemas_Value = (*TaskUpdateOutput)(nil)
+	_ ToolOutputSchemas_Value = (*TaskGetOutput)(nil)
+	_ ToolOutputSchemas_Value = (*TaskListOutput)(nil)
 )
 
 // ToolOutputUnknown is a handwritten Claude Agent SDK type.
@@ -3364,12 +4252,52 @@ func (WebFetchOutput) toolOutputSchemas() {}
 // untagged, so decoding dispatches on the JSON token (object vs string).
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
-type WebSearchOutputResult interface{ webSearchOutputResult() }
+type WebSearchOutputResult struct {
+	value WebSearchOutputResult_Value
+}
+
+// WebSearchOutputResult_Value is the variant interface implemented by every [WebSearchOutputResult]
+// case.
+//
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
+type WebSearchOutputResult_Value interface{ webSearchOutputResult() }
+
+// MarshalJSON marshals the active [WebSearchOutputResult] variant.
+func (o WebSearchOutputResult) MarshalJSON() ([]byte, error) { return json.Marshal(o.value) }
+
+// UnmarshalJSON decodes a [WebSearchOutputResult] union value from JSON. The
+// SDK emits either a bare string or an object, so dispatch is by JSON token.
+func (o *WebSearchOutputResult) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
+	switch {
+	case trimmed == "":
+		return nil
+	case trimmed[0] == '"':
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		text := WebSearchOutputResultText(s)
+		o.value = &text
+		return nil
+	case trimmed[0] == '{':
+		var v WebSearchOutputResultBlock
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		o.value = &v
+		return nil
+	default:
+		var u WebSearchOutputResultUnknown
+		o.value = &u
+		return u.UnmarshalJSON(data)
+	}
+}
 
 var (
-	_ WebSearchOutputResult = (*WebSearchOutputResultUnknown)(nil)
-	_ WebSearchOutputResult = WebSearchOutputResultText("")
-	_ WebSearchOutputResult = (*WebSearchOutputResultBlock)(nil)
+	_ WebSearchOutputResult_Value = (*WebSearchOutputResultUnknown)(nil)
+	_ WebSearchOutputResult_Value = WebSearchOutputResultText("")
+	_ WebSearchOutputResult_Value = (*WebSearchOutputResultBlock)(nil)
 )
 
 // WebSearchOutputResultText is the bare-string variant of WebSearchOutputResult.
@@ -3408,29 +4336,6 @@ type WebSearchOutputResultUnknown struct{ UnknownUnion }
 
 func (*WebSearchOutputResultUnknown) webSearchOutputResult() {}
 
-func unmarshalWebSearchOutputResult(data []byte) (WebSearchOutputResult, error) {
-	trimmed := strings.TrimSpace(string(data))
-	switch {
-	case trimmed == "":
-		return nil, nil
-	case trimmed[0] == '"':
-		var s string
-		if err := json.Unmarshal(data, &s); err != nil {
-			return nil, err
-		}
-		return WebSearchOutputResultText(s), nil
-	case trimmed[0] == '{':
-		var v WebSearchOutputResultBlock
-		if err := json.Unmarshal(data, &v); err != nil {
-			return nil, err
-		}
-		return &v, nil
-	default:
-		var u WebSearchOutputResultUnknown
-		return &u, u.UnmarshalJSON(data)
-	}
-}
-
 // WebSearchOutput is a handwritten Claude Agent SDK type.
 //
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#websearch-2
@@ -3460,8 +4365,8 @@ func (o *WebSearchOutput) UnmarshalJSON(data []byte) error {
 	o.DurationSeconds = raw.DurationSeconds
 	o.Results = make([]WebSearchOutputResult, 0, len(raw.Results))
 	for _, r := range raw.Results {
-		v, err := unmarshalWebSearchOutputResult(r)
-		if err != nil {
+		var v WebSearchOutputResult
+		if err := v.UnmarshalJSON(r); err != nil {
 			return err
 		}
 		o.Results = append(o.Results, v)
@@ -3859,7 +4764,7 @@ func postToolBatchToolCallsFromProto(in []*pb.PostToolBatchToolCall) []PostToolB
 // rawToolInputToProto marshals a typed ToolInputSchemas to JSON and wraps
 // it as the proto UnknownVariant. Returns nil for nil input.
 func rawToolInputToProto(v ToolInputSchemas, discriminator string) *pb.ToolInput {
-	if v == nil {
+	if v.value == nil {
 		return nil
 	}
 	raw, err := json.Marshal(v)
@@ -3877,7 +4782,7 @@ func rawToolInputToProto(v ToolInputSchemas, discriminator string) *pb.ToolInput
 }
 
 func rawToolOutputToProto(v ToolOutputSchemas, discriminator string) *pb.ToolOutput {
-	if v == nil {
+	if v.value == nil {
 		return nil
 	}
 	raw, err := json.Marshal(v)
@@ -3898,7 +4803,7 @@ func rawToolOutputToProto(v ToolOutputSchemas, discriminator string) *pb.ToolOut
 // wrapper. The discriminator (tool name) drives the dispatch.
 func rawFromToolInputProto(v *pb.ToolInput, discriminator string) (ToolInputSchemas, error) {
 	if v == nil {
-		return nil, nil
+		return ToolInputSchemas{}, nil
 	}
 	var raw json.RawMessage
 	if unknown := v.GetUnknown(); unknown != nil {
@@ -3906,16 +4811,18 @@ func rawFromToolInputProto(v *pb.ToolInput, discriminator string) (ToolInputSche
 	} else {
 		b, err := protojson.Marshal(v)
 		if err != nil {
-			return nil, err
+			return ToolInputSchemas{}, err
 		}
 		raw = b
 	}
-	return UnmarshalToolInputSchemas(discriminator, raw)
+	var out ToolInputSchemas
+	err := out.UnmarshalForTool(discriminator, raw)
+	return out, err
 }
 
 func rawFromToolOutputProto(v *pb.ToolOutput, discriminator string) (ToolOutputSchemas, error) {
 	if v == nil {
-		return nil, nil
+		return ToolOutputSchemas{}, nil
 	}
 	var raw json.RawMessage
 	if unknown := v.GetUnknown(); unknown != nil {
@@ -3923,11 +4830,13 @@ func rawFromToolOutputProto(v *pb.ToolOutput, discriminator string) (ToolOutputS
 	} else {
 		b, err := protojson.Marshal(v)
 		if err != nil {
-			return nil, err
+			return ToolOutputSchemas{}, err
 		}
 		raw = b
 	}
-	return UnmarshalToolOutputSchemas(discriminator, raw)
+	var out ToolOutputSchemas
+	err := out.UnmarshalForTool(discriminator, raw)
+	return out, err
 }
 
 func permissionRuleValuesToProto(v []PermissionRuleValue) []*pb.PermissionRuleValue {
@@ -4129,42 +5038,9 @@ func (o *PermissionUpdateRemoveDirectories) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// UnmarshalPermissionUpdate unmarshals a PermissionUpdate union value from JSON.
-func UnmarshalPermissionUpdate(data []byte) (PermissionUpdate, error) {
-	var disc struct {
-		Type string `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return nil, err
-	}
-	switch disc.Type {
-	case "addRules":
-		var v PermissionUpdateAddRules
-		return &v, v.UnmarshalJSON(data)
-	case "replaceRules":
-		var v PermissionUpdateReplaceRules
-		return &v, v.UnmarshalJSON(data)
-	case "removeRules":
-		var v PermissionUpdateRemoveRules
-		return &v, v.UnmarshalJSON(data)
-	case "setMode":
-		var v PermissionUpdateSetMode
-		return &v, v.UnmarshalJSON(data)
-	case "addDirectories":
-		var v PermissionUpdateAddDirectories
-		return &v, v.UnmarshalJSON(data)
-	case "removeDirectories":
-		var v PermissionUpdateRemoveDirectories
-		return &v, v.UnmarshalJSON(data)
-	default:
-		var v PermissionUpdateUnknown
-		return &v, v.UnmarshalJSON(data)
-	}
-}
-
 // Tool names recognized by the Claude Code SDK for typed dispatch in
-// [UnmarshalToolInputSchemas] / [UnmarshalToolOutputSchemas]. User-defined
-// MCP tools share the [McpToolNamePrefix] prefix.
+// [ToolInputSchemas.UnmarshalForTool] / [ToolOutputSchemas.UnmarshalForTool].
+// User-defined MCP tools share the [McpToolNamePrefix] prefix.
 const (
 	ToolNameAgent                = "Agent"
 	ToolNameAskUserQuestion      = "AskUserQuestion"
@@ -4202,201 +5078,8 @@ const (
 // McpToolNamePrefix marks user-defined MCP tools, e.g. "mcp__server__tool".
 const McpToolNamePrefix = "mcp__"
 
-// UnmarshalToolInputSchemas dispatches on toolName to the appropriate
-// ToolInputSchemas concrete type, then unmarshals data into it. Returns
-// a [ToolInputUnknown] for tool names not in the known set. Returns
-// (nil, nil) when data is empty or `null`.
-func UnmarshalToolInputSchemas(toolName string, data []byte) (ToolInputSchemas, error) {
-	if len(data) == 0 || string(data) == "null" {
-		return nil, nil
-	}
-	if strings.HasPrefix(toolName, McpToolNamePrefix) {
-		var v McpInput
-		return &v, json.Unmarshal(data, &v)
-	}
-	switch toolName {
-	case ToolNameAskUserQuestion:
-		var v AskUserQuestionInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameBash:
-		var v BashInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameConfig:
-		var v ConfigInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameEdit:
-		var v FileEditInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameEnterWorktree:
-		var v EnterWorktreeInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameExitPlanMode:
-		var v ExitPlanModeInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameGlob:
-		var v GlobInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameGrep:
-		var v GrepInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameListMcpResources:
-		var v ListMcpResourcesInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameNotebookEdit:
-		var v NotebookEditInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameRead:
-		var v FileReadInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameReadMcpResource:
-		var v ReadMcpResourceInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameSubscribeMcpResource:
-		var v SubscribeMcpResourceInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameSubscribePolling:
-		var v SubscribePollingInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameAgent, ToolNameTask:
-		var v AgentInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameMonitor:
-		var v MonitorInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWorkflow:
-		var v WorkflowInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskCreate:
-		var v TaskCreateInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskUpdate:
-		var v TaskUpdateInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskGet:
-		var v TaskGetInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskList:
-		var v TaskListInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskOutput:
-		var v TaskOutputInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskStop:
-		var v TaskStopInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTodoWrite:
-		var v TodoWriteInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameUnsubscribeMcpResource:
-		var v UnsubscribeMcpResourceInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameUnsubscribePolling:
-		var v UnsubscribePollingInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWebFetch:
-		var v WebFetchInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWebSearch:
-		var v WebSearchInput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWrite:
-		var v FileWriteInput
-		return &v, json.Unmarshal(data, &v)
-	default:
-		var v ToolInputUnknown
-		return &v, v.UnmarshalJSON(data)
-	}
-}
-
-// UnmarshalToolOutputSchemas dispatches on toolName to the appropriate
-// ToolOutputSchemas concrete type, then unmarshals data into it. Returns
-// a [ToolOutputUnknown] for tool names not in the known set or for tools
-// without a typed output (e.g. TodoWrite, ExitPlanMode are accepted as
-// best-effort; missing ones fall through to ToolOutputUnknown). Returns
-// (nil, nil) when data is empty or `null`.
-func UnmarshalToolOutputSchemas(toolName string, data []byte) (ToolOutputSchemas, error) {
-	if len(data) == 0 || string(data) == "null" {
-		return nil, nil
-	}
-	if strings.HasPrefix(toolName, McpToolNamePrefix) {
-		var v ToolOutputUnknown
-		return &v, v.UnmarshalJSON(data)
-	}
-	switch toolName {
-	case ToolNameAskUserQuestion:
-		var v AskUserQuestionOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameBash:
-		var v BashOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameConfig:
-		var v ConfigOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameEdit:
-		var v FileEditOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameEnterWorktree:
-		var v EnterWorktreeOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameExitPlanMode:
-		var v ExitPlanModeOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameGlob:
-		var v GlobOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameGrep:
-		var v GrepOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameListMcpResources:
-		var v ListMcpResourcesOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameNotebookEdit:
-		var v NotebookEditOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameReadMcpResource:
-		var v ReadMcpResourceOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameMonitor:
-		var v MonitorOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWorkflow:
-		var v WorkflowOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskCreate:
-		var v TaskCreateOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskUpdate:
-		var v TaskUpdateOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskGet:
-		var v TaskGetOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskList:
-		var v TaskListOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTaskStop:
-		var v TaskStopOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameTodoWrite:
-		var v TodoWriteOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWebFetch:
-		var v WebFetchOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWebSearch:
-		var v WebSearchOutput
-		return &v, json.Unmarshal(data, &v)
-	case ToolNameWrite:
-		var v FileWriteOutput
-		return &v, json.Unmarshal(data, &v)
-	default:
-		var v ToolOutputUnknown
-		return &v, v.UnmarshalJSON(data)
-	}
-}
-
 func PermissionUpdateToProto(v PermissionUpdate) (*pb.PermissionUpdate, error) {
-	switch x := v.(type) {
+	switch x := v.value.(type) {
 	case *PermissionUpdateUnknown:
 		return &pb.PermissionUpdate{Value: &pb.PermissionUpdate_Unknown{Unknown: x.ToProto()}}, nil
 	case *PermissionUpdateAddRules:
@@ -4461,60 +5144,60 @@ func PermissionUpdateToProto(v PermissionUpdate) (*pb.PermissionUpdate, error) {
 
 func PermissionUpdateFromProto(v *pb.PermissionUpdate) (PermissionUpdate, error) {
 	if v == nil {
-		return nil, nil
+		return PermissionUpdate{}, nil
 	}
 	switch x := v.GetValue().(type) {
 	case *pb.PermissionUpdate_Unknown:
 		var u UnknownUnion
 		u.FromProto(v.GetUnknown())
-		return &PermissionUpdateUnknown{UnknownUnion: u}, nil
+		return NewPermissionUpdate(&PermissionUpdateUnknown{UnknownUnion: u}), nil
 	case *pb.PermissionUpdate_AddRules:
 		addRules := v.GetAddRules()
-		return &PermissionUpdateAddRules{
+		return NewPermissionUpdate(&PermissionUpdateAddRules{
 			Type:        "addRules",
 			Rules:       permissionRuleValuesFromProto(addRules.GetRules()),
 			Behavior:    PermissionBehavior(addRules.GetBehavior()),
 			Destination: PermissionUpdateDestination(addRules.GetDestination()),
-		}, nil
+		}), nil
 	case *pb.PermissionUpdate_ReplaceRules:
 		replaceRules := v.GetReplaceRules()
-		return &PermissionUpdateReplaceRules{
+		return NewPermissionUpdate(&PermissionUpdateReplaceRules{
 			Type:        "replaceRules",
 			Rules:       permissionRuleValuesFromProto(replaceRules.GetRules()),
 			Behavior:    PermissionBehavior(replaceRules.GetBehavior()),
 			Destination: PermissionUpdateDestination(replaceRules.GetDestination()),
-		}, nil
+		}), nil
 	case *pb.PermissionUpdate_RemoveRules:
 		removeRules := v.GetRemoveRules()
-		return &PermissionUpdateRemoveRules{
+		return NewPermissionUpdate(&PermissionUpdateRemoveRules{
 			Type:        "removeRules",
 			Rules:       permissionRuleValuesFromProto(removeRules.GetRules()),
 			Behavior:    PermissionBehavior(removeRules.GetBehavior()),
 			Destination: PermissionUpdateDestination(removeRules.GetDestination()),
-		}, nil
+		}), nil
 	case *pb.PermissionUpdate_SetMode:
 		setMode := v.GetSetMode()
-		return &PermissionUpdateSetMode{
+		return NewPermissionUpdate(&PermissionUpdateSetMode{
 			Type:        "setMode",
 			Mode:        PermissionMode(setMode.GetMode()),
 			Destination: PermissionUpdateDestination(setMode.GetDestination()),
-		}, nil
+		}), nil
 	case *pb.PermissionUpdate_AddDirectories:
 		addDirectories := v.GetAddDirectories()
-		return &PermissionUpdateAddDirectories{
+		return NewPermissionUpdate(&PermissionUpdateAddDirectories{
 			Type:        "addDirectories",
 			Directories: append([]string(nil), addDirectories.GetDirectories()...),
 			Destination: PermissionUpdateDestination(addDirectories.GetDestination()),
-		}, nil
+		}), nil
 	case *pb.PermissionUpdate_RemoveDirectories:
 		removeDirectories := v.GetRemoveDirectories()
-		return &PermissionUpdateRemoveDirectories{
+		return NewPermissionUpdate(&PermissionUpdateRemoveDirectories{
 			Type:        "removeDirectories",
 			Directories: append([]string(nil), removeDirectories.GetDirectories()...),
 			Destination: PermissionUpdateDestination(removeDirectories.GetDestination()),
-		}, nil
+		}), nil
 	default:
-		return nil, fmt.Errorf("unsupported proto PermissionUpdate %T", x)
+		return PermissionUpdate{}, fmt.Errorf("unsupported proto PermissionUpdate %T", x)
 	}
 }
 
@@ -4544,7 +5227,8 @@ func (o *PermissionResultAllow) UnmarshalJSON(data []byte) error {
 	}
 	updates := make([]PermissionUpdate, 0, len(v.UpdatedPermissions))
 	for _, rawUpdate := range v.UpdatedPermissions {
-		update, err := UnmarshalPermissionUpdate(rawUpdate)
+		var update PermissionUpdate
+		err := update.UnmarshalJSON(rawUpdate)
 		if err != nil {
 			return err
 		}
@@ -4578,7 +5262,7 @@ func (o *PermissionResultDeny) UnmarshalJSON(data []byte) error {
 }
 
 func PermissionResultToProto(v PermissionResult) (*pb.PermissionResult, error) {
-	switch x := v.(type) {
+	switch x := v.value.(type) {
 	case *PermissionResultUnknown:
 		return &pb.PermissionResult{Value: &pb.PermissionResult_Unknown{Unknown: x.ToProto()}}, nil
 	case *PermissionResultAllow:
@@ -4612,35 +5296,35 @@ func PermissionResultToProto(v PermissionResult) (*pb.PermissionResult, error) {
 
 func PermissionResultFromProto(v *pb.PermissionResult) (PermissionResult, error) {
 	if v == nil {
-		return nil, nil
+		return PermissionResult{}, nil
 	}
 	switch x := v.GetValue().(type) {
 	case *pb.PermissionResult_Unknown:
 		var u UnknownUnion
 		u.FromProto(v.GetUnknown())
-		return &PermissionResultUnknown{UnknownUnion: u}, nil
+		return NewPermissionResult(&PermissionResultUnknown{UnknownUnion: u}), nil
 	case *pb.PermissionResult_Allow:
 		allow := v.GetAllow()
 		updates, err := permissionUpdatesFromProto(allow.GetUpdatedPermissions())
 		if err != nil {
-			return nil, err
+			return PermissionResult{}, err
 		}
-		return &PermissionResultAllow{
+		return NewPermissionResult(&PermissionResultAllow{
 			Behavior:           permissionResultBehaviorFromProto(allow.GetBehavior()),
 			UpdatedInput:       protoStructToMap(allow.GetUpdatedInput()),
 			UpdatedPermissions: updates,
 			ToolUseID:          protoOpt(allow, "tool_use_id", allow.GetToolUseId()),
-		}, nil
+		}), nil
 	case *pb.PermissionResult_Deny:
 		deny := v.GetDeny()
-		return &PermissionResultDeny{
+		return NewPermissionResult(&PermissionResultDeny{
 			Behavior:  permissionResultBehaviorFromProto(deny.GetBehavior()),
 			Message:   deny.GetMessage(),
 			Interrupt: protoOpt(deny, "interrupt", deny.GetInterrupt()),
 			ToolUseID: protoOpt(deny, "tool_use_id", deny.GetToolUseId()),
-		}, nil
+		}), nil
 	default:
-		return nil, fmt.Errorf("unsupported proto PermissionResult %T", x)
+		return PermissionResult{}, fmt.Errorf("unsupported proto PermissionResult %T", x)
 	}
 }
 
@@ -4670,7 +5354,8 @@ func (o *PermissionRequestDecisionAllow) UnmarshalJSON(data []byte) error {
 	}
 	updates := make([]PermissionUpdate, 0, len(v.UpdatedPermissions))
 	for _, rawUpdate := range v.UpdatedPermissions {
-		update, err := UnmarshalPermissionUpdate(rawUpdate)
+		var update PermissionUpdate
+		err := update.UnmarshalJSON(rawUpdate)
 		if err != nil {
 			return err
 		}
@@ -4702,31 +5387,10 @@ func (o *PermissionRequestDecisionDeny) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// UnmarshalPermissionRequestDecision unmarshals a PermissionRequestDecision union value from JSON.
-func UnmarshalPermissionRequestDecision(data []byte) (PermissionRequestDecision, error) {
-	var disc struct {
-		Behavior PermissionRequestDecisionBehavior `json:"behavior"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return nil, err
-	}
-	switch disc.Behavior {
-	case PermissionRequestDecisionBehaviorAllow:
-		var v PermissionRequestDecisionAllow
-		return &v, v.UnmarshalJSON(data)
-	case PermissionRequestDecisionBehaviorDeny:
-		var v PermissionRequestDecisionDeny
-		return &v, v.UnmarshalJSON(data)
-	default:
-		var v PermissionRequestDecisionUnknown
-		return &v, v.UnmarshalJSON(data)
-	}
-}
-
 func PermissionRequestDecisionToProto(
 	v PermissionRequestDecision,
 ) (*pb.PermissionRequestDecision, error) {
-	switch x := v.(type) {
+	switch x := v.value.(type) {
 	case *PermissionRequestDecisionUnknown:
 		return &pb.PermissionRequestDecision{
 			Value: &pb.PermissionRequestDecision_Unknown{Unknown: x.ToProto()},
@@ -4768,33 +5432,36 @@ func PermissionRequestDecisionFromProto(
 	v *pb.PermissionRequestDecision,
 ) (PermissionRequestDecision, error) {
 	if v == nil {
-		return nil, nil
+		return PermissionRequestDecision{}, nil
 	}
 	switch x := v.GetValue().(type) {
 	case *pb.PermissionRequestDecision_Unknown:
 		var u UnknownUnion
 		u.FromProto(v.GetUnknown())
-		return &PermissionRequestDecisionUnknown{UnknownUnion: u}, nil
+		return NewPermissionRequestDecision(&PermissionRequestDecisionUnknown{UnknownUnion: u}), nil
 	case *pb.PermissionRequestDecision_Allow:
 		allow := v.GetAllow()
 		updates, err := permissionUpdatesFromProto(allow.GetUpdatedPermissions())
 		if err != nil {
-			return nil, err
+			return PermissionRequestDecision{}, err
 		}
-		return &PermissionRequestDecisionAllow{
+		return NewPermissionRequestDecision(&PermissionRequestDecisionAllow{
 			Behavior:           permissionRequestDecisionBehaviorFromProto(allow.GetBehavior()),
 			UpdatedInput:       protoStructToMap(allow.GetUpdatedInput()),
 			UpdatedPermissions: updates,
-		}, nil
+		}), nil
 	case *pb.PermissionRequestDecision_Deny:
 		deny := v.GetDeny()
-		return &PermissionRequestDecisionDeny{
+		return NewPermissionRequestDecision(&PermissionRequestDecisionDeny{
 			Behavior:  permissionRequestDecisionBehaviorFromProto(deny.GetBehavior()),
 			Message:   protoOpt(deny, "message", deny.GetMessage()),
 			Interrupt: protoOpt(deny, "interrupt", deny.GetInterrupt()),
-		}, nil
+		}), nil
 	default:
-		return nil, fmt.Errorf("unsupported proto PermissionRequestDecision %T", x)
+		return PermissionRequestDecision{}, fmt.Errorf(
+			"unsupported proto PermissionRequestDecision %T",
+			x,
+		)
 	}
 }
 
@@ -4962,8 +5629,8 @@ func (o HookSpecificOutputPermissionRequest) MarshalJSON() ([]byte, error) {
 		Decision      json.RawMessage `json:"decision"`
 	}
 	var dec json.RawMessage
-	if o.Decision != nil {
-		b, err := marshalPermissionRequestDecision(o.Decision)
+	if o.Decision.GetValue() != nil {
+		b, err := json.Marshal(o.Decision)
 		if err != nil {
 			return nil, err
 		}
@@ -4983,7 +5650,8 @@ func (o *HookSpecificOutputPermissionRequest) UnmarshalJSON(data []byte) error {
 	}
 	o.HookEventName = HookEventPermissionRequest
 	if len(v.Decision) > 0 {
-		dec, err := UnmarshalPermissionRequestDecision(v.Decision)
+		var dec PermissionRequestDecision
+		err := dec.UnmarshalJSON(v.Decision)
 		if err != nil {
 			return err
 		}
@@ -4992,66 +5660,8 @@ func (o *HookSpecificOutputPermissionRequest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func marshalPermissionRequestDecision(v PermissionRequestDecision) ([]byte, error) {
-	switch x := v.(type) {
-	case *PermissionRequestDecisionUnknown:
-		return x.MarshalJSON()
-	case *PermissionRequestDecisionAllow:
-		return x.MarshalJSON()
-	case *PermissionRequestDecisionDeny:
-		return x.MarshalJSON()
-	default:
-		return nil, fmt.Errorf("unsupported PermissionRequestDecision %T", v)
-	}
-}
-
-// UnmarshalHookSpecificOutput unmarshals a HookSpecificOutput union value from JSON.
-func UnmarshalHookSpecificOutput(data []byte) (HookSpecificOutput, error) {
-	var disc struct {
-		HookEventName HookEvent `json:"hookEventName"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return nil, err
-	}
-	switch disc.HookEventName {
-	case HookEventPreToolUse:
-		var v HookSpecificOutputPreToolUse
-		return &v, v.UnmarshalJSON(data)
-	case HookEventUserPromptSubmit:
-		var v HookSpecificOutputUserPromptSubmit
-		return &v, v.UnmarshalJSON(data)
-	case HookEventSessionStart:
-		var v HookSpecificOutputSessionStart
-		return &v, v.UnmarshalJSON(data)
-	case HookEventSetup:
-		var v HookSpecificOutputSetup
-		return &v, v.UnmarshalJSON(data)
-	case HookEventSubagentStart:
-		var v HookSpecificOutputSubagentStart
-		return &v, v.UnmarshalJSON(data)
-	case HookEventPostToolUse:
-		var v HookSpecificOutputPostToolUse
-		return &v, v.UnmarshalJSON(data)
-	case HookEventPostToolUseFailure:
-		var v HookSpecificOutputPostToolUseFailure
-		return &v, v.UnmarshalJSON(data)
-	case HookEventPostToolBatch:
-		var v HookSpecificOutputPostToolBatch
-		return &v, v.UnmarshalJSON(data)
-	case HookEventNotification:
-		var v HookSpecificOutputNotification
-		return &v, v.UnmarshalJSON(data)
-	case HookEventPermissionRequest:
-		var v HookSpecificOutputPermissionRequest
-		return &v, v.UnmarshalJSON(data)
-	default:
-		var v HookSpecificOutputUnknown
-		return &v, v.UnmarshalJSON(data)
-	}
-}
-
 func HookSpecificOutputToProto(v HookSpecificOutput) (*pb.HookSpecificOutput, error) {
-	switch x := v.(type) {
+	switch x := v.value.(type) {
 	case *HookSpecificOutputUnknown:
 		return &pb.HookSpecificOutput{
 			Value: &pb.HookSpecificOutput_Unknown{Unknown: x.ToProto()},
@@ -5185,13 +5795,13 @@ func HookSpecificOutputToProto(v HookSpecificOutput) (*pb.HookSpecificOutput, er
 
 func HookSpecificOutputFromProto(v *pb.HookSpecificOutput) (HookSpecificOutput, error) {
 	if v == nil {
-		return nil, nil
+		return HookSpecificOutput{}, nil
 	}
 	switch x := v.GetValue().(type) {
 	case *pb.HookSpecificOutput_Unknown:
 		var u UnknownUnion
 		u.FromProto(v.GetUnknown())
-		return &HookSpecificOutputUnknown{UnknownUnion: u}, nil
+		return NewHookSpecificOutput(&HookSpecificOutputUnknown{UnknownUnion: u}), nil
 	case *pb.HookSpecificOutput_PreToolUse:
 		preToolUse := v.GetPreToolUse()
 		var pd *HookPermissionDecision
@@ -5200,7 +5810,7 @@ func HookSpecificOutputFromProto(v *pb.HookSpecificOutput) (HookSpecificOutput, 
 			t := HookPermissionDecision(permissionDecision)
 			pd = &t
 		}
-		return &HookSpecificOutputPreToolUse{
+		return NewHookSpecificOutput(&HookSpecificOutputPreToolUse{
 			HookEventName:      HookEventPreToolUse,
 			PermissionDecision: pd,
 			PermissionDecisionReason: protoOpt(
@@ -5214,43 +5824,43 @@ func HookSpecificOutputFromProto(v *pb.HookSpecificOutput) (HookSpecificOutput, 
 				"additional_context",
 				preToolUse.GetAdditionalContext(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_UserPromptSubmit:
 		userPromptSubmit := v.GetUserPromptSubmit()
-		return &HookSpecificOutputUserPromptSubmit{
+		return NewHookSpecificOutput(&HookSpecificOutputUserPromptSubmit{
 			HookEventName: HookEventUserPromptSubmit,
 			AdditionalContext: protoOpt(
 				userPromptSubmit,
 				"additional_context",
 				userPromptSubmit.GetAdditionalContext(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_SessionStart:
 		sessionStart := v.GetSessionStart()
-		return &HookSpecificOutputSessionStart{
+		return NewHookSpecificOutput(&HookSpecificOutputSessionStart{
 			HookEventName: HookEventSessionStart,
 			AdditionalContext: protoOpt(
 				sessionStart,
 				"additional_context",
 				sessionStart.GetAdditionalContext(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_Setup:
 		setup := v.GetSetup()
-		return &HookSpecificOutputSetup{
+		return NewHookSpecificOutput(&HookSpecificOutputSetup{
 			HookEventName:     HookEventSetup,
 			AdditionalContext: protoOpt(setup, "additional_context", setup.GetAdditionalContext()),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_SubagentStart:
 		subagentStart := v.GetSubagentStart()
-		return &HookSpecificOutputSubagentStart{
+		return NewHookSpecificOutput(&HookSpecificOutputSubagentStart{
 			HookEventName: HookEventSubagentStart,
 			AdditionalContext: protoOpt(
 				subagentStart,
 				"additional_context",
 				subagentStart.GetAdditionalContext(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_PostToolUse:
 		postToolUse := v.GetPostToolUse()
 		var updatedMCP json.RawMessage
@@ -5261,7 +5871,7 @@ func HookSpecificOutputFromProto(v *pb.HookSpecificOutput) (HookSpecificOutput, 
 		if postToolUse.GetUpdatedToolOutput() != nil {
 			updated = cloneRawMessage(postToolUse.GetUpdatedToolOutput().GetRawJson())
 		}
-		return &HookSpecificOutputPostToolUse{
+		return NewHookSpecificOutput(&HookSpecificOutputPostToolUse{
 			HookEventName: HookEventPostToolUse,
 			AdditionalContext: protoOpt(
 				postToolUse,
@@ -5270,48 +5880,48 @@ func HookSpecificOutputFromProto(v *pb.HookSpecificOutput) (HookSpecificOutput, 
 			),
 			UpdatedToolOutput:    updated,
 			UpdatedMCPToolOutput: updatedMCP,
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_PostToolUseFailure:
 		postToolUseFailure := v.GetPostToolUseFailure()
-		return &HookSpecificOutputPostToolUseFailure{
+		return NewHookSpecificOutput(&HookSpecificOutputPostToolUseFailure{
 			HookEventName: HookEventPostToolUseFailure,
 			AdditionalContext: protoOpt(
 				postToolUseFailure,
 				"additional_context",
 				postToolUseFailure.GetAdditionalContext(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_PostToolBatch:
 		postToolBatch := v.GetPostToolBatch()
-		return &HookSpecificOutputPostToolBatch{
+		return NewHookSpecificOutput(&HookSpecificOutputPostToolBatch{
 			HookEventName: HookEventPostToolBatch,
 			AdditionalContext: protoOpt(
 				postToolBatch,
 				"additional_context",
 				postToolBatch.GetAdditionalContext(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_Notification:
 		notification := v.GetNotification()
-		return &HookSpecificOutputNotification{
+		return NewHookSpecificOutput(&HookSpecificOutputNotification{
 			HookEventName: HookEventNotification,
 			AdditionalContext: protoOpt(
 				notification,
 				"additional_context",
 				notification.GetAdditionalContext(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookSpecificOutput_PermissionRequest:
 		dec, err := PermissionRequestDecisionFromProto(v.GetPermissionRequest().GetDecision())
 		if err != nil {
-			return nil, err
+			return HookSpecificOutput{}, err
 		}
-		return &HookSpecificOutputPermissionRequest{
+		return NewHookSpecificOutput(&HookSpecificOutputPermissionRequest{
 			HookEventName: HookEventPermissionRequest,
 			Decision:      dec,
-		}, nil
+		}), nil
 	default:
-		return nil, fmt.Errorf("unsupported proto HookSpecificOutput %T", x)
+		return HookSpecificOutput{}, fmt.Errorf("unsupported proto HookSpecificOutput %T", x)
 	}
 }
 
@@ -5346,8 +5956,8 @@ func (o SyncHookJSONOutput) MarshalJSON() ([]byte, error) {
 		HookSpecificOutput json.RawMessage `json:"hookSpecificOutput,omitempty"`
 	}
 	var hso json.RawMessage
-	if o.HookSpecificOutput != nil {
-		b, err := marshalHookSpecificOutput(o.HookSpecificOutput)
+	if o.HookSpecificOutput.GetValue() != nil {
+		b, err := json.Marshal(o.HookSpecificOutput)
 		if err != nil {
 			return nil, err
 		}
@@ -5385,7 +5995,8 @@ func (o *SyncHookJSONOutput) UnmarshalJSON(data []byte) error {
 	o.SystemMessage = v.SystemMessage
 	o.Reason = v.Reason
 	if len(v.HookSpecificOutput) > 0 {
-		got, err := UnmarshalHookSpecificOutput(v.HookSpecificOutput)
+		var got HookSpecificOutput
+		err := got.UnmarshalJSON(v.HookSpecificOutput)
 		if err != nil {
 			return err
 		}
@@ -5394,58 +6005,8 @@ func (o *SyncHookJSONOutput) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func marshalHookSpecificOutput(v HookSpecificOutput) ([]byte, error) {
-	switch x := v.(type) {
-	case *HookSpecificOutputUnknown:
-		return x.MarshalJSON()
-	case *HookSpecificOutputPreToolUse:
-		return x.MarshalJSON()
-	case *HookSpecificOutputUserPromptSubmit:
-		return x.MarshalJSON()
-	case *HookSpecificOutputSessionStart:
-		return x.MarshalJSON()
-	case *HookSpecificOutputSetup:
-		return x.MarshalJSON()
-	case *HookSpecificOutputSubagentStart:
-		return x.MarshalJSON()
-	case *HookSpecificOutputPostToolUse:
-		return x.MarshalJSON()
-	case *HookSpecificOutputPostToolUseFailure:
-		return x.MarshalJSON()
-	case *HookSpecificOutputNotification:
-		return x.MarshalJSON()
-	case *HookSpecificOutputPermissionRequest:
-		return x.MarshalJSON()
-	default:
-		return nil, fmt.Errorf("unsupported HookSpecificOutput %T", v)
-	}
-}
-
-// UnmarshalHookJSONOutput unmarshals a HookJSONOutput union value from JSON.
-func UnmarshalHookJSONOutput(data []byte) (HookJSONOutput, error) {
-	var probe struct {
-		Async *bool `json:"async"`
-	}
-	if err := json.Unmarshal(data, &probe); err != nil {
-		return nil, err
-	}
-	if probe.Async != nil && *probe.Async {
-		var v AsyncHookJSONOutput
-		return &v, v.UnmarshalJSON(data)
-	}
-	var syncV SyncHookJSONOutput
-	if err := syncV.UnmarshalJSON(
-		data,
-	); err == nil &&
-		(syncV.Continue != nil || syncV.SuppressOutput != nil || syncV.StopReason != nil || syncV.Decision != nil || syncV.SystemMessage != nil || syncV.Reason != nil || syncV.HookSpecificOutput != nil) {
-		return &syncV, nil
-	}
-	var unknown HookJSONOutputUnknown
-	return &unknown, unknown.UnmarshalJSON(data)
-}
-
 func HookJSONOutputToProto(v HookJSONOutput) (*pb.HookJSONOutput, error) {
-	switch x := v.(type) {
+	switch x := v.value.(type) {
 	case *HookJSONOutputUnknown:
 		return &pb.HookJSONOutput{Value: &pb.HookJSONOutput_Unknown{Unknown: x.ToProto()}}, nil
 	case *AsyncHookJSONOutput:
@@ -5457,7 +6018,7 @@ func HookJSONOutputToProto(v HookJSONOutput) (*pb.HookJSONOutput, error) {
 	case *SyncHookJSONOutput:
 		var hso *pb.HookSpecificOutput
 		var err error
-		if x.HookSpecificOutput != nil {
+		if x.HookSpecificOutput.GetValue() != nil {
 			hso, err = HookSpecificOutputToProto(x.HookSpecificOutput)
 			if err != nil {
 				return nil, err
@@ -5486,19 +6047,19 @@ func HookJSONOutputToProto(v HookJSONOutput) (*pb.HookJSONOutput, error) {
 
 func HookJSONOutputFromProto(v *pb.HookJSONOutput) (HookJSONOutput, error) {
 	if v == nil {
-		return nil, nil
+		return HookJSONOutput{}, nil
 	}
 	switch x := v.GetValue().(type) {
 	case *pb.HookJSONOutput_Unknown:
 		var u UnknownUnion
 		u.FromProto(v.GetUnknown())
-		return &HookJSONOutputUnknown{UnknownUnion: u}, nil
+		return NewHookJSONOutput(&HookJSONOutputUnknown{UnknownUnion: u}), nil
 	case *pb.HookJSONOutput_AsyncOutput:
 		asyncOutput := v.GetAsyncOutput()
-		return &AsyncHookJSONOutput{
+		return NewHookJSONOutput(&AsyncHookJSONOutput{
 			Async:        asyncOutput.GetAsync(),
 			AsyncTimeout: protoOpt(asyncOutput, "async_timeout", asyncOutput.GetAsyncTimeout()),
-		}, nil
+		}), nil
 	case *pb.HookJSONOutput_SyncOutput:
 		syncOutput := v.GetSyncOutput()
 		var decision *HookDecision
@@ -5508,9 +6069,9 @@ func HookJSONOutputFromProto(v *pb.HookJSONOutput) (HookJSONOutput, error) {
 		}
 		hso, err := HookSpecificOutputFromProto(syncOutput.GetHookSpecificOutput())
 		if err != nil {
-			return nil, err
+			return HookJSONOutput{}, err
 		}
-		return &SyncHookJSONOutput{
+		return NewHookJSONOutput(&SyncHookJSONOutput{
 			Continue: protoOpt(syncOutput, "continue", syncOutput.GetContinue()),
 			SuppressOutput: protoOpt(
 				syncOutput,
@@ -5526,9 +6087,9 @@ func HookJSONOutputFromProto(v *pb.HookJSONOutput) (HookJSONOutput, error) {
 			),
 			Reason:             protoOpt(syncOutput, "reason", syncOutput.GetReason()),
 			HookSpecificOutput: hso,
-		}, nil
+		}), nil
 	default:
-		return nil, fmt.Errorf("unsupported proto HookJSONOutput %T", x)
+		return HookJSONOutput{}, fmt.Errorf("unsupported proto HookJSONOutput %T", x)
 	}
 }
 
@@ -5566,7 +6127,8 @@ func (o *PreToolUseHookInput) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	var toolInput ToolInputSchemas
+	err := toolInput.UnmarshalForTool(v.ToolName, v.ToolInput)
 	if err != nil {
 		return err
 	}
@@ -5612,11 +6174,13 @@ func (o *PostToolUseHookInput) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	var toolInput ToolInputSchemas
+	err := toolInput.UnmarshalForTool(v.ToolName, v.ToolInput)
 	if err != nil {
 		return err
 	}
-	toolResponse, err := UnmarshalToolOutputSchemas(v.ToolName, v.ToolResponse)
+	var toolResponse ToolOutputSchemas
+	err = toolResponse.UnmarshalForTool(v.ToolName, v.ToolResponse)
 	if err != nil {
 		return err
 	}
@@ -5666,7 +6230,8 @@ func (o *PostToolUseFailureHookInput) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	var toolInput ToolInputSchemas
+	err := toolInput.UnmarshalForTool(v.ToolName, v.ToolInput)
 	if err != nil {
 		return err
 	}
@@ -5724,13 +6289,15 @@ func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	toolInput, err := UnmarshalToolInputSchemas(v.ToolName, v.ToolInput)
+	var toolInput ToolInputSchemas
+	err := toolInput.UnmarshalForTool(v.ToolName, v.ToolInput)
 	if err != nil {
 		return err
 	}
 	suggestions := make([]PermissionUpdate, 0, len(v.PermissionSuggestions))
 	for _, rawSuggestion := range v.PermissionSuggestions {
-		suggestion, err := UnmarshalPermissionUpdate(rawSuggestion)
+		var suggestion PermissionUpdate
+		err := suggestion.UnmarshalJSON(rawSuggestion)
 		if err != nil {
 			return err
 		}
@@ -5747,83 +6314,8 @@ func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// UnmarshalHookInput unmarshals a HookInput union value from JSON.
-func UnmarshalHookInput(data []byte) (HookInput, error) {
-	var disc struct {
-		HookEventName HookEvent `json:"hook_event_name"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return nil, err
-	}
-	switch disc.HookEventName {
-	case HookEventPreToolUse:
-		var v PreToolUseHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventPostToolUse:
-		var v PostToolUseHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventPostToolUseFailure:
-		var v PostToolUseFailureHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventNotification:
-		var v NotificationHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventUserPromptSubmit:
-		var v UserPromptSubmitHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventSessionStart:
-		var v SessionStartHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventSessionEnd:
-		var v SessionEndHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventStop:
-		var v StopHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventSubagentStart:
-		var v SubagentStartHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventSubagentStop:
-		var v SubagentStopHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventPreCompact:
-		var v PreCompactHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventPermissionRequest:
-		var v PermissionRequestHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventSetup:
-		var v SetupHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventTeammateIdle:
-		var v TeammateIdleHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventTaskCompleted:
-		var v TaskCompletedHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventConfigChange:
-		var v ConfigChangeHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventWorktreeCreate:
-		var v WorktreeCreateHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventWorktreeRemove:
-		var v WorktreeRemoveHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventPostToolBatch:
-		var v PostToolBatchHookInput
-		return &v, json.Unmarshal(data, &v)
-	case HookEventMessageDisplay:
-		var v MessageDisplayHookInput
-		return &v, json.Unmarshal(data, &v)
-	default:
-		var v HookInputUnknown
-		return &v, v.UnmarshalJSON(data)
-	}
-}
-
 func HookInputToProto(v HookInput) (*pb.HookInput, error) {
-	switch x := v.(type) {
+	switch x := v.value.(type) {
 	case *HookInputUnknown:
 		return &pb.HookInput{Value: &pb.HookInput_Unknown{Unknown: x.ToProto()}}, nil
 	case *PreToolUseHookInput:
@@ -6145,20 +6637,20 @@ func HookInputToProto(v HookInput) (*pb.HookInput, error) {
 
 func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 	if v == nil {
-		return nil, nil
+		return HookInput{}, nil
 	}
 	switch x := v.GetValue().(type) {
 	case *pb.HookInput_Unknown:
 		var u UnknownUnion
 		u.FromProto(v.GetUnknown())
-		return &HookInputUnknown{UnknownUnion: u}, nil
+		return NewHookInput(&HookInputUnknown{UnknownUnion: u}), nil
 	case *pb.HookInput_PreToolUse:
 		preToolUse := v.GetPreToolUse()
 		raw, err := rawFromToolInputProto(preToolUse.GetToolInput(), preToolUse.GetToolName())
 		if err != nil {
-			return nil, err
+			return HookInput{}, err
 		}
-		return &PreToolUseHookInput{
+		return NewHookInput(&PreToolUseHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      preToolUse.GetSessionId(),
 				TranscriptPath: preToolUse.GetTranscriptPath(),
@@ -6176,21 +6668,21 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			ToolName:      preToolUse.GetToolName(),
 			ToolInput:     raw,
 			ToolUseID:     preToolUse.GetToolUseId(),
-		}, nil
+		}), nil
 	case *pb.HookInput_PostToolUse:
 		postToolUse := v.GetPostToolUse()
 		rawIn, err := rawFromToolInputProto(postToolUse.GetToolInput(), postToolUse.GetToolName())
 		if err != nil {
-			return nil, err
+			return HookInput{}, err
 		}
 		rawOut, err := rawFromToolOutputProto(
 			postToolUse.GetToolResponse(),
 			postToolUse.GetToolName(),
 		)
 		if err != nil {
-			return nil, err
+			return HookInput{}, err
 		}
-		return &PostToolUseHookInput{
+		return NewHookInput(&PostToolUseHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      postToolUse.GetSessionId(),
 				TranscriptPath: postToolUse.GetTranscriptPath(),
@@ -6210,7 +6702,7 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			ToolResponse:  rawOut,
 			ToolUseID:     postToolUse.GetToolUseId(),
 			DurationMs:    protoOpt(postToolUse, "duration_ms", postToolUse.GetDurationMs()),
-		}, nil
+		}), nil
 	case *pb.HookInput_PostToolUseFailure:
 		postToolUseFailure := v.GetPostToolUseFailure()
 		raw, err := rawFromToolInputProto(
@@ -6218,9 +6710,9 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			postToolUseFailure.GetToolName(),
 		)
 		if err != nil {
-			return nil, err
+			return HookInput{}, err
 		}
-		return &PostToolUseFailureHookInput{
+		return NewHookInput(&PostToolUseFailureHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      postToolUseFailure.GetSessionId(),
 				TranscriptPath: postToolUseFailure.GetTranscriptPath(),
@@ -6257,10 +6749,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 				"duration_ms",
 				postToolUseFailure.GetDurationMs(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookInput_Notification:
 		notification := v.GetNotification()
-		return &NotificationHookInput{
+		return NewHookInput(&NotificationHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      notification.GetSessionId(),
 				TranscriptPath: notification.GetTranscriptPath(),
@@ -6278,10 +6770,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			Message:          notification.GetMessage(),
 			Title:            protoOpt(notification, "title", notification.GetTitle()),
 			NotificationType: notification.GetNotificationType(),
-		}, nil
+		}), nil
 	case *pb.HookInput_UserPromptSubmit:
 		userPromptSubmit := v.GetUserPromptSubmit()
-		return &UserPromptSubmitHookInput{
+		return NewHookInput(&UserPromptSubmitHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      userPromptSubmit.GetSessionId(),
 				TranscriptPath: userPromptSubmit.GetTranscriptPath(),
@@ -6305,10 +6797,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			},
 			HookEventName: HookEvent(userPromptSubmit.GetHookEventName()),
 			Prompt:        userPromptSubmit.GetPrompt(),
-		}, nil
+		}), nil
 	case *pb.HookInput_SessionStart:
 		sessionStart := v.GetSessionStart()
-		return &SessionStartHookInput{
+		return NewHookInput(&SessionStartHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      sessionStart.GetSessionId(),
 				TranscriptPath: sessionStart.GetTranscriptPath(),
@@ -6325,10 +6817,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			HookEventName: HookEvent(sessionStart.GetHookEventName()),
 			Source:        SessionStartSource(sessionStart.GetSource()),
 			Model:         protoOpt(sessionStart, "model", sessionStart.GetModel()),
-		}, nil
+		}), nil
 	case *pb.HookInput_SessionEnd:
 		sessionEnd := v.GetSessionEnd()
-		return &SessionEndHookInput{
+		return NewHookInput(&SessionEndHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      sessionEnd.GetSessionId(),
 				TranscriptPath: sessionEnd.GetTranscriptPath(),
@@ -6344,10 +6836,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			},
 			HookEventName: HookEvent(sessionEnd.GetHookEventName()),
 			Reason:        sessionEnd.GetReason(),
-		}, nil
+		}), nil
 	case *pb.HookInput_Stop:
 		stop := v.GetStop()
-		return &StopHookInput{
+		return NewHookInput(&StopHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      stop.GetSessionId(),
 				TranscriptPath: stop.GetTranscriptPath(),
@@ -6366,10 +6858,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			),
 			BackgroundTasks: backgroundTasksFromProto(stop.GetBackgroundTasks()),
 			SessionCrons:    sessionCronsFromProto(stop.GetSessionCrons()),
-		}, nil
+		}), nil
 	case *pb.HookInput_SubagentStart:
 		subagentStart := v.GetSubagentStart()
-		return &SubagentStartHookInput{
+		return NewHookInput(&SubagentStartHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      subagentStart.GetSessionId(),
 				TranscriptPath: subagentStart.GetTranscriptPath(),
@@ -6384,10 +6876,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 				Effort:    baseEffortFromProto(subagentStart.GetEffort()),
 			},
 			HookEventName: HookEvent(subagentStart.GetHookEventName()),
-		}, nil
+		}), nil
 	case *pb.HookInput_SubagentStop:
 		subagentStop := v.GetSubagentStop()
-		return &SubagentStopHookInput{
+		return NewHookInput(&SubagentStopHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      subagentStop.GetSessionId(),
 				TranscriptPath: subagentStop.GetTranscriptPath(),
@@ -6411,10 +6903,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			),
 			BackgroundTasks: backgroundTasksFromProto(subagentStop.GetBackgroundTasks()),
 			SessionCrons:    sessionCronsFromProto(subagentStop.GetSessionCrons()),
-		}, nil
+		}), nil
 	case *pb.HookInput_PreCompact:
 		preCompact := v.GetPreCompact()
-		return &PreCompactHookInput{
+		return NewHookInput(&PreCompactHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      preCompact.GetSessionId(),
 				TranscriptPath: preCompact.GetTranscriptPath(),
@@ -6435,7 +6927,7 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 				"custom_instructions",
 				preCompact.GetCustomInstructions(),
 			),
-		}, nil
+		}), nil
 	case *pb.HookInput_PermissionRequest:
 		permissionRequest := v.GetPermissionRequest()
 		raw, err := rawFromToolInputProto(
@@ -6443,13 +6935,13 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			permissionRequest.GetToolName(),
 		)
 		if err != nil {
-			return nil, err
+			return HookInput{}, err
 		}
 		updates, err := permissionUpdatesFromProto(permissionRequest.GetPermissionSuggestions())
 		if err != nil {
-			return nil, err
+			return HookInput{}, err
 		}
-		return &PermissionRequestHookInput{
+		return NewHookInput(&PermissionRequestHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      permissionRequest.GetSessionId(),
 				TranscriptPath: permissionRequest.GetTranscriptPath(),
@@ -6476,10 +6968,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			ToolInput:             raw,
 			ToolUseID:             permissionRequest.GetToolUseId(),
 			PermissionSuggestions: updates,
-		}, nil
+		}), nil
 	case *pb.HookInput_Setup:
 		setup := v.GetSetup()
-		return &SetupHookInput{
+		return NewHookInput(&SetupHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      setup.GetSessionId(),
 				TranscriptPath: setup.GetTranscriptPath(),
@@ -6491,10 +6983,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			},
 			HookEventName: HookEvent(setup.GetHookEventName()),
 			Trigger:       SetupTrigger(setup.GetTrigger()),
-		}, nil
+		}), nil
 	case *pb.HookInput_TeammateIdle:
 		teammateIdle := v.GetTeammateIdle()
-		return &TeammateIdleHookInput{
+		return NewHookInput(&TeammateIdleHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      teammateIdle.GetSessionId(),
 				TranscriptPath: teammateIdle.GetTranscriptPath(),
@@ -6511,10 +7003,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			HookEventName: HookEvent(teammateIdle.GetHookEventName()),
 			TeammateName:  teammateIdle.GetTeammateName(),
 			TeamName:      teammateIdle.GetTeamName(),
-		}, nil
+		}), nil
 	case *pb.HookInput_TaskCompleted:
 		taskCompleted := v.GetTaskCompleted()
-		return &TaskCompletedHookInput{
+		return NewHookInput(&TaskCompletedHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      taskCompleted.GetSessionId(),
 				TranscriptPath: taskCompleted.GetTranscriptPath(),
@@ -6542,10 +7034,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 				taskCompleted.GetTeammateName(),
 			),
 			TeamName: protoOpt(taskCompleted, "team_name", taskCompleted.GetTeamName()),
-		}, nil
+		}), nil
 	case *pb.HookInput_ConfigChange:
 		configChange := v.GetConfigChange()
-		return &ConfigChangeHookInput{
+		return NewHookInput(&ConfigChangeHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      configChange.GetSessionId(),
 				TranscriptPath: configChange.GetTranscriptPath(),
@@ -6562,10 +7054,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			HookEventName: HookEvent(configChange.GetHookEventName()),
 			Source:        ConfigChangeSource(configChange.GetSource()),
 			FilePath:      protoOpt(configChange, "file_path", configChange.GetFilePath()),
-		}, nil
+		}), nil
 	case *pb.HookInput_WorktreeCreate:
 		worktreeCreate := v.GetWorktreeCreate()
-		return &WorktreeCreateHookInput{
+		return NewHookInput(&WorktreeCreateHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      worktreeCreate.GetSessionId(),
 				TranscriptPath: worktreeCreate.GetTranscriptPath(),
@@ -6585,10 +7077,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			},
 			HookEventName: HookEvent(worktreeCreate.GetHookEventName()),
 			Name:          worktreeCreate.GetName(),
-		}, nil
+		}), nil
 	case *pb.HookInput_WorktreeRemove:
 		worktreeRemove := v.GetWorktreeRemove()
-		return &WorktreeRemoveHookInput{
+		return NewHookInput(&WorktreeRemoveHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      worktreeRemove.GetSessionId(),
 				TranscriptPath: worktreeRemove.GetTranscriptPath(),
@@ -6608,10 +7100,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			},
 			HookEventName: HookEvent(worktreeRemove.GetHookEventName()),
 			WorktreePath:  worktreeRemove.GetWorktreePath(),
-		}, nil
+		}), nil
 	case *pb.HookInput_PostToolBatch:
 		postToolBatch := v.GetPostToolBatch()
-		return &PostToolBatchHookInput{
+		return NewHookInput(&PostToolBatchHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      postToolBatch.GetSessionId(),
 				TranscriptPath: postToolBatch.GetTranscriptPath(),
@@ -6627,10 +7119,10 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			},
 			HookEventName: HookEvent(postToolBatch.GetHookEventName()),
 			ToolCalls:     postToolBatchToolCallsFromProto(postToolBatch.GetToolCalls()),
-		}, nil
+		}), nil
 	case *pb.HookInput_MessageDisplay:
 		messageDisplay := v.GetMessageDisplay()
-		return &MessageDisplayHookInput{
+		return NewHookInput(&MessageDisplayHookInput{
 			BaseHookInput: BaseHookInput{
 				SessionID:      messageDisplay.GetSessionId(),
 				TranscriptPath: messageDisplay.GetTranscriptPath(),
@@ -6654,8 +7146,1172 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			Index:         messageDisplay.GetIndex(),
 			Final:         messageDisplay.GetFinal(),
 			Delta:         messageDisplay.GetDelta(),
-		}, nil
+		}), nil
 	default:
-		return nil, fmt.Errorf("unsupported proto HookInput %T", x)
+		return HookInput{}, fmt.Errorf("unsupported proto HookInput %T", x)
 	}
+}
+
+// ---- generated union struct accessors ----
+
+// NewSystemPrompt wraps a [SystemPrompt_Value] variant into a [SystemPrompt].
+func NewSystemPrompt(v SystemPrompt_Value) SystemPrompt { return SystemPrompt{value: v} }
+
+// GetValue returns the active [SystemPrompt_Value] variant, or nil when unset.
+func (o SystemPrompt) GetValue() SystemPrompt_Value { return o.value }
+
+// GetPreset reports whether the active variant is [*SystemPromptPreset] and returns it.
+func (o SystemPrompt) GetPreset() (*SystemPromptPreset, bool) {
+	v, ok := o.value.(*SystemPromptPreset)
+	return v, ok
+}
+
+// GetString reports whether the active variant is [*SystemPromptString] and returns it.
+func (o SystemPrompt) GetString() (*SystemPromptString, bool) {
+	v, ok := o.value.(*SystemPromptString)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*SystemPromptUnknown] and returns it.
+func (o SystemPrompt) GetUnknown() (*SystemPromptUnknown, bool) {
+	v, ok := o.value.(*SystemPromptUnknown)
+	return v, ok
+}
+
+// NewThinkingConfig wraps a [ThinkingConfig_Value] variant into a [ThinkingConfig].
+func NewThinkingConfig(v ThinkingConfig_Value) ThinkingConfig { return ThinkingConfig{value: v} }
+
+// GetValue returns the active [ThinkingConfig_Value] variant, or nil when unset.
+func (o ThinkingConfig) GetValue() ThinkingConfig_Value { return o.value }
+
+// GetAdaptive reports whether the active variant is [*ThinkingConfigAdaptive] and returns it.
+func (o ThinkingConfig) GetAdaptive() (*ThinkingConfigAdaptive, bool) {
+	v, ok := o.value.(*ThinkingConfigAdaptive)
+	return v, ok
+}
+
+// GetDisabled reports whether the active variant is [*ThinkingConfigDisabled] and returns it.
+func (o ThinkingConfig) GetDisabled() (*ThinkingConfigDisabled, bool) {
+	v, ok := o.value.(*ThinkingConfigDisabled)
+	return v, ok
+}
+
+// GetEnabled reports whether the active variant is [*ThinkingConfigEnabled] and returns it.
+func (o ThinkingConfig) GetEnabled() (*ThinkingConfigEnabled, bool) {
+	v, ok := o.value.(*ThinkingConfigEnabled)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*ThinkingConfigUnknown] and returns it.
+func (o ThinkingConfig) GetUnknown() (*ThinkingConfigUnknown, bool) {
+	v, ok := o.value.(*ThinkingConfigUnknown)
+	return v, ok
+}
+
+// NewToolsConfig wraps a [ToolsConfig_Value] variant into a [ToolsConfig].
+func NewToolsConfig(v ToolsConfig_Value) ToolsConfig { return ToolsConfig{value: v} }
+
+// GetValue returns the active [ToolsConfig_Value] variant, or nil when unset.
+func (o ToolsConfig) GetValue() ToolsConfig_Value { return o.value }
+
+// GetList reports whether the active variant is [*ToolsConfigList] and returns it.
+func (o ToolsConfig) GetList() (*ToolsConfigList, bool) {
+	v, ok := o.value.(*ToolsConfigList)
+	return v, ok
+}
+
+// GetPreset reports whether the active variant is [*ToolsConfigPreset] and returns it.
+func (o ToolsConfig) GetPreset() (*ToolsConfigPreset, bool) {
+	v, ok := o.value.(*ToolsConfigPreset)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*ToolsConfigUnknown] and returns it.
+func (o ToolsConfig) GetUnknown() (*ToolsConfigUnknown, bool) {
+	v, ok := o.value.(*ToolsConfigUnknown)
+	return v, ok
+}
+
+// NewPermissionUpdate wraps a [PermissionUpdate_Value] variant into a [PermissionUpdate].
+func NewPermissionUpdate(
+	v PermissionUpdate_Value,
+) PermissionUpdate {
+	return PermissionUpdate{value: v}
+}
+
+// GetValue returns the active [PermissionUpdate_Value] variant, or nil when unset.
+func (o PermissionUpdate) GetValue() PermissionUpdate_Value { return o.value }
+
+// GetAddDirectories reports whether the active variant is [*PermissionUpdateAddDirectories] and
+// returns it.
+func (o PermissionUpdate) GetAddDirectories() (*PermissionUpdateAddDirectories, bool) {
+	v, ok := o.value.(*PermissionUpdateAddDirectories)
+	return v, ok
+}
+
+// GetAddRules reports whether the active variant is [*PermissionUpdateAddRules] and returns it.
+func (o PermissionUpdate) GetAddRules() (*PermissionUpdateAddRules, bool) {
+	v, ok := o.value.(*PermissionUpdateAddRules)
+	return v, ok
+}
+
+// GetRemoveDirectories reports whether the active variant is [*PermissionUpdateRemoveDirectories]
+// and returns it.
+func (o PermissionUpdate) GetRemoveDirectories() (*PermissionUpdateRemoveDirectories, bool) {
+	v, ok := o.value.(*PermissionUpdateRemoveDirectories)
+	return v, ok
+}
+
+// GetRemoveRules reports whether the active variant is [*PermissionUpdateRemoveRules] and returns
+// it.
+func (o PermissionUpdate) GetRemoveRules() (*PermissionUpdateRemoveRules, bool) {
+	v, ok := o.value.(*PermissionUpdateRemoveRules)
+	return v, ok
+}
+
+// GetReplaceRules reports whether the active variant is [*PermissionUpdateReplaceRules] and returns
+// it.
+func (o PermissionUpdate) GetReplaceRules() (*PermissionUpdateReplaceRules, bool) {
+	v, ok := o.value.(*PermissionUpdateReplaceRules)
+	return v, ok
+}
+
+// GetSetMode reports whether the active variant is [*PermissionUpdateSetMode] and returns it.
+func (o PermissionUpdate) GetSetMode() (*PermissionUpdateSetMode, bool) {
+	v, ok := o.value.(*PermissionUpdateSetMode)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*PermissionUpdateUnknown] and returns it.
+func (o PermissionUpdate) GetUnknown() (*PermissionUpdateUnknown, bool) {
+	v, ok := o.value.(*PermissionUpdateUnknown)
+	return v, ok
+}
+
+// NewPermissionResult wraps a [PermissionResult_Value] variant into a [PermissionResult].
+func NewPermissionResult(
+	v PermissionResult_Value,
+) PermissionResult {
+	return PermissionResult{value: v}
+}
+
+// GetValue returns the active [PermissionResult_Value] variant, or nil when unset.
+func (o PermissionResult) GetValue() PermissionResult_Value { return o.value }
+
+// GetAllow reports whether the active variant is [*PermissionResultAllow] and returns it.
+func (o PermissionResult) GetAllow() (*PermissionResultAllow, bool) {
+	v, ok := o.value.(*PermissionResultAllow)
+	return v, ok
+}
+
+// GetDeny reports whether the active variant is [*PermissionResultDeny] and returns it.
+func (o PermissionResult) GetDeny() (*PermissionResultDeny, bool) {
+	v, ok := o.value.(*PermissionResultDeny)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*PermissionResultUnknown] and returns it.
+func (o PermissionResult) GetUnknown() (*PermissionResultUnknown, bool) {
+	v, ok := o.value.(*PermissionResultUnknown)
+	return v, ok
+}
+
+// NewMcpServerConfig wraps a [McpServerConfig_Value] variant into a [McpServerConfig].
+func NewMcpServerConfig(
+	v McpServerConfig_Value,
+) McpServerConfig {
+	return McpServerConfig{value: v}
+}
+
+// GetValue returns the active [McpServerConfig_Value] variant, or nil when unset.
+func (o McpServerConfig) GetValue() McpServerConfig_Value { return o.value }
+
+// GetMcpClaudeAIProxyServerConfig reports whether the active variant is
+// [*McpClaudeAIProxyServerConfig] and returns it.
+func (o McpServerConfig) GetMcpClaudeAIProxyServerConfig() (*McpClaudeAIProxyServerConfig, bool) {
+	v, ok := o.value.(*McpClaudeAIProxyServerConfig)
+	return v, ok
+}
+
+// GetMcpHttpServerConfig reports whether the active variant is [*McpHttpServerConfig] and returns
+// it.
+func (o McpServerConfig) GetMcpHttpServerConfig() (*McpHttpServerConfig, bool) {
+	v, ok := o.value.(*McpHttpServerConfig)
+	return v, ok
+}
+
+// GetMcpSSEServerConfig reports whether the active variant is [*McpSSEServerConfig] and returns it.
+func (o McpServerConfig) GetMcpSSEServerConfig() (*McpSSEServerConfig, bool) {
+	v, ok := o.value.(*McpSSEServerConfig)
+	return v, ok
+}
+
+// GetMcpSdkServerConfigWithInstance reports whether the active variant is
+// [*McpSdkServerConfigWithInstance] and returns it.
+func (o McpServerConfig) GetMcpSdkServerConfigWithInstance() (
+	*McpSdkServerConfigWithInstance,
+	bool,
+) {
+	v, ok := o.value.(*McpSdkServerConfigWithInstance)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*McpServerConfigUnknown] and returns it.
+func (o McpServerConfig) GetUnknown() (*McpServerConfigUnknown, bool) {
+	v, ok := o.value.(*McpServerConfigUnknown)
+	return v, ok
+}
+
+// GetMcpStdioServerConfig reports whether the active variant is [*McpStdioServerConfig] and returns
+// it.
+func (o McpServerConfig) GetMcpStdioServerConfig() (*McpStdioServerConfig, bool) {
+	v, ok := o.value.(*McpStdioServerConfig)
+	return v, ok
+}
+
+// NewSDKMessage wraps a [SDKMessage_Value] variant into a [SDKMessage].
+func NewSDKMessage(v SDKMessage_Value) SDKMessage { return SDKMessage{value: v} }
+
+// GetValue returns the active [SDKMessage_Value] variant, or nil when unset.
+func (o SDKMessage) GetValue() SDKMessage_Value { return o.value }
+
+// GetSDKAssistantMessage reports whether the active variant is [*SDKAssistantMessage] and returns
+// it.
+func (o SDKMessage) GetSDKAssistantMessage() (*SDKAssistantMessage, bool) {
+	v, ok := o.value.(*SDKAssistantMessage)
+	return v, ok
+}
+
+// GetSDKAuthStatusMessage reports whether the active variant is [*SDKAuthStatusMessage] and returns
+// it.
+func (o SDKMessage) GetSDKAuthStatusMessage() (*SDKAuthStatusMessage, bool) {
+	v, ok := o.value.(*SDKAuthStatusMessage)
+	return v, ok
+}
+
+// GetSDKCommandsChangedMessage reports whether the active variant is [*SDKCommandsChangedMessage]
+// and returns it.
+func (o SDKMessage) GetSDKCommandsChangedMessage() (*SDKCommandsChangedMessage, bool) {
+	v, ok := o.value.(*SDKCommandsChangedMessage)
+	return v, ok
+}
+
+// GetSDKCompactBoundaryMessage reports whether the active variant is [*SDKCompactBoundaryMessage]
+// and returns it.
+func (o SDKMessage) GetSDKCompactBoundaryMessage() (*SDKCompactBoundaryMessage, bool) {
+	v, ok := o.value.(*SDKCompactBoundaryMessage)
+	return v, ok
+}
+
+// GetSDKFilesPersistedEvent reports whether the active variant is [*SDKFilesPersistedEvent] and
+// returns it.
+func (o SDKMessage) GetSDKFilesPersistedEvent() (*SDKFilesPersistedEvent, bool) {
+	v, ok := o.value.(*SDKFilesPersistedEvent)
+	return v, ok
+}
+
+// GetSDKHookProgressMessage reports whether the active variant is [*SDKHookProgressMessage] and
+// returns it.
+func (o SDKMessage) GetSDKHookProgressMessage() (*SDKHookProgressMessage, bool) {
+	v, ok := o.value.(*SDKHookProgressMessage)
+	return v, ok
+}
+
+// GetSDKHookResponseMessage reports whether the active variant is [*SDKHookResponseMessage] and
+// returns it.
+func (o SDKMessage) GetSDKHookResponseMessage() (*SDKHookResponseMessage, bool) {
+	v, ok := o.value.(*SDKHookResponseMessage)
+	return v, ok
+}
+
+// GetSDKHookStartedMessage reports whether the active variant is [*SDKHookStartedMessage] and
+// returns it.
+func (o SDKMessage) GetSDKHookStartedMessage() (*SDKHookStartedMessage, bool) {
+	v, ok := o.value.(*SDKHookStartedMessage)
+	return v, ok
+}
+
+// GetSDKLocalCommandOutputMessage reports whether the active variant is
+// [*SDKLocalCommandOutputMessage] and returns it.
+func (o SDKMessage) GetSDKLocalCommandOutputMessage() (*SDKLocalCommandOutputMessage, bool) {
+	v, ok := o.value.(*SDKLocalCommandOutputMessage)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*SDKMessageUnknown] and returns it.
+func (o SDKMessage) GetUnknown() (*SDKMessageUnknown, bool) {
+	v, ok := o.value.(*SDKMessageUnknown)
+	return v, ok
+}
+
+// GetSDKPartialAssistantMessage reports whether the active variant is [*SDKPartialAssistantMessage]
+// and returns it.
+func (o SDKMessage) GetSDKPartialAssistantMessage() (*SDKPartialAssistantMessage, bool) {
+	v, ok := o.value.(*SDKPartialAssistantMessage)
+	return v, ok
+}
+
+// GetSDKPermissionDeniedMessage reports whether the active variant is [*SDKPermissionDeniedMessage]
+// and returns it.
+func (o SDKMessage) GetSDKPermissionDeniedMessage() (*SDKPermissionDeniedMessage, bool) {
+	v, ok := o.value.(*SDKPermissionDeniedMessage)
+	return v, ok
+}
+
+// GetSDKPluginInstallMessage reports whether the active variant is [*SDKPluginInstallMessage] and
+// returns it.
+func (o SDKMessage) GetSDKPluginInstallMessage() (*SDKPluginInstallMessage, bool) {
+	v, ok := o.value.(*SDKPluginInstallMessage)
+	return v, ok
+}
+
+// GetSDKPromptSuggestionMessage reports whether the active variant is [*SDKPromptSuggestionMessage]
+// and returns it.
+func (o SDKMessage) GetSDKPromptSuggestionMessage() (*SDKPromptSuggestionMessage, bool) {
+	v, ok := o.value.(*SDKPromptSuggestionMessage)
+	return v, ok
+}
+
+// GetSDKRateLimitEvent reports whether the active variant is [*SDKRateLimitEvent] and returns it.
+func (o SDKMessage) GetSDKRateLimitEvent() (*SDKRateLimitEvent, bool) {
+	v, ok := o.value.(*SDKRateLimitEvent)
+	return v, ok
+}
+
+// GetSDKResultMessageError reports whether the active variant is [*SDKResultMessageError] and
+// returns it.
+func (o SDKMessage) GetSDKResultMessageError() (*SDKResultMessageError, bool) {
+	v, ok := o.value.(*SDKResultMessageError)
+	return v, ok
+}
+
+// GetSDKResultMessageSuccess reports whether the active variant is [*SDKResultMessageSuccess] and
+// returns it.
+func (o SDKMessage) GetSDKResultMessageSuccess() (*SDKResultMessageSuccess, bool) {
+	v, ok := o.value.(*SDKResultMessageSuccess)
+	return v, ok
+}
+
+// GetSDKResultMessageUnknown reports whether the active variant is [*SDKResultMessageUnknown] and
+// returns it.
+func (o SDKMessage) GetSDKResultMessageUnknown() (*SDKResultMessageUnknown, bool) {
+	v, ok := o.value.(*SDKResultMessageUnknown)
+	return v, ok
+}
+
+// GetSDKStatusMessage reports whether the active variant is [*SDKStatusMessage] and returns it.
+func (o SDKMessage) GetSDKStatusMessage() (*SDKStatusMessage, bool) {
+	v, ok := o.value.(*SDKStatusMessage)
+	return v, ok
+}
+
+// GetSDKSystemMessage reports whether the active variant is [*SDKSystemMessage] and returns it.
+func (o SDKMessage) GetSDKSystemMessage() (*SDKSystemMessage, bool) {
+	v, ok := o.value.(*SDKSystemMessage)
+	return v, ok
+}
+
+// GetSDKTaskNotificationMessage reports whether the active variant is [*SDKTaskNotificationMessage]
+// and returns it.
+func (o SDKMessage) GetSDKTaskNotificationMessage() (*SDKTaskNotificationMessage, bool) {
+	v, ok := o.value.(*SDKTaskNotificationMessage)
+	return v, ok
+}
+
+// GetSDKTaskProgressMessage reports whether the active variant is [*SDKTaskProgressMessage] and
+// returns it.
+func (o SDKMessage) GetSDKTaskProgressMessage() (*SDKTaskProgressMessage, bool) {
+	v, ok := o.value.(*SDKTaskProgressMessage)
+	return v, ok
+}
+
+// GetSDKTaskStartedMessage reports whether the active variant is [*SDKTaskStartedMessage] and
+// returns it.
+func (o SDKMessage) GetSDKTaskStartedMessage() (*SDKTaskStartedMessage, bool) {
+	v, ok := o.value.(*SDKTaskStartedMessage)
+	return v, ok
+}
+
+// GetSDKTaskUpdatedMessage reports whether the active variant is [*SDKTaskUpdatedMessage] and
+// returns it.
+func (o SDKMessage) GetSDKTaskUpdatedMessage() (*SDKTaskUpdatedMessage, bool) {
+	v, ok := o.value.(*SDKTaskUpdatedMessage)
+	return v, ok
+}
+
+// GetSDKToolProgressMessage reports whether the active variant is [*SDKToolProgressMessage] and
+// returns it.
+func (o SDKMessage) GetSDKToolProgressMessage() (*SDKToolProgressMessage, bool) {
+	v, ok := o.value.(*SDKToolProgressMessage)
+	return v, ok
+}
+
+// GetSDKToolUseSummaryMessage reports whether the active variant is [*SDKToolUseSummaryMessage] and
+// returns it.
+func (o SDKMessage) GetSDKToolUseSummaryMessage() (*SDKToolUseSummaryMessage, bool) {
+	v, ok := o.value.(*SDKToolUseSummaryMessage)
+	return v, ok
+}
+
+// GetSDKUserMessage reports whether the active variant is [*SDKUserMessage] and returns it.
+func (o SDKMessage) GetSDKUserMessage() (*SDKUserMessage, bool) {
+	v, ok := o.value.(*SDKUserMessage)
+	return v, ok
+}
+
+// GetSDKUserMessageReplay reports whether the active variant is [*SDKUserMessageReplay] and returns
+// it.
+func (o SDKMessage) GetSDKUserMessageReplay() (*SDKUserMessageReplay, bool) {
+	v, ok := o.value.(*SDKUserMessageReplay)
+	return v, ok
+}
+
+// NewHookInput wraps a [HookInput_Value] variant into a [HookInput].
+func NewHookInput(v HookInput_Value) HookInput { return HookInput{value: v} }
+
+// GetValue returns the active [HookInput_Value] variant, or nil when unset.
+func (o HookInput) GetValue() HookInput_Value { return o.value }
+
+// GetConfigChangeHookInput reports whether the active variant is [*ConfigChangeHookInput] and
+// returns it.
+func (o HookInput) GetConfigChangeHookInput() (*ConfigChangeHookInput, bool) {
+	v, ok := o.value.(*ConfigChangeHookInput)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*HookInputUnknown] and returns it.
+func (o HookInput) GetUnknown() (*HookInputUnknown, bool) {
+	v, ok := o.value.(*HookInputUnknown)
+	return v, ok
+}
+
+// GetMessageDisplayHookInput reports whether the active variant is [*MessageDisplayHookInput] and
+// returns it.
+func (o HookInput) GetMessageDisplayHookInput() (*MessageDisplayHookInput, bool) {
+	v, ok := o.value.(*MessageDisplayHookInput)
+	return v, ok
+}
+
+// GetNotificationHookInput reports whether the active variant is [*NotificationHookInput] and
+// returns it.
+func (o HookInput) GetNotificationHookInput() (*NotificationHookInput, bool) {
+	v, ok := o.value.(*NotificationHookInput)
+	return v, ok
+}
+
+// GetPermissionRequestHookInput reports whether the active variant is [*PermissionRequestHookInput]
+// and returns it.
+func (o HookInput) GetPermissionRequestHookInput() (*PermissionRequestHookInput, bool) {
+	v, ok := o.value.(*PermissionRequestHookInput)
+	return v, ok
+}
+
+// GetPostToolBatchHookInput reports whether the active variant is [*PostToolBatchHookInput] and
+// returns it.
+func (o HookInput) GetPostToolBatchHookInput() (*PostToolBatchHookInput, bool) {
+	v, ok := o.value.(*PostToolBatchHookInput)
+	return v, ok
+}
+
+// GetPostToolUseFailureHookInput reports whether the active variant is
+// [*PostToolUseFailureHookInput] and returns it.
+func (o HookInput) GetPostToolUseFailureHookInput() (*PostToolUseFailureHookInput, bool) {
+	v, ok := o.value.(*PostToolUseFailureHookInput)
+	return v, ok
+}
+
+// GetPostToolUseHookInput reports whether the active variant is [*PostToolUseHookInput] and returns
+// it.
+func (o HookInput) GetPostToolUseHookInput() (*PostToolUseHookInput, bool) {
+	v, ok := o.value.(*PostToolUseHookInput)
+	return v, ok
+}
+
+// GetPreCompactHookInput reports whether the active variant is [*PreCompactHookInput] and returns
+// it.
+func (o HookInput) GetPreCompactHookInput() (*PreCompactHookInput, bool) {
+	v, ok := o.value.(*PreCompactHookInput)
+	return v, ok
+}
+
+// GetPreToolUseHookInput reports whether the active variant is [*PreToolUseHookInput] and returns
+// it.
+func (o HookInput) GetPreToolUseHookInput() (*PreToolUseHookInput, bool) {
+	v, ok := o.value.(*PreToolUseHookInput)
+	return v, ok
+}
+
+// GetSessionEndHookInput reports whether the active variant is [*SessionEndHookInput] and returns
+// it.
+func (o HookInput) GetSessionEndHookInput() (*SessionEndHookInput, bool) {
+	v, ok := o.value.(*SessionEndHookInput)
+	return v, ok
+}
+
+// GetSessionStartHookInput reports whether the active variant is [*SessionStartHookInput] and
+// returns it.
+func (o HookInput) GetSessionStartHookInput() (*SessionStartHookInput, bool) {
+	v, ok := o.value.(*SessionStartHookInput)
+	return v, ok
+}
+
+// GetSetupHookInput reports whether the active variant is [*SetupHookInput] and returns it.
+func (o HookInput) GetSetupHookInput() (*SetupHookInput, bool) {
+	v, ok := o.value.(*SetupHookInput)
+	return v, ok
+}
+
+// GetStopHookInput reports whether the active variant is [*StopHookInput] and returns it.
+func (o HookInput) GetStopHookInput() (*StopHookInput, bool) {
+	v, ok := o.value.(*StopHookInput)
+	return v, ok
+}
+
+// GetSubagentStartHookInput reports whether the active variant is [*SubagentStartHookInput] and
+// returns it.
+func (o HookInput) GetSubagentStartHookInput() (*SubagentStartHookInput, bool) {
+	v, ok := o.value.(*SubagentStartHookInput)
+	return v, ok
+}
+
+// GetSubagentStopHookInput reports whether the active variant is [*SubagentStopHookInput] and
+// returns it.
+func (o HookInput) GetSubagentStopHookInput() (*SubagentStopHookInput, bool) {
+	v, ok := o.value.(*SubagentStopHookInput)
+	return v, ok
+}
+
+// GetTaskCompletedHookInput reports whether the active variant is [*TaskCompletedHookInput] and
+// returns it.
+func (o HookInput) GetTaskCompletedHookInput() (*TaskCompletedHookInput, bool) {
+	v, ok := o.value.(*TaskCompletedHookInput)
+	return v, ok
+}
+
+// GetTeammateIdleHookInput reports whether the active variant is [*TeammateIdleHookInput] and
+// returns it.
+func (o HookInput) GetTeammateIdleHookInput() (*TeammateIdleHookInput, bool) {
+	v, ok := o.value.(*TeammateIdleHookInput)
+	return v, ok
+}
+
+// GetUserPromptSubmitHookInput reports whether the active variant is [*UserPromptSubmitHookInput]
+// and returns it.
+func (o HookInput) GetUserPromptSubmitHookInput() (*UserPromptSubmitHookInput, bool) {
+	v, ok := o.value.(*UserPromptSubmitHookInput)
+	return v, ok
+}
+
+// GetWorktreeCreateHookInput reports whether the active variant is [*WorktreeCreateHookInput] and
+// returns it.
+func (o HookInput) GetWorktreeCreateHookInput() (*WorktreeCreateHookInput, bool) {
+	v, ok := o.value.(*WorktreeCreateHookInput)
+	return v, ok
+}
+
+// GetWorktreeRemoveHookInput reports whether the active variant is [*WorktreeRemoveHookInput] and
+// returns it.
+func (o HookInput) GetWorktreeRemoveHookInput() (*WorktreeRemoveHookInput, bool) {
+	v, ok := o.value.(*WorktreeRemoveHookInput)
+	return v, ok
+}
+
+// NewHookJSONOutput wraps a [HookJSONOutput_Value] variant into a [HookJSONOutput].
+func NewHookJSONOutput(v HookJSONOutput_Value) HookJSONOutput { return HookJSONOutput{value: v} }
+
+// GetValue returns the active [HookJSONOutput_Value] variant, or nil when unset.
+func (o HookJSONOutput) GetValue() HookJSONOutput_Value { return o.value }
+
+// GetAsyncHookJSONOutput reports whether the active variant is [*AsyncHookJSONOutput] and returns
+// it.
+func (o HookJSONOutput) GetAsyncHookJSONOutput() (*AsyncHookJSONOutput, bool) {
+	v, ok := o.value.(*AsyncHookJSONOutput)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*HookJSONOutputUnknown] and returns it.
+func (o HookJSONOutput) GetUnknown() (*HookJSONOutputUnknown, bool) {
+	v, ok := o.value.(*HookJSONOutputUnknown)
+	return v, ok
+}
+
+// GetSyncHookJSONOutput reports whether the active variant is [*SyncHookJSONOutput] and returns it.
+func (o HookJSONOutput) GetSyncHookJSONOutput() (*SyncHookJSONOutput, bool) {
+	v, ok := o.value.(*SyncHookJSONOutput)
+	return v, ok
+}
+
+// NewHookSpecificOutput wraps a [HookSpecificOutput_Value] variant into a [HookSpecificOutput].
+func NewHookSpecificOutput(v HookSpecificOutput_Value) HookSpecificOutput {
+	return HookSpecificOutput{value: v}
+}
+
+// GetValue returns the active [HookSpecificOutput_Value] variant, or nil when unset.
+func (o HookSpecificOutput) GetValue() HookSpecificOutput_Value { return o.value }
+
+// GetNotification reports whether the active variant is [*HookSpecificOutputNotification] and
+// returns it.
+func (o HookSpecificOutput) GetNotification() (*HookSpecificOutputNotification, bool) {
+	v, ok := o.value.(*HookSpecificOutputNotification)
+	return v, ok
+}
+
+// GetPermissionRequest reports whether the active variant is [*HookSpecificOutputPermissionRequest]
+// and returns it.
+func (o HookSpecificOutput) GetPermissionRequest() (*HookSpecificOutputPermissionRequest, bool) {
+	v, ok := o.value.(*HookSpecificOutputPermissionRequest)
+	return v, ok
+}
+
+// GetPostToolBatch reports whether the active variant is [*HookSpecificOutputPostToolBatch] and
+// returns it.
+func (o HookSpecificOutput) GetPostToolBatch() (*HookSpecificOutputPostToolBatch, bool) {
+	v, ok := o.value.(*HookSpecificOutputPostToolBatch)
+	return v, ok
+}
+
+// GetPostToolUse reports whether the active variant is [*HookSpecificOutputPostToolUse] and returns
+// it.
+func (o HookSpecificOutput) GetPostToolUse() (*HookSpecificOutputPostToolUse, bool) {
+	v, ok := o.value.(*HookSpecificOutputPostToolUse)
+	return v, ok
+}
+
+// GetPostToolUseFailure reports whether the active variant is
+// [*HookSpecificOutputPostToolUseFailure] and returns it.
+func (o HookSpecificOutput) GetPostToolUseFailure() (*HookSpecificOutputPostToolUseFailure, bool) {
+	v, ok := o.value.(*HookSpecificOutputPostToolUseFailure)
+	return v, ok
+}
+
+// GetPreToolUse reports whether the active variant is [*HookSpecificOutputPreToolUse] and returns
+// it.
+func (o HookSpecificOutput) GetPreToolUse() (*HookSpecificOutputPreToolUse, bool) {
+	v, ok := o.value.(*HookSpecificOutputPreToolUse)
+	return v, ok
+}
+
+// GetSessionStart reports whether the active variant is [*HookSpecificOutputSessionStart] and
+// returns it.
+func (o HookSpecificOutput) GetSessionStart() (*HookSpecificOutputSessionStart, bool) {
+	v, ok := o.value.(*HookSpecificOutputSessionStart)
+	return v, ok
+}
+
+// GetSetup reports whether the active variant is [*HookSpecificOutputSetup] and returns it.
+func (o HookSpecificOutput) GetSetup() (*HookSpecificOutputSetup, bool) {
+	v, ok := o.value.(*HookSpecificOutputSetup)
+	return v, ok
+}
+
+// GetSubagentStart reports whether the active variant is [*HookSpecificOutputSubagentStart] and
+// returns it.
+func (o HookSpecificOutput) GetSubagentStart() (*HookSpecificOutputSubagentStart, bool) {
+	v, ok := o.value.(*HookSpecificOutputSubagentStart)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*HookSpecificOutputUnknown] and returns it.
+func (o HookSpecificOutput) GetUnknown() (*HookSpecificOutputUnknown, bool) {
+	v, ok := o.value.(*HookSpecificOutputUnknown)
+	return v, ok
+}
+
+// GetUserPromptSubmit reports whether the active variant is [*HookSpecificOutputUserPromptSubmit]
+// and returns it.
+func (o HookSpecificOutput) GetUserPromptSubmit() (*HookSpecificOutputUserPromptSubmit, bool) {
+	v, ok := o.value.(*HookSpecificOutputUserPromptSubmit)
+	return v, ok
+}
+
+// NewPermissionRequestDecision wraps a [PermissionRequestDecision_Value] variant into a
+// [PermissionRequestDecision].
+func NewPermissionRequestDecision(v PermissionRequestDecision_Value) PermissionRequestDecision {
+	return PermissionRequestDecision{value: v}
+}
+
+// GetValue returns the active [PermissionRequestDecision_Value] variant, or nil when unset.
+func (o PermissionRequestDecision) GetValue() PermissionRequestDecision_Value { return o.value }
+
+// GetAllow reports whether the active variant is [*PermissionRequestDecisionAllow] and returns it.
+func (o PermissionRequestDecision) GetAllow() (*PermissionRequestDecisionAllow, bool) {
+	v, ok := o.value.(*PermissionRequestDecisionAllow)
+	return v, ok
+}
+
+// GetDeny reports whether the active variant is [*PermissionRequestDecisionDeny] and returns it.
+func (o PermissionRequestDecision) GetDeny() (*PermissionRequestDecisionDeny, bool) {
+	v, ok := o.value.(*PermissionRequestDecisionDeny)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*PermissionRequestDecisionUnknown] and returns
+// it.
+func (o PermissionRequestDecision) GetUnknown() (*PermissionRequestDecisionUnknown, bool) {
+	v, ok := o.value.(*PermissionRequestDecisionUnknown)
+	return v, ok
+}
+
+// NewToolInputSchemas wraps a [ToolInputSchemas_Value] variant into a [ToolInputSchemas].
+func NewToolInputSchemas(
+	v ToolInputSchemas_Value,
+) ToolInputSchemas {
+	return ToolInputSchemas{value: v}
+}
+
+// GetValue returns the active [ToolInputSchemas_Value] variant, or nil when unset.
+func (o ToolInputSchemas) GetValue() ToolInputSchemas_Value { return o.value }
+
+// GetAgentInput reports whether the active variant is [*AgentInput] and returns it.
+func (o ToolInputSchemas) GetAgentInput() (*AgentInput, bool) {
+	v, ok := o.value.(*AgentInput)
+	return v, ok
+}
+
+// GetAskUserQuestionInput reports whether the active variant is [*AskUserQuestionInput] and returns
+// it.
+func (o ToolInputSchemas) GetAskUserQuestionInput() (*AskUserQuestionInput, bool) {
+	v, ok := o.value.(*AskUserQuestionInput)
+	return v, ok
+}
+
+// GetBashInput reports whether the active variant is [*BashInput] and returns it.
+func (o ToolInputSchemas) GetBashInput() (*BashInput, bool) {
+	v, ok := o.value.(*BashInput)
+	return v, ok
+}
+
+// GetConfigInput reports whether the active variant is [*ConfigInput] and returns it.
+func (o ToolInputSchemas) GetConfigInput() (*ConfigInput, bool) {
+	v, ok := o.value.(*ConfigInput)
+	return v, ok
+}
+
+// GetEnterWorktreeInput reports whether the active variant is [*EnterWorktreeInput] and returns it.
+func (o ToolInputSchemas) GetEnterWorktreeInput() (*EnterWorktreeInput, bool) {
+	v, ok := o.value.(*EnterWorktreeInput)
+	return v, ok
+}
+
+// GetExitPlanModeInput reports whether the active variant is [*ExitPlanModeInput] and returns it.
+func (o ToolInputSchemas) GetExitPlanModeInput() (*ExitPlanModeInput, bool) {
+	v, ok := o.value.(*ExitPlanModeInput)
+	return v, ok
+}
+
+// GetFileEditInput reports whether the active variant is [*FileEditInput] and returns it.
+func (o ToolInputSchemas) GetFileEditInput() (*FileEditInput, bool) {
+	v, ok := o.value.(*FileEditInput)
+	return v, ok
+}
+
+// GetFileReadInput reports whether the active variant is [*FileReadInput] and returns it.
+func (o ToolInputSchemas) GetFileReadInput() (*FileReadInput, bool) {
+	v, ok := o.value.(*FileReadInput)
+	return v, ok
+}
+
+// GetFileWriteInput reports whether the active variant is [*FileWriteInput] and returns it.
+func (o ToolInputSchemas) GetFileWriteInput() (*FileWriteInput, bool) {
+	v, ok := o.value.(*FileWriteInput)
+	return v, ok
+}
+
+// GetGlobInput reports whether the active variant is [*GlobInput] and returns it.
+func (o ToolInputSchemas) GetGlobInput() (*GlobInput, bool) {
+	v, ok := o.value.(*GlobInput)
+	return v, ok
+}
+
+// GetGrepInput reports whether the active variant is [*GrepInput] and returns it.
+func (o ToolInputSchemas) GetGrepInput() (*GrepInput, bool) {
+	v, ok := o.value.(*GrepInput)
+	return v, ok
+}
+
+// GetListMcpResourcesInput reports whether the active variant is [*ListMcpResourcesInput] and
+// returns it.
+func (o ToolInputSchemas) GetListMcpResourcesInput() (*ListMcpResourcesInput, bool) {
+	v, ok := o.value.(*ListMcpResourcesInput)
+	return v, ok
+}
+
+// GetMcpInput reports whether the active variant is [*McpInput] and returns it.
+func (o ToolInputSchemas) GetMcpInput() (*McpInput, bool) {
+	v, ok := o.value.(*McpInput)
+	return v, ok
+}
+
+// GetMonitorInput reports whether the active variant is [*MonitorInput] and returns it.
+func (o ToolInputSchemas) GetMonitorInput() (*MonitorInput, bool) {
+	v, ok := o.value.(*MonitorInput)
+	return v, ok
+}
+
+// GetNotebookEditInput reports whether the active variant is [*NotebookEditInput] and returns it.
+func (o ToolInputSchemas) GetNotebookEditInput() (*NotebookEditInput, bool) {
+	v, ok := o.value.(*NotebookEditInput)
+	return v, ok
+}
+
+// GetReadMcpResourceInput reports whether the active variant is [*ReadMcpResourceInput] and returns
+// it.
+func (o ToolInputSchemas) GetReadMcpResourceInput() (*ReadMcpResourceInput, bool) {
+	v, ok := o.value.(*ReadMcpResourceInput)
+	return v, ok
+}
+
+// GetSubscribeMcpResourceInput reports whether the active variant is [*SubscribeMcpResourceInput]
+// and returns it.
+func (o ToolInputSchemas) GetSubscribeMcpResourceInput() (*SubscribeMcpResourceInput, bool) {
+	v, ok := o.value.(*SubscribeMcpResourceInput)
+	return v, ok
+}
+
+// GetSubscribePollingInput reports whether the active variant is [*SubscribePollingInput] and
+// returns it.
+func (o ToolInputSchemas) GetSubscribePollingInput() (*SubscribePollingInput, bool) {
+	v, ok := o.value.(*SubscribePollingInput)
+	return v, ok
+}
+
+// GetTaskCreateInput reports whether the active variant is [*TaskCreateInput] and returns it.
+func (o ToolInputSchemas) GetTaskCreateInput() (*TaskCreateInput, bool) {
+	v, ok := o.value.(*TaskCreateInput)
+	return v, ok
+}
+
+// GetTaskGetInput reports whether the active variant is [*TaskGetInput] and returns it.
+func (o ToolInputSchemas) GetTaskGetInput() (*TaskGetInput, bool) {
+	v, ok := o.value.(*TaskGetInput)
+	return v, ok
+}
+
+// GetTaskListInput reports whether the active variant is [*TaskListInput] and returns it.
+func (o ToolInputSchemas) GetTaskListInput() (*TaskListInput, bool) {
+	v, ok := o.value.(*TaskListInput)
+	return v, ok
+}
+
+// GetTaskOutputInput reports whether the active variant is [*TaskOutputInput] and returns it.
+func (o ToolInputSchemas) GetTaskOutputInput() (*TaskOutputInput, bool) {
+	v, ok := o.value.(*TaskOutputInput)
+	return v, ok
+}
+
+// GetTaskStopInput reports whether the active variant is [*TaskStopInput] and returns it.
+func (o ToolInputSchemas) GetTaskStopInput() (*TaskStopInput, bool) {
+	v, ok := o.value.(*TaskStopInput)
+	return v, ok
+}
+
+// GetTaskUpdateInput reports whether the active variant is [*TaskUpdateInput] and returns it.
+func (o ToolInputSchemas) GetTaskUpdateInput() (*TaskUpdateInput, bool) {
+	v, ok := o.value.(*TaskUpdateInput)
+	return v, ok
+}
+
+// GetTodoWriteInput reports whether the active variant is [*TodoWriteInput] and returns it.
+func (o ToolInputSchemas) GetTodoWriteInput() (*TodoWriteInput, bool) {
+	v, ok := o.value.(*TodoWriteInput)
+	return v, ok
+}
+
+// GetToolInputUnknown reports whether the active variant is [*ToolInputUnknown] and returns it.
+func (o ToolInputSchemas) GetToolInputUnknown() (*ToolInputUnknown, bool) {
+	v, ok := o.value.(*ToolInputUnknown)
+	return v, ok
+}
+
+// GetUnsubscribeMcpResourceInput reports whether the active variant is
+// [*UnsubscribeMcpResourceInput] and returns it.
+func (o ToolInputSchemas) GetUnsubscribeMcpResourceInput() (*UnsubscribeMcpResourceInput, bool) {
+	v, ok := o.value.(*UnsubscribeMcpResourceInput)
+	return v, ok
+}
+
+// GetUnsubscribePollingInput reports whether the active variant is [*UnsubscribePollingInput] and
+// returns it.
+func (o ToolInputSchemas) GetUnsubscribePollingInput() (*UnsubscribePollingInput, bool) {
+	v, ok := o.value.(*UnsubscribePollingInput)
+	return v, ok
+}
+
+// GetWebFetchInput reports whether the active variant is [*WebFetchInput] and returns it.
+func (o ToolInputSchemas) GetWebFetchInput() (*WebFetchInput, bool) {
+	v, ok := o.value.(*WebFetchInput)
+	return v, ok
+}
+
+// GetWebSearchInput reports whether the active variant is [*WebSearchInput] and returns it.
+func (o ToolInputSchemas) GetWebSearchInput() (*WebSearchInput, bool) {
+	v, ok := o.value.(*WebSearchInput)
+	return v, ok
+}
+
+// GetWorkflowInput reports whether the active variant is [*WorkflowInput] and returns it.
+func (o ToolInputSchemas) GetWorkflowInput() (*WorkflowInput, bool) {
+	v, ok := o.value.(*WorkflowInput)
+	return v, ok
+}
+
+// NewToolOutputSchemas wraps a [ToolOutputSchemas_Value] variant into a [ToolOutputSchemas].
+func NewToolOutputSchemas(v ToolOutputSchemas_Value) ToolOutputSchemas {
+	return ToolOutputSchemas{value: v}
+}
+
+// GetValue returns the active [ToolOutputSchemas_Value] variant, or nil when unset.
+func (o ToolOutputSchemas) GetValue() ToolOutputSchemas_Value { return o.value }
+
+// GetAgentOutputAsyncLaunched reports whether the active variant is [*AgentOutputAsyncLaunched] and
+// returns it.
+func (o ToolOutputSchemas) GetAgentOutputAsyncLaunched() (*AgentOutputAsyncLaunched, bool) {
+	v, ok := o.value.(*AgentOutputAsyncLaunched)
+	return v, ok
+}
+
+// GetAgentOutputCompleted reports whether the active variant is [*AgentOutputCompleted] and returns
+// it.
+func (o ToolOutputSchemas) GetAgentOutputCompleted() (*AgentOutputCompleted, bool) {
+	v, ok := o.value.(*AgentOutputCompleted)
+	return v, ok
+}
+
+// GetAgentOutputSubAgentEntered reports whether the active variant is [*AgentOutputSubAgentEntered]
+// and returns it.
+func (o ToolOutputSchemas) GetAgentOutputSubAgentEntered() (*AgentOutputSubAgentEntered, bool) {
+	v, ok := o.value.(*AgentOutputSubAgentEntered)
+	return v, ok
+}
+
+// GetAgentOutputUnknown reports whether the active variant is [*AgentOutputUnknown] and returns it.
+func (o ToolOutputSchemas) GetAgentOutputUnknown() (*AgentOutputUnknown, bool) {
+	v, ok := o.value.(*AgentOutputUnknown)
+	return v, ok
+}
+
+// GetAskUserQuestionOutput reports whether the active variant is [*AskUserQuestionOutput] and
+// returns it.
+func (o ToolOutputSchemas) GetAskUserQuestionOutput() (*AskUserQuestionOutput, bool) {
+	v, ok := o.value.(*AskUserQuestionOutput)
+	return v, ok
+}
+
+// GetBashOutput reports whether the active variant is [*BashOutput] and returns it.
+func (o ToolOutputSchemas) GetBashOutput() (*BashOutput, bool) {
+	v, ok := o.value.(*BashOutput)
+	return v, ok
+}
+
+// GetConfigOutput reports whether the active variant is [*ConfigOutput] and returns it.
+func (o ToolOutputSchemas) GetConfigOutput() (*ConfigOutput, bool) {
+	v, ok := o.value.(*ConfigOutput)
+	return v, ok
+}
+
+// GetEnterWorktreeOutput reports whether the active variant is [*EnterWorktreeOutput] and returns
+// it.
+func (o ToolOutputSchemas) GetEnterWorktreeOutput() (*EnterWorktreeOutput, bool) {
+	v, ok := o.value.(*EnterWorktreeOutput)
+	return v, ok
+}
+
+// GetExitPlanModeOutput reports whether the active variant is [*ExitPlanModeOutput] and returns it.
+func (o ToolOutputSchemas) GetExitPlanModeOutput() (*ExitPlanModeOutput, bool) {
+	v, ok := o.value.(*ExitPlanModeOutput)
+	return v, ok
+}
+
+// GetFileEditOutput reports whether the active variant is [*FileEditOutput] and returns it.
+func (o ToolOutputSchemas) GetFileEditOutput() (*FileEditOutput, bool) {
+	v, ok := o.value.(*FileEditOutput)
+	return v, ok
+}
+
+// GetFileReadOutputImage reports whether the active variant is [*FileReadOutputImage] and returns
+// it.
+func (o ToolOutputSchemas) GetFileReadOutputImage() (*FileReadOutputImage, bool) {
+	v, ok := o.value.(*FileReadOutputImage)
+	return v, ok
+}
+
+// GetFileReadOutputNotebook reports whether the active variant is [*FileReadOutputNotebook] and
+// returns it.
+func (o ToolOutputSchemas) GetFileReadOutputNotebook() (*FileReadOutputNotebook, bool) {
+	v, ok := o.value.(*FileReadOutputNotebook)
+	return v, ok
+}
+
+// GetFileReadOutputParts reports whether the active variant is [*FileReadOutputParts] and returns
+// it.
+func (o ToolOutputSchemas) GetFileReadOutputParts() (*FileReadOutputParts, bool) {
+	v, ok := o.value.(*FileReadOutputParts)
+	return v, ok
+}
+
+// GetFileReadOutputPdf reports whether the active variant is [*FileReadOutputPdf] and returns it.
+func (o ToolOutputSchemas) GetFileReadOutputPdf() (*FileReadOutputPdf, bool) {
+	v, ok := o.value.(*FileReadOutputPdf)
+	return v, ok
+}
+
+// GetFileReadOutputText reports whether the active variant is [*FileReadOutputText] and returns it.
+func (o ToolOutputSchemas) GetFileReadOutputText() (*FileReadOutputText, bool) {
+	v, ok := o.value.(*FileReadOutputText)
+	return v, ok
+}
+
+// GetFileReadOutputUnknown reports whether the active variant is [*FileReadOutputUnknown] and
+// returns it.
+func (o ToolOutputSchemas) GetFileReadOutputUnknown() (*FileReadOutputUnknown, bool) {
+	v, ok := o.value.(*FileReadOutputUnknown)
+	return v, ok
+}
+
+// GetFileWriteOutput reports whether the active variant is [*FileWriteOutput] and returns it.
+func (o ToolOutputSchemas) GetFileWriteOutput() (*FileWriteOutput, bool) {
+	v, ok := o.value.(*FileWriteOutput)
+	return v, ok
+}
+
+// GetGlobOutput reports whether the active variant is [*GlobOutput] and returns it.
+func (o ToolOutputSchemas) GetGlobOutput() (*GlobOutput, bool) {
+	v, ok := o.value.(*GlobOutput)
+	return v, ok
+}
+
+// GetGrepOutput reports whether the active variant is [*GrepOutput] and returns it.
+func (o ToolOutputSchemas) GetGrepOutput() (*GrepOutput, bool) {
+	v, ok := o.value.(*GrepOutput)
+	return v, ok
+}
+
+// GetListMcpResourcesOutput reports whether the active variant is [*ListMcpResourcesOutput] and
+// returns it.
+func (o ToolOutputSchemas) GetListMcpResourcesOutput() (*ListMcpResourcesOutput, bool) {
+	v, ok := o.value.(*ListMcpResourcesOutput)
+	return v, ok
+}
+
+// GetMonitorOutput reports whether the active variant is [*MonitorOutput] and returns it.
+func (o ToolOutputSchemas) GetMonitorOutput() (*MonitorOutput, bool) {
+	v, ok := o.value.(*MonitorOutput)
+	return v, ok
+}
+
+// GetNotebookEditOutput reports whether the active variant is [*NotebookEditOutput] and returns it.
+func (o ToolOutputSchemas) GetNotebookEditOutput() (*NotebookEditOutput, bool) {
+	v, ok := o.value.(*NotebookEditOutput)
+	return v, ok
+}
+
+// GetReadMcpResourceOutput reports whether the active variant is [*ReadMcpResourceOutput] and
+// returns it.
+func (o ToolOutputSchemas) GetReadMcpResourceOutput() (*ReadMcpResourceOutput, bool) {
+	v, ok := o.value.(*ReadMcpResourceOutput)
+	return v, ok
+}
+
+// GetTaskCreateOutput reports whether the active variant is [*TaskCreateOutput] and returns it.
+func (o ToolOutputSchemas) GetTaskCreateOutput() (*TaskCreateOutput, bool) {
+	v, ok := o.value.(*TaskCreateOutput)
+	return v, ok
+}
+
+// GetTaskGetOutput reports whether the active variant is [*TaskGetOutput] and returns it.
+func (o ToolOutputSchemas) GetTaskGetOutput() (*TaskGetOutput, bool) {
+	v, ok := o.value.(*TaskGetOutput)
+	return v, ok
+}
+
+// GetTaskListOutput reports whether the active variant is [*TaskListOutput] and returns it.
+func (o ToolOutputSchemas) GetTaskListOutput() (*TaskListOutput, bool) {
+	v, ok := o.value.(*TaskListOutput)
+	return v, ok
+}
+
+// GetTaskStopOutput reports whether the active variant is [*TaskStopOutput] and returns it.
+func (o ToolOutputSchemas) GetTaskStopOutput() (*TaskStopOutput, bool) {
+	v, ok := o.value.(*TaskStopOutput)
+	return v, ok
+}
+
+// GetTaskUpdateOutput reports whether the active variant is [*TaskUpdateOutput] and returns it.
+func (o ToolOutputSchemas) GetTaskUpdateOutput() (*TaskUpdateOutput, bool) {
+	v, ok := o.value.(*TaskUpdateOutput)
+	return v, ok
+}
+
+// GetTodoWriteOutput reports whether the active variant is [*TodoWriteOutput] and returns it.
+func (o ToolOutputSchemas) GetTodoWriteOutput() (*TodoWriteOutput, bool) {
+	v, ok := o.value.(*TodoWriteOutput)
+	return v, ok
+}
+
+// GetToolOutputUnknown reports whether the active variant is [*ToolOutputUnknown] and returns it.
+func (o ToolOutputSchemas) GetToolOutputUnknown() (*ToolOutputUnknown, bool) {
+	v, ok := o.value.(*ToolOutputUnknown)
+	return v, ok
+}
+
+// GetWebFetchOutput reports whether the active variant is [*WebFetchOutput] and returns it.
+func (o ToolOutputSchemas) GetWebFetchOutput() (*WebFetchOutput, bool) {
+	v, ok := o.value.(*WebFetchOutput)
+	return v, ok
+}
+
+// GetWebSearchOutput reports whether the active variant is [*WebSearchOutput] and returns it.
+func (o ToolOutputSchemas) GetWebSearchOutput() (*WebSearchOutput, bool) {
+	v, ok := o.value.(*WebSearchOutput)
+	return v, ok
+}
+
+// GetWorkflowOutput reports whether the active variant is [*WorkflowOutput] and returns it.
+func (o ToolOutputSchemas) GetWorkflowOutput() (*WorkflowOutput, bool) {
+	v, ok := o.value.(*WorkflowOutput)
+	return v, ok
+}
+
+// NewWebSearchOutputResult wraps a [WebSearchOutputResult_Value] variant into a
+// [WebSearchOutputResult].
+func NewWebSearchOutputResult(v WebSearchOutputResult_Value) WebSearchOutputResult {
+	return WebSearchOutputResult{value: v}
+}
+
+// GetValue returns the active [WebSearchOutputResult_Value] variant, or nil when unset.
+func (o WebSearchOutputResult) GetValue() WebSearchOutputResult_Value { return o.value }
+
+// GetBlock reports whether the active variant is [*WebSearchOutputResultBlock] and returns it.
+func (o WebSearchOutputResult) GetBlock() (*WebSearchOutputResultBlock, bool) {
+	v, ok := o.value.(*WebSearchOutputResultBlock)
+	return v, ok
+}
+
+// GetText reports whether the active variant is [*WebSearchOutputResultText] and returns it.
+func (o WebSearchOutputResult) GetText() (*WebSearchOutputResultText, bool) {
+	v, ok := o.value.(*WebSearchOutputResultText)
+	return v, ok
+}
+
+// GetUnknown reports whether the active variant is [*WebSearchOutputResultUnknown] and returns it.
+func (o WebSearchOutputResult) GetUnknown() (*WebSearchOutputResultUnknown, bool) {
+	v, ok := o.value.(*WebSearchOutputResultUnknown)
+	return v, ok
+}
+
+// decodeUnionVariant decodes data into a fresh T (invoking T's own UnmarshalJSON
+// when defined) and returns a pointer for storage on a union value field. Each
+// union's UnmarshalJSON / UnmarshalForTool (declared next to its type) uses it.
+//
+// Unions carry their discriminator in the payload (a type / behavior / subtype
+// field, or the JSON token shape) so they decode themselves; ToolInputSchemas /
+// ToolOutputSchemas are keyed by tool_name in the enclosing envelope instead, so
+// they expose UnmarshalForTool. Unrecognized discriminators are preserved
+// through each union's unknown variant.
+func decodeUnionVariant[T any](data []byte) (*T, error) {
+	var v T
+	if err := json.Unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
 }

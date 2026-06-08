@@ -50,25 +50,25 @@ func TestUnmarshalHookInput_CodexApplyPatch(t *testing.T) {
 		"tool_use_id": "call_1"
 	}`
 
-	in, err := UnmarshalHookInput([]byte(payload))
-	if err != nil {
-		t.Fatalf("UnmarshalHookInput: unexpected error: %v", err)
+	var in HookInput
+	if err := in.UnmarshalJSON([]byte(payload)); err != nil {
+		t.Fatalf("HookInput.UnmarshalJSON: unexpected error: %v", err)
 	}
-	post, ok := in.(*PostToolUseHookInput)
+	post, ok := in.GetPostToolUseHookInput()
 	if !ok {
-		t.Fatalf("want *PostToolUseHookInput, got %T", in)
+		t.Fatalf("want *PostToolUseHookInput, got %T", in.GetValue())
 	}
 	if post.ToolName != "apply_patch" {
 		t.Errorf("tool_name: want apply_patch, got %q", post.ToolName)
 	}
-	out, ok := post.ToolResponse.(*ToolOutputUnknown)
+	out, ok := post.ToolResponse.GetToolOutputUnknown()
 	if !ok {
-		t.Fatalf("tool_response: want *ToolOutputUnknown, got %T", post.ToolResponse)
+		t.Fatalf("tool_response: want *ToolOutputUnknown, got %T", post.ToolResponse.GetValue())
 	}
 	if want := `"Exit code: 0\nOutput: ok\n"`; string(out.Raw) != want {
 		t.Errorf("tool_response raw: want %s, got %s", want, out.Raw)
 	}
-	if _, ok := post.ToolInput.(*ToolInputUnknown); !ok {
-		t.Fatalf("tool_input: want *ToolInputUnknown, got %T", post.ToolInput)
+	if _, ok := post.ToolInput.GetToolInputUnknown(); !ok {
+		t.Fatalf("tool_input: want *ToolInputUnknown, got %T", post.ToolInput.GetValue())
 	}
 }

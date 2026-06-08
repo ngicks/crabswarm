@@ -36,13 +36,18 @@ func TestNewPermissionRequestAllowError(t *testing.T) {
 	he := PermissionAllow(nil, nil)
 
 	assert.Assert(t, he.Output != nil)
-	assert.Assert(t, he.Output.HookSpecificOutput != nil)
-	hso, ok := he.Output.HookSpecificOutput.(*sdktypesv1.HookSpecificOutputPermissionRequest)
-	assert.Assert(t, ok, "expected HookSpecificOutputPermissionRequest, got %T", he.Output.HookSpecificOutput)
+	assert.Assert(t, he.Output.HookSpecificOutput.GetValue() != nil)
+	hso, ok := he.Output.HookSpecificOutput.GetPermissionRequest()
+	assert.Assert(
+		t,
+		ok,
+		"expected HookSpecificOutputPermissionRequest, got %T",
+		he.Output.HookSpecificOutput.GetValue(),
+	)
 	assert.Equal(t, string(hso.HookEventName), "PermissionRequest")
-	assert.Assert(t, hso.Decision != nil)
-	dec, ok := hso.Decision.(*sdktypesv1.PermissionRequestDecisionAllow)
-	assert.Assert(t, ok, "expected PermissionRequestDecisionAllow, got %T", hso.Decision)
+	assert.Assert(t, hso.Decision.GetValue() != nil)
+	dec, ok := hso.Decision.GetAllow()
+	assert.Assert(t, ok, "expected PermissionRequestDecisionAllow, got %T", hso.Decision.GetValue())
 	assert.Equal(t, dec.Behavior, sdktypesv1.PermissionRequestDecisionBehaviorAllow)
 }
 

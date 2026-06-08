@@ -18,9 +18,9 @@ import (
 )
 
 // marshalHookInput serializes a typed sdktypesv1 hook envelope.
-func marshalHookInput(t *testing.T, in sdktypesv1.HookInput) *bytes.Reader {
+func marshalHookInput(t *testing.T, in sdktypesv1.HookInput_Value) *bytes.Reader {
 	t.Helper()
-	data, err := json.Marshal(in)
+	data, err := json.Marshal(sdktypesv1.NewHookInput(in))
 	assert.NilError(t, err)
 	return bytes.NewReader(data)
 }
@@ -30,7 +30,7 @@ func marshalHookInput(t *testing.T, in sdktypesv1.HookInput) *bytes.Reader {
 func preToolUseEnvelope(
 	t *testing.T,
 	tool string,
-	toolInput sdktypesv1.ToolInputSchemas,
+	toolInput sdktypesv1.ToolInputSchemas_Value,
 ) *bytes.Reader {
 	t.Helper()
 	return marshalHookInput(t, &sdktypesv1.PreToolUseHookInput{
@@ -41,7 +41,7 @@ func preToolUseEnvelope(
 		},
 		HookEventName: sdktypesv1.HookEventPreToolUse,
 		ToolName:      tool,
-		ToolInput:     toolInput,
+		ToolInput:     sdktypesv1.NewToolInputSchemas(toolInput),
 		ToolUseID:     "toolu_1",
 	})
 }
@@ -649,8 +649,10 @@ func TestRender_WriteToolResolvesFile(t *testing.T) {
 		BaseHookInput: sdktypesv1.BaseHookInput{SessionID: "s", TranscriptPath: "/t", Cwd: tmp},
 		HookEventName: sdktypesv1.HookEventPostToolUse,
 		ToolName:      sdktypesv1.ToolNameWrite,
-		ToolInput:     &sdktypesv1.FileWriteInput{FilePath: writePath, Content: "package w\n"},
-		ToolUseID:     "tu",
+		ToolInput: sdktypesv1.NewToolInputSchemas(
+			&sdktypesv1.FileWriteInput{FilePath: writePath, Content: "package w\n"},
+		),
+		ToolUseID: "tu",
 	})
 
 	var buf bytes.Buffer
@@ -690,5 +692,5 @@ func TestRun_CodexApplyPatchUpdateFixture(t *testing.T) {
 		"/home/watage/.dotfiles/snapshot_home/snapshotter/codex_hook_probe.go")
 }
 
-// Compile-time check that .Input is the SDK interface.
-var _ sdktypesv1.HookInput = (Data{}).Input
+// Compile-time check that .Input is the SDK union variant interface.
+var _ sdktypesv1.HookInput_Value = (Data{}).Input

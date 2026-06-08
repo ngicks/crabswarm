@@ -23,8 +23,8 @@ func parseInput(raw []byte, ftCfg filetype.Config) (Data, error) {
 		return Data{}, fmt.Errorf("parsing hook input: %w", err)
 	}
 
-	input, err := sdktypesv1.UnmarshalHookInput(raw)
-	if err != nil {
+	var input sdktypesv1.HookInput
+	if err := input.UnmarshalJSON(raw); err != nil {
 		return Data{}, fmt.Errorf("parsing hook input: %w", err)
 	}
 
@@ -34,7 +34,7 @@ func parseInput(raw []byte, ftCfg filetype.Config) (Data, error) {
 		file = files[0]
 	}
 	d := Data{
-		Input:     input,
+		Input:     input.GetValue(),
 		Event:     envelope.HookEventName,
 		ToolName:  envelope.ToolName,
 		SessionID: envelope.SessionID,
@@ -67,7 +67,7 @@ func editedFiles(toolName string, input sdktypesv1.ToolInputSchemas, cwd string)
 	}
 	// apply_patch is unknown to the SDK, so it lands in ToolInputUnknown,
 	// which preserves the original tool_input JSON in Raw.
-	unknown, ok := input.(*sdktypesv1.ToolInputUnknown)
+	unknown, ok := input.GetToolInputUnknown()
 	if !ok {
 		return nil
 	}
@@ -96,7 +96,7 @@ func resolveAgainst(cwd, p string) string {
 // toolInputOf returns the parsed ToolInputSchemas from a hook input,
 // or nil when the event doesn't carry one.
 func toolInputOf(input sdktypesv1.HookInput) sdktypesv1.ToolInputSchemas {
-	switch v := input.(type) {
+	switch v := input.GetValue().(type) {
 	case *sdktypesv1.PreToolUseHookInput:
 		return v.ToolInput
 	case *sdktypesv1.PostToolUseHookInput:
@@ -106,13 +106,13 @@ func toolInputOf(input sdktypesv1.HookInput) sdktypesv1.ToolInputSchemas {
 	case *sdktypesv1.PermissionRequestHookInput:
 		return v.ToolInput
 	}
-	return nil
+	return sdktypesv1.ToolInputSchemas{}
 }
 
 // extractFilePath returns the file path for tool inputs that carry one,
 // or "" for tool inputs that don't (Bash, Glob, Grep, ...).
 func extractFilePath(input sdktypesv1.ToolInputSchemas) string {
-	switch v := input.(type) {
+	switch v := input.GetValue().(type) {
 	case *sdktypesv1.FileEditInput:
 		return v.FilePath
 	case *sdktypesv1.FileReadInput:

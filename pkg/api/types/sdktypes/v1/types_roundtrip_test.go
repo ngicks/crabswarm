@@ -35,7 +35,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"ls"}],"behavior":"allow","destination":"session"}`,
 			goType: &PermissionUpdateAddRules{},
 			toProto: func(v any) any {
-				got, err := PermissionUpdateToProto(v.(PermissionUpdate))
+				got, err := PermissionUpdateToProto(NewPermissionUpdate(v.(PermissionUpdate_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -48,7 +48,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"type":"futureRule","payload":{"x":1}}`,
 			goType: &PermissionUpdateUnknown{},
 			toProto: func(v any) any {
-				got, err := PermissionUpdateToProto(v.(PermissionUpdate))
+				got, err := PermissionUpdateToProto(NewPermissionUpdate(v.(PermissionUpdate_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -61,7 +61,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"behavior":"allow","updatedInput":{"command":"ls"},"updatedPermissions":[{"type":"setMode","mode":"plan","destination":"session"}],"toolUseID":"tool-1"}`,
 			goType: &PermissionResultAllow{},
 			toProto: func(v any) any {
-				got, err := PermissionResultToProto(v.(PermissionResult))
+				got, err := PermissionResultToProto(NewPermissionResult(v.(PermissionResult_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -74,7 +74,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"behavior":"future","note":"opaque"}`,
 			goType: &PermissionResultUnknown{},
 			toProto: func(v any) any {
-				got, err := PermissionResultToProto(v.(PermissionResult))
+				got, err := PermissionResultToProto(NewPermissionResult(v.(PermissionResult_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -87,7 +87,9 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"behavior":"allow","updatedInput":{"path":"a.txt"},"updatedPermissions":[{"type":"addDirectories","directories":["/tmp"],"destination":"session"}]}`,
 			goType: &PermissionRequestDecisionAllow{},
 			toProto: func(v any) any {
-				got, err := PermissionRequestDecisionToProto(v.(PermissionRequestDecision))
+				got, err := PermissionRequestDecisionToProto(
+					NewPermissionRequestDecision(v.(PermissionRequestDecision_Value)),
+				)
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -100,7 +102,9 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"behavior":"maybe","message":"future"}`,
 			goType: &PermissionRequestDecisionUnknown{},
 			toProto: func(v any) any {
-				got, err := PermissionRequestDecisionToProto(v.(PermissionRequestDecision))
+				got, err := PermissionRequestDecisionToProto(
+					NewPermissionRequestDecision(v.(PermissionRequestDecision_Value)),
+				)
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -113,7 +117,9 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"ok","updatedInput":{"command":"pwd"},"additionalContext":"ctx"}`,
 			goType: &HookSpecificOutputPreToolUse{},
 			toProto: func(v any) any {
-				got, err := HookSpecificOutputToProto(v.(HookSpecificOutput))
+				got, err := HookSpecificOutputToProto(
+					NewHookSpecificOutput(v.(HookSpecificOutput_Value)),
+				)
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -126,7 +132,9 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"no","interrupt":true}}`,
 			goType: &HookSpecificOutputPermissionRequest{},
 			toProto: func(v any) any {
-				got, err := HookSpecificOutputToProto(v.(HookSpecificOutput))
+				got, err := HookSpecificOutputToProto(
+					NewHookSpecificOutput(v.(HookSpecificOutput_Value)),
+				)
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -139,7 +147,9 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"hookEventName":"FutureHook","extra":true}`,
 			goType: &HookSpecificOutputUnknown{},
 			toProto: func(v any) any {
-				got, err := HookSpecificOutputToProto(v.(HookSpecificOutput))
+				got, err := HookSpecificOutputToProto(
+					NewHookSpecificOutput(v.(HookSpecificOutput_Value)),
+				)
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -152,7 +162,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"async":true,"asyncTimeout":42}`,
 			goType: &AsyncHookJSONOutput{},
 			toProto: func(v any) any {
-				got, err := HookJSONOutputToProto(v.(HookJSONOutput))
+				got, err := HookJSONOutputToProto(NewHookJSONOutput(v.(HookJSONOutput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -165,7 +175,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"continue":true,"suppressOutput":false,"stopReason":"x","decision":"approve","systemMessage":"m","reason":"r","hookSpecificOutput":{"hookEventName":"Notification","additionalContext":"ctx"}}`,
 			goType: &SyncHookJSONOutput{},
 			toProto: func(v any) any {
-				got, err := HookJSONOutputToProto(v.(HookJSONOutput))
+				got, err := HookJSONOutputToProto(NewHookJSONOutput(v.(HookJSONOutput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -178,7 +188,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"future":"value"}`,
 			goType: &HookJSONOutputUnknown{},
 			toProto: func(v any) any {
-				got, err := HookJSONOutputToProto(v.(HookJSONOutput))
+				got, err := HookJSONOutputToProto(NewHookJSONOutput(v.(HookJSONOutput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -191,7 +201,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"sess-1","transcript_path":"/tmp/transcript.jsonl","cwd":"/repo","permission_mode":"default","agent_id":"agent-1","agent_type":"worker","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"pwd","timeout":10},"tool_use_id":"tool-1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -204,7 +214,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"sess-2","transcript_path":"/tmp/transcript.jsonl","cwd":"/repo","hook_event_name":"PermissionRequest","tool_name":"Read","tool_input":{"file_path":"a.txt","offset":0},"tool_use_id":"tool-2","permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"a.txt"}],"behavior":"allow","destination":"session"}]}`,
 			goType: &PermissionRequestHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -217,7 +227,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"hook_event_name":"FutureHook","opaque":{"v":1}}`,
 			goType: &HookInputUnknown{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -230,7 +240,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PostToolBatch","tool_calls":[{"tool_name":"Bash","tool_input":{"command":"ls"},"tool_use_id":"u1","tool_response":{"stdout":"x"}}]}`,
 			goType: &PostToolBatchHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -243,7 +253,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","effort":{"level":"high"},"hook_event_name":"MessageDisplay","turn_id":"turn-1","message_id":"msg-1","index":3,"final":true,"delta":"hello"}`,
 			goType: &MessageDisplayHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -256,7 +266,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"Stop","stop_hook_active":true,"last_assistant_message":"done","background_tasks":[{"id":"b1","type":"shell","status":"running","description":"d"}],"session_crons":[{"id":"c1","schedule":"* * * * *","recurring":true,"prompt":"p"}]}`,
 			goType: &StopHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -269,7 +279,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","agent_id":"a1","agent_type":"worker","hook_event_name":"SubagentStop","stop_hook_active":true,"agent_transcript_path":"/tmp/a.jsonl"}`,
 			goType: &SubagentStopHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -282,7 +292,9 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"hookEventName":"PostToolUse","additionalContext":"ctx","updatedToolOutput":{"v":1}}`,
 			goType: &HookSpecificOutputPostToolUse{},
 			toProto: func(v any) any {
-				got, err := HookSpecificOutputToProto(v.(HookSpecificOutput))
+				got, err := HookSpecificOutputToProto(
+					NewHookSpecificOutput(v.(HookSpecificOutput_Value)),
+				)
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -295,7 +307,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"Monitor","tool_input":{"command":"tail -f log","description":"watch","persistent":true},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -308,7 +320,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"TaskUpdate","tool_input":{"taskId":"t1","status":"completed","addBlocks":["b1"]},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -321,7 +333,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"TaskList","tool_input":{},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -334,7 +346,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"description":"d","prompt":"p","subagent_type":"general"},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -347,7 +359,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"Workflow","tool_input":{"name":"my-wf","args":{"q":"x"}},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -360,7 +372,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"TaskStop","tool_input":{"task_id":"t1"},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -373,7 +385,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"TaskOutput","tool_input":{"task_id":"t1","block":true,"timeout":30},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -386,7 +398,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"EnterWorktree","tool_input":{"name":"wt","path":"/repo/wt"},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
-				got, err := HookInputToProto(v.(HookInput))
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
 			},
 			fromProto: func(v any) any {
@@ -490,8 +502,8 @@ func TestToolOutputJSONRoundTrip(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			v, err := UnmarshalToolOutputSchemas(tc.toolName, []byte(tc.input))
-			if err != nil {
+			var v ToolOutputSchemas
+			if err := v.UnmarshalForTool(tc.toolName, []byte(tc.input)); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
 			got, err := json.Marshal(v)

@@ -67,9 +67,9 @@ type Option struct {
 
 // Data is the value passed to the template at render time.
 type Data struct {
-	// Input is the parsed Claude / Codex hook envelope. Concrete type
-	// depends on the event, e.g. [*sdktypesv1.PreToolUseHookInput].
-	Input sdktypesv1.HookInput
+	// Input is the parsed Claude / Codex hook envelope variant. Concrete
+	// type depends on the event, e.g. [*sdktypesv1.PreToolUseHookInput].
+	Input sdktypesv1.HookInput_Value
 	// Event mirrors hook_event_name from the envelope.
 	Event sdktypesv1.HookEvent
 	// ToolName mirrors tool_name for tool events; empty otherwise.

@@ -78,11 +78,15 @@ This document defines the conversion rules for reimplementing or updating Claude
 
 ## Unions And String Literals
 
-- Model each TypeScript union as a Go interface with a private marker method `interface { <unionTypeName>() }`.
-- Every union variant must implement that interface.
-- Immediately after each handwritten Go union interface definition, add a compile-time implementation check block such as `var ( _ UnionType = (*ConcreteVariant)(nil) ... )` covering every concrete variant, including the unknown variant.
-- Keep these implementation assertion blocks adjacent to the union interface so omissions fail loudly during compilation.
-- Define `unmarshal<UnionTypeName>(...)` helpers to decode union variants and use those helpers from enclosing `UnmarshalJSON` implementations.
+- Model each TypeScript union as a Go struct wrapping a single unexported field that holds the active variant: `type <UnionTypeName> struct { value <UnionTypeName>_Value }`. The union is a struct, not an interface.
+- Define the field's type as an exported interface carrying exactly one unexported marker method: `type <UnionTypeName>_Value interface { <unionTypeName>() }`. Export the interface so accessors can return it without linter complaints; keep the method unexported so only this package can add variants (the union stays sealed).
+- Every union variant must implement `<UnionTypeName>_Value`. Store variants as pointers (`*ConcreteVariant`); the marker method itself may use a value receiver.
+- Immediately after the value interface, add a compile-time implementation check block `var ( _ <UnionTypeName>_Value = (*ConcreteVariant)(nil) ... )` covering every concrete variant, including the unknown variant. Keep it adjacent so omissions fail to compile.
+- Provide a constructor `func New<UnionTypeName>(v <UnionTypeName>_Value) <UnionTypeName>` that wraps a variant into the struct. Callers construct unions through this constructor, never by setting the unexported field.
+- Provide accessors on the struct: `GetValue() <UnionTypeName>_Value` returns the active variant (nil when unset), and `Get<Variant>() (*ConcreteVariant, bool)` type-asserts each case. Form the getter name by stripping the union type name prefix from the variant when the variant carries it (`SystemPromptString` → `GetString`, `PermissionUpdateUnknown` → `GetUnknown`); otherwise use the full variant type name (`BashOutput` → `GetBashOutput`, `PostToolUseHookInput` → `GetPostToolUseHookInput`).
+- Do not define free-floating union marshalers or unmarshalers. JSON (de)serialization lives on the struct: `func (o <UnionTypeName>) MarshalJSON() ([]byte, error)` (normally `return json.Marshal(o.value)`, since each variant carries its own discriminator-enforcing marshaling) and `func (o *<UnionTypeName>) UnmarshalJSON(data []byte) error` (the discriminator dispatch, storing `o.value = &variant`).
+- When a union can only be decoded with extra context — for example the tool-name-dispatched `ToolInputSchemas` / `ToolOutputSchemas` — expose the decoder as a method that takes that context, e.g. `func (o *<UnionTypeName>) UnmarshalForTool(toolName string, data []byte) error`, instead of a free function. Enclosing `UnmarshalJSON` implementations call these methods on a local union value.
+- A union whose TypeScript form is only a grouping marker (a sub-union that carries a second marker method and is never used as a field/parameter/return type, e.g. `SDKResultMessage`, `AgentOutput`, `FileReadOutput`) may remain a plain Go interface; the struct treatment applies to unions actually used as field/parameter/return types.
 - Treat unions as open-value.
 - Always define an unknown variant type for each union so JSON decoding can preserve unsupported variants instead of failing.
 - Store both the discriminator value and the original `json.RawMessage` on unknown union variants.
@@ -113,6 +117,7 @@ This document defines the conversion rules for reimplementing or updating Claude
 - Treat bi-directional conversion as part of the definition of each handwritten SDK-facing Go type, not as optional follow-up work.
 - For each handwritten Go type that has a proto representation, provide conversion coverage in both directions between the handwritten type and the generated proto type.
 - Prefer methods such as `ToProto()` and `FromProto(...)` on the handwritten Go types, plus package-level helpers for unions and convenience entrypoints.
+- For the struct-wrapped unions, keep the package-level `<UnionTypeName>ToProto` / `<UnionTypeName>FromProto` helpers: `ToProto` type-switches on the active variant (`v.GetValue()` or the in-package `value` field), and `FromProto` wraps the decoded variant back into the struct with `New<UnionTypeName>(...)`, returning the zero `<UnionTypeName>{}` (not `nil`) on the empty/error paths.
 - Unknown union variants must also participate in bi-directional conversion and preserve discriminator plus raw payload without loss.
 - A type implementation is not complete until its JSON behavior and its proto-to-Go / Go-to-proto behavior are both defined.
 - In proto conversion code, do not read generated protobuf struct fields directly.
