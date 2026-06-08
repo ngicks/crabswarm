@@ -7,6 +7,7 @@
 package sdktypesv1
 
 import (
+	codex "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1/ext/codex"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -8285,6 +8286,8 @@ type ToolInput struct {
 	//	*ToolInput_TaskList
 	//	*ToolInput_TaskOutput
 	//	*ToolInput_EnterWorktree
+	//	*ToolInput_CodexApplyPatch
+	//	*ToolInput_CodexUpdatePlan
 	//	*ToolInput_Unknown
 	Input         isToolInput_Input `protobuf_oneof:"input"`
 	unknownFields protoimpl.UnknownFields
@@ -8562,6 +8565,24 @@ func (x *ToolInput) GetEnterWorktree() *EnterWorktreeInput {
 	return nil
 }
 
+func (x *ToolInput) GetCodexApplyPatch() *codex.CodexApplyPatchInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_CodexApplyPatch); ok {
+			return x.CodexApplyPatch
+		}
+	}
+	return nil
+}
+
+func (x *ToolInput) GetCodexUpdatePlan() *codex.CodexUpdatePlanInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolInput_CodexUpdatePlan); ok {
+			return x.CodexUpdatePlan
+		}
+	}
+	return nil
+}
+
 func (x *ToolInput) GetUnknown() *UnknownVariant {
 	if x != nil {
 		if x, ok := x.Input.(*ToolInput_Unknown); ok {
@@ -8679,6 +8700,16 @@ type ToolInput_EnterWorktree struct {
 	EnterWorktree *EnterWorktreeInput `protobuf:"bytes,26,opt,name=enter_worktree,json=enterWorktree,proto3,oneof"`
 }
 
+type ToolInput_CodexApplyPatch struct {
+	// Codex (codex-rs) extension tool inputs. Source:
+	// pkg/api/types/sdktypes/v1/ext/codex.
+	CodexApplyPatch *codex.CodexApplyPatchInput `protobuf:"bytes,27,opt,name=codex_apply_patch,json=codexApplyPatch,proto3,oneof"`
+}
+
+type ToolInput_CodexUpdatePlan struct {
+	CodexUpdatePlan *codex.CodexUpdatePlanInput `protobuf:"bytes,28,opt,name=codex_update_plan,json=codexUpdatePlan,proto3,oneof"`
+}
+
 type ToolInput_Unknown struct {
 	Unknown *UnknownVariant `protobuf:"bytes,99,opt,name=unknown,proto3,oneof"`
 }
@@ -8734,6 +8765,10 @@ func (*ToolInput_TaskList) isToolInput_Input() {}
 func (*ToolInput_TaskOutput) isToolInput_Input() {}
 
 func (*ToolInput_EnterWorktree) isToolInput_Input() {}
+
+func (*ToolInput_CodexApplyPatch) isToolInput_Input() {}
+
+func (*ToolInput_CodexUpdatePlan) isToolInput_Input() {}
 
 func (*ToolInput_Unknown) isToolInput_Input() {}
 
@@ -10387,6 +10422,8 @@ type ToolOutput struct {
 	//	*ToolOutput_TaskUpdate
 	//	*ToolOutput_TaskGet
 	//	*ToolOutput_TaskList
+	//	*ToolOutput_CodexApplyPatch
+	//	*ToolOutput_CodexShell
 	//	*ToolOutput_Unknown
 	Output        isToolOutput_Output `protobuf_oneof:"output"`
 	unknownFields protoimpl.UnknownFields
@@ -10655,6 +10692,24 @@ func (x *ToolOutput) GetTaskList() *TaskListOutput {
 	return nil
 }
 
+func (x *ToolOutput) GetCodexApplyPatch() *codex.CodexApplyPatchOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_CodexApplyPatch); ok {
+			return x.CodexApplyPatch
+		}
+	}
+	return nil
+}
+
+func (x *ToolOutput) GetCodexShell() *codex.CodexShellOutput {
+	if x != nil {
+		if x, ok := x.Output.(*ToolOutput_CodexShell); ok {
+			return x.CodexShell
+		}
+	}
+	return nil
+}
+
 func (x *ToolOutput) GetUnknown() *UnknownVariant {
 	if x != nil {
 		if x, ok := x.Output.(*ToolOutput_Unknown); ok {
@@ -10768,6 +10823,16 @@ type ToolOutput_TaskList struct {
 	TaskList *TaskListOutput `protobuf:"bytes,25,opt,name=task_list,json=taskList,proto3,oneof"`
 }
 
+type ToolOutput_CodexApplyPatch struct {
+	// Codex (codex-rs) extension tool outputs. Source:
+	// pkg/api/types/sdktypes/v1/ext/codex.
+	CodexApplyPatch *codex.CodexApplyPatchOutput `protobuf:"bytes,26,opt,name=codex_apply_patch,json=codexApplyPatch,proto3,oneof"`
+}
+
+type ToolOutput_CodexShell struct {
+	CodexShell *codex.CodexShellOutput `protobuf:"bytes,27,opt,name=codex_shell,json=codexShell,proto3,oneof"`
+}
+
 type ToolOutput_Unknown struct {
 	Unknown *UnknownVariant `protobuf:"bytes,99,opt,name=unknown,proto3,oneof"`
 }
@@ -10821,6 +10886,10 @@ func (*ToolOutput_TaskUpdate) isToolOutput_Output() {}
 func (*ToolOutput_TaskGet) isToolOutput_Output() {}
 
 func (*ToolOutput_TaskList) isToolOutput_Output() {}
+
+func (*ToolOutput_CodexApplyPatch) isToolOutput_Output() {}
+
+func (*ToolOutput_CodexShell) isToolOutput_Output() {}
 
 func (*ToolOutput_Unknown) isToolOutput_Output() {}
 
@@ -17990,7 +18059,7 @@ var File_sdktypes_v1_types_proto protoreflect.FileDescriptor
 
 const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"\x17sdktypes/v1/types.proto\x12\vsdktypes.v1\x1a\x1cgoogle/protobuf/struct.proto\",\n" +
+	"\x17sdktypes/v1/types.proto\x12\vsdktypes.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a!sdktypes/v1/ext/codex/codex.proto\",\n" +
 	"\x0eJsonRawMessage\x12\x1a\n" +
 	"\braw_json\x18\x01 \x01(\fR\braw_json\"R\n" +
 	"\x0eUnknownVariant\x12$\n" +
@@ -18920,7 +18989,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\bquestion\x18\x01 \x01(\tR\bquestion\x12\x16\n" +
 	"\x06header\x18\x02 \x01(\tR\x06header\x125\n" +
 	"\aoptions\x18\x03 \x03(\v2\x1b.sdktypes.v1.QuestionOptionR\aoptions\x12!\n" +
-	"\fmulti_select\x18\x04 \x01(\bR\vmultiSelect\"\x9b\r\n" +
+	"\fmulti_select\x18\x04 \x01(\bR\vmultiSelect\"\xd1\x0e\n" +
 	"\tToolInput\x12/\n" +
 	"\x05agent\x18\x01 \x01(\v2\x17.sdktypes.v1.AgentInputH\x00R\x05agent\x12O\n" +
 	"\x11ask_user_question\x18\x02 \x01(\v2!.sdktypes.v1.AskUserQuestionInputH\x00R\x0faskUserQuestion\x12,\n" +
@@ -18955,7 +19024,9 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\ttask_list\x18\x18 \x01(\v2\x1a.sdktypes.v1.TaskListInputH\x00R\btaskList\x12?\n" +
 	"\vtask_output\x18\x19 \x01(\v2\x1c.sdktypes.v1.TaskOutputInputH\x00R\n" +
 	"taskOutput\x12H\n" +
-	"\x0eenter_worktree\x18\x1a \x01(\v2\x1f.sdktypes.v1.EnterWorktreeInputH\x00R\renterWorktree\x127\n" +
+	"\x0eenter_worktree\x18\x1a \x01(\v2\x1f.sdktypes.v1.EnterWorktreeInputH\x00R\renterWorktree\x12Y\n" +
+	"\x11codex_apply_patch\x18\x1b \x01(\v2+.sdktypes.v1.ext.codex.CodexApplyPatchInputH\x00R\x0fcodexApplyPatch\x12Y\n" +
+	"\x11codex_update_plan\x18\x1c \x01(\v2+.sdktypes.v1.ext.codex.CodexUpdatePlanInputH\x00R\x0fcodexUpdatePlan\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\a\n" +
 	"\x05input\"l\n" +
 	"\n" +
@@ -19130,7 +19201,7 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\a_server\"@\n" +
 	"\x14ReadMcpResourceInput\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x10\n" +
-	"\x03uri\x18\x02 \x01(\tR\x03uri\"\xe4\f\n" +
+	"\x03uri\x18\x02 \x01(\tR\x03uri\"\x8c\x0e\n" +
 	"\n" +
 	"ToolOutput\x12-\n" +
 	"\x04task\x18\x01 \x01(\v2\x17.sdktypes.v1.TaskOutputH\x00R\x04task\x12P\n" +
@@ -19163,7 +19234,10 @@ const file_sdktypes_v1_types_proto_rawDesc = "" +
 	"\vtask_update\x18\x17 \x01(\v2\x1d.sdktypes.v1.TaskUpdateOutputH\x00R\n" +
 	"taskUpdate\x127\n" +
 	"\btask_get\x18\x18 \x01(\v2\x1a.sdktypes.v1.TaskGetOutputH\x00R\ataskGet\x12:\n" +
-	"\ttask_list\x18\x19 \x01(\v2\x1b.sdktypes.v1.TaskListOutputH\x00R\btaskList\x127\n" +
+	"\ttask_list\x18\x19 \x01(\v2\x1b.sdktypes.v1.TaskListOutputH\x00R\btaskList\x12Z\n" +
+	"\x11codex_apply_patch\x18\x1a \x01(\v2,.sdktypes.v1.ext.codex.CodexApplyPatchOutputH\x00R\x0fcodexApplyPatch\x12J\n" +
+	"\vcodex_shell\x18\x1b \x01(\v2'.sdktypes.v1.ext.codex.CodexShellOutputH\x00R\n" +
+	"codexShell\x127\n" +
 	"\aunknown\x18c \x01(\v2\x1b.sdktypes.v1.UnknownVariantH\x00R\aunknownB\b\n" +
 	"\x06output\"{\n" +
 	"\rMonitorOutput\x12\x17\n" +
@@ -20272,6 +20346,10 @@ var file_sdktypes_v1_types_proto_goTypes = []any{
 	nil,                                          // 216: sdktypes.v1.AskUserQuestionInput.AnswersEntry
 	nil,                                          // 217: sdktypes.v1.AskUserQuestionOutput.AnswersEntry
 	(*structpb.Struct)(nil),                      // 218: google.protobuf.Struct
+	(*codex.CodexApplyPatchInput)(nil),           // 219: sdktypes.v1.ext.codex.CodexApplyPatchInput
+	(*codex.CodexUpdatePlanInput)(nil),           // 220: sdktypes.v1.ext.codex.CodexUpdatePlanInput
+	(*codex.CodexApplyPatchOutput)(nil),          // 221: sdktypes.v1.ext.codex.CodexApplyPatchOutput
+	(*codex.CodexShellOutput)(nil),               // 222: sdktypes.v1.ext.codex.CodexShellOutput
 }
 var file_sdktypes_v1_types_proto_depIdxs = []int32{
 	5,   // 0: sdktypes.v1.PermissionUpdateAddRules.rules:type_name -> sdktypes.v1.PermissionRuleValue
@@ -20428,156 +20506,160 @@ var file_sdktypes_v1_types_proto_depIdxs = []int32{
 	100, // 151: sdktypes.v1.ToolInput.task_list:type_name -> sdktypes.v1.TaskListInput
 	110, // 152: sdktypes.v1.ToolInput.task_output:type_name -> sdktypes.v1.TaskOutputInput
 	111, // 153: sdktypes.v1.ToolInput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeInput
-	4,   // 154: sdktypes.v1.ToolInput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	3,   // 155: sdktypes.v1.WorkflowInput.args:type_name -> sdktypes.v1.JsonRawMessage
-	218, // 156: sdktypes.v1.TaskCreateInput.metadata:type_name -> google.protobuf.Struct
-	218, // 157: sdktypes.v1.TaskUpdateInput.metadata:type_name -> google.protobuf.Struct
-	92,  // 158: sdktypes.v1.AskUserQuestionInput.questions:type_name -> sdktypes.v1.Question
-	216, // 159: sdktypes.v1.AskUserQuestionInput.answers:type_name -> sdktypes.v1.AskUserQuestionInput.AnswersEntry
-	115, // 160: sdktypes.v1.TodoWriteInput.todos:type_name -> sdktypes.v1.TodoItem
-	132, // 161: sdktypes.v1.ToolOutput.task:type_name -> sdktypes.v1.TaskOutput
-	133, // 162: sdktypes.v1.ToolOutput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionOutput
-	134, // 163: sdktypes.v1.ToolOutput.bash:type_name -> sdktypes.v1.BashOutput
-	135, // 164: sdktypes.v1.ToolOutput.file_edit:type_name -> sdktypes.v1.FileEditOutput
-	146, // 165: sdktypes.v1.ToolOutput.file_read:type_name -> sdktypes.v1.FileReadOutput
-	147, // 166: sdktypes.v1.ToolOutput.file_write:type_name -> sdktypes.v1.FileWriteOutput
-	148, // 167: sdktypes.v1.ToolOutput.glob:type_name -> sdktypes.v1.GlobOutput
-	149, // 168: sdktypes.v1.ToolOutput.grep:type_name -> sdktypes.v1.GrepOutput
-	150, // 169: sdktypes.v1.ToolOutput.task_stop:type_name -> sdktypes.v1.TaskStopOutput
-	151, // 170: sdktypes.v1.ToolOutput.notebook_edit:type_name -> sdktypes.v1.NotebookEditOutput
-	152, // 171: sdktypes.v1.ToolOutput.web_fetch:type_name -> sdktypes.v1.WebFetchOutput
-	154, // 172: sdktypes.v1.ToolOutput.web_search:type_name -> sdktypes.v1.WebSearchOutput
-	155, // 173: sdktypes.v1.ToolOutput.todo_write:type_name -> sdktypes.v1.TodoWriteOutput
-	156, // 174: sdktypes.v1.ToolOutput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeOutput
-	158, // 175: sdktypes.v1.ToolOutput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesOutput
-	160, // 176: sdktypes.v1.ToolOutput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceOutput
-	161, // 177: sdktypes.v1.ToolOutput.config:type_name -> sdktypes.v1.ConfigOutput
-	162, // 178: sdktypes.v1.ToolOutput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeOutput
-	218, // 179: sdktypes.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
-	121, // 180: sdktypes.v1.ToolOutput.monitor:type_name -> sdktypes.v1.MonitorOutput
-	122, // 181: sdktypes.v1.ToolOutput.workflow:type_name -> sdktypes.v1.WorkflowOutput
-	124, // 182: sdktypes.v1.ToolOutput.task_create:type_name -> sdktypes.v1.TaskCreateOutput
-	126, // 183: sdktypes.v1.ToolOutput.task_update:type_name -> sdktypes.v1.TaskUpdateOutput
-	128, // 184: sdktypes.v1.ToolOutput.task_get:type_name -> sdktypes.v1.TaskGetOutput
-	130, // 185: sdktypes.v1.ToolOutput.task_list:type_name -> sdktypes.v1.TaskListOutput
-	4,   // 186: sdktypes.v1.ToolOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	123, // 187: sdktypes.v1.TaskCreateOutput.task:type_name -> sdktypes.v1.TaskCreateOutputTask
-	125, // 188: sdktypes.v1.TaskUpdateOutput.status_change:type_name -> sdktypes.v1.TaskUpdateOutputStatusChange
-	127, // 189: sdktypes.v1.TaskGetOutput.task:type_name -> sdktypes.v1.TaskGetOutputTask
-	129, // 190: sdktypes.v1.TaskListOutput.tasks:type_name -> sdktypes.v1.TaskListOutputTask
-	131, // 191: sdktypes.v1.TaskOutput.usage:type_name -> sdktypes.v1.UsageInfo
-	92,  // 192: sdktypes.v1.AskUserQuestionOutput.questions:type_name -> sdktypes.v1.Question
-	217, // 193: sdktypes.v1.AskUserQuestionOutput.answers:type_name -> sdktypes.v1.AskUserQuestionOutput.AnswersEntry
-	3,   // 194: sdktypes.v1.FileReadOutputNotebookFile.cells:type_name -> sdktypes.v1.JsonRawMessage
-	136, // 195: sdktypes.v1.FileReadOutputText.file:type_name -> sdktypes.v1.FileReadOutputTextFile
-	137, // 196: sdktypes.v1.FileReadOutputImage.file:type_name -> sdktypes.v1.FileReadOutputImageFile
-	138, // 197: sdktypes.v1.FileReadOutputNotebook.file:type_name -> sdktypes.v1.FileReadOutputNotebookFile
-	139, // 198: sdktypes.v1.FileReadOutputPdf.file:type_name -> sdktypes.v1.FileReadOutputPdfFile
-	140, // 199: sdktypes.v1.FileReadOutputParts.file:type_name -> sdktypes.v1.FileReadOutputPartsFile
-	141, // 200: sdktypes.v1.FileReadOutput.text:type_name -> sdktypes.v1.FileReadOutputText
-	142, // 201: sdktypes.v1.FileReadOutput.image:type_name -> sdktypes.v1.FileReadOutputImage
-	143, // 202: sdktypes.v1.FileReadOutput.notebook:type_name -> sdktypes.v1.FileReadOutputNotebook
-	144, // 203: sdktypes.v1.FileReadOutput.pdf:type_name -> sdktypes.v1.FileReadOutputPdf
-	145, // 204: sdktypes.v1.FileReadOutput.parts:type_name -> sdktypes.v1.FileReadOutputParts
-	4,   // 205: sdktypes.v1.FileReadOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	153, // 206: sdktypes.v1.WebSearchOutput.results:type_name -> sdktypes.v1.WebSearchOutputResultEntry
-	157, // 207: sdktypes.v1.ListMcpResourcesOutput.resources:type_name -> sdktypes.v1.McpResource
-	159, // 208: sdktypes.v1.ReadMcpResourceOutput.contents:type_name -> sdktypes.v1.ReadMcpResourceOutputContent
-	3,   // 209: sdktypes.v1.ConfigOutput.value:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 210: sdktypes.v1.ConfigOutput.previous_value:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 211: sdktypes.v1.ConfigOutput.new_value:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 212: sdktypes.v1.PostToolBatchToolCall.tool_input:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 213: sdktypes.v1.PostToolBatchToolCall.tool_response:type_name -> sdktypes.v1.JsonRawMessage
-	93,  // 214: sdktypes.v1.PreToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	163, // 215: sdktypes.v1.PreToolUseHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	93,  // 216: sdktypes.v1.PostToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	120, // 217: sdktypes.v1.PostToolUseHookInput.tool_response:type_name -> sdktypes.v1.ToolOutput
-	163, // 218: sdktypes.v1.PostToolUseHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	93,  // 219: sdktypes.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	163, // 220: sdktypes.v1.PostToolUseFailureHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	166, // 221: sdktypes.v1.PostToolBatchHookInput.tool_calls:type_name -> sdktypes.v1.PostToolBatchToolCall
-	163, // 222: sdktypes.v1.PostToolBatchHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 223: sdktypes.v1.NotificationHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 224: sdktypes.v1.UserPromptSubmitHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 225: sdktypes.v1.SessionStartHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 226: sdktypes.v1.SessionEndHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	164, // 227: sdktypes.v1.StopHookInput.background_tasks:type_name -> sdktypes.v1.BackgroundTaskSummary
-	165, // 228: sdktypes.v1.StopHookInput.session_crons:type_name -> sdktypes.v1.SessionCronSummary
-	163, // 229: sdktypes.v1.StopHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 230: sdktypes.v1.SubagentStartHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	164, // 231: sdktypes.v1.SubagentStopHookInput.background_tasks:type_name -> sdktypes.v1.BackgroundTaskSummary
-	165, // 232: sdktypes.v1.SubagentStopHookInput.session_crons:type_name -> sdktypes.v1.SessionCronSummary
-	163, // 233: sdktypes.v1.SubagentStopHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 234: sdktypes.v1.PreCompactHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	93,  // 235: sdktypes.v1.PermissionRequestHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
-	12,  // 236: sdktypes.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdktypes.v1.PermissionUpdate
-	163, // 237: sdktypes.v1.PermissionRequestHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 238: sdktypes.v1.SetupHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 239: sdktypes.v1.TeammateIdleHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 240: sdktypes.v1.TaskCompletedHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 241: sdktypes.v1.ConfigChangeHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 242: sdktypes.v1.WorktreeCreateHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 243: sdktypes.v1.WorktreeRemoveHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	163, // 244: sdktypes.v1.MessageDisplayHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
-	167, // 245: sdktypes.v1.HookInput.pre_tool_use:type_name -> sdktypes.v1.PreToolUseHookInput
-	168, // 246: sdktypes.v1.HookInput.post_tool_use:type_name -> sdktypes.v1.PostToolUseHookInput
-	169, // 247: sdktypes.v1.HookInput.post_tool_use_failure:type_name -> sdktypes.v1.PostToolUseFailureHookInput
-	171, // 248: sdktypes.v1.HookInput.notification:type_name -> sdktypes.v1.NotificationHookInput
-	172, // 249: sdktypes.v1.HookInput.user_prompt_submit:type_name -> sdktypes.v1.UserPromptSubmitHookInput
-	173, // 250: sdktypes.v1.HookInput.session_start:type_name -> sdktypes.v1.SessionStartHookInput
-	174, // 251: sdktypes.v1.HookInput.session_end:type_name -> sdktypes.v1.SessionEndHookInput
-	175, // 252: sdktypes.v1.HookInput.stop:type_name -> sdktypes.v1.StopHookInput
-	176, // 253: sdktypes.v1.HookInput.subagent_start:type_name -> sdktypes.v1.SubagentStartHookInput
-	177, // 254: sdktypes.v1.HookInput.subagent_stop:type_name -> sdktypes.v1.SubagentStopHookInput
-	178, // 255: sdktypes.v1.HookInput.pre_compact:type_name -> sdktypes.v1.PreCompactHookInput
-	179, // 256: sdktypes.v1.HookInput.permission_request:type_name -> sdktypes.v1.PermissionRequestHookInput
-	180, // 257: sdktypes.v1.HookInput.setup:type_name -> sdktypes.v1.SetupHookInput
-	181, // 258: sdktypes.v1.HookInput.teammate_idle:type_name -> sdktypes.v1.TeammateIdleHookInput
-	182, // 259: sdktypes.v1.HookInput.task_completed:type_name -> sdktypes.v1.TaskCompletedHookInput
-	183, // 260: sdktypes.v1.HookInput.config_change:type_name -> sdktypes.v1.ConfigChangeHookInput
-	184, // 261: sdktypes.v1.HookInput.worktree_create:type_name -> sdktypes.v1.WorktreeCreateHookInput
-	185, // 262: sdktypes.v1.HookInput.worktree_remove:type_name -> sdktypes.v1.WorktreeRemoveHookInput
-	170, // 263: sdktypes.v1.HookInput.post_tool_batch:type_name -> sdktypes.v1.PostToolBatchHookInput
-	186, // 264: sdktypes.v1.HookInput.message_display:type_name -> sdktypes.v1.MessageDisplayHookInput
-	4,   // 265: sdktypes.v1.HookInput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	218, // 266: sdktypes.v1.HookSpecificOutputPreToolUse.updated_input:type_name -> google.protobuf.Struct
-	3,   // 267: sdktypes.v1.HookSpecificOutputPostToolUse.updated_mcp_tool_output:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 268: sdktypes.v1.HookSpecificOutputPostToolUse.updated_tool_output:type_name -> sdktypes.v1.JsonRawMessage
-	2,   // 269: sdktypes.v1.PermissionRequestDecisionAllow.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
-	218, // 270: sdktypes.v1.PermissionRequestDecisionAllow.updated_input:type_name -> google.protobuf.Struct
-	12,  // 271: sdktypes.v1.PermissionRequestDecisionAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
-	2,   // 272: sdktypes.v1.PermissionRequestDecisionDeny.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
-	197, // 273: sdktypes.v1.PermissionRequestDecision.allow:type_name -> sdktypes.v1.PermissionRequestDecisionAllow
-	198, // 274: sdktypes.v1.PermissionRequestDecision.deny:type_name -> sdktypes.v1.PermissionRequestDecisionDeny
-	4,   // 275: sdktypes.v1.PermissionRequestDecision.unknown:type_name -> sdktypes.v1.UnknownVariant
-	199, // 276: sdktypes.v1.HookSpecificOutputPermissionRequest.decision:type_name -> sdktypes.v1.PermissionRequestDecision
-	188, // 277: sdktypes.v1.HookSpecificOutput.pre_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPreToolUse
-	189, // 278: sdktypes.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdktypes.v1.HookSpecificOutputUserPromptSubmit
-	190, // 279: sdktypes.v1.HookSpecificOutput.session_start:type_name -> sdktypes.v1.HookSpecificOutputSessionStart
-	191, // 280: sdktypes.v1.HookSpecificOutput.setup:type_name -> sdktypes.v1.HookSpecificOutputSetup
-	192, // 281: sdktypes.v1.HookSpecificOutput.subagent_start:type_name -> sdktypes.v1.HookSpecificOutputSubagentStart
-	193, // 282: sdktypes.v1.HookSpecificOutput.post_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPostToolUse
-	195, // 283: sdktypes.v1.HookSpecificOutput.post_tool_use_failure:type_name -> sdktypes.v1.HookSpecificOutputPostToolUseFailure
-	196, // 284: sdktypes.v1.HookSpecificOutput.notification:type_name -> sdktypes.v1.HookSpecificOutputNotification
-	200, // 285: sdktypes.v1.HookSpecificOutput.permission_request:type_name -> sdktypes.v1.HookSpecificOutputPermissionRequest
-	194, // 286: sdktypes.v1.HookSpecificOutput.post_tool_batch:type_name -> sdktypes.v1.HookSpecificOutputPostToolBatch
-	4,   // 287: sdktypes.v1.HookSpecificOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	201, // 288: sdktypes.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdktypes.v1.HookSpecificOutput
-	202, // 289: sdktypes.v1.HookJSONOutput.async_output:type_name -> sdktypes.v1.AsyncHookJSONOutput
-	203, // 290: sdktypes.v1.HookJSONOutput.sync_output:type_name -> sdktypes.v1.SyncHookJSONOutput
-	4,   // 291: sdktypes.v1.HookJSONOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
-	3,   // 292: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	27,  // 293: sdktypes.v1.Options.AgentsEntry.value:type_name -> sdktypes.v1.AgentDefinition
-	3,   // 294: sdktypes.v1.Options.EnvEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	3,   // 295: sdktypes.v1.Options.ExtraArgsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
-	21,  // 296: sdktypes.v1.Options.McpServersEntry.value:type_name -> sdktypes.v1.McpServerConfig
-	47,  // 297: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
-	47,  // 298: sdktypes.v1.SDKResultMessageError.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
-	299, // [299:299] is the sub-list for method output_type
-	299, // [299:299] is the sub-list for method input_type
-	299, // [299:299] is the sub-list for extension type_name
-	299, // [299:299] is the sub-list for extension extendee
-	0,   // [0:299] is the sub-list for field type_name
+	219, // 154: sdktypes.v1.ToolInput.codex_apply_patch:type_name -> sdktypes.v1.ext.codex.CodexApplyPatchInput
+	220, // 155: sdktypes.v1.ToolInput.codex_update_plan:type_name -> sdktypes.v1.ext.codex.CodexUpdatePlanInput
+	4,   // 156: sdktypes.v1.ToolInput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	3,   // 157: sdktypes.v1.WorkflowInput.args:type_name -> sdktypes.v1.JsonRawMessage
+	218, // 158: sdktypes.v1.TaskCreateInput.metadata:type_name -> google.protobuf.Struct
+	218, // 159: sdktypes.v1.TaskUpdateInput.metadata:type_name -> google.protobuf.Struct
+	92,  // 160: sdktypes.v1.AskUserQuestionInput.questions:type_name -> sdktypes.v1.Question
+	216, // 161: sdktypes.v1.AskUserQuestionInput.answers:type_name -> sdktypes.v1.AskUserQuestionInput.AnswersEntry
+	115, // 162: sdktypes.v1.TodoWriteInput.todos:type_name -> sdktypes.v1.TodoItem
+	132, // 163: sdktypes.v1.ToolOutput.task:type_name -> sdktypes.v1.TaskOutput
+	133, // 164: sdktypes.v1.ToolOutput.ask_user_question:type_name -> sdktypes.v1.AskUserQuestionOutput
+	134, // 165: sdktypes.v1.ToolOutput.bash:type_name -> sdktypes.v1.BashOutput
+	135, // 166: sdktypes.v1.ToolOutput.file_edit:type_name -> sdktypes.v1.FileEditOutput
+	146, // 167: sdktypes.v1.ToolOutput.file_read:type_name -> sdktypes.v1.FileReadOutput
+	147, // 168: sdktypes.v1.ToolOutput.file_write:type_name -> sdktypes.v1.FileWriteOutput
+	148, // 169: sdktypes.v1.ToolOutput.glob:type_name -> sdktypes.v1.GlobOutput
+	149, // 170: sdktypes.v1.ToolOutput.grep:type_name -> sdktypes.v1.GrepOutput
+	150, // 171: sdktypes.v1.ToolOutput.task_stop:type_name -> sdktypes.v1.TaskStopOutput
+	151, // 172: sdktypes.v1.ToolOutput.notebook_edit:type_name -> sdktypes.v1.NotebookEditOutput
+	152, // 173: sdktypes.v1.ToolOutput.web_fetch:type_name -> sdktypes.v1.WebFetchOutput
+	154, // 174: sdktypes.v1.ToolOutput.web_search:type_name -> sdktypes.v1.WebSearchOutput
+	155, // 175: sdktypes.v1.ToolOutput.todo_write:type_name -> sdktypes.v1.TodoWriteOutput
+	156, // 176: sdktypes.v1.ToolOutput.exit_plan_mode:type_name -> sdktypes.v1.ExitPlanModeOutput
+	158, // 177: sdktypes.v1.ToolOutput.list_mcp_resources:type_name -> sdktypes.v1.ListMcpResourcesOutput
+	160, // 178: sdktypes.v1.ToolOutput.read_mcp_resource:type_name -> sdktypes.v1.ReadMcpResourceOutput
+	161, // 179: sdktypes.v1.ToolOutput.config:type_name -> sdktypes.v1.ConfigOutput
+	162, // 180: sdktypes.v1.ToolOutput.enter_worktree:type_name -> sdktypes.v1.EnterWorktreeOutput
+	218, // 181: sdktypes.v1.ToolOutput.mcp_tool:type_name -> google.protobuf.Struct
+	121, // 182: sdktypes.v1.ToolOutput.monitor:type_name -> sdktypes.v1.MonitorOutput
+	122, // 183: sdktypes.v1.ToolOutput.workflow:type_name -> sdktypes.v1.WorkflowOutput
+	124, // 184: sdktypes.v1.ToolOutput.task_create:type_name -> sdktypes.v1.TaskCreateOutput
+	126, // 185: sdktypes.v1.ToolOutput.task_update:type_name -> sdktypes.v1.TaskUpdateOutput
+	128, // 186: sdktypes.v1.ToolOutput.task_get:type_name -> sdktypes.v1.TaskGetOutput
+	130, // 187: sdktypes.v1.ToolOutput.task_list:type_name -> sdktypes.v1.TaskListOutput
+	221, // 188: sdktypes.v1.ToolOutput.codex_apply_patch:type_name -> sdktypes.v1.ext.codex.CodexApplyPatchOutput
+	222, // 189: sdktypes.v1.ToolOutput.codex_shell:type_name -> sdktypes.v1.ext.codex.CodexShellOutput
+	4,   // 190: sdktypes.v1.ToolOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	123, // 191: sdktypes.v1.TaskCreateOutput.task:type_name -> sdktypes.v1.TaskCreateOutputTask
+	125, // 192: sdktypes.v1.TaskUpdateOutput.status_change:type_name -> sdktypes.v1.TaskUpdateOutputStatusChange
+	127, // 193: sdktypes.v1.TaskGetOutput.task:type_name -> sdktypes.v1.TaskGetOutputTask
+	129, // 194: sdktypes.v1.TaskListOutput.tasks:type_name -> sdktypes.v1.TaskListOutputTask
+	131, // 195: sdktypes.v1.TaskOutput.usage:type_name -> sdktypes.v1.UsageInfo
+	92,  // 196: sdktypes.v1.AskUserQuestionOutput.questions:type_name -> sdktypes.v1.Question
+	217, // 197: sdktypes.v1.AskUserQuestionOutput.answers:type_name -> sdktypes.v1.AskUserQuestionOutput.AnswersEntry
+	3,   // 198: sdktypes.v1.FileReadOutputNotebookFile.cells:type_name -> sdktypes.v1.JsonRawMessage
+	136, // 199: sdktypes.v1.FileReadOutputText.file:type_name -> sdktypes.v1.FileReadOutputTextFile
+	137, // 200: sdktypes.v1.FileReadOutputImage.file:type_name -> sdktypes.v1.FileReadOutputImageFile
+	138, // 201: sdktypes.v1.FileReadOutputNotebook.file:type_name -> sdktypes.v1.FileReadOutputNotebookFile
+	139, // 202: sdktypes.v1.FileReadOutputPdf.file:type_name -> sdktypes.v1.FileReadOutputPdfFile
+	140, // 203: sdktypes.v1.FileReadOutputParts.file:type_name -> sdktypes.v1.FileReadOutputPartsFile
+	141, // 204: sdktypes.v1.FileReadOutput.text:type_name -> sdktypes.v1.FileReadOutputText
+	142, // 205: sdktypes.v1.FileReadOutput.image:type_name -> sdktypes.v1.FileReadOutputImage
+	143, // 206: sdktypes.v1.FileReadOutput.notebook:type_name -> sdktypes.v1.FileReadOutputNotebook
+	144, // 207: sdktypes.v1.FileReadOutput.pdf:type_name -> sdktypes.v1.FileReadOutputPdf
+	145, // 208: sdktypes.v1.FileReadOutput.parts:type_name -> sdktypes.v1.FileReadOutputParts
+	4,   // 209: sdktypes.v1.FileReadOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	153, // 210: sdktypes.v1.WebSearchOutput.results:type_name -> sdktypes.v1.WebSearchOutputResultEntry
+	157, // 211: sdktypes.v1.ListMcpResourcesOutput.resources:type_name -> sdktypes.v1.McpResource
+	159, // 212: sdktypes.v1.ReadMcpResourceOutput.contents:type_name -> sdktypes.v1.ReadMcpResourceOutputContent
+	3,   // 213: sdktypes.v1.ConfigOutput.value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 214: sdktypes.v1.ConfigOutput.previous_value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 215: sdktypes.v1.ConfigOutput.new_value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 216: sdktypes.v1.PostToolBatchToolCall.tool_input:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 217: sdktypes.v1.PostToolBatchToolCall.tool_response:type_name -> sdktypes.v1.JsonRawMessage
+	93,  // 218: sdktypes.v1.PreToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	163, // 219: sdktypes.v1.PreToolUseHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	93,  // 220: sdktypes.v1.PostToolUseHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	120, // 221: sdktypes.v1.PostToolUseHookInput.tool_response:type_name -> sdktypes.v1.ToolOutput
+	163, // 222: sdktypes.v1.PostToolUseHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	93,  // 223: sdktypes.v1.PostToolUseFailureHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	163, // 224: sdktypes.v1.PostToolUseFailureHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	166, // 225: sdktypes.v1.PostToolBatchHookInput.tool_calls:type_name -> sdktypes.v1.PostToolBatchToolCall
+	163, // 226: sdktypes.v1.PostToolBatchHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 227: sdktypes.v1.NotificationHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 228: sdktypes.v1.UserPromptSubmitHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 229: sdktypes.v1.SessionStartHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 230: sdktypes.v1.SessionEndHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	164, // 231: sdktypes.v1.StopHookInput.background_tasks:type_name -> sdktypes.v1.BackgroundTaskSummary
+	165, // 232: sdktypes.v1.StopHookInput.session_crons:type_name -> sdktypes.v1.SessionCronSummary
+	163, // 233: sdktypes.v1.StopHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 234: sdktypes.v1.SubagentStartHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	164, // 235: sdktypes.v1.SubagentStopHookInput.background_tasks:type_name -> sdktypes.v1.BackgroundTaskSummary
+	165, // 236: sdktypes.v1.SubagentStopHookInput.session_crons:type_name -> sdktypes.v1.SessionCronSummary
+	163, // 237: sdktypes.v1.SubagentStopHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 238: sdktypes.v1.PreCompactHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	93,  // 239: sdktypes.v1.PermissionRequestHookInput.tool_input:type_name -> sdktypes.v1.ToolInput
+	12,  // 240: sdktypes.v1.PermissionRequestHookInput.permission_suggestions:type_name -> sdktypes.v1.PermissionUpdate
+	163, // 241: sdktypes.v1.PermissionRequestHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 242: sdktypes.v1.SetupHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 243: sdktypes.v1.TeammateIdleHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 244: sdktypes.v1.TaskCompletedHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 245: sdktypes.v1.ConfigChangeHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 246: sdktypes.v1.WorktreeCreateHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 247: sdktypes.v1.WorktreeRemoveHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	163, // 248: sdktypes.v1.MessageDisplayHookInput.effort:type_name -> sdktypes.v1.BaseHookInputEffort
+	167, // 249: sdktypes.v1.HookInput.pre_tool_use:type_name -> sdktypes.v1.PreToolUseHookInput
+	168, // 250: sdktypes.v1.HookInput.post_tool_use:type_name -> sdktypes.v1.PostToolUseHookInput
+	169, // 251: sdktypes.v1.HookInput.post_tool_use_failure:type_name -> sdktypes.v1.PostToolUseFailureHookInput
+	171, // 252: sdktypes.v1.HookInput.notification:type_name -> sdktypes.v1.NotificationHookInput
+	172, // 253: sdktypes.v1.HookInput.user_prompt_submit:type_name -> sdktypes.v1.UserPromptSubmitHookInput
+	173, // 254: sdktypes.v1.HookInput.session_start:type_name -> sdktypes.v1.SessionStartHookInput
+	174, // 255: sdktypes.v1.HookInput.session_end:type_name -> sdktypes.v1.SessionEndHookInput
+	175, // 256: sdktypes.v1.HookInput.stop:type_name -> sdktypes.v1.StopHookInput
+	176, // 257: sdktypes.v1.HookInput.subagent_start:type_name -> sdktypes.v1.SubagentStartHookInput
+	177, // 258: sdktypes.v1.HookInput.subagent_stop:type_name -> sdktypes.v1.SubagentStopHookInput
+	178, // 259: sdktypes.v1.HookInput.pre_compact:type_name -> sdktypes.v1.PreCompactHookInput
+	179, // 260: sdktypes.v1.HookInput.permission_request:type_name -> sdktypes.v1.PermissionRequestHookInput
+	180, // 261: sdktypes.v1.HookInput.setup:type_name -> sdktypes.v1.SetupHookInput
+	181, // 262: sdktypes.v1.HookInput.teammate_idle:type_name -> sdktypes.v1.TeammateIdleHookInput
+	182, // 263: sdktypes.v1.HookInput.task_completed:type_name -> sdktypes.v1.TaskCompletedHookInput
+	183, // 264: sdktypes.v1.HookInput.config_change:type_name -> sdktypes.v1.ConfigChangeHookInput
+	184, // 265: sdktypes.v1.HookInput.worktree_create:type_name -> sdktypes.v1.WorktreeCreateHookInput
+	185, // 266: sdktypes.v1.HookInput.worktree_remove:type_name -> sdktypes.v1.WorktreeRemoveHookInput
+	170, // 267: sdktypes.v1.HookInput.post_tool_batch:type_name -> sdktypes.v1.PostToolBatchHookInput
+	186, // 268: sdktypes.v1.HookInput.message_display:type_name -> sdktypes.v1.MessageDisplayHookInput
+	4,   // 269: sdktypes.v1.HookInput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	218, // 270: sdktypes.v1.HookSpecificOutputPreToolUse.updated_input:type_name -> google.protobuf.Struct
+	3,   // 271: sdktypes.v1.HookSpecificOutputPostToolUse.updated_mcp_tool_output:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 272: sdktypes.v1.HookSpecificOutputPostToolUse.updated_tool_output:type_name -> sdktypes.v1.JsonRawMessage
+	2,   // 273: sdktypes.v1.PermissionRequestDecisionAllow.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
+	218, // 274: sdktypes.v1.PermissionRequestDecisionAllow.updated_input:type_name -> google.protobuf.Struct
+	12,  // 275: sdktypes.v1.PermissionRequestDecisionAllow.updated_permissions:type_name -> sdktypes.v1.PermissionUpdate
+	2,   // 276: sdktypes.v1.PermissionRequestDecisionDeny.behavior:type_name -> sdktypes.v1.PermissionRequestDecisionBehavior
+	197, // 277: sdktypes.v1.PermissionRequestDecision.allow:type_name -> sdktypes.v1.PermissionRequestDecisionAllow
+	198, // 278: sdktypes.v1.PermissionRequestDecision.deny:type_name -> sdktypes.v1.PermissionRequestDecisionDeny
+	4,   // 279: sdktypes.v1.PermissionRequestDecision.unknown:type_name -> sdktypes.v1.UnknownVariant
+	199, // 280: sdktypes.v1.HookSpecificOutputPermissionRequest.decision:type_name -> sdktypes.v1.PermissionRequestDecision
+	188, // 281: sdktypes.v1.HookSpecificOutput.pre_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPreToolUse
+	189, // 282: sdktypes.v1.HookSpecificOutput.user_prompt_submit:type_name -> sdktypes.v1.HookSpecificOutputUserPromptSubmit
+	190, // 283: sdktypes.v1.HookSpecificOutput.session_start:type_name -> sdktypes.v1.HookSpecificOutputSessionStart
+	191, // 284: sdktypes.v1.HookSpecificOutput.setup:type_name -> sdktypes.v1.HookSpecificOutputSetup
+	192, // 285: sdktypes.v1.HookSpecificOutput.subagent_start:type_name -> sdktypes.v1.HookSpecificOutputSubagentStart
+	193, // 286: sdktypes.v1.HookSpecificOutput.post_tool_use:type_name -> sdktypes.v1.HookSpecificOutputPostToolUse
+	195, // 287: sdktypes.v1.HookSpecificOutput.post_tool_use_failure:type_name -> sdktypes.v1.HookSpecificOutputPostToolUseFailure
+	196, // 288: sdktypes.v1.HookSpecificOutput.notification:type_name -> sdktypes.v1.HookSpecificOutputNotification
+	200, // 289: sdktypes.v1.HookSpecificOutput.permission_request:type_name -> sdktypes.v1.HookSpecificOutputPermissionRequest
+	194, // 290: sdktypes.v1.HookSpecificOutput.post_tool_batch:type_name -> sdktypes.v1.HookSpecificOutputPostToolBatch
+	4,   // 291: sdktypes.v1.HookSpecificOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	201, // 292: sdktypes.v1.SyncHookJSONOutput.hook_specific_output:type_name -> sdktypes.v1.HookSpecificOutput
+	202, // 293: sdktypes.v1.HookJSONOutput.async_output:type_name -> sdktypes.v1.AsyncHookJSONOutput
+	203, // 294: sdktypes.v1.HookJSONOutput.sync_output:type_name -> sdktypes.v1.SyncHookJSONOutput
+	4,   // 295: sdktypes.v1.HookJSONOutput.unknown:type_name -> sdktypes.v1.UnknownVariant
+	3,   // 296: sdktypes.v1.SandboxSettings.IgnoreViolationsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	27,  // 297: sdktypes.v1.Options.AgentsEntry.value:type_name -> sdktypes.v1.AgentDefinition
+	3,   // 298: sdktypes.v1.Options.EnvEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	3,   // 299: sdktypes.v1.Options.ExtraArgsEntry.value:type_name -> sdktypes.v1.JsonRawMessage
+	21,  // 300: sdktypes.v1.Options.McpServersEntry.value:type_name -> sdktypes.v1.McpServerConfig
+	47,  // 301: sdktypes.v1.SDKResultMessageSuccess.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
+	47,  // 302: sdktypes.v1.SDKResultMessageError.ModelUsageEntry.value:type_name -> sdktypes.v1.ModelUsage
+	303, // [303:303] is the sub-list for method output_type
+	303, // [303:303] is the sub-list for method input_type
+	303, // [303:303] is the sub-list for extension type_name
+	303, // [303:303] is the sub-list for extension extendee
+	0,   // [0:303] is the sub-list for field type_name
 }
 
 func init() { file_sdktypes_v1_types_proto_init() }
@@ -20716,6 +20798,8 @@ func file_sdktypes_v1_types_proto_init() {
 		(*ToolInput_TaskList)(nil),
 		(*ToolInput_TaskOutput)(nil),
 		(*ToolInput_EnterWorktree)(nil),
+		(*ToolInput_CodexApplyPatch)(nil),
+		(*ToolInput_CodexUpdatePlan)(nil),
 		(*ToolInput_Unknown)(nil),
 	}
 	file_sdktypes_v1_types_proto_msgTypes[92].OneofWrappers = []any{}
@@ -20758,6 +20842,8 @@ func file_sdktypes_v1_types_proto_init() {
 		(*ToolOutput_TaskUpdate)(nil),
 		(*ToolOutput_TaskGet)(nil),
 		(*ToolOutput_TaskList)(nil),
+		(*ToolOutput_CodexApplyPatch)(nil),
+		(*ToolOutput_CodexShell)(nil),
 		(*ToolOutput_Unknown)(nil),
 	}
 	file_sdktypes_v1_types_proto_msgTypes[118].OneofWrappers = []any{}

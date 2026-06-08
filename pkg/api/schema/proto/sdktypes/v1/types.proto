@@ -3,6 +3,7 @@ syntax = "proto3";
 package sdktypes.v1;
 
 import "google/protobuf/struct.proto";
+import "sdktypes/v1/ext/codex/codex.proto";
 
 option go_package = "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/sdktypes/v1;sdktypesv1";
 
@@ -964,6 +965,12 @@ message ToolInput {
     TaskListInput task_list = 24 [json_name = "taskList"];
     TaskOutputInput task_output = 25 [json_name = "taskOutput"];
     EnterWorktreeInput enter_worktree = 26 [json_name = "enterWorktree"];
+    // Codex (codex-rs) extension tool inputs. Source:
+    // pkg/api/types/sdktypes/v1/ext/codex.
+    sdktypes.v1.ext.codex.CodexApplyPatchInput codex_apply_patch = 27
+      [json_name = "codexApplyPatch"];
+    sdktypes.v1.ext.codex.CodexUpdatePlanInput codex_update_plan = 28
+      [json_name = "codexUpdatePlan"];
     UnknownVariant unknown = 99;
   }
 }
@@ -1183,6 +1190,12 @@ message ToolOutput {
     TaskUpdateOutput task_update = 23 [json_name = "taskUpdate"];
     TaskGetOutput task_get = 24 [json_name = "taskGet"];
     TaskListOutput task_list = 25 [json_name = "taskList"];
+    // Codex (codex-rs) extension tool outputs. Source:
+    // pkg/api/types/sdktypes/v1/ext/codex.
+    sdktypes.v1.ext.codex.CodexApplyPatchOutput codex_apply_patch = 26
+      [json_name = "codexApplyPatch"];
+    sdktypes.v1.ext.codex.CodexShellOutput codex_shell = 27
+      [json_name = "codexShell"];
     UnknownVariant unknown = 99;
   }
 }

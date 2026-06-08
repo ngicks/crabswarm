@@ -3266,6 +3266,9 @@ func (o *ToolInputSchemas) UnmarshalForTool(toolName string, data []byte) error 
 		o.value = &v
 		return json.Unmarshal(data, &v)
 	default:
+		if done, err := o.unmarshalCodexInputForTool(toolName, data); done {
+			return err
+		}
 		var v ToolInputUnknown
 		o.value = &v
 		return v.UnmarshalJSON(data)
@@ -3704,6 +3707,9 @@ func (o ToolOutputSchemas) MarshalJSON() ([]byte, error) { return json.Marshal(o
 func (o *ToolOutputSchemas) UnmarshalForTool(toolName string, data []byte) error {
 	if len(data) == 0 || string(data) == "null" {
 		return nil
+	}
+	if done, err := o.unmarshalCodexOutputForTool(toolName, data); done {
+		return err
 	}
 	if strings.HasPrefix(toolName, McpToolNamePrefix) {
 		var v ToolOutputUnknown
@@ -4767,6 +4773,9 @@ func rawToolInputToProto(v ToolInputSchemas, discriminator string) *pb.ToolInput
 	if v.value == nil {
 		return nil
 	}
+	if p := codexToolInputToProto(v.value); p != nil {
+		return p
+	}
 	raw, err := json.Marshal(v)
 	if err != nil || len(raw) == 0 || string(raw) == "null" {
 		return nil
@@ -4784,6 +4793,9 @@ func rawToolInputToProto(v ToolInputSchemas, discriminator string) *pb.ToolInput
 func rawToolOutputToProto(v ToolOutputSchemas, discriminator string) *pb.ToolOutput {
 	if v.value == nil {
 		return nil
+	}
+	if p := codexToolOutputToProto(v.value); p != nil {
+		return p
 	}
 	raw, err := json.Marshal(v)
 	if err != nil || len(raw) == 0 || string(raw) == "null" {
@@ -4805,6 +4817,9 @@ func rawFromToolInputProto(v *pb.ToolInput, discriminator string) (ToolInputSche
 	if v == nil {
 		return ToolInputSchemas{}, nil
 	}
+	if c, ok, err := codexToolInputFromProto(v); ok {
+		return c, err
+	}
 	var raw json.RawMessage
 	if unknown := v.GetUnknown(); unknown != nil {
 		raw = cloneRawMessage(unknown.GetRawJson())
@@ -4823,6 +4838,9 @@ func rawFromToolInputProto(v *pb.ToolInput, discriminator string) (ToolInputSche
 func rawFromToolOutputProto(v *pb.ToolOutput, discriminator string) (ToolOutputSchemas, error) {
 	if v == nil {
 		return ToolOutputSchemas{}, nil
+	}
+	if c, ok, err := codexToolOutputFromProto(v); ok {
+		return c, err
 	}
 	var raw json.RawMessage
 	if unknown := v.GetUnknown(); unknown != nil {

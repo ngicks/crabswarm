@@ -1,4 +1,4 @@
-package codexhook
+package codex
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-func TestParseApplyPatchInput(t *testing.T) {
+func TestParsePatch_EditedFiles(t *testing.T) {
 	tests := []struct {
 		name  string
 		patch string
@@ -84,20 +84,65 @@ func TestParseApplyPatchInput(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			toolInput, err := json.Marshal(map[string]string{"command": tc.patch})
-			assert.NilError(t, err)
-
-			got, err := ParseApplyPatchInput(toolInput)
-			assert.NilError(t, err)
-			assert.Equal(t, got.Command, tc.patch)
-			assert.DeepEqual(t, got.Files, tc.want)
+			got := ParsePatch(tc.patch).EditedFiles()
+			assert.DeepEqual(t, got, tc.want)
 		})
 	}
 }
 
-// Codex always sends apply_patch's tool_input as a {"command": ...} object;
-// a non-object value is a decode error rather than a silently empty result.
-func TestParseApplyPatchInput_NotAnObject(t *testing.T) {
-	_, err := ParseApplyPatchInput(json.RawMessage(`"just a string"`))
-	assert.Assert(t, err != nil)
+func TestParsePatch_Operations(t *testing.T) {
+	patch := "*** Begin Patch\n" +
+		"*** Update File: pkg/old.go\n*** Move to: pkg/new.go\n@@\n-x\n+y\n" +
+		"*** Add File: cmd/added.go\n+package cmd\n" +
+		"*** Delete File: pkg/gone.go\n" +
+		"*** End Patch\n"
+	want := []PatchOperation{
+		{Kind: PatchKindUpdate, Path: "pkg/old.go", MoveTo: "pkg/new.go"},
+		{Kind: PatchKindAdd, Path: "cmd/added.go"},
+		{Kind: PatchKindDelete, Path: "pkg/gone.go"},
+	}
+	assert.DeepEqual(t, ParsePatch(patch).Operations, want)
+}
+
+func TestApplyPatchInput_RoundTrip(t *testing.T) {
+	// Decoded values re-emit their preserved raw bytes verbatim.
+	const raw = `{"command":"*** Begin Patch\n*** Update File: a.go\n` +
+		`@@\n-x\n+y\n*** End Patch\n"}`
+
+	var in ApplyPatchInput
+	assert.NilError(t, json.Unmarshal([]byte(raw), &in))
+	assert.Equal(t, in.Patch.Operations[0].Kind, PatchKindUpdate)
+	assert.Equal(t, in.Patch.Operations[0].Path, "a.go")
+
+	got, err := json.Marshal(in)
+	assert.NilError(t, err)
+	assert.Equal(t, string(got), raw)
+}
+
+func TestApplyPatchInput_HTMLCharsSemantic(t *testing.T) {
+	// '<' is unescaped on the wire (Codex uses serde_json). json.Marshal
+	// re-escapes it to <, so bytes differ but the value round-trips.
+	const raw = `{"command":"if a < b {}"}`
+
+	var in ApplyPatchInput
+	assert.NilError(t, json.Unmarshal([]byte(raw), &in))
+	got, err := json.Marshal(in)
+	assert.NilError(t, err)
+
+	var back ApplyPatchInput
+	assert.NilError(t, json.Unmarshal(got, &back))
+	assert.Equal(t, back.Command, in.Command)
+}
+
+func TestApplyPatchInput_MarshalFromFields(t *testing.T) {
+	// A value built programmatically (no preserved raw) marshals from Command.
+	in := ApplyPatchInput{Command: "echo hi"}
+	got, err := json.Marshal(in)
+	assert.NilError(t, err)
+	assert.Equal(t, string(got), `{"command":"echo hi"}`)
+}
+
+func TestApplyPatchInput_NotAnObject(t *testing.T) {
+	var in ApplyPatchInput
+	assert.Assert(t, in.UnmarshalJSON(json.RawMessage(`"just a string"`)) != nil)
 }

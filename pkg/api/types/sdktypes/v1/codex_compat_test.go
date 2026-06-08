@@ -36,8 +36,9 @@ func TestUnknownUnion_NonObjectValues(t *testing.T) {
 }
 
 // A Codex PostToolUse envelope for apply_patch: tool_name is unknown to the
-// SDK and tool_response is a string. It must parse without error so the
-// exec hook can decide whether it applies.
+// Claude SDK and tool_response is a string. It must parse into the typed Codex
+// variants (CodexApplyPatchInput / CodexApplyPatchOutput) so the exec hook and
+// other consumers get the decoded patch and exec output.
 func TestUnmarshalHookInput_CodexApplyPatch(t *testing.T) {
 	const payload = `{
 		"session_id": "sess",
@@ -61,14 +62,23 @@ func TestUnmarshalHookInput_CodexApplyPatch(t *testing.T) {
 	if post.ToolName != "apply_patch" {
 		t.Errorf("tool_name: want apply_patch, got %q", post.ToolName)
 	}
-	out, ok := post.ToolResponse.GetToolOutputUnknown()
+
+	inputVar, ok := post.ToolInput.GetCodexApplyPatchInput()
 	if !ok {
-		t.Fatalf("tool_response: want *ToolOutputUnknown, got %T", post.ToolResponse.GetValue())
+		t.Fatalf("tool_input: want *CodexApplyPatchInput, got %T", post.ToolInput.GetValue())
 	}
-	if want := `"Exit code: 0\nOutput: ok\n"`; string(out.Raw) != want {
-		t.Errorf("tool_response raw: want %s, got %s", want, out.Raw)
+	if got := inputVar.Patch.EditedFiles(); len(got) != 1 || got[0] != "a.go" {
+		t.Errorf("tool_input edited files: want [a.go], got %v", got)
 	}
-	if _, ok := post.ToolInput.GetToolInputUnknown(); !ok {
-		t.Fatalf("tool_input: want *ToolInputUnknown, got %T", post.ToolInput.GetValue())
+
+	out, ok := post.ToolResponse.GetCodexApplyPatchOutput()
+	if !ok {
+		t.Fatalf("tool_response: want *CodexApplyPatchOutput, got %T", post.ToolResponse.GetValue())
+	}
+	if want := "Exit code: 0\nOutput: ok\n"; out.Text != want {
+		t.Errorf("tool_response text: want %q, got %q", want, out.Text)
+	}
+	if out.ExitCode == nil || *out.ExitCode != 0 {
+		t.Errorf("tool_response exit code: want 0, got %v", out.ExitCode)
 	}
 }

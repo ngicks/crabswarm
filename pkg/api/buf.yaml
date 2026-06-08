@@ -4,3 +4,9 @@ modules:
 lint:
   use:
     - STANDARD
+  # The Codex extension package mirrors the Go layout at
+  # sdktypes/v1/ext/codex, so its proto package is sdktypes.v1.ext.codex
+  # (no independent version suffix); it rides the parent sdktypes.v1 version.
+  ignore_only:
+    PACKAGE_VERSION_SUFFIX:
+      - schema/proto/sdktypes/v1/ext/codex

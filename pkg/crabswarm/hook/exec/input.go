@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
-	"github.com/ngicks/crabswarm/pkg/codexhook"
 	"github.com/ngicks/crabswarm/pkg/filetype"
 )
 
@@ -28,7 +27,7 @@ func parseInput(raw []byte, ftCfg filetype.Config) (Data, error) {
 		return Data{}, fmt.Errorf("parsing hook input: %w", err)
 	}
 
-	files := editedFiles(envelope.ToolName, toolInputOf(input), envelope.Cwd)
+	files := editedFiles(toolInputOf(input), envelope.Cwd)
 	var file string
 	if len(files) > 0 {
 		file = files[0]
@@ -55,28 +54,24 @@ func parseInput(raw []byte, ftCfg filetype.Config) (Data, error) {
 
 // editedFiles returns the file paths an edit tool touched. Claude tools
 // carry a single structured path (FileEditInput, FileWriteInput, ...);
-// Codex's apply_patch embeds one or more paths in its patch text, which
-// are resolved to absolute against cwd so downstream path handling matches
-// Claude's absolute file_path. Returns nil for tools without a file.
-func editedFiles(toolName string, input sdktypesv1.ToolInputSchemas, cwd string) []string {
+// Codex's apply_patch embeds one or more paths in its patch text (decoded
+// into CodexApplyPatchInput), which are resolved to absolute against cwd so
+// downstream path handling matches Claude's absolute file_path. Returns nil
+// for tools without a file.
+func editedFiles(input sdktypesv1.ToolInputSchemas, cwd string) []string {
 	if p := extractFilePath(input); p != "" {
 		return []string{p}
 	}
-	if toolName != codexhook.ApplyPatchToolName {
-		return nil
-	}
-	// apply_patch is unknown to the SDK, so it lands in ToolInputUnknown,
-	// which preserves the original tool_input JSON in Raw.
-	unknown, ok := input.GetToolInputUnknown()
+	patch, ok := input.GetCodexApplyPatchInput()
 	if !ok {
 		return nil
 	}
-	parsed, err := codexhook.ParseApplyPatchInput(unknown.Raw)
-	if err != nil || len(parsed.Files) == 0 {
+	parsed := patch.Patch.EditedFiles()
+	if len(parsed) == 0 {
 		return nil
 	}
-	files := make([]string, len(parsed.Files))
-	for i, p := range parsed.Files {
+	files := make([]string, len(parsed))
+	for i, p := range parsed {
 		files[i] = resolveAgainst(cwd, p)
 	}
 	return files
