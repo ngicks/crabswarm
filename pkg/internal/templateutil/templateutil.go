@@ -22,16 +22,18 @@ import (
 //	ext PATH         → filepath.Ext
 //	trim STRING      → strings.TrimSpace
 //	quote STRING     → ShellQuote (POSIX shell single-quoting)
+//	quoteJoin LIST   → QuoteJoin (double-quote each element, join with spaces)
 //	which NAME       → Which (resolve a command to its absolute path)
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
-		"env":      os.Getenv,
-		"basename": filepath.Base,
-		"dirname":  filepath.Dir,
-		"ext":      filepath.Ext,
-		"trim":     strings.TrimSpace,
-		"quote":    ShellQuote,
-		"which":    Which,
+		"env":       os.Getenv,
+		"basename":  filepath.Base,
+		"dirname":   filepath.Dir,
+		"ext":       filepath.Ext,
+		"trim":      strings.TrimSpace,
+		"quote":     ShellQuote,
+		"quoteJoin": QuoteJoin,
+		"which":     Which,
 	}
 }
 
@@ -57,4 +59,19 @@ func Which(name string) (string, error) {
 // argument.
 func ShellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// QuoteJoin wraps each element of ss in double quotes and joins the results
+// with a single space, e.g. {"a", "b c"} → `"a" "b c"`. Embedded backslashes
+// and double quotes are escaped (\\ and \") so every element survives
+// [shellwords.Parse] as a single argument. It is the []string counterpart to
+// ShellQuote, handy for templating a whole argument list into a command line.
+func QuoteJoin(ss []string) string {
+	quoted := make([]string, len(ss))
+	for i, s := range ss {
+		s = strings.ReplaceAll(s, `\`, `\\`)
+		s = strings.ReplaceAll(s, `"`, `\"`)
+		quoted[i] = `"` + s + `"`
+	}
+	return strings.Join(quoted, " ")
 }

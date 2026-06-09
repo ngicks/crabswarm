@@ -12,7 +12,8 @@ import (
 
 func TestFuncMap_ExposesExpectedFuncs(t *testing.T) {
 	fm := FuncMap()
-	for _, name := range []string{"env", "basename", "dirname", "ext", "trim", "quote", "which"} {
+	names := []string{"env", "basename", "dirname", "ext", "trim", "quote", "quoteJoin", "which"}
+	for _, name := range names {
 		if _, ok := fm[name]; !ok {
 			t.Errorf("FuncMap missing %q", name)
 		}
@@ -31,15 +32,17 @@ func TestFuncMap_FreshMapPerCall(t *testing.T) {
 func TestFuncMap_RendersThroughTemplate(t *testing.T) {
 	t.Setenv("CRABSWARM_TEMPLATEUTIL_TEST", "xyz")
 	src := `{{ basename .Path }}|{{ dirname .Path }}|{{ ext .Path }}` +
-		`|{{ trim .Spaced }}|{{ env "CRABSWARM_TEMPLATEUTIL_TEST" }}|{{ quote .Quoted }}`
+		`|{{ trim .Spaced }}|{{ env "CRABSWARM_TEMPLATEUTIL_TEST" }}|{{ quote .Quoted }}` +
+		`|{{ quoteJoin .Args }}`
 	tmpl := template.Must(template.New("t").Funcs(FuncMap()).Parse(src))
 	var buf strings.Builder
-	assert.NilError(t, tmpl.Execute(&buf, map[string]string{
+	assert.NilError(t, tmpl.Execute(&buf, map[string]any{
 		"Path":   "/a/b/c.go",
 		"Spaced": "  pad  ",
 		"Quoted": "it's",
+		"Args":   []string{"one", "two words"},
 	}))
-	assert.Equal(t, buf.String(), `c.go|/a/b|.go|pad|xyz|'it'\''s'`)
+	assert.Equal(t, buf.String(), `c.go|/a/b|.go|pad|xyz|'it'\''s'|"one" "two words"`)
 }
 
 func TestShellQuote(t *testing.T) {
@@ -52,6 +55,24 @@ func TestShellQuote(t *testing.T) {
 		{"", `''`},
 	} {
 		assert.Equal(t, ShellQuote(tc.in), tc.want)
+	}
+}
+
+func TestQuoteJoin(t *testing.T) {
+	for _, tc := range []struct {
+		in   []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{}, ""},
+		{[]string{"a"}, `"a"`},
+		{[]string{"a", "b", "c"}, `"a" "b" "c"`},
+		{[]string{"with space", "two words"}, `"with space" "two words"`},
+		{[]string{`say "hi"`}, `"say \"hi\""`},
+		{[]string{`back\slash`}, `"back\\slash"`},
+		{[]string{""}, `""`},
+	} {
+		assert.Equal(t, QuoteJoin(tc.in), tc.want)
 	}
 }
 
