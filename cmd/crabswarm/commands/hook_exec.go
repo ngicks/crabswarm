@@ -23,11 +23,14 @@ func hookExecCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "exec <template>",
 		Short: "executes given commands in claude hook manner.",
-		Long: `executes specified external commands in claude hook manner.
+		Long: fmt.Sprintf(`executes specified external commands in claude hook manner.
 
-It executes commands expressed in Go text/temlate format.
-The template receives some helper functions and claude hook input as Go struct.
-The final output of the template is treated as shell string.
+It executes commands expressed in Go text/template format.
+The template receives the claude hook input as its data context, plus the
+following helper functions:
+
+%s
+The final output of the template is treated as a shell string.
 For interpolation behavior see github.com/mattn/go-shellwords
 
 It also detects the "module root" and sets it to command's cwd.
@@ -47,7 +50,7 @@ detected filetype is not in the allow-list pass through without rendering
 or executing anything, e.g.:
 
   crabswarm hook exec --ft go --ft rust 'echo {{ .File }}'
-`,
+`, exec.TemplateFuncHelp()),
 		// At most one template; --dump-default-config doesn't need one.
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

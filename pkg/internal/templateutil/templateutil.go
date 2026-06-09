@@ -5,6 +5,7 @@
 package templateutil
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +36,74 @@ func FuncMap() template.FuncMap {
 		"quoteJoin": QuoteJoin,
 		"which":     Which,
 	}
+}
+
+// FuncDoc documents a single helper exposed by FuncMap.
+type FuncDoc struct {
+	// Name is the bare function name as registered in FuncMap.
+	Name string
+	// Usage is the function name together with its argument placeholders,
+	// e.g. "quote STRING".
+	Usage string
+	// Desc is a one-line human description of the helper.
+	Desc string
+}
+
+// FuncDocs returns documentation for every helper in FuncMap, in a stable
+// display order. It is the single source of truth behind FuncHelp and the
+// command help text; it is kept in sync with FuncMap (guarded by a test).
+func FuncDocs() []FuncDoc {
+	return []FuncDoc{
+		{
+			Name:  "env",
+			Usage: "env NAME",
+			Desc:  "value of environment variable NAME (empty when unset)",
+		},
+		{Name: "basename", Usage: "basename PATH", Desc: "final element of PATH"},
+		{Name: "dirname", Usage: "dirname PATH", Desc: "all but the final element of PATH"},
+		{
+			Name:  "ext",
+			Usage: "ext PATH",
+			Desc:  "file-name extension of PATH, including the leading dot",
+		},
+		{
+			Name:  "trim",
+			Usage: "trim STRING",
+			Desc:  "STRING with leading and trailing whitespace removed",
+		},
+		{
+			Name:  "quote",
+			Usage: "quote STRING",
+			Desc:  "STRING wrapped in POSIX shell single-quotes (embedded quotes escaped)",
+		},
+		{
+			Name:  "quoteJoin",
+			Usage: "quoteJoin LIST",
+			Desc:  "each string in LIST double-quoted and joined with single spaces",
+		},
+		{
+			Name:  "which",
+			Usage: "which NAME",
+			Desc:  "absolute path of command NAME resolved via $PATH (errors when missing)",
+		},
+	}
+}
+
+// FuncHelp renders FuncDocs as an aligned, indented block suitable for
+// embedding in command help text. Each line is "  <usage>  <desc>" with the
+// usage column padded to a common width; the block ends with a trailing
+// newline.
+func FuncHelp() string {
+	docs := FuncDocs()
+	width := 0
+	for _, d := range docs {
+		width = max(width, len(d.Usage))
+	}
+	var b strings.Builder
+	for _, d := range docs {
+		fmt.Fprintf(&b, "  %-*s  %s\n", width, d.Usage, d.Desc)
+	}
+	return b.String()
 }
 
 // Which resolves command name to its absolute path, like the which(1) shell

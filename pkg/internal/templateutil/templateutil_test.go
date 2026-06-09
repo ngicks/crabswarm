@@ -58,6 +58,48 @@ func TestShellQuote(t *testing.T) {
 	}
 }
 
+func TestFuncDocs_MatchesFuncMap(t *testing.T) {
+	fm := FuncMap()
+	docs := FuncDocs()
+
+	if len(docs) != len(fm) {
+		t.Fatalf("FuncDocs has %d entries, FuncMap has %d", len(docs), len(fm))
+	}
+	seen := map[string]bool{}
+	for _, d := range docs {
+		if _, ok := fm[d.Name]; !ok {
+			t.Errorf("FuncDocs documents %q which is not in FuncMap", d.Name)
+		}
+		if seen[d.Name] {
+			t.Errorf("FuncDocs has duplicate entry for %q", d.Name)
+		}
+		seen[d.Name] = true
+		if d.Usage == "" || d.Desc == "" {
+			t.Errorf("FuncDocs entry %q has empty Usage or Desc", d.Name)
+		}
+	}
+	for name := range fm {
+		if !seen[name] {
+			t.Errorf("FuncMap has %q with no FuncDocs entry", name)
+		}
+	}
+}
+
+func TestFuncHelp_RendersEveryFunc(t *testing.T) {
+	help := FuncHelp()
+	if !strings.HasSuffix(help, "\n") {
+		t.Error("FuncHelp should end with a trailing newline")
+	}
+	for _, d := range FuncDocs() {
+		if !strings.Contains(help, d.Usage) {
+			t.Errorf("FuncHelp missing usage %q", d.Usage)
+		}
+		if !strings.Contains(help, d.Desc) {
+			t.Errorf("FuncHelp missing desc for %q", d.Name)
+		}
+	}
+}
+
 func TestQuoteJoin(t *testing.T) {
 	for _, tc := range []struct {
 		in   []string

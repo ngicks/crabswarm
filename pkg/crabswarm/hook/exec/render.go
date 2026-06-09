@@ -8,6 +8,15 @@ import (
 	"github.com/ngicks/crabswarm/pkg/internal/templateutil"
 )
 
+// TemplateFuncHelp returns aligned help text documenting the helper functions
+// available to hook exec templates. The functions themselves come from
+// [templateutil.FuncMap]; this is exposed so the CLI can embed the same
+// documentation in its help message without reaching into the internal
+// templateutil package.
+func TemplateFuncHelp() string {
+	return templateutil.FuncHelp()
+}
+
 func renderTemplate(src string, data Data) (string, error) {
 	tmpl, err := template.New("template").
 		Option("missingkey=zero").
