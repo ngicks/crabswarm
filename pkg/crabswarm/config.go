@@ -18,12 +18,13 @@ import (
 
 // Env-var names recognized by this package.
 const (
-	EnvSock          = "CRABSWARM_SOCK"
-	EnvConf          = "CRABSWARM_CONF"
-	EnvProjectDir    = "CLAUDE_PROJECT_DIR"
-	envXDGRuntime    = "XDG_RUNTIME_DIR"
-	envXDGConfigHome = "XDG_CONFIG_HOME"
-	envHome          = "HOME"
+	EnvSock           = "CRABSWARM_SOCK"
+	EnvConf           = "CRABSWARM_CONF"
+	EnvProjectDir     = "CLAUDE_PROJECT_DIR"
+	EnvGitRepoBaseDir = "CRABSWARM_GIT_REPO_BASE_DIR"
+	envXDGRuntime     = "XDG_RUNTIME_DIR"
+	envXDGConfigHome  = "XDG_CONFIG_HOME"
+	envHome           = "HOME"
 )
 
 // Config is the unified configuration for the crabswarm CLI and its
@@ -41,6 +42,10 @@ type Config struct {
 	Sock string `json:"sock,omitzero"`
 	// ProjectDir mirrors $CLAUDE_PROJECT_DIR — the Claude Code project root.
 	ProjectDir string `json:"project_dir,omitzero"`
+	// GitRepoBaseDir is the root under which `crabswarm git clone`
+	// materializes repositories. Resolved from
+	// $CRABSWARM_GIT_REPO_BASE_DIR, the config file, then $HOME/gitrepo.
+	GitRepoBaseDir string `json:"git_repo_base_dir,omitzero"`
 	// HookExec is the configuration consumed by `crabswarm hook exec`.
 	HookExec exec.Config `json:"hook_exec,omitzero"`
 }
@@ -48,10 +53,11 @@ type Config struct {
 // Load returns a Config assembled from (highest priority first):
 //  1. fields already set on the receiver (typically from CLI flags),
 //  2. environment variables ($CRABSWARM_SOCK, $CRABSWARM_CONF,
-//     $CLAUDE_PROJECT_DIR),
+//     $CLAUDE_PROJECT_DIR, $CRABSWARM_GIT_REPO_BASE_DIR),
 //  3. the configuration file at c.ConfPath, $CRABSWARM_CONF, or
 //     ${XDG_CONFIG_HOME:-$HOME/.config}/crabswarm/config.json,
-//  4. built-in defaults for path-like fields.
+//  4. built-in defaults for path-like fields (e.g. $HOME/gitrepo for
+//     GitRepoBaseDir).
 //
 // A missing default-resolved config file is tolerated (treated as empty),
 // but if c.ConfPath was explicitly set the file must exist.
@@ -63,6 +69,9 @@ func (c Config) Load() (Config, error) {
 	}
 	if cfg.ProjectDir == "" {
 		cfg.ProjectDir = os.Getenv(EnvProjectDir)
+	}
+	if cfg.GitRepoBaseDir == "" {
+		cfg.GitRepoBaseDir = os.Getenv(EnvGitRepoBaseDir)
 	}
 
 	confFromFlag := cfg.ConfPath != ""
@@ -85,6 +94,9 @@ func (c Config) Load() (Config, error) {
 	if cfg.Sock == "" {
 		cfg.Sock = defaultSockPath()
 	}
+	if cfg.GitRepoBaseDir == "" {
+		cfg.GitRepoBaseDir = defaultGitRepoBaseDir()
+	}
 
 	return cfg, nil
 }
@@ -99,6 +111,9 @@ func merge(primary, secondary Config) Config {
 	}
 	if out.ProjectDir == "" {
 		out.ProjectDir = secondary.ProjectDir
+	}
+	if out.GitRepoBaseDir == "" {
+		out.GitRepoBaseDir = secondary.GitRepoBaseDir
 	}
 	// Concatenate file-loaded leaves first, then flag/env leaves; later
 	// leaves win on conflict, so flag/env entries override file entries.
@@ -127,6 +142,14 @@ func defaultSockPath() string {
 		runtimeDir = "/tmp"
 	}
 	return filepath.Join(runtimeDir, "crabswarm", "default.sock")
+}
+
+func defaultGitRepoBaseDir() string {
+	home := os.Getenv(envHome)
+	if home == "" {
+		return ""
+	}
+	return filepath.Join(home, "gitrepo")
 }
 
 func defaultConfPath() string {

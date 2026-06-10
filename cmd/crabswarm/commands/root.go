@@ -56,6 +56,7 @@ func rootCmd() *cobra.Command {
 	serveCmd(cmd, &flagSock)
 	hookCmd(cmd, &flagSock)
 	statuslineCmd(cmd)
+	gitCmd(cmd)
 
 	return cmd
 }

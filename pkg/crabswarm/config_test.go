@@ -19,6 +19,7 @@ func setEnvBaseline(t *testing.T) {
 		EnvSock,
 		EnvConf,
 		EnvProjectDir,
+		EnvGitRepoBaseDir,
 		envXDGRuntime,
 		envXDGConfigHome,
 		envHome,
@@ -68,6 +69,33 @@ func TestLoad_DefaultSockPathFallsBackToTmp(t *testing.T) {
 	cfg, err := Config{}.Load()
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
+}
+
+func TestLoad_GitRepoBaseDirFlagWinsOverEnv(t *testing.T) {
+	setEnvBaseline(t)
+	t.Setenv(EnvGitRepoBaseDir, "/env/repos")
+
+	cfg, err := Config{GitRepoBaseDir: "/flag/repos"}.Load()
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.GitRepoBaseDir, "/flag/repos")
+}
+
+func TestLoad_GitRepoBaseDirFromEnv(t *testing.T) {
+	setEnvBaseline(t)
+	t.Setenv(EnvGitRepoBaseDir, "/env/repos")
+
+	cfg, err := Config{}.Load()
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.GitRepoBaseDir, "/env/repos")
+}
+
+func TestLoad_GitRepoBaseDirDefaultsToHomeGitrepo(t *testing.T) {
+	setEnvBaseline(t)
+	t.Setenv(envHome, "/home/someone")
+
+	cfg, err := Config{}.Load()
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.GitRepoBaseDir, filepath.Join("/home/someone", "gitrepo"))
 }
 
 func writeJSON(t *testing.T, path string, v any) {
