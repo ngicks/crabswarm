@@ -23,6 +23,7 @@ func rootCmd() *cobra.Command {
 		logConfig   *loggerfactory.Config
 		flagSock    string
 		flagVersion bool
+		flagConfig  string
 	)
 
 	cmd := &cobra.Command{
@@ -51,12 +52,15 @@ func rootCmd() *cobra.Command {
 	logConfig = loggerfactory.RegisterFlags(cmd)
 	cmd.PersistentFlags().StringVar(&flagSock, "sock", "", "Unix socket path")
 	cmd.Flags().BoolVar(&flagVersion, "version", false, "alias for the version subcommand")
+	cmd.PersistentFlags().
+		StringVar(&flagConfig, "config", "", "config file path; overrides the default location")
 
 	versionCmd(cmd)
-	serveCmd(cmd, &flagSock)
-	hookCmd(cmd, &flagSock)
+	configCmd(cmd, &flagConfig)
+	serveCmd(cmd, &flagSock, &flagConfig)
+	hookCmd(cmd, &flagSock, &flagConfig)
 	statuslineCmd(cmd)
-	gitCmd(cmd)
+	gitCmd(cmd, &flagConfig)
 
 	return cmd
 }

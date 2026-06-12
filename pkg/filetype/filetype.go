@@ -34,14 +34,14 @@ type MarkerGroup []string
 type Config struct {
 	// Ext maps an extension (without leading dot, e.g. "go" or "tar.gz")
 	// to a filetype name.
-	Ext map[string]string `json:"ext,omitzero"`
+	Ext map[string]string `json:"ext,omitzero" yaml:"ext,omitempty"`
 	// Filename maps an exact base name (e.g. "Makefile", "go.mod") to a
 	// filetype name.
-	Filename map[string]string `json:"filename,omitzero"`
+	Filename map[string]string `json:"filename,omitzero" yaml:"filename,omitempty"`
 	// RootMarkers maps a filetype name to an ordered list of marker
 	// groups. Groups are tried in order; the first group that finds any
 	// marker at any ancestor wins.
-	RootMarkers map[string][]MarkerGroup `json:"root_markers,omitzero"`
+	RootMarkers map[string][]MarkerGroup `json:"root_markers,omitzero" yaml:"root_markers,omitempty"`
 }
 
 // Detect returns the filetype name for filePath. See package doc for the

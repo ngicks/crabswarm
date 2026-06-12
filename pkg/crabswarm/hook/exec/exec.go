@@ -51,7 +51,30 @@ var defaultConfigJSON []byte
 // built-in [Default] leaves are folded underneath at the lowest priority
 // so they apply out of the box; caller-supplied entries override them.
 type Config struct {
-	Filetypes []filetype.Config `json:"filetypes,omitzero"`
+	Filetypes []filetype.Config `json:"filetypes,omitzero" yaml:"filetypes,omitempty"`
+}
+
+// PartialConfig is the sparse mirror of [Config], used by the parent
+// crabswarm config's merge layer. It is file-only: a []filetype.Config is
+// not env-shaped, so it carries no env tag — the field is simply not
+// env-settable (file-only), which the layered-config skill permits.
+//
+// Filetypes is a slice, so Apply overwrites it wholesale: a non-nil
+// incoming slice replaces the base, a nil one leaves the base untouched.
+//
+//nolint:lll // dual json/yaml tags; one field per line, never wrap tags
+type PartialConfig struct {
+	Filetypes []filetype.Config `json:"filetypes,omitzero" yaml:"filetypes,omitempty"`
+}
+
+// Apply overlays p's present fields onto base and returns the merged
+// Config. Filetypes is a slice: a non-nil incoming slice overwrites the
+// base wholesale (no element-wise merge); a nil slice leaves the base.
+func (p PartialConfig) Apply(base Config) Config {
+	if p.Filetypes != nil {
+		base.Filetypes = p.Filetypes
+	}
+	return base
 }
 
 // Option holds the per-invocation knobs (template + filetype gate) that

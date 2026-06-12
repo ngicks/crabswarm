@@ -12,9 +12,8 @@ import (
 	"github.com/ngicks/crabswarm/pkg/crabswarm/hook/exec"
 )
 
-func hookExecCmd(parent *cobra.Command) {
+func hookExecCmd(parent *cobra.Command, flagConfig *string) {
 	var (
-		flagConfig      string
 		flagDryRun      bool
 		flagDumpDefault bool
 		flagFt          []string
@@ -52,19 +51,15 @@ or executing anything, e.g.:
   crabswarm hook exec --ft go --ft rust 'echo {{ .File }}'
 `, exec.TemplateFuncHelp()),
 		// At most one template; --dump-default-config doesn't need one.
-		Args: cobra.MaximumNArgs(1),
+		// The positional is a Go text/template string, not a file path.
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runHookExec(cmd, args, flagConfig, flagDryRun, flagDumpDefault, flagFt)
+			return runHookExec(cmd, args, *flagConfig, flagDryRun, flagDumpDefault, flagFt)
 		},
 	}
 
 	f := cmd.Flags()
-	f.StringVar(
-		&flagConfig,
-		"config",
-		"",
-		"Path to JSON config (overrides $CRABSWARM_CONF and the std location)",
-	)
 	f.BoolVar(
 		&flagDryRun,
 		"dry-run",
@@ -107,7 +102,7 @@ func runHookExec(
 
 	ctx := cmd.Context()
 
-	cfg, err := crabswarm.Config{ConfPath: configOverride}.Load()
+	cfg, err := crabswarm.LoadConfig(configOverride)
 	if err != nil {
 		return err
 	}

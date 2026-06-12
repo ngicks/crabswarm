@@ -3,6 +3,7 @@ module github.com/ngicks/crabswarm
 go 1.26.0
 
 require (
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/mattn/go-shellwords v1.0.13
 	github.com/ngicks/go-common/contextkey v0.2.0
 	github.com/spf13/cobra v1.10.2

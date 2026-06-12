@@ -2,13 +2,13 @@ package commands
 
 import "github.com/spf13/cobra"
 
-func gitCmd(parent *cobra.Command) {
+func gitCmd(parent *cobra.Command, flagConfig *string) {
 	cmd := &cobra.Command{
 		Use:   "git",
 		Short: "Git repository helpers (ghq-style bare clones and worktrees)",
 	}
 
-	gitCloneCmd(cmd)
+	gitCloneCmd(cmd, flagConfig)
 	gitWorktreeCmd(cmd)
 
 	parent.AddCommand(cmd)

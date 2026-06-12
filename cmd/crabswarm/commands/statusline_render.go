@@ -9,6 +9,7 @@ import (
 	"github.com/ngicks/crabswarm/pkg/crabswarm/statusline"
 )
 
+//nolint:lll // Long/Example embed one-line settings.json / shell examples that must stay unwrapped to be copy-pasteable.
 func statuslineRenderCmd(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "render <template>",
@@ -37,7 +38,7 @@ Configure it in Claude Code settings.json, for example:
   }
 `,
 		Example: `  # "model @ effort | context usage in percent | cwd"
-  crabswarm statusline render "crabswarm statusline render '{{.Model.DisplayName}}{{ with .Effort }} @ {{ .Level }}{{ end }} | {{.ContextWindow.UsedPercentage}}% used | {{.Workspace.CurrentDir}}'"`,
+  crabswarm statusline render '{{.Model.DisplayName}}{{ with .Effort }} @ {{ .Level }}{{ end }} | {{.ContextWindow.UsedPercentage}}% used | {{.Workspace.CurrentDir}}'`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE:              runStatuslineRender,

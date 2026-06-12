@@ -10,20 +10,21 @@ import (
 	"github.com/ngicks/crabswarm/pkg/crabswarm/server"
 )
 
-func serveCmd(parent *cobra.Command, flagSock *string) {
+func serveCmd(parent *cobra.Command, flagSock, flagConfig *string) {
 	cmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Start the crabswarm server",
-		Args:  cobra.NoArgs,
+		Use:               "serve",
+		Short:             "Start the crabswarm server",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(cmd, args, *flagSock)
+			return runServe(cmd, args, *flagSock, *flagConfig)
 		},
 	}
 
 	parent.AddCommand(cmd)
 }
 
-func runServe(cmd *cobra.Command, _ []string, flagSock string) error {
+func runServe(cmd *cobra.Command, _ []string, flagSock, flagConfig string) error {
 	ctx := cmd.Context()
 
 	logger, _ := contextkey.ValueSlogLogger(ctx)
@@ -31,9 +32,12 @@ func runServe(cmd *cobra.Command, _ []string, flagSock string) error {
 		logger = slog.Default()
 	}
 
-	cfg, err := crabswarm.Config{Sock: flagSock}.Load()
+	cfg, err := crabswarm.LoadConfig(flagConfig)
 	if err != nil {
 		return err
+	}
+	if cmd.Flags().Changed("sock") {
+		cfg.Sock = flagSock
 	}
 
 	srv := server.New(logger, cfg.Sock)

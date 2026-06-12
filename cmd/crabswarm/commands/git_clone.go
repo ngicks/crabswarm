@@ -10,7 +10,7 @@ import (
 	"github.com/ngicks/crabswarm/pkg/crabswarm/git"
 )
 
-func gitCloneCmd(parent *cobra.Command) {
+func gitCloneCmd(parent *cobra.Command, flagConfig *string) {
 	var flagBaseDir string
 
 	cmd := &cobra.Command{
@@ -36,7 +36,7 @@ host/owner/repo (with or without a trailing .git).`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGitClone(cmd, args, flagBaseDir)
+			return runGitClone(cmd, args, flagBaseDir, *flagConfig)
 		},
 	}
 
@@ -46,7 +46,7 @@ host/owner/repo (with or without a trailing .git).`,
 	parent.AddCommand(cmd)
 }
 
-func runGitClone(cmd *cobra.Command, args []string, baseDir string) error {
+func runGitClone(cmd *cobra.Command, args []string, baseDir, flagConfig string) error {
 	ctx := cmd.Context()
 
 	logger, _ := contextkey.ValueSlogLogger(ctx)
@@ -54,9 +54,12 @@ func runGitClone(cmd *cobra.Command, args []string, baseDir string) error {
 		logger = slog.Default()
 	}
 
-	cfg, err := crabswarm.Config{GitRepoBaseDir: baseDir}.Load()
+	cfg, err := crabswarm.LoadConfig(flagConfig)
 	if err != nil {
 		return err
+	}
+	if cmd.Flags().Changed("base-dir") {
+		cfg.GitRepoBaseDir = baseDir
 	}
 
 	svc := git.Service{

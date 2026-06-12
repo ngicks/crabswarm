@@ -11,91 +11,43 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-// setEnvBaseline clears every env var Load reads. Sub-tests opt back in
-// with t.Setenv. Keeps cases hermetic regardless of the caller's shell.
-func setEnvBaseline(t *testing.T) {
+// Env-var names used by the tests. They mirror the OS environment verbatim;
+// CLAUDE_PROJECT_DIR is the unprefixed external contract set by Claude Code.
+const (
+	envSock           = "CRABSWARM_SOCK"
+	envProjectDir     = "CLAUDE_PROJECT_DIR"
+	envGitRepoBaseDir = "CRABSWARM_GIT_REPO_BASE_DIR"
+	envXDGRuntime     = "XDG_RUNTIME_DIR"
+)
+
+// baseEnv unsets every env var LoadConfig and the default resolvers read, so
+// cases are hermetic regardless of the caller's shell. t.Setenv registers
+// restoration of the original value; the immediate os.Unsetenv removes it for
+// the duration of the test.
+func baseEnv(t *testing.T) {
 	t.Helper()
 	keys := []string{
-		EnvSock,
-		EnvConf,
-		EnvProjectDir,
-		EnvGitRepoBaseDir,
+		envSock,
+		envConfVar,
+		envProjectDir,
+		envGitRepoBaseDir,
 		envXDGRuntime,
-		envXDGConfigHome,
-		envHome,
+		"XDG_CONFIG_HOME",
+		"HOME",
 	}
 	for _, k := range keys {
 		t.Setenv(k, "")
+		_ = os.Unsetenv(k)
 	}
 }
 
-func TestLoad_FlagsWinOverEnv(t *testing.T) {
-	setEnvBaseline(t)
-	t.Setenv(EnvSock, "/env/sock")
-	t.Setenv(EnvProjectDir, "/env/proj")
-
-	cfg, err := Config{
-		Sock:       "/flag/sock",
-		ProjectDir: "/flag/proj",
-	}.Load()
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, "/flag/sock")
-	assert.Equal(t, cfg.ProjectDir, "/flag/proj")
-}
-
-func TestLoad_EnvFillsMissingFlags(t *testing.T) {
-	setEnvBaseline(t)
-	t.Setenv(EnvSock, "/env/sock")
-	t.Setenv(EnvProjectDir, "/env/proj")
-
-	cfg, err := Config{}.Load()
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, "/env/sock")
-	assert.Equal(t, cfg.ProjectDir, "/env/proj")
-}
-
-func TestLoad_DefaultSockPathFromXDGRuntime(t *testing.T) {
-	setEnvBaseline(t)
-	t.Setenv(envXDGRuntime, "/run/user/1000")
-
-	cfg, err := Config{}.Load()
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "default.sock"))
-}
-
-func TestLoad_DefaultSockPathFallsBackToTmp(t *testing.T) {
-	setEnvBaseline(t)
-
-	cfg, err := Config{}.Load()
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
-}
-
-func TestLoad_GitRepoBaseDirFlagWinsOverEnv(t *testing.T) {
-	setEnvBaseline(t)
-	t.Setenv(EnvGitRepoBaseDir, "/env/repos")
-
-	cfg, err := Config{GitRepoBaseDir: "/flag/repos"}.Load()
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.GitRepoBaseDir, "/flag/repos")
-}
-
-func TestLoad_GitRepoBaseDirFromEnv(t *testing.T) {
-	setEnvBaseline(t)
-	t.Setenv(EnvGitRepoBaseDir, "/env/repos")
-
-	cfg, err := Config{}.Load()
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.GitRepoBaseDir, "/env/repos")
-}
-
-func TestLoad_GitRepoBaseDirDefaultsToHomeGitrepo(t *testing.T) {
-	setEnvBaseline(t)
-	t.Setenv(envHome, "/home/someone")
-
-	cfg, err := Config{}.Load()
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.GitRepoBaseDir, filepath.Join("/home/someone", "gitrepo"))
+// configDir points os.UserConfigDir at a fresh empty temp dir so configPath
+// resolves to an absent config.json (ENOENT tolerated). Returns the dir.
+func configDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	return dir
 }
 
 func writeJSON(t *testing.T, path string, v any) {
@@ -106,14 +58,50 @@ func writeJSON(t *testing.T, path string, v any) {
 	assert.NilError(t, os.WriteFile(path, raw, 0o644))
 }
 
-func TestLoad_ConfigFileFillsEmptyFields(t *testing.T) {
-	setEnvBaseline(t)
+func TestLoadConfig_Defaults(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv(envXDGRuntime, "/run/user/1000")
+	t.Setenv("HOME", "/home/someone")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "default.sock"))
+	assert.Equal(t, cfg.GitRepoBaseDir, filepath.Join("/home/someone", "gitrepo"))
+	assert.Equal(t, cfg.ProjectDir, "")
+}
+
+func TestLoadConfig_SockDefaultFallsBackToTmp(t *testing.T) {
+	baseEnv(t)
+	configDir(t) // no XDG_RUNTIME_DIR
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
+}
+
+func TestLoadConfig_EnvOverridesDefault(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv(envSock, "/env/sock")
+	t.Setenv(envProjectDir, "/env/proj")
+	t.Setenv(envGitRepoBaseDir, "/env/repos")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, "/env/sock")
+	assert.Equal(t, cfg.ProjectDir, "/env/proj")
+	assert.Equal(t, cfg.GitRepoBaseDir, "/env/repos")
+}
+
+func TestLoadConfig_FileFillsFields(t *testing.T) {
+	baseEnv(t)
 	tmp := t.TempDir()
 	confPath := filepath.Join(tmp, "config.json")
-
 	writeJSON(t, confPath, Config{
-		Sock:       "/file/sock",
-		ProjectDir: "/file/proj",
+		Sock:           "/file/sock",
+		ProjectDir:     "/file/proj",
+		GitRepoBaseDir: "/file/repos",
 		HookExec: exec.Config{
 			Filetypes: []filetype.Config{
 				{Ext: map[string]string{"go": "go"}},
@@ -121,92 +109,268 @@ func TestLoad_ConfigFileFillsEmptyFields(t *testing.T) {
 		},
 	})
 
-	cfg, err := Config{ConfPath: confPath}.Load()
+	cfg, err := LoadConfig(confPath)
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.Sock, "/file/sock")
 	assert.Equal(t, cfg.ProjectDir, "/file/proj")
+	assert.Equal(t, cfg.GitRepoBaseDir, "/file/repos")
 	assert.Equal(t, len(cfg.HookExec.Filetypes), 1)
 	assert.Equal(t, cfg.HookExec.Filetypes[0].Ext["go"], "go")
 }
 
-func TestLoad_FlagsWinOverFile(t *testing.T) {
-	setEnvBaseline(t)
+// An omitted key in the sparse file stays nil and must not clobber a lower
+// layer — the default here.
+func TestLoadConfig_FileSparseKeepsDefault(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envXDGRuntime, "/run/user/1000")
+	t.Setenv("HOME", "/home/someone")
 	tmp := t.TempDir()
 	confPath := filepath.Join(tmp, "config.json")
-	writeJSON(t, confPath, Config{Sock: "/file/sock"})
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"sock":"/file/sock"}`), 0o644))
 
-	cfg, err := Config{ConfPath: confPath, Sock: "/flag/sock"}.Load()
+	cfg, err := LoadConfig(confPath)
 	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, "/flag/sock")
+	assert.Equal(t, cfg.Sock, "/file/sock")
+	// git_repo_base_dir omitted, so the default survives.
+	assert.Equal(t, cfg.GitRepoBaseDir, filepath.Join("/home/someone", "gitrepo"))
 }
 
-func TestLoad_ConfPathFromEnv(t *testing.T) {
-	setEnvBaseline(t)
+// Under the PartialConfig model an explicit-zero file key APPLIES (it no longer
+// means "unset"): a present "sock":"" sets the pointer to an explicit empty
+// string, which overwrites the default. This is the intended semantics change.
+func TestLoadConfig_FileExplicitZeroApplies(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envXDGRuntime, "/run/user/1000")
 	tmp := t.TempDir()
 	confPath := filepath.Join(tmp, "config.json")
-	writeJSON(t, confPath, Config{Sock: "/env-file/sock"})
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"sock":""}`), 0o644))
 
-	t.Setenv(EnvConf, confPath)
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, "")
+}
 
-	cfg, err := Config{}.Load()
+// A present-but-NON-empty env var applies and wins over the file.
+func TestLoadConfig_EnvValueOverridesFile(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envSock, "/env/sock")
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"sock":"/file/sock"}`), 0o644))
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, "/env/sock")
+}
+
+// LIBRARY CONSTRAINT: for the CRABSWARM_-prefixed fields, caarlos0/env's
+// setField skips a value of "" unconditionally, so a present-but-empty
+// CRABSWARM_SOCK= is indistinguishable from an absent var — the pointer stays
+// nil and the lower (file) layer survives. This is the library's behavior, not
+// a custom policy, and differs from the unprefixed CLAUDE_PROJECT_DIR handling
+// (read via os.LookupEnv, which honors present-empty — see ProjectDir tests).
+func TestLoadConfig_EnvEmptyTreatedAsAbsent(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envSock, "") // present but empty
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"sock":"/file/sock"}`), 0o644))
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, "/file/sock")
+}
+
+// CLAUDE_PROJECT_DIR is read unprefixed (no CRABSWARM_ prefix). A present-but-
+// empty CLAUDE_PROJECT_DIR= is an explicit empty value that applies, mirroring
+// the prefixed env fields' present-based semantics.
+func TestLoadConfig_ProjectDirUnprefixed(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	// The prefixed name must be ignored for ProjectDir.
+	t.Setenv("CRABSWARM_PROJECT_DIR", "/wrong/prefixed")
+	t.Setenv(envProjectDir, "/claude/proj")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.ProjectDir, "/claude/proj")
+}
+
+// A present-but-empty CLAUDE_PROJECT_DIR= overrides a file-set project_dir,
+// staying present-based.
+func TestLoadConfig_ProjectDirEmptyOverridesFile(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envProjectDir, "") // present but empty
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"project_dir":"/file/proj"}`), 0o644))
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.ProjectDir, "")
+}
+
+// An absent CLAUDE_PROJECT_DIR leaves the file/default layer intact (nil ->
+// absent, no overwrite).
+func TestLoadConfig_ProjectDirAbsentKeepsFile(t *testing.T) {
+	baseEnv(t)
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"project_dir":"/file/proj"}`), 0o644))
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.ProjectDir, "/file/proj")
+}
+
+func TestLoadConfig_ConfPathFromEnv(t *testing.T) {
+	baseEnv(t)
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"sock":"/env-file/sock"}`), 0o644))
+	t.Setenv(envConfVar, confPath)
+
+	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.Sock, "/env-file/sock")
-	assert.Equal(t, cfg.ConfPath, confPath)
 }
 
-func TestLoad_ConfPathFromXDGStdLocation(t *testing.T) {
-	setEnvBaseline(t)
-	tmp := t.TempDir()
-	t.Setenv(envXDGConfigHome, tmp)
+func TestLoadConfig_ConfPathFromUserConfigDir(t *testing.T) {
+	baseEnv(t)
+	dir := configDir(t)
+	confPath := filepath.Join(dir, "crabswarm", "config.json")
+	assert.NilError(t, os.MkdirAll(filepath.Dir(confPath), 0o755))
+	assert.NilError(t, os.WriteFile(confPath, []byte(`{"sock":"/xdg-file/sock"}`), 0o644))
 
-	confPath := filepath.Join(tmp, "crabswarm", "config.json")
-	writeJSON(t, confPath, Config{Sock: "/xdg-file/sock"})
-
-	cfg, err := Config{}.Load()
+	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.Sock, "/xdg-file/sock")
-	assert.Equal(t, cfg.ConfPath, confPath)
 }
 
-func TestLoad_ConfPathFromHomeFallback(t *testing.T) {
-	setEnvBaseline(t)
-	tmp := t.TempDir()
-	t.Setenv(envHome, tmp)
+func TestLoadConfig_MissingFileTolerated(t *testing.T) {
+	baseEnv(t)
+	configDir(t) // empty dir, no config.json
 
-	confPath := filepath.Join(tmp, ".config", "crabswarm", "config.json")
-	writeJSON(t, confPath, Config{Sock: "/home-file/sock"})
-
-	cfg, err := Config{}.Load()
+	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, "/home-file/sock")
-	assert.Equal(t, cfg.ConfPath, confPath)
-}
-
-func TestLoad_MissingDefaultFileIsTolerated(t *testing.T) {
-	setEnvBaseline(t)
-	tmp := t.TempDir()
-	t.Setenv(envXDGConfigHome, tmp) // file does not exist under here
-
-	cfg, err := Config{}.Load()
-	assert.NilError(t, err)
-	// Defaults still applied:
+	// Defaults still applied.
 	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
 	assert.Equal(t, len(cfg.HookExec.Filetypes), 0)
 }
 
-func TestLoad_ExplicitMissingFileErrors(t *testing.T) {
-	setEnvBaseline(t)
-	cfg, err := Config{ConfPath: "/no/such/file.json"}.Load()
-	assert.Assert(t, err != nil)
-	assert.Equal(t, cfg.ConfPath, "/no/such/file.json")
+// ENOENT is tolerated even for an explicit --config path (the canonical
+// unmarshalConfigFile contract); a typo'd path falls through to defaults rather
+// than erroring.
+func TestLoadConfig_ExplicitMissingFileTolerated(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+
+	cfg, err := LoadConfig(filepath.Join(t.TempDir(), "absent.json"))
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
 }
 
-func TestLoad_InvalidJSONErrors(t *testing.T) {
-	setEnvBaseline(t)
+func TestLoadConfig_InvalidJSONErrors(t *testing.T) {
+	baseEnv(t)
 	tmp := t.TempDir()
 	confPath := filepath.Join(tmp, "config.json")
 	assert.NilError(t, os.WriteFile(confPath, []byte("not json"), 0o644))
 
-	_, err := Config{ConfPath: confPath}.Load()
+	_, err := LoadConfig(confPath)
 	assert.Assert(t, err != nil)
+}
+
+// With no --config, no $CRABSWARM_CONF, and no HOME/XDG_CONFIG_HOME,
+// os.UserConfigDir cannot resolve a directory and LoadConfig propagates the
+// error.
+func TestLoadConfig_UnresolvableConfigDirErrors(t *testing.T) {
+	baseEnv(t)
+
+	_, err := LoadConfig("")
+	assert.Assert(t, err != nil)
+}
+
+// The nested HookExec sub-config deep-merges: env carries no HookExec field, so
+// the file's Filetypes survives the env layer.
+func TestLoadConfig_HookExecFromFile(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envSock, "/env/sock") // env present, but does not touch HookExec
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	writeJSON(t, confPath, Config{
+		HookExec: exec.Config{
+			Filetypes: []filetype.Config{
+				{Ext: map[string]string{"go": "go"}},
+			},
+		},
+	})
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Sock, "/env/sock")
+	assert.Equal(t, len(cfg.HookExec.Filetypes), 1)
+	assert.Equal(t, cfg.HookExec.Filetypes[0].Ext["go"], "go")
+}
+
+// PartialConfig.Apply: a non-nil Filetypes slice overwrites the base wholesale
+// (no element-wise merge); a nil slice leaves the base.
+func TestApply_FiletypesSliceOverwrite(t *testing.T) {
+	base := Config{
+		HookExec: exec.Config{
+			Filetypes: []filetype.Config{
+				{Ext: map[string]string{"go": "go"}},
+				{Ext: map[string]string{"rs": "rust"}},
+			},
+		},
+	}
+
+	// Non-nil incoming slice replaces wholesale.
+	overwrite := PartialConfig{
+		HookExec: exec.PartialConfig{
+			Filetypes: []filetype.Config{
+				{Ext: map[string]string{"py": "python"}},
+			},
+		},
+	}
+	got := overwrite.Apply(base)
+	assert.Equal(t, len(got.HookExec.Filetypes), 1)
+	assert.Equal(t, got.HookExec.Filetypes[0].Ext["py"], "python")
+
+	// nil incoming slice leaves the base untouched.
+	keep := PartialConfig{}
+	got = keep.Apply(base)
+	assert.Equal(t, len(got.HookExec.Filetypes), 2)
+}
+
+// Apply is pure with respect to its base: it returns a new Config and does not
+// mutate the base value or its nested slice.
+func TestApply_PurityBaseNotMutated(t *testing.T) {
+	base := Config{
+		Sock: "/base/sock",
+		HookExec: exec.Config{
+			Filetypes: []filetype.Config{
+				{Ext: map[string]string{"go": "go"}},
+			},
+		},
+	}
+
+	newSock := "/new/sock"
+	p := PartialConfig{
+		Sock: &newSock,
+		HookExec: exec.PartialConfig{
+			Filetypes: []filetype.Config{
+				{Ext: map[string]string{"rs": "rust"}},
+			},
+		},
+	}
+	got := p.Apply(base)
+
+	// The result reflects the overlay.
+	assert.Equal(t, got.Sock, "/new/sock")
+	assert.Equal(t, got.HookExec.Filetypes[0].Ext["rs"], "rust")
+
+	// The base is unchanged.
+	assert.Equal(t, base.Sock, "/base/sock")
+	assert.Equal(t, len(base.HookExec.Filetypes), 1)
+	assert.Equal(t, base.HookExec.Filetypes[0].Ext["go"], "go")
 }
