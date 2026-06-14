@@ -12,6 +12,11 @@ func gitWorktreeCmd(parent *cobra.Command) {
 	gitWorktreeAddCmd(cmd)
 	gitWorktreeListCmd(cmd)
 	gitWorktreeRemoveCmd(cmd)
+	gitWorktreeMoveCmd(cmd)
+	gitWorktreePruneCmd(cmd)
+	gitWorktreeLockCmd(cmd)
+	gitWorktreeUnlockCmd(cmd)
+	gitWorktreeRepairCmd(cmd)
 
 	parent.AddCommand(cmd)
 }

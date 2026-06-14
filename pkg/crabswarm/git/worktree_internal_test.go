@@ -16,10 +16,20 @@ func TestParseWorktreeList(t *testing.T) {
 		"\n" +
 		"worktree /repo/detached\n" +
 		"HEAD def456\n" +
-		"detached\n"
+		"detached\n" +
+		"\n" +
+		"worktree /repo/locked-bare\n" +
+		"HEAD aaa111\n" +
+		"branch refs/heads/locked-bare\n" +
+		"locked\n" +
+		"\n" +
+		"worktree /repo/locked-reason\n" +
+		"HEAD bbb222\n" +
+		"branch refs/heads/locked-reason\n" +
+		"locked on a USB drive\n"
 
 	got := parseWorktreeList(out)
-	assert.Equal(t, len(got), 3)
+	assert.Equal(t, len(got), 5)
 
 	assert.Equal(t, got[0].Path, "/repo/.bare")
 	assert.Assert(t, got[0].Bare)
@@ -29,8 +39,19 @@ func TestParseWorktreeList(t *testing.T) {
 	assert.Equal(t, got[1].Branch, "main")
 	assert.Equal(t, got[1].Name(), "main")
 	assert.Assert(t, !got[1].Bare)
+	assert.Assert(t, !got[1].Locked)
 
 	assert.Equal(t, got[2].Path, "/repo/detached")
 	assert.Equal(t, got[2].Branch, "")
 	assert.Assert(t, !got[2].Bare)
+
+	// A bare "locked" line marks the worktree locked with no reason.
+	assert.Equal(t, got[3].Path, "/repo/locked-bare")
+	assert.Assert(t, got[3].Locked)
+	assert.Equal(t, got[3].LockReason, "")
+
+	// "locked <reason>" carries the reason text.
+	assert.Equal(t, got[4].Path, "/repo/locked-reason")
+	assert.Assert(t, got[4].Locked)
+	assert.Equal(t, got[4].LockReason, "on a USB drive")
 }

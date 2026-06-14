@@ -28,6 +28,12 @@ type Worktree struct {
 	Branch string
 	// Bare reports whether this entry is the bare/main repository itself.
 	Bare bool
+	// Locked reports whether the worktree is locked (which blocks prune and
+	// non-forced remove).
+	Locked bool
+	// LockReason is the optional reason recorded with the lock; empty when
+	// the worktree is unlocked or was locked without a reason.
+	LockReason string
 }
 
 // Name is the worktree's directory name, used as its handle in the CLI.
@@ -148,6 +154,96 @@ func (s Service) RemoveWorktree(
 	return err
 }
 
+// MoveWorktree moves the worktree identified by nameOrPath to dest and
+// returns its new absolute path. The source is resolved like the other
+// worktree handles (directory name or path); dest follows AddWorktree's
+// convention — a relative dest resolves against repo.Dir so the worktree
+// stays a sibling of the others. Shells out to `git worktree move`, which
+// refuses to move a worktree with submodules or one that is locked.
+func (s Service) MoveWorktree(
+	ctx context.Context,
+	repo Repo,
+	nameOrPath, dest string,
+) (string, error) {
+	src, err := s.resolveWorktree(ctx, repo, nameOrPath)
+	if err != nil {
+		return "", err
+	}
+	if dest == "" {
+		return "", fmt.Errorf("destination path is required")
+	}
+	if !filepath.IsAbs(dest) {
+		dest = filepath.Join(repo.Dir, dest)
+	}
+	if _, err := s.run(ctx, repo.Dir, "worktree", "move", src, dest); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
+// PruneWorktrees removes administrative records of worktrees whose
+// directories have gone away (deleted out from under git). It does not touch
+// existing worktrees. Shells out to `git worktree prune`.
+func (s Service) PruneWorktrees(ctx context.Context, repo Repo) error {
+	if _, err := s.run(ctx, repo.Dir, "worktree", "prune"); err != nil {
+		return fmt.Errorf("prune worktrees: %w", err)
+	}
+	return nil
+}
+
+// LockWorktree locks the worktree identified by nameOrPath so prune and
+// non-forced remove leave it alone — useful for worktrees on removable
+// media or otherwise temporarily absent. An empty reason omits the
+// "--reason" flag. Shells out to `git worktree lock`.
+func (s Service) LockWorktree(
+	ctx context.Context,
+	repo Repo,
+	nameOrPath, reason string,
+) error {
+	target, err := s.resolveWorktree(ctx, repo, nameOrPath)
+	if err != nil {
+		return err
+	}
+	args := []string{"worktree", "lock"}
+	if reason = strings.TrimSpace(reason); reason != "" {
+		args = append(args, "--reason", reason)
+	}
+	args = append(args, target)
+	if _, err := s.run(ctx, repo.Dir, args...); err != nil {
+		return fmt.Errorf("lock worktree %q: %w", nameOrPath, err)
+	}
+	return nil
+}
+
+// UnlockWorktree unlocks the worktree identified by nameOrPath, reversing
+// LockWorktree. Shells out to `git worktree unlock`.
+func (s Service) UnlockWorktree(ctx context.Context, repo Repo, nameOrPath string) error {
+	target, err := s.resolveWorktree(ctx, repo, nameOrPath)
+	if err != nil {
+		return err
+	}
+	if _, err := s.run(ctx, repo.Dir, "worktree", "unlock", target); err != nil {
+		return fmt.Errorf("unlock worktree %q: %w", nameOrPath, err)
+	}
+	return nil
+}
+
+// RepairWorktrees fixes up the administrative links between the repository
+// and its worktrees after either side has been moved on disk. With no paths
+// it repairs the worktrees the repository still knows about; pass the new
+// locations of moved worktrees so the repository can find them again. Shells
+// out to `git worktree repair`.
+//
+// The paths are not resolved through resolveWorktree: their whole purpose is
+// to point at locations git does not yet know about.
+func (s Service) RepairWorktrees(ctx context.Context, repo Repo, paths ...string) error {
+	args := append([]string{"worktree", "repair"}, paths...)
+	if _, err := s.run(ctx, repo.Dir, args...); err != nil {
+		return fmt.Errorf("repair worktrees: %w", err)
+	}
+	return nil
+}
+
 // resolveWorktree maps a worktree handle (directory name) or path to the
 // canonical worktree path git knows about.
 func (s Service) resolveWorktree(
@@ -179,7 +275,8 @@ func (s Service) refExists(ctx context.Context, repo Repo, ref string) bool {
 
 // parseWorktreeList parses the output of `git worktree list --porcelain`.
 // Records are separated by blank lines; each starts with "worktree <path>"
-// and may carry "branch refs/heads/<name>", "detached", or "bare".
+// and may carry "branch refs/heads/<name>", "detached", "bare", or a
+// "locked [reason]" line (the bare "locked" form carries no reason).
 func parseWorktreeList(out string) []Worktree {
 	var (
 		result []Worktree
@@ -205,6 +302,9 @@ func parseWorktreeList(out string) []Worktree {
 			cur.Bare = true
 		case strings.HasPrefix(line, "branch "):
 			cur.Branch = strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/")
+		case line == "locked" || strings.HasPrefix(line, "locked "):
+			cur.Locked = true
+			cur.LockReason = strings.TrimSpace(strings.TrimPrefix(line, "locked"))
 		}
 	}
 	flush()
