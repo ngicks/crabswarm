@@ -10,6 +10,7 @@ func hookCmd(parent *cobra.Command, flagSock, flagConfig *string) {
 
 	hookAuditCmd(cmd, flagSock, flagConfig)
 	hookExecCmd(cmd, flagConfig)
+	hookPathCmd(cmd)
 
 	parent.AddCommand(cmd)
 }

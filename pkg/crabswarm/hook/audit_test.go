@@ -20,7 +20,11 @@ type mockAuditClient struct {
 	err  error
 }
 
-func (m *mockAuditClient) ReportHookInputEvent(ctx context.Context, in *pb.ReportHookInputEventRequest, opts ...grpc.CallOption) (*pb.ReportHookInputEventResponse, error) {
+func (m *mockAuditClient) ReportHookInputEvent(
+	ctx context.Context,
+	in *pb.ReportHookInputEventRequest,
+	opts ...grpc.CallOption,
+) (*pb.ReportHookInputEventResponse, error) {
 	m.req = in
 	m.opts = opts
 	if m.err != nil {
