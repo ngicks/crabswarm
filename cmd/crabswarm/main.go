@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/ngicks/crabswarm/cmd/crabswarm/commands"
-	"github.com/ngicks/crabswarm/cmd/internal/cmdsignals"
+	"github.com/ngicks/crabswarm/internal/cmdsignals"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 )
 

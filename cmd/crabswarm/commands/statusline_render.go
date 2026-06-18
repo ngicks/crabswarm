@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ngicks/crabswarm/cmd/internal/stdiopipe"
+	"github.com/ngicks/crabswarm/internal/stdiopipe"
 	"github.com/ngicks/crabswarm/pkg/crabswarm/statusline"
 )
 
