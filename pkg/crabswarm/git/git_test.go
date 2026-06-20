@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -73,6 +74,8 @@ func TestService_cloneInto(t *testing.T) {
 	assertDir(t, res.WorktreePath)
 	repo, err := svc.ResolveRepo(context.Background(), res.WorktreePath)
 	assert.NilError(t, err)
+	// Clone wires the default worktree with relative links too.
+	assertRelativeWorktreeLinks(t, res.WorktreePath)
 	branches, err := svc.Branches(context.Background(), repo)
 	assert.NilError(t, err)
 	assert.Assert(t, slices.Contains(branches, "trunk"))
@@ -116,6 +119,8 @@ func TestService_Worktree_AddListRemove(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, p, filepath.Join(repoDir, "existing"))
 	assertDir(t, p)
+	// The worktree<->bare links are relative, keeping the repo relocatable.
+	assertRelativeWorktreeLinks(t, p)
 
 	// Brand-new branch created from HEAD.
 	p2, err := svc.AddWorktree(ctx, repo, "fresh", "")
@@ -174,6 +179,31 @@ func assertDir(t *testing.T, path string) {
 	info, err := os.Stat(path)
 	assert.NilError(t, err)
 	assert.Assert(t, info.IsDir(), "%q is not a directory", path)
+}
+
+// assertRelativeWorktreeLinks asserts that both administrative links wiring a
+// worktree to its bare repository are recorded as relative paths: the
+// worktree's ".git" pointer (gitdir: <path>) and the matching
+// "<common>/worktrees/<name>/gitdir" back-reference. Relative links keep the
+// repository directory self-contained and relocatable.
+func assertRelativeWorktreeLinks(t *testing.T, worktreePath string) {
+	t.Helper()
+
+	dotGit, err := os.ReadFile(filepath.Join(worktreePath, ".git"))
+	assert.NilError(t, err)
+	target := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(dotGit)), "gitdir:"))
+	assert.Assert(t, !filepath.IsAbs(target),
+		"worktree .git pointer should be relative, got %q", target)
+
+	// The pointer names the admin directory relative to the worktree; its id
+	// is fixed at creation time and survives a move, so resolve it from the
+	// pointer rather than guessing it from the (possibly renamed) basename.
+	adminDir := filepath.Join(worktreePath, target)
+	back, err := os.ReadFile(filepath.Join(adminDir, "gitdir"))
+	assert.NilError(t, err)
+	backTarget := strings.TrimSpace(string(back))
+	assert.Assert(t, !filepath.IsAbs(backTarget),
+		"bare %s/gitdir should be relative, got %q", adminDir, backTarget)
 }
 
 func hasWorktree(wts []Worktree, name string) bool {

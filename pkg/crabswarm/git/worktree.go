@@ -93,7 +93,9 @@ func (s Service) Branches(ctx context.Context, repo Repo) ([]string, error) {
 //     tracking branch;
 //   - otherwise a new branch is created from the current HEAD.
 //
-// It returns the absolute worktree path.
+// The worktree<->bare administrative links are recorded as relative paths
+// (--relative-paths) so the repository directory stays self-contained and can
+// be relocated without breaking. It returns the absolute worktree path.
 func (s Service) AddWorktree(ctx context.Context, repo Repo, branch, path string) (string, error) {
 	branch = strings.TrimSpace(branch)
 	if branch == "" {
@@ -108,12 +110,12 @@ func (s Service) AddWorktree(ctx context.Context, repo Repo, branch, path string
 	var args []string
 	switch {
 	case s.refExists(ctx, repo, "refs/heads/"+branch):
-		args = []string{"worktree", "add", path, branch}
+		args = []string{"worktree", "add", "--relative-paths", path, branch}
 	case s.refExists(ctx, repo, "refs/remotes/"+branch):
 		local := branch[strings.IndexByte(branch, '/')+1:]
-		args = []string{"worktree", "add", "--track", "-b", local, path, branch}
+		args = []string{"worktree", "add", "--relative-paths", "--track", "-b", local, path, branch}
 	default:
-		args = []string{"worktree", "add", "-b", branch, path}
+		args = []string{"worktree", "add", "--relative-paths", "-b", branch, path}
 	}
 
 	if _, err := s.run(ctx, repo.Dir, args...); err != nil {
@@ -160,6 +162,10 @@ func (s Service) RemoveWorktree(
 // convention — a relative dest resolves against repo.Dir so the worktree
 // stays a sibling of the others. Shells out to `git worktree move`, which
 // refuses to move a worktree with submodules or one that is locked.
+//
+// --relative-paths keeps the administrative links relative after the move; a
+// plain move rewrites them as absolute paths, which would undo the relative
+// links AddWorktree establishes.
 func (s Service) MoveWorktree(
 	ctx context.Context,
 	repo Repo,
@@ -175,7 +181,15 @@ func (s Service) MoveWorktree(
 	if !filepath.IsAbs(dest) {
 		dest = filepath.Join(repo.Dir, dest)
 	}
-	if _, err := s.run(ctx, repo.Dir, "worktree", "move", src, dest); err != nil {
+	if _, err := s.run(
+		ctx,
+		repo.Dir,
+		"worktree",
+		"move",
+		"--relative-paths",
+		src,
+		dest,
+	); err != nil {
 		return "", err
 	}
 	return dest, nil

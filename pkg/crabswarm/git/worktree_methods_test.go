@@ -42,6 +42,9 @@ func TestService_MoveWorktree(t *testing.T) {
 	// one is gone.
 	assertDir(t, moved)
 	assert.Assert(t, !dirExists(filepath.Join(repo.Dir, "existing")))
+	// A plain `git worktree move` rewrites the links as absolute paths; the
+	// --relative-paths flag keeps them relative across the move.
+	assertRelativeWorktreeLinks(t, moved)
 
 	wts, err := svc.ListWorktrees(ctx, repo)
 	assert.NilError(t, err)

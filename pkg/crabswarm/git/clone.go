@@ -83,7 +83,17 @@ func (s Service) cloneInto(ctx context.Context, rawUrl, repoDir string) (CloneRe
 	}
 
 	worktree := filepath.Join(repoDir, filepath.FromSlash(branch))
-	if _, err := s.run(ctx, repoDir, "worktree", "add", worktree, branch); err != nil {
+	// --relative-paths records the worktree<->bare links as relative paths so
+	// the repository directory stays self-contained and relocatable.
+	if _, err := s.run(
+		ctx,
+		repoDir,
+		"worktree",
+		"add",
+		"--relative-paths",
+		worktree,
+		branch,
+	); err != nil {
 		return CloneResult{}, err
 	}
 
