@@ -10,6 +10,7 @@ func gitCmd(parent *cobra.Command, flagConfig *string) {
 
 	gitCloneCmd(cmd, flagConfig)
 	gitListCmd(cmd, flagConfig)
+	gitRootCmd(cmd)
 	gitWorktreeCmd(cmd)
 
 	parent.AddCommand(cmd)
