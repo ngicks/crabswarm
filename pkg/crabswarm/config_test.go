@@ -312,6 +312,47 @@ func TestLoadConfig_HookExecFromFile(t *testing.T) {
 	assert.Equal(t, cfg.HookExec.Filetypes[0].Ext["go"], "go")
 }
 
+// git_list_ignore_patterns is a file-settable []string; a present value loads
+// into the resolved config.
+func TestLoadConfig_GitListIgnorePatternsFromFile(t *testing.T) {
+	baseEnv(t)
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	writeJSON(t, confPath, Config{
+		GitListIgnorePatterns: []string{"node_modules", "tmp*"},
+	})
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, cfg.GitListIgnorePatterns, []string{"node_modules", "tmp*"})
+}
+
+// CRABSWARM_GIT_LIST_IGNORE_PATTERNS is parsed by caarlos0/env as a
+// comma-separated list and overrides the file layer.
+func TestLoadConfig_GitListIgnorePatternsFromEnv(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv("CRABSWARM_GIT_LIST_IGNORE_PATTERNS", "vendor,node_modules")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, cfg.GitListIgnorePatterns, []string{"vendor", "node_modules"})
+}
+
+// PartialConfig.Apply: a non-nil GitListIgnorePatterns slice overwrites the
+// base wholesale; a nil slice leaves the base.
+func TestApply_GitListIgnorePatternsSliceOverwrite(t *testing.T) {
+	base := Config{GitListIgnorePatterns: []string{"a", "b"}}
+
+	overwrite := PartialConfig{GitListIgnorePatterns: []string{"c"}}
+	got := overwrite.Apply(base)
+	assert.DeepEqual(t, got.GitListIgnorePatterns, []string{"c"})
+
+	keep := PartialConfig{}
+	got = keep.Apply(base)
+	assert.DeepEqual(t, got.GitListIgnorePatterns, []string{"a", "b"})
+}
+
 // PartialConfig.Apply: a non-nil Filetypes slice overwrites the base wholesale
 // (no element-wise merge); a nil slice leaves the base.
 func TestApply_FiletypesSliceOverwrite(t *testing.T) {

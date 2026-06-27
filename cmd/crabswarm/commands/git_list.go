@@ -17,6 +17,7 @@ func gitListCmd(parent *cobra.Command, flagConfig *string) {
 		flagBaseDir   string
 		flagWorktrees bool
 		flagFullPath  bool
+		flagIgnore    []string
 	)
 
 	cmd := &cobra.Command{
@@ -30,6 +31,11 @@ worktree layout and ordinary clones (ghq, plain git) are discovered, and a
 repository's per-branch worktree subdirectories are not reported as separate
 repositories. Dot-directories are skipped and symlinks are not followed.
 
+A directory whose base name matches a --ignore-pattern glob (filepath.Match
+syntax) is skipped and not descended into, so neither it nor anything beneath
+it is listed. The flag is repeatable; when set it overrides the
+git_list_ignore_patterns config entry, otherwise that config (if any) applies.
+
 With --worktrees the worktree directories of each repository are listed
 instead (the bare entry excluded). Paths are printed base-relative
 (ghq-style host/owner/repo) unless --full-path is given. A repository that
@@ -39,11 +45,19 @@ The base directory is taken from --base-dir, else $CRABSWARM_GIT_REPO_BASE_DIR,
 else $HOME/gitrepo.`,
 		Example: `  crabswarm git list
   crabswarm git list --worktrees
+  crabswarm git list --ignore-pattern node_modules --ignore-pattern 'tmp*'
   cd "$(crabswarm git list --full-path | fzf)"`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGitList(cmd, flagBaseDir, flagWorktrees, flagFullPath, *flagConfig)
+			return runGitList(
+				cmd,
+				flagBaseDir,
+				flagWorktrees,
+				flagFullPath,
+				flagIgnore,
+				*flagConfig,
+			)
 		},
 	}
 
@@ -53,6 +67,9 @@ else $HOME/gitrepo.`,
 		"List worktree directories instead of repository roots (bare entry excluded)")
 	cmd.Flags().BoolVar(&flagFullPath, "full-path", false,
 		"Print absolute paths instead of base-relative (ghq-style) paths")
+	cmd.Flags().StringArrayVar(&flagIgnore, "ignore-pattern", nil,
+		"Glob pattern (filepath.Match) matched against directory names to skip without descending; "+
+			"repeatable, overrides git_list_ignore_patterns config when set")
 
 	parent.AddCommand(cmd)
 }
@@ -61,6 +78,7 @@ func runGitList(
 	cmd *cobra.Command,
 	baseDir string,
 	worktrees, fullPath bool,
+	ignorePatterns []string,
 	flagConfig string,
 ) error {
 	ctx := cmd.Context()
@@ -77,10 +95,19 @@ func runGitList(
 	if cmd.Flags().Changed("base-dir") {
 		cfg.GitRepoBaseDir = baseDir
 	}
+	if cmd.Flags().Changed("ignore-pattern") {
+		cfg.GitListIgnorePatterns = ignorePatterns
+	}
+	// A malformed glob is a usage error: reject it up front with a non-zero
+	// exit instead of letting the walk surface it as a per-entry warning.
+	if err := git.ValidateIgnorePatterns(cfg.GitListIgnorePatterns); err != nil {
+		return err
+	}
 
 	svc := git.Service{
-		BaseDir: cfg.GitRepoBaseDir,
-		Logger:  logger,
+		BaseDir:        cfg.GitRepoBaseDir,
+		IgnorePatterns: cfg.GitListIgnorePatterns,
+		Logger:         logger,
 	}
 
 	seq := svc.WalkRepos

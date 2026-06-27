@@ -39,6 +39,11 @@ type WalkEntry struct {
 // ".cache", …) are skipped during descent, and symlinked directories are not
 // followed (lstat-based, [filepath.WalkDir] semantics).
 //
+// A directory whose base name matches any of [Service.IgnorePatterns] is also
+// skipped and not descended into (the root itself is never ignored). When a
+// pattern is malformed the iterator yields a single (zero-entry, error) pair
+// and stops before walking.
+//
 // When root does not exist the iterator yields a single (zero-entry, error)
 // pair wrapping the stat failure; it does not panic or silently complete.
 func (s Service) WalkRepos(ctx context.Context, root string) iter.Seq2[WalkEntry, error] {
@@ -46,6 +51,12 @@ func (s Service) WalkRepos(ctx context.Context, root string) iter.Seq2[WalkEntry
 		abs, err := filepath.Abs(root)
 		if err != nil {
 			yield(WalkEntry{Path: root}, fmt.Errorf("resolving %q: %w", root, err))
+			return
+		}
+		// Validate every ignore pattern once so a malformed glob fails fast
+		// instead of surfacing as a per-directory error on every descent.
+		if err := ValidateIgnorePatterns(s.IgnorePatterns); err != nil {
+			yield(WalkEntry{Path: abs}, err)
 			return
 		}
 		if _, err := os.Lstat(abs); err != nil {
@@ -69,10 +80,18 @@ func (s Service) WalkRepos(ctx context.Context, root string) iter.Seq2[WalkEntry
 			if !d.IsDir() {
 				return nil
 			}
-			// Skip dot-directories (.bare, .git, .cache, …) but never the
-			// root itself, even when the base dir happens to be a dotdir.
-			if p != abs && strings.HasPrefix(d.Name(), ".") {
-				return fs.SkipDir
+			// Skip dot-directories (.bare, .git, .cache, …) and ignore-pattern
+			// matches, but never the root itself, even when the base dir
+			// happens to be a dotdir or match a pattern.
+			if p != abs {
+				if strings.HasPrefix(d.Name(), ".") {
+					return fs.SkipDir
+				}
+				// Patterns were validated above, so a match error is
+				// impossible here and the bool result is authoritative.
+				if matched, _ := matchesIgnore(s.IgnorePatterns, d.Name()); matched {
+					return fs.SkipDir
+				}
 			}
 			if !isRepoRoot(p) {
 				return nil
@@ -138,4 +157,33 @@ func (s Service) WalkWorktrees(ctx context.Context, root string) iter.Seq2[WalkE
 func isRepoRoot(dir string) bool {
 	_, err := os.Lstat(filepath.Join(dir, gitDirFile))
 	return err == nil
+}
+
+// ValidateIgnorePatterns reports the first malformed glob in patterns
+// ([filepath.Match] syntax), or nil when all are valid. A CLI caller uses it to
+// reject a bad ignore pattern up front with a hard error, rather than letting
+// [Service.WalkRepos] surface it as a mid-stream per-entry error.
+func ValidateIgnorePatterns(patterns []string) error {
+	for _, pat := range patterns {
+		if _, err := filepath.Match(pat, ""); err != nil {
+			return fmt.Errorf("invalid ignore pattern %q: %w", pat, err)
+		}
+	}
+	return nil
+}
+
+// matchesIgnore reports whether name matches any of patterns using
+// [filepath.Match]. A malformed pattern is returned as an error; callers that
+// pre-validate patterns can treat the bool as authoritative.
+func matchesIgnore(patterns []string, name string) (bool, error) {
+	for _, pat := range patterns {
+		ok, err := filepath.Match(pat, name)
+		if err != nil {
+			return false, fmt.Errorf("ignore pattern %q: %w", pat, err)
+		}
+		if ok {
+			return true, nil
+		}
+	}
+	return false, nil
 }

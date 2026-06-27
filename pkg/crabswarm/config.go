@@ -30,6 +30,12 @@ type Config struct {
 	// GitRepoBaseDir is the root under which `crabswarm git clone`
 	// materializes repositories.
 	GitRepoBaseDir string `json:"git_repo_base_dir" yaml:"git_repo_base_dir"`
+	// GitListIgnorePatterns are glob patterns (filepath.Match syntax) that
+	// `crabswarm git list` matches against each directory's base name while
+	// walking GitRepoBaseDir. A directory whose name matches any pattern is
+	// skipped and not descended into, so neither it nor anything beneath it is
+	// listed. Empty disables ignoring.
+	GitListIgnorePatterns []string `json:"git_list_ignore_patterns" yaml:"git_list_ignore_patterns"`
 	// HookExec is the configuration consumed by `crabswarm hook exec`
 	// (nested sub-config: deep-merged).
 	HookExec exec.Config `json:"hook_exec" yaml:"hook_exec"`
@@ -75,6 +81,11 @@ func DefaultConfig() Config {
 // there). It keeps the file (json/yaml) tags so the config file can still set
 // project_dir.
 //
+// GitListIgnorePatterns is a []string: it overwrites wholesale on Apply (a
+// non-nil incoming slice replaces the base, a nil one leaves it). Unlike
+// HookExec it IS env-shaped, so it carries an env tag — caarlos0/env parses
+// CRABSWARM_GIT_LIST_IGNORE_PATTERNS as a comma-separated list.
+//
 // HookExec is a nested sub-config with no env tags: a []filetype.Config is not
 // env-shaped, so it is file-only (env-unsettable), which the skill permits.
 //
@@ -84,15 +95,17 @@ func DefaultConfig() Config {
 //
 //nolint:lll // triple json/yaml/env tags; one field per line, never wrap tags
 type PartialConfig struct {
-	Sock           *string            `json:"sock,omitzero" yaml:"sock,omitempty" env:"SOCK"`
-	ProjectDir     *string            `json:"project_dir,omitzero" yaml:"project_dir,omitempty"`
-	GitRepoBaseDir *string            `json:"git_repo_base_dir,omitzero" yaml:"git_repo_base_dir,omitempty" env:"GIT_REPO_BASE_DIR"`
-	HookExec       exec.PartialConfig `json:"hook_exec,omitzero" yaml:"hook_exec,omitempty"`
+	Sock                  *string            `json:"sock,omitzero" yaml:"sock,omitempty" env:"SOCK"`
+	ProjectDir            *string            `json:"project_dir,omitzero" yaml:"project_dir,omitempty"`
+	GitRepoBaseDir        *string            `json:"git_repo_base_dir,omitzero" yaml:"git_repo_base_dir,omitempty" env:"GIT_REPO_BASE_DIR"`
+	GitListIgnorePatterns []string           `json:"git_list_ignore_patterns,omitzero" yaml:"git_list_ignore_patterns,omitempty" env:"GIT_LIST_IGNORE_PATTERNS"`
+	HookExec              exec.PartialConfig `json:"hook_exec,omitzero" yaml:"hook_exec,omitempty"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged Config.
 // Merge rules by field kind:
 //   - scalar:        non-nil pointer overwrites (explicit zero included).
+//   - slice:         non-nil slice overwrites wholesale; nil leaves the base.
 //   - nested struct: deep-merged via the sub-partial's Apply — always called; a
 //     zero sub-partial merges nothing. Inside it, the Filetypes
 //     slice overwrites wholesale when non-nil.
@@ -105,6 +118,9 @@ func (p PartialConfig) Apply(base Config) Config {
 	}
 	if p.GitRepoBaseDir != nil {
 		base.GitRepoBaseDir = *p.GitRepoBaseDir
+	}
+	if p.GitListIgnorePatterns != nil {
+		base.GitListIgnorePatterns = p.GitListIgnorePatterns
 	}
 	base.HookExec = p.HookExec.Apply(base.HookExec)
 	return base

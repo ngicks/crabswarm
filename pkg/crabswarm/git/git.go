@@ -40,6 +40,12 @@ type Service struct {
 	// BaseDir is the root under which Clone materializes repositories
 	// (the resolved ${CRABSWARM_GIT_REPO_BASE_DIR:-$HOME/gitrepo}).
 	BaseDir string
+	// IgnorePatterns are glob patterns ([filepath.Match] syntax) matched
+	// against the base name of each directory during [Service.WalkRepos] /
+	// [Service.WalkWorktrees] descent. A directory whose name matches any
+	// pattern is skipped and not descended into, so neither it nor anything
+	// beneath it is reported. Empty disables ignoring.
+	IgnorePatterns []string
 	// Logger receives debug records for each git invocation. When nil,
 	// [slog.Default] is used.
 	Logger *slog.Logger

@@ -22,10 +22,11 @@ it renders a Go text/template against the config value instead.
 The value passed to --format has this shape (Go field name -> JSON key):
 
   {
-    .Sock           string  // unix socket path                 (sock)
-    .ProjectDir     string  // $CLAUDE_PROJECT_DIR              (project_dir)
-    .GitRepoBaseDir string  // git clone base directory         (git_repo_base_dir)
-    .HookExec               // hook exec config                 (hook_exec)
+    .Sock                  string    // unix socket path         (sock)
+    .ProjectDir            string    // $CLAUDE_PROJECT_DIR       (project_dir)
+    .GitRepoBaseDir        string    // git clone base directory  (git_repo_base_dir)
+    .GitListIgnorePatterns []string  // git list ignore globs     (git_list_ignore_patterns)
+    .HookExec                         // hook exec config         (hook_exec)
       .Filetypes []  // one entry per filetype rule set         (filetypes)
         .Ext         map[string]string         // ext -> name   (ext)
         .Filename    map[string]string         // name -> name  (filename)

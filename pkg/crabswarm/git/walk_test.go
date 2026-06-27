@@ -129,6 +129,91 @@ func TestService_WalkWorktrees_BrokenRepoContinues(t *testing.T) {
 	assert.Assert(t, slices.Contains(paths, plainRepo))
 }
 
+func TestService_WalkRepos_IgnorePattern(t *testing.T) {
+	base, _ := buildWalkFixture(t)
+
+	// An ignore pattern matching the "owner" directory base name must skip the
+	// whole subtree beneath it without descending, so none of its repos appear.
+	svc := Service{IgnorePatterns: []string{"owner"}}
+	paths, errs := collectWalk(svc.WalkRepos(context.Background(), base))
+	assert.Assert(t, len(errs) == 0, "unexpected walk errors: %v", errs)
+	assert.Assert(
+		t,
+		len(paths) == 0,
+		"expected the ignored subtree to yield no repos, got %v",
+		paths,
+	)
+
+	// A glob pattern matches by base name too; "pl*" hits only host/owner/plain.
+	svc = Service{IgnorePatterns: []string{"pl*"}}
+	paths, errs = collectWalk(svc.WalkRepos(context.Background(), base))
+	assert.Assert(t, len(errs) == 0, "unexpected walk errors: %v", errs)
+	plainRepo := filepath.Join(base, "host", "owner", "plain")
+	assert.Assert(t, !slices.Contains(paths, plainRepo),
+		"glob-ignored repo was still listed: %s", plainRepo)
+	// The unmatched repos survive.
+	bareRepo := filepath.Join(base, "host", "owner", "bare")
+	deepRepo := filepath.Join(base, "host", "owner", "nest", "deep")
+	assert.Assert(t, slices.Contains(paths, bareRepo))
+	assert.Assert(t, slices.Contains(paths, deepRepo))
+}
+
+// A repo root whose own base name matches a pattern is itself skipped, not just
+// its children — the match is applied before the repo-root check.
+func TestService_WalkRepos_IgnoreMatchesRepoRoot(t *testing.T) {
+	base, _ := buildWalkFixture(t)
+
+	svc := Service{IgnorePatterns: []string{"plain"}}
+	paths, errs := collectWalk(svc.WalkRepos(context.Background(), base))
+	assert.Assert(t, len(errs) == 0, "unexpected walk errors: %v", errs)
+	plainRepo := filepath.Join(base, "host", "owner", "plain")
+	assert.Assert(t, !slices.Contains(paths, plainRepo),
+		"ignored repo root was still listed: %s", plainRepo)
+	// A sibling repo is unaffected.
+	bareRepo := filepath.Join(base, "host", "owner", "bare")
+	assert.Assert(t, slices.Contains(paths, bareRepo))
+}
+
+// The base directory itself is never ignored, even when its own name matches a
+// pattern — otherwise a misconfigured pattern would silently list nothing.
+func TestService_WalkRepos_IgnoreNeverSkipsRoot(t *testing.T) {
+	base, want := buildWalkFixture(t)
+
+	svc := Service{IgnorePatterns: []string{filepath.Base(base)}}
+	paths, errs := collectWalk(svc.WalkRepos(context.Background(), base))
+	assert.Assert(t, len(errs) == 0, "unexpected walk errors: %v", errs)
+	slices.Sort(paths)
+	assert.DeepEqual(t, paths, want)
+}
+
+// The worktree walker inherits IgnorePatterns through its WalkRepos pass: an
+// ignored repo contributes no worktrees.
+func TestService_WalkWorktrees_IgnorePattern(t *testing.T) {
+	base, _ := buildWalkFixture(t)
+
+	svc := Service{IgnorePatterns: []string{"bare"}}
+	paths, errs := collectWalk(svc.WalkWorktrees(context.Background(), base))
+	assert.Assert(t, len(errs) == 0, "unexpected walk errors: %v", errs)
+	mainWt := filepath.Join(base, "host", "owner", "bare", "main")
+	assert.Assert(t, !slices.Contains(paths, mainWt),
+		"worktree of an ignored repo was still listed: %s", mainWt)
+	// The plain repo (its own worktree) survives.
+	plainRepo := filepath.Join(base, "host", "owner", "plain")
+	assert.Assert(t, slices.Contains(paths, plainRepo))
+}
+
+// A malformed glob fails fast with a single error before any directory is
+// walked, rather than surfacing per-directory.
+func TestService_WalkRepos_BadIgnorePattern(t *testing.T) {
+	base, _ := buildWalkFixture(t)
+
+	svc := Service{IgnorePatterns: []string{"["}}
+	paths, errs := collectWalk(svc.WalkRepos(context.Background(), base))
+	assert.Assert(t, len(paths) == 0, "expected no paths on bad pattern, got %v", paths)
+	assert.Assert(t, len(errs) == 1, "expected a single error, got %v", errs)
+	assert.ErrorContains(t, errs[0], "invalid ignore pattern")
+}
+
 func TestService_WalkRepos_StopsEarly(t *testing.T) {
 	base, want := buildWalkFixture(t)
 	assert.Assert(t, len(want) > 1)
