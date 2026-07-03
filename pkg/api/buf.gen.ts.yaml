@@ -1,0 +1,23 @@
+# TypeScript-only buf generate template for the web/ frontend, driven by
+# `pnpm build` (web/package.json "gen" script). It emits only the protoc-gen-es
+# client types into web/src/gen, so the frontend build needs neither the Go
+# protoc plugins nor a Go toolchain. protoc-gen-es is resolved from
+# web/node_modules/.bin, which pnpm puts on PATH when it runs the script.
+#
+# The full template (buf.gen.yaml) additionally regenerates the Go bindings and
+# is what you run to refresh pkg/api/gen/proto/go. The managed block is kept in
+# sync with buf.gen.yaml so the FileDescriptor embedded in the generated TS is
+# byte-identical to the Go-path output; managed mode is a buf-internal transform
+# and needs no Go plugins.
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/ngicks/crabswarm/pkg/api/gen/proto/go
+plugins:
+  - local: protoc-gen-es
+    out: ../../web/src/gen
+    opt:
+      - target=ts
+      - import_extension=js

@@ -11,6 +11,7 @@ import (
 	"github.com/caarlos0/env/v11"
 
 	"github.com/ngicks/crabswarm/pkg/crabswarm/hook/exec"
+	"github.com/ngicks/crabswarm/pkg/crabswarm/preview"
 )
 
 // Config is the materialized configuration the service consumes, after every
@@ -39,6 +40,9 @@ type Config struct {
 	// HookExec is the configuration consumed by `crabswarm hook exec`
 	// (nested sub-config: deep-merged).
 	HookExec exec.Config `json:"hook_exec" yaml:"hook_exec"`
+	// Preview is the configuration consumed by `crabswarm preview`
+	// (nested sub-config: deep-merged).
+	Preview preview.Config `json:"preview" yaml:"preview"`
 }
 
 // DefaultConfig is the lowest-precedence layer. The path-like defaults are
@@ -54,6 +58,7 @@ func DefaultConfig() Config {
 	return Config{
 		Sock:           defaultSockPath(),
 		GitRepoBaseDir: defaultGitRepoBaseDir(),
+		Preview:        preview.Default(),
 	}
 }
 
@@ -88,6 +93,8 @@ func DefaultConfig() Config {
 //
 // HookExec is a nested sub-config with no env tags: a []filetype.Config is not
 // env-shaped, so it is file-only (env-unsettable), which the skill permits.
+// Preview is likewise a nested file-only sub-config (its scalars carry no env
+// tags); its zero sub-partial merges nothing.
 //
 // JSON tags use ",omitzero" (Go 1.24+) so a marshaled partial stays sparse
 // while preserving an explicit empty []/{}; YAML has no omitzero, so its tags
@@ -95,11 +102,12 @@ func DefaultConfig() Config {
 //
 //nolint:lll // triple json/yaml/env tags; one field per line, never wrap tags
 type PartialConfig struct {
-	Sock                  *string            `json:"sock,omitzero" yaml:"sock,omitempty" env:"SOCK"`
-	ProjectDir            *string            `json:"project_dir,omitzero" yaml:"project_dir,omitempty"`
-	GitRepoBaseDir        *string            `json:"git_repo_base_dir,omitzero" yaml:"git_repo_base_dir,omitempty" env:"GIT_REPO_BASE_DIR"`
-	GitListIgnorePatterns []string           `json:"git_list_ignore_patterns,omitzero" yaml:"git_list_ignore_patterns,omitempty" env:"GIT_LIST_IGNORE_PATTERNS"`
-	HookExec              exec.PartialConfig `json:"hook_exec,omitzero" yaml:"hook_exec,omitempty"`
+	Sock                  *string               `json:"sock,omitzero" yaml:"sock,omitempty" env:"SOCK"`
+	ProjectDir            *string               `json:"project_dir,omitzero" yaml:"project_dir,omitempty"`
+	GitRepoBaseDir        *string               `json:"git_repo_base_dir,omitzero" yaml:"git_repo_base_dir,omitempty" env:"GIT_REPO_BASE_DIR"`
+	GitListIgnorePatterns []string              `json:"git_list_ignore_patterns,omitzero" yaml:"git_list_ignore_patterns,omitempty" env:"GIT_LIST_IGNORE_PATTERNS"`
+	HookExec              exec.PartialConfig    `json:"hook_exec,omitzero" yaml:"hook_exec,omitempty"`
+	Preview               preview.PartialConfig `json:"preview,omitzero" yaml:"preview,omitempty"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged Config.
@@ -123,6 +131,7 @@ func (p PartialConfig) Apply(base Config) Config {
 		base.GitListIgnorePatterns = p.GitListIgnorePatterns
 	}
 	base.HookExec = p.HookExec.Apply(base.HookExec)
+	base.Preview = p.Preview.Apply(base.Preview)
 	return base
 }
 

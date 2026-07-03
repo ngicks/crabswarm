@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ngicks/crabswarm/pkg/crabswarm/hook/exec"
+	"github.com/ngicks/crabswarm/pkg/crabswarm/preview"
 	"github.com/ngicks/crabswarm/pkg/filetype"
 	"gotest.tools/v3/assert"
 )
@@ -414,4 +415,79 @@ func TestApply_PurityBaseNotMutated(t *testing.T) {
 	assert.Equal(t, base.Sock, "/base/sock")
 	assert.Equal(t, len(base.HookExec.Filetypes), 1)
 	assert.Equal(t, base.HookExec.Filetypes[0].Ext["go"], "go")
+}
+
+// With no file and no env, the preview sub-config resolves to its built-in
+// defaults (preview.Default).
+func TestLoadConfig_PreviewDefaults(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Preview.Addr, "0.0.0.0:6419")
+	assert.Equal(t, cfg.Preview.DaemonName, "crabswarm-preview")
+}
+
+// A full preview section in the file overrides both scalar defaults.
+func TestLoadConfig_PreviewFromFile(t *testing.T) {
+	baseEnv(t)
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(
+			confPath,
+			[]byte(`{"preview":{"addr":"127.0.0.1:9999","daemon_name":"my-preview"}}`),
+			0o644,
+		),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Preview.Addr, "127.0.0.1:9999")
+	assert.Equal(t, cfg.Preview.DaemonName, "my-preview")
+}
+
+// A sparse preview section overlays field-by-field: an omitted daemon_name
+// keeps the default while addr is overridden.
+func TestLoadConfig_PreviewSparseKeepsDefault(t *testing.T) {
+	baseEnv(t)
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(confPath, []byte(`{"preview":{"addr":"127.0.0.1:9999"}}`), 0o644),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Preview.Addr, "127.0.0.1:9999")
+	assert.Equal(t, cfg.Preview.DaemonName, "crabswarm-preview")
+}
+
+// PartialConfig.Apply: the preview sub-partial deep-merges field-by-field —
+// a non-nil pointer overwrites, a nil one leaves the base — and does not
+// mutate the base.
+func TestApply_PreviewOverlay(t *testing.T) {
+	base := Config{
+		Preview: preview.Config{Addr: "0.0.0.0:6419", DaemonName: "crabswarm-preview"},
+	}
+
+	addr := "127.0.0.1:9999"
+	overlay := PartialConfig{
+		Preview: preview.PartialConfig{Addr: &addr},
+	}
+	got := overlay.Apply(base)
+	assert.Equal(t, got.Preview.Addr, "127.0.0.1:9999")
+	assert.Equal(t, got.Preview.DaemonName, "crabswarm-preview")
+
+	// The base is unchanged.
+	assert.Equal(t, base.Preview.Addr, "0.0.0.0:6419")
+
+	// A zero sub-partial merges nothing.
+	keep := PartialConfig{}
+	got = keep.Apply(base)
+	assert.Equal(t, got.Preview.Addr, "0.0.0.0:6419")
+	assert.Equal(t, got.Preview.DaemonName, "crabswarm-preview")
 }

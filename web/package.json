@@ -1,0 +1,37 @@
+{
+  "name": "crabswarm-preview-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Preact SPA frontend for `crabswarm preview` (markdown previewer).",
+  "scripts": {
+    "vendor": "node scripts/copy-mathjax.mjs",
+    "gen": "cd ../pkg/api && buf generate --template buf.gen.ts.yaml",
+    "dev": "pnpm run vendor && vite",
+    "build": "pnpm run gen && pnpm run vendor && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ark-ui/react": "5.37.2",
+    "@bufbuild/protobuf": "2.12.1",
+    "@connectrpc/connect": "2.1.2",
+    "@connectrpc/connect-web": "2.1.2",
+    "@preact/signals": "2.9.2",
+    "@tanstack/preact-query": "5.101.2",
+    "github-markdown-css": "5.9.0",
+    "mathjax": "4.1.2",
+    "mermaid": "11.16.0",
+    "preact": "10.29.3",
+    "preact-iso": "2.12.0"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "2.12.1",
+    "@preact/preset-vite": "2.10.5",
+    "@tailwindcss/vite": "4.3.2",
+    "daisyui": "5.6.7",
+    "tailwindcss": "4.3.2",
+    "typescript": "6.0.3",
+    "vite": "8.1.3"
+  }
+}

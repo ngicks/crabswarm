@@ -1,0 +1,11 @@
+# Node toolchain — never committed. dist/ and src/gen/ ARE committed (embedded
+# into the Go binary via embed.go; see doc/plan/.../DECISION.md D7a).
+/node_modules
+
+# MathJax component files copied from node_modules by scripts/copy-mathjax.mjs;
+# regenerated on every build and served from web/dist after `vite build`.
+/public/vendor
+
+# Vite caches / local env
+.vite
+*.local

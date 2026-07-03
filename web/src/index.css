@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* daisyUI supplies the app chrome (drawer, navbar, buttons, menu). Enable the
+   light + dark themes; `theme` signal in signals/ui.ts drives which is active
+   via <html data-theme>. github-markdown-css styles the rendered document body
+   and is injected/switched separately (see signals/ui.ts). */
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+/* Rendered-document tweaks layered on top of github-markdown-css. The doc/image
+   wrapper (DocView/ImageView) supplies the card surface, so the body itself must
+   be transparent. github-markdown-css sets its own `.markdown-body` background
+   (light #fff / dark #0d1117) via a <style> injected unlayered at runtime, which
+   would otherwise win over this rule — hence `!important`. */
+.markdown-body {
+  background-color: transparent !important;
+}
+
+.markdown-body pre.mermaid {
+  background: transparent;
+  text-align: center;
+}
+
+/* Inline images open a zoom lightbox on click (DocView onArticleClick); linked
+   images keep the link cursor since the anchor wins. */
+.markdown-body img {
+  cursor: zoom-in;
+}
+.markdown-body a img {
+  cursor: pointer;
+}

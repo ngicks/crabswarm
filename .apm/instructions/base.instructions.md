@@ -12,6 +12,8 @@ Tools to swarm claude(, codex and others!)
 - Go
   - `github.com/spf13/cobra` for subcommands
   - Using gRPC and protobuf for communications
+- TypeScript (`web/` frontend: Preact SPA for `crabswarm preview`)
+  - connect-web + buf-generated types from the proto schema
 
 ### Implementing functionality
 
@@ -32,7 +34,8 @@ Tools to swarm claude(, codex and others!)
 │   ├── api         API definition and generated code / related type definitions. proto schema basically sit here.
 │   ├── claudehook  helper for claude code hook. Same code can be resued for codex.
 │   └── crabswarm   crabswarm implementation: hooks and server impl for claude / codex
-└── plugin          claude code defintion. Basic part can be reused for codex.
+├── plugin          claude code defintion. Basic part can be reused for codex.
+└── web             Preact SPA for `crabswarm preview`, embedded via go:embed (dist committed).
 ```
 
 ## Implementing functionality
