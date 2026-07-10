@@ -23,6 +23,24 @@ body,
   background-color: transparent !important;
 }
 
+/* Tailwind's preflight sets `list-style: none` on ul/ol, and github-markdown-css
+   only styles nested-list markers (it relies on the UA default for top-level
+   lists), so markers vanish. Restore the UA/GitHub defaults; the injected sheet's
+   higher-specificity rules (nested ol variants, .task-list-item, ul.no-list)
+   still win over these. */
+.markdown-body ul {
+  list-style-type: disc;
+}
+.markdown-body ul ul {
+  list-style-type: circle;
+}
+.markdown-body ul ul ul {
+  list-style-type: square;
+}
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
 .markdown-body pre.mermaid {
   background: transparent;
   text-align: center;
