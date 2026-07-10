@@ -10,4 +10,4 @@ package crabswarm
 //
 // Edit by hand only when the release helper is unavailable (e.g. cherry-pick
 // of a release commit).
-const Version = "v0.0.11-devel"
+const Version = "v0.0.11"
