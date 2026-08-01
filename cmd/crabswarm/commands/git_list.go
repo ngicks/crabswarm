@@ -14,10 +14,10 @@ import (
 
 func gitListCmd(parent *cobra.Command, flagConfig *string) {
 	var (
-		flagBaseDir   string
-		flagWorktrees bool
-		flagFullPath  bool
-		flagIgnore    []string
+		flagBaseDir  string
+		flagWorktree bool
+		flagFullPath bool
+		flagIgnore   []string
 	)
 
 	cmd := &cobra.Command{
@@ -36,7 +36,7 @@ syntax) is skipped and not descended into, so neither it nor anything beneath
 it is listed. The flag is repeatable; when set it overrides the
 git_list_ignore_patterns config entry, otherwise that config (if any) applies.
 
-With --worktrees the worktree directories of each repository are listed
+With --worktree the worktree directories of each repository are listed
 instead (the bare entry excluded). Paths are printed base-relative
 (ghq-style host/owner/repo) unless --full-path is given. A repository that
 cannot be read is reported to stderr and the walk continues.
@@ -44,7 +44,7 @@ cannot be read is reported to stderr and the walk continues.
 The base directory is taken from --base-dir, else $CRABSWARM_GIT_REPO_BASE_DIR,
 else $HOME/gitrepo.`,
 		Example: `  crabswarm git list
-  crabswarm git list --worktrees
+  crabswarm git list --worktree
   crabswarm git list --ignore-pattern node_modules --ignore-pattern 'tmp*'
   cd "$(crabswarm git list --full-path | fzf)"`,
 		Args:              cobra.NoArgs,
@@ -53,7 +53,7 @@ else $HOME/gitrepo.`,
 			return runGitList(
 				cmd,
 				flagBaseDir,
-				flagWorktrees,
+				flagWorktree,
 				flagFullPath,
 				flagIgnore,
 				*flagConfig,
@@ -63,7 +63,7 @@ else $HOME/gitrepo.`,
 
 	cmd.Flags().StringVar(&flagBaseDir, "base-dir", "",
 		"Base directory to walk (default $CRABSWARM_GIT_REPO_BASE_DIR or $HOME/gitrepo)")
-	cmd.Flags().BoolVarP(&flagWorktrees, "worktrees", "w", false,
+	cmd.Flags().BoolVarP(&flagWorktree, "worktree", "w", false,
 		"List worktree directories instead of repository roots (bare entry excluded)")
 	cmd.Flags().BoolVar(&flagFullPath, "full-path", false,
 		"Print absolute paths instead of base-relative (ghq-style) paths")
@@ -77,7 +77,7 @@ else $HOME/gitrepo.`,
 func runGitList(
 	cmd *cobra.Command,
 	baseDir string,
-	worktrees, fullPath bool,
+	worktree, fullPath bool,
 	ignorePatterns []string,
 	flagConfig string,
 ) error {
@@ -111,7 +111,7 @@ func runGitList(
 	}
 
 	seq := svc.WalkRepos
-	if worktrees {
+	if worktree {
 		seq = svc.WalkWorktrees
 	}
 
