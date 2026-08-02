@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
+	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
 	"gotest.tools/v3/assert"
 )
 

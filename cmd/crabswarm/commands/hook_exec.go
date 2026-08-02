@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ngicks/crabswarm/crabswarm"
+	"github.com/ngicks/crabswarm/crabswarm/hook/exec"
 	"github.com/ngicks/crabswarm/internal/stdiopipe"
-	"github.com/ngicks/crabswarm/pkg/crabswarm"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/hook/exec"
 )
 
 func hookExecCmd(parent *cobra.Command, flagConfig *string) {

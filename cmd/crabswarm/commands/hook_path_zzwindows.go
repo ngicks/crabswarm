@@ -11,8 +11,8 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	hookpath "github.com/ngicks/crabswarm/crabswarm/hook/path"
 	"github.com/ngicks/crabswarm/internal/stdiopipe"
-	hookpath "github.com/ngicks/crabswarm/pkg/crabswarm/hook/path"
 )
 
 func hookPathWindowsCmd(parent *cobra.Command) {

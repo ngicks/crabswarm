@@ -10,11 +10,11 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file sdktypes/v1/ext/codex/codex.proto.
  */
 export const file_sdktypes_v1_ext_codex_codex: GenFile = /*@__PURE__*/
-  fileDesc("CiFzZGt0eXBlcy92MS9leHQvY29kZXgvY29kZXgucHJvdG8SFXNka3R5cGVzLnYxLmV4dC5jb2RleCJyChNDb2RleFBhdGNoT3BlcmF0aW9uEjMKBGtpbmQYASABKA4yJS5zZGt0eXBlcy52MS5leHQuY29kZXguQ29kZXhQYXRjaEtpbmQSDAoEcGF0aBgCIAEoCRIYCgdtb3ZlX3RvGAMgASgJUgdtb3ZlX3RvIoMBChRDb2RleEFwcGx5UGF0Y2hJbnB1dBIaCghyYXdfanNvbhgBIAEoDFIIcmF3X2pzb24SDwoHY29tbWFuZBgCIAEoCRI+CgpvcGVyYXRpb25zGAMgAygLMiouc2RrdHlwZXMudjEuZXh0LmNvZGV4LkNvZGV4UGF0Y2hPcGVyYXRpb24iYAobQ29kZXhBcHBseVBhdGNoU3VtbWFyeUVudHJ5EjMKBGtpbmQYASABKA4yJS5zZGt0eXBlcy52MS5leHQuY29kZXguQ29kZXhQYXRjaEtpbmQSDAoEcGF0aBgCIAEoCSLcAgoVQ29kZXhBcHBseVBhdGNoT3V0cHV0EhoKCHJhd19qc29uGAEgASgMUghyYXdfanNvbhIMCgR0ZXh0GAIgASgJEiEKCWV4aXRfY29kZRgDIAEoA0gAUglleGl0X2NvZGWIAQESMQoRd2FsbF90aW1lX3NlY29uZHMYBCABKAFIAVIRd2FsbF90aW1lX3NlY29uZHOIAQESMwoSdG90YWxfb3V0cHV0X2xpbmVzGAUgASgDSAJSEnRvdGFsX291dHB1dF9saW5lc4gBARIOCgZvdXRwdXQYBiABKAkSQwoHc3VtbWFyeRgHIAMoCzIyLnNka3R5cGVzLnYxLmV4dC5jb2RleC5Db2RleEFwcGx5UGF0Y2hTdW1tYXJ5RW50cnlCDAoKX2V4aXRfY29kZUIUChJfd2FsbF90aW1lX3NlY29uZHNCFQoTX3RvdGFsX291dHB1dF9saW5lcyI+ChBDb2RleFNoZWxsT3V0cHV0EhoKCHJhd19qc29uGAEgASgMUghyYXdfanNvbhIOCgZvdXRwdXQYAiABKAkiVQoNQ29kZXhQbGFuSXRlbRIMCgRzdGVwGAEgASgJEjYKBnN0YXR1cxgCIAEoDjImLnNka3R5cGVzLnYxLmV4dC5jb2RleC5Db2RleFBsYW5TdGF0dXMikAEKFENvZGV4VXBkYXRlUGxhbklucHV0EhoKCHJhd19qc29uGAEgASgMUghyYXdfanNvbhIYCgtleHBsYW5hdGlvbhgCIAEoCUgAiAEBEjIKBHBsYW4YAyADKAsyJC5zZGt0eXBlcy52MS5leHQuY29kZXguQ29kZXhQbGFuSXRlbUIOCgxfZXhwbGFuYXRpb24qhgEKDkNvZGV4UGF0Y2hLaW5kEiAKHENPREVYX1BBVENIX0tJTkRfVU5TUEVDSUZJRUQQABIYChRDT0RFWF9QQVRDSF9LSU5EX0FERBABEhsKF0NPREVYX1BBVENIX0tJTkRfVVBEQVRFEAISGwoXQ09ERVhfUEFUQ0hfS0lORF9ERUxFVEUQAyqXAQoPQ29kZXhQbGFuU3RhdHVzEiEKHUNPREVYX1BMQU5fU1RBVFVTX1VOU1BFQ0lGSUVEEAASHQoZQ09ERVhfUExBTl9TVEFUVVNfUEVORElORxABEiEKHUNPREVYX1BMQU5fU1RBVFVTX0lOX1BST0dSRVNTEAISHwobQ09ERVhfUExBTl9TVEFUVVNfQ09NUExFVEVEEANC5wEKGWNvbS5zZGt0eXBlcy52MS5leHQuY29kZXhCCkNvZGV4UHJvdG9QAVpGZ2l0aHViLmNvbS9uZ2lja3MvY3JhYnN3YXJtL3BrZy9hcGkvZ2VuL3Byb3RvL2dvL3Nka3R5cGVzL3YxL2V4dC9jb2RleKICBFNWRUOqAhVTZGt0eXBlcy5WMS5FeHQuQ29kZXjKAhVTZGt0eXBlc1xWMVxFeHRcQ29kZXjiAiFTZGt0eXBlc1xWMVxFeHRcQ29kZXhcR1BCTWV0YWRhdGHqAhhTZGt0eXBlczo6VjE6OkV4dDo6Q29kZXhiBnByb3RvMw");
+  fileDesc("CiFzZGt0eXBlcy92MS9leHQvY29kZXgvY29kZXgucHJvdG8SFXNka3R5cGVzLnYxLmV4dC5jb2RleCJyChNDb2RleFBhdGNoT3BlcmF0aW9uEjMKBGtpbmQYASABKA4yJS5zZGt0eXBlcy52MS5leHQuY29kZXguQ29kZXhQYXRjaEtpbmQSDAoEcGF0aBgCIAEoCRIYCgdtb3ZlX3RvGAMgASgJUgdtb3ZlX3RvIoMBChRDb2RleEFwcGx5UGF0Y2hJbnB1dBIaCghyYXdfanNvbhgBIAEoDFIIcmF3X2pzb24SDwoHY29tbWFuZBgCIAEoCRI+CgpvcGVyYXRpb25zGAMgAygLMiouc2RrdHlwZXMudjEuZXh0LmNvZGV4LkNvZGV4UGF0Y2hPcGVyYXRpb24iYAobQ29kZXhBcHBseVBhdGNoU3VtbWFyeUVudHJ5EjMKBGtpbmQYASABKA4yJS5zZGt0eXBlcy52MS5leHQuY29kZXguQ29kZXhQYXRjaEtpbmQSDAoEcGF0aBgCIAEoCSLcAgoVQ29kZXhBcHBseVBhdGNoT3V0cHV0EhoKCHJhd19qc29uGAEgASgMUghyYXdfanNvbhIMCgR0ZXh0GAIgASgJEiEKCWV4aXRfY29kZRgDIAEoA0gAUglleGl0X2NvZGWIAQESMQoRd2FsbF90aW1lX3NlY29uZHMYBCABKAFIAVIRd2FsbF90aW1lX3NlY29uZHOIAQESMwoSdG90YWxfb3V0cHV0X2xpbmVzGAUgASgDSAJSEnRvdGFsX291dHB1dF9saW5lc4gBARIOCgZvdXRwdXQYBiABKAkSQwoHc3VtbWFyeRgHIAMoCzIyLnNka3R5cGVzLnYxLmV4dC5jb2RleC5Db2RleEFwcGx5UGF0Y2hTdW1tYXJ5RW50cnlCDAoKX2V4aXRfY29kZUIUChJfd2FsbF90aW1lX3NlY29uZHNCFQoTX3RvdGFsX291dHB1dF9saW5lcyI+ChBDb2RleFNoZWxsT3V0cHV0EhoKCHJhd19qc29uGAEgASgMUghyYXdfanNvbhIOCgZvdXRwdXQYAiABKAkiVQoNQ29kZXhQbGFuSXRlbRIMCgRzdGVwGAEgASgJEjYKBnN0YXR1cxgCIAEoDjImLnNka3R5cGVzLnYxLmV4dC5jb2RleC5Db2RleFBsYW5TdGF0dXMikAEKFENvZGV4VXBkYXRlUGxhbklucHV0EhoKCHJhd19qc29uGAEgASgMUghyYXdfanNvbhIYCgtleHBsYW5hdGlvbhgCIAEoCUgAiAEBEjIKBHBsYW4YAyADKAsyJC5zZGt0eXBlcy52MS5leHQuY29kZXguQ29kZXhQbGFuSXRlbUIOCgxfZXhwbGFuYXRpb24qhgEKDkNvZGV4UGF0Y2hLaW5kEiAKHENPREVYX1BBVENIX0tJTkRfVU5TUEVDSUZJRUQQABIYChRDT0RFWF9QQVRDSF9LSU5EX0FERBABEhsKF0NPREVYX1BBVENIX0tJTkRfVVBEQVRFEAISGwoXQ09ERVhfUEFUQ0hfS0lORF9ERUxFVEUQAyqXAQoPQ29kZXhQbGFuU3RhdHVzEiEKHUNPREVYX1BMQU5fU1RBVFVTX1VOU1BFQ0lGSUVEEAASHQoZQ09ERVhfUExBTl9TVEFUVVNfUEVORElORxABEiEKHUNPREVYX1BMQU5fU1RBVFVTX0lOX1BST0dSRVNTEAISHwobQ09ERVhfUExBTl9TVEFUVVNfQ09NUExFVEVEEANC4wEKGWNvbS5zZGt0eXBlcy52MS5leHQuY29kZXhCCkNvZGV4UHJvdG9QAVpCZ2l0aHViLmNvbS9uZ2lja3MvY3JhYnN3YXJtL2FwaS9nZW4vcHJvdG8vZ28vc2RrdHlwZXMvdjEvZXh0L2NvZGV4ogIEU1ZFQ6oCFVNka3R5cGVzLlYxLkV4dC5Db2RleMoCFVNka3R5cGVzXFYxXEV4dFxDb2RleOICIVNka3R5cGVzXFYxXEV4dFxDb2RleFxHUEJNZXRhZGF0YeoCGFNka3R5cGVzOjpWMTo6RXh0OjpDb2RleGIGcHJvdG8z");
 
 /**
  * CodexPatchOperation is one file change inside a Codex apply_patch envelope.
- * Source: pkg/api/types/sdktypes/v1/ext/codex (PatchOperation).
+ * Source: api/types/sdktypes/v1/ext/codex (PatchOperation).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexPatchOperation
  */
@@ -45,7 +45,7 @@ export const CodexPatchOperationSchema: GenMessage<CodexPatchOperation> = /*@__P
 /**
  * CodexApplyPatchInput is a Codex apply_patch tool_input. raw_json preserves the
  * original bytes for lossless round-trips; command/operations expose the decoded
- * patch. Source: pkg/api/types/sdktypes/v1/ext/codex (ApplyPatchInput).
+ * patch. Source: api/types/sdktypes/v1/ext/codex (ApplyPatchInput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexApplyPatchInput
  */
@@ -75,7 +75,7 @@ export const CodexApplyPatchInputSchema: GenMessage<CodexApplyPatchInput> = /*@_
 
 /**
  * CodexApplyPatchSummaryEntry is one "A/M/D path" line of a Codex apply_patch
- * success summary. Source: pkg/api/types/sdktypes/v1/ext/codex (SummaryEntry).
+ * success summary. Source: api/types/sdktypes/v1/ext/codex (SummaryEntry).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexApplyPatchSummaryEntry
  */
@@ -101,7 +101,7 @@ export const CodexApplyPatchSummaryEntrySchema: GenMessage<CodexApplyPatchSummar
 /**
  * CodexApplyPatchOutput is a Codex apply_patch tool_response. raw_json preserves
  * the original bytes for lossless round-trips; the remaining fields expose the
- * decoded exec-formatted output. Source: pkg/api/types/sdktypes/v1/ext/codex
+ * decoded exec-formatted output. Source: api/types/sdktypes/v1/ext/codex
  * (ApplyPatchOutput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexApplyPatchOutput
@@ -153,7 +153,7 @@ export const CodexApplyPatchOutputSchema: GenMessage<CodexApplyPatchOutput> = /*
 /**
  * CodexShellOutput is a Codex shell (Bash) tool_response string. raw_json
  * preserves the original bytes for lossless round-trips. Source:
- * pkg/api/types/sdktypes/v1/ext/codex (ShellOutput).
+ * api/types/sdktypes/v1/ext/codex (ShellOutput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexShellOutput
  */
@@ -178,7 +178,7 @@ export const CodexShellOutputSchema: GenMessage<CodexShellOutput> = /*@__PURE__*
 
 /**
  * CodexPlanItem is one step in a Codex update_plan tool_input. Source:
- * pkg/api/types/sdktypes/v1/ext/codex (PlanItem).
+ * api/types/sdktypes/v1/ext/codex (PlanItem).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexPlanItem
  */
@@ -204,7 +204,7 @@ export const CodexPlanItemSchema: GenMessage<CodexPlanItem> = /*@__PURE__*/
 /**
  * CodexUpdatePlanInput is a Codex update_plan tool_input. raw_json preserves the
  * original bytes for lossless round-trips; explanation/plan expose the decoded
- * plan. Source: pkg/api/types/sdktypes/v1/ext/codex (UpdatePlanInput).
+ * plan. Source: api/types/sdktypes/v1/ext/codex (UpdatePlanInput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexUpdatePlanInput
  */
@@ -234,7 +234,7 @@ export const CodexUpdatePlanInputSchema: GenMessage<CodexUpdatePlanInput> = /*@_
 
 /**
  * CodexPatchKind is the kind of change a single Codex apply_patch operation
- * makes. Source: pkg/api/types/sdktypes/v1/ext/codex (PatchKind),
+ * makes. Source: api/types/sdktypes/v1/ext/codex (PatchKind),
  * codex-rs/apply-patch/src/lib.rs.
  *
  * @generated from enum sdktypes.v1.ext.codex.CodexPatchKind
@@ -269,7 +269,7 @@ export const CodexPatchKindSchema: GenEnum<CodexPatchKind> = /*@__PURE__*/
 
 /**
  * CodexPlanStatus is the status of a single Codex update_plan step. Source:
- * pkg/api/types/sdktypes/v1/ext/codex (PlanStatus),
+ * api/types/sdktypes/v1/ext/codex (PlanStatus),
  * codex-rs/core/src/tools/handlers/plan_spec.rs.
  *
  * @generated from enum sdktypes.v1.ext.codex.CodexPlanStatus

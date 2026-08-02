@@ -14,8 +14,8 @@ import (
 
 	"connectrpc.com/connect"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabpreview/v1"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/preview"
+	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
+	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
 
 // TestPreviewServe exercises the previewer end-to-end without cmdman: it runs

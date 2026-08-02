@@ -46,7 +46,7 @@ func runConfigCmd(t *testing.T, args ...string) (stdout, stderr string, err erro
 
 // The resolved config is written to stdout, not stderr — the regression this
 // fixes (cobra's cmd.Println routes to stderr). Rendering correctness is covered
-// by pkg/crabswarm/cli; here we assert only the command wiring.
+// by crabswarm/cli; here we assert only the command wiring.
 func TestConfigCmd_WritesToStdout(t *testing.T) {
 	hermeticEnv(t)
 

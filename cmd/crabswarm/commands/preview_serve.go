@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/ngicks/crabswarm/pkg/crabswarm/preview"
+	"github.com/ngicks/crabswarm/crabswarm/preview"
 	"github.com/ngicks/crabswarm/web"
 )
 

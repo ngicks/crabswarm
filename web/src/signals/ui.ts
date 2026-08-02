@@ -38,7 +38,7 @@ export function toggleTheme(): void {
 const MARKDOWN_STYLE_ID = "github-markdown-theme";
 
 // Render stylesheets served by the preview HTTP server at fixed paths
-// (pkg/crabswarm/preview/httpapi/handler.go: AlertCSSPath, ChromaLightCSSPath,
+// (crabswarm/preview/httpapi/handler.go: AlertCSSPath, ChromaLightCSSPath,
 // ChromaDarkCSSPath). Unlike github-markdown-css these are not bundled; they are
 // linked from the server origin. alert.css is theme-independent; the chroma
 // light/dark sheets swap with the theme, mirroring the markdown css swap.

@@ -23,17 +23,18 @@ Tools to swarm claude(, codex and others!)
 ```
 .
 ├── AGENTS.md
+├── api             API definition and generated code / related type definitions. proto schema basically sit here.
 ├── bin             git-ignore'd bin dir.
 ├── cmd             Entry point. cobra subcommand structure.
 │   └── crabswarm
+├── crabswarm       crabswarm implementation: hooks and server impl for claude / codex
 ├── doc
 │   └── rules       Some rule guidance sits here.
 ├── e2e             e2e test
 │   └── crabswarm
+├── internal        internal helper packages (libver, loggerfactory, templateutil, ...).
 ├── pkg
-│   ├── api         API definition and generated code / related type definitions. proto schema basically sit here.
-│   ├── claudehook  helper for claude code hook. Same code can be resued for codex.
-│   └── crabswarm   crabswarm implementation: hooks and server impl for claude / codex
+│   └── claudehook  helper for claude code hook. Same code can be resued for codex.
 ├── plugin          claude code defintion. Basic part can be reused for codex.
 └── web             Preact SPA for `crabswarm preview`, embedded via go:embed (dist committed).
 ```

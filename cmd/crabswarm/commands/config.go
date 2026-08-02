@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ngicks/crabswarm/pkg/crabswarm"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/cli"
+	"github.com/ngicks/crabswarm/crabswarm"
+	"github.com/ngicks/crabswarm/crabswarm/cli"
 )
 
 // configLongFmt documents the resolved-config object so users can write --format
@@ -74,7 +74,7 @@ func runConfig(cmd *cobra.Command, _ []string, flagConfig, flagFormat string) er
 	if err != nil {
 		return err
 	}
-	// Presentation (JSON / template rendering) lives in pkg/crabswarm/cli; ./cmd
+	// Presentation (JSON / template rendering) lives in crabswarm/cli; ./cmd
 	// only wires it to stdout. cmd.Println would route to stderr.
 	return cli.RenderConfig(cmd.OutOrStdout(), cfg, flagFormat)
 }

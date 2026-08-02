@@ -8,7 +8,7 @@ import (
 	"github.com/ngicks/go-common/contextkey"
 	"github.com/spf13/cobra"
 
-	"github.com/ngicks/crabswarm/pkg/crabswarm/git"
+	"github.com/ngicks/crabswarm/crabswarm/git"
 )
 
 func gitRootCmd(parent *cobra.Command) {

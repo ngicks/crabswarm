@@ -1,0 +1,24 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/ngicks/crabswarm/api/gen/proto/go
+plugins:
+  - local: protoc-gen-go
+    out: gen/proto/go
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: gen/proto/go
+    opt: paths=source_relative
+  - local: protoc-gen-connect-go
+    out: gen/proto/go
+    opt: paths=source_relative
+  # TypeScript client types for the web/ frontend (connect-es v2 needs no
+  # separate connect plugin). Output lands in web/src/gen, which is scaffolded
+  # and committed by the frontend step; until then this target is not run.
+  - local: protoc-gen-es
+    out: ../web/src/gen
+    opt:
+      - target=ts
+      - import_extension=js

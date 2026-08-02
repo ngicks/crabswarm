@@ -26,9 +26,9 @@ This document defines the conversion rules for reimplementing or updating Claude
 
 ## Placement And Generation Boundary
 
-- Handwritten SDK-shaped types and conversion code live under `pkg/api/types/sdk_types/v1/`.
-- Keep the first-pass implementation in a single file within `pkg/api/types/sdk_types/v1/`, and place both the handwritten SDK-shaped types and all proto conversion logic in that file.
-- Keep the first-pass proto schema in a single file under `pkg/api/schema/proto/sdk_types/v1/`. Do not split the SDK proto definitions across multiple files unless the user explicitly asks for that refactor later.
+- Handwritten SDK-shaped types and conversion code live under `api/types/sdk_types/v1/`.
+- Keep the first-pass implementation in a single file within `api/types/sdk_types/v1/`, and place both the handwritten SDK-shaped types and all proto conversion logic in that file.
+- Keep the first-pass proto schema in a single file under `api/schema/proto/sdk_types/v1/`. Do not split the SDK proto definitions across multiple files unless the user explicitly asks for that refactor later.
 - Updating the proto schema and regenerating generated code is in scope. Do not treat existing proto definitions as fixed constraints.
 - The handwritten Go file and the proto schema are authored and updated directly by the LLM as normal source files.
 - Regenerate generated outputs after source edits using `buf generate`.

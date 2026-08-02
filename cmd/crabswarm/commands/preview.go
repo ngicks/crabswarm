@@ -8,9 +8,9 @@ import (
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabpreview/v1"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/cli"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/preview"
+	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
+	"github.com/ngicks/crabswarm/crabswarm/cli"
+	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
 
 func previewCmd(parent *cobra.Command, flagConfig *string) {

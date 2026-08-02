@@ -9,9 +9,9 @@ import (
 	"github.com/ngicks/go-common/contextkey"
 	"github.com/spf13/cobra"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabpreview/v1"
-	"github.com/ngicks/crabswarm/pkg/crabswarm"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/preview"
+	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
+	"github.com/ngicks/crabswarm/crabswarm"
+	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
 
 // commandLogger returns the request-scoped logger the root command stashes in

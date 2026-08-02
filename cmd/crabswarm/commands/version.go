@@ -3,8 +3,8 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/ngicks/crabswarm/internal/libver"
 	"github.com/ngicks/crabswarm/internal/versioninfo"
-	"github.com/ngicks/crabswarm/pkg/crabswarm"
 )
 
 func versionCmd(parent *cobra.Command) {
@@ -20,7 +20,7 @@ func versionCmd(parent *cobra.Command) {
 }
 
 func runVersion(cmd *cobra.Command, args []string) error {
-	info := versioninfo.ReadVersionInfo(crabswarm.Version)
+	info := versioninfo.ReadVersionInfo(libver.Version)
 	cmd.Printf("version:     %s\n", info.Version)
 	if info.Commit != "" {
 		modified := ""

@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ngicks/crabswarm/crabswarm/statusline"
 	"github.com/ngicks/crabswarm/internal/stdiopipe"
-	"github.com/ngicks/crabswarm/pkg/crabswarm/statusline"
 )
 
 //nolint:lll // Long/Example embed one-line settings.json / shell examples that must stay unwrapped to be copy-pasteable.

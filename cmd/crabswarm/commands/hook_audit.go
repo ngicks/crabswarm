@@ -10,10 +10,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	pb "github.com/ngicks/crabswarm/api/gen/proto/go/crabhook/v1"
+	"github.com/ngicks/crabswarm/crabswarm"
+	crabswarmhook "github.com/ngicks/crabswarm/crabswarm/hook"
 	"github.com/ngicks/crabswarm/internal/stdiopipe"
-	pb "github.com/ngicks/crabswarm/pkg/api/gen/proto/go/crabhook/v1"
-	"github.com/ngicks/crabswarm/pkg/crabswarm"
-	crabswarmhook "github.com/ngicks/crabswarm/pkg/crabswarm/hook"
 )
 
 func hookAuditCmd(parent *cobra.Command, flagSock, flagConfig *string) {

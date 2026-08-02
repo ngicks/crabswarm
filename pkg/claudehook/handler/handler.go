@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/pkg/api/types/sdktypes/v1"
+	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
 )
 
 // HandlerError is returned by hook subcommands to signal the hook result.
