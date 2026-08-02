@@ -1,11 +1,11 @@
 lockfile_version: '1'
-generated_at: '2026-07-02T12:15:23.604578+00:00'
-apm_version: 0.23.0
+generated_at: '2026-08-01T15:23:35.391699+00:00'
+apm_version: 0.26.0
 dependencies:
 - repo_url: ngicks/agents-package
   name: cc-workers
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: 0.0.1
   virtual_path: apm-package/cc-workers
   is_virtual: true
@@ -44,9 +44,9 @@ dependencies:
   deployed_file_hashes:
     .agents/skills/ng-command-invoker/SKILL.md: sha256:f4048af82a2d5836b9ac77dbcdfd010ced96708476972c122fb55d18f6e16942
     .agents/skills/ng-explorer/SKILL.md: sha256:c9c1de9dbee6bfc8a3111bdffd456357c642434ef32a2276e085098eefdbf93e
-    .agents/skills/ng-implementer/SKILL.md: sha256:74b75a94afee2306386307ce6e5eb8fa73f92c2a9c26e62f275621d848f4a643
-    .agents/skills/ng-orchestrator/SKILL.md: sha256:6b57df58228bad0a6574ca7f1d4668c27bbe12254f0ef6c7a7dccea586a70dbd
-    .agents/skills/ng-reviewer/SKILL.md: sha256:226e5af4a8017b7075314e5b92622f33c194e5fe60838dc3f5d2d6c71301297c
+    .agents/skills/ng-implementer/SKILL.md: sha256:36621805618a2911886ac2f1270142828ac13257c9fc5f5445e24fecd60117d0
+    .agents/skills/ng-orchestrator/SKILL.md: sha256:0895ba83f8e703f424917d28ff7862369070e7e84cd8f18cf5c0a8ea44f3219a
+    .agents/skills/ng-reviewer/SKILL.md: sha256:2f41acb378c29bb09c4ca1412311271ea331a3076cf699efb3bf433e69a73513
     .claude/agents/ng-command-invoker.md: sha256:2ebc19b040196a2bdcc1e7185897acf83e4392c3ec02747b72de32030d8185d8
     .claude/agents/ng-explorer.md: sha256:29095f6a95997443a7e0958045272966ee81b3b5c76252a66e2ac8178599f42c
     .claude/agents/ng-implementer.md: sha256:90118cdc367dca1c84adbffd5f03f2b796b2694a06f4e366a22b7042edeac189
@@ -54,77 +54,110 @@ dependencies:
     .claude/agents/ng-test-runner.md: sha256:2b6b1188560b9749dd3910fd4fe3479398ceac59ee5d993f71a2a070167e250c
     .claude/skills/ng-command-invoker/SKILL.md: sha256:f4048af82a2d5836b9ac77dbcdfd010ced96708476972c122fb55d18f6e16942
     .claude/skills/ng-explorer/SKILL.md: sha256:c9c1de9dbee6bfc8a3111bdffd456357c642434ef32a2276e085098eefdbf93e
-    .claude/skills/ng-implementer/SKILL.md: sha256:74b75a94afee2306386307ce6e5eb8fa73f92c2a9c26e62f275621d848f4a643
-    .claude/skills/ng-orchestrator/SKILL.md: sha256:6b57df58228bad0a6574ca7f1d4668c27bbe12254f0ef6c7a7dccea586a70dbd
-    .claude/skills/ng-reviewer/SKILL.md: sha256:226e5af4a8017b7075314e5b92622f33c194e5fe60838dc3f5d2d6c71301297c
+    .claude/skills/ng-implementer/SKILL.md: sha256:36621805618a2911886ac2f1270142828ac13257c9fc5f5445e24fecd60117d0
+    .claude/skills/ng-orchestrator/SKILL.md: sha256:0895ba83f8e703f424917d28ff7862369070e7e84cd8f18cf5c0a8ea44f3219a
+    .claude/skills/ng-reviewer/SKILL.md: sha256:2f41acb378c29bb09c4ca1412311271ea331a3076cf699efb3bf433e69a73513
     .codex/agents/ng-command-invoker.toml: sha256:71e65ace87b27b4fea573f0ffe84ce99652a33b0cab540b4f65e959b4489ac6b
     .codex/agents/ng-explorer.toml: sha256:9937070e48601b6356021b525856f4e7b95f3fc93b6e239fca5c06091b98279c
     .codex/agents/ng-implementer.toml: sha256:b4e25d1e0bc34c2682409ef73e5c636f332e08c66c29a00422e30da10d349950
     .codex/agents/ng-reviewer.toml: sha256:9d14ee18cc710b34acaa1c44cdbc9c5dbb7ee9897ec0ebf4a82313a16eec325d
     .codex/agents/ng-test-runner.toml: sha256:e121ea80d32dfd1c23fb4b17bbeb70a6a1b458d4a840db915a9e6300527ba3c2
-  content_hash: sha256:ea019b4884924f0c8b9f7095ffe533210155198526d89de5ed0ad43f094a5e76
+  content_hash: sha256:1e423938cf391555f3b9439884fb181088525b049e87bd135c77cead5f1ab5fd
   declared_license: MIT
 - repo_url: ngicks/agents-package
-  name: agents-package
+  name: go-golangci-lint
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
-  version: unknown
-  virtual_path: hooks/golangci-lint-fmt-after-edit
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
+  version: 1.0.0
+  virtual_path: hooks/go-golangci-lint
   is_virtual: true
   package_type: hook_package
-  content_hash: sha256:4f3e3ff72524079a224c23b05008f5a419c6bb7221e4fb8d7a5e9db2cea5f87c
+  content_hash: sha256:04b3af4816ebdb2028226ad022e82a45464ac298b89af609e45203fd7ab23f3c
 - repo_url: ngicks/agents-package
-  name: agents-package
+  name: go-vet-ngcheckers
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
-  version: unknown
-  virtual_path: hooks/golangci-lint-run-after-edit
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
+  version: 1.0.0
+  virtual_path: hooks/go-vet-ngcheckers
   is_virtual: true
   package_type: hook_package
-  content_hash: sha256:65c244da3bcd072713d0d3f85027cedebb3b0eba43c574e14f9a6da65a1ab253
+  content_hash: sha256:55d6da41fbbabb28f30bf4e4831443fe6b37cb970babb0ae86fca508dc488557
 - repo_url: ngicks/agents-package
-  name: agents-package-base-env
+  name: agents-package-ngicks.base.env
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: 1.0.0
-  virtual_path: instructions/base-env.instructions.md
+  virtual_path: instructions/ngicks.base.env.instructions.md
   is_virtual: true
-  package_type: apm_package
   deployed_files:
-  - .claude/rules/base-env.md
+  - .claude/rules/ngicks.base.env.md
   deployed_file_hashes:
-    .claude/rules/base-env.md: sha256:a8e409d534a453b252382ade30cd392cfcd17eff302616e2551f456d8432854e
-  content_hash: sha256:e8e2f850d9cb676f3e9dc7756563576bc3dca4aed77f162987d88b6a7a0d18c5
+    .claude/rules/ngicks.base.env.md: sha256:834357cef083e4933bd628ad77bd0a41d8009782a670d5120a843b66d37863e7
+  content_hash: sha256:b40d955aa653b93038c2b5fcb71e4809a528a55f0a89431cf19fd7ddf2c99543
 - repo_url: ngicks/agents-package
-  name: agents-package-go-basics
+  name: agents-package-ngicks.base.preference
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: 1.0.0
-  virtual_path: instructions/go/go-basics.instructions.md
+  virtual_path: instructions/ngicks.base.preference.instructions.md
   is_virtual: true
-  package_type: apm_package
   deployed_files:
-  - .claude/rules/go-basics.md
+  - .claude/rules/ngicks.base.preference.md
   deployed_file_hashes:
-    .claude/rules/go-basics.md: sha256:feb91c7f9c7fbb752df5390b000d2cc7a15e0397de5e40eaf8cfe37bf2896f34
-  content_hash: sha256:66bae51c80e9bb324b7de4d9a7d451de94ce8eb3ec49620140a30efc2b1111c7
+    .claude/rules/ngicks.base.preference.md: sha256:26f1b24d447f54d3e741667c05b6767a8c6a23f887b9ce05f60efdadc7c73634
+  content_hash: sha256:087dae5c5575314ff3fd58d2e8f8b5078da6d3f91790d110e87eae6ca015c691
 - repo_url: ngicks/agents-package
-  name: agents-package-go-design-preference
+  name: agents-package-ngicks.go.basics
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: 1.0.0
-  virtual_path: instructions/go/go-design-preference.instructions.md
+  virtual_path: instructions/ngicks.go.basics.instructions.md
   is_virtual: true
-  package_type: apm_package
   deployed_files:
-  - .claude/rules/go-design-preference.md
+  - .claude/rules/ngicks.go.basics.md
   deployed_file_hashes:
-    .claude/rules/go-design-preference.md: sha256:0a0c45354f94f7333de69d5fe4ff1cb247736155a0ba1645b7db3c101572f773
-  content_hash: sha256:08392ce26cee0ed77f6865678fe518f2e224c3706351936d7e59eed4b5e4d43b
+    .claude/rules/ngicks.go.basics.md: sha256:feb91c7f9c7fbb752df5390b000d2cc7a15e0397de5e40eaf8cfe37bf2896f34
+  content_hash: sha256:21f59dc5b92d0e979e0578a2b92c35bc5a65e669e55157332ec0899be8ccf4cd
 - repo_url: ngicks/agents-package
-  name: agents-package
+  name: agents-package-ngicks.go.design-preference
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
+  version: 1.0.0
+  virtual_path: instructions/ngicks.go.design-preference.instructions.md
+  is_virtual: true
+  deployed_files:
+  - .claude/rules/ngicks.go.design-preference.md
+  deployed_file_hashes:
+    .claude/rules/ngicks.go.design-preference.md: sha256:14e7aa023c1ffc82bfcba6af8f312e2d52db5b9a170425c839f48b2c4b0b0d6a
+  content_hash: sha256:b0755b46f9c287c975e8742bd2c4d6f17178e972404c5cf9fd36735cce4c7a38
+- repo_url: ngicks/agents-package
+  name: agents-package-ngicks.web.base-preference
+  host: github.com
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
+  version: 1.0.0
+  virtual_path: instructions/ngicks.web.base-preference.instructions.md
+  is_virtual: true
+  deployed_files:
+  - .claude/rules/ngicks.web.base-preference.md
+  deployed_file_hashes:
+    .claude/rules/ngicks.web.base-preference.md: sha256:e21dabede12caf8ebf02721bf2de21a893bfd1460c29a55f75340772c68c7c25
+  content_hash: sha256:bf28059dd1d4f34cff6cc5ddbe595bd9bf7fb8c4cb34b3957a30e2cf43c25316
+- repo_url: ngicks/agents-package
+  name: agents-package-ngicks.web.preact-preference
+  host: github.com
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
+  version: 1.0.0
+  virtual_path: instructions/ngicks.web.preact-preference.instructions.md
+  is_virtual: true
+  deployed_files:
+  - .claude/rules/ngicks.web.preact-preference.md
+  deployed_file_hashes:
+    .claude/rules/ngicks.web.preact-preference.md: sha256:f6d1647122dd18359a7d7eca1199504f76c3a98cf666f7a35ae9b323a900302f
+  content_hash: sha256:b17e1bd48ab5c4ed0e90252e07f6cf000fbd85370a79926e05eb868acc06d396
+- repo_url: ngicks/agents-package
+  name: go-check-outdated-patterns
+  host: github.com
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: unknown
   virtual_path: skills/go-check-outdated-patterns
   is_virtual: true
@@ -139,9 +172,9 @@ dependencies:
     .claude/skills/go-check-outdated-patterns/SKILL.md: sha256:0447897fc0bb662776faa0d7455e9104efa19f6284034edd717d7cd679a4b839
   content_hash: sha256:a94ed31b24c332612dea8e116c226c95e189c0ff29fb2551fd67e094af673994
 - repo_url: ngicks/agents-package
-  name: agents-package
+  name: go-edit-cobra
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: unknown
   virtual_path: skills/go-edit-cobra
   is_virtual: true
@@ -155,6 +188,7 @@ dependencies:
   - .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals.go
   - .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_test.go
   - .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_unix_test.go
+  - .agents/skills/go-edit-cobra/helpers/internal/libver/libver.go
   - .agents/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory.go
   - .agents/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory_test.go
   - .agents/skills/go-edit-cobra/helpers/internal/stdiopipe/stdiopipe.go
@@ -169,11 +203,10 @@ dependencies:
   - .claude/skills/go-edit-cobra
   - .claude/skills/go-edit-cobra/SKILL.md
   - .claude/skills/go-edit-cobra/copy_helper.sh
-  - .claude/skills/go-edit-cobra/helpers/internal/cmd/release/main.go
-  - .claude/skills/go-edit-cobra/helpers/internal/cmd/release/main_test.go
   - .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals.go
   - .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_test.go
   - .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_unix_test.go
+  - .claude/skills/go-edit-cobra/helpers/internal/libver/libver.go
   - .claude/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory.go
   - .claude/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory_test.go
   - .claude/skills/go-edit-cobra/helpers/internal/stdiopipe/stdiopipe.go
@@ -186,47 +219,47 @@ dependencies:
   - .claude/skills/go-edit-cobra/reference/versioning.md
   - .claude/skills/go-edit-cobra/reference/workflows.md
   deployed_file_hashes:
-    .agents/skills/go-edit-cobra/SKILL.md: sha256:ee7f0a3be1689595c56b3e9ccfb7a1472f89448315f2bbf4c07edd5a7aceeafd
-    .agents/skills/go-edit-cobra/copy_helper.sh: sha256:59cd98e7afd501f2d6b6e8d588ae4af86c349e486a58682a566e607d165dcc61
+    .agents/skills/go-edit-cobra/SKILL.md: sha256:9da4814840634cc69ae1de63a4f465aed98b7e74a3a1e5b8bdb0ee6f71367c6e
+    .agents/skills/go-edit-cobra/copy_helper.sh: sha256:c5b783f7a958fafe27faa23bc0a8b01db20fd8d149405a5babeb6f95bfa2f081
     .agents/skills/go-edit-cobra/helpers/internal/cmd/release/main.go: sha256:2ed4ac93b6f93084f48b3efd003e424ab7471c9e4614edafe25cf4f5acf68ae6
     .agents/skills/go-edit-cobra/helpers/internal/cmd/release/main_test.go: sha256:0adc9e2feb72a31c7f156a9e46f15a3e448aedc9a05e250773c1babbd4349834
     .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals.go: sha256:d82e84daa15be3c56db97aed58aaf1895fbe55154120bd7bb05832b5b1c8e963
     .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_test.go: sha256:66bfbf54bec285adf985bb456e2a7d736f87679dda59f7eceb4fcee83e7a857c
     .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_unix_test.go: sha256:ce7bc788742b255401c06a926ef3de9b8870bbb6838be443362d637e38c2b94b
+    .agents/skills/go-edit-cobra/helpers/internal/libver/libver.go: sha256:d2b05b0665e3f934d220aa5faa97fb4bd56015464b9bd3587a7e9833a3930704
     .agents/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory.go: sha256:3c2f96965b17431d4571ee3be2bf4a5989a3d64e0af7490d24a8a827610af9c1
     .agents/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory_test.go: sha256:ab86fcf79ac087242031c4e5cc34cec9f94ef953dc91910af02c5f559a1cece9
     .agents/skills/go-edit-cobra/helpers/internal/stdiopipe/stdiopipe.go: sha256:21d0ce3299739b34ff662eb2a9aca802a1ae8afc3dee2104d3026e1b11431f52
-    .agents/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo.go: sha256:ed35614b8b5f2826cd2fcf04a9b427187dbc6f4508beeebec8403e62e4a3821d
+    .agents/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo.go: sha256:868466c7405790ded473d8176ee6d9661387decf1ef66a5d1cea35acd8ac4aab
     .agents/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo_test.go: sha256:13a97e51882aba0594fc7e0d9702af6c1c1041565fc9e0205777d53924b4546e
-    .agents/skills/go-edit-cobra/reference/command-templates.md: sha256:31fd62bf74251e0a7d44f2e58d1f93d15d5d562c649061fac25ef127015531d2
-    .agents/skills/go-edit-cobra/reference/config-source.md: sha256:c558a0c25adf9c22c1e972010b0fe25d71dee428276cb309e634f5837b879290
-    .agents/skills/go-edit-cobra/reference/configuration.md: sha256:38941a1dbdff59969bec414b834318b77360fa0f7f6c8bce7cd57726025c9eba
-    .agents/skills/go-edit-cobra/reference/layout-and-naming.md: sha256:e7af8025a8483651c3fc7e657e63844278e4810efb7e894d532bb8765853777e
-    .agents/skills/go-edit-cobra/reference/versioning.md: sha256:05bc33c9dc8c0fecc9504a64a514fceb96ddbf35379f23307f093f4f08d2c003
-    .agents/skills/go-edit-cobra/reference/workflows.md: sha256:b10dfd36c4dc50b6656b18323c3e90bdba6e099e929f745a4e5ac44f924b5282
-    .claude/skills/go-edit-cobra/SKILL.md: sha256:ee7f0a3be1689595c56b3e9ccfb7a1472f89448315f2bbf4c07edd5a7aceeafd
-    .claude/skills/go-edit-cobra/copy_helper.sh: sha256:59cd98e7afd501f2d6b6e8d588ae4af86c349e486a58682a566e607d165dcc61
-    .claude/skills/go-edit-cobra/helpers/internal/cmd/release/main.go: sha256:2ed4ac93b6f93084f48b3efd003e424ab7471c9e4614edafe25cf4f5acf68ae6
-    .claude/skills/go-edit-cobra/helpers/internal/cmd/release/main_test.go: sha256:0adc9e2feb72a31c7f156a9e46f15a3e448aedc9a05e250773c1babbd4349834
+    .agents/skills/go-edit-cobra/reference/command-templates.md: sha256:341a669add4251280cb8c4f831aec44b1a86c82c8c3df321e3797c93e6f96ad1
+    .agents/skills/go-edit-cobra/reference/config-source.md: sha256:3eae2873d83a2c54de16b8170ba49a33bd3ea1305c65736414b5e399ed97e9ec
+    .agents/skills/go-edit-cobra/reference/configuration.md: sha256:f7f96ed5959a4b27d2895ff9e79e3dc17786bc0a79fb4e56f3fe82e295e04f2f
+    .agents/skills/go-edit-cobra/reference/layout-and-naming.md: sha256:f0584a8ed19c7beef252bb031959c3a00428becae92a8a5d85b9cd3a06a50097
+    .agents/skills/go-edit-cobra/reference/versioning.md: sha256:4133c288ba645b35dc0c3e3c097cdce46a82915ff0de1c2d5ce81d5f7d8aa6ca
+    .agents/skills/go-edit-cobra/reference/workflows.md: sha256:b7b69b61f493bed65c8f05ff493f770287625f05bd85159fef15769fa9e99117
+    .claude/skills/go-edit-cobra/SKILL.md: sha256:9da4814840634cc69ae1de63a4f465aed98b7e74a3a1e5b8bdb0ee6f71367c6e
+    .claude/skills/go-edit-cobra/copy_helper.sh: sha256:c5b783f7a958fafe27faa23bc0a8b01db20fd8d149405a5babeb6f95bfa2f081
     .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals.go: sha256:d82e84daa15be3c56db97aed58aaf1895fbe55154120bd7bb05832b5b1c8e963
     .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_test.go: sha256:66bfbf54bec285adf985bb456e2a7d736f87679dda59f7eceb4fcee83e7a857c
     .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_unix_test.go: sha256:ce7bc788742b255401c06a926ef3de9b8870bbb6838be443362d637e38c2b94b
+    .claude/skills/go-edit-cobra/helpers/internal/libver/libver.go: sha256:d2b05b0665e3f934d220aa5faa97fb4bd56015464b9bd3587a7e9833a3930704
     .claude/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory.go: sha256:3c2f96965b17431d4571ee3be2bf4a5989a3d64e0af7490d24a8a827610af9c1
     .claude/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory_test.go: sha256:ab86fcf79ac087242031c4e5cc34cec9f94ef953dc91910af02c5f559a1cece9
     .claude/skills/go-edit-cobra/helpers/internal/stdiopipe/stdiopipe.go: sha256:21d0ce3299739b34ff662eb2a9aca802a1ae8afc3dee2104d3026e1b11431f52
-    .claude/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo.go: sha256:ed35614b8b5f2826cd2fcf04a9b427187dbc6f4508beeebec8403e62e4a3821d
+    .claude/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo.go: sha256:868466c7405790ded473d8176ee6d9661387decf1ef66a5d1cea35acd8ac4aab
     .claude/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo_test.go: sha256:13a97e51882aba0594fc7e0d9702af6c1c1041565fc9e0205777d53924b4546e
-    .claude/skills/go-edit-cobra/reference/command-templates.md: sha256:31fd62bf74251e0a7d44f2e58d1f93d15d5d562c649061fac25ef127015531d2
-    .claude/skills/go-edit-cobra/reference/config-source.md: sha256:c558a0c25adf9c22c1e972010b0fe25d71dee428276cb309e634f5837b879290
-    .claude/skills/go-edit-cobra/reference/configuration.md: sha256:38941a1dbdff59969bec414b834318b77360fa0f7f6c8bce7cd57726025c9eba
-    .claude/skills/go-edit-cobra/reference/layout-and-naming.md: sha256:e7af8025a8483651c3fc7e657e63844278e4810efb7e894d532bb8765853777e
-    .claude/skills/go-edit-cobra/reference/versioning.md: sha256:05bc33c9dc8c0fecc9504a64a514fceb96ddbf35379f23307f093f4f08d2c003
-    .claude/skills/go-edit-cobra/reference/workflows.md: sha256:b10dfd36c4dc50b6656b18323c3e90bdba6e099e929f745a4e5ac44f924b5282
-  content_hash: sha256:bcaeba8dc2804f4d4d66bbabcaea612668ef524fe1e625a86567464144026b67
+    .claude/skills/go-edit-cobra/reference/command-templates.md: sha256:341a669add4251280cb8c4f831aec44b1a86c82c8c3df321e3797c93e6f96ad1
+    .claude/skills/go-edit-cobra/reference/config-source.md: sha256:3eae2873d83a2c54de16b8170ba49a33bd3ea1305c65736414b5e399ed97e9ec
+    .claude/skills/go-edit-cobra/reference/configuration.md: sha256:f7f96ed5959a4b27d2895ff9e79e3dc17786bc0a79fb4e56f3fe82e295e04f2f
+    .claude/skills/go-edit-cobra/reference/layout-and-naming.md: sha256:f0584a8ed19c7beef252bb031959c3a00428becae92a8a5d85b9cd3a06a50097
+    .claude/skills/go-edit-cobra/reference/versioning.md: sha256:4133c288ba645b35dc0c3e3c097cdce46a82915ff0de1c2d5ce81d5f7d8aa6ca
+    .claude/skills/go-edit-cobra/reference/workflows.md: sha256:b7b69b61f493bed65c8f05ff493f770287625f05bd85159fef15769fa9e99117
+  content_hash: sha256:af3904c67bbca6219f97cc0d28fa55a0cef5c1476277c2e0dafc993379acd37d
 - repo_url: ngicks/agents-package
-  name: agents-package
+  name: go-review-checklist
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: unknown
   virtual_path: skills/go-review-checklist
   is_virtual: true
@@ -237,13 +270,13 @@ dependencies:
   - .claude/skills/go-review-checklist
   - .claude/skills/go-review-checklist/SKILL.md
   deployed_file_hashes:
-    .agents/skills/go-review-checklist/SKILL.md: sha256:52de3b2cd7351578e72c38574090e75054032a3cfa9b61a4afcff090d1897fd5
-    .claude/skills/go-review-checklist/SKILL.md: sha256:52de3b2cd7351578e72c38574090e75054032a3cfa9b61a4afcff090d1897fd5
-  content_hash: sha256:d1f2432180ac2de13a6a23d83bb879f5c1c552218f7cf55aea9af4c6ffe51f92
+    .agents/skills/go-review-checklist/SKILL.md: sha256:e2fef495863cf2b659a85487565e4941e432ed70cece376784ccaf09623098ca
+    .claude/skills/go-review-checklist/SKILL.md: sha256:e2fef495863cf2b659a85487565e4941e432ed70cece376784ccaf09623098ca
+  content_hash: sha256:93e21c50dfcc501028db5d55493424042187a224bbc8c6af7f041b667f3cb4de
 - repo_url: ngicks/agents-package
-  name: agents-package
+  name: ngplan
   host: github.com
-  resolved_commit: 25aff3c490fad4532b0ba2e8d46a227c8704f07a
+  resolved_commit: d19210aafedd24e15750ebb925261c787c44bc4f
   version: unknown
   virtual_path: skills/ngplan
   is_virtual: true
@@ -254,9 +287,802 @@ dependencies:
   - .claude/skills/ngplan
   - .claude/skills/ngplan/SKILL.md
   deployed_file_hashes:
-    .agents/skills/ngplan/SKILL.md: sha256:ec573a5b5d0b6c61e0738c91c8d768953af9d407b86f122113b3d8b9ca07d7a0
-    .claude/skills/ngplan/SKILL.md: sha256:ec573a5b5d0b6c61e0738c91c8d768953af9d407b86f122113b3d8b9ca07d7a0
-  content_hash: sha256:96a6356649a8569043582fc6d87a18eec5c498b9696013d6965165edee5d0489
+    .agents/skills/ngplan/SKILL.md: sha256:4eeeea6335f18133558cd6548075174076ff7216dc0de5a69baf33eb69359a9d
+    .claude/skills/ngplan/SKILL.md: sha256:4eeeea6335f18133558cd6548075174076ff7216dc0de5a69baf33eb69359a9d
+  content_hash: sha256:5b9783614f96941518ec36f6561150357d39b6fa55b0623177164431420a0e0c
+deployments:
+- kind: project-relative
+  target: agents
+  value: .agents/skills/go-edit-cobra/helpers/internal/cmd/release/main.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:2ed4ac93b6f93084f48b3efd003e424ab7471c9e4614edafe25cf4f5acf68ae6
+- kind: project-relative
+  target: agents
+  value: .agents/skills/go-edit-cobra/helpers/internal/cmd/release/main_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:0adc9e2feb72a31c7f156a9e46f15a3e448aedc9a05e250773c1babbd4349834
+- kind: project-relative
+  target: claude
+  value: .claude/agents/ng-command-invoker.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:2ebc19b040196a2bdcc1e7185897acf83e4392c3ec02747b72de32030d8185d8
+- kind: project-relative
+  target: claude
+  value: .claude/agents/ng-explorer.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:29095f6a95997443a7e0958045272966ee81b3b5c76252a66e2ac8178599f42c
+- kind: project-relative
+  target: claude
+  value: .claude/agents/ng-implementer.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:90118cdc367dca1c84adbffd5f03f2b796b2694a06f4e366a22b7042edeac189
+- kind: project-relative
+  target: claude
+  value: .claude/agents/ng-reviewer.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:273a02dddf8643c0102d9c16de537517d532563bf4749d2d29599a5ca4009abf
+- kind: project-relative
+  target: claude
+  value: .claude/agents/ng-test-runner.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:2b6b1188560b9749dd3910fd4fe3479398ceac59ee5d993f71a2a070167e250c
+- kind: project-relative
+  target: claude
+  value: .claude/rules/base.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:3d402e3b9d38612265e90cb7da00b5704e85f9f7ca1fa8178bca3ed2d1513f19
+- kind: project-relative
+  target: claude
+  value: .claude/rules/ngicks.base.env.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/instructions/ngicks.base.env.instructions.md
+  active_owner: ngicks/agents-package/instructions/ngicks.base.env.instructions.md
+  content_hash: sha256:834357cef083e4933bd628ad77bd0a41d8009782a670d5120a843b66d37863e7
+- kind: project-relative
+  target: claude
+  value: .claude/rules/ngicks.base.preference.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/instructions/ngicks.base.preference.instructions.md
+  active_owner: ngicks/agents-package/instructions/ngicks.base.preference.instructions.md
+  content_hash: sha256:26f1b24d447f54d3e741667c05b6767a8c6a23f887b9ce05f60efdadc7c73634
+- kind: project-relative
+  target: claude
+  value: .claude/rules/ngicks.go.basics.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/instructions/ngicks.go.basics.instructions.md
+  active_owner: ngicks/agents-package/instructions/ngicks.go.basics.instructions.md
+  content_hash: sha256:feb91c7f9c7fbb752df5390b000d2cc7a15e0397de5e40eaf8cfe37bf2896f34
+- kind: project-relative
+  target: claude
+  value: .claude/rules/ngicks.go.design-preference.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/instructions/ngicks.go.design-preference.instructions.md
+  active_owner: ngicks/agents-package/instructions/ngicks.go.design-preference.instructions.md
+  content_hash: sha256:14e7aa023c1ffc82bfcba6af8f312e2d52db5b9a170425c839f48b2c4b0b0d6a
+- kind: project-relative
+  target: claude
+  value: .claude/rules/ngicks.web.base-preference.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/instructions/ngicks.web.base-preference.instructions.md
+  active_owner: ngicks/agents-package/instructions/ngicks.web.base-preference.instructions.md
+  content_hash: sha256:e21dabede12caf8ebf02721bf2de21a893bfd1460c29a55f75340772c68c7c25
+- kind: project-relative
+  target: claude
+  value: .claude/rules/ngicks.web.preact-preference.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/instructions/ngicks.web.preact-preference.instructions.md
+  active_owner: ngicks/agents-package/instructions/ngicks.web.preact-preference.instructions.md
+  content_hash: sha256:f6d1647122dd18359a7d7eca1199504f76c3a98cf666f7a35ae9b323a900302f
+- kind: project-relative
+  target: claude
+  value: .claude/rules/web.local.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:9681a3e3cdb40821ee8488fbe8fc9589b9fdf7a97141025fbdf53e339e92a0b0
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-check-outdated-patterns
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-check-outdated-patterns
+  active_owner: ngicks/agents-package/skills/go-check-outdated-patterns
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-check-outdated-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-check-outdated-patterns
+  active_owner: ngicks/agents-package/skills/go-check-outdated-patterns
+  content_hash: sha256:0447897fc0bb662776faa0d7455e9104efa19f6284034edd717d7cd679a4b839
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:9da4814840634cc69ae1de63a4f465aed98b7e74a3a1e5b8bdb0ee6f71367c6e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/copy_helper.sh
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:c5b783f7a958fafe27faa23bc0a8b01db20fd8d149405a5babeb6f95bfa2f081
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:d82e84daa15be3c56db97aed58aaf1895fbe55154120bd7bb05832b5b1c8e963
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:66bfbf54bec285adf985bb456e2a7d736f87679dda59f7eceb4fcee83e7a857c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_unix_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:ce7bc788742b255401c06a926ef3de9b8870bbb6838be443362d637e38c2b94b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/libver/libver.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:d2b05b0665e3f934d220aa5faa97fb4bd56015464b9bd3587a7e9833a3930704
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:3c2f96965b17431d4571ee3be2bf4a5989a3d64e0af7490d24a8a827610af9c1
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:ab86fcf79ac087242031c4e5cc34cec9f94ef953dc91910af02c5f559a1cece9
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/stdiopipe/stdiopipe.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:21d0ce3299739b34ff662eb2a9aca802a1ae8afc3dee2104d3026e1b11431f52
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:868466c7405790ded473d8176ee6d9661387decf1ef66a5d1cea35acd8ac4aab
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:13a97e51882aba0594fc7e0d9702af6c1c1041565fc9e0205777d53924b4546e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/reference/command-templates.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:341a669add4251280cb8c4f831aec44b1a86c82c8c3df321e3797c93e6f96ad1
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/reference/config-source.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:3eae2873d83a2c54de16b8170ba49a33bd3ea1305c65736414b5e399ed97e9ec
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/reference/configuration.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:f7f96ed5959a4b27d2895ff9e79e3dc17786bc0a79fb4e56f3fe82e295e04f2f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/reference/layout-and-naming.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:f0584a8ed19c7beef252bb031959c3a00428becae92a8a5d85b9cd3a06a50097
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/reference/versioning.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:4133c288ba645b35dc0c3e3c097cdce46a82915ff0de1c2d5ce81d5f7d8aa6ca
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-edit-cobra/reference/workflows.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:b7b69b61f493bed65c8f05ff493f770287625f05bd85159fef15769fa9e99117
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-review-checklist
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-review-checklist
+  active_owner: ngicks/agents-package/skills/go-review-checklist
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/go-review-checklist/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-review-checklist
+  active_owner: ngicks/agents-package/skills/go-review-checklist
+  content_hash: sha256:e2fef495863cf2b659a85487565e4941e432ed70cece376784ccaf09623098ca
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-command-invoker
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-command-invoker/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:f4048af82a2d5836b9ac77dbcdfd010ced96708476972c122fb55d18f6e16942
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-explorer
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-explorer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:c9c1de9dbee6bfc8a3111bdffd456357c642434ef32a2276e085098eefdbf93e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-implementer
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-implementer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:36621805618a2911886ac2f1270142828ac13257c9fc5f5445e24fecd60117d0
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-orchestrator
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-orchestrator/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:0895ba83f8e703f424917d28ff7862369070e7e84cd8f18cf5c0a8ea44f3219a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-reviewer
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ng-reviewer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:2f41acb378c29bb09c4ca1412311271ea331a3076cf699efb3bf433e69a73513
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ngplan
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/ngplan
+  active_owner: ngicks/agents-package/skills/ngplan
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ngplan/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/ngplan
+  active_owner: ngicks/agents-package/skills/ngplan
+  content_hash: sha256:4eeeea6335f18133558cd6548075174076ff7216dc0de5a69baf33eb69359a9d
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-check-outdated-patterns
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-check-outdated-patterns
+  active_owner: ngicks/agents-package/skills/go-check-outdated-patterns
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-check-outdated-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-check-outdated-patterns
+  active_owner: ngicks/agents-package/skills/go-check-outdated-patterns
+  content_hash: sha256:0447897fc0bb662776faa0d7455e9104efa19f6284034edd717d7cd679a4b839
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:9da4814840634cc69ae1de63a4f465aed98b7e74a3a1e5b8bdb0ee6f71367c6e
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/copy_helper.sh
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:c5b783f7a958fafe27faa23bc0a8b01db20fd8d149405a5babeb6f95bfa2f081
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:d82e84daa15be3c56db97aed58aaf1895fbe55154120bd7bb05832b5b1c8e963
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:66bfbf54bec285adf985bb456e2a7d736f87679dda59f7eceb4fcee83e7a857c
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/cmdsignals/signals_unix_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:ce7bc788742b255401c06a926ef3de9b8870bbb6838be443362d637e38c2b94b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/libver/libver.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:d2b05b0665e3f934d220aa5faa97fb4bd56015464b9bd3587a7e9833a3930704
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:3c2f96965b17431d4571ee3be2bf4a5989a3d64e0af7490d24a8a827610af9c1
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/loggerfactory/loggerfactory_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:ab86fcf79ac087242031c4e5cc34cec9f94ef953dc91910af02c5f559a1cece9
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/stdiopipe/stdiopipe.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:21d0ce3299739b34ff662eb2a9aca802a1ae8afc3dee2104d3026e1b11431f52
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:868466c7405790ded473d8176ee6d9661387decf1ef66a5d1cea35acd8ac4aab
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/helpers/internal/versioninfo/versioninfo_test.go
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:13a97e51882aba0594fc7e0d9702af6c1c1041565fc9e0205777d53924b4546e
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/reference/command-templates.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:341a669add4251280cb8c4f831aec44b1a86c82c8c3df321e3797c93e6f96ad1
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/reference/config-source.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:3eae2873d83a2c54de16b8170ba49a33bd3ea1305c65736414b5e399ed97e9ec
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/reference/configuration.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:f7f96ed5959a4b27d2895ff9e79e3dc17786bc0a79fb4e56f3fe82e295e04f2f
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/reference/layout-and-naming.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:f0584a8ed19c7beef252bb031959c3a00428becae92a8a5d85b9cd3a06a50097
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/reference/versioning.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:4133c288ba645b35dc0c3e3c097cdce46a82915ff0de1c2d5ce81d5f7d8aa6ca
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-edit-cobra/reference/workflows.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-edit-cobra
+  active_owner: ngicks/agents-package/skills/go-edit-cobra
+  content_hash: sha256:b7b69b61f493bed65c8f05ff493f770287625f05bd85159fef15769fa9e99117
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-review-checklist
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-review-checklist
+  active_owner: ngicks/agents-package/skills/go-review-checklist
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/go-review-checklist/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/go-review-checklist
+  active_owner: ngicks/agents-package/skills/go-review-checklist
+  content_hash: sha256:e2fef495863cf2b659a85487565e4941e432ed70cece376784ccaf09623098ca
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-command-invoker
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-command-invoker/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:f4048af82a2d5836b9ac77dbcdfd010ced96708476972c122fb55d18f6e16942
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-explorer
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-explorer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:c9c1de9dbee6bfc8a3111bdffd456357c642434ef32a2276e085098eefdbf93e
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-implementer
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-implementer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:36621805618a2911886ac2f1270142828ac13257c9fc5f5445e24fecd60117d0
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-orchestrator
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-orchestrator/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:0895ba83f8e703f424917d28ff7862369070e7e84cd8f18cf5c0a8ea44f3219a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-reviewer
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ng-reviewer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:2f41acb378c29bb09c4ca1412311271ea331a3076cf699efb3bf433e69a73513
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ngplan
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/ngplan
+  active_owner: ngicks/agents-package/skills/ngplan
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/ngplan/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/skills/ngplan
+  active_owner: ngicks/agents-package/skills/ngplan
+  content_hash: sha256:4eeeea6335f18133558cd6548075174076ff7216dc0de5a69baf33eb69359a9d
+- kind: project-relative
+  target: codex
+  value: .codex/agents/ng-command-invoker.toml
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:71e65ace87b27b4fea573f0ffe84ce99652a33b0cab540b4f65e959b4489ac6b
+- kind: project-relative
+  target: codex
+  value: .codex/agents/ng-explorer.toml
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:9937070e48601b6356021b525856f4e7b95f3fc93b6e239fca5c06091b98279c
+- kind: project-relative
+  target: codex
+  value: .codex/agents/ng-implementer.toml
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:b4e25d1e0bc34c2682409ef73e5c636f332e08c66c29a00422e30da10d349950
+- kind: project-relative
+  target: codex
+  value: .codex/agents/ng-reviewer.toml
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:9d14ee18cc710b34acaa1c44cdbc9c5dbb7ee9897ec0ebf4a82313a16eec325d
+- kind: project-relative
+  target: codex
+  value: .codex/agents/ng-test-runner.toml
+  runtime: null
+  scope: project
+  owners:
+  - ngicks/agents-package/apm-package/cc-workers
+  active_owner: ngicks/agents-package/apm-package/cc-workers
+  content_hash: sha256:e121ea80d32dfd1c23fb4b17bbeb70a6a1b458d4a840db915a9e6300527ba3c2
 local_deployed_files:
 - .claude/rules/base.md
 - .claude/rules/web.local.md
