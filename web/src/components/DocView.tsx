@@ -17,6 +17,10 @@ export function DocView() {
   const { rootId, path } = parseDocLocation(loc.path);
   const { data, isLoading, error } = useDocument(rootId, path);
   const ref = useRef<HTMLElement>(null);
+  // Read during render so the signal subscribes this component; the effect
+  // below re-runs on toggle, restoring the raw `<pre class="mermaid">` source
+  // via innerHTML so mermaid can re-render in the matching theme.
+  const dark = theme.value === "dark";
 
   useEffect(() => {
     const el = ref.current;
@@ -29,14 +33,15 @@ export function DocView() {
     rewriteImageSources(el, rootId, path);
 
     let cancelled = false;
-    void enrich(el, theme.value === "dark").then(() => {
+    void enrich(el, dark).then(() => {
       if (!cancelled) scrollToHash();
     });
     return () => {
       cancelled = true;
     };
-    // Re-run whenever the rendered HTML changes (live reload) or the target moves.
-  }, [data?.html, rootId, path]);
+    // Re-run whenever the rendered HTML changes (live reload), the target
+    // moves, or the theme flips (mermaid diagrams are theme-baked SVG).
+  }, [data?.html, rootId, path, dark]);
 
   useEffect(() => {
     if (data?.title) document.title = `${data.title} — crabswarm preview`;

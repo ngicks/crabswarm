@@ -153,12 +153,12 @@ func (s *Service) Serve(ctx context.Context) error {
 // addRoot registers path, starts its watcher, and publishes RootsChanged when
 // the root is genuinely new. Re-adding an existing root is idempotent and
 // publishes nothing.
-func (s *Service) addRoot(path string) (Root, error) {
+func (s *Service) addRoot(ctx context.Context, path string) (Root, error) {
 	// The store mutation and the watcher start are one critical section so a
 	// concurrent removeRoot of the same (deterministic) root ID cannot interleave
 	// between them and leave a registered root without a watcher.
 	s.mu.Lock()
-	root, err := s.store.Add(path)
+	root, err := s.store.Add(ctx, path)
 	if err != nil {
 		s.mu.Unlock()
 		return Root{}, err
@@ -248,10 +248,10 @@ func (s *Service) ListRoots(
 // AddRoot registers a directory path as a preview root and returns it. Adding an
 // already-registered path is idempotent.
 func (s *Service) AddRoot(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[crabpreviewv1.AddRootRequest],
 ) (*connect.Response[crabpreviewv1.AddRootResponse], error) {
-	root, err := s.addRoot(req.Msg.GetPath())
+	root, err := s.addRoot(ctx, req.Msg.GetPath())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

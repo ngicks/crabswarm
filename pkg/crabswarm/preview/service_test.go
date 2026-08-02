@@ -65,7 +65,7 @@ func TestService_RemoveRootTearsDownWatcher(t *testing.T) {
 	svc := runningService(t)
 	dir := t.TempDir()
 
-	root, err := svc.addRoot(dir)
+	root, err := svc.addRoot(t.Context(), dir)
 	assert.NilError(t, err)
 	assert.Assert(t, hasWatcher(svc, root.ID))
 
@@ -85,14 +85,14 @@ func TestService_RemoveThenReAddKeepsLiveWatcher(t *testing.T) {
 	svc := runningService(t)
 	dir := t.TempDir()
 
-	root, err := svc.addRoot(dir)
+	root, err := svc.addRoot(t.Context(), dir)
 	assert.NilError(t, err)
 	_, ok := svc.removeRoot(root.ID)
 	assert.Assert(t, ok)
 
 	// Re-adding the same path yields the same deterministic ID and a fresh, live
 	// watcher.
-	root2, err := svc.addRoot(dir)
+	root2, err := svc.addRoot(t.Context(), dir)
 	assert.NilError(t, err)
 	assert.Equal(t, root2.ID, root.ID)
 	assert.Assert(t, hasWatcher(svc, root2.ID))
@@ -115,7 +115,7 @@ func TestService_ConcurrentAddRemoveSamePathKeepsInvariant(t *testing.T) {
 	dir := t.TempDir()
 
 	// Learn the deterministic ID for this path.
-	root, err := svc.addRoot(dir)
+	root, err := svc.addRoot(t.Context(), dir)
 	assert.NilError(t, err)
 	id := root.ID
 
@@ -125,14 +125,14 @@ func TestService_ConcurrentAddRemoveSamePathKeepsInvariant(t *testing.T) {
 	// also validate the locking.
 	var g errgroup.Group
 	for range 30 {
-		g.Go(func() error { _, _ = svc.addRoot(dir); return nil })
+		g.Go(func() error { _, _ = svc.addRoot(t.Context(), dir); return nil })
 		g.Go(func() error { svc.removeRoot(id); return nil })
 	}
 	_ = g.Wait()
 
 	// A final add with no concurrent remove must leave the root registered with a
 	// live watcher — the invariant the TOCTOU race would break.
-	_, err = svc.addRoot(dir)
+	_, err = svc.addRoot(t.Context(), dir)
 	assert.NilError(t, err)
 	_, present := svc.store.Get(id)
 	assert.Assert(t, present)
@@ -149,7 +149,7 @@ func TestService_ResolveRawRejectsTraversal(t *testing.T) {
 	assert.NilError(t, os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("SECRET"), 0o644))
 	assert.NilError(t, os.Symlink(outside, filepath.Join(dir, "escape")))
 
-	root, err := svc.addRoot(dir)
+	root, err := svc.addRoot(t.Context(), dir)
 	assert.NilError(t, err)
 
 	// A valid in-root path resolves to an absolute path.

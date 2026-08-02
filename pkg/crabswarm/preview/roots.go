@@ -1,10 +1,12 @@
 package preview
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,8 +22,9 @@ type Root struct {
 	ID string
 	// Path is the absolute, cleaned filesystem path of the root directory.
 	Path string
-	// Name is the display name — the path's base name, suffixed on collision
-	// so every registered root carries a unique Name.
+	// Name is the display name — the path's base name, prefixed with the
+	// parent directory name when the path is a linked git worktree, and
+	// suffixed on collision so every registered root carries a unique Name.
 	Name string
 }
 
@@ -46,7 +49,7 @@ func NewRootStore() *RootStore {
 // absolute, cleaned path that must name an existing directory. Add is
 // idempotent: re-adding the same directory returns the existing [Root]
 // unchanged (same ID, same Name) without creating a duplicate entry.
-func (s *RootStore) Add(path string) (Root, error) {
+func (s *RootStore) Add(ctx context.Context, path string) (Root, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return Root{}, fmt.Errorf("resolving %q: %w", path, err)
@@ -60,6 +63,9 @@ func (s *RootStore) Add(path string) (Root, error) {
 	}
 
 	id := rootID(abs)
+	// Resolved before taking the lock: displayBase shells out to git and must
+	// not stall other store readers behind it.
+	base := displayBase(ctx, abs)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -70,7 +76,7 @@ func (s *RootStore) Add(path string) (Root, error) {
 	root := Root{
 		ID:   id,
 		Path: abs,
-		Name: s.uniqueName(filepath.Base(abs)),
+		Name: s.uniqueName(base),
 	}
 	s.roots[id] = root
 	s.names[root.Name] = id
@@ -133,6 +139,42 @@ func (s *RootStore) uniqueName(base string) string {
 			return candidate
 		}
 	}
+}
+
+// displayBase returns the display-name base for abs. Normally that is the
+// path's base name; when abs is the top level of a linked git worktree the
+// parent directory name is prefixed. Worktrees are commonly named after
+// branches ("main"), so the base name alone collides across repositories and
+// degrades into "main-2", "main-3", …; "repo/main" stays telling.
+//
+// git itself is the detector (decided: shell out rather than parse the .git
+// gitdir pointer file; git is assumed installed). A linked worktree is one
+// whose --git-dir differs from --git-common-dir; the main working tree and
+// regular clones have the two equal. Any git failure — not a repository,
+// binary missing — just means no prefix: the name is cosmetic, so Add never
+// fails on it.
+func displayBase(ctx context.Context, abs string) string {
+	base := filepath.Base(abs)
+	out, err := exec.CommandContext(ctx, "git", "-C", abs, "rev-parse",
+		"--path-format=absolute", "--show-toplevel", "--git-dir", "--git-common-dir").Output()
+	if err != nil {
+		return base
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) != 3 {
+		return base
+	}
+	toplevel, gitDir, commonDir := lines[0], lines[1], lines[2]
+	// Only the worktree's own top level gets the prefix: for a subdirectory
+	// registered as a root, the parent name is arbitrary, not the repository.
+	if toplevel != abs || gitDir == commonDir {
+		return base
+	}
+	parent := filepath.Base(filepath.Dir(abs))
+	if parent == "." || parent == string(filepath.Separator) {
+		return base
+	}
+	return parent + "/" + base
 }
 
 // rootID derives a stable, short, URL-safe identifier from an absolute path:
