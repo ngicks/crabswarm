@@ -1,17 +1,21 @@
-/bin/
+# built artifact
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
 
-.claude
-.mcp.json
+*.test
 
-/crabhook
-/splitpane
-/plugin/crabswarm/bin/crabswarm-*
-/hook_input.json*
-/doc/plans/**/state.json
+# Go specific transient artifact
+go.work
+go.work.sum
 
-
-# APM dependencies
+# LLM stuff
 apm_modules/
+
+/.apm/**/*.personal.*
 
 /.agents
 /.claude
@@ -19,5 +23,10 @@ apm_modules/
 /.github/instructions
 /.github/skills
 
+CLAUDE*.md
+CODEX*.md
+
 CLAUDE.md
 AGENTS.md
+
+*.env
