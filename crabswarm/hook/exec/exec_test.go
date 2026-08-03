@@ -10,17 +10,17 @@ import (
 	"strings"
 	"testing"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
 	"github.com/ngicks/crabswarm/internal/templateutil"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
+	"github.com/ngicks/crabswarm/pkg/claudehook/types"
 	"github.com/ngicks/crabswarm/pkg/filetype"
 	"gotest.tools/v3/assert"
 )
 
-// marshalHookInput serializes a typed sdktypesv1 hook envelope.
-func marshalHookInput(t *testing.T, in sdktypesv1.HookInput_Value) *bytes.Reader {
+// marshalHookInput serializes a typed hook envelope.
+func marshalHookInput(t *testing.T, in types.HookInput_Value) *bytes.Reader {
 	t.Helper()
-	data, err := json.Marshal(sdktypesv1.NewHookInput(in))
+	data, err := json.Marshal(types.NewHookInput(in))
 	assert.NilError(t, err)
 	return bytes.NewReader(data)
 }
@@ -30,18 +30,18 @@ func marshalHookInput(t *testing.T, in sdktypesv1.HookInput_Value) *bytes.Reader
 func preToolUseEnvelope(
 	t *testing.T,
 	tool string,
-	toolInput sdktypesv1.ToolInputSchemas_Value,
+	toolInput types.ToolInputSchemas_Value,
 ) *bytes.Reader {
 	t.Helper()
-	return marshalHookInput(t, &sdktypesv1.PreToolUseHookInput{
-		BaseHookInput: sdktypesv1.BaseHookInput{
+	return marshalHookInput(t, &types.PreToolUseHookInput{
+		BaseHookInput: types.BaseHookInput{
 			SessionID:      "sess-1",
 			TranscriptPath: "/tmp/x.jsonl",
 			Cwd:            "/work",
 		},
-		HookEventName: sdktypesv1.HookEventPreToolUse,
+		HookEventName: types.HookEventPreToolUse,
 		ToolName:      tool,
-		ToolInput:     sdktypesv1.NewToolInputSchemas(toolInput),
+		ToolInput:     types.NewToolInputSchemas(toolInput),
 		ToolUseID:     "toolu_1",
 	})
 }
@@ -49,7 +49,7 @@ func preToolUseEnvelope(
 // editEnvelope produces a PreToolUse + Edit envelope referencing filePath.
 func editEnvelope(t *testing.T, filePath string) *bytes.Reader {
 	t.Helper()
-	return preToolUseEnvelope(t, sdktypesv1.ToolNameEdit, &sdktypesv1.FileEditInput{
+	return preToolUseEnvelope(t, types.ToolNameEdit, &types.FileEditInput{
 		FilePath: filePath,
 	})
 }
@@ -57,7 +57,7 @@ func editEnvelope(t *testing.T, filePath string) *bytes.Reader {
 // bashEnvelope produces a PreToolUse + Bash envelope.
 func bashEnvelope(t *testing.T, command string) *bytes.Reader {
 	t.Helper()
-	return preToolUseEnvelope(t, sdktypesv1.ToolNameBash, &sdktypesv1.BashInput{
+	return preToolUseEnvelope(t, types.ToolNameBash, &types.BashInput{
 		Command: command,
 	})
 }
@@ -299,7 +299,7 @@ func TestRun_FailureReturnsBlockDecision(t *testing.T) {
 	assert.Assert(t, errors.As(err, &he), "expected *handler.HandlerError, got %T", err)
 	assert.Assert(t, he.Output != nil, "expected non-nil Output (block)")
 	assert.Assert(t, he.Output.Decision != nil, "expected Decision set")
-	assert.Equal(t, *he.Output.Decision, sdktypesv1.HookDecisionBlock)
+	assert.Equal(t, *he.Output.Decision, types.HookDecisionBlock)
 	assert.Assert(t, he.Output.Reason != nil, "expected Reason set")
 	assert.Assert(
 		t,
@@ -507,8 +507,8 @@ func TestRender_InputBaseFieldThroughEmbed(t *testing.T) {
 func TestRender_UnknownEvent(t *testing.T) {
 	cfg := Config{}
 	opt := Option{Template: "event={{ .Event }}"}
-	r := marshalHookInput(t, &sdktypesv1.HookInputUnknown{
-		UnknownUnion: sdktypesv1.UnknownUnion{
+	r := marshalHookInput(t, &types.HookInputUnknown{
+		UnknownUnion: types.UnknownUnion{
 			Raw: json.RawMessage(`{` +
 				`"session_id":"sess",` +
 				`"transcript_path":"/tmp/x",` +
@@ -645,12 +645,12 @@ func TestRender_WriteToolResolvesFile(t *testing.T) {
 
 	cfg := Config{Filetypes: goRustTables()}
 	opt := Option{Template: "ft={{ .Filetype }} file={{ .File }}", Filter: []string{"go"}}
-	r := marshalHookInput(t, &sdktypesv1.PostToolUseHookInput{
-		BaseHookInput: sdktypesv1.BaseHookInput{SessionID: "s", TranscriptPath: "/t", Cwd: tmp},
-		HookEventName: sdktypesv1.HookEventPostToolUse,
-		ToolName:      sdktypesv1.ToolNameWrite,
-		ToolInput: sdktypesv1.NewToolInputSchemas(
-			&sdktypesv1.FileWriteInput{FilePath: writePath, Content: "package w\n"},
+	r := marshalHookInput(t, &types.PostToolUseHookInput{
+		BaseHookInput: types.BaseHookInput{SessionID: "s", TranscriptPath: "/t", Cwd: tmp},
+		HookEventName: types.HookEventPostToolUse,
+		ToolName:      types.ToolNameWrite,
+		ToolInput: types.NewToolInputSchemas(
+			&types.FileWriteInput{FilePath: writePath, Content: "package w\n"},
 		),
 		ToolUseID: "tu",
 	})
@@ -693,4 +693,4 @@ func TestRun_CodexApplyPatchUpdateFixture(t *testing.T) {
 }
 
 // Compile-time check that .Input is the SDK union variant interface.
-var _ sdktypesv1.HookInput_Value = (Data{}).Input
+var _ types.HookInput_Value = (Data{}).Input

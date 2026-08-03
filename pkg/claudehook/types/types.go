@@ -1,6 +1,6 @@
-// Package v1 contains handwritten Claude Agent SDK shapes derived from:
+// Package types contains handwritten Claude Agent SDK shapes derived from:
 // https://code.claude.com/docs/en/agent-sdk/typescript
-package sdktypesv1
+package types
 
 import (
 	"encoding/json"

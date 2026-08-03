@@ -22,7 +22,7 @@ const (
 )
 
 // CodexPatchKind is the kind of change a single Codex apply_patch operation
-// makes. Source: api/types/sdktypes/v1/ext/codex (PatchKind),
+// makes. Source: pkg/claudehook/types/ext/codex (PatchKind),
 // codex-rs/apply-patch/src/lib.rs.
 type CodexPatchKind int32
 
@@ -77,7 +77,7 @@ func (CodexPatchKind) EnumDescriptor() ([]byte, []int) {
 }
 
 // CodexPlanStatus is the status of a single Codex update_plan step. Source:
-// api/types/sdktypes/v1/ext/codex (PlanStatus),
+// pkg/claudehook/types/ext/codex (PlanStatus),
 // codex-rs/core/src/tools/handlers/plan_spec.rs.
 type CodexPlanStatus int32
 
@@ -132,7 +132,7 @@ func (CodexPlanStatus) EnumDescriptor() ([]byte, []int) {
 }
 
 // CodexPatchOperation is one file change inside a Codex apply_patch envelope.
-// Source: api/types/sdktypes/v1/ext/codex (PatchOperation).
+// Source: pkg/claudehook/types/ext/codex (PatchOperation).
 type CodexPatchOperation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          CodexPatchKind         `protobuf:"varint,1,opt,name=kind,proto3,enum=sdktypes.v1.ext.codex.CodexPatchKind" json:"kind,omitempty"`
@@ -195,7 +195,7 @@ func (x *CodexPatchOperation) GetMoveTo() string {
 
 // CodexApplyPatchInput is a Codex apply_patch tool_input. raw_json preserves the
 // original bytes for lossless round-trips; command/operations expose the decoded
-// patch. Source: api/types/sdktypes/v1/ext/codex (ApplyPatchInput).
+// patch. Source: pkg/claudehook/types/ext/codex (ApplyPatchInput).
 type CodexApplyPatchInput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RawJson       []byte                 `protobuf:"bytes,1,opt,name=raw_json,proto3" json:"raw_json,omitempty"`
@@ -257,7 +257,7 @@ func (x *CodexApplyPatchInput) GetOperations() []*CodexPatchOperation {
 }
 
 // CodexApplyPatchSummaryEntry is one "A/M/D path" line of a Codex apply_patch
-// success summary. Source: api/types/sdktypes/v1/ext/codex (SummaryEntry).
+// success summary. Source: pkg/claudehook/types/ext/codex (SummaryEntry).
 type CodexApplyPatchSummaryEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          CodexPatchKind         `protobuf:"varint,1,opt,name=kind,proto3,enum=sdktypes.v1.ext.codex.CodexPatchKind" json:"kind,omitempty"`
@@ -312,7 +312,7 @@ func (x *CodexApplyPatchSummaryEntry) GetPath() string {
 
 // CodexApplyPatchOutput is a Codex apply_patch tool_response. raw_json preserves
 // the original bytes for lossless round-trips; the remaining fields expose the
-// decoded exec-formatted output. Source: api/types/sdktypes/v1/ext/codex
+// decoded exec-formatted output. Source: pkg/claudehook/types/ext/codex
 // (ApplyPatchOutput).
 type CodexApplyPatchOutput struct {
 	state            protoimpl.MessageState         `protogen:"open.v1"`
@@ -408,7 +408,7 @@ func (x *CodexApplyPatchOutput) GetSummary() []*CodexApplyPatchSummaryEntry {
 
 // CodexShellOutput is a Codex shell (Bash) tool_response string. raw_json
 // preserves the original bytes for lossless round-trips. Source:
-// api/types/sdktypes/v1/ext/codex (ShellOutput).
+// pkg/claudehook/types/ext/codex (ShellOutput).
 type CodexShellOutput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RawJson       []byte                 `protobuf:"bytes,1,opt,name=raw_json,proto3" json:"raw_json,omitempty"`
@@ -462,7 +462,7 @@ func (x *CodexShellOutput) GetOutput() string {
 }
 
 // CodexPlanItem is one step in a Codex update_plan tool_input. Source:
-// api/types/sdktypes/v1/ext/codex (PlanItem).
+// pkg/claudehook/types/ext/codex (PlanItem).
 type CodexPlanItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Step          string                 `protobuf:"bytes,1,opt,name=step,proto3" json:"step,omitempty"`
@@ -517,7 +517,7 @@ func (x *CodexPlanItem) GetStatus() CodexPlanStatus {
 
 // CodexUpdatePlanInput is a Codex update_plan tool_input. raw_json preserves the
 // original bytes for lossless round-trips; explanation/plan expose the decoded
-// plan. Source: api/types/sdktypes/v1/ext/codex (UpdatePlanInput).
+// plan. Source: pkg/claudehook/types/ext/codex (UpdatePlanInput).
 type CodexUpdatePlanInput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RawJson       []byte                 `protobuf:"bytes,1,opt,name=raw_json,proto3" json:"raw_json,omitempty"`

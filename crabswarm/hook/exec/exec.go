@@ -20,8 +20,8 @@ import (
 
 	"github.com/mattn/go-shellwords"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
+	"github.com/ngicks/crabswarm/pkg/claudehook/types"
 	"github.com/ngicks/crabswarm/pkg/filetype"
 )
 
@@ -91,10 +91,10 @@ type Option struct {
 // Data is the value passed to the template at render time.
 type Data struct {
 	// Input is the parsed Claude / Codex hook envelope variant. Concrete
-	// type depends on the event, e.g. [*sdktypesv1.PreToolUseHookInput].
-	Input sdktypesv1.HookInput_Value
+	// type depends on the event, e.g. [*types.PreToolUseHookInput].
+	Input types.HookInput_Value
 	// Event mirrors hook_event_name from the envelope.
-	Event sdktypesv1.HookEvent
+	Event types.HookEvent
 	// ToolName mirrors tool_name for tool events; empty otherwise.
 	ToolName string
 	// File is a best-effort path of the edited file; empty when not

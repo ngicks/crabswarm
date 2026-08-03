@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
+	"github.com/ngicks/crabswarm/pkg/claudehook/types"
 	"gotest.tools/v3/assert"
 )
 
@@ -158,16 +158,16 @@ func TestCheckWindows(t *testing.T) {
 // writeEnvelope builds a PreToolUse + Write envelope for a single file.
 func writeEnvelope(t *testing.T, cwd, filePath string) *bytes.Reader {
 	t.Helper()
-	in := &sdktypesv1.PreToolUseHookInput{
-		BaseHookInput: sdktypesv1.BaseHookInput{SessionID: "s", Cwd: cwd},
-		HookEventName: sdktypesv1.HookEventPreToolUse,
-		ToolName:      sdktypesv1.ToolNameWrite,
-		ToolInput: sdktypesv1.NewToolInputSchemas(
-			&sdktypesv1.FileWriteInput{FilePath: filePath, Content: "x"},
+	in := &types.PreToolUseHookInput{
+		BaseHookInput: types.BaseHookInput{SessionID: "s", Cwd: cwd},
+		HookEventName: types.HookEventPreToolUse,
+		ToolName:      types.ToolNameWrite,
+		ToolInput: types.NewToolInputSchemas(
+			&types.FileWriteInput{FilePath: filePath, Content: "x"},
 		),
 		ToolUseID: "t1",
 	}
-	data, err := json.Marshal(sdktypesv1.NewHookInput(in))
+	data, err := json.Marshal(types.NewHookInput(in))
 	assert.NilError(t, err)
 	return bytes.NewReader(data)
 }
@@ -181,7 +181,7 @@ func TestWindows_Blocks(t *testing.T) {
 	}
 	assert.Assert(t, he.Output != nil, "expected block output, got allow")
 	assert.Assert(t, he.Output.Decision != nil &&
-		*he.Output.Decision == sdktypesv1.HookDecisionBlock)
+		*he.Output.Decision == types.HookDecisionBlock)
 	assert.Assert(t, he.Output.Reason != nil)
 	assert.Assert(t, strings.Contains(*he.Output.Reason, "nul.txt"),
 		"reason should name the offending component: %q", *he.Output.Reason)
@@ -198,14 +198,14 @@ func TestWindows_Allows(t *testing.T) {
 }
 
 func TestWindows_NonEditEventPassesThrough(t *testing.T) {
-	in := &sdktypesv1.PreToolUseHookInput{
-		BaseHookInput: sdktypesv1.BaseHookInput{Cwd: "/work"},
-		HookEventName: sdktypesv1.HookEventPreToolUse,
-		ToolName:      sdktypesv1.ToolNameBash,
-		ToolInput:     sdktypesv1.NewToolInputSchemas(&sdktypesv1.BashInput{Command: "ls"}),
+	in := &types.PreToolUseHookInput{
+		BaseHookInput: types.BaseHookInput{Cwd: "/work"},
+		HookEventName: types.HookEventPreToolUse,
+		ToolName:      types.ToolNameBash,
+		ToolInput:     types.NewToolInputSchemas(&types.BashInput{Command: "ls"}),
 		ToolUseID:     "t1",
 	}
-	data, err := json.Marshal(sdktypesv1.NewHookInput(in))
+	data, err := json.Marshal(types.NewHookInput(in))
 	assert.NilError(t, err)
 
 	var he *handler.HandlerError

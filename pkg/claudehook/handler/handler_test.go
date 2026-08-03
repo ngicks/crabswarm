@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
+	"github.com/ngicks/crabswarm/pkg/claudehook/types"
 	"gotest.tools/v3/assert"
 )
 
@@ -15,8 +15,8 @@ func TestHandlerError_Error_Allow(t *testing.T) {
 
 func TestHandlerError_Error_Block(t *testing.T) {
 	he := &HandlerError{
-		Output: &sdktypesv1.SyncHookJSONOutput{
-			Decision: new(sdktypesv1.HookDecisionBlock),
+		Output: &types.SyncHookJSONOutput{
+			Decision: new(types.HookDecisionBlock),
 			Reason:   new("not allowed"),
 		},
 	}
@@ -25,8 +25,8 @@ func TestHandlerError_Error_Block(t *testing.T) {
 
 func TestHandlerError_Error_BlockNoReason(t *testing.T) {
 	he := &HandlerError{
-		Output: &sdktypesv1.SyncHookJSONOutput{
-			Decision: new(sdktypesv1.HookDecisionBlock),
+		Output: &types.SyncHookJSONOutput{
+			Decision: new(types.HookDecisionBlock),
 		},
 	}
 	assert.Equal(t, he.Error(), "hook: block: ")
@@ -48,7 +48,7 @@ func TestNewPermissionRequestAllowError(t *testing.T) {
 	assert.Assert(t, hso.Decision.GetValue() != nil)
 	dec, ok := hso.Decision.GetAllow()
 	assert.Assert(t, ok, "expected PermissionRequestDecisionAllow, got %T", hso.Decision.GetValue())
-	assert.Equal(t, dec.Behavior, sdktypesv1.PermissionRequestDecisionBehaviorAllow)
+	assert.Equal(t, dec.Behavior, types.PermissionRequestDecisionBehaviorAllow)
 }
 
 func TestNewPermissionRequestAllowError_JSON(t *testing.T) {
@@ -68,5 +68,5 @@ func TestNewPermissionRequestAllowError_JSON(t *testing.T) {
 
 	decision, ok := hso["decision"].(map[string]any)
 	assert.Assert(t, ok, "expected decision in hookSpecificOutput")
-	assert.Equal(t, decision["behavior"], string(sdktypesv1.PermissionRequestDecisionBehaviorAllow))
+	assert.Equal(t, decision["behavior"], string(types.PermissionRequestDecisionBehaviorAllow))
 }

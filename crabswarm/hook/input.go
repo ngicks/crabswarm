@@ -9,16 +9,16 @@ import (
 	"fmt"
 	"path/filepath"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
+	"github.com/ngicks/crabswarm/pkg/claudehook/types"
 )
 
 // Parsed is the decoded hook envelope shared across hook subcommands.
 type Parsed struct {
 	// Input is the parsed Claude / Codex hook envelope variant. Concrete
-	// type depends on the event, e.g. [*sdktypesv1.PreToolUseHookInput].
-	Input sdktypesv1.HookInput_Value
+	// type depends on the event, e.g. [*types.PreToolUseHookInput].
+	Input types.HookInput_Value
 	// Event mirrors hook_event_name from the envelope.
-	Event sdktypesv1.HookEvent
+	Event types.HookEvent
 	// ToolName mirrors tool_name for tool events; empty otherwise.
 	ToolName string
 	// SessionID mirrors session_id; empty for events without one.
@@ -37,15 +37,15 @@ type Parsed struct {
 // it so envelope handling lives in one place.
 func Parse(raw []byte) (Parsed, error) {
 	var envelope struct {
-		sdktypesv1.BaseHookInput
-		HookEventName sdktypesv1.HookEvent `json:"hook_event_name"`
-		ToolName      string               `json:"tool_name"`
+		types.BaseHookInput
+		HookEventName types.HookEvent `json:"hook_event_name"`
+		ToolName      string          `json:"tool_name"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil {
 		return Parsed{}, fmt.Errorf("parsing hook input: %w", err)
 	}
 
-	var input sdktypesv1.HookInput
+	var input types.HookInput
 	if err := input.UnmarshalJSON(raw); err != nil {
 		return Parsed{}, fmt.Errorf("parsing hook input: %w", err)
 	}
@@ -66,7 +66,7 @@ func Parse(raw []byte) (Parsed, error) {
 // into CodexApplyPatchInput), which are resolved to absolute against cwd so
 // downstream path handling matches Claude's absolute file_path. Returns nil
 // for tools without a file.
-func editedFiles(input sdktypesv1.ToolInputSchemas, cwd string) []string {
+func editedFiles(input types.ToolInputSchemas, cwd string) []string {
 	if p := extractFilePath(input); p != "" {
 		return []string{p}
 	}
@@ -98,31 +98,31 @@ func resolveAgainst(cwd, p string) string {
 
 // toolInputOf returns the parsed ToolInputSchemas from a hook input,
 // or nil when the event doesn't carry one.
-func toolInputOf(input sdktypesv1.HookInput) sdktypesv1.ToolInputSchemas {
+func toolInputOf(input types.HookInput) types.ToolInputSchemas {
 	switch v := input.GetValue().(type) {
-	case *sdktypesv1.PreToolUseHookInput:
+	case *types.PreToolUseHookInput:
 		return v.ToolInput
-	case *sdktypesv1.PostToolUseHookInput:
+	case *types.PostToolUseHookInput:
 		return v.ToolInput
-	case *sdktypesv1.PostToolUseFailureHookInput:
+	case *types.PostToolUseFailureHookInput:
 		return v.ToolInput
-	case *sdktypesv1.PermissionRequestHookInput:
+	case *types.PermissionRequestHookInput:
 		return v.ToolInput
 	}
-	return sdktypesv1.ToolInputSchemas{}
+	return types.ToolInputSchemas{}
 }
 
 // extractFilePath returns the file path for tool inputs that carry one,
 // or "" for tool inputs that don't (Bash, Glob, Grep, ...).
-func extractFilePath(input sdktypesv1.ToolInputSchemas) string {
+func extractFilePath(input types.ToolInputSchemas) string {
 	switch v := input.GetValue().(type) {
-	case *sdktypesv1.FileEditInput:
+	case *types.FileEditInput:
 		return v.FilePath
-	case *sdktypesv1.FileReadInput:
+	case *types.FileReadInput:
 		return v.FilePath
-	case *sdktypesv1.FileWriteInput:
+	case *types.FileWriteInput:
 		return v.FilePath
-	case *sdktypesv1.NotebookEditInput:
+	case *types.NotebookEditInput:
 		return v.NotebookPath
 	}
 	return ""

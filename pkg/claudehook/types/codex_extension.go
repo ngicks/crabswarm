@@ -1,4 +1,4 @@
-package sdktypesv1
+package types
 
 // codex_extension.go adds Codex (OpenAI codex-rs) tool input/output variants to
 // the Claude SDK's ToolInputSchemas / ToolOutputSchemas unions.
@@ -13,20 +13,20 @@ package sdktypesv1
 // dispatch and have no wrapper here; MCP tool_response stays ToolOutputUnknown
 // (its raw bytes round-trip unchanged and codex.ParseCallToolResult decodes it).
 //
-// Source: api/types/sdktypes/v1/ext/codex, codex-rs/core/src/tools.
+// Source: pkg/claudehook/types/ext/codex, codex-rs/core/src/tools.
 
 import (
 	"encoding/json"
 
 	pb "github.com/ngicks/crabswarm/api/gen/proto/go/sdktypes/v1"
 	codexpb "github.com/ngicks/crabswarm/api/gen/proto/go/sdktypes/v1/ext/codex"
-	"github.com/ngicks/crabswarm/api/types/sdktypes/v1/ext/codex"
+	"github.com/ngicks/crabswarm/pkg/claudehook/types/ext/codex"
 )
 
 // CodexApplyPatchInput is the Codex apply_patch tool_input variant of
 // [ToolInputSchemas] (tool_name "apply_patch").
 //
-// Source: api/types/sdktypes/v1/ext/codex (ApplyPatchInput)
+// Source: pkg/claudehook/types/ext/codex (ApplyPatchInput)
 type CodexApplyPatchInput struct{ codex.ApplyPatchInput }
 
 func (CodexApplyPatchInput) toolInputSchemas() {}
@@ -34,7 +34,7 @@ func (CodexApplyPatchInput) toolInputSchemas() {}
 // CodexUpdatePlanInput is the Codex update_plan tool_input variant of
 // [ToolInputSchemas] (tool_name "update_plan").
 //
-// Source: api/types/sdktypes/v1/ext/codex (UpdatePlanInput)
+// Source: pkg/claudehook/types/ext/codex (UpdatePlanInput)
 type CodexUpdatePlanInput struct{ codex.UpdatePlanInput }
 
 func (CodexUpdatePlanInput) toolInputSchemas() {}
@@ -43,7 +43,7 @@ func (CodexUpdatePlanInput) toolInputSchemas() {}
 // [ToolOutputSchemas] (tool_name "apply_patch"), a JSON string of exec-formatted
 // output.
 //
-// Source: api/types/sdktypes/v1/ext/codex (ApplyPatchOutput)
+// Source: pkg/claudehook/types/ext/codex (ApplyPatchOutput)
 type CodexApplyPatchOutput struct{ codex.ApplyPatchOutput }
 
 func (CodexApplyPatchOutput) toolOutputSchemas() {}
@@ -52,7 +52,7 @@ func (CodexApplyPatchOutput) toolOutputSchemas() {}
 // [ToolOutputSchemas] (tool_name "Bash"), a bare JSON string of raw output that
 // Claude's object-shaped BashOutput cannot decode.
 //
-// Source: api/types/sdktypes/v1/ext/codex (ShellOutput)
+// Source: pkg/claudehook/types/ext/codex (ShellOutput)
 type CodexShellOutput struct{ codex.ShellOutput }
 
 func (CodexShellOutput) toolOutputSchemas() {}

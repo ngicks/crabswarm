@@ -8702,7 +8702,7 @@ type ToolInput_EnterWorktree struct {
 
 type ToolInput_CodexApplyPatch struct {
 	// Codex (codex-rs) extension tool inputs. Source:
-	// api/types/sdktypes/v1/ext/codex.
+	// pkg/claudehook/types/ext/codex.
 	CodexApplyPatch *codex.CodexApplyPatchInput `protobuf:"bytes,27,opt,name=codex_apply_patch,json=codexApplyPatch,proto3,oneof"`
 }
 
@@ -10825,7 +10825,7 @@ type ToolOutput_TaskList struct {
 
 type ToolOutput_CodexApplyPatch struct {
 	// Codex (codex-rs) extension tool outputs. Source:
-	// api/types/sdktypes/v1/ext/codex.
+	// pkg/claudehook/types/ext/codex.
 	CodexApplyPatch *codex.CodexApplyPatchOutput `protobuf:"bytes,26,opt,name=codex_apply_patch,json=codexApplyPatch,proto3,oneof"`
 }
 

@@ -7,19 +7,19 @@ import (
 	"fmt"
 	"os"
 
-	sdktypesv1 "github.com/ngicks/crabswarm/api/types/sdktypes/v1"
+	"github.com/ngicks/crabswarm/pkg/claudehook/types"
 )
 
 // HandlerError is returned by hook subcommands to signal the hook result.
 // It implements error as it requires special handling.
 type HandlerError struct {
 	// Output is the structured JSON to write to stdout on exit 0.
-	Output *sdktypesv1.SyncHookJSONOutput
+	Output *types.SyncHookJSONOutput
 }
 
 func (e *HandlerError) Error() string {
 	if e.Output != nil && e.Output.Decision != nil &&
-		*e.Output.Decision == sdktypesv1.HookDecisionBlock {
+		*e.Output.Decision == types.HookDecisionBlock {
 		reason := ""
 		if e.Output.Reason != nil {
 			reason = *e.Output.Reason
@@ -35,7 +35,7 @@ func (e *HandlerError) Handle() {
 		os.Exit(0)
 	}
 
-	if e.Output.Decision != nil && *e.Output.Decision == sdktypesv1.HookDecisionBlock {
+	if e.Output.Decision != nil && *e.Output.Decision == types.HookDecisionBlock {
 		if e.Output.Reason != nil {
 			fmt.Fprint(os.Stderr, *e.Output.Reason)
 		}
@@ -65,16 +65,16 @@ func Handle(err error) {
 // PermissionRequestDecisionBehaviorAllow).
 func PermissionAllow(
 	updatedInput map[string]any,
-	updatedPermission []sdktypesv1.PermissionUpdate,
+	updatedPermission []types.PermissionUpdate,
 ) *HandlerError {
 	return &HandlerError{
-		Output: &sdktypesv1.SyncHookJSONOutput{
-			HookSpecificOutput: sdktypesv1.NewHookSpecificOutput(
-				&sdktypesv1.HookSpecificOutputPermissionRequest{
-					HookEventName: sdktypesv1.HookEventPermissionRequest,
-					Decision: sdktypesv1.NewPermissionRequestDecision(
-						&sdktypesv1.PermissionRequestDecisionAllow{
-							Behavior:           sdktypesv1.PermissionRequestDecisionBehaviorAllow,
+		Output: &types.SyncHookJSONOutput{
+			HookSpecificOutput: types.NewHookSpecificOutput(
+				&types.HookSpecificOutputPermissionRequest{
+					HookEventName: types.HookEventPermissionRequest,
+					Decision: types.NewPermissionRequestDecision(
+						&types.PermissionRequestDecisionAllow{
+							Behavior:           types.PermissionRequestDecisionBehaviorAllow,
 							UpdatedInput:       updatedInput,
 							UpdatedPermissions: updatedPermission,
 						},
@@ -94,13 +94,13 @@ func opt[T comparable](t T) *T {
 
 func PermissionDeny(message string, interrupt bool) *HandlerError {
 	return &HandlerError{
-		Output: &sdktypesv1.SyncHookJSONOutput{
-			HookSpecificOutput: sdktypesv1.NewHookSpecificOutput(
-				&sdktypesv1.HookSpecificOutputPermissionRequest{
-					HookEventName: sdktypesv1.HookEventPermissionRequest,
-					Decision: sdktypesv1.NewPermissionRequestDecision(
-						&sdktypesv1.PermissionRequestDecisionDeny{
-							Behavior:  sdktypesv1.PermissionRequestDecisionBehaviorDeny,
+		Output: &types.SyncHookJSONOutput{
+			HookSpecificOutput: types.NewHookSpecificOutput(
+				&types.HookSpecificOutputPermissionRequest{
+					HookEventName: types.HookEventPermissionRequest,
+					Decision: types.NewPermissionRequestDecision(
+						&types.PermissionRequestDecisionDeny{
+							Behavior:  types.PermissionRequestDecisionBehaviorDeny,
 							Message:   opt(message),
 							Interrupt: opt(interrupt),
 						},
@@ -117,8 +117,8 @@ func PermissionDeny(message string, interrupt bool) *HandlerError {
 // this to surface lint/formatter output back to the agent.
 func Block(reason string) *HandlerError {
 	return &HandlerError{
-		Output: &sdktypesv1.SyncHookJSONOutput{
-			Decision: new(sdktypesv1.HookDecisionBlock),
+		Output: &types.SyncHookJSONOutput{
+			Decision: new(types.HookDecisionBlock),
 			Reason:   &reason,
 		},
 	}
