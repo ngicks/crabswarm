@@ -49,9 +49,7 @@ const (
 	ToolNameUpdatePlan = "update_plan"
 	// ToolNameSpawnAgent is the hook tool_name for Codex sub-agent spawning.
 	ToolNameSpawnAgent = "spawn_agent"
-	// ToolNameViewImage is the hook tool_name for Codex's image viewer. Codex
-	// does not fire Pre/PostToolUse hooks for it, so it never appears in a hook
-	// envelope; it is named here for completeness.
+	// ToolNameViewImage is the hook tool_name for Codex's image viewer.
 	ToolNameViewImage = "view_image"
 )
 

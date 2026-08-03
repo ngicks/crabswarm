@@ -104,6 +104,20 @@ func TestParsePatch_Operations(t *testing.T) {
 	assert.DeepEqual(t, ParsePatch(patch).Operations, want)
 }
 
+func TestParsePatch_EnvironmentId(t *testing.T) {
+	patch := "*** Begin Patch\n" +
+		"*** Environment ID: remote\n" +
+		"*** Add File: pkg/a.go\n+x\n" +
+		"*** End Patch\n"
+
+	got := ParsePatch(patch)
+	assert.Assert(t, got.EnvironmentId != nil)
+	assert.Equal(t, *got.EnvironmentId, "remote")
+	assert.DeepEqual(t, got.Operations, []PatchOperation{
+		{Kind: PatchKindAdd, Path: "pkg/a.go"},
+	})
+}
+
 func TestApplyPatchInput_RoundTrip(t *testing.T) {
 	// Decoded values re-emit their preserved raw bytes verbatim.
 	const raw = `{"command":"*** Begin Patch\n*** Update File: a.go\n` +

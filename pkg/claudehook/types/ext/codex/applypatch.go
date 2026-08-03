@@ -53,9 +53,13 @@ type PatchOperation struct {
 // Patch is the parsed structure of an apply_patch envelope's operations, in the
 // order they appear in the patch text.
 //
-// Source: codex-rs/apply-patch/src/lib.rs
+// Source: codex-rs/apply-patch/src/parser.rs (ApplyPatchArgs),
+// codex-rs/apply-patch/src/streaming_parser.rs (ENVIRONMENT_ID_MARKER)
 type Patch struct {
-	Operations []PatchOperation `json:"operations"`
+	// EnvironmentId selects the target environment when the patch includes an
+	// optional *** Environment ID: preamble, nil when absent.
+	EnvironmentId *string          `json:"environment_id,omitzero"`
+	Operations    []PatchOperation `json:"operations"`
 }
 
 // EditedFiles returns the paths of files that exist after the patch is applied:
@@ -84,25 +88,33 @@ func (p Patch) EditedFiles() []string {
 // prefixed with '+', '-', or ' ', so a bare "*** " line is unambiguously a
 // structural marker and can't be confused with patched file contents.
 const (
-	prefixAddFile    = "*** Add File: "
-	prefixUpdateFile = "*** Update File: "
-	prefixDeleteFile = "*** Delete File: "
-	prefixMoveTo     = "*** Move to: "
+	prefixAddFile       = "*** Add File: "
+	prefixUpdateFile    = "*** Update File: "
+	prefixDeleteFile    = "*** Delete File: "
+	prefixMoveTo        = "*** Move to: "
+	prefixEnvironmentId = "*** Environment ID:"
 )
 
 // ParsePatch decodes apply_patch envelope text into its ordered operations. A
 // command that isn't an apply_patch envelope (or touches no files) yields a
 // Patch with no operations.
 //
-// Source: codex-rs/apply-patch/src/lib.rs
+// Source: codex-rs/apply-patch/src/parser.rs,
+// codex-rs/apply-patch/src/streaming_parser.rs
 func ParsePatch(command string) Patch {
 	var ops []PatchOperation
+	var environmentId *string
 	// Index of the most recent update op so a following *** Move to: can set
 	// its rename destination. -1 means the previous marker wasn't an update.
 	lastUpdate := -1
 	for line := range strings.Lines(command) {
 		line = strings.TrimRight(line, "\r\n")
 		switch {
+		case strings.HasPrefix(line, prefixEnvironmentId):
+			id := strings.TrimSpace(line[len(prefixEnvironmentId):])
+			if id != "" {
+				environmentId = new(id)
+			}
 		case strings.HasPrefix(line, prefixAddFile):
 			ops = append(
 				ops,
@@ -136,7 +148,7 @@ func ParsePatch(command string) Patch {
 			lastUpdate = -1
 		}
 	}
-	return Patch{Operations: ops}
+	return Patch{EnvironmentId: environmentId, Operations: ops}
 }
 
 // ApplyPatchInput is a decoded Codex apply_patch tool_input: the JSON object
