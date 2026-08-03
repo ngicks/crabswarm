@@ -211,7 +211,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 		},
 		{
 			name:   "HookInput permissionRequest",
-			input:  `{"session_id":"sess-2","transcript_path":"/tmp/transcript.jsonl","cwd":"/repo","hook_event_name":"PermissionRequest","tool_name":"Read","tool_input":{"file_path":"a.txt","offset":0},"tool_use_id":"tool-2","permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"a.txt"}],"behavior":"allow","destination":"session"}]}`,
+			input:  `{"session_id":"sess-2","transcript_path":"/tmp/transcript.jsonl","cwd":"/repo","hook_event_name":"PermissionRequest","tool_name":"Read","tool_input":{"file_path":"a.txt","offset":0},"permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"a.txt"}],"behavior":"allow","destination":"session"}]}`,
 			goType: &PermissionRequestHookInput{},
 			toProto: func(v any) any {
 				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
@@ -276,7 +276,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 		},
 		{
 			name:   "HookInput subagentStop reshape",
-			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","agent_id":"a1","agent_type":"worker","hook_event_name":"SubagentStop","stop_hook_active":true,"agent_transcript_path":"/tmp/a.jsonl"}`,
+			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"SubagentStop","stop_hook_active":true,"agent_id":"a1","agent_transcript_path":"/tmp/a.jsonl","agent_type":"worker"}`,
 			goType: &SubagentStopHookInput{},
 			toProto: func(v any) any {
 				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
@@ -304,7 +304,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 		},
 		{
 			name:   "ToolInput Monitor via PreToolUse",
-			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"Monitor","tool_input":{"command":"tail -f log","description":"watch","persistent":true},"tool_use_id":"u1"}`,
+			input:  `{"session_id":"s","transcript_path":"t","cwd":"c","hook_event_name":"PreToolUse","tool_name":"Monitor","tool_input":{"command":"tail -f log","description":"watch","timeout_ms":300000,"persistent":true},"tool_use_id":"u1"}`,
 			goType: &PreToolUseHookInput{},
 			toProto: func(v any) any {
 				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))

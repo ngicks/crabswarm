@@ -52,7 +52,7 @@ func TestToolInputSchemas_UnmarshalForTool_Codex(t *testing.T) {
 
 // TestToolOutputSchemas_UnmarshalForTool_Codex checks the output dispatch: the
 // Codex string-shaped responses route to Codex variants, the Bash object form
-// stays Claude's BashOutput, and MCP output stays ToolOutputUnknown.
+// stays Claude's BashOutput, and MCP output routes to Claude's McpOutput.
 func TestToolOutputSchemas_UnmarshalForTool_Codex(t *testing.T) {
 	t.Run("apply_patch string", func(t *testing.T) {
 		const raw = `"Exit code: 0\nWall time: 0.1 seconds\nOutput:\nupdated\n"`
@@ -93,14 +93,14 @@ func TestToolOutputSchemas_UnmarshalForTool_Codex(t *testing.T) {
 		}
 	})
 
-	t.Run("mcp output stays ToolOutputUnknown", func(t *testing.T) {
+	t.Run("mcp output stays Claude McpOutput", func(t *testing.T) {
 		const raw = `{"content":[{"type":"text","text":"x"}]}`
 		var out ToolOutputSchemas
 		if err := out.UnmarshalForTool("mcp__srv__tool", []byte(raw)); err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := out.GetToolOutputUnknown(); !ok {
-			t.Fatalf("want *ToolOutputUnknown, got %T", out.GetValue())
+		if _, ok := out.GetValue().(*McpOutput); !ok {
+			t.Fatalf("want *McpOutput, got %T", out.GetValue())
 		}
 	})
 }
