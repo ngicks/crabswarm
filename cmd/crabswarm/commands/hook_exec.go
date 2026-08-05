@@ -12,23 +12,22 @@ import (
 	"github.com/ngicks/crabswarm/internal/stdiopipe"
 )
 
-func hookExecCmd(parent *cobra.Command, flagConfig *string) {
-	var (
-		flagDryRun      bool
-		flagDumpDefault bool
-		flagFt          []string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "exec <template>",
-		Short: "executes given commands in claude hook manner.",
-		Long: fmt.Sprintf(`executes specified external commands in claude hook manner.
+// hookExecLong is the `hook exec` Long help. It sits at package level, not
+// inline, so the //nolint:lll its copy-pasteable examples need — one runs past
+// 100 columns and wrapping it would break the copy-paste — covers the help
+// text alone and leaves the command wiring below linted.
+//
+// Concatenated, not Sprintf'd: the output-template examples contain literal
+// printf verbs.
+//
+//nolint:lll // help-text examples must stay on one line
+var hookExecLong = `executes specified external commands in claude hook manner.
 
 It executes commands expressed in Go text/template format.
 The template receives the claude hook input as its data context, plus the
 following helper functions:
 
-%s
+` + exec.TemplateFuncHelp() + `
 The final output of the template is treated as a shell string.
 For interpolation behavior see github.com/mattn/go-shellwords
 
@@ -39,7 +38,7 @@ your entries override defaults on key conflicts. See the output of
 --dump-default-config to inspect the built-ins or use it as a
 starting point for your own config.
 
-The positional argument is the Go template to render and execute, e.g.:
+The first positional argument is the Go template to render and execute, e.g.:
 
   crabswarm hook exec 'golangci-lint run --fix {{ quote .File }}'
 
@@ -49,10 +48,46 @@ detected filetype is not in the allow-list pass through without rendering
 or executing anything, e.g.:
 
   crabswarm hook exec --ft go --ft rust 'echo {{ .File }}'
-`, exec.TemplateFuncHelp()),
-		// At most one template; --dump-default-config doesn't need one.
-		// The positional is a Go text/template string, not a file path.
-		Args:              cobra.MaximumNArgs(1),
+
+The optional second positional argument is the output template: a Go
+text/template shaping the hook's JSON output. It renders after the command
+ran — a gated or empty invocation skips it — and receives everything the
+command template saw plus .Command, .ExitCode, .Success, .Error (the run
+error's message, e.g. "exit status 1"; empty on success), .Stdout, .Stderr
+and .Output (combined). Omit it to keep the built-in behavior: block on a
+non-zero exit with the captured output as the reason.
+
+The output template speaks only through the functions below. Each records
+one field and renders as the empty string, so any other text it emits is an
+error:
+
+` + exec.OutputFuncHelp() + `
+A close analogue of the built-in failure handling — it differs in always
+emitting the output: section, which the built-in omits when the command
+captured nothing — and success-path context injection:
+
+  crabswarm hook exec 'golangci-lint run {{quote .File}}' \
+    '{{if not .Success}}{{blockDecision (printf "command failed: %s\nexit: %s\noutput:\n%s" .Command .Error .Output)}}{{end}}'
+
+  crabswarm hook exec --ft go 'go vet ./...' \
+    '{{if .Success}}{{context "go vet passed"}}{{else}}{{blockDecision .Output}}{{end}}'
+`
+
+func hookExecCmd(parent *cobra.Command, flagConfig *string) {
+	var (
+		flagDryRun      bool
+		flagDumpDefault bool
+		flagFt          []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "exec <template> [output-template]",
+		Short: "executes given commands in claude hook manner.",
+		Long:  hookExecLong,
+		// The command template, then the optional output template;
+		// --dump-default-config needs neither. Both positionals are Go
+		// text/template strings, not file paths.
+		Args:              cobra.MaximumNArgs(2),
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runHookExec(cmd, args, *flagConfig, flagDryRun, flagDumpDefault, flagFt)
@@ -110,6 +145,9 @@ func runHookExec(
 	opt := exec.Option{
 		Template: args[0],
 		Filter:   allowedFt,
+	}
+	if len(args) > 1 {
+		opt.OutputTemplate = args[1]
 	}
 
 	reader := stdiopipe.Stdin(ctx)

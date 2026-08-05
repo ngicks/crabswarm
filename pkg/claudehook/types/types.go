@@ -6408,26 +6408,25 @@ func (o WebSearchOutput) MarshalJSON() ([]byte, error) {
 }
 
 func (o *WebSearchOutput) UnmarshalJSON(data []byte) error {
-	var raw struct {
-		Query           string            `json:"query"`
-		Results         []json.RawMessage `json:"results"`
-		DurationSeconds float64           `json:"durationSeconds"`
-		SearchCount     *int64            `json:"searchCount,omitzero"`
+	type alias WebSearchOutput
+	type raw struct {
+		alias
+		Results []json.RawMessage `json:"results"`
 	}
-	if err := json.Unmarshal(data, &raw); err != nil {
+	var v raw
+	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	o.Query = raw.Query
-	o.DurationSeconds = raw.DurationSeconds
-	o.SearchCount = raw.SearchCount
-	o.Results = make([]WebSearchOutputResult, 0, len(raw.Results))
-	for _, r := range raw.Results {
-		var v WebSearchOutputResult
-		if err := v.UnmarshalJSON(r); err != nil {
+	results := make([]WebSearchOutputResult, 0, len(v.Results))
+	for _, r := range v.Results {
+		var got WebSearchOutputResult
+		if err := got.UnmarshalJSON(r); err != nil {
 			return err
 		}
-		o.Results = append(o.Results, v)
+		results = append(results, got)
 	}
+	*o = WebSearchOutput(v.alias)
+	o.Results = results
 	return nil
 }
 
@@ -7872,11 +7871,10 @@ func (o PermissionResultAllow) MarshalJSON() ([]byte, error) {
 }
 
 func (o *PermissionResultAllow) UnmarshalJSON(data []byte) error {
+	type alias PermissionResultAllow
 	type raw struct {
-		Behavior           PermissionResultBehavior `json:"behavior"`
-		UpdatedInput       map[string]any           `json:"updatedInput,omitzero"`
-		UpdatedPermissions []json.RawMessage        `json:"updatedPermissions,omitzero"`
-		ToolUseID          *string                  `json:"toolUseID,omitzero"`
+		alias
+		UpdatedPermissions []json.RawMessage `json:"updatedPermissions,omitzero"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -7891,13 +7889,9 @@ func (o *PermissionResultAllow) UnmarshalJSON(data []byte) error {
 		}
 		updates = append(updates, update)
 	}
-	*o = PermissionResultAllow{
-		Behavior:           PermissionResultBehaviorAllow,
-		UpdatedInput:       v.UpdatedInput,
-		UpdatedPermissions: updates,
-		ToolUseID:          v.ToolUseID,
-	}
+	*o = PermissionResultAllow(v.alias)
 	o.Behavior = PermissionResultBehaviorAllow
+	o.UpdatedPermissions = updates
 	return nil
 }
 
@@ -8000,10 +7994,10 @@ func (o PermissionRequestDecisionAllow) MarshalJSON() ([]byte, error) {
 }
 
 func (o *PermissionRequestDecisionAllow) UnmarshalJSON(data []byte) error {
+	type alias PermissionRequestDecisionAllow
 	type raw struct {
-		Behavior           PermissionRequestDecisionBehavior `json:"behavior"`
-		UpdatedInput       map[string]any                    `json:"updatedInput,omitzero"`
-		UpdatedPermissions []json.RawMessage                 `json:"updatedPermissions,omitzero"`
+		alias
+		UpdatedPermissions []json.RawMessage `json:"updatedPermissions,omitzero"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -8018,12 +8012,9 @@ func (o *PermissionRequestDecisionAllow) UnmarshalJSON(data []byte) error {
 		}
 		updates = append(updates, update)
 	}
-	*o = PermissionRequestDecisionAllow{
-		Behavior:           PermissionRequestDecisionBehaviorAllow,
-		UpdatedInput:       v.UpdatedInput,
-		UpdatedPermissions: updates,
-	}
+	*o = PermissionRequestDecisionAllow(v.alias)
 	o.Behavior = PermissionRequestDecisionBehaviorAllow
+	o.UpdatedPermissions = updates
 	return nil
 }
 
@@ -8451,39 +8442,30 @@ func (o *HookSpecificOutputMessageDisplay) UnmarshalJSON(data []byte) error {
 }
 
 func (o HookSpecificOutputPermissionRequest) MarshalJSON() ([]byte, error) {
-	type raw struct {
-		HookEventName HookEvent       `json:"hookEventName"`
-		Decision      json.RawMessage `json:"decision"`
-	}
-	var dec json.RawMessage
-	if o.Decision.GetValue() != nil {
-		b, err := json.Marshal(o.Decision)
-		if err != nil {
-			return nil, err
-		}
-		dec = b
-	}
-	return json.Marshal(raw{HookEventName: HookEventPermissionRequest, Decision: dec})
+	type alias HookSpecificOutputPermissionRequest
+	o.HookEventName = HookEventPermissionRequest
+	return json.Marshal(alias(o))
 }
 
 func (o *HookSpecificOutputPermissionRequest) UnmarshalJSON(data []byte) error {
+	type alias HookSpecificOutputPermissionRequest
 	type raw struct {
-		HookEventName HookEvent       `json:"hookEventName"`
-		Decision      json.RawMessage `json:"decision"`
+		alias
+		Decision json.RawMessage `json:"decision"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	o.HookEventName = HookEventPermissionRequest
+	var dec PermissionRequestDecision
 	if len(v.Decision) > 0 {
-		var dec PermissionRequestDecision
-		err := dec.UnmarshalJSON(v.Decision)
-		if err != nil {
+		if err := dec.UnmarshalJSON(v.Decision); err != nil {
 			return err
 		}
-		o.Decision = dec
 	}
+	*o = HookSpecificOutputPermissionRequest(v.alias)
+	o.HookEventName = HookEventPermissionRequest
+	o.Decision = dec
 	return nil
 }
 
@@ -8773,63 +8755,28 @@ func (o *AsyncHookJSONOutput) UnmarshalJSON(data []byte) error {
 }
 
 func (o SyncHookJSONOutput) MarshalJSON() ([]byte, error) {
-	type raw struct {
-		Continue           *bool           `json:"continue,omitzero"`
-		SuppressOutput     *bool           `json:"suppressOutput,omitzero"`
-		StopReason         *string         `json:"stopReason,omitzero"`
-		Decision           *HookDecision   `json:"decision,omitzero"`
-		SystemMessage      *string         `json:"systemMessage,omitzero"`
-		TerminalSequence   *string         `json:"terminalSequence,omitzero"`
-		Reason             *string         `json:"reason,omitzero"`
-		HookSpecificOutput json.RawMessage `json:"hookSpecificOutput,omitzero"`
-	}
-	var hso json.RawMessage
-	if o.HookSpecificOutput.GetValue() != nil {
-		b, err := json.Marshal(o.HookSpecificOutput)
-		if err != nil {
-			return nil, err
-		}
-		hso = b
-	}
-	return json.Marshal(raw{
-		Continue:           o.Continue,
-		SuppressOutput:     o.SuppressOutput,
-		StopReason:         o.StopReason,
-		Decision:           o.Decision,
-		SystemMessage:      o.SystemMessage,
-		Reason:             o.Reason,
-		HookSpecificOutput: hso,
-	})
+	type alias SyncHookJSONOutput
+	return json.Marshal(alias(o))
 }
 
 func (o *SyncHookJSONOutput) UnmarshalJSON(data []byte) error {
+	type alias SyncHookJSONOutput
 	type raw struct {
-		Continue           *bool           `json:"continue"`
-		SuppressOutput     *bool           `json:"suppressOutput"`
-		StopReason         *string         `json:"stopReason"`
-		Decision           *HookDecision   `json:"decision"`
-		SystemMessage      *string         `json:"systemMessage"`
-		Reason             *string         `json:"reason"`
+		alias
 		HookSpecificOutput json.RawMessage `json:"hookSpecificOutput"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	o.Continue = v.Continue
-	o.SuppressOutput = v.SuppressOutput
-	o.StopReason = v.StopReason
-	o.Decision = v.Decision
-	o.SystemMessage = v.SystemMessage
-	o.Reason = v.Reason
+	var hso HookSpecificOutput
 	if len(v.HookSpecificOutput) > 0 {
-		var got HookSpecificOutput
-		err := got.UnmarshalJSON(v.HookSpecificOutput)
-		if err != nil {
+		if err := hso.UnmarshalJSON(v.HookSpecificOutput); err != nil {
 			return err
 		}
-		o.HookSpecificOutput = got
 	}
+	*o = SyncHookJSONOutput(v.alias)
+	o.HookSpecificOutput = hso
 	return nil
 }
 
@@ -8866,6 +8813,7 @@ func HookJSONOutputToProto(v HookJSONOutput) (*pb.HookJSONOutput, error) {
 				SystemMessage:      x.SystemMessage,
 				Reason:             x.Reason,
 				HookSpecificOutput: hso,
+				TerminalSequence:   x.TerminalSequence,
 			}},
 		}, nil
 	default:
@@ -8913,6 +8861,11 @@ func HookJSONOutputFromProto(v *pb.HookJSONOutput) (HookJSONOutput, error) {
 				"system_message",
 				syncOutput.GetSystemMessage(),
 			),
+			TerminalSequence: protoOpt(
+				syncOutput,
+				"terminal_sequence",
+				syncOutput.GetTerminalSequence(),
+			),
 			Reason:             protoOpt(syncOutput, "reason", syncOutput.GetReason()),
 			HookSpecificOutput: hso,
 		}), nil
@@ -8927,29 +8880,16 @@ func (o *HookInputUnknown) UnmarshalJSON(data []byte) error {
 }
 
 func (o PreToolUseHookInput) MarshalJSON() ([]byte, error) {
-	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent        `json:"hook_event_name"`
-		ToolName      string           `json:"tool_name"`
-		ToolInput     ToolInputSchemas `json:"tool_input"`
-		ToolUseID     string           `json:"tool_use_id"`
-	}
-	return json.Marshal(raw{
-		BaseHookInput: o.BaseHookInput,
-		HookEventName: HookEventPreToolUse,
-		ToolName:      o.ToolName,
-		ToolInput:     o.ToolInput,
-		ToolUseID:     o.ToolUseID,
-	})
+	type alias PreToolUseHookInput
+	o.HookEventName = HookEventPreToolUse
+	return json.Marshal(alias(o))
 }
 
 func (o *PreToolUseHookInput) UnmarshalJSON(data []byte) error {
+	type alias PreToolUseHookInput
 	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent       `json:"hook_event_name"`
-		ToolName      string          `json:"tool_name"`
-		ToolInput     json.RawMessage `json:"tool_input"`
-		ToolUseID     string          `json:"tool_use_id"`
+		alias
+		ToolInput json.RawMessage `json:"tool_input"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -8960,43 +8900,24 @@ func (o *PreToolUseHookInput) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	*o = PreToolUseHookInput{
-		BaseHookInput: v.BaseHookInput,
-		HookEventName: HookEventPreToolUse,
-		ToolName:      v.ToolName,
-		ToolInput:     toolInput,
-		ToolUseID:     v.ToolUseID,
-	}
+	*o = PreToolUseHookInput(v.alias)
+	o.HookEventName = HookEventPreToolUse
+	o.ToolInput = toolInput
 	return nil
 }
 
 func (o PostToolUseHookInput) MarshalJSON() ([]byte, error) {
-	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent         `json:"hook_event_name"`
-		ToolName      string            `json:"tool_name"`
-		ToolInput     ToolInputSchemas  `json:"tool_input"`
-		ToolResponse  ToolOutputSchemas `json:"tool_response"`
-		ToolUseID     string            `json:"tool_use_id"`
-	}
-	return json.Marshal(raw{
-		BaseHookInput: o.BaseHookInput,
-		HookEventName: HookEventPostToolUse,
-		ToolName:      o.ToolName,
-		ToolInput:     o.ToolInput,
-		ToolResponse:  o.ToolResponse,
-		ToolUseID:     o.ToolUseID,
-	})
+	type alias PostToolUseHookInput
+	o.HookEventName = HookEventPostToolUse
+	return json.Marshal(alias(o))
 }
 
 func (o *PostToolUseHookInput) UnmarshalJSON(data []byte) error {
+	type alias PostToolUseHookInput
 	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent       `json:"hook_event_name"`
-		ToolName      string          `json:"tool_name"`
-		ToolInput     json.RawMessage `json:"tool_input"`
-		ToolResponse  json.RawMessage `json:"tool_response"`
-		ToolUseID     string          `json:"tool_use_id"`
+		alias
+		ToolInput    json.RawMessage `json:"tool_input"`
+		ToolResponse json.RawMessage `json:"tool_response"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -9012,47 +8933,24 @@ func (o *PostToolUseHookInput) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	*o = PostToolUseHookInput{
-		BaseHookInput: v.BaseHookInput,
-		HookEventName: HookEventPostToolUse,
-		ToolName:      v.ToolName,
-		ToolInput:     toolInput,
-		ToolResponse:  toolResponse,
-		ToolUseID:     v.ToolUseID,
-	}
+	*o = PostToolUseHookInput(v.alias)
+	o.HookEventName = HookEventPostToolUse
+	o.ToolInput = toolInput
+	o.ToolResponse = toolResponse
 	return nil
 }
 
 func (o PostToolUseFailureHookInput) MarshalJSON() ([]byte, error) {
-	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent        `json:"hook_event_name"`
-		ToolName      string           `json:"tool_name"`
-		ToolInput     ToolInputSchemas `json:"tool_input"`
-		ToolUseID     string           `json:"tool_use_id"`
-		Error         string           `json:"error"`
-		IsInterrupt   *bool            `json:"is_interrupt,omitzero"`
-	}
-	return json.Marshal(raw{
-		BaseHookInput: o.BaseHookInput,
-		HookEventName: HookEventPostToolUseFailure,
-		ToolName:      o.ToolName,
-		ToolInput:     o.ToolInput,
-		ToolUseID:     o.ToolUseID,
-		Error:         o.Error,
-		IsInterrupt:   o.IsInterrupt,
-	})
+	type alias PostToolUseFailureHookInput
+	o.HookEventName = HookEventPostToolUseFailure
+	return json.Marshal(alias(o))
 }
 
 func (o *PostToolUseFailureHookInput) UnmarshalJSON(data []byte) error {
+	type alias PostToolUseFailureHookInput
 	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent       `json:"hook_event_name"`
-		ToolName      string          `json:"tool_name"`
-		ToolInput     json.RawMessage `json:"tool_input"`
-		ToolUseID     string          `json:"tool_use_id"`
-		Error         string          `json:"error"`
-		IsInterrupt   *bool           `json:"is_interrupt,omitzero"`
+		alias
+		ToolInput json.RawMessage `json:"tool_input"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -9063,50 +8961,28 @@ func (o *PostToolUseFailureHookInput) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	*o = PostToolUseFailureHookInput{
-		BaseHookInput: v.BaseHookInput,
-		HookEventName: HookEventPostToolUseFailure,
-		ToolName:      v.ToolName,
-		ToolInput:     toolInput,
-		ToolUseID:     v.ToolUseID,
-		Error:         v.Error,
-		IsInterrupt:   v.IsInterrupt,
-	}
+	*o = PostToolUseFailureHookInput(v.alias)
+	o.HookEventName = HookEventPostToolUseFailure
+	o.ToolInput = toolInput
 	return nil
 }
 
 func (o PermissionRequestHookInput) MarshalJSON() ([]byte, error) {
-	type raw struct {
-		BaseHookInput
-		HookEventName         HookEvent         `json:"hook_event_name"`
-		ToolName              string            `json:"tool_name"`
-		ToolInput             ToolInputSchemas  `json:"tool_input"`
-		PermissionSuggestions []json.RawMessage `json:"permission_suggestions,omitzero"`
+	type alias PermissionRequestHookInput
+	o.HookEventName = HookEventPermissionRequest
+	// UnmarshalJSON always allocates the slice, so an empty one carries no
+	// information; nil it out to keep omitzero dropping the key rather than
+	// emitting [] for a payload that never had it.
+	if len(o.PermissionSuggestions) == 0 {
+		o.PermissionSuggestions = nil
 	}
-	out := raw{
-		BaseHookInput: o.BaseHookInput,
-		HookEventName: HookEventPermissionRequest,
-		ToolName:      o.ToolName,
-		ToolInput:     o.ToolInput,
-	}
-	if len(o.PermissionSuggestions) > 0 {
-		out.PermissionSuggestions = make([]json.RawMessage, 0, len(o.PermissionSuggestions))
-		for _, suggestion := range o.PermissionSuggestions {
-			b, err := json.Marshal(suggestion)
-			if err != nil {
-				return nil, err
-			}
-			out.PermissionSuggestions = append(out.PermissionSuggestions, b)
-		}
-	}
-	return json.Marshal(out)
+	return json.Marshal(alias(o))
 }
 
 func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
+	type alias PermissionRequestHookInput
 	type raw struct {
-		BaseHookInput
-		HookEventName         HookEvent         `json:"hook_event_name"`
-		ToolName              string            `json:"tool_name"`
+		alias
 		ToolInput             json.RawMessage   `json:"tool_input"`
 		PermissionSuggestions []json.RawMessage `json:"permission_suggestions,omitzero"`
 	}
@@ -9128,43 +9004,24 @@ func (o *PermissionRequestHookInput) UnmarshalJSON(data []byte) error {
 		}
 		suggestions = append(suggestions, suggestion)
 	}
-	*o = PermissionRequestHookInput{
-		BaseHookInput:         v.BaseHookInput,
-		HookEventName:         HookEventPermissionRequest,
-		ToolName:              v.ToolName,
-		ToolInput:             toolInput,
-		PermissionSuggestions: suggestions,
-	}
+	*o = PermissionRequestHookInput(v.alias)
+	o.HookEventName = HookEventPermissionRequest
+	o.ToolInput = toolInput
+	o.PermissionSuggestions = suggestions
 	return nil
 }
 
 func (o PermissionDeniedHookInput) MarshalJSON() ([]byte, error) {
-	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent        `json:"hook_event_name"`
-		ToolName      string           `json:"tool_name"`
-		ToolInput     ToolInputSchemas `json:"tool_input"`
-		ToolUseID     string           `json:"tool_use_id"`
-		Reason        string           `json:"reason"`
-	}
-	return json.Marshal(raw{
-		BaseHookInput: o.BaseHookInput,
-		HookEventName: HookEventPermissionDenied,
-		ToolName:      o.ToolName,
-		ToolInput:     o.ToolInput,
-		ToolUseID:     o.ToolUseID,
-		Reason:        o.Reason,
-	})
+	type alias PermissionDeniedHookInput
+	o.HookEventName = HookEventPermissionDenied
+	return json.Marshal(alias(o))
 }
 
 func (o *PermissionDeniedHookInput) UnmarshalJSON(data []byte) error {
+	type alias PermissionDeniedHookInput
 	type raw struct {
-		BaseHookInput
-		HookEventName HookEvent       `json:"hook_event_name"`
-		ToolName      string          `json:"tool_name"`
-		ToolInput     json.RawMessage `json:"tool_input"`
-		ToolUseID     string          `json:"tool_use_id"`
-		Reason        string          `json:"reason"`
+		alias
+		ToolInput json.RawMessage `json:"tool_input"`
 	}
 	var v raw
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -9175,14 +9032,9 @@ func (o *PermissionDeniedHookInput) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	*o = PermissionDeniedHookInput{
-		BaseHookInput: v.BaseHookInput,
-		HookEventName: HookEventPermissionDenied,
-		ToolName:      v.ToolName,
-		ToolInput:     toolInput,
-		ToolUseID:     v.ToolUseID,
-		Reason:        v.Reason,
-	}
+	*o = PermissionDeniedHookInput(v.alias)
+	o.HookEventName = HookEventPermissionDenied
+	o.ToolInput = toolInput
 	return nil
 }
 
@@ -9392,6 +9244,26 @@ func HookInputToProto(v HookInput) (*pb.HookInput, error) {
 						x.ToolName,
 					),
 					PermissionSuggestions: updates,
+					Effort:                baseEffortToProto(x.Effort),
+				},
+			},
+		}, nil
+	case *PermissionDeniedHookInput:
+		return &pb.HookInput{
+			Value: &pb.HookInput_PermissionDenied{
+				PermissionDenied: &pb.PermissionDeniedHookInput{
+					SessionId:      x.SessionID,
+					TranscriptPath: x.TranscriptPath,
+					Cwd:            x.Cwd,
+					PermissionMode: x.PermissionMode,
+					AgentId:        x.AgentID,
+					AgentType:      x.AgentType,
+					HookEventName:  string(x.HookEventName),
+					ToolName:       x.ToolName,
+					ToolInput:      rawToolInputToProto(x.ToolInput, x.ToolName),
+					ToolUseId:      x.ToolUseID,
+					Reason:         x.Reason,
+					Effort:         baseEffortToProto(x.Effort),
 				},
 			},
 		}, nil
@@ -9838,6 +9710,43 @@ func HookInputFromProto(v *pb.HookInput) (HookInput, error) {
 			ToolName:              permissionRequest.GetToolName(),
 			ToolInput:             raw,
 			PermissionSuggestions: updates,
+		}), nil
+	case *pb.HookInput_PermissionDenied:
+		permissionDenied := v.GetPermissionDenied()
+		raw, err := rawFromToolInputProto(
+			permissionDenied.GetToolInput(),
+			permissionDenied.GetToolName(),
+		)
+		if err != nil {
+			return HookInput{}, err
+		}
+		return NewHookInput(&PermissionDeniedHookInput{
+			BaseHookInput: BaseHookInput{
+				SessionID:      permissionDenied.GetSessionId(),
+				TranscriptPath: permissionDenied.GetTranscriptPath(),
+				Cwd:            permissionDenied.GetCwd(),
+				PermissionMode: protoOpt(
+					permissionDenied,
+					"permission_mode",
+					permissionDenied.GetPermissionMode(),
+				),
+				AgentID: protoOpt(
+					permissionDenied,
+					"agent_id",
+					permissionDenied.GetAgentId(),
+				),
+				AgentType: protoOpt(
+					permissionDenied,
+					"agent_type",
+					permissionDenied.GetAgentType(),
+				),
+				Effort: baseEffortFromProto(permissionDenied.GetEffort()),
+			},
+			HookEventName: HookEvent(permissionDenied.GetHookEventName()),
+			ToolName:      permissionDenied.GetToolName(),
+			ToolInput:     raw,
+			ToolUseID:     permissionDenied.GetToolUseId(),
+			Reason:        permissionDenied.GetReason(),
 		}), nil
 	case *pb.HookInput_Setup:
 		setup := v.GetSetup()

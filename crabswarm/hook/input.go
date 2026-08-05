@@ -108,6 +108,8 @@ func toolInputOf(input types.HookInput) types.ToolInputSchemas {
 		return v.ToolInput
 	case *types.PermissionRequestHookInput:
 		return v.ToolInput
+	case *types.PermissionDeniedHookInput:
+		return v.ToolInput
 	}
 	return types.ToolInputSchemas{}
 }

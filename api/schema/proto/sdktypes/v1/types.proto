@@ -1741,6 +1741,22 @@ message PermissionRequestHookInput {
   optional BaseHookInputEffort effort = 12;
 }
 
+// Source: https://code.claude.com/docs/en/agent-sdk/typescript#permissiondeniedhookinput
+message PermissionDeniedHookInput {
+  string session_id = 1 [json_name = "session_id"];
+  string transcript_path = 2 [json_name = "transcript_path"];
+  string cwd = 3;
+  optional string permission_mode = 4 [json_name = "permission_mode"];
+  optional string agent_id = 5 [json_name = "agent_id"];
+  optional string agent_type = 6 [json_name = "agent_type"];
+  string hook_event_name = 7 [json_name = "hook_event_name"];
+  string tool_name = 8 [json_name = "tool_name"];
+  ToolInput tool_input = 9 [json_name = "tool_input"];
+  string tool_use_id = 10 [json_name = "tool_use_id"];
+  string reason = 11;
+  optional BaseHookInputEffort effort = 12;
+}
+
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#setuphookinput
 message SetupHookInput {
   string session_id = 1 [json_name = "session_id"];
@@ -1865,6 +1881,7 @@ message HookInput {
     WorktreeRemoveHookInput worktree_remove = 18 [json_name = "worktreeRemove"];
     PostToolBatchHookInput post_tool_batch = 19 [json_name = "postToolBatch"];
     MessageDisplayHookInput message_display = 20 [json_name = "messageDisplay"];
+    PermissionDeniedHookInput permission_denied = 21 [json_name = "permissionDenied"];
     UnknownVariant unknown = 99;
   }
 }
@@ -1989,6 +2006,7 @@ message SyncHookJSONOutput {
   optional string system_message = 5 [json_name = "systemMessage"];
   optional string reason = 6;
   optional HookSpecificOutput hook_specific_output = 7 [json_name = "hookSpecificOutput"];
+  optional string terminal_sequence = 8 [json_name = "terminalSequence"];
 }
 
 // Source: https://code.claude.com/docs/en/agent-sdk/typescript#hook-json-output

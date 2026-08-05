@@ -51,6 +51,24 @@ func TestParse_NonEditEnvelopeHasNoFiles(t *testing.T) {
 	assert.Equal(t, len(got.Files), 0)
 }
 
+func TestParse_PermissionDeniedEnvelopeHasFiles(t *testing.T) {
+	raw := marshalHookInput(t, &types.PermissionDeniedHookInput{
+		BaseHookInput: types.BaseHookInput{SessionID: "sess-1", Cwd: "/work"},
+		HookEventName: types.HookEventPermissionDenied,
+		ToolName:      types.ToolNameWrite,
+		ToolInput: types.NewToolInputSchemas(
+			&types.FileWriteInput{FilePath: "/work/src/main.go", Content: "x"},
+		),
+		ToolUseID: "t1",
+		Reason:    "denied",
+	})
+
+	got, err := Parse(raw)
+	assert.NilError(t, err)
+	assert.Equal(t, got.Event, types.HookEventPermissionDenied)
+	assert.DeepEqual(t, got.Files, []string{"/work/src/main.go"})
+}
+
 func TestParse_InvalidJSON(t *testing.T) {
 	_, err := Parse([]byte("{not json"))
 	assert.Assert(t, err != nil)

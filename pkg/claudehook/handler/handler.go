@@ -17,6 +17,9 @@ type HandlerError struct {
 	Output *types.SyncHookJSONOutput
 }
 
+// Error is a display-string approximation of the hook result, for logs and
+// generic error reporting only. It is never what the hook emits on the wire:
+// [HandlerError.Handle] owns that and always writes the crafted JSON.
 func (e *HandlerError) Error() string {
 	if e.Output != nil && e.Output.Decision != nil &&
 		*e.Output.Decision == types.HookDecisionBlock {
@@ -29,20 +32,20 @@ func (e *HandlerError) Error() string {
 	return "hook: allow"
 }
 
-// Handle writes output and exits the process.
+// Handle writes the hook output and exits the process. A non-nil Output is
+// always marshaled to stdout as one JSON line, followed by exit 0 — including
+// a decision=block, which is valid hook protocol in JSON form. A nil Output is
+// a plain allow: nothing written, exit 0.
+//
+// The exit-2 + reason-on-stderr form is no longer used: it can carry only
+// decision and reason, so choosing it would mean classifying outputs by which
+// fields happen to be set, and any field upstream adds to
+// [types.SyncHookJSONOutput] would silently reclassify them.
 func (e *HandlerError) Handle() {
 	if e.Output == nil {
 		os.Exit(0)
 	}
 
-	if e.Output.Decision != nil && *e.Output.Decision == types.HookDecisionBlock {
-		if e.Output.Reason != nil {
-			fmt.Fprint(os.Stderr, *e.Output.Reason)
-		}
-		os.Exit(2)
-	}
-
-	// JSON output to stdout, exit 0
 	data, err := json.Marshal(e.Output)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "hook: marshaling SyncHookJSONOutput: json.Marshal: %v\n", err)

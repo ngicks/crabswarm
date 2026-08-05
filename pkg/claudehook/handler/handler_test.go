@@ -32,6 +32,16 @@ func TestHandlerError_Error_BlockNoReason(t *testing.T) {
 	assert.Equal(t, he.Error(), "hook: block: ")
 }
 
+// A block is conveyed as JSON on stdout — there is no exit-2 + stderr form
+// anymore — so the exact bytes Block produces are what a hook consumer reads.
+// Matched whole rather than by key lookup: a field leaking into the object
+// would change the hook's meaning, and a per-key check cannot see a stray one.
+func TestBlock_JSON(t *testing.T) {
+	data, err := json.Marshal(Block("lint failed").Output)
+	assert.NilError(t, err)
+	assert.Equal(t, string(data), `{"decision":"block","reason":"lint failed"}`)
+}
+
 func TestNewPermissionRequestAllowError(t *testing.T) {
 	he := PermissionAllow(nil, nil)
 

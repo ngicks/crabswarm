@@ -172,7 +172,7 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 		},
 		{
 			name:   "HookJSONOutput sync",
-			input:  `{"continue":true,"suppressOutput":false,"stopReason":"x","decision":"approve","systemMessage":"m","reason":"r","hookSpecificOutput":{"hookEventName":"Notification","additionalContext":"ctx"}}`,
+			input:  `{"continue":true,"suppressOutput":false,"stopReason":"x","decision":"approve","systemMessage":"m","terminalSequence":"","reason":"r","hookSpecificOutput":{"hookEventName":"Notification","additionalContext":"ctx"}}`,
 			goType: &SyncHookJSONOutput{},
 			toProto: func(v any) any {
 				got, err := HookJSONOutputToProto(NewHookJSONOutput(v.(HookJSONOutput_Value)))
@@ -210,9 +210,57 @@ func TestJSONProtoRoundTrip(t *testing.T) {
 			},
 		},
 		{
+			name: "HookInput postToolUse with duration",
+			input: `{"session_id":"s","transcript_path":"t","cwd":"c",` +
+				`"hook_event_name":"PostToolUse","tool_name":"Bash",` +
+				`"tool_input":{"command":"ls"},` +
+				`"tool_response":{"stdout":"x","stderr":"","interrupted":false},` +
+				`"tool_use_id":"u1","duration_ms":42}`,
+			goType: &PostToolUseHookInput{},
+			toProto: func(v any) any {
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
+				return mustProto(t, got, err)
+			},
+			fromProto: func(v any) any {
+				got, err := HookInputFromProto(v.(*pb.HookInput))
+				return mustProto(t, got, err)
+			},
+		},
+		{
+			name: "HookInput postToolUseFailure with duration",
+			input: `{"session_id":"s","transcript_path":"t","cwd":"c",` +
+				`"hook_event_name":"PostToolUseFailure","tool_name":"Bash",` +
+				`"tool_input":{"command":"ls"},"tool_use_id":"u1",` +
+				`"error":"boom","is_interrupt":true,"duration_ms":7}`,
+			goType: &PostToolUseFailureHookInput{},
+			toProto: func(v any) any {
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
+				return mustProto(t, got, err)
+			},
+			fromProto: func(v any) any {
+				got, err := HookInputFromProto(v.(*pb.HookInput))
+				return mustProto(t, got, err)
+			},
+		},
+		{
 			name:   "HookInput permissionRequest",
-			input:  `{"session_id":"sess-2","transcript_path":"/tmp/transcript.jsonl","cwd":"/repo","hook_event_name":"PermissionRequest","tool_name":"Read","tool_input":{"file_path":"a.txt","offset":0},"permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"a.txt"}],"behavior":"allow","destination":"session"}]}`,
+			input:  `{"session_id":"sess-2","transcript_path":"/tmp/transcript.jsonl","cwd":"/repo","effort":{"level":"high"},"hook_event_name":"PermissionRequest","tool_name":"Read","tool_input":{"file_path":"a.txt","offset":0},"permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"a.txt"}],"behavior":"allow","destination":"session"}]}`,
 			goType: &PermissionRequestHookInput{},
+			toProto: func(v any) any {
+				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
+				return mustProto(t, got, err)
+			},
+			fromProto: func(v any) any {
+				got, err := HookInputFromProto(v.(*pb.HookInput))
+				return mustProto(t, got, err)
+			},
+		},
+		{
+			name: "HookInput permissionDenied",
+			input: `{"session_id":"s","transcript_path":"t","cwd":"c",` +
+				`"hook_event_name":"PermissionDenied","tool_name":"Bash",` +
+				`"tool_input":{"command":"ls"},"tool_use_id":"u1","reason":"no"}`,
+			goType: &PermissionDeniedHookInput{},
 			toProto: func(v any) any {
 				got, err := HookInputToProto(NewHookInput(v.(HookInput_Value)))
 				return mustProto(t, got, err)
@@ -620,6 +668,53 @@ func TestConfigTypesJSONRoundTrip(t *testing.T) {
 			v := tc.newFn()
 			if err := json.Unmarshal([]byte(tc.input), v); err != nil {
 				t.Fatalf("unmarshal: %v", err)
+			}
+			got, err := json.Marshal(v)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			compareJSON(t, []byte(tc.input), got)
+		})
+	}
+}
+
+// TestSyncHookJSONOutputJSONRoundTrip covers the top-level
+// SyncHookJSONOutput fields. terminalSequence is the reason it exists: the
+// field was declared in MarshalJSON's raw struct but never assigned, and
+// absent from UnmarshalJSON's altogether, so a value set on it silently
+// vanished in both directions.
+//
+// The proto schema carries terminal_sequence too, and
+// TestJSONProtoRoundTrip's sync case pins that leg. This test stays separate
+// because it drives MarshalJSON/UnmarshalJSON with no conversion in between,
+// so a regression in the marshalers alone still fails here.
+func TestSyncHookJSONOutputJSONRoundTrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			// OSC 9 desktop notification, the field's documented use.
+			name:  "terminalSequence alone",
+			input: `{"terminalSequence":"\u001b]9;done\u0007"}`,
+		},
+		{
+			name: "every top-level field",
+			input: `{"continue":true,"suppressOutput":false,"stopReason":"x",` +
+				`"decision":"block","systemMessage":"m","terminalSequence":"\u0007",` +
+				`"reason":"r",` +
+				`"hookSpecificOutput":{"hookEventName":"Notification","additionalContext":"ctx"}}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var v SyncHookJSONOutput
+			if err := json.Unmarshal([]byte(tc.input), &v); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if v.TerminalSequence == nil {
+				t.Fatal("terminalSequence dropped on unmarshal")
 			}
 			got, err := json.Marshal(v)
 			if err != nil {

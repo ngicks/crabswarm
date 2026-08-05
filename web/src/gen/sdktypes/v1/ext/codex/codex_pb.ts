@@ -14,7 +14,7 @@ export const file_sdktypes_v1_ext_codex_codex: GenFile = /*@__PURE__*/
 
 /**
  * CodexPatchOperation is one file change inside a Codex apply_patch envelope.
- * Source: api/types/sdktypes/v1/ext/codex (PatchOperation).
+ * Source: pkg/claudehook/types/ext/codex (PatchOperation).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexPatchOperation
  */
@@ -45,7 +45,7 @@ export const CodexPatchOperationSchema: GenMessage<CodexPatchOperation> = /*@__P
 /**
  * CodexApplyPatchInput is a Codex apply_patch tool_input. raw_json preserves the
  * original bytes for lossless round-trips; command/operations expose the decoded
- * patch. Source: api/types/sdktypes/v1/ext/codex (ApplyPatchInput).
+ * patch. Source: pkg/claudehook/types/ext/codex (ApplyPatchInput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexApplyPatchInput
  */
@@ -75,7 +75,7 @@ export const CodexApplyPatchInputSchema: GenMessage<CodexApplyPatchInput> = /*@_
 
 /**
  * CodexApplyPatchSummaryEntry is one "A/M/D path" line of a Codex apply_patch
- * success summary. Source: api/types/sdktypes/v1/ext/codex (SummaryEntry).
+ * success summary. Source: pkg/claudehook/types/ext/codex (SummaryEntry).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexApplyPatchSummaryEntry
  */
@@ -101,7 +101,7 @@ export const CodexApplyPatchSummaryEntrySchema: GenMessage<CodexApplyPatchSummar
 /**
  * CodexApplyPatchOutput is a Codex apply_patch tool_response. raw_json preserves
  * the original bytes for lossless round-trips; the remaining fields expose the
- * decoded exec-formatted output. Source: api/types/sdktypes/v1/ext/codex
+ * decoded exec-formatted output. Source: pkg/claudehook/types/ext/codex
  * (ApplyPatchOutput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexApplyPatchOutput
@@ -153,7 +153,7 @@ export const CodexApplyPatchOutputSchema: GenMessage<CodexApplyPatchOutput> = /*
 /**
  * CodexShellOutput is a Codex shell (Bash) tool_response string. raw_json
  * preserves the original bytes for lossless round-trips. Source:
- * api/types/sdktypes/v1/ext/codex (ShellOutput).
+ * pkg/claudehook/types/ext/codex (ShellOutput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexShellOutput
  */
@@ -178,7 +178,7 @@ export const CodexShellOutputSchema: GenMessage<CodexShellOutput> = /*@__PURE__*
 
 /**
  * CodexPlanItem is one step in a Codex update_plan tool_input. Source:
- * api/types/sdktypes/v1/ext/codex (PlanItem).
+ * pkg/claudehook/types/ext/codex (PlanItem).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexPlanItem
  */
@@ -204,7 +204,7 @@ export const CodexPlanItemSchema: GenMessage<CodexPlanItem> = /*@__PURE__*/
 /**
  * CodexUpdatePlanInput is a Codex update_plan tool_input. raw_json preserves the
  * original bytes for lossless round-trips; explanation/plan expose the decoded
- * plan. Source: api/types/sdktypes/v1/ext/codex (UpdatePlanInput).
+ * plan. Source: pkg/claudehook/types/ext/codex (UpdatePlanInput).
  *
  * @generated from message sdktypes.v1.ext.codex.CodexUpdatePlanInput
  */
@@ -234,7 +234,7 @@ export const CodexUpdatePlanInputSchema: GenMessage<CodexUpdatePlanInput> = /*@_
 
 /**
  * CodexPatchKind is the kind of change a single Codex apply_patch operation
- * makes. Source: api/types/sdktypes/v1/ext/codex (PatchKind),
+ * makes. Source: pkg/claudehook/types/ext/codex (PatchKind),
  * codex-rs/apply-patch/src/lib.rs.
  *
  * @generated from enum sdktypes.v1.ext.codex.CodexPatchKind
@@ -269,7 +269,7 @@ export const CodexPatchKindSchema: GenEnum<CodexPatchKind> = /*@__PURE__*/
 
 /**
  * CodexPlanStatus is the status of a single Codex update_plan step. Source:
- * api/types/sdktypes/v1/ext/codex (PlanStatus),
+ * pkg/claudehook/types/ext/codex (PlanStatus),
  * codex-rs/core/src/tools/handlers/plan_spec.rs.
  *
  * @generated from enum sdktypes.v1.ext.codex.CodexPlanStatus

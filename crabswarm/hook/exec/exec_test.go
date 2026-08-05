@@ -7,8 +7,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ngicks/crabswarm/internal/templateutil"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
@@ -694,3 +696,313 @@ func TestRun_CodexApplyPatchUpdateFixture(t *testing.T) {
 
 // Compile-time check that .Input is the SDK union variant interface.
 var _ types.HookInput_Value = (Data{}).Input
+
+// --- Option.OutputTemplate ---
+
+// handlerErrorOf unwraps err as the hook result and requires it to carry an
+// output; the output-template tests all assert on that output's shape.
+func handlerErrorOf(t *testing.T, err error) *types.SyncHookJSONOutput {
+	t.Helper()
+	var he *handler.HandlerError
+	if !errors.As(err, &he) {
+		t.Fatalf("expected *handler.HandlerError, got %T: %v", err, err)
+	}
+	if he.Output == nil {
+		t.Fatal("expected a non-nil Output from the output template")
+	}
+	return he.Output
+}
+
+func TestRun_OutputTemplate_SuccessEmitsHookSpecificOutput(t *testing.T) {
+	// The success path the built-in behavior can't express at all: a zero
+	// exit turns into additionalContext instead of a silent allow.
+	cfg := Config{}
+	opt := Option{
+		Template: "sh -c " + templateutil.ShellQuote("echo captured"),
+		OutputTemplate: `{{ if .Success }}` +
+			`{{ context (printf "exit=%d out=%s" .ExitCode .Stdout) }}{{ end }}`,
+	}
+	r := bashEnvelope(t, "ls")
+
+	out := handlerErrorOf(t, Run(context.Background(), r, cfg, opt))
+	v := hsoAs[types.HookSpecificOutputPreToolUse](t, out)
+	assert.Equal(t, deref(t, v.AdditionalContext), "exit=0 out=captured")
+	assert.Assert(t, out.Decision == nil, "a successful command must not block")
+}
+
+func TestRun_OutputTemplate_FailureBlocksWithSplitCaptures(t *testing.T) {
+	cfg := Config{}
+	opt := Option{
+		Template: "sh -c " + templateutil.ShellQuote("echo on-out; echo on-err >&2; exit 3"),
+		OutputTemplate: `{{ if not .Success }}` +
+			`{{ blockDecision (printf "exit=%d stderr=%s" .ExitCode .Stderr) }}` +
+			`{{ systemMessage .Output }}{{ end }}`,
+	}
+	r := bashEnvelope(t, "ls")
+
+	out := handlerErrorOf(t, Run(context.Background(), r, cfg, opt))
+	assert.Equal(t, deref(t, out.Decision), types.HookDecisionBlock)
+	assert.Equal(t, deref(t, out.Reason), "exit=3 stderr=on-err")
+
+	// .Output is both streams; interleaving is best-effort so only
+	// membership is asserted.
+	combined := deref(t, out.SystemMessage)
+	assert.Assert(t, strings.Contains(combined, "on-out"), "combined: %q", combined)
+	assert.Assert(t, strings.Contains(combined, "on-err"), "combined: %q", combined)
+}
+
+func TestRun_OutputTemplate_StrayTextIsError(t *testing.T) {
+	// Text outside the output functions fails the invocation rather than
+	// silently degrading to allow-everything.
+	cfg := Config{}
+	opt := Option{Template: "true", OutputTemplate: "oops"}
+	r := bashEnvelope(t, "ls")
+
+	err := Run(context.Background(), r, cfg, opt)
+	assert.Assert(t, err != nil)
+	var he *handler.HandlerError
+	assert.Assert(t, !errors.As(err, &he), "stray text should be a plain error; got %T", err)
+	assert.Assert(
+		t,
+		strings.Contains(err.Error(), "may only produce output through the output functions"),
+		"err: %v", err,
+	)
+}
+
+func TestRun_OutputTemplate_SkippedByFilterGate(t *testing.T) {
+	// A gated invocation never runs a command, so there is no result to
+	// shape: the output template — which would hard-error on its stray
+	// text — must not be rendered at all.
+	tmp := t.TempDir()
+	marker := filepath.Join(tmp, "should-not-exist")
+	editPath := filepath.Join(tmp, "x.go")
+	touch(t, editPath)
+
+	cfg := Config{Filetypes: goRustTables()}
+	opt := Option{
+		Template:       "touch " + marker,
+		OutputTemplate: "stray text that would fail the render",
+		Filter:         []string{"rust"}, // detected will be "go"
+	}
+	r := editEnvelope(t, editPath)
+
+	assertPassThrough(t, Run(context.Background(), r, cfg, opt))
+	_, statErr := os.Stat(marker)
+	assert.Assert(t, statErr != nil, "marker should NOT exist when filter blocks")
+}
+
+func TestRun_OutputTemplate_SkippedWhenRenderedEmpty(t *testing.T) {
+	cfg := Config{}
+	opt := Option{
+		Template:       "{{ if false }}/usr/bin/false{{ end }}",
+		OutputTemplate: "stray text that would fail the render",
+	}
+	r := bashEnvelope(t, "ls")
+
+	assertPassThrough(t, Run(context.Background(), r, cfg, opt))
+}
+
+func TestRun_OutputTemplate_NonExitErrorPropagatesAsPlainError(t *testing.T) {
+	// The command never ran, so — as in the built-in path — this is an
+	// infrastructure failure, not something the output template gets to
+	// reinterpret as a hook result.
+	cfg := Config{}
+	opt := Option{
+		Template:       "/no/such/binary-does-not-exist",
+		OutputTemplate: `{{ context "should never be reached" }}`,
+	}
+	r := bashEnvelope(t, "ls")
+
+	err := Run(context.Background(), r, cfg, opt)
+	assert.Assert(t, err != nil)
+	var he *handler.HandlerError
+	assert.Assert(t, !errors.As(err, &he), "expected a plain error; got %T", err)
+	assert.Assert(t, strings.Contains(err.Error(), "running "), "err: %v", err)
+}
+
+func TestRender_OutputTemplate_SyntheticSuccess(t *testing.T) {
+	// Dry-run has nothing to execute, so the output template previews
+	// against a synthetic success: exit 0, empty captures, .Command set to
+	// the command line that would have run.
+	cfg := Config{}
+	opt := Option{
+		Template: "echo hi",
+		OutputTemplate: `{{ if .Success }}` +
+			`{{ context (printf "cmd=%s exit=%d out=%q" .Command .ExitCode .Output) }}{{ end }}`,
+	}
+	r := bashEnvelope(t, "ls")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+
+	want, err := json.Marshal(&types.SyncHookJSONOutput{
+		HookSpecificOutput: types.NewHookSpecificOutput(&types.HookSpecificOutputPreToolUse{
+			HookEventName:     types.HookEventPreToolUse,
+			AdditionalContext: new(`cmd=echo hi exit=0 out=""`),
+		}),
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, buf.String(), "echo hi\n"+string(want)+"\n")
+}
+
+// builtinBlockReasonTemplate restates the built-in block-on-failure behavior
+// as an output template — the plan's "the built-in is expressible" claim in
+// executable form. .Error supplies the run error the built-in prints on its
+// `exit:` line, and the output: section is conditional exactly as blockReason's
+// is.
+const builtinBlockReasonTemplate = `{{- if not .Success -}}
+{{- $r := printf "command failed: %s\nexit: %s\n" .Command .Error -}}
+{{- if .Output }}{{ $r = printf "%soutput:\n%s\n" $r .Output }}{{ end -}}
+{{- blockDecision $r -}}
+{{- end -}}`
+
+func TestRun_OutputTemplate_RestatesBuiltinBlockReason(t *testing.T) {
+	// Single-stream output on purpose: the built-in path captures with
+	// CombinedOutput while the template path multiplexes two pipes into one
+	// buffer, so with both streams busy the interleaving — not the formatting
+	// — would decide the bytes.
+	for _, tc := range []struct {
+		name              string
+		command           string
+		wantOutputSection bool
+	}{
+		{
+			name:              "with output",
+			command:           "sh -c " + templateutil.ShellQuote("echo boom; exit 1"),
+			wantOutputSection: true,
+		},
+		{
+			name:              "without output",
+			command:           "false",
+			wantOutputSection: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{}
+
+			builtin := handlerErrorOf(t, Run(
+				context.Background(), bashEnvelope(t, "ls"), cfg,
+				Option{Template: tc.command},
+			))
+			templated := handlerErrorOf(t, Run(
+				context.Background(), bashEnvelope(t, "ls"), cfg,
+				Option{Template: tc.command, OutputTemplate: builtinBlockReasonTemplate},
+			))
+
+			reason := deref(t, builtin.Reason)
+			assert.Equal(t, deref(t, templated.Reason), reason)
+			assert.Equal(t, deref(t, templated.Decision), deref(t, builtin.Decision))
+
+			// Guard the fixtures themselves: the comparison only proves
+			// something if the two cases really differ in the section the
+			// template has to reproduce conditionally.
+			assert.Assert(t, strings.Contains(reason, "exit: exit status 1"), "reason: %q", reason)
+			assert.Equal(t, strings.Contains(reason, "output:"), tc.wantOutputSection,
+				"reason: %q", reason)
+		})
+	}
+}
+
+func TestRun_OutputTemplate_CancelledContextReachesTemplate(t *testing.T) {
+	// Cancelling a child that already started is not an infrastructure
+	// failure: os/exec kills it and the signal comes back as an ExitError, so
+	// the template runs on a failed result instead of the call erroring out.
+	//
+	// The deadline has to outlast everything Run does before fork/exec —
+	// reading the envelope, folding the filetype tables, rendering — because
+	// Cmd.Start returns a plain ctx.Err() when the context is already done,
+	// which is the other branch entirely. Generous on purpose; `sleep 5`
+	// outlives it either way.
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	cfg := Config{}
+	opt := Option{
+		Template:       "sleep 5",
+		OutputTemplate: `{{ blockDecision (printf "%v|%d|%s" .Success .ExitCode .Error) }}`,
+	}
+	r := bashEnvelope(t, "ls")
+
+	out := handlerErrorOf(t, Run(ctx, r, cfg, opt))
+	assert.Equal(t, deref(t, out.Reason), "false|-1|signal: killed")
+}
+
+func TestRun_OutputTemplate_ConcurrentStreamsStayIntact(t *testing.T) {
+	// os/exec copies stdout and stderr into the shared combined buffer from
+	// two goroutines. Volume is what makes them actually overlap, so this
+	// pushes thousands of lines down each stream — with the mutex removed it
+	// trips `go test -race` and drops bytes.
+	const lines = 2000
+	script := "i=0; while [ $i -lt " + strconv.Itoa(lines) + " ]; do " +
+		"echo out-$i; echo err-$i >&2; i=$((i+1)); done"
+
+	cfg := Config{}
+	opt := Option{
+		Template:       "sh -c " + templateutil.ShellQuote(script),
+		OutputTemplate: `{{ blockDecision .Stdout }}{{ systemMessage .Stderr }}{{ stop .Output }}`,
+	}
+	r := bashEnvelope(t, "ls")
+
+	out := handlerErrorOf(t, Run(context.Background(), r, cfg, opt))
+	stdout := deref(t, out.Reason)
+	stderr := deref(t, out.SystemMessage)
+	combined := deref(t, out.StopReason)
+
+	assert.Equal(t, len(strings.Split(stdout, "\n")), lines)
+	assert.Equal(t, len(strings.Split(stderr, "\n")), lines)
+	assert.Equal(t, strings.Count(stdout, "out-"), lines)
+	assert.Equal(t, strings.Count(stderr, "err-"), lines)
+	// Counting rather than comparing byte length: every line has to survive
+	// the shared buffer, but the two streams' interleaving in it does not.
+	assert.Equal(t, strings.Count(combined, "out-"), lines)
+	assert.Equal(t, strings.Count(combined, "err-"), lines)
+}
+
+func TestRender_SkipsWhitespaceOnlyRenderedCommand(t *testing.T) {
+	// Run splits the rendered line and skips it when it yields no argv.
+	// Render mirrors that gate, so a dry run shows what Run would do —
+	// nothing — instead of a blank command line with a preview under it. The
+	// stray-text output template proves the preview never ran: rendering it
+	// would be a hard error.
+	cfg := Config{}
+	opt := Option{
+		Template:       "   ",
+		OutputTemplate: "stray text that would fail the render",
+	}
+	r := bashEnvelope(t, "ls")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), "")
+}
+
+func TestRender_UnparseableRenderedCommandErrors(t *testing.T) {
+	// Splitting in Render also means a dry run now reports the unbalanced
+	// quote that only Run used to catch.
+	cfg := Config{}
+	opt := Option{Template: `echo "unbalanced`}
+	r := bashEnvelope(t, "ls")
+
+	var buf bytes.Buffer
+	err := Render(context.Background(), r, &buf, cfg, opt)
+	assert.Assert(t, err != nil)
+	var he *handler.HandlerError
+	assert.Assert(t, !errors.As(err, &he), "expected a plain error; got %T", err)
+	assert.Assert(t, strings.Contains(err.Error(), "parsing rendered command"), "err: %v", err)
+	assert.Equal(t, buf.String(), "")
+}
+
+func TestRender_OutputTemplate_PlainAllowPreviewsAsNull(t *testing.T) {
+	// A template that records nothing means plain allow; the preview spells
+	// that as JSON null.
+	cfg := Config{}
+	opt := Option{
+		Template:       "echo hi",
+		OutputTemplate: `{{ if not .Success }}{{ blockDecision "unreachable" }}{{ end }}`,
+	}
+	r := bashEnvelope(t, "ls")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), "echo hi\nnull\n")
+}
