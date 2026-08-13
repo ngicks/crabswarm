@@ -157,6 +157,21 @@ func TestRender_TemplateFuncs(t *testing.T) {
 	assert.Equal(t, buf.String(), "x.go|.go|'"+editPath+"'\n")
 }
 
+// commandName / commandArgs split the Bash tool's command reached through
+// .Input, so a Bash-gated hook can dispatch on the invoked command.
+func TestRender_CommandNameAndArgsOnBashInput(t *testing.T) {
+	cfg := Config{}
+	opt := Option{
+		Template: `echo {{ commandName .Input.ToolInput.GetValue.Command }}` +
+			`|{{ quoteJoin (commandArgs .Input.ToolInput.GetValue.Command) }}`,
+	}
+	r := bashEnvelope(t, "git commit -m 'two words'")
+
+	var buf bytes.Buffer
+	assertPassThrough(t, Render(context.Background(), r, &buf, cfg, opt))
+	assert.Equal(t, buf.String(), `echo git|"git" "commit" "-m" "two words"`+"\n")
+}
+
 func TestRender_QuoteEscapesSingleQuotes(t *testing.T) {
 	cfg := Config{}
 	opt := Option{Template: `{{ quote "it's" }}`}

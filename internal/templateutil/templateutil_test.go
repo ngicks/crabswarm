@@ -12,7 +12,10 @@ import (
 
 func TestFuncMap_ExposesExpectedFuncs(t *testing.T) {
 	fm := FuncMap()
-	names := []string{"env", "basename", "dirname", "ext", "trim", "quote", "quoteJoin", "which"}
+	names := []string{
+		"env", "basename", "dirname", "ext", "trim", "quote", "quoteJoin", "which",
+		"commandArgs", "commandName",
+	}
 	for _, name := range names {
 		if _, ok := fm[name]; !ok {
 			t.Errorf("FuncMap missing %q", name)
@@ -116,6 +119,53 @@ func TestQuoteJoin(t *testing.T) {
 	} {
 		assert.Equal(t, QuoteJoin(tc.in), tc.want)
 	}
+}
+
+func TestCommandArgs(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want []string
+	}{
+		{"", []string{}},
+		{"   ", []string{}},
+		{"ls", []string{"ls"}},
+		{"git commit -m 'two words'", []string{"git", "commit", "-m", "two words"}},
+		{`grep "a b" file`, []string{"grep", "a b", "file"}},
+		// Splitting stops at the first unquoted shell operator: only the
+		// first simple command's words come back, and nothing runs.
+		{"cd /tmp && ls | wc -l", []string{"cd", "/tmp"}},
+		{"quoted '&&' stays", []string{"quoted", "&&", "stays"}},
+	} {
+		got, err := CommandArgs(tc.in)
+		assert.NilError(t, err, "input %q", tc.in)
+		assert.DeepEqual(t, got, tc.want)
+	}
+}
+
+func TestCommandArgs_UnbalancedQuoteErrors(t *testing.T) {
+	_, err := CommandArgs(`echo 'unclosed`)
+	assert.Assert(t, err != nil)
+}
+
+func TestCommandName(t *testing.T) {
+	for _, tc := range []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"   ", ""},
+		{"ls", "ls"},
+		{"git commit -m msg", "git"},
+		{`'quoted name' arg`, "quoted name"},
+	} {
+		got, err := CommandName(tc.in)
+		assert.NilError(t, err, "input %q", tc.in)
+		assert.Equal(t, got, tc.want)
+	}
+}
+
+func TestCommandName_UnbalancedQuoteErrors(t *testing.T) {
+	_, err := CommandName(`echo "unclosed`)
+	assert.Assert(t, err != nil)
 }
 
 func TestWhich(t *testing.T) {

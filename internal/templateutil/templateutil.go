@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/mattn/go-shellwords"
 )
 
 // FuncMap returns the template function map shared across crabswarm's template
@@ -25,16 +27,20 @@ import (
 //	quote STRING     → ShellQuote (POSIX shell single-quoting)
 //	quoteJoin LIST   → QuoteJoin (double-quote each element, join with spaces)
 //	which NAME       → Which (resolve a command to its absolute path)
+//	commandArgs CMD  → CommandArgs (shellwords split of CMD into its words)
+//	commandName CMD  → CommandName (first shellwords word of CMD)
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
-		"env":       os.Getenv,
-		"basename":  filepath.Base,
-		"dirname":   filepath.Dir,
-		"ext":       filepath.Ext,
-		"trim":      strings.TrimSpace,
-		"quote":     ShellQuote,
-		"quoteJoin": QuoteJoin,
-		"which":     Which,
+		"env":         os.Getenv,
+		"basename":    filepath.Base,
+		"dirname":     filepath.Dir,
+		"ext":         filepath.Ext,
+		"trim":        strings.TrimSpace,
+		"quote":       ShellQuote,
+		"quoteJoin":   QuoteJoin,
+		"which":       Which,
+		"commandArgs": CommandArgs,
+		"commandName": CommandName,
 	}
 }
 
@@ -86,6 +92,16 @@ func FuncDocs() []FuncDoc {
 			Usage: "which NAME",
 			Desc:  "absolute path of command NAME resolved via $PATH (errors when missing)",
 		},
+		{
+			Name:  "commandArgs",
+			Usage: "commandArgs CMD",
+			Desc:  "words of CMD's first simple command, shellwords-split (stops at unquoted ;, & or |)",
+		},
+		{
+			Name:  "commandName",
+			Usage: "commandName CMD",
+			Desc:  "first shellwords word of CMD, i.e. the invoked command (empty when CMD is blank)",
+		},
 	}
 }
 
@@ -119,6 +135,34 @@ func Which(name string) (string, error) {
 		return "", err
 	}
 	return filepath.Abs(path)
+}
+
+// CommandArgs splits command with [shellwords.Parse] — the same splitting
+// the hook exec renderer applies to its own output — and returns the words
+// of the first simple command: quoting and escaping are honored, nothing is
+// expanded or evaluated, and parsing stops at the first unquoted shell
+// operator (;, & or |), dropping everything after it. Intended for
+// templating over a Bash tool_input.command, e.g.
+//
+//	{{ commandArgs .Input.ToolInput.GetValue.Command }}
+//
+// It returns an error when command cannot be parsed (e.g. an unclosed
+// quote), so the template fails to render instead of acting on a bogus
+// split.
+func CommandArgs(command string) ([]string, error) {
+	return shellwords.Parse(command)
+}
+
+// CommandName returns the first word of command as split by [CommandArgs],
+// i.e. the name of the command being invoked, or "" when command is empty
+// or whitespace-only. Like CommandArgs it errors when command cannot be
+// parsed.
+func CommandName(command string) (string, error) {
+	args, err := CommandArgs(command)
+	if err != nil || len(args) == 0 {
+		return "", err
+	}
+	return args[0], nil
 }
 
 // ShellQuote returns s wrapped in POSIX shell single-quotes. Embedded single
