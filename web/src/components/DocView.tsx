@@ -4,7 +4,7 @@ import { useDocument } from "../api/queries.js";
 import { rawUrl } from "../api/client.js";
 import { parseDocLocation } from "../routes.js";
 import { theme } from "../signals/ui.js";
-import { openLightbox } from "./Lightbox.js";
+import { openLightbox, openSvgLightbox } from "./Lightbox.js";
 
 // DocView renders the pre-rendered HTML fragment from GetDocument (chroma
 // classes, goldmark-mermaid `<pre class="mermaid">`, MathJax \(...\)/\[...\]
@@ -179,6 +179,16 @@ function resolveRelative(docPath: string, rel: string): string {
 }
 
 function onArticleClick(e: MouseEvent): void {
+  // Rendered mermaid diagrams open the pan/zoom lightbox at natural size —
+  // large diagrams are squeezed to the column width and become unreadable.
+  // A failed render leaves raw text (no <svg>) and falls through.
+  const diagram = (e.target as HTMLElement).closest<HTMLElement>("pre.mermaid, .mermaid");
+  const svg = diagram?.querySelector<SVGSVGElement>("svg");
+  if (svg) {
+    e.preventDefault();
+    openSvgLightbox(svg);
+    return;
+  }
   // Plain <img> (not wrapped in a link) opens the zoom lightbox; linked images
   // fall through so the anchor wins.
   const img = (e.target as HTMLElement).closest<HTMLImageElement>("img");

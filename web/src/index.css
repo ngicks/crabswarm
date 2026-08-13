@@ -45,6 +45,12 @@ body,
   background: transparent;
   text-align: center;
 }
+/* Rendered diagrams open the pan/zoom lightbox on click (DocView
+   onArticleClick); :has(svg) leaves failed renders (raw source) alone. */
+.markdown-body pre.mermaid:has(svg),
+.markdown-body .mermaid:has(svg) {
+  cursor: zoom-in;
+}
 
 /* Inline images open a zoom lightbox on click (DocView onArticleClick); linked
    images keep the link cursor since the anchor wins. */
