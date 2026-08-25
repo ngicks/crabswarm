@@ -10,7 +10,8 @@
     "dev": "pnpm run vendor && vite",
     "build": "pnpm run gen && pnpm run vendor && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.e2e.json --noEmit",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@ark-ui/react": "5.37.2",
@@ -27,8 +28,10 @@
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "2.12.1",
+    "@playwright/test": "1.61.0",
     "@preact/preset-vite": "2.10.5",
     "@tailwindcss/vite": "4.3.2",
+    "@types/node": "^24.13.3",
     "daisyui": "5.6.7",
     "tailwindcss": "4.3.2",
     "typescript": "6.0.3",

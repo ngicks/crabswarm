@@ -9,3 +9,7 @@
 # Vite caches / local env
 .vite
 *.local
+
+# Playwright run output (pnpm e2e)
+/test-results
+/playwright-report

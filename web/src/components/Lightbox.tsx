@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
 // App-level lightbox with pan/zoom (mirrors OpenRawDialog's module-signal
 // pattern). Two content kinds: plain images (DocView inline images, the
@@ -37,7 +37,10 @@ export function openSvgLightbox(svg: SVGSVGElement): void {
 export function Lightbox() {
   const c = content.value;
 
-  useEffect(() => {
+  // Layout effect: the listener must exist the moment the overlay is in the
+  // DOM — a plain effect runs after paint, leaving a window where an early
+  // Escape is dropped.
+  useLayoutEffect(() => {
     if (c === null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") content.value = null;
@@ -128,6 +131,7 @@ function Viewer({ c }: { c: LightboxContent }) {
   return (
     <div
       ref={overlayRef}
+      data-testid="lightbox"
       class="fixed inset-0 z-[60] cursor-grab select-none overflow-hidden bg-black/80"
       style={{ touchAction: "none" }}
       onWheel={(e) => {
@@ -164,7 +168,11 @@ function Viewer({ c }: { c: LightboxContent }) {
         drag.current = null;
       }}
     >
-      <div ref={contentRef} class="pointer-events-none absolute left-0 top-0 origin-top-left opacity-0">
+      <div
+        ref={contentRef}
+        data-testid="lightbox-content"
+        class="pointer-events-none absolute left-0 top-0 origin-top-left opacity-0"
+      >
         {c.kind === "image" ? (
           <img
             ref={imgRef}
