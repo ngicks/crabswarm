@@ -21,7 +21,8 @@ export default defineConfig({
     },
   },
   build: {
-    // Emitted into web/dist and committed; embed.go embeds `all:dist`.
+    // Emitted into web/dist, which is git-ignored: `pnpm build` then packs it
+    // into the committed web/dist.tar.zst that embed.go embeds.
     outDir: "dist",
     emptyOutDir: true,
   },

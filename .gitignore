@@ -12,6 +12,9 @@
 go.work
 go.work.sum
 
+# vite build output; only the packed web/dist.tar.zst is committed
+/web/dist/
+
 # LLM stuff
 apm_modules/
 
@@ -25,6 +28,7 @@ apm_modules/
 
 CLAUDE*.md
 CODEX*.md
+GEMINI*.md
 
 CLAUDE.md
 AGENTS.md

@@ -36,7 +36,7 @@ Tools to swarm claude(, codex and others!)
 ├── pkg
 │   └── claudehook  helper for claude code hook. Same code can be resued for codex.
 ├── plugin          claude code defintion. Basic part can be reused for codex.
-└── web             Preact SPA for `crabswarm preview`, embedded via go:embed (dist committed).
+└── web             Preact SPA for `crabswarm preview`, embedded via go:embed as seekable-zstd tar (dist.tar.zst committed).
 ```
 
 ## Implementing functionality

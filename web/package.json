@@ -8,7 +8,8 @@
     "vendor": "node scripts/copy-mathjax.mjs",
     "gen": "cd ../api && buf generate --template buf.gen.ts.yaml",
     "dev": "pnpm run vendor && vite",
-    "build": "pnpm run gen && pnpm run vendor && vite build",
+    "build": "pnpm run gen && pnpm run vendor && vite build && pnpm run pack",
+    "pack": "go run ./scripts/packdist",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.e2e.json --noEmit",
     "e2e": "playwright test"

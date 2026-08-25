@@ -1,5 +1,6 @@
-# Node toolchain — never committed. dist/ and src/gen/ ARE committed (embedded
-# into the Go binary via embed.go; see doc/plan/.../DECISION.md D7a).
+# Node toolchain — never committed. src/gen/ and the packed dist.tar.zst ARE
+# committed (the latter is embedded into the Go binary via embed.go); dist/
+# itself is ignored, see the repo root .gitignore.
 /node_modules
 
 # MathJax component files copied from node_modules by scripts/copy-mathjax.mjs;

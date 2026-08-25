@@ -4,11 +4,14 @@ go 1.26.0
 
 require (
 	connectrpc.com/connect v1.20.0
+	github.com/SaveTheRbtz/zstd-seekable-format-go/pkg v0.10.0
 	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/fsnotify/fsnotify v1.10.1
+	github.com/klauspost/compress v1.19.2
 	github.com/mattn/go-shellwords v1.0.13
 	github.com/ngicks/go-common/contextkey v0.2.0
+	github.com/ngicks/go-fsys-helper/tarfs v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/yuin/goldmark v1.7.16
 	github.com/yuin/goldmark-emoji v1.0.6
@@ -21,9 +24,11 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/ngicks/go-fsys-helper/stream v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
