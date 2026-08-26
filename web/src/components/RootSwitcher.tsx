@@ -14,9 +14,12 @@ export function RootSwitcher({ activeRootId }: { activeRootId: string }) {
           <li key={r.id}>
             {/* Keep the drawer open on root selection (unlike file selection)
                 so the user can then pick a file from the new root's tree. */}
+            {/* daisyUI's menu-active is only a 10% base-content tint — too
+                faint on the sidebar, so paint the selection with the primary
+                pair like FileTree does. */}
             <a
               href={`/r/${encodeURIComponent(r.id)}/`}
-              class={r.id === activeRootId ? "active" : ""}
+              class={r.id === activeRootId ? "bg-primary text-primary-content font-medium" : ""}
               title={r.path}
             >
               <span class="truncate">{r.name}</span>
