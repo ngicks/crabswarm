@@ -1,7 +1,9 @@
 import type { ComponentChildren } from "preact";
+import { useEffect } from "preact/hooks";
 import { useLocation } from "preact-iso";
-import { drawerOpen, tocOpen } from "../signals/ui.js";
+import { drawerOpen, reveal, tocOpen, revealTarget } from "../signals/ui.js";
 import { parseDocLocation, isImagePath } from "../routes.js";
+import { useRoots } from "../api/queries.js";
 import { RootSwitcher } from "./RootSwitcher.js";
 import { FileTree } from "./FileTree.js";
 import { Toc } from "./Toc.js";
@@ -13,6 +15,13 @@ import { ThemeToggle } from "./ThemeToggle.js";
 export function Layout({ children }: { children: ComponentChildren }) {
   const loc = useLocation();
   const { rootId, path } = parseDocLocation(loc.path);
+
+  // A revealed directory is a "you are pointing here" marker, not a selection:
+  // once the user actually navigates, the active-file highlight takes over and
+  // a leftover directory highlight would compete with it.
+  useEffect(() => {
+    revealTarget.value = null;
+  }, [loc.path]);
 
   return (
     <div class="drawer min-h-full lg:drawer-open">
@@ -54,16 +63,13 @@ function TopBar({ rootId, path }: { rootId: string; path: string }) {
   // nothing to act on there — disable it too.
   const tocDisabled = rootId === "" || isImagePath(path);
   return (
-    <header class="navbar sticky top-0 z-30 min-h-12 border-b border-base-300 bg-base-100 px-2">
+    <header class="navbar sticky top-0 z-30 min-h-12 gap-1 border-b border-base-300 bg-base-100 px-2">
       <label for="crab-left-drawer" class="btn btn-square btn-ghost btn-sm lg:hidden" aria-label="Open file tree">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
       </label>
-      <a href="/" class="btn btn-ghost btn-sm text-base font-semibold normal-case">
-        crabswarm preview
-      </a>
-      <div class="flex-1" />
+      <Breadcrumbs rootId={rootId} path={path} />
       <ThemeToggle />
       <button
         class="btn btn-square btn-ghost btn-sm lg:hidden"
@@ -80,6 +86,64 @@ function TopBar({ rootId, path }: { rootId: string; path: string }) {
         </svg>
       </button>
     </header>
+  );
+}
+
+// Location trail for the routed document: home / root / one crumb per path
+// segment. Only the home icon navigates — directories have no page of their own,
+// so their crumbs point the left navigation at themselves instead (reveal).
+// `py-0` keeps the trail within the header's 3rem, which TocPanel sticks below.
+function Breadcrumbs({ rootId, path }: { rootId: string; path: string }) {
+  const { data } = useRoots();
+  const segments = path.split("/").filter(Boolean);
+
+  return (
+    <nav aria-label="Breadcrumb" data-testid="breadcrumbs" class="breadcrumbs min-w-0 flex-1 py-0 text-sm">
+      <ul>
+        <li>
+          <a href="/" class="btn btn-square btn-ghost btn-sm" aria-label="Home" title="All roots">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 10.5 12 3l9 7.5" />
+              <path d="M5 9.5V21h14V9.5" />
+            </svg>
+          </a>
+        </li>
+        {rootId !== "" && (
+          <li>
+            {/* The roots query is already warm from RootSwitcher; the id is a
+                readable-enough stand-in until it resolves. */}
+            <Crumb
+              rootId={rootId}
+              path=""
+              label={data?.roots.find((r) => r.id === rootId)?.name ?? rootId}
+              current={segments.length === 0}
+            />
+          </li>
+        )}
+        {segments.map((name, i) => {
+          const segPath = segments.slice(0, i + 1).join("/");
+          return (
+            <li key={segPath}>
+              <Crumb rootId={rootId} path={segPath} label={name} current={i === segments.length - 1} />
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+function Crumb(props: { rootId: string; path: string; label: string; current: boolean }) {
+  const { rootId, path, label, current } = props;
+  return (
+    <button
+      type="button"
+      class={current ? "font-medium" : ""}
+      title={`Show ${label} in the file tree`}
+      onClick={() => reveal(rootId, path)}
+    >
+      {label}
+    </button>
   );
 }
 

@@ -1,9 +1,9 @@
 import type { JSX } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { useTree } from "../api/queries.js";
 import { EntryType, type TreeEntry } from "../gen/crabpreview/v1/preview_service_pb.js";
 import { docHref, isImagePath, joinPath } from "../routes.js";
-import { drawerOpen } from "../signals/ui.js";
+import { drawerOpen, revealTarget } from "../signals/ui.js";
 import { openRaw } from "./OpenRawDialog.js";
 
 // nvim-tree / VSCode-style lazy tree (PLAN "Frontend": FileTree). Each expanded
@@ -12,7 +12,7 @@ import { openRaw } from "./OpenRawDialog.js";
 // in the SPA, other files go through the confirm-then-raw dialog (DECISION D9).
 export function FileTree({ rootId, activePath }: { rootId: string; activePath: string }) {
   return (
-    <div class="min-h-0 flex-1 overflow-auto py-1">
+    <div data-testid="file-tree" class="min-h-0 flex-1 overflow-auto py-1">
       <TreeLevel rootId={rootId} dir="" depth={0} activePath={activePath} />
     </div>
   );
@@ -23,7 +23,13 @@ function indent(depth: number): JSX.CSSProperties {
 }
 
 const ROW =
-  "flex w-full items-center gap-1 truncate px-2 py-1 text-left text-sm hover:bg-base-300/70 cursor-pointer";
+  "flex w-full items-center gap-1 truncate px-2 py-1 text-left text-sm cursor-pointer";
+// Selection sits on the bg-base-200 sidebar, so a base-300 tint is nearly
+// invisible; use the primary color pair instead. The hover tint lives on the
+// idle variant only — stacking a base-300 hover on a selected row would wash
+// the highlight back out.
+const ROW_IDLE = ROW + " hover:bg-base-300/70";
+const ROW_SELECTED = ROW + " bg-primary text-primary-content font-medium hover:bg-primary/85";
 
 function TreeLevel(props: { rootId: string; dir: string; depth: number; activePath: string }) {
   const { rootId, dir, depth, activePath } = props;
@@ -61,9 +67,31 @@ function TreeLevel(props: { rootId: string; dir: string; depth: number; activePa
 function DirNode(props: { rootId: string; dir: string; name: string; depth: number; activePath: string }) {
   const { rootId, dir, name, depth, activePath } = props;
   const [open, setOpen] = useState(false);
+  const row = useRef<HTMLButtonElement>(null);
+  // Reading the signal here subscribes this node to reveal requests.
+  const target = revealTarget.value;
+  const revealed = target !== null && target.rootId === rootId && target.path === dir;
+
+  // Each level is fetched only once its parent opens, so a deep target reaches
+  // its node as that node mounts — hence the same effect handles both the
+  // already-mounted ancestors and the levels appearing underneath them. The
+  // dependency is the target object, not its path, so re-requesting the same
+  // path re-opens a directory the user collapsed in between.
+  useEffect(() => {
+    if (target === null || target.rootId !== rootId) return;
+    if (target.path !== dir && !target.path.startsWith(dir + "/")) return;
+    setOpen(true);
+    if (target.path === dir) row.current?.scrollIntoView({ block: "nearest" });
+  }, [target, rootId, dir]);
+
   return (
     <>
-      <button class={ROW} style={indent(depth)} onClick={() => setOpen((o) => !o)}>
+      <button
+        ref={row}
+        class={revealed ? ROW_SELECTED : ROW_IDLE}
+        style={indent(depth)}
+        onClick={() => setOpen((o) => !o)}
+      >
         <Chevron open={open} />
         <FolderIcon />
         <span class="truncate">{name}</span>
@@ -83,7 +111,7 @@ function FileNode(props: { rootId: string; path: string; entry: TreeEntry; depth
     return (
       <a
         href={docHref(rootId, path)}
-        class={ROW + (active ? " bg-base-300 font-medium" : "")}
+        class={active ? ROW_SELECTED : ROW_IDLE}
         style={indent(depth)}
         onClick={() => {
           drawerOpen.value = false;
@@ -97,7 +125,7 @@ function FileNode(props: { rootId: string; path: string; entry: TreeEntry; depth
   }
   return (
     <button
-      class={ROW + " opacity-70"}
+      class={ROW_IDLE + " opacity-70"}
       style={indent(depth)}
       onClick={() => openRaw(rootId, path, entry.name)}
     >
