@@ -1,7 +1,14 @@
 # STATUS — Agent Swarming
 
-**Current state:** Plan FINALIZED — all 11 open questions resolved across 3 rounds
-and folded into PLAN.md / DECISION.md. Ready to implement. No code written yet.
+**Current state:** SUPERSEDED (2026-08-27, never implemented) by
+`doc/plan/2026-08-26-01-chat_subcommand` — see its DECISION.md D1. The
+room/join chat model replaces this messenger design; its team-from-launch-
+environment intuition (D11 here) survives there in evolved form (D4/D10/D11
+there).
+
+Original state before supersession: plan FINALIZED — all 11 open questions
+resolved across 3 rounds and folded into PLAN.md / DECISION.md. No code
+written.
 
 ## Step checklist (mirrors PLAN.md → Implementation steps)
 
