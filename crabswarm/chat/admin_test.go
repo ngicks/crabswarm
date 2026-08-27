@@ -15,6 +15,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/auth"
 )
 
 // newTestAdminService wires an admin service over a fresh store, gated by a
@@ -35,18 +36,9 @@ func adminNonce(t *testing.T, svc *AdminService, id age.Identity) string {
 	t.Helper()
 	res, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.NilError(t, err)
-	nonce, err := DecryptNonce(res.GetEncryptedNonce(), id)
+	nonce, err := auth.DecryptNonce(res.GetEncryptedNonce(), id)
 	assert.NilError(t, err)
 	return nonce
-}
-
-// expire stamps an outstanding nonce as expired, which is how a test reaches
-// the TTL without waiting it out.
-func expire(t *testing.T, svc *AdminService, nonce string) {
-	t.Helper()
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	svc.nonces[nonce] = time.Now().Add(-time.Second)
 }
 
 func TestNewAdminService_RecipientParsing(t *testing.T) {
@@ -74,9 +66,9 @@ func TestAdminService_NonceRoundTrip(t *testing.T) {
 
 	expiresAt := res.GetExpiresAt().AsTime()
 	assert.Assert(t, expiresAt.After(before))
-	assert.Assert(t, !expiresAt.After(time.Now().Add(nonceTTL)))
+	assert.Assert(t, !expiresAt.After(time.Now().Add(auth.NonceTTL)))
 
-	nonce, err := DecryptNonce(res.GetEncryptedNonce(), id)
+	nonce, err := auth.DecryptNonce(res.GetEncryptedNonce(), id)
 	assert.NilError(t, err)
 	assert.Assert(t, nonce != "")
 
@@ -93,10 +85,10 @@ func TestAdminService_NonceIsNotReadableByAnotherIdentity(t *testing.T) {
 	res, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.NilError(t, err)
 
-	_, err = DecryptNonce(res.GetEncryptedNonce(), other)
+	_, err = auth.DecryptNonce(res.GetEncryptedNonce(), other)
 	assert.ErrorContains(t, err, "decrypting admin nonce")
 
-	_, err = DecryptNonce([]byte("not an age file"), other)
+	_, err = auth.DecryptNonce([]byte("not an age file"), other)
 	assert.ErrorContains(t, err, "decrypting admin nonce")
 }
 
@@ -109,13 +101,6 @@ func TestAdminService_RejectsSpentNonce(t *testing.T) {
 		assert.NilError(t, err)
 
 		_, err = svc.ListRooms(t.Context(), &chatv1.ListRoomsRequest{Nonce: nonce})
-		assert.Equal(t, status.Code(err), codes.PermissionDenied)
-	})
-
-	t.Run("an expired nonce is refused", func(t *testing.T) {
-		nonce := adminNonce(t, svc, id)
-		expire(t, svc, nonce)
-		_, err := svc.ListRooms(t.Context(), &chatv1.ListRoomsRequest{Nonce: nonce})
 		assert.Equal(t, status.Code(err), codes.PermissionDenied)
 	})
 
@@ -190,25 +175,11 @@ func TestAdminService_OverGRPC(t *testing.T) {
 
 	challenge, err := client.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.NilError(t, err)
-	nonce, err := DecryptNonce(challenge.GetEncryptedNonce(), id)
+	nonce, err := auth.DecryptNonce(challenge.GetEncryptedNonce(), id)
 	assert.NilError(t, err)
 
 	rooms, err := client.ListRooms(t.Context(), &chatv1.ListRoomsRequest{Nonce: nonce})
 	assert.NilError(t, err)
 	assert.Equal(t, len(rooms.GetRooms()), 1)
 	assert.Equal(t, rooms.GetRooms()[0].GetName(), "/work")
-}
-
-func TestAdminService_OutstandingNoncesAreBounded(t *testing.T) {
-	svc, _ := newTestAdminService(t)
-
-	for range maxOutstandingNonces + 10 {
-		_, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
-		assert.NilError(t, err)
-	}
-
-	svc.mu.Lock()
-	outstanding := len(svc.nonces)
-	svc.mu.Unlock()
-	assert.Equal(t, outstanding, maxOutstandingNonces)
 }

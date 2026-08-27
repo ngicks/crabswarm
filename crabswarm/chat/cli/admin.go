@@ -12,7 +12,7 @@ import (
 	"filippo.io/age"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
-	"github.com/ngicks/crabswarm/crabswarm/chat"
+	"github.com/ngicks/crabswarm/crabswarm/chat/auth"
 )
 
 // The admin RPCs are not gated by a token but by possession of an age identity
@@ -67,7 +67,7 @@ func DecryptNonce(path string, encrypted []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parsing the admin identity file %q: %w", path, err)
 	}
-	nonce, err := chat.DecryptNonce(encrypted, identities...)
+	nonce, err := auth.DecryptNonce(encrypted, identities...)
 	if err != nil {
 		return "", fmt.Errorf(
 			"decrypting the admin challenge with %q: %w\n"+
