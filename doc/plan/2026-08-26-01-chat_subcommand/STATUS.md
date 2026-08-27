@@ -1,9 +1,10 @@
 # STATUS — `crabswarm chat` subcommand
 
-**Current state:** Plan FINALIZED (2026-08-27) — idea gate confirmed,
-D1–D18 decided, traceability gate passed. Ready to implement; no code
-written. One deliberate implementation-time confirmation remains: C3
-(cmdman query CLI surface + devenv mount layout; external to this repo).
+**Current state:** IMPLEMENTED (2026-08-27) — steps 1–9 all landed on
+feat-add-agent-chat with unit + e2e coverage; awaiting user review. C3
+was confirmed empirically against the local cmdman v0.0.23 source
+(see DECISION.md [automatic] entries: query surface + capture-pane
+fallback via `logs --tail`).
 
 ## Checklist
 
@@ -15,20 +16,20 @@ written. One deliberate implementation-time confirmation remains: C3
       confirmation by design)
 - [x] Traceability gate walked (clause→step table in PLAN.md; all owned)
 - [x] D1 "supersede" enacted: old agent_swarming STATUS.md marked superseded
-- [ ] Implementation (steps 1–9 in PLAN.md; not started)
-  - [ ] 1. D17 proto rename + `ngicks.crabswarm.chat.v1` schema
-  - [ ] 2. D14 SQLite store; D10(a)-(c) resolution rules; D12 double-join no-op; D20(a) member state column
-  - [ ] 3. D11(a)-(b) cmdman-compose provider; D10(d) work_dir⇒room mapping
-  - [ ] 4. D3 service on existing daemon; D8(c) token interceptor; D15 Broadcast; D18 lazy reap
-  - [ ] 5. D7 age nonce challenge; D16 RegisterMember; D4(d) formation edits
-  - [ ] 6. D9 notifier interface + D19 send-keys-only adapter; D20(b)
+- [x] Implementation (steps 1–9 in PLAN.md)
+  - [x] 1. D17 proto rename + `ngicks.crabswarm.chat.v1` schema
+  - [x] 2. D14 SQLite store; D10(a)-(c) resolution rules; D12 double-join no-op; D20(a) member state column
+  - [x] 3. D11(a)-(b) cmdman-compose provider; D10(d) work_dir⇒room mapping
+  - [x] 4. D3 service on existing daemon; D8(c) token interceptor; D15 Broadcast; D18 lazy reap
+  - [x] 5. D7 age nonce challenge; D16 RegisterMember; D4(d) formation edits
+  - [x] 6. D9 notifier interface + D19 send-keys-only adapter; D20(b)
         idle-only injection + D20(c) capture-pane guard (native adapters
         handed off to chat_channels_spike — see HANDOFF.md)
-  - [ ] 7. D5(a)-(b) CLI verbs; D8(b) token metadata; D15 broadcast verb
-  - [ ] 8. D5(c) skill + per-harness hook wiring (claude plugin, codex
+  - [x] 7. D5(a)-(b) CLI verbs; D8(b) token metadata; D15 broadcast verb
+  - [x] 8. D5(c) skill + per-harness hook wiring (claude plugin, codex
         hooks.json): join, D20(a) state reporting, D9 turn-boundary
         reinforcement
-  - [ ] 9. e2e: delivery, collision addressing, room isolation, D12 double-join, D11(a) rejection
+  - [x] 9. e2e: delivery, collision addressing, room isolation, D12 double-join, D11(a) rejection
 
 ## Done
 
@@ -43,7 +44,7 @@ written. One deliberate implementation-time confirmation remains: C3
 
 ## In progress
 
-- Nothing. Planning complete.
+- Nothing. Implementation complete; awaiting user review.
 
 ## Blocked / needs decision
 
@@ -53,5 +54,8 @@ written. One deliberate implementation-time confirmation remains: C3
 
 ## Next action
 
-- Begin Step 1 (D17 proto rename + chat schema) when the user is ready to
-  implement.
+- User review of the implementation; then fold HANDOFF.md (native
+  notification adapters) into the issue backlog if desired.
+- Untested-in-environment items: web playwright e2e (browser binary
+  missing here) and the Codex hook wiring (no Codex session available;
+  marked best-effort in plugin/README.md).
