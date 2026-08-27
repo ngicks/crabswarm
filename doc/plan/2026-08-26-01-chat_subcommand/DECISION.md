@@ -262,3 +262,37 @@ user resolves it.
   fallback.
 - **Rejected:** keystroke-injection-only (brittle, visible); hooks+polling
   only (idle agents stay unaware).
+
+### C3 resolution — cmdman query surface confirmed from source [automatic] [2026-08-27]
+- **Context:** C3 was reserved as an implementation-time confirmation with
+  the user; the user is away for this run, so the surface was confirmed
+  empirically against the local cmdman source
+  (~/gitrepo/github.com/ngicks/cmdman/main) and the installed CLI (v0.0.23).
+- **Confirmed facts:**
+  - `$CMDMAN_CMD_ID` is set per spawned command to the command's own ID
+    (cmdman/config/env.go WithCommandContextEnv).
+  - Token → info: `cmdman inspect <ID> --format '{{json .Config}}'`;
+    `.dir` is the working directory (⇒ room) and
+    `.labels["cmdman.compose.project"]` is the compose project (⇒ team;
+    absent for non-compose commands ⇒ provider rejects the token).
+  - Nudge: `cmdman send-keys <ID> '<text>' Enter` (default mode; a
+    non-key-name token is sent as literal bytes, `Enter` translates to CR).
+- **Provider consequence:** a token that `cmdman inspect` cannot resolve,
+  or that resolves without a compose-project label, is unknown ⇒ join
+  rejected.
+
+### Capture-pane guard fallback — logs --tail text scan [automatic] [2026-08-27]
+- **Problem:** the snapshot guard before keystroke injection assumed a
+  capture-pane-like CLI. cmdman has an internal VT screen snapshot
+  (monitor/terminal_screen.go) but exposes it only through the streaming
+  `attach`; there is NO one-shot screen-dump command.
+- **Choice:** the send-keys notifier guards with
+  `cmdman logs --tail <N>` (recent PTY output playback) and text-scans it
+  for dialog markers (permission prompt / question UI strings) before
+  injecting; combined with the idle-only state gate this covers the race
+  window. The guard sits behind the notifier interface so a true
+  screen-snapshot surface (if cmdman grows one) can replace it without
+  touching callers.
+- **Rejected:** opening an attach stream just to grab the repaint frame
+  (long-lived interactive protocol, heavy for a pre-send check); skipping
+  the guard entirely (blind injection was already rejected).
