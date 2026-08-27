@@ -296,3 +296,19 @@ user resolves it.
 - **Rejected:** opening an attach stream just to grab the repaint frame
   (long-lived interactive protocol, heavy for a pre-send check); skipping
   the guard entirely (blind injection was already rejected).
+
+### D21. Harness-state vocabulary aligned to cmdman [user] [2026-08-28]
+- **Choice:** rename the harness-state vocabulary everywhere to mirror
+  `cmdman status set working|waiting|done`: `running`→`working`,
+  `waiting_input`→`waiting`, `idle`→`done`. Applies to the proto enum
+  (`HARNESS_STATE_WORKING=1|WAITING=2|DONE=3`, renumbered to cmdman's
+  order), the store's `MemberState` strings, the CLI words for
+  `chat report-state`, the hook definitions, and docs. The derived flag
+  `chat read --idle-when-empty` became `--done-when-empty` (judgment
+  call: the flag name is part of the same vocabulary).
+- **Rationale:** user directive 2026-08-28; one shared vocabulary across
+  cmdman and crabswarm chat. Renumbering is safe per the repo's
+  no-backward-compatibility rule (never deployed).
+- **Rejected:** keeping the old wire values while renaming only the CLI
+  words (two vocabularies, one per layer); migrating stored rows (no
+  deployment exists to migrate).

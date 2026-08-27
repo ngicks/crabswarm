@@ -148,9 +148,9 @@ service ChatService {
   // Leave withdraws attendance. The daemon also lazily reaps a member
   // whose token no longer resolves via the provider (D18).
   rpc Leave(LeaveRequest) returns (LeaveResponse);
-  // ReportState records the member's harness state (idle | running |
-  // waiting_input), fed by harness hooks; the send-keys notifier only
-  // nudges idle members (D20).
+  // ReportState records the member's harness state (working | waiting |
+  // done, aligned to `cmdman status set` per D21), fed by harness hooks;
+  // the send-keys notifier only nudges done members (D20).
   rpc ReportState(ReportStateRequest) returns (ReportStateResponse);
 }
 
@@ -257,7 +257,7 @@ Each step is independently verifiable; later steps depend on earlier ones.
 2. **Store.** `crabswarm/chat/store.go`: SQLite-backed (modernc driver)
    rooms/teams/members/inboxes with the collision rules (unique name per
    team; `<team>/<name>` resolution; bare-name own-team-first), a member
-   state column (idle/running/waiting_input, D20a), and the `chat.db`
+   state column (working/waiting/done per D21, D20a), and the `chat.db`
    config key. Unit tests for resolution, double-join no-op, and restart
    survival. Delivers: D10 (a)–(c), D12, D14, D20 (a) storage.
 3. **Provider.** `crabswarm/chat/provider.go`: `TeamInfoProvider`
@@ -280,7 +280,7 @@ Each step is independently verifiable; later steps depend on earlier ones.
 6. **Notifier.** `crabswarm/chat/notify.go`: `Notifier` interface (kept
    pluggable per D9) with **only the cmdman `send-keys` adapter in v1**
    (D19), gated per D20: inject only into members whose reported state is
-   idle, and capture-pane + dialog-marker text scan immediately before
+   done (D21), and capture-pane + dialog-marker text scan immediately before
    injection. Member state column + `ReportState` handling land with
    steps 2/4. Native adapters (claude, opencode, channel-server) are spun
    off to `doc/plan/2026-08-27-01-chat_channels_spike` — see HANDOFF.md.

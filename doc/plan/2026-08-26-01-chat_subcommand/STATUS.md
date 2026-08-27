@@ -30,6 +30,9 @@ fallback via `logs --tail`).
         hooks.json): join, D20(a) state reporting, D9 turn-boundary
         reinforcement
   - [x] 9. e2e: delivery, collision addressing, room isolation, D12 double-join, D11(a) rejection
+- [x] Post-review: D21 harness-state vocabulary aligned to
+      `cmdman status set working|waiting|done` (proto enum renumbered,
+      store strings, CLI words, `--done-when-empty` flag, hooks, docs)
 
 ## Done
 
@@ -55,7 +58,8 @@ fallback via `logs --tail`).
 ## Next action
 
 - User review of the implementation; then fold HANDOFF.md (native
-  notification adapters) into the issue backlog if desired.
+  notification adapters; buf generate template unification) into the
+  issue backlog if desired.
 - Untested-in-environment items: web playwright e2e (browser binary
   missing here) and the Codex hook wiring (no Codex session available;
   marked best-effort in plugin/README.md).
