@@ -1,5 +1,5 @@
 {
-  "description": "crabswarm chat wiring for Codex. Replace /path/to/crabswarm with this checkout before use; see plugin/README.md. Best-effort and unverified.",
+  "version": 1,
   "hooks": {
     "SessionStart": [
       {
@@ -24,7 +24,7 @@
         ]
       }
     ],
-    "PermissionRequest": [
+    "Notification": [
       {
         "hooks": [
           {
@@ -41,13 +41,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/crabswarm/plugin/scripts/chat-inbox-hint.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/chat-inbox-hint.sh\"",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "crabswarm chat report-state running >/dev/null 2>&1 || true",
-            "timeout": 5
           }
         ]
       }
@@ -57,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/crabswarm/plugin/scripts/chat-stop-drain.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/chat-stop-drain.sh\"",
             "timeout": 10,
             "statusMessage": "Checking the crabswarm chat inbox..."
           }

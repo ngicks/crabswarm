@@ -81,10 +81,11 @@ type hookScriptResult struct {
 }
 
 // chatHookScriptPath locates a hook script inside the checkout under test,
-// which is the very file plugin/hooks/hooks.json points a harness at.
+// which is the very file apm-package/crabswarm-chat/hooks/hooks.json points a
+// harness at.
 func chatHookScriptPath(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join(repoRoot(), "plugin", "scripts", name)
+	path := filepath.Join(repoRoot(), "apm-package", "crabswarm-chat", "scripts", name)
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("locate hook script %s: %v", name, err)
 	}

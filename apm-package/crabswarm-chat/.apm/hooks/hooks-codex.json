@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "hooks": {
     "SessionStart": [
       {
@@ -23,7 +24,7 @@
         ]
       }
     ],
-    "Notification": [
+    "PermissionRequest": [
       {
         "hooks": [
           {
@@ -40,8 +41,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/chat-inbox-hint.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/chat-inbox-hint.sh\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "crabswarm chat report-state running >/dev/null 2>&1 || true",
+            "timeout": 5
           }
         ]
       }
@@ -51,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/chat-stop-drain.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/chat-stop-drain.sh\"",
             "timeout": 10,
             "statusMessage": "Checking the crabswarm chat inbox..."
           }

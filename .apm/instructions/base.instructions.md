@@ -24,6 +24,7 @@ Tools to swarm claude(, codex and others!)
 .
 ├── AGENTS.md
 ├── api             API definition and generated code / related type definitions. proto schema basically sit here.
+├── apm-package     APM packages this repo publishes; `crabswarm-chat` wires a harness into its chat room (hooks + skill, claude and codex targets).
 ├── bin             git-ignore'd bin dir.
 ├── cmd             Entry point. cobra subcommand structure.
 │   └── crabswarm
@@ -35,7 +36,6 @@ Tools to swarm claude(, codex and others!)
 ├── internal        internal helper packages (libver, loggerfactory, templateutil, ...).
 ├── pkg
 │   └── claudehook  helper for claude code hook. Same code can be resued for codex.
-├── plugin          claude code defintion. Basic part can be reused for codex.
 └── web             Preact SPA for `crabswarm preview`, embedded via go:embed as seekable-zstd tar (dist.tar.zst committed).
 ```
 
