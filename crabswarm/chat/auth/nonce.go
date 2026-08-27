@@ -1,11 +1,6 @@
-// Package auth proves that a caller holds the operator's age identity.
-//
-// age encrypts but does not sign, so the proof is "you could read what only
-// you can read": the daemon hands out a nonce encrypted to the configured
-// recipient and accepts it back in plaintext, once. This package owns the
-// challenge itself — issuing, expiring and spending nonces, and the two
-// halves of the encryption — while the transport that carries it decides what
-// a refusal looks like on the wire.
+// Nonce issuing and spending, and the two halves of the age encryption the
+// challenge travels in.
+
 package auth
 
 import (

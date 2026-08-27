@@ -2,10 +2,8 @@ package chat
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
-	"filippo.io/age"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -20,82 +18,82 @@ import (
 // minting tokens for humans no provider vouches for.
 //
 // Its caller is not identified by a token: an agent holds one of those. It is
-// identified by possession of the age identity file matching the configured
-// admin recipient, proven per call by the nonce challenge — age encrypts but
-// does not sign, so the proof is "you could read what only you can read".
-// GetNonce hands out a nonce encrypted to the recipient and every other RPC
-// carries it back in plaintext.
+// identified per call by the credential its [AdminAuthenticator] accepts, which
+// the caller sends as the bearer credential of the call's authorization
+// metadata. How that credential is obtained and judged is entirely the
+// authenticator's business; this service only asks.
 //
-// With no recipient configured nothing can prove that possession, so every RPC
+// With no authenticator configured nothing can prove anything, so every RPC
 // here fails; see [NewAdminService].
 type AdminService struct {
 	chatv1.UnimplementedChatAdminServiceServer
 
-	store     *Store
-	recipient age.Recipient
-	logger    *slog.Logger
-	nonces    *auth.Nonces
+	store  *Store
+	auth   AdminAuthenticator
+	logger *slog.Logger
+}
+
+// AdminChallenge is what [AdminAuthenticator.Challenge] hands a caller to
+// answer.
+type AdminChallenge = auth.Challenge
+
+// AdminAuthenticator decides whether the caller of an admin RPC may perform it.
+//
+// Authenticate reads the caller's credential out of ctx itself — it arrives as
+// the incoming call's bearer metadata — and returns nil when the caller may
+// proceed. A refusal must be a gRPC status the service can return as it is,
+// since only the authenticator knows what a caller could have presented
+// instead; anything else is reported as Internal.
+//
+// Challenge issues whatever the caller must answer to obtain a credential. An
+// authenticator whose credentials are minted elsewhere has no challenge step
+// and returns a status carrying codes.Unimplemented, which reaches the caller
+// as the answer that there is nothing to fetch.
+type AdminAuthenticator interface {
+	Challenge(ctx context.Context) (AdminChallenge, error)
+	Authenticate(ctx context.Context) error
 }
 
 var _ chatv1.ChatAdminServiceServer = (*AdminService)(nil)
 
 // NewAdminService returns the ChatAdminService implementation over store,
-// gated by the age recipient named by adminRecipient — the "age1..." public
-// key of the identity file the host operator keeps outside the mounts
-// participants see. A nil logger discards logs.
+// gated by authenticator. A nil logger discards logs.
 //
-// An empty adminRecipient is not an error: it is a daemon that was never given
-// an admin key, and it leaves every admin RPC failing with FailedPrecondition
-// rather than refusing to serve chat at all. A non-empty one that does not
-// parse IS an error, so a typo in the config is caught at startup instead of at
-// the first admin call.
-//
-// Only native age recipients are accepted, not the ssh keys the age CLI also
-// understands: the config names one recipient string, and an ssh recipient
-// would drag in its own key-format parsing for no gain here.
+// A nil authenticator is not an error: it is a daemon that was never given a
+// way to recognise its operator, and it leaves every admin RPC failing with
+// FailedPrecondition rather than refusing to serve chat at all.
 func NewAdminService(
 	store *Store,
-	adminRecipient string,
+	authenticator AdminAuthenticator,
 	logger *slog.Logger,
-) (*AdminService, error) {
+) *AdminService {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	var recipient age.Recipient
-	if adminRecipient != "" {
-		parsed, err := age.ParseX25519Recipient(adminRecipient)
-		if err != nil {
-			return nil, fmt.Errorf("parsing chat admin recipient %q: %w", adminRecipient, err)
-		}
-		recipient = parsed
-	}
-	return &AdminService{
-		store:     store,
-		recipient: recipient,
-		logger:    logger,
-		nonces:    auth.NewNonces(),
-	}, nil
+	return &AdminService{store: store, auth: authenticator, logger: logger}
 }
 
-// GetNonce issues a challenge encrypted to the configured admin recipient. It
-// is the one admin RPC that proves nothing: the challenge is readable only by
-// the identity file, so handing it to a caller who cannot decrypt it tells them
-// nothing they did not already know.
+// GetNonce hands back whatever the configured authenticator wants the caller to
+// answer. It is the one admin RPC that proves nothing, which is why it is the
+// one that may be called without a credential: a challenge only its intended
+// reader can use tells anyone else nothing they did not already know.
+//
+// Unimplemented from the authenticator reaches the caller unchanged: it is the
+// answer that this daemon has no challenge step, not a failure.
 func (a *AdminService) GetNonce(
-	_ context.Context,
+	ctx context.Context,
 	_ *chatv1.GetNonceRequest,
 ) (*chatv1.GetNonceResponse, error) {
-	if a.recipient == nil {
+	if a.auth == nil {
 		return nil, adminNotConfigured()
 	}
-	nonce, expiresAt := a.nonces.Issue()
-	payload, err := auth.EncryptNonce(a.recipient, nonce)
+	challenge, err := a.auth.Challenge(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, authStatus(err)
 	}
 	return &chatv1.GetNonceResponse{
-		EncryptedNonce: payload,
-		ExpiresAt:      timestamppb.New(expiresAt),
+		EncryptedNonce: challenge.Payload,
+		ExpiresAt:      timestamppb.New(challenge.ExpiresAt),
 	}, nil
 }
 
@@ -106,21 +104,26 @@ func (a *AdminService) GetNonce(
 // terms still costs a fresh credential. Tying it to the outcome would buy
 // nothing: the round trip is one call in the CLI.
 //
-// A missing credential, a malformed one and a wrong one are all the same
-// PermissionDenied: which it was is not information a caller who cannot present
-// one should get.
+// What counts as a refusal is the authenticator's to say; this only makes sure
+// an unconfigured daemon answers before one is consulted.
 func (a *AdminService) authenticate(ctx context.Context) error {
-	if a.recipient == nil {
+	if a.auth == nil {
 		return adminNotConfigured()
 	}
-	credential, ok := auth.BearerFromContext(ctx)
-	if !ok || !a.nonces.Verify(credential) {
-		return status.Error(codes.PermissionDenied,
-			"admin credential is missing, unknown or expired; "+
-				"get a fresh nonce with GetNonce and send it as "+
-				"\"authorization: Bearer <nonce>\"")
+	if err := a.auth.Authenticate(ctx); err != nil {
+		return authStatus(err)
 	}
 	return nil
+}
+
+// authStatus passes an authenticator's own status through untouched — it is the
+// only party that knows what the caller could have presented instead — and
+// reports anything else as Internal.
+func authStatus(err error) error {
+	if _, ok := status.FromError(err); ok {
+		return err
+	}
+	return status.Error(codes.Internal, err.Error())
 }
 
 // adminNotConfigured is the refusal every admin RPC gives when the daemon has

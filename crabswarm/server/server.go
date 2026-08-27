@@ -18,6 +18,7 @@ import (
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/hook/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat"
+	"github.com/ngicks/crabswarm/crabswarm/chat/auth"
 	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 	"google.golang.org/grpc"
 )
@@ -136,11 +137,18 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// Built before the listener is served so a misspelled admin recipient stops
 	// the daemon here, with the config key named, instead of at whatever later
-	// moment the operator first tries an admin call.
-	adminSvc, err := chat.NewAdminService(chatStore, s.chatCfg.AdminRecipient, s.logger)
-	if err != nil {
-		return err
+	// moment the operator first tries an admin call. No recipient at all is not
+	// a misspelling: it leaves the admin half with no authenticator, which is
+	// what makes it refuse every call with "configure a key first".
+	var adminAuth chat.AdminAuthenticator
+	if s.chatCfg.AdminRecipient != "" {
+		ageAuth, err := auth.NewAgeNonce(s.chatCfg.AdminRecipient)
+		if err != nil {
+			return err
+		}
+		adminAuth = ageAuth
 	}
+	adminSvc := chat.NewAdminService(chatStore, adminAuth, s.logger)
 
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()))
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})

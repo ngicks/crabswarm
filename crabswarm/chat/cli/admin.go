@@ -53,7 +53,7 @@ func expandHome(path string) (string, error) {
 }
 
 // DecryptNonce decrypts an admin challenge with the age identity file at path
-// and returns the nonce to echo back.
+// and returns the nonce to send back as the bearer credential.
 //
 // The ciphertext is read as a binary age file, which is what the daemon puts in
 // the response's bytes field; nothing here armors or dearmors it.

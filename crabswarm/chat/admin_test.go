@@ -26,9 +26,9 @@ func newTestAdminService(t *testing.T) (*AdminService, *age.X25519Identity) {
 	id, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
 	store, _ := newTestStore(t)
-	svc, err := NewAdminService(store, id.Recipient().String(), nil)
+	ageAuth, err := auth.NewAgeNonce(id.Recipient().String())
 	assert.NilError(t, err)
-	return svc, id
+	return NewAdminService(store, ageAuth, nil), id
 }
 
 // adminCtx is the context an admin RPC sees when the caller sent credential as
@@ -52,19 +52,11 @@ func adminNonce(t *testing.T, svc *AdminService, id age.Identity) string {
 	return nonce
 }
 
-func TestNewAdminService_RecipientParsing(t *testing.T) {
+func TestNewAdminService_WithoutAnAuthenticator(t *testing.T) {
 	store, _ := newTestStore(t)
 
-	t.Run("a malformed recipient fails construction", func(t *testing.T) {
-		_, err := NewAdminService(store, "age1-not-a-key", nil)
-		assert.ErrorContains(t, err, "chat admin recipient")
-	})
-
-	t.Run("no recipient constructs an admin-less service", func(t *testing.T) {
-		svc, err := NewAdminService(store, "", nil)
-		assert.NilError(t, err)
-		assert.Assert(t, svc.recipient == nil)
-	})
+	svc := NewAdminService(store, nil, nil)
+	assert.Assert(t, svc.auth == nil)
 }
 
 func TestAdminService_NonceRoundTrip(t *testing.T) {
@@ -140,14 +132,13 @@ func TestAdminService_RejectsSpentNonce(t *testing.T) {
 
 func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 	store, _ := newTestStore(t)
-	svc, err := NewAdminService(store, "", nil)
-	assert.NilError(t, err)
+	svc := NewAdminService(store, nil, nil)
 
-	_, err = svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
+	_, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 
-	// Even carrying a nonce-shaped argument: there is nothing to verify it
-	// against, so the refusal is the configuration's, not the caller's.
+	// Even carrying a credential: there is nothing to verify it against, so the
+	// refusal is the configuration's, not the caller's.
 	_, err = svc.ListRooms(adminCtx(t, "anything"), &chatv1.ListRoomsRequest{})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 
@@ -164,7 +155,7 @@ func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 
 // TestAdminService_OverGRPC exercises the daemon's wiring: the admin service
 // shares the socket and the interceptor with ChatService, yet its calls carry
-// no token — the nonce in the request is the whole credential.
+// no token — the bearer credential in the call's metadata is the whole of it.
 func TestAdminService_OverGRPC(t *testing.T) {
 	svc, id := newTestAdminService(t)
 	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
@@ -194,4 +185,66 @@ func TestAdminService_OverGRPC(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(rooms.GetRooms()), 1)
 	assert.Equal(t, rooms.GetRooms()[0].GetName(), "/work")
+}
+
+// noChallengeAuth stands in for an authenticator whose credentials are minted
+// elsewhere — an OIDC issuer, say — so there is nothing for the daemon to hand
+// out and nothing for a caller to fetch.
+type noChallengeAuth struct{ credential string }
+
+var _ AdminAuthenticator = (*noChallengeAuth)(nil)
+
+func (a *noChallengeAuth) Challenge(context.Context) (AdminChallenge, error) {
+	return AdminChallenge{}, status.Error(codes.Unimplemented,
+		"this daemon takes credentials from an external issuer; there is no challenge")
+}
+
+func (a *noChallengeAuth) Authenticate(ctx context.Context) error {
+	credential, ok := auth.BearerFromContext(ctx)
+	if !ok || credential != a.credential {
+		return status.Error(codes.PermissionDenied, "unknown credential")
+	}
+	return nil
+}
+
+// An authenticator with no challenge step says so through GetNonce, and the
+// service passes that answer along untouched rather than reporting a failure of
+// its own. The RPCs that do the work keep working: a credential the issuer
+// minted needs no challenge to become usable.
+func TestAdminService_ChallengelessAuthenticator(t *testing.T) {
+	store, _ := newTestStore(t)
+	svc := NewAdminService(store, &noChallengeAuth{credential: "issued-token"}, nil)
+
+	_, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
+	assert.Equal(t, status.Code(err), codes.Unimplemented)
+
+	_, err = svc.ListRooms(adminCtx(t, "issued-token"), &chatv1.ListRoomsRequest{})
+	assert.NilError(t, err)
+
+	_, err = svc.ListRooms(adminCtx(t, "some other token"), &chatv1.ListRoomsRequest{})
+	assert.Equal(t, status.Code(err), codes.PermissionDenied)
+}
+
+// A credential that is not a bearer credential at all is refused the same way a
+// wrong one is, and never reaches the authenticator as something to check.
+func TestAdminService_RefusesMalformedAuthorization(t *testing.T) {
+	svc, _ := newTestAdminService(t)
+
+	for _, tc := range []struct {
+		name   string
+		header string
+	}{
+		{"another scheme", "Basic dXNlcjpwYXNz"},
+		{"a scheme and nothing else", "Bearer"},
+		{"an empty credential", "Bearer "},
+		{"no scheme at all", "just-the-nonce"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := metadata.NewIncomingContext(t.Context(),
+				metadata.Pairs(auth.AuthorizationMetadataKey, tc.header))
+
+			_, err := svc.ListRooms(ctx, &chatv1.ListRoomsRequest{})
+			assert.Equal(t, status.Code(err), codes.PermissionDenied)
+		})
+	}
 }
