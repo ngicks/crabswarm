@@ -144,7 +144,7 @@ func TestService_ReportState(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, stored.State, StateWaiting)
 
-	// An unfilled state must not silently mark the harness idle.
+	// An unfilled state must not silently mark the harness done.
 	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{})
 	assert.Equal(t, status.Code(err), codes.InvalidArgument)
 	stored, err = svc.store.Member(t.Context(), "tok-a")

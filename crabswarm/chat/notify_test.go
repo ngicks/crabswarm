@@ -21,8 +21,8 @@ func stubCmdmanLogs(t *testing.T, out string) string {
 		"if [ \"$1\" = logs ]; then printf '%s\\n' '"+out+"'; fi\nexit 0\n")
 }
 
-// idleAgent is a member in the one state that invites a nudge.
-func idleAgent() Member {
+// doneAgent is a member in the one state that invites a nudge.
+func doneAgent() Member {
 	return Member{
 		Token: "0123456789abcdef",
 		Name:  "ana",
@@ -37,10 +37,10 @@ func bob() Sender {
 	return Sender{Name: "bob", Team: "beta", Room: "/work"}
 }
 
-func TestSendKeysNotifier_NudgesIdleAgent(t *testing.T) {
+func TestSendKeysNotifier_NudgesDoneAgent(t *testing.T) {
 	bin := stubCmdmanLogs(t, idlePrompt)
 
-	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), idleAgent(), bob(), "hi")
+	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
 
 	// Both invocations are the contract with cmdman; pin them.
@@ -58,15 +58,15 @@ func TestSendKeysNotifier_SkipsBusyMember(t *testing.T) {
 		name  string
 		state MemberState
 	}{
-		{"running", StateWorking},
-		{"waiting for input", StateWaiting},
-		// Only idle invites a nudge, so a state this notifier cannot read is
+		{"working", StateWorking},
+		{"waiting", StateWaiting},
+		// Only done invites a nudge, so a state this notifier cannot read is
 		// declined rather than assumed harmless.
 		{"unset", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			bin := stubCmdmanLogs(t, idlePrompt)
-			m := idleAgent()
+			m := doneAgent()
 			m.State = tc.state
 
 			err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), m, bob(), "hi")
@@ -80,7 +80,7 @@ func TestSendKeysNotifier_SkipsHuman(t *testing.T) {
 	// A human's token is daemon-issued and names no cmdman command, so there is
 	// no terminal to type into.
 	bin := stubCmdmanLogs(t, idlePrompt)
-	m := idleAgent()
+	m := doneAgent()
 	m.Kind = KindHuman
 
 	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), m, bob(), "hi")
@@ -94,7 +94,7 @@ func TestSendKeysNotifier_SkipsWhenTerminalShowsDialog(t *testing.T) {
 	// this pins that a hit stops the injection.
 	bin := stubCmdmanLogs(t, "Do you want to make this edit?\n❯ 1. Yes\n  2. No")
 
-	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), idleAgent(), bob(), "hi")
+	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
 
 	args := stubArgs(t, bin)
@@ -129,7 +129,7 @@ func TestSendKeysNotifier_SkipsWhenSnapshotFails(t *testing.T) {
 	bin := stubCmdman(t, logArgs+
 		"if [ \"$1\" = logs ]; then echo 'error: no log for command' >&2; exit 1; fi\nexit 0\n")
 
-	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), idleAgent(), bob(), "hi")
+	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err, "a declined nudge is not an error")
 
 	args := stubArgs(t, bin)
@@ -142,7 +142,7 @@ func TestSendKeysNotifier_InjectionFailureIsAnError(t *testing.T) {
 		"if [ \"$1\" = send-keys ]; then echo 'error: command is not running' >&2; exit 1; fi\n"+
 		"exit 0\n")
 
-	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), idleAgent(), bob(), "hi")
+	err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.Assert(t, err != nil, "want the injection failure reported")
 	assert.Assert(t, strings.Contains(err.Error(), "not running"), "got %v", err)
 }
@@ -175,7 +175,7 @@ func TestSendKeysNotifier_SanitizesSenderAddress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			bin := stubCmdmanLogs(t, idlePrompt)
 
-			err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), idleAgent(), tc.from, "hi")
+			err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), doneAgent(), tc.from, "hi")
 			assert.NilError(t, err)
 
 			// The stub logs one line per invocation, so a break inside the
@@ -193,7 +193,7 @@ func TestSendKeysNotifier_RejectsMalformedTokenWithoutExec(t *testing.T) {
 	for _, token := range []string{"", "--tail", "tok id", "tok\nid"} {
 		t.Run(token, func(t *testing.T) {
 			bin := stubCmdmanLogs(t, idlePrompt)
-			m := idleAgent()
+			m := doneAgent()
 			m.Token = token
 
 			err := NewSendKeysNotifier(bin, nil).Notify(t.Context(), m, bob(), "hi")
@@ -210,7 +210,7 @@ func TestSendKeysNotifier_NudgesAfterTheRequestIsCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	err := NewSendKeysNotifier(bin, nil).Notify(ctx, idleAgent(), bob(), "hi")
+	err := NewSendKeysNotifier(bin, nil).Notify(ctx, doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
 	assert.Equal(t, len(stubArgs(t, bin)), 2)
 }

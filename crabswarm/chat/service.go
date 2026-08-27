@@ -13,8 +13,8 @@ import (
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-// Notifier is told that a member has mail, so an idle harness can be woken
-// instead of waiting for its agent to poll. It is the seam the keystroke
+// Notifier is told that a member has mail, so a harness that has finished its
+// turn can be woken instead of waiting for its agent to poll. It is the seam the keystroke
 // injector plugs into; the service only reports deliveries.
 //
 // Notify is called once per recipient, inside the RPC that delivered the
@@ -206,7 +206,7 @@ func defaultName(token string) string {
 
 // memberState maps the reported harness state onto the stored one. The
 // unspecified state is rejected rather than defaulted: a hook that failed to
-// fill it in must not silently mark its agent idle, which is the one state that
+// fill it in must not silently mark its agent done, which is the one state that
 // invites a keystroke nudge.
 func memberState(state chatv1.HarnessState) (MemberState, error) {
 	switch state {

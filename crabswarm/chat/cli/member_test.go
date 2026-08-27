@@ -101,16 +101,16 @@ func TestClient_ReadQuietPrintsNothingOnAnEmptyInbox(t *testing.T) {
 }
 
 // A drain that found nothing ends the turn, so the same process reports the
-// member idle — the state that lets the daemon nudge it when the next message
+// member done — the state that lets the daemon nudge it when the next message
 // arrives. Messages in hand mean the opposite: the turn is about to continue.
 func TestClient_ReadDoneWhenEmpty(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		messages []*chatv1.Message
 		want     string
-		wantIdle bool
+		wantDone bool
 	}{
-		{"an empty inbox reports idle", nil, "", true},
+		{"an empty inbox reports done", nil, "", true},
 		{
 			"messages report nothing",
 			[]*chatv1.Message{pendingMessage()},
@@ -127,7 +127,7 @@ func TestClient_ReadDoneWhenEmpty(t *testing.T) {
 				ReadOptions{Quiet: true, DoneWhenEmpty: true}))
 			assert.Equal(t, out.String(), tc.want)
 
-			if !tc.wantIdle {
+			if !tc.wantDone {
 				assert.Assert(t, fake.state == nil)
 				return
 			}
@@ -172,12 +172,12 @@ func TestClient_ReportStateIsSilent(t *testing.T) {
 	fake := &fakeChatService{}
 	d := serveTestDaemon(t, fake, nil)
 
-	assert.NilError(t, d.client.ReportState(t.Context(), "tok-a", "waiting_input"))
+	assert.NilError(t, d.client.ReportState(t.Context(), "tok-a", "waiting"))
 	assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_WAITING)
 }
 
 // An unknown state word never reaches the daemon: reporting the wrong state is
-// worse than reporting none, since idle is the one state that invites a
+// worse than reporting none, since done is the one state that invites a
 // keystroke nudge.
 func TestClient_ReportStateRejectsUnknownStateLocally(t *testing.T) {
 	fake := &fakeChatService{}

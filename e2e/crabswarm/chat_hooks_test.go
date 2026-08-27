@@ -329,7 +329,7 @@ func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 	assertInboxStillHoldsTheMail(t, cfg)
 }
 
-// Nothing waiting: the turn ends as it would have without the hook. The idle
+// Nothing waiting: the turn ends as it would have without the hook. The done
 // report the same read makes on the way is not observable from outside the
 // daemon — TestClient_ReadDoneWhenEmpty pins that against the RPC — so what is
 // asserted here is the half a harness sees.
@@ -531,7 +531,7 @@ func assertSelfContainedHookEntry(t *testing.T, event string, h chatHookEntry) {
 
 // The Codex file is the Claude one with its two differences and nothing else:
 // `Notification` becomes `PermissionRequest` (Codex's approval dialog is the
-// only prompt it announces), and `PostToolUse` reports running a second time,
+// only prompt it announces), and `PostToolUse` reports working a second time,
 // since a tool call completing is Codex's only signal that a dialog resolved.
 // Everything the two share is compared verbatim, so a fix applied to one file
 // and forgotten in the other fails here.
@@ -551,20 +551,21 @@ func TestChatHooks_CodexMirrorsClaude(t *testing.T) {
 	if got := codex.commands("Notification"); got != nil {
 		t.Errorf("codex wires Notification %v; Codex has no such event", got)
 	}
-	if got := codex.command(t, "PermissionRequest"); !strings.Contains(got, "waiting_input") {
-		t.Errorf("codex PermissionRequest command = %q, want it to report waiting_input", got)
+	permission := codex.command(t, "PermissionRequest")
+	if !strings.Contains(permission, "report-state waiting") {
+		t.Errorf("codex PermissionRequest command = %q, want it to report waiting", permission)
 	}
 
 	postToolUse := codex.commands("PostToolUse")
 	if len(postToolUse) != 2 {
 		t.Fatalf("codex wires %d PostToolUse commands, want the delivery plus the "+
-			"running report: %v", len(postToolUse), postToolUse)
+			"working report: %v", len(postToolUse), postToolUse)
 	}
 	if got, want := postToolUse[0], claude.commands("PostToolUse")[0]; got != want {
 		t.Errorf("codex PostToolUse delivery = %q, want the Claude one %q", got, want)
 	}
-	if !strings.Contains(postToolUse[1], "report-state running") {
-		t.Errorf("codex second PostToolUse command = %q, want the running report",
+	if !strings.Contains(postToolUse[1], "report-state working") {
+		t.Errorf("codex second PostToolUse command = %q, want the working report",
 			postToolUse[1])
 	}
 }

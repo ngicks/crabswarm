@@ -319,7 +319,7 @@ func TestChat(t *testing.T) {
 	}
 
 	// report-state is driven by harness hooks, so it stays silent.
-	if got := runChat(t, cfg, "tok-ana", "report-state", "idle"); got != "" {
+	if got := runChat(t, cfg, "tok-ana", "report-state", "done"); got != "" {
 		t.Errorf("report-state wrote %q, want nothing", got)
 	}
 
@@ -578,7 +578,7 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 	// would ask the stub cmdman about the token and reap a member it does not
 	// know. The human is left alone across all of them.
 	for range 3 {
-		runChat(t, cfg, token, "report-state", "idle")
+		runChat(t, cfg, token, "report-state", "done")
 		if got := runChat(t, cfg, token, "read"); got != "no pending messages\n" {
 			t.Errorf("human read = %q, want an empty inbox", got)
 		}
