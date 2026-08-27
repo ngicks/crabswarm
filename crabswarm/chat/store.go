@@ -1,6 +1,3 @@
-// Package chat implements the room/team/member state behind the chat service:
-// who is in which room, how a member is addressed, and the pending messages
-// waiting for each member to read them.
 package chat
 
 import (
