@@ -4,7 +4,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
+	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
 	"github.com/ngicks/crabswarm/crabswarm/cli"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
@@ -40,7 +40,7 @@ func runPreviewList(cmd *cobra.Command, _ []string, flagConfig, flagAddr string)
 	}
 
 	client := preview.NewClient(pcfg.Addr)
-	resp, err := client.ListRoots(ctx, connect.NewRequest(&crabpreviewv1.ListRootsRequest{}))
+	resp, err := client.ListRoots(ctx, connect.NewRequest(&previewv1.ListRootsRequest{}))
 	if err != nil {
 		return cli.PreviewDaemonError(err, pcfg.DaemonName)
 	}

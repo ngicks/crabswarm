@@ -1,7 +1,7 @@
 import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useTree } from "../api/queries.js";
-import { EntryType, type TreeEntry } from "../gen/crabpreview/v1/preview_service_pb.js";
+import { EntryType, type TreeEntry } from "../gen/ngicks/crabswarm/preview/v1/preview_service_pb.js";
 import { docHref, isImagePath, joinPath } from "../routes.js";
 import { drawerOpen, revealTarget } from "../signals/ui.js";
 import { openRaw } from "./OpenRawDialog.js";

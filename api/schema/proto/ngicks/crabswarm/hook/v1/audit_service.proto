@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package ngicks.crabswarm.hook.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/hook/v1;hookv1";
+
+// AuditService provides audit logging for hook events.
+service AuditService {
+  rpc ReportHookInputEvent(ReportHookInputEventRequest) returns (ReportHookInputEventResponse);
+}
+
+message ReportHookInputEventRequest {
+  google.protobuf.Timestamp timestamp = 1;
+  bytes hook_input = 2;
+}
+
+message ReportHookInputEventResponse {}

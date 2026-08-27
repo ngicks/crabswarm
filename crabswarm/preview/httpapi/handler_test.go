@@ -14,8 +14,8 @@ import (
 	"connectrpc.com/connect"
 	"gotest.tools/v3/assert"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
-	"github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1/crabpreviewv1connect"
+	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
+	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1/previewv1connect"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 	"github.com/ngicks/crabswarm/crabswarm/preview/httpapi"
 )
@@ -25,7 +25,7 @@ import (
 // exercised through a real HTTP server (rather than httptest.NewServer) because
 // the streaming test needs the service's live watcher supervision, which
 // Serve drives; readiness uses the same /healthz contract EnsureDaemon polls.
-func startService(t *testing.T) (crabpreviewv1connect.PreviewServiceClient, string) {
+func startService(t *testing.T) (previewv1connect.PreviewServiceClient, string) {
 	t.Helper()
 	addr := freeAddr(t)
 	svc, err := preview.New(nil, preview.Config{Addr: addr, DaemonName: "test"})
@@ -107,7 +107,7 @@ func TestAddRootTreeAndDocument(t *testing.T) {
 
 	addResp, err := client.AddRoot(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.AddRootRequest{Path: dir}),
+		connect.NewRequest(&previewv1.AddRootRequest{Path: dir}),
 	)
 	assert.NilError(t, err)
 	rootID := addResp.Msg.GetRoot().GetId()
@@ -116,7 +116,7 @@ func TestAddRootTreeAndDocument(t *testing.T) {
 	// Re-adding the same path is idempotent: same id.
 	addResp2, err := client.AddRoot(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.AddRootRequest{Path: dir}),
+		connect.NewRequest(&previewv1.AddRootRequest{Path: dir}),
 	)
 	assert.NilError(t, err)
 	assert.Equal(t, addResp2.Msg.GetRoot().GetId(), rootID)
@@ -124,21 +124,21 @@ func TestAddRootTreeAndDocument(t *testing.T) {
 	// GetTree: dirs first, then files, with markdown flagged.
 	treeResp, err := client.GetTree(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.GetTreeRequest{RootId: rootID, Path: "."}),
+		connect.NewRequest(&previewv1.GetTreeRequest{RootId: rootID, Path: "."}),
 	)
 	assert.NilError(t, err)
 	entries := treeResp.Msg.GetEntries()
 	assert.Equal(t, len(entries), 2)
 	assert.Equal(t, entries[0].GetName(), "sub")
-	assert.Equal(t, entries[0].GetType(), crabpreviewv1.EntryType_ENTRY_TYPE_DIR)
+	assert.Equal(t, entries[0].GetType(), previewv1.EntryType_ENTRY_TYPE_DIR)
 	assert.Equal(t, entries[1].GetName(), "readme.md")
-	assert.Equal(t, entries[1].GetType(), crabpreviewv1.EntryType_ENTRY_TYPE_FILE)
+	assert.Equal(t, entries[1].GetType(), previewv1.EntryType_ENTRY_TYPE_FILE)
 	assert.Equal(t, entries[1].GetIsMarkdown(), true)
 
 	// GetDocument: rendered HTML, title from first h1, TOC, and mtime.
 	docResp, err := client.GetDocument(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.GetDocumentRequest{RootId: rootID, Path: "readme.md"}),
+		connect.NewRequest(&previewv1.GetDocumentRequest{RootId: rootID, Path: "readme.md"}),
 	)
 	assert.NilError(t, err)
 	assert.Equal(t, docResp.Msg.GetTitle(), "Title")
@@ -159,11 +159,11 @@ func TestGetDocumentTitleFallsBackToFileName(t *testing.T) {
 	)
 	addResp, err := client.AddRoot(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.AddRootRequest{Path: dir}),
+		connect.NewRequest(&previewv1.AddRootRequest{Path: dir}),
 	)
 	assert.NilError(t, err)
 
-	docResp, err := client.GetDocument(ctx, connect.NewRequest(&crabpreviewv1.GetDocumentRequest{
+	docResp, err := client.GetDocument(ctx, connect.NewRequest(&previewv1.GetDocumentRequest{
 		RootId: addResp.Msg.GetRoot().GetId(),
 		Path:   "no-title.md",
 	}))
@@ -187,7 +187,7 @@ func TestGetDocumentRejectsTraversalAndMissingRoot(t *testing.T) {
 
 	addResp, err := client.AddRoot(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.AddRootRequest{Path: dir}),
+		connect.NewRequest(&previewv1.AddRootRequest{Path: dir}),
 	)
 	assert.NilError(t, err)
 	rootID := addResp.Msg.GetRoot().GetId()
@@ -199,7 +199,7 @@ func TestGetDocumentRejectsTraversalAndMissingRoot(t *testing.T) {
 		"symlink":  filepath.Join("escape", "secret.md"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := client.GetDocument(ctx, connect.NewRequest(&crabpreviewv1.GetDocumentRequest{
+			_, err := client.GetDocument(ctx, connect.NewRequest(&previewv1.GetDocumentRequest{
 				RootId: rootID,
 				Path:   rel,
 			}))
@@ -209,7 +209,7 @@ func TestGetDocumentRejectsTraversalAndMissingRoot(t *testing.T) {
 	}
 
 	// Unknown root is not-found.
-	_, err = client.GetDocument(ctx, connect.NewRequest(&crabpreviewv1.GetDocumentRequest{
+	_, err = client.GetDocument(ctx, connect.NewRequest(&previewv1.GetDocumentRequest{
 		RootId: "does-not-exist",
 		Path:   "readme.md",
 	}))
@@ -235,7 +235,7 @@ func TestRawServesFileAndRejectsTraversal(t *testing.T) {
 
 	addResp, err := client.AddRoot(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.AddRootRequest{Path: dir}),
+		connect.NewRequest(&previewv1.AddRootRequest{Path: dir}),
 	)
 	assert.NilError(t, err)
 	rootID := addResp.Msg.GetRoot().GetId()
@@ -304,7 +304,7 @@ func TestWatchEventsStreamsFileChange(t *testing.T) {
 	dir := t.TempDir()
 	addResp, err := client.AddRoot(
 		ctx,
-		connect.NewRequest(&crabpreviewv1.AddRootRequest{Path: dir}),
+		connect.NewRequest(&previewv1.AddRootRequest{Path: dir}),
 	)
 	assert.NilError(t, err)
 	rootID := addResp.Msg.GetRoot().GetId()
@@ -336,12 +336,12 @@ func TestWatchEventsStreamsFileChange(t *testing.T) {
 
 	stream, err := client.WatchEvents(
 		streamCtx,
-		connect.NewRequest(&crabpreviewv1.WatchEventsRequest{}),
+		connect.NewRequest(&previewv1.WatchEventsRequest{}),
 	)
 	assert.NilError(t, err)
 	defer func() { _ = stream.Close() }()
 
-	found := make(chan *crabpreviewv1.DocChanged, 1)
+	found := make(chan *previewv1.DocChanged, 1)
 	go func() {
 		for stream.Receive() {
 			if dc := stream.Msg().

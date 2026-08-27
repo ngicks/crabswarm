@@ -4,7 +4,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
+	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
 	"github.com/ngicks/crabswarm/crabswarm/cli"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
@@ -40,7 +40,7 @@ func runPreviewRemove(cmd *cobra.Command, args []string, flagConfig, flagAddr st
 	}
 
 	client := preview.NewClient(pcfg.Addr)
-	_, err = client.RemoveRoot(ctx, connect.NewRequest(&crabpreviewv1.RemoveRootRequest{
+	_, err = client.RemoveRoot(ctx, connect.NewRequest(&previewv1.RemoveRootRequest{
 		RootId: args[0],
 	}))
 	if err != nil {

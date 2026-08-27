@@ -4,7 +4,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1/crabpreviewv1connect"
+	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1/previewv1connect"
 )
 
 // NewClient returns a connect-go client for the preview daemon that listens at
@@ -13,8 +13,8 @@ import (
 // transport is plain HTTP — the previewer serves cleartext and relies on the
 // tailnet/LAN boundary for confidentiality, so the local CLI does not attempt
 // TLS.
-func NewClient(addr string) crabpreviewv1connect.PreviewServiceClient {
-	return crabpreviewv1connect.NewPreviewServiceClient(http.DefaultClient, baseURL(addr))
+func NewClient(addr string) previewv1connect.PreviewServiceClient {
+	return previewv1connect.NewPreviewServiceClient(http.DefaultClient, baseURL(addr))
 }
 
 // baseURL turns a listen address into the base URL the local CLI dials, e.g.

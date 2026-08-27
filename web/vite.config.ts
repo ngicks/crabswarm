@@ -14,7 +14,7 @@ export default defineConfig({
   plugins: [preact(), tailwindcss()],
   server: {
     proxy: {
-      "/crabpreview.v1.PreviewService": { target: backend, changeOrigin: true },
+      "/ngicks.crabswarm.preview.v1.PreviewService": { target: backend, changeOrigin: true },
       "/raw": { target: backend, changeOrigin: true },
       "/assets": { target: backend, changeOrigin: true },
       "/healthz": { target: backend, changeOrigin: true },

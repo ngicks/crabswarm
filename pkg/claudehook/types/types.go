@@ -8,7 +8,7 @@ import (
 	"maps"
 	"strings"
 
-	pb "github.com/ngicks/crabswarm/api/gen/proto/go/sdktypes/v1"
+	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/sdktypes/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/structpb"

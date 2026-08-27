@@ -18,8 +18,8 @@ package types
 import (
 	"encoding/json"
 
-	pb "github.com/ngicks/crabswarm/api/gen/proto/go/sdktypes/v1"
-	codexpb "github.com/ngicks/crabswarm/api/gen/proto/go/sdktypes/v1/ext/codex"
+	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/sdktypes/v1"
+	codexpb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/sdktypes/v1/ext/codex"
 	"github.com/ngicks/crabswarm/pkg/claudehook/types/ext/codex"
 )
 

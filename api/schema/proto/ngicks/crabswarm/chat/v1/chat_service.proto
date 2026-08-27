@@ -1,0 +1,225 @@
+syntax = "proto3";
+
+package ngicks.crabswarm.chat.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1;chatv1";
+
+// ChatService brokers per-room chat between the agents (and humans) attending
+// a room. Every RPC carries the caller's identity token as the gRPC metadata
+// "x-crabswarm-token"; the daemon resolves it to a member through the
+// team-info provider or the admin-registered member table, and rejects a token
+// known to neither. Room and team are never chosen by the caller: they follow
+// from the token.
+service ChatService {
+  // Join declares attendance under the given name. The server derives the
+  // caller's room and team from the token, so an unknown token is rejected
+  // with NotFound. Joining again with the same token is a no-op success.
+  rpc Join(JoinRequest) returns (JoinResponse);
+  // Send delivers a message to one addressed member of the caller's room.
+  rpc Send(SendRequest) returns (SendResponse);
+  // Broadcast delivers a message to every member of the caller's room,
+  // including teams other than the caller's.
+  rpc Broadcast(BroadcastRequest) returns (BroadcastResponse);
+  // Read returns the caller's pending messages and consumes them, so a
+  // message is handed out exactly once.
+  rpc Read(ReadRequest) returns (ReadResponse);
+  // ListMembers lists every member of the caller's room, team-qualified.
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  // Leave withdraws the caller's attendance.
+  rpc Leave(LeaveRequest) returns (LeaveResponse);
+  // ReportState records the state of the harness the caller runs under. It is
+  // driven by harness hooks and gates keystroke-injection nudges, which are
+  // only safe to deliver while the harness is idle.
+  rpc ReportState(ReportStateRequest) returns (ReportStateResponse);
+}
+
+// ChatAdminService carries the host-side operations that participants must not
+// be able to perform: inspecting every room, editing team formation, and
+// minting tokens for humans who have no provider entry.
+//
+// Access is proven by possession of an age identity file kept on host disk,
+// outside the mounts that participants see. Since age encrypts but does not
+// sign, the proof is a challenge-response: GetNonce hands back a nonce
+// encrypted to the configured admin recipient, and every other RPC here
+// carries the decrypted nonce.
+service ChatAdminService {
+  // GetNonce issues a challenge nonce encrypted to the configured admin age
+  // recipient.
+  rpc GetNonce(GetNonceRequest) returns (GetNonceResponse);
+  // ListRooms lists every room the daemon knows and who attends it.
+  rpc ListRooms(ListRoomsRequest) returns (ListRoomsResponse);
+  // MoveMember moves a member to another team within the same room.
+  rpc MoveMember(MoveMemberRequest) returns (MoveMemberResponse);
+  // RegisterMember registers a member that no provider can vouch for -- a
+  // human on the host -- and returns the token they present to ChatService.
+  rpc RegisterMember(RegisterMemberRequest) returns (RegisterMemberResponse);
+}
+
+// HarnessState is the state of the CLI harness a member runs under, as
+// reported by that harness's hooks.
+enum HarnessState {
+  HARNESS_STATE_UNSPECIFIED = 0;
+  // Idle: the harness is waiting for a new prompt. The only state in which a
+  // keystroke-injection nudge is safe.
+  HARNESS_STATE_IDLE = 1;
+  // Running: the harness is working through a turn.
+  HARNESS_STATE_RUNNING = 2;
+  // WaitingInput: the harness is showing a dialog (permission request or a
+  // question) and would read a nudge as the answer to it.
+  HARNESS_STATE_WAITING_INPUT = 3;
+}
+
+// Member is one participant of a room.
+message Member {
+  // Name is unique within Team, but may collide across the teams of a room;
+  // a colliding name is addressed as "team/name".
+  string name = 1;
+  // Team groups members within a room. The cmdman-compose provider derives it
+  // from the compose project of the caller's command.
+  string team = 2;
+  // Room is the chat room. The cmdman-compose provider derives it from the
+  // working directory of the caller's command.
+  string room = 3;
+}
+
+// Room is a chat room and its current attendance.
+message Room {
+  // Name identifies the room.
+  string name = 1;
+  // Members lists everyone attending, across all teams of the room.
+  repeated Member members = 2;
+}
+
+// Message is one delivered chat message.
+message Message {
+  // From is the sender, as resolved at send time.
+  Member from = 1;
+  // Text is the message body.
+  string text = 2;
+  // SentAt is when the daemon accepted the message.
+  google.protobuf.Timestamp sent_at = 3;
+}
+
+message JoinRequest {
+  // Name is the name to attend under, unique within the caller's team.
+  string name = 1;
+  // Reserved for self-reported native notify endpoints, which arrive with the
+  // native notifier adapters.
+  reserved 2, 3;
+}
+
+message JoinResponse {
+  // Self is the joined member, carrying the room and team the server derived
+  // from the token.
+  Member self = 1;
+}
+
+message SendRequest {
+  // To addresses one member of the caller's room, as "name" or "team/name".
+  // A bare name resolves within the caller's team first, then room-wide if it
+  // is unique there; a name that collides across teams needs the "team/"
+  // prefix.
+  string to = 1;
+  // Text is the message body.
+  string text = 2;
+}
+
+message SendResponse {
+  // Recipient is the member the address resolved to.
+  Member recipient = 1;
+}
+
+message BroadcastRequest {
+  // Text is the message body.
+  string text = 1;
+}
+
+message BroadcastResponse {
+  // DeliveredCount is how many members the message was queued for, the caller
+  // excluded.
+  int32 delivered_count = 1;
+}
+
+message ReadRequest {}
+
+message ReadResponse {
+  // Messages are the caller's pending messages, oldest first. Returning them
+  // consumes them.
+  repeated Message messages = 1;
+}
+
+message ListMembersRequest {}
+
+message ListMembersResponse {
+  repeated Member members = 1;
+}
+
+message LeaveRequest {}
+
+message LeaveResponse {}
+
+message ReportStateRequest {
+  // State is the harness state to record for the caller.
+  HarnessState state = 1;
+}
+
+message ReportStateResponse {}
+
+message GetNonceRequest {}
+
+message GetNonceResponse {
+  // EncryptedNonce is the challenge nonce encrypted to the configured admin
+  // age recipient. The caller decrypts it with the matching identity file and
+  // echoes the plaintext back as the nonce of the next admin RPC.
+  bytes encrypted_nonce = 1;
+  // ExpiresAt is when the challenge stops being accepted.
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message ListRoomsRequest {
+  // Nonce is the decrypted challenge nonce from GetNonce.
+  string nonce = 1;
+}
+
+message ListRoomsResponse {
+  repeated Room rooms = 1;
+}
+
+message MoveMemberRequest {
+  // Nonce is the decrypted challenge nonce from GetNonce.
+  string nonce = 1;
+  // Room is the room the member attends.
+  string room = 2;
+  // Team is the member's current team.
+  string team = 3;
+  // Name is the member's name within Team.
+  string name = 4;
+  // ToTeam is the team to move the member into, within the same room.
+  string to_team = 5;
+}
+
+message MoveMemberResponse {
+  // Member is the moved member, carrying its new team.
+  Member member = 1;
+}
+
+message RegisterMemberRequest {
+  // Nonce is the decrypted challenge nonce from GetNonce.
+  string nonce = 1;
+  // Room is the room to register the member into.
+  string room = 2;
+  // Team is the team to register the member under.
+  string team = 3;
+  // Name is the name to register, unique within Team.
+  string name = 4;
+}
+
+message RegisterMemberResponse {
+  // Member is the registered member.
+  Member member = 1;
+  // Token is the daemon-issued identity token the registered member presents
+  // as "x-crabswarm-token" on ChatService RPCs. It is shown only here.
+  string token = 2;
+}

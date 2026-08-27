@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	pb "github.com/ngicks/crabswarm/api/gen/proto/go/crabhook/v1"
+	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/hook/v1"
 	"google.golang.org/grpc"
 )
 
