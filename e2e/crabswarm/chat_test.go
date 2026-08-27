@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
@@ -51,14 +52,24 @@ func defaultStubCommands() []stubCommand {
 	}
 }
 
-// stubCmdmanScript renders a stub cmdman answering the one surface the chat
-// broker uses: `inspect <ID> --format '{{json .Config}}'`. Each token in
-// commands reports its own directory and compose project; anything else fails
-// the way cmdman fails on an unknown ID, since the daemon reads that exact
-// wording as "this token names nothing" rather than "the lookup broke".
+// stubCmdmanScript renders a stub cmdman answering the two surfaces the chat
+// broker uses: `inspect <ID> --format '{{json .Config}}'` for placement, and
+// `status set|delete` for the state display. Each token in commands reports its
+// own directory and compose project; an unknown ID fails the way cmdman fails
+// on one, since the daemon reads that exact wording as "this token names
+// nothing" rather than "the lookup broke".
+//
+// Status invocations are recorded beside the stub rather than answered, so a
+// test can read back what the daemon published. The stub finds the log relative
+// to $0, which keeps it independent of the environment the daemon runs it with.
 func stubCmdmanScript(commands []stubCommand) string {
 	var b strings.Builder
 	b.WriteString(`#!/bin/sh
+if [ "$1" = "status" ]; then
+	shift
+	printf '%s\n' "$*" >> "$(dirname "$0")/status.log"
+	exit 0
+fi
 if [ "$1" != "inspect" ]; then
 	echo "stub cmdman: unsupported invocation: $*" >&2
 	exit 1
@@ -80,6 +91,27 @@ else
 fi
 `)
 	return b.String()
+}
+
+// stubStatus returns the `cmdman status` invocations the daemon made through
+// the stub, oldest first, with the leading "status" already stripped. No log
+// file means the daemon never published anything.
+func stubStatus(t *testing.T, cfgPath string) []string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(cfgPath), "status.log"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		t.Fatalf("reading stub status log: %v", err)
+	}
+	var lines []string
+	for l := range strings.SplitSeq(strings.TrimSpace(string(b)), "\n") {
+		if l != "" {
+			lines = append(lines, l)
+		}
+	}
+	return lines
 }
 
 // chatEnviron is the environment the crabswarm processes below run with: the
@@ -674,5 +706,63 @@ func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "member not found") {
 		t.Errorf("stderr = %q, want an unresolved address", stderr)
+	}
+}
+
+// The state an agent reports reaches cmdman's status display, which is where an
+// operator watching their commands sees it. The daemon drives the real CLI
+// surface — `cmdman status set <state> <id> --detail ...` and
+// `cmdman status delete <id>` — so the stub records invocations verbatim rather
+// than the test asserting against a Go paraphrase of them.
+func TestChat_MirrorsMemberStateOntoCmdmanStatus(t *testing.T) {
+	cfg := startChatDaemon(t)
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "report-state", "working")
+	runChat(t, cfg, "tok-ana", "report-state", "waiting")
+	runChat(t, cfg, "tok-ana", "leave")
+
+	got := stubStatus(t, cfg)
+	want := []string{
+		// A fresh member is done: attendance is declared before there is work.
+		"set done tok-ana --detail crabswarm chat",
+		"set working tok-ana --detail crabswarm chat",
+		"set waiting tok-ana --detail crabswarm chat",
+		"delete tok-ana",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("cmdman status invocations =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// A human is registered by the host, so their token is the daemon's own secret
+// and names no cmdman command. It must never reach a cmdman command line, not
+// even to be rejected there.
+func TestChat_NeverPublishesAHumanToken(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+
+	token := registerChatHuman(t, cfg, identity, chatRoom, "humans", "yuki")
+	runChat(t, cfg, token, "join", "--name", "yuki")
+	runChat(t, cfg, token, "report-state", "working")
+	runChat(t, cfg, token, "leave")
+
+	// An agent doing the same thing proves the recording works at all, so the
+	// human half below cannot pass by nothing being recorded.
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+
+	published := stubStatus(t, cfg)
+	if want := []string{
+		"set done tok-ana --detail crabswarm chat",
+	}; !slices.Equal(
+		published,
+		want,
+	) {
+		t.Errorf("cmdman status invocations = %q, want only the agent's %q", published, want)
+	}
+	for _, line := range published {
+		if strings.Contains(line, token) {
+			t.Errorf("cmdman status invocation %q carries the human's token", line)
+		}
 	}
 }
