@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm hook exec 'crabswarm chat report-state running' '{{/* records nothing, so a failed report never blocks a turn */}}'",
+            "command": "crabswarm hook exec 'crabswarm chat report-state working' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm hook exec 'crabswarm chat report-state waiting_input' '{{/* records nothing, so a failed report never blocks a turn */}}'",
+            "command": "crabswarm hook exec 'crabswarm chat report-state waiting' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]
@@ -46,7 +46,7 @@
           },
           {
             "type": "command",
-            "command": "crabswarm hook exec 'crabswarm chat report-state running' '{{/* records nothing, so a failed report never blocks a turn */}}'",
+            "command": "crabswarm hook exec 'crabswarm chat report-state working' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]
@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm hook exec '{{if .Input.StopHookActive}}crabswarm chat report-state idle{{else}}crabswarm chat read --quiet --idle-when-empty{{end}}' '{{if and .Success .Stdout}}{{blockDecision (printf \"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, reply with `crabswarm chat send <name|team/name> <text>`, then finish.\\n\\n%s\" .Stdout)}}{{end}}'",
+            "command": "crabswarm hook exec '{{if .Input.StopHookActive}}crabswarm chat report-state done{{else}}crabswarm chat read --quiet --done-when-empty{{end}}' '{{if and .Success .Stdout}}{{blockDecision (printf \"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, reply with `crabswarm chat send <name|team/name> <text>`, then finish.\\n\\n%s\" .Stdout)}}{{end}}'",
             "timeout": 10,
             "statusMessage": "Checking the crabswarm chat inbox..."
           }

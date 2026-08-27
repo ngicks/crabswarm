@@ -92,10 +92,10 @@ to tolerate.
 | Event | Runs | Purpose |
 | --- | --- | --- |
 | `SessionStart` | `crabswarm chat join` | Attend the room. Idempotent, so the duplicate SessionStart a resumed session fires is harmless. |
-| `UserPromptSubmit` | `crabswarm chat report-state running` | A turn began. |
-| `Notification` | `crabswarm chat report-state waiting_input` | A prompt is open (see the caveat below). |
+| `UserPromptSubmit` | `crabswarm chat report-state working` | A turn began. |
+| `Notification` | `crabswarm chat report-state waiting` | A prompt is open (see the caveat below). |
 | `PostToolUse` | `crabswarm chat read --quiet` | Deliver messages that arrived mid-turn as `additionalContext`. |
-| `Stop` | `crabswarm chat read --quiet --idle-when-empty`, or `report-state idle` | Drain the inbox; block the stop when it had mail, otherwise report idle. |
+| `Stop` | `crabswarm chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; block the stop when it had mail, otherwise report done. |
 
 ### How `hook exec` shapes the decision
 
@@ -135,7 +135,7 @@ meantime.
 
 The same fact shapes the Stop hook: when `stop_hook_active` is set, an earlier
 Stop hook already blocked this turn, so the command template renders the
-`report-state idle` branch and does **not** read at all. A second drain would
+`report-state done` branch and does **not** read at all. A second drain would
 either loop the agent or, once the harness stops honoring the block, swallow
 messages it never displayed. Leaving them in the inbox costs a late read;
 draining them with nowhere to put them costs the message.
@@ -151,21 +151,21 @@ functions set, so that holds as long as no other function is called.
 
 One `hook exec` invocation runs one command, and the Stop hook has two things
 to do that must not come apart: deliver whatever the drain found, and report the
-member idle exactly when the turn is really ending. `crabswarm chat read` takes
+member done exactly when the turn is really ending. `crabswarm chat read` takes
 both as flags so a single process decides:
 
 - `--quiet` drops the empty-inbox line, so the hook can tell mail from no mail
   by whether the output is empty at all. Without it the test would be a string
   comparison against the sentence the renderer prints for an empty inbox, which
   makes a wording nobody thinks of as an interface into one.
-- `--idle-when-empty` reports the member idle when the read handed nothing
-  over. Idle is what re-arms the daemon's terminal nudge, and it is wrong
+- `--done-when-empty` reports the member done when the read handed nothing
+  over. Done is what re-arms the daemon's terminal nudge, and it is wrong
   exactly when the hook is about to block — the turn continues, so the member
-  is running.
+  is still working.
 
-Wiring the idle report as a second hook entry on `Stop` would race: hooks on
+Wiring the done report as a second hook entry on `Stop` would race: hooks on
 one event run concurrently, so the report could land while the delivering path
-is still deciding, and mark a continuing turn idle. Keeping both on the read
+is still deciding, and mark a continuing turn done. Keeping both on the read
 also keeps them honest about failure — a read that could not reach the daemon
 reports nothing, because the daemon that would hear the report is the one that
 did not answer.
@@ -204,22 +204,22 @@ Neither is a block: a decision rides on stdout and there is none, and only exit
 2 blocks an event. So the worst either costs is a noisy line and a late
 delivery.
 
-The last line of defence is outside this package: the daemon nudges an idle
-agent's terminal (`[crabswarm chat] new message from ...`), which the skill
-teaches the agent to answer with `crabswarm chat read`.
+The last line of defence is outside this package: the daemon nudges the terminal
+of an agent that reported `done` (`[crabswarm chat] new message from ...`),
+which the skill teaches the agent to answer with `crabswarm chat read`.
 
 ### Caveat: `Notification` also fires when the session goes idle
 
 Claude Code's `Notification` hook fires both for a permission prompt and for
 the idle prompt some time after a turn ends. This wiring maps both to
-`waiting_input`, which means an idle-prompt notification overwrites the `idle`
-the Stop hook just reported — and the daemon only nudges **idle** members. An
+`waiting`, which means an idle-prompt notification overwrites the `done`
+the Stop hook just reported — and the daemon only nudges **done** members. An
 agent left alone long enough therefore stops receiving terminal nudges until
 its next turn; its messages still arrive, just at the next turn boundary
 instead of immediately.
 
 The refinement is to branch on the event's `notification_type` — a permission
-prompt is `waiting_input`, an idle prompt is `idle`, which is precisely where a
+prompt is `waiting`, an idle prompt is `done`, which is precisely where a
 nudge is meant to land. That needs the exact `notification_type` values
 confirmed against the harness before it is worth shipping, so the simple
 mapping stands for now.
@@ -270,21 +270,21 @@ The wiring:
 | Event | Runs | Purpose |
 | --- | --- | --- |
 | `SessionStart` | `crabswarm chat join` | Attend the room. |
-| `UserPromptSubmit` | `report-state running` | A turn began. |
-| `PermissionRequest` | `report-state waiting_input` | An approval dialog is about to open. |
-| `PostToolUse` | `chat read --quiet`, then `report-state running` | Deliver mid-turn messages; the dialog, if there was one, has resolved. |
-| `Stop` | `chat read --quiet --idle-when-empty`, or `report-state idle` | Drain the inbox; report idle when the stop goes through. |
+| `UserPromptSubmit` | `report-state working` | A turn began. |
+| `PermissionRequest` | `report-state waiting` | An approval dialog is about to open. |
+| `PostToolUse` | `chat read --quiet`, then `report-state working` | Deliver mid-turn messages; the dialog, if there was one, has resolved. |
+| `Stop` | `chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; report done when the stop goes through. |
 
 Two differences from the Claude Code wiring, both deliberate:
 
-- Codex reports `running` again from `PostToolUse`. It has no event for a
+- Codex reports `working` again from `PostToolUse`. It has no event for a
   dialog being answered or dismissed, so a tool call completing is the only
   signal that a `PermissionRequest` resolved. Claude Code needs no such
   workaround.
 - Codex has no `Notification` equivalent; `PermissionRequest` covers the
   dialog case, and nothing covers a session sitting idle.
 
-Codex's `notify` program (`agent-turn-complete`) could report idle redundantly,
+Codex's `notify` program (`agent-turn-complete`) could report `done` redundantly,
 but the Stop hook already does it — no `config.toml` change ships here.
 
 ## Verifying a change
@@ -300,6 +300,6 @@ something over, and that no command reaches back out to a script, to `jq`, to
 `${CLAUDE_PLUGIN_ROOT}` or to the empty-inbox wording.
 
 The flags the Stop hook depends on are covered a level down, in
-`crabswarm/chat/cli/member_test.go`: the idle report a drain makes on an empty
+`crabswarm/chat/cli/member_test.go`: the done report a drain makes on an empty
 inbox is not visible from outside the daemon, so it is asserted against the RPC
 there.
