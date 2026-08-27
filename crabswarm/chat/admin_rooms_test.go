@@ -9,6 +9,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 func TestAdminService_ListRooms(t *testing.T) {
@@ -161,7 +162,7 @@ func TestAdminService_RegisteredMemberChatsAsHuman(t *testing.T) {
 	admin, id := newTestAdminService(t)
 	// The provider fails every lookup: a human's token must never depend on it.
 	provider := &fakeProvider{
-		infos: map[string]TeamInfo{},
+		infos: map[string]resolver.TeamInfo{},
 		err:   errors.New("cmdman: connection refused"),
 	}
 	member := NewService(admin.store, provider, nil, nil)

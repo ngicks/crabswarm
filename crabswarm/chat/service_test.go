@@ -14,6 +14,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 // fakeProvider resolves tokens from a table. A token missing from it is
@@ -21,21 +22,21 @@ import (
 // token instead and stands in for a cmdman that could not be asked at all.
 type fakeProvider struct {
 	mu    sync.Mutex
-	infos map[string]TeamInfo
+	infos map[string]resolver.TeamInfo
 	err   error
 	calls int
 }
 
-func (p *fakeProvider) Resolve(_ context.Context, token string) (TeamInfo, error) {
+func (p *fakeProvider) Resolve(_ context.Context, token string) (resolver.TeamInfo, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.calls++
 	if p.err != nil {
-		return TeamInfo{}, p.err
+		return resolver.TeamInfo{}, p.err
 	}
 	info, ok := p.infos[token]
 	if !ok {
-		return TeamInfo{}, fmt.Errorf("%w: %q", ErrUnknownToken, token)
+		return resolver.TeamInfo{}, fmt.Errorf("%w: %q", resolver.ErrUnknownToken, token)
 	}
 	return info, nil
 }
@@ -44,7 +45,7 @@ func (p *fakeProvider) Resolve(_ context.Context, token string) (TeamInfo, error
 func (p *fakeProvider) vouch(token, room, team string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.infos[token] = TeamInfo{Room: room, Team: team}
+	p.infos[token] = resolver.TeamInfo{Room: room, Team: team}
 }
 
 // forget makes the provider stop knowing token, the way cmdman stops knowing a
@@ -96,7 +97,7 @@ func (n *fakeNotifier) notified() []notification {
 func newTestService(t *testing.T) (*Service, *fakeProvider, *fakeNotifier) {
 	t.Helper()
 	store, _ := newTestStore(t)
-	provider := &fakeProvider{infos: map[string]TeamInfo{}}
+	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
 	notifier := &fakeNotifier{}
 	return NewService(store, provider, notifier, nil), provider, notifier
 }

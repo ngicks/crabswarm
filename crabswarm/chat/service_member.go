@@ -8,6 +8,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+
+	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 // ProviderUnavailableMessage opens the message of the only Unavailable status a
@@ -52,7 +54,7 @@ func (s *Service) Join(
 
 	info, err := s.provider.Resolve(ctx, token)
 	switch {
-	case errors.Is(err, ErrUnknownToken):
+	case errors.Is(err, resolver.ErrUnknownToken):
 		return nil, status.Errorf(codes.NotFound,
 			"no team information for this token: %s", err)
 	case err != nil:

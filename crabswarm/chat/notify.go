@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 // notifyTimeout bounds one whole notification — the snapshot and the injection
@@ -58,11 +60,11 @@ type SendKeysNotifier struct {
 var _ Notifier = (*SendKeysNotifier)(nil)
 
 // NewSendKeysNotifier returns a notifier that shells out to the cmdman binary
-// named by bin. An empty bin means "cmdman", resolved on PATH, as with
-// [NewCmdmanComposeProvider]; a nil logger discards logs.
+// named by bin. An empty bin means "cmdman", resolved on PATH, the same
+// default the token resolver uses; a nil logger discards logs.
 func NewSendKeysNotifier(bin string, logger *slog.Logger) *SendKeysNotifier {
 	if bin == "" {
-		bin = defaultCmdmanBin
+		bin = resolver.DefaultCmdmanBin
 	}
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
@@ -97,7 +99,7 @@ func (n *SendKeysNotifier) Notify(
 			"recipient", who, "state", recipient.State)
 		return nil
 	}
-	if err := validateToken(recipient.Token); err != nil {
+	if err := resolver.ValidateToken(recipient.Token); err != nil {
 		n.logger.Warn("chat: not nudging a member whose token cmdman cannot take",
 			"recipient", who, "err", err)
 		return nil

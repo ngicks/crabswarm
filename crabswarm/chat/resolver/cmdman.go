@@ -1,7 +1,4 @@
-// Package chat brokers the rooms crabswarm participants — agents running in
-// cmdman-managed containers and humans on the host — join to talk to each
-// other.
-package chat
+package resolver
 
 import (
 	"context"
@@ -13,41 +10,10 @@ import (
 	"strings"
 )
 
-// ErrUnknownToken reports that a [TeamInfoProvider] cannot place the token it
-// was given: either it names nothing the provider knows about, or what it
-// names carries no team coordination information.
-//
-// It is deliberately distinct from a lookup that merely failed. A caller may
-// reject the join and reap the member behind an unknown token, but must keep
-// the member across a failed lookup — a missing cmdman, a locked store or a
-// cancelled context says nothing about whether the token is still valid.
-var ErrUnknownToken = errors.New("unknown token")
-
-// TeamInfo is where the holder of an identity token belongs in the chat
-// topology.
-type TeamInfo struct {
-	// Room is the working directory of the command that reported the token.
-	// Everything running in the same directory shares a room.
-	Room string
-	// Team is the name of the compose project the command belongs to. A team
-	// is a name namespace inside a room, so a member whose bare name collides
-	// with another team's is addressed as "<Team>/<name>".
-	Team string
-}
-
-// TeamInfoProvider resolves an identity token to the placement of its holder.
-//
-// Resolve returns an error wrapping [ErrUnknownToken] when the token cannot be
-// placed at all; any other error means the lookup itself failed and carries no
-// verdict about the token.
-type TeamInfoProvider interface {
-	Resolve(ctx context.Context, token string) (TeamInfo, error)
-}
-
-// defaultCmdmanBin is the cmdman binary [CmdmanComposeProvider] shells out to
-// when the caller names none. It is expected on PATH (installed via mise, the
-// same assumption the preview daemon makes).
-const defaultCmdmanBin = "cmdman"
+// DefaultCmdmanBin is the cmdman binary to shell out to when a caller names
+// none. It is expected on PATH (installed via mise, the same assumption the
+// preview daemon makes).
+const DefaultCmdmanBin = "cmdman"
 
 // composeProjectLabel is the label cmdman-compose stamps on every command it
 // brings up, holding the compose project name. A command started outside a
@@ -81,28 +47,25 @@ var tokenPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // direction.
 const notFoundMessage = "no command found"
 
-// CmdmanComposeProvider resolves tokens by asking the cmdman CLI about the
-// command a token identifies: the command's working directory becomes the room
-// and its compose project becomes the team.
+// CmdmanCompose resolves tokens by asking the cmdman CLI about the command a
+// token identifies: the command's working directory becomes the room and its
+// compose project becomes the team.
 //
 // It shells out instead of linking cmdman in. cmdman is an external tool that
 // owns its own store, and its CLI is the only surface it keeps stable; this
-// type is therefore the single place in crabswarm that knows what that surface
-// looks like.
-type CmdmanComposeProvider struct {
+// package is therefore where crabswarm keeps what it knows about that surface.
+type CmdmanCompose struct {
 	bin string
 }
 
-var _ TeamInfoProvider = (*CmdmanComposeProvider)(nil)
-
-// NewCmdmanComposeProvider returns a provider that shells out to the cmdman
-// binary named by bin. An empty bin means "cmdman", resolved on PATH; tests
-// and non-standard installs pass an absolute path.
-func NewCmdmanComposeProvider(bin string) *CmdmanComposeProvider {
+// NewCmdmanCompose returns a resolver that shells out to the cmdman binary
+// named by bin. An empty bin means "cmdman", resolved on PATH; tests and
+// non-standard installs pass an absolute path.
+func NewCmdmanCompose(bin string) *CmdmanCompose {
 	if bin == "" {
-		bin = defaultCmdmanBin
+		bin = DefaultCmdmanBin
 	}
-	return &CmdmanComposeProvider{bin: bin}
+	return &CmdmanCompose{bin: bin}
 }
 
 // Resolve maps the $CMDMAN_CMD_ID a client reported to the placement of the
@@ -113,11 +76,8 @@ func NewCmdmanComposeProvider(bin string) *CmdmanComposeProvider {
 // working directory or no compose project — a command outside a compose
 // project has no team coordination information, so there is nothing to place
 // it against. Every other error means the cmdman lookup itself failed.
-func (p *CmdmanComposeProvider) Resolve(
-	ctx context.Context,
-	token string,
-) (TeamInfo, error) {
-	if err := validateToken(token); err != nil {
+func (p *CmdmanCompose) Resolve(ctx context.Context, token string) (TeamInfo, error) {
+	if err := ValidateToken(token); err != nil {
 		return TeamInfo{}, err
 	}
 
@@ -152,10 +112,7 @@ func (p *CmdmanComposeProvider) Resolve(
 // inspectConfig runs `cmdman inspect <token> --format '{{json .Config}}'` and
 // returns its stdout, classifying a failure as either [ErrUnknownToken] or a
 // genuine lookup error.
-func (p *CmdmanComposeProvider) inspectConfig(
-	ctx context.Context,
-	token string,
-) ([]byte, error) {
+func (p *CmdmanCompose) inspectConfig(ctx context.Context, token string) ([]byte, error) {
 	// Output, not CombinedOutput: stdout has to stay pure JSON, and only
 	// Output records stderr on the [exec.ExitError] the classification reads.
 	out, err := exec.CommandContext(
@@ -182,14 +139,15 @@ func (p *CmdmanComposeProvider) inspectConfig(
 	return nil, fmt.Errorf("cmdman inspect %q: %w", token, err)
 }
 
-// validateToken rejects anything that cannot be a cmdman ID|NAME before it
-// becomes an argv entry.
+// ValidateToken rejects anything that cannot be a cmdman ID|NAME before it
+// becomes an argv entry. Every caller that puts a token on a cmdman command
+// line goes through it, not just [CmdmanCompose.Resolve].
 //
 // A malformed token is wrapped as [ErrUnknownToken] rather than given an error
 // kind of its own: it is permanently unresolvable, so the caller should treat
 // it exactly like a token cmdman does not know. A separate error kind would
 // read as transient and keep such a member around forever.
-func validateToken(token string) error {
+func ValidateToken(token string) error {
 	switch {
 	case token == "":
 		return fmt.Errorf("%w: empty token", ErrUnknownToken)

@@ -11,11 +11,12 @@ import (
 	"google.golang.org/grpc/status"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 // Notifier is told that a member has mail, so a harness that has finished its
-// turn can be woken instead of waiting for its agent to poll. It is the seam the keystroke
-// injector plugs into; the service only reports deliveries.
+// turn can be woken instead of waiting for its agent to poll. It is the seam
+// the keystroke injector plugs into; the service only reports deliveries.
 //
 // Notify is called once per recipient, inside the RPC that delivered the
 // message, with that RPC's context. An implementation that needs to outlive
@@ -50,6 +51,19 @@ const providerCheckTTL = 30 * time.Second
 // Long enough to stay unique among the handful of agents in a room, short
 // enough for another agent to type as an address.
 const tokenNamePrefixLen = 8
+
+// TeamInfoProvider resolves an identity token to the placement of its holder,
+// which is what decides whether the token may attend and where.
+//
+// Resolve returns an error wrapping [resolver.ErrUnknownToken] when the token
+// cannot be placed at all; any other error means the lookup itself failed and
+// carries no verdict about the token. [resolver.CmdmanCompose] is the
+// implementation the daemon runs.
+type TeamInfoProvider interface {
+	Resolve(ctx context.Context, token string) (resolver.TeamInfo, error)
+}
+
+var _ TeamInfoProvider = (*resolver.CmdmanCompose)(nil)
 
 // Service is the member-facing half of the chat broker: the ChatService gRPC
 // implementation over the [Store], gated by the [TeamInfoProvider] that decides
@@ -141,7 +155,7 @@ func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 	case err == nil:
 		s.recordVerified(m.Token)
 		return true
-	case !errors.Is(err, ErrUnknownToken):
+	case !errors.Is(err, resolver.ErrUnknownToken):
 		s.logger.Warn("chat: team-info lookup failed, keeping member",
 			"member", m.Team+"/"+m.Name, "err", err)
 		return true
