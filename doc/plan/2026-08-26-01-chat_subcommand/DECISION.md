@@ -360,3 +360,25 @@ user resolves it.
 - **Rejected:** `internal/` placement (outside importers exist; auth kept
   plain for symmetry); naming both packages "provider"; moving the
   consumer interface down into resolver (would invert the dependency).
+
+### D24. Member state mirrored onto cmdman status [user] [2026-08-28]
+- **Choice:** a `StatusMirror` interface consumed by the Service (Notifier
+  pattern; `NopStatusMirror` default) publishes member state to cmdman:
+  `cmdman status set <state> <token> --detail "crabswarm chat"` on Join
+  and ReportState, `cmdman status delete <token>` on Leave. The D21
+  vocabulary crosses unmapped. Adapter `CmdmanStatusMirror` lives in
+  crabswarm/chat/status.go beside SendKeysNotifier (write-side cmdman
+  adapters sit with their consumer; resolver stays read-only) and guards
+  itself: non-agent members skipped, `resolver.ValidateToken` before any
+  argv, best-effort with detached 3s-timeout writes (Warn on failed Set,
+  Debug on failed Clear — the command is ordinarily gone by Leave).
+  Reap publishes nothing (the cmdman command is already gone).
+  Idempotent re-Join republishes the *stored* state so a restarted
+  cmdman regains the display. `NewService` gained a `mirror` parameter
+  (breaking; all callers updated).
+- **Rationale:** user directive 2026-08-28 — operators watching cmdman
+  should read the same word the room holds.
+- **Rejected:** mirroring from the resolver package (second
+  responsibility in a read-only package); failing RPCs on mirror errors
+  (best-effort like the notifier); mapping table between vocabularies
+  (D21 made them identical).
