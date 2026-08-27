@@ -5,10 +5,10 @@ package chat
 // and yaml tags so the `config` subcommand can marshal it and a project can
 // adopt either file format.
 //
-// There is no Default in this package, unlike the preview sub-config: both
-// fields default to something this package cannot state on its own — the
-// database path is derived per host by the parent config, and an empty binary
-// name already means "cmdman, resolved on PATH".
+// There is no Default in this package, unlike the preview sub-config: every
+// field is either host-derived, which only the parent config can do (the
+// database path), or already meaningful when empty — "cmdman, resolved on
+// PATH", and "no admin key, so no admin RPCs".
 type Config struct {
 	// Db is the path of the SQLite database holding rooms, members and
 	// inboxes. A leading "~" is expanded when the daemon opens the store, so
@@ -18,6 +18,18 @@ type Config struct {
 	// Empty means "cmdman", resolved on PATH; a non-standard install names an
 	// absolute path here.
 	CmdmanBin string `json:"cmdman_bin" yaml:"cmdman_bin"`
+	// AdminRecipient is the age public key ("age1...") the daemon encrypts
+	// admin challenge nonces to — the recipient of the identity file the host
+	// operator keeps outside the mounts participants can see. Empty leaves the
+	// admin RPCs refusing every call: with no key nothing can prove that
+	// possession. A value that does not parse fails daemon startup.
+	AdminRecipient string `json:"admin_recipient" yaml:"admin_recipient"`
+	// AdminIdentityFile is the path of that age identity file, read by the
+	// admin CLI on the host to answer the challenge. It is a client-side
+	// setting the daemon never opens; keeping it in the same block is what
+	// lets one config file describe both ends. A leading "~" is expanded by
+	// the reader.
+	AdminIdentityFile string `json:"admin_identity_file" yaml:"admin_identity_file"`
 }
 
 // PartialConfig is the sparse mirror of [Config], used by the parent crabswarm
@@ -30,8 +42,10 @@ type Config struct {
 //
 //nolint:lll // dual json/yaml tags; one field per line, never wrap tags
 type PartialConfig struct {
-	Db        *string `json:"db,omitzero" yaml:"db,omitempty"`
-	CmdmanBin *string `json:"cmdman_bin,omitzero" yaml:"cmdman_bin,omitempty"`
+	Db                *string `json:"db,omitzero" yaml:"db,omitempty"`
+	CmdmanBin         *string `json:"cmdman_bin,omitzero" yaml:"cmdman_bin,omitempty"`
+	AdminRecipient    *string `json:"admin_recipient,omitzero" yaml:"admin_recipient,omitempty"`
+	AdminIdentityFile *string `json:"admin_identity_file,omitzero" yaml:"admin_identity_file,omitempty"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged [Config].
@@ -43,6 +57,12 @@ func (p PartialConfig) Apply(base Config) Config {
 	}
 	if p.CmdmanBin != nil {
 		base.CmdmanBin = *p.CmdmanBin
+	}
+	if p.AdminRecipient != nil {
+		base.AdminRecipient = *p.AdminRecipient
+	}
+	if p.AdminIdentityFile != nil {
+		base.AdminIdentityFile = *p.AdminIdentityFile
 	}
 	return base
 }

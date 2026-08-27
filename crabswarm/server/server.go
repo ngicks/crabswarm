@@ -130,17 +130,28 @@ func (s *Server) Serve(ctx context.Context) error {
 		slog.String("addr", lis.Addr().String()),
 	)
 
+	// Built before the listener is served so a misspelled admin recipient stops
+	// the daemon here, with the config key named, instead of at whatever later
+	// moment the operator first tries an admin call.
+	adminSvc, err := chat.NewAdminService(chatStore, s.chatCfg.AdminRecipient, s.logger)
+	if err != nil {
+		return err
+	}
+
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()))
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})
-	// The admin half of the chat schema is deliberately not registered yet: its
-	// age challenge is unimplemented, and an unregistered service is a clearer
-	// refusal than one that answers without checking the caller.
 	chatv1.RegisterChatServiceServer(srv, chat.NewService(
 		chatStore,
 		chat.NewCmdmanComposeProvider(s.chatCfg.CmdmanBin),
 		chat.NopNotifier{},
 		s.logger,
 	))
+	// The admin half shares the socket with the member half: it is gated by the
+	// age challenge in its own requests, not by the token interceptor. With no
+	// admin recipient configured it registers anyway and refuses every call,
+	// which tells an operator that they have a key to configure — an
+	// Unimplemented would read as "this daemon is too old".
+	chatv1.RegisterChatAdminServiceServer(srv, adminSvc)
 
 	// Graceful shutdown when context is cancelled (e.g. SIGINT).
 	go func() {

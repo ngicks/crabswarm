@@ -68,8 +68,9 @@ func DefaultConfig() Config {
 		GitRepoBaseDir: defaultGitRepoBaseDir(),
 		Preview:        preview.Default(),
 		// The chat package has no Default of its own: the database path is
-		// host-derived, which only this layer knows how to do, and an empty
-		// cmdman binary already means "resolved on PATH".
+		// host-derived, which only this layer knows how to do, and its other
+		// keys already say something when empty — "cmdman, resolved on PATH"
+		// and "no admin key configured".
 		Chat: chat.Config{Db: defaultChatDbPath()},
 	}
 }

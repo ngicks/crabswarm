@@ -168,30 +168,58 @@ func (s *Store) MoveMember(ctx context.Context, token, team string) (Member, err
 		if err != nil {
 			return fmt.Errorf("moving member: %w", err)
 		}
-		if err := validateName(team, m.Name); err != nil {
-			return fmt.Errorf("moving member %q: %w", m.Name, err)
-		}
-		if m.Team == team {
-			moved = m
-			return nil
-		}
-		if _, err := memberByName(ctx, tx, m.Room, team, m.Name); err == nil {
-			return fmt.Errorf("moving %q into team %q: %w", m.Name, team, ErrNameTaken)
-		} else if !errors.Is(err, ErrNotFound) {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE members SET team = ? WHERE token = ?`, team, token); err != nil {
-			return fmt.Errorf("moving %q into team %q: %w", m.Name, team, err)
-		}
-		m.Team = team
-		moved = m
-		return nil
+		moved, err = moveMember(ctx, tx, m, team)
+		return err
 	})
 	if err != nil {
 		return Member{}, err
 	}
 	return moved, nil
+}
+
+// MoveMemberByName is [Store.MoveMember] for a caller that addresses the member
+// the way an operator sees one — room, current team and name — instead of by
+// the token only its holder and the daemon know. No member there is
+// [ErrNotFound]. The lookup and the move share one transaction, so the member
+// cannot leave in between.
+func (s *Store) MoveMemberByName(
+	ctx context.Context,
+	room, team, name, toTeam string,
+) (Member, error) {
+	var moved Member
+	err := s.tx(ctx, func(tx *sql.Tx) error {
+		m, err := memberByName(ctx, tx, room, team, name)
+		if err != nil {
+			return fmt.Errorf("moving %q in room %q: %w", team+"/"+name, room, err)
+		}
+		moved, err = moveMember(ctx, tx, m, toTeam)
+		return err
+	})
+	if err != nil {
+		return Member{}, err
+	}
+	return moved, nil
+}
+
+// moveMember implements the move itself for members already read inside tx.
+func moveMember(ctx context.Context, tx *sql.Tx, m Member, team string) (Member, error) {
+	if err := validateName(team, m.Name); err != nil {
+		return Member{}, fmt.Errorf("moving member %q: %w", m.Name, err)
+	}
+	if m.Team == team {
+		return m, nil
+	}
+	if _, err := memberByName(ctx, tx, m.Room, team, m.Name); err == nil {
+		return Member{}, fmt.Errorf("moving %q into team %q: %w", m.Name, team, ErrNameTaken)
+	} else if !errors.Is(err, ErrNotFound) {
+		return Member{}, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE members SET team = ? WHERE token = ?`, team, m.Token); err != nil {
+		return Member{}, fmt.Errorf("moving %q into team %q: %w", m.Name, team, err)
+	}
+	m.Team = team
+	return m, nil
 }
 
 // Resolve turns a send address into the member it names, as seen by the caller

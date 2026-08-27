@@ -504,6 +504,10 @@ func TestLoadConfig_ChatDbDefault(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.Chat.Db, filepath.Join("/state", "crabswarm", "chat.db"))
 	assert.Equal(t, cfg.Chat.CmdmanBin, "")
+	// No admin key by default: the admin RPCs stay shut until the operator
+	// names one.
+	assert.Equal(t, cfg.Chat.AdminRecipient, "")
+	assert.Equal(t, cfg.Chat.AdminIdentityFile, "")
 }
 
 // Without XDG_STATE_HOME the default follows the XDG fallback under $HOME.
@@ -531,7 +535,8 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 		t,
 		os.WriteFile(
 			confPath,
-			[]byte(`{"chat":{"db":"/file/chat.db","cmdman_bin":"/opt/bin/cmdman"}}`),
+			[]byte(`{"chat":{"db":"/file/chat.db","cmdman_bin":"/opt/bin/cmdman",`+
+				`"admin_recipient":"age1recipient","admin_identity_file":"~/keys/chat.key"}}`),
 			0o644,
 		),
 	)
@@ -540,6 +545,8 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.Chat.Db, "/file/chat.db")
 	assert.Equal(t, cfg.Chat.CmdmanBin, "/opt/bin/cmdman")
+	assert.Equal(t, cfg.Chat.AdminRecipient, "age1recipient")
+	assert.Equal(t, cfg.Chat.AdminIdentityFile, "~/keys/chat.key")
 }
 
 // PartialConfig.Apply: the chat sub-partial deep-merges field-by-field — a
@@ -547,7 +554,10 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 // the base.
 func TestApply_ChatOverlay(t *testing.T) {
 	base := Config{
-		Chat: chat.Config{Db: "/state/crabswarm/chat.db"},
+		Chat: chat.Config{
+			Db:             "/state/crabswarm/chat.db",
+			AdminRecipient: "age1base",
+		},
 	}
 
 	db := "/elsewhere/chat.db"
@@ -555,12 +565,27 @@ func TestApply_ChatOverlay(t *testing.T) {
 	got := overlay.Apply(base)
 	assert.Equal(t, got.Chat.Db, "/elsewhere/chat.db")
 	assert.Equal(t, got.Chat.CmdmanBin, "")
+	assert.Equal(t, got.Chat.AdminRecipient, "age1base")
+
+	// An explicit empty recipient applies: it is how a layer turns the admin
+	// RPCs back off.
+	empty := ""
+	identity := "~/keys/chat.key"
+	off := PartialConfig{Chat: chat.PartialConfig{
+		AdminRecipient:    &empty,
+		AdminIdentityFile: &identity,
+	}}
+	got = off.Apply(base)
+	assert.Equal(t, got.Chat.AdminRecipient, "")
+	assert.Equal(t, got.Chat.AdminIdentityFile, "~/keys/chat.key")
 
 	// The base is unchanged.
 	assert.Equal(t, base.Chat.Db, "/state/crabswarm/chat.db")
+	assert.Equal(t, base.Chat.AdminRecipient, "age1base")
 
 	// A zero sub-partial merges nothing.
 	keep := PartialConfig{}
 	got = keep.Apply(base)
 	assert.Equal(t, got.Chat.Db, "/state/crabswarm/chat.db")
+	assert.Equal(t, got.Chat.AdminRecipient, "age1base")
 }

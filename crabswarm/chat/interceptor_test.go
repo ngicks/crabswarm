@@ -57,6 +57,19 @@ func TestUnaryTokenInterceptor(t *testing.T) {
 		assert.Equal(t, got, "handled")
 		assert.Equal(t, seen, "")
 	})
+
+	t.Run("the admin service passes through untouched", func(t *testing.T) {
+		// Its caller holds an age identity, not a token; the nonce in the
+		// request is the credential.
+		seen = "unset"
+		admin := &grpc.UnaryServerInfo{
+			FullMethod: chatv1.ChatAdminService_GetNonce_FullMethodName,
+		}
+		got, err := interceptor(t.Context(), nil, admin, handler)
+		assert.NilError(t, err)
+		assert.Equal(t, got, "handled")
+		assert.Equal(t, seen, "")
+	})
 }
 
 // TestService_OverGRPC exercises the wiring the daemon uses: request metadata

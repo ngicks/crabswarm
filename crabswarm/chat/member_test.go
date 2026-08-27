@@ -311,3 +311,34 @@ func TestStore_MoveMember(t *testing.T) {
 	_, err = s.MoveMember(t.Context(), "tok-a", "in/valid")
 	assert.ErrorIs(t, err, ErrInvalidName)
 }
+
+func TestStore_MoveMemberByName(t *testing.T) {
+	s, _ := newTestStore(t)
+	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
+	join(t, s, "tok-b", "/work/repo", "gamma", "alice")
+	join(t, s, "tok-c", "/elsewhere", "alpha", "carol")
+
+	moved, err := s.MoveMemberByName(t.Context(), "/work/repo", "alpha", "alice", "beta")
+	assert.NilError(t, err)
+	assert.Equal(t, moved.Token, "tok-a")
+	assert.Equal(t, moved.Team, "beta")
+
+	// The member is addressed as an operator sees them, so the old coordinates
+	// no longer name anyone.
+	_, err = s.MoveMemberByName(t.Context(), "/work/repo", "alpha", "alice", "delta")
+	assert.ErrorIs(t, err, ErrNotFound)
+
+	// Rooms do not leak into each other.
+	_, err = s.MoveMemberByName(t.Context(), "/work/repo", "alpha", "carol", "beta")
+	assert.ErrorIs(t, err, ErrNotFound)
+
+	// The move rules are the ones MoveMember applies.
+	_, err = s.MoveMemberByName(t.Context(), "/work/repo", "gamma", "alice", "beta")
+	assert.ErrorIs(t, err, ErrNameTaken)
+	_, err = s.MoveMemberByName(t.Context(), "/work/repo", "gamma", "alice", "in/valid")
+	assert.ErrorIs(t, err, ErrInvalidName)
+
+	same, err := s.MoveMemberByName(t.Context(), "/work/repo", "beta", "alice", "beta")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, same, moved)
+}

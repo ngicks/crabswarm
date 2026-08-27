@@ -51,6 +51,11 @@ func tokenFromContext(ctx context.Context) (string, error) {
 // whole gRPC server — grpc-go has no per-service interceptors — and the other
 // services on the daemon socket carry no token, so every one of their calls
 // would otherwise be rejected.
+//
+// ChatAdminService is one of those others, deliberately: an operator holds an
+// age identity file, not a member token, and [AdminService] authenticates them
+// from the nonce in the request body. Requiring a token there would lock out
+// the very caller the service exists for.
 func UnaryTokenInterceptor() grpc.UnaryServerInterceptor {
 	prefix := "/" + chatv1.ChatService_ServiceDesc.ServiceName + "/"
 	return func(
