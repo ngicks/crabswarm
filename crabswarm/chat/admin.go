@@ -99,19 +99,26 @@ func (a *AdminService) GetNonce(
 	}, nil
 }
 
-// verifyNonce spends one outstanding challenge on behalf of an RPC and turns
-// a refusal into the status the wire carries.
+// authenticate spends the caller's credential on behalf of an RPC and turns a
+// refusal into the status the wire carries.
 //
 // It runs before the RPC does its work, so an RPC that then fails on its own
-// terms still costs a fresh GetNonce. Tying it to the outcome would buy
+// terms still costs a fresh credential. Tying it to the outcome would buy
 // nothing: the round trip is one call in the CLI.
-func (a *AdminService) verifyNonce(nonce string) error {
+//
+// A missing credential, a malformed one and a wrong one are all the same
+// PermissionDenied: which it was is not information a caller who cannot present
+// one should get.
+func (a *AdminService) authenticate(ctx context.Context) error {
 	if a.recipient == nil {
 		return adminNotConfigured()
 	}
-	if !a.nonces.Verify(nonce) {
+	credential, ok := auth.BearerFromContext(ctx)
+	if !ok || !a.nonces.Verify(credential) {
 		return status.Error(codes.PermissionDenied,
-			"admin nonce is unknown or expired; get a fresh one with GetNonce")
+			"admin credential is missing, unknown or expired; "+
+				"get a fresh nonce with GetNonce and send it as "+
+				"\"authorization: Bearer <nonce>\"")
 	}
 	return nil
 }

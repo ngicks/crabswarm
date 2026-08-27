@@ -907,7 +907,7 @@ type GetNonceResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// EncryptedNonce is the challenge nonce encrypted to the configured admin
 	// age recipient. The caller decrypts it with the matching identity file and
-	// echoes the plaintext back as the nonce of the next admin RPC.
+	// sends the plaintext as the bearer credential of the next admin RPC.
 	EncryptedNonce []byte `protobuf:"bytes,1,opt,name=encrypted_nonce,json=encryptedNonce,proto3" json:"encrypted_nonce,omitempty"`
 	// ExpiresAt is when the challenge stops being accepted.
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
@@ -960,9 +960,7 @@ func (x *GetNonceResponse) GetExpiresAt() *timestamppb.Timestamp {
 }
 
 type ListRoomsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Nonce is the decrypted challenge nonce from GetNonce.
-	Nonce         string `protobuf:"bytes,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -995,13 +993,6 @@ func (x *ListRoomsRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListRoomsRequest.ProtoReflect.Descriptor instead.
 func (*ListRoomsRequest) Descriptor() ([]byte, []int) {
 	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *ListRoomsRequest) GetNonce() string {
-	if x != nil {
-		return x.Nonce
-	}
-	return ""
 }
 
 type ListRoomsResponse struct {
@@ -1050,16 +1041,14 @@ func (x *ListRoomsResponse) GetRooms() []*Room {
 
 type MoveMemberRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Nonce is the decrypted challenge nonce from GetNonce.
-	Nonce string `protobuf:"bytes,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	// Room is the room the member attends.
-	Room string `protobuf:"bytes,2,opt,name=room,proto3" json:"room,omitempty"`
+	Room string `protobuf:"bytes,1,opt,name=room,proto3" json:"room,omitempty"`
 	// Team is the member's current team.
-	Team string `protobuf:"bytes,3,opt,name=team,proto3" json:"team,omitempty"`
+	Team string `protobuf:"bytes,2,opt,name=team,proto3" json:"team,omitempty"`
 	// Name is the member's name within Team.
-	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// ToTeam is the team to move the member into, within the same room.
-	ToTeam        string `protobuf:"bytes,5,opt,name=to_team,json=toTeam,proto3" json:"to_team,omitempty"`
+	ToTeam        string `protobuf:"bytes,4,opt,name=to_team,json=toTeam,proto3" json:"to_team,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1092,13 +1081,6 @@ func (x *MoveMemberRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use MoveMemberRequest.ProtoReflect.Descriptor instead.
 func (*MoveMemberRequest) Descriptor() ([]byte, []int) {
 	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{21}
-}
-
-func (x *MoveMemberRequest) GetNonce() string {
-	if x != nil {
-		return x.Nonce
-	}
-	return ""
 }
 
 func (x *MoveMemberRequest) GetRoom() string {
@@ -1176,14 +1158,12 @@ func (x *MoveMemberResponse) GetMember() *Member {
 
 type RegisterMemberRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Nonce is the decrypted challenge nonce from GetNonce.
-	Nonce string `protobuf:"bytes,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	// Room is the room to register the member into.
-	Room string `protobuf:"bytes,2,opt,name=room,proto3" json:"room,omitempty"`
+	Room string `protobuf:"bytes,1,opt,name=room,proto3" json:"room,omitempty"`
 	// Team is the team to register the member under.
-	Team string `protobuf:"bytes,3,opt,name=team,proto3" json:"team,omitempty"`
+	Team string `protobuf:"bytes,2,opt,name=team,proto3" json:"team,omitempty"`
 	// Name is the name to register, unique within Team.
-	Name          string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1216,13 +1196,6 @@ func (x *RegisterMemberRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RegisterMemberRequest.ProtoReflect.Descriptor instead.
 func (*RegisterMemberRequest) Descriptor() ([]byte, []int) {
 	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *RegisterMemberRequest) GetNonce() string {
-	if x != nil {
-		return x.Nonce
-	}
-	return ""
 }
 
 func (x *RegisterMemberRequest) GetRoom() string {
@@ -1345,24 +1318,21 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x10GetNonceResponse\x12'\n" +
 	"\x0fencrypted_nonce\x18\x01 \x01(\fR\x0eencryptedNonce\x129\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"(\n" +
-	"\x10ListRoomsRequest\x12\x14\n" +
-	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"I\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\x12\n" +
+	"\x10ListRoomsRequest\"I\n" +
 	"\x11ListRoomsResponse\x124\n" +
-	"\x05rooms\x18\x01 \x03(\v2\x1e.ngicks.crabswarm.chat.v1.RoomR\x05rooms\"~\n" +
-	"\x11MoveMemberRequest\x12\x14\n" +
-	"\x05nonce\x18\x01 \x01(\tR\x05nonce\x12\x12\n" +
-	"\x04room\x18\x02 \x01(\tR\x04room\x12\x12\n" +
-	"\x04team\x18\x03 \x01(\tR\x04team\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\x12\x17\n" +
-	"\ato_team\x18\x05 \x01(\tR\x06toTeam\"N\n" +
+	"\x05rooms\x18\x01 \x03(\v2\x1e.ngicks.crabswarm.chat.v1.RoomR\x05rooms\"h\n" +
+	"\x11MoveMemberRequest\x12\x12\n" +
+	"\x04room\x18\x01 \x01(\tR\x04room\x12\x12\n" +
+	"\x04team\x18\x02 \x01(\tR\x04team\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x17\n" +
+	"\ato_team\x18\x04 \x01(\tR\x06toTeam\"N\n" +
 	"\x12MoveMemberResponse\x128\n" +
-	"\x06member\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x06member\"i\n" +
-	"\x15RegisterMemberRequest\x12\x14\n" +
-	"\x05nonce\x18\x01 \x01(\tR\x05nonce\x12\x12\n" +
-	"\x04room\x18\x02 \x01(\tR\x04room\x12\x12\n" +
-	"\x04team\x18\x03 \x01(\tR\x04team\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\"h\n" +
+	"\x06member\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x06member\"S\n" +
+	"\x15RegisterMemberRequest\x12\x12\n" +
+	"\x04room\x18\x01 \x01(\tR\x04room\x12\x12\n" +
+	"\x04team\x18\x02 \x01(\tR\x04team\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"h\n" +
 	"\x16RegisterMemberResponse\x128\n" +
 	"\x06member\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x06member\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token*{\n" +

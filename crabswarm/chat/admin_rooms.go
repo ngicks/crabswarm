@@ -15,7 +15,7 @@ func (a *AdminService) ListRooms(
 	ctx context.Context,
 	req *chatv1.ListRoomsRequest,
 ) (*chatv1.ListRoomsResponse, error) {
-	if err := a.verifyNonce(req.GetNonce()); err != nil {
+	if err := a.authenticate(ctx); err != nil {
 		return nil, err
 	}
 	rooms, err := a.store.ListRooms(ctx)
@@ -36,7 +36,7 @@ func (a *AdminService) MoveMember(
 	ctx context.Context,
 	req *chatv1.MoveMemberRequest,
 ) (*chatv1.MoveMemberResponse, error) {
-	if err := a.verifyNonce(req.GetNonce()); err != nil {
+	if err := a.authenticate(ctx); err != nil {
 		return nil, err
 	}
 	moved, err := a.store.MoveMemberByName(
@@ -62,7 +62,7 @@ func (a *AdminService) RegisterMember(
 	ctx context.Context,
 	req *chatv1.RegisterMemberRequest,
 ) (*chatv1.RegisterMemberResponse, error) {
-	if err := a.verifyNonce(req.GetNonce()); err != nil {
+	if err := a.authenticate(ctx); err != nil {
 		return nil, err
 	}
 	// The store rejects an empty room too, but as a plain error — it has no

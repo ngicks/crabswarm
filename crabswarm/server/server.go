@@ -152,7 +152,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		s.logger,
 	))
 	// The admin half shares the socket with the member half: it is gated by the
-	// age challenge in its own requests, not by the token interceptor. With no
+	// credential its own calls carry, not by the token interceptor. With no
 	// admin recipient configured it registers anyway and refuses every call,
 	// which tells an operator that they have a key to configure — an
 	// Unimplemented would read as "this daemon is too old".

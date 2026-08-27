@@ -317,8 +317,8 @@ func (UnimplementedChatServiceHandler) ReportState(context.Context, *connect.Req
 
 // ChatAdminServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatAdminService service.
 type ChatAdminServiceClient interface {
-	// GetNonce issues a challenge nonce encrypted to the configured admin age
-	// recipient.
+	// GetNonce issues a challenge for the caller to answer, when the daemon
+	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(context.Context, *connect.Request[v1.GetNonceRequest]) (*connect.Response[v1.GetNonceResponse], error)
 	// ListRooms lists every room the daemon knows and who attends it.
 	ListRooms(context.Context, *connect.Request[v1.ListRoomsRequest]) (*connect.Response[v1.ListRoomsResponse], error)
@@ -398,8 +398,8 @@ func (c *chatAdminServiceClient) RegisterMember(ctx context.Context, req *connec
 // ChatAdminServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatAdminService
 // service.
 type ChatAdminServiceHandler interface {
-	// GetNonce issues a challenge nonce encrypted to the configured admin age
-	// recipient.
+	// GetNonce issues a challenge for the caller to answer, when the daemon
+	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(context.Context, *connect.Request[v1.GetNonceRequest]) (*connect.Response[v1.GetNonceResponse], error)
 	// ListRooms lists every room the daemon knows and who attends it.
 	ListRooms(context.Context, *connect.Request[v1.ListRoomsRequest]) (*connect.Response[v1.ListRoomsResponse], error)

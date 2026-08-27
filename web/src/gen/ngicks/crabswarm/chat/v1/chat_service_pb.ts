@@ -12,7 +12,7 @@ import type { Message as Message$1 } from "@bufbuild/protobuf";
  * Describes the file ngicks/crabswarm/chat/v1/chat_service.proto.
  */
 export const file_ngicks_crabswarm_chat_v1_chat_service: GenFile = /*@__PURE__*/
-  fileDesc("CituZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjEvY2hhdF9zZXJ2aWNlLnByb3RvEhhuZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEiMgoGTWVtYmVyEgwKBG5hbWUYASABKAkSDAoEdGVhbRgCIAEoCRIMCgRyb29tGAMgASgJIkcKBFJvb20SDAoEbmFtZRgBIAEoCRIxCgdtZW1iZXJzGAIgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJ0CgdNZXNzYWdlEi4KBGZyb20YASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEgwKBHRleHQYAiABKAkSKwoHc2VudF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiJwoLSm9pblJlcXVlc3QSDAoEbmFtZRgBIAEoCUoECAIQA0oECAMQBCI+CgxKb2luUmVzcG9uc2USLgoEc2VsZhgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiJwoLU2VuZFJlcXVlc3QSCgoCdG8YASABKAkSDAoEdGV4dBgCIAEoCSJDCgxTZW5kUmVzcG9uc2USMwoJcmVjaXBpZW50GAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciIgChBCcm9hZGNhc3RSZXF1ZXN0EgwKBHRleHQYASABKAkiLAoRQnJvYWRjYXN0UmVzcG9uc2USFwoPZGVsaXZlcmVkX2NvdW50GAEgASgFIg0KC1JlYWRSZXF1ZXN0IkMKDFJlYWRSZXNwb25zZRIzCghtZXNzYWdlcxgBIAMoCzIhLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZXNzYWdlIhQKEkxpc3RNZW1iZXJzUmVxdWVzdCJIChNMaXN0TWVtYmVyc1Jlc3BvbnNlEjEKB21lbWJlcnMYASADKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIg4KDExlYXZlUmVxdWVzdCIPCg1MZWF2ZVJlc3BvbnNlIksKElJlcG9ydFN0YXRlUmVxdWVzdBI1CgVzdGF0ZRgBIAEoDjImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5IYXJuZXNzU3RhdGUiFQoTUmVwb3J0U3RhdGVSZXNwb25zZSIRCg9HZXROb25jZVJlcXVlc3QiWwoQR2V0Tm9uY2VSZXNwb25zZRIXCg9lbmNyeXB0ZWRfbm9uY2UYASABKAwSLgoKZXhwaXJlc19hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiIQoQTGlzdFJvb21zUmVxdWVzdBINCgVub25jZRgBIAEoCSJCChFMaXN0Um9vbXNSZXNwb25zZRItCgVyb29tcxgBIAMoCzIeLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Sb29tIl0KEU1vdmVNZW1iZXJSZXF1ZXN0Eg0KBW5vbmNlGAEgASgJEgwKBHJvb20YAiABKAkSDAoEdGVhbRgDIAEoCRIMCgRuYW1lGAQgASgJEg8KB3RvX3RlYW0YBSABKAkiRgoSTW92ZU1lbWJlclJlc3BvbnNlEjAKBm1lbWJlchgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiUAoVUmVnaXN0ZXJNZW1iZXJSZXF1ZXN0Eg0KBW5vbmNlGAEgASgJEgwKBHJvb20YAiABKAkSDAoEdGVhbRgDIAEoCRIMCgRuYW1lGAQgASgJIlkKFlJlZ2lzdGVyTWVtYmVyUmVzcG9uc2USMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchINCgV0b2tlbhgCIAEoCSp7CgxIYXJuZXNzU3RhdGUSHQoZSEFSTkVTU19TVEFURV9VTlNQRUNJRklFRBAAEhkKFUhBUk5FU1NfU1RBVEVfV09SS0lORxABEhkKFUhBUk5FU1NfU1RBVEVfV0FJVElORxACEhYKEkhBUk5FU1NfU1RBVEVfRE9ORRADMqoFCgtDaGF0U2VydmljZRJVCgRKb2luEiUubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkpvaW5SZXF1ZXN0GiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkpvaW5SZXNwb25zZRJVCgRTZW5kEiUubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlNlbmRSZXF1ZXN0GiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlNlbmRSZXNwb25zZRJkCglCcm9hZGNhc3QSKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQnJvYWRjYXN0UmVxdWVzdBorLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Ccm9hZGNhc3RSZXNwb25zZRJVCgRSZWFkEiUubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlYWRSZXF1ZXN0GiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlYWRSZXNwb25zZRJqCgtMaXN0TWVtYmVycxIsLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0TWVtYmVyc1JlcXVlc3QaLS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGlzdE1lbWJlcnNSZXNwb25zZRJYCgVMZWF2ZRImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MZWF2ZVJlcXVlc3QaJy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGVhdmVSZXNwb25zZRJqCgtSZXBvcnRTdGF0ZRIsLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZXBvcnRTdGF0ZVJlcXVlc3QaLS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVwb3J0U3RhdGVSZXNwb25zZTK5AwoQQ2hhdEFkbWluU2VydmljZRJhCghHZXROb25jZRIpLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5HZXROb25jZVJlcXVlc3QaKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuR2V0Tm9uY2VSZXNwb25zZRJkCglMaXN0Um9vbXMSKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGlzdFJvb21zUmVxdWVzdBorLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0Um9vbXNSZXNwb25zZRJnCgpNb3ZlTWVtYmVyEisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1vdmVNZW1iZXJSZXF1ZXN0GiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1vdmVNZW1iZXJSZXNwb25zZRJzCg5SZWdpc3Rlck1lbWJlchIvLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWdpc3Rlck1lbWJlclJlcXVlc3QaMC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVnaXN0ZXJNZW1iZXJSZXNwb25zZUKBAgocY29tLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MUIQQ2hhdFNlcnZpY2VQcm90b1ABWkxnaXRodWIuY29tL25naWNrcy9jcmFic3dhcm0vYXBpL2dlbi9wcm90by9nby9uZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjE7Y2hhdHYxogIDTkNDqgIYTmdpY2tzLkNyYWJzd2FybS5DaGF0LlYxygIYTmdpY2tzXENyYWJzd2FybVxDaGF0XFYx4gIkTmdpY2tzXENyYWJzd2FybVxDaGF0XFYxXEdQQk1ldGFkYXRh6gIbTmdpY2tzOjpDcmFic3dhcm06OkNoYXQ6OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("CituZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjEvY2hhdF9zZXJ2aWNlLnByb3RvEhhuZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEiMgoGTWVtYmVyEgwKBG5hbWUYASABKAkSDAoEdGVhbRgCIAEoCRIMCgRyb29tGAMgASgJIkcKBFJvb20SDAoEbmFtZRgBIAEoCRIxCgdtZW1iZXJzGAIgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJ0CgdNZXNzYWdlEi4KBGZyb20YASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEgwKBHRleHQYAiABKAkSKwoHc2VudF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiJwoLSm9pblJlcXVlc3QSDAoEbmFtZRgBIAEoCUoECAIQA0oECAMQBCI+CgxKb2luUmVzcG9uc2USLgoEc2VsZhgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiJwoLU2VuZFJlcXVlc3QSCgoCdG8YASABKAkSDAoEdGV4dBgCIAEoCSJDCgxTZW5kUmVzcG9uc2USMwoJcmVjaXBpZW50GAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciIgChBCcm9hZGNhc3RSZXF1ZXN0EgwKBHRleHQYASABKAkiLAoRQnJvYWRjYXN0UmVzcG9uc2USFwoPZGVsaXZlcmVkX2NvdW50GAEgASgFIg0KC1JlYWRSZXF1ZXN0IkMKDFJlYWRSZXNwb25zZRIzCghtZXNzYWdlcxgBIAMoCzIhLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZXNzYWdlIhQKEkxpc3RNZW1iZXJzUmVxdWVzdCJIChNMaXN0TWVtYmVyc1Jlc3BvbnNlEjEKB21lbWJlcnMYASADKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIg4KDExlYXZlUmVxdWVzdCIPCg1MZWF2ZVJlc3BvbnNlIksKElJlcG9ydFN0YXRlUmVxdWVzdBI1CgVzdGF0ZRgBIAEoDjImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5IYXJuZXNzU3RhdGUiFQoTUmVwb3J0U3RhdGVSZXNwb25zZSIRCg9HZXROb25jZVJlcXVlc3QiWwoQR2V0Tm9uY2VSZXNwb25zZRIXCg9lbmNyeXB0ZWRfbm9uY2UYASABKAwSLgoKZXhwaXJlc19hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiEgoQTGlzdFJvb21zUmVxdWVzdCJCChFMaXN0Um9vbXNSZXNwb25zZRItCgVyb29tcxgBIAMoCzIeLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Sb29tIk4KEU1vdmVNZW1iZXJSZXF1ZXN0EgwKBHJvb20YASABKAkSDAoEdGVhbRgCIAEoCRIMCgRuYW1lGAMgASgJEg8KB3RvX3RlYW0YBCABKAkiRgoSTW92ZU1lbWJlclJlc3BvbnNlEjAKBm1lbWJlchgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiQQoVUmVnaXN0ZXJNZW1iZXJSZXF1ZXN0EgwKBHJvb20YASABKAkSDAoEdGVhbRgCIAEoCRIMCgRuYW1lGAMgASgJIlkKFlJlZ2lzdGVyTWVtYmVyUmVzcG9uc2USMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchINCgV0b2tlbhgCIAEoCSp7CgxIYXJuZXNzU3RhdGUSHQoZSEFSTkVTU19TVEFURV9VTlNQRUNJRklFRBAAEhkKFUhBUk5FU1NfU1RBVEVfV09SS0lORxABEhkKFUhBUk5FU1NfU1RBVEVfV0FJVElORxACEhYKEkhBUk5FU1NfU1RBVEVfRE9ORRADMqoFCgtDaGF0U2VydmljZRJVCgRKb2luEiUubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkpvaW5SZXF1ZXN0GiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkpvaW5SZXNwb25zZRJVCgRTZW5kEiUubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlNlbmRSZXF1ZXN0GiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlNlbmRSZXNwb25zZRJkCglCcm9hZGNhc3QSKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQnJvYWRjYXN0UmVxdWVzdBorLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Ccm9hZGNhc3RSZXNwb25zZRJVCgRSZWFkEiUubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlYWRSZXF1ZXN0GiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlYWRSZXNwb25zZRJqCgtMaXN0TWVtYmVycxIsLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0TWVtYmVyc1JlcXVlc3QaLS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGlzdE1lbWJlcnNSZXNwb25zZRJYCgVMZWF2ZRImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MZWF2ZVJlcXVlc3QaJy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGVhdmVSZXNwb25zZRJqCgtSZXBvcnRTdGF0ZRIsLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZXBvcnRTdGF0ZVJlcXVlc3QaLS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVwb3J0U3RhdGVSZXNwb25zZTK5AwoQQ2hhdEFkbWluU2VydmljZRJhCghHZXROb25jZRIpLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5HZXROb25jZVJlcXVlc3QaKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuR2V0Tm9uY2VSZXNwb25zZRJkCglMaXN0Um9vbXMSKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGlzdFJvb21zUmVxdWVzdBorLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0Um9vbXNSZXNwb25zZRJnCgpNb3ZlTWVtYmVyEisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1vdmVNZW1iZXJSZXF1ZXN0GiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1vdmVNZW1iZXJSZXNwb25zZRJzCg5SZWdpc3Rlck1lbWJlchIvLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWdpc3Rlck1lbWJlclJlcXVlc3QaMC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVnaXN0ZXJNZW1iZXJSZXNwb25zZUKBAgocY29tLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MUIQQ2hhdFNlcnZpY2VQcm90b1ABWkxnaXRodWIuY29tL25naWNrcy9jcmFic3dhcm0vYXBpL2dlbi9wcm90by9nby9uZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjE7Y2hhdHYxogIDTkNDqgIYTmdpY2tzLkNyYWJzd2FybS5DaGF0LlYxygIYTmdpY2tzXENyYWJzd2FybVxDaGF0XFYx4gIkTmdpY2tzXENyYWJzd2FybVxDaGF0XFYxXEdQQk1ldGFkYXRh6gIbTmdpY2tzOjpDcmFic3dhcm06OkNoYXQ6OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * Member is one participant of a room.
@@ -382,7 +382,7 @@ export type GetNonceResponse = Message$1<"ngicks.crabswarm.chat.v1.GetNonceRespo
   /**
    * EncryptedNonce is the challenge nonce encrypted to the configured admin
    * age recipient. The caller decrypts it with the matching identity file and
-   * echoes the plaintext back as the nonce of the next admin RPC.
+   * sends the plaintext as the bearer credential of the next admin RPC.
    *
    * @generated from field: bytes encrypted_nonce = 1;
    */
@@ -407,12 +407,6 @@ export const GetNonceResponseSchema: GenMessage<GetNonceResponse> = /*@__PURE__*
  * @generated from message ngicks.crabswarm.chat.v1.ListRoomsRequest
  */
 export type ListRoomsRequest = Message$1<"ngicks.crabswarm.chat.v1.ListRoomsRequest"> & {
-  /**
-   * Nonce is the decrypted challenge nonce from GetNonce.
-   *
-   * @generated from field: string nonce = 1;
-   */
-  nonce: string;
 };
 
 /**
@@ -444,37 +438,30 @@ export const ListRoomsResponseSchema: GenMessage<ListRoomsResponse> = /*@__PURE_
  */
 export type MoveMemberRequest = Message$1<"ngicks.crabswarm.chat.v1.MoveMemberRequest"> & {
   /**
-   * Nonce is the decrypted challenge nonce from GetNonce.
-   *
-   * @generated from field: string nonce = 1;
-   */
-  nonce: string;
-
-  /**
    * Room is the room the member attends.
    *
-   * @generated from field: string room = 2;
+   * @generated from field: string room = 1;
    */
   room: string;
 
   /**
    * Team is the member's current team.
    *
-   * @generated from field: string team = 3;
+   * @generated from field: string team = 2;
    */
   team: string;
 
   /**
    * Name is the member's name within Team.
    *
-   * @generated from field: string name = 4;
+   * @generated from field: string name = 3;
    */
   name: string;
 
   /**
    * ToTeam is the team to move the member into, within the same room.
    *
-   * @generated from field: string to_team = 5;
+   * @generated from field: string to_team = 4;
    */
   toTeam: string;
 };
@@ -510,30 +497,23 @@ export const MoveMemberResponseSchema: GenMessage<MoveMemberResponse> = /*@__PUR
  */
 export type RegisterMemberRequest = Message$1<"ngicks.crabswarm.chat.v1.RegisterMemberRequest"> & {
   /**
-   * Nonce is the decrypted challenge nonce from GetNonce.
-   *
-   * @generated from field: string nonce = 1;
-   */
-  nonce: string;
-
-  /**
    * Room is the room to register the member into.
    *
-   * @generated from field: string room = 2;
+   * @generated from field: string room = 1;
    */
   room: string;
 
   /**
    * Team is the team to register the member under.
    *
-   * @generated from field: string team = 3;
+   * @generated from field: string team = 2;
    */
   team: string;
 
   /**
    * Name is the name to register, unique within Team.
    *
-   * @generated from field: string name = 4;
+   * @generated from field: string name = 3;
    */
   name: string;
 };
@@ -710,18 +690,24 @@ export const ChatService: GenService<{
  * be able to perform: inspecting every room, editing team formation, and
  * minting tokens for humans who have no provider entry.
  *
- * Access is proven by possession of an age identity file kept on host disk,
- * outside the mounts that participants see. Since age encrypts but does not
- * sign, the proof is a challenge-response: GetNonce hands back a nonce
- * encrypted to the configured admin recipient, and every other RPC here
- * carries the decrypted nonce.
+ * Access is proven per call by a credential the caller sends as the standard
+ * "authorization: Bearer <credential>" metadata, never as a request field, so a
+ * TLS-terminating proxy or an OIDC client can supply it the way they already
+ * supply one everywhere else.
+ *
+ * What the credential is depends on how the daemon is configured to
+ * authenticate. The age-identity setup makes it a challenge-response, since age
+ * encrypts without signing: GetNonce hands back a nonce encrypted to the
+ * configured recipient and the caller sends the decrypted nonce as its bearer
+ * credential. A setup that needs no challenge step answers GetNonce with
+ * UNIMPLEMENTED and takes whatever credential its issuer minted.
  *
  * @generated from service ngicks.crabswarm.chat.v1.ChatAdminService
  */
 export const ChatAdminService: GenService<{
   /**
-   * GetNonce issues a challenge nonce encrypted to the configured admin age
-   * recipient.
+   * GetNonce issues a challenge for the caller to answer, when the daemon
+   * authenticates in a way that has one. UNIMPLEMENTED means it does not.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce
    */

@@ -13,6 +13,8 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+
+	"github.com/ngicks/crabswarm/crabswarm/chat/auth"
 )
 
 // newIdentityFile writes a fresh age identity the way the age CLI does — one
@@ -101,7 +103,7 @@ type fakeAdminService struct {
 	nonce     string
 
 	nonceCalls int
-	listNonce  string
+	bearer     string
 	move       *chatv1.MoveMemberRequest
 	register   *chatv1.RegisterMemberRequest
 
@@ -127,15 +129,16 @@ func (f *fakeAdminService) GetNonce(
 }
 
 func (f *fakeAdminService) ListRooms(
-	_ context.Context, req *chatv1.ListRoomsRequest,
+	ctx context.Context, _ *chatv1.ListRoomsRequest,
 ) (*chatv1.ListRoomsResponse, error) {
-	f.listNonce = req.GetNonce()
+	f.bearer, _ = auth.BearerFromContext(ctx)
 	return &chatv1.ListRoomsResponse{Rooms: f.rooms}, nil
 }
 
 func (f *fakeAdminService) MoveMember(
-	_ context.Context, req *chatv1.MoveMemberRequest,
+	ctx context.Context, req *chatv1.MoveMemberRequest,
 ) (*chatv1.MoveMemberResponse, error) {
+	f.bearer, _ = auth.BearerFromContext(ctx)
 	f.move = req
 	return &chatv1.MoveMemberResponse{
 		Member: member(req.GetToTeam(), req.GetName(), req.GetRoom()),
@@ -143,8 +146,9 @@ func (f *fakeAdminService) MoveMember(
 }
 
 func (f *fakeAdminService) RegisterMember(
-	_ context.Context, req *chatv1.RegisterMemberRequest,
+	ctx context.Context, req *chatv1.RegisterMemberRequest,
 ) (*chatv1.RegisterMemberResponse, error) {
+	f.bearer, _ = auth.BearerFromContext(ctx)
 	f.register = req
 	return &chatv1.RegisterMemberResponse{
 		Member: member(req.GetTeam(), req.GetName(), req.GetRoom()),
@@ -166,7 +170,7 @@ func TestClient_ListRoomsDecryptsTheChallenge(t *testing.T) {
 
 	var out strings.Builder
 	assert.NilError(t, d.client.ListRooms(t.Context(), &out, path))
-	assert.Equal(t, fake.listNonce, "nonce-abc123")
+	assert.Equal(t, fake.bearer, "nonce-abc123")
 	assert.Equal(t, out.String(),
 		"room: /work/proj\n  team: backend\n    alice\n")
 
@@ -182,7 +186,7 @@ func TestClient_MoveMember(t *testing.T) {
 	var out strings.Builder
 	assert.NilError(t, d.client.MoveMember(
 		t.Context(), &out, path, "/work/proj", "backend/alice", "frontend"))
-	assert.Equal(t, fake.move.GetNonce(), "nonce-move")
+	assert.Equal(t, fake.bearer, "nonce-move")
 	assert.Equal(t, fake.move.GetRoom(), "/work/proj")
 	assert.Equal(t, fake.move.GetTeam(), "backend")
 	assert.Equal(t, fake.move.GetName(), "alice")
@@ -211,7 +215,7 @@ func TestClient_RegisterMemberPrintsTheToken(t *testing.T) {
 	var out strings.Builder
 	assert.NilError(t, d.client.RegisterMember(
 		t.Context(), &out, path, "/work/proj", "humans", "yuki"))
-	assert.Equal(t, fake.register.GetNonce(), "nonce-reg")
+	assert.Equal(t, fake.bearer, "nonce-reg")
 	assert.Equal(t, fake.register.GetRoom(), "/work/proj")
 	assert.Equal(t, fake.register.GetTeam(), "humans")
 	assert.Equal(t, fake.register.GetName(), "yuki")
@@ -229,5 +233,5 @@ func TestClient_AdminWithWrongIdentity(t *testing.T) {
 
 	err := d.client.ListRooms(t.Context(), &strings.Builder{}, path)
 	assert.Assert(t, err != nil)
-	assert.Equal(t, fake.listNonce, "")
+	assert.Equal(t, fake.bearer, "")
 }

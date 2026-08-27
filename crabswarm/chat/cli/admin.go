@@ -19,8 +19,9 @@ import (
 // file the host keeps outside the mounts participants see. age encrypts without
 // signing, so possession is proven by challenge-response: GetNonce hands back a
 // nonce encrypted to the daemon's configured recipient, and each following call
-// echoes the decrypted nonce. One challenge is taken per command — a nonce
-// spans a single admin operation, so there is nothing to cache between runs.
+// sends the decrypted nonce as its "authorization: Bearer" credential. One
+// challenge is taken per command — a nonce spans a single admin operation, so
+// there is nothing to cache between runs.
 
 // ResolveIdentityPath picks the age identity file the admin verbs authenticate
 // with: the --identity flag first, then the path configured for the chat
@@ -94,7 +95,8 @@ func (c *Client) ListRooms(ctx context.Context, w io.Writer, identityPath string
 	if err != nil {
 		return err
 	}
-	resp, err := c.admin.ListRooms(ctx, &chatv1.ListRoomsRequest{Nonce: nonce})
+	resp, err := c.admin.ListRooms(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.ListRoomsRequest{})
 	if err != nil {
 		return callError(err)
 	}
@@ -115,13 +117,13 @@ func (c *Client) MoveMember(
 	if err != nil {
 		return err
 	}
-	resp, err := c.admin.MoveMember(ctx, &chatv1.MoveMemberRequest{
-		Nonce:  nonce,
-		Room:   room,
-		Team:   team,
-		Name:   name,
-		ToTeam: toTeam,
-	})
+	resp, err := c.admin.MoveMember(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.MoveMemberRequest{
+			Room:   room,
+			Team:   team,
+			Name:   name,
+			ToTeam: toTeam,
+		})
 	if err != nil {
 		return callError(err)
 	}
@@ -139,12 +141,12 @@ func (c *Client) RegisterMember(
 	if err != nil {
 		return err
 	}
-	resp, err := c.admin.RegisterMember(ctx, &chatv1.RegisterMemberRequest{
-		Nonce: nonce,
-		Room:  room,
-		Team:  team,
-		Name:  name,
-	})
+	resp, err := c.admin.RegisterMember(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.RegisterMemberRequest{
+			Room: room,
+			Team: team,
+			Name: name,
+		})
 	if err != nil {
 		return callError(err)
 	}

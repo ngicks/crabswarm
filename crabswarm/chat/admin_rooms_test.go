@@ -18,8 +18,8 @@ func TestAdminService_ListRooms(t *testing.T) {
 	join(t, svc.store, "tok-b", "/work", "beta", "bob")
 	join(t, svc.store, "tok-c", "/other", "alpha", "cho")
 
-	res, err := svc.ListRooms(t.Context(),
-		&chatv1.ListRoomsRequest{Nonce: adminNonce(t, svc, id)})
+	res, err := svc.ListRooms(adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.ListRoomsRequest{})
 	assert.NilError(t, err)
 
 	rooms := res.GetRooms()
@@ -39,8 +39,8 @@ func TestAdminService_ListRooms(t *testing.T) {
 
 	// An empty store lists nothing rather than failing.
 	empty, emptyID := newTestAdminService(t)
-	res, err = empty.ListRooms(t.Context(),
-		&chatv1.ListRoomsRequest{Nonce: adminNonce(t, empty, emptyID)})
+	res, err = empty.ListRooms(adminCtx(t, adminNonce(t, empty, emptyID)),
+		&chatv1.ListRoomsRequest{})
 	assert.NilError(t, err)
 	assert.Equal(t, len(res.GetRooms()), 0)
 }
@@ -51,9 +51,8 @@ func TestAdminService_MoveMember(t *testing.T) {
 	join(t, svc.store, "tok-b", "/work", "beta", "bob")
 
 	t.Run("moves within the room", func(t *testing.T) {
-		res, err := svc.MoveMember(t.Context(), &chatv1.MoveMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "alpha", Name: "ana", ToTeam: "beta",
+		res, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+			Room: "/work", Team: "alpha", Name: "ana", ToTeam: "beta",
 		})
 		assert.NilError(t, err)
 		assert.Equal(t, res.GetMember().GetTeam(), "beta")
@@ -67,26 +66,23 @@ func TestAdminService_MoveMember(t *testing.T) {
 	})
 
 	t.Run("an unknown member is NotFound", func(t *testing.T) {
-		_, err := svc.MoveMember(t.Context(), &chatv1.MoveMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "alpha", Name: "ana", ToTeam: "gamma",
+		_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+			Room: "/work", Team: "alpha", Name: "ana", ToTeam: "gamma",
 		})
 		assert.Equal(t, status.Code(err), codes.NotFound)
 	})
 
 	t.Run("a colliding name is AlreadyExists", func(t *testing.T) {
 		join(t, svc.store, "tok-c", "/work", "gamma", "bob")
-		_, err := svc.MoveMember(t.Context(), &chatv1.MoveMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "gamma", Name: "bob", ToTeam: "beta",
+		_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+			Room: "/work", Team: "gamma", Name: "bob", ToTeam: "beta",
 		})
 		assert.Equal(t, status.Code(err), codes.AlreadyExists)
 	})
 
 	t.Run("a team name that breaks addressing is InvalidArgument", func(t *testing.T) {
-		_, err := svc.MoveMember(t.Context(), &chatv1.MoveMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "beta", Name: "bob", ToTeam: "beta/gamma",
+		_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+			Room: "/work", Team: "beta", Name: "bob", ToTeam: "beta/gamma",
 		})
 		assert.Equal(t, status.Code(err), codes.InvalidArgument)
 	})
@@ -95,10 +91,12 @@ func TestAdminService_MoveMember(t *testing.T) {
 func TestAdminService_RegisterMember(t *testing.T) {
 	svc, id := newTestAdminService(t)
 
-	res, err := svc.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
-		Nonce: adminNonce(t, svc, id),
-		Room:  "/work", Team: "hosts", Name: "hana",
-	})
+	res, err := svc.RegisterMember(
+		adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.RegisterMemberRequest{
+			Room: "/work", Team: "hosts", Name: "hana",
+		},
+	)
 	assert.NilError(t, err)
 	assert.Equal(t, res.GetMember().GetName(), "hana")
 	assert.Equal(t, res.GetMember().GetTeam(), "hosts")
@@ -114,43 +112,53 @@ func TestAdminService_RegisterMember(t *testing.T) {
 	assert.Equal(t, stored.Name, "hana")
 
 	t.Run("a second registration mints a different token", func(t *testing.T) {
-		res2, err := svc.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "hosts", Name: "hugo",
-		})
+		res2, err := svc.RegisterMember(
+			adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.RegisterMemberRequest{
+				Room: "/work", Team: "hosts", Name: "hugo",
+			},
+		)
 		assert.NilError(t, err)
 		assert.Assert(t, res2.GetToken() != token)
 	})
 
 	t.Run("a taken name is AlreadyExists", func(t *testing.T) {
-		_, err := svc.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "hosts", Name: "hana",
-		})
+		_, err := svc.RegisterMember(
+			adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.RegisterMemberRequest{
+				Room: "/work", Team: "hosts", Name: "hana",
+			},
+		)
 		assert.Equal(t, status.Code(err), codes.AlreadyExists)
 	})
 
 	t.Run("the same name in another team is fine", func(t *testing.T) {
-		_, err := svc.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "guests", Name: "hana",
-		})
+		_, err := svc.RegisterMember(
+			adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.RegisterMemberRequest{
+				Room: "/work", Team: "guests", Name: "hana",
+			},
+		)
 		assert.NilError(t, err)
 	})
 
 	t.Run("an empty room is InvalidArgument", func(t *testing.T) {
-		_, err := svc.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Team:  "hosts", Name: "hana",
-		})
+		_, err := svc.RegisterMember(
+			adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.RegisterMemberRequest{
+				Team: "hosts", Name: "hana",
+			},
+		)
 		assert.Equal(t, status.Code(err), codes.InvalidArgument)
 	})
 
 	t.Run("an empty name is InvalidArgument", func(t *testing.T) {
-		_, err := svc.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
-			Nonce: adminNonce(t, svc, id),
-			Room:  "/work", Team: "hosts",
-		})
+		_, err := svc.RegisterMember(
+			adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.RegisterMemberRequest{
+				Room: "/work", Team: "hosts",
+			},
+		)
 		assert.Equal(t, status.Code(err), codes.InvalidArgument)
 	})
 }
@@ -167,10 +175,12 @@ func TestAdminService_RegisteredMemberChatsAsHuman(t *testing.T) {
 	}
 	member := NewService(admin.store, provider, nil, nil, nil)
 
-	registered, err := admin.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
-		Nonce: adminNonce(t, admin, id),
-		Room:  "/work", Team: "hosts", Name: "hana",
-	})
+	registered, err := admin.RegisterMember(
+		adminCtx(t, adminNonce(t, admin, id)),
+		&chatv1.RegisterMemberRequest{
+			Room: "/work", Team: "hosts", Name: "hana",
+		},
+	)
 	assert.NilError(t, err)
 	token := registered.GetToken()
 

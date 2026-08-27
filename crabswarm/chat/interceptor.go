@@ -52,10 +52,10 @@ func tokenFromContext(ctx context.Context) (string, error) {
 // services on the daemon socket carry no token, so every one of their calls
 // would otherwise be rejected.
 //
-// ChatAdminService is one of those others, deliberately: an operator holds an
-// age identity file, not a member token, and [AdminService] authenticates them
-// from the nonce in the request body. Requiring a token there would lock out
-// the very caller the service exists for.
+// ChatAdminService is one of those others, deliberately: an operator holds no
+// member token, and [AdminService] authenticates them from the bearer
+// credential in the call's authorization metadata instead. Requiring a token
+// there would lock out the very caller the service exists for.
 func UnaryTokenInterceptor() grpc.UnaryServerInterceptor {
 	prefix := "/" + chatv1.ChatService_ServiceDesc.ServiceName + "/"
 	return func(

@@ -403,14 +403,20 @@ const (
 // be able to perform: inspecting every room, editing team formation, and
 // minting tokens for humans who have no provider entry.
 //
-// Access is proven by possession of an age identity file kept on host disk,
-// outside the mounts that participants see. Since age encrypts but does not
-// sign, the proof is a challenge-response: GetNonce hands back a nonce
-// encrypted to the configured admin recipient, and every other RPC here
-// carries the decrypted nonce.
+// Access is proven per call by a credential the caller sends as the standard
+// "authorization: Bearer <credential>" metadata, never as a request field, so a
+// TLS-terminating proxy or an OIDC client can supply it the way they already
+// supply one everywhere else.
+//
+// What the credential is depends on how the daemon is configured to
+// authenticate. The age-identity setup makes it a challenge-response, since age
+// encrypts without signing: GetNonce hands back a nonce encrypted to the
+// configured recipient and the caller sends the decrypted nonce as its bearer
+// credential. A setup that needs no challenge step answers GetNonce with
+// UNIMPLEMENTED and takes whatever credential its issuer minted.
 type ChatAdminServiceClient interface {
-	// GetNonce issues a challenge nonce encrypted to the configured admin age
-	// recipient.
+	// GetNonce issues a challenge for the caller to answer, when the daemon
+	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(ctx context.Context, in *GetNonceRequest, opts ...grpc.CallOption) (*GetNonceResponse, error)
 	// ListRooms lists every room the daemon knows and who attends it.
 	ListRooms(ctx context.Context, in *ListRoomsRequest, opts ...grpc.CallOption) (*ListRoomsResponse, error)
@@ -477,14 +483,20 @@ func (c *chatAdminServiceClient) RegisterMember(ctx context.Context, in *Registe
 // be able to perform: inspecting every room, editing team formation, and
 // minting tokens for humans who have no provider entry.
 //
-// Access is proven by possession of an age identity file kept on host disk,
-// outside the mounts that participants see. Since age encrypts but does not
-// sign, the proof is a challenge-response: GetNonce hands back a nonce
-// encrypted to the configured admin recipient, and every other RPC here
-// carries the decrypted nonce.
+// Access is proven per call by a credential the caller sends as the standard
+// "authorization: Bearer <credential>" metadata, never as a request field, so a
+// TLS-terminating proxy or an OIDC client can supply it the way they already
+// supply one everywhere else.
+//
+// What the credential is depends on how the daemon is configured to
+// authenticate. The age-identity setup makes it a challenge-response, since age
+// encrypts without signing: GetNonce hands back a nonce encrypted to the
+// configured recipient and the caller sends the decrypted nonce as its bearer
+// credential. A setup that needs no challenge step answers GetNonce with
+// UNIMPLEMENTED and takes whatever credential its issuer minted.
 type ChatAdminServiceServer interface {
-	// GetNonce issues a challenge nonce encrypted to the configured admin age
-	// recipient.
+	// GetNonce issues a challenge for the caller to answer, when the daemon
+	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(context.Context, *GetNonceRequest) (*GetNonceResponse, error)
 	// ListRooms lists every room the daemon knows and who attends it.
 	ListRooms(context.Context, *ListRoomsRequest) (*ListRoomsResponse, error)
