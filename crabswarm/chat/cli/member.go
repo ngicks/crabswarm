@@ -39,16 +39,55 @@ func (c *Client) Broadcast(ctx context.Context, w io.Writer, token, text string)
 	return RenderBroadcast(w, resp.GetDeliveredCount())
 }
 
+// ReadOptions tunes a read for the caller driving it. The zero value is the
+// read a human types: an empty inbox says so, and the read changes nothing but
+// the inbox.
+type ReadOptions struct {
+	// Quiet drops the empty-inbox line, so the output is non-empty exactly
+	// when messages were handed over.
+	//
+	// It exists for harness hooks, which have to decide whether they have
+	// anything to deliver. Without it the decision is a comparison against the
+	// sentence [RenderMessages] prints, which puts a wording nobody thinks of
+	// as an interface between the renderer and every hook that reads it.
+	Quiet bool
+	// IdleWhenEmpty reports the caller idle when the read handed nothing over.
+	//
+	// It rides on the read rather than being a hook entry of its own because
+	// the two decisions are the same decision: a turn-ending drain either
+	// delivers messages — and the turn continues, so the member is not idle —
+	// or it delivers none and the member goes quiet. Hooks wired to one event
+	// run concurrently, so a separate report-state entry would race the
+	// delivering path and mark a continuing turn idle.
+	//
+	// A read that failed reports nothing: the caller's state is unknown, and
+	// the daemon that would hear the report is the one that just did not
+	// answer.
+	IdleWhenEmpty bool
+}
+
 // Read prints the caller's pending messages and consumes them. A failure to
 // write them is returned, but the daemon has already handed them over by then:
 // they are gone either way, which is why the rendering is kept simple enough
 // not to fail on its own.
-func (c *Client) Read(ctx context.Context, w io.Writer, token string) error {
+func (c *Client) Read(ctx context.Context, w io.Writer, token string, opts ReadOptions) error {
 	resp, err := c.chat.Read(withToken(ctx, token), &chatv1.ReadRequest{})
 	if err != nil {
 		return callError(err)
 	}
-	return RenderMessages(w, resp.GetMessages())
+	messages := resp.GetMessages()
+	if len(messages) == 0 {
+		if opts.IdleWhenEmpty {
+			idle := chatv1.HarnessState_HARNESS_STATE_IDLE
+			if err := c.reportState(ctx, token, idle); err != nil {
+				return err
+			}
+		}
+		if opts.Quiet {
+			return nil
+		}
+	}
+	return RenderMessages(w, messages)
 }
 
 // ListMembers prints everyone attending the caller's room.
@@ -94,9 +133,20 @@ func (c *Client) ReportState(ctx context.Context, token, state string) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.chat.ReportState(
+	return c.reportState(ctx, token, parsed)
+}
+
+// reportState is [Client.ReportState] past the word-to-enum step, for the
+// callers that already hold the state as a value rather than as something a
+// user typed.
+func (c *Client) reportState(
+	ctx context.Context,
+	token string,
+	state chatv1.HarnessState,
+) error {
+	_, err := c.chat.ReportState(
 		withToken(ctx, token),
-		&chatv1.ReportStateRequest{State: parsed},
+		&chatv1.ReportStateRequest{State: state},
 	)
 	return callError(err)
 }

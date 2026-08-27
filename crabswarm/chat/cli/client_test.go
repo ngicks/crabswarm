@@ -246,7 +246,7 @@ func TestClient_UnreachableDaemonHint(t *testing.T) {
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = client.Close() })
 
-	err = client.Read(t.Context(), &strings.Builder{}, "tok-a")
+	err = client.Read(t.Context(), &strings.Builder{}, "tok-a", ReadOptions{})
 	assert.ErrorIs(t, err, ErrDaemonUnreachable)
 	assert.Assert(t, strings.Contains(err.Error(), "crabswarm serve"))
 }

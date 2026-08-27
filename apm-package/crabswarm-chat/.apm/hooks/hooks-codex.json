@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm chat join >/dev/null 2>&1 || true",
+            "command": "crabswarm hook exec 'crabswarm chat join' '{{/* records nothing, so a chat that is not there never blocks a session */}}'",
             "timeout": 10,
             "statusMessage": "Joining the crabswarm chat room..."
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm chat report-state running >/dev/null 2>&1 || true",
+            "command": "crabswarm hook exec 'crabswarm chat report-state running' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm chat report-state waiting_input >/dev/null 2>&1 || true",
+            "command": "crabswarm hook exec 'crabswarm chat report-state waiting_input' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]
@@ -41,12 +41,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/chat-inbox-hint.sh\"",
+            "command": "crabswarm hook exec 'crabswarm chat read --quiet' '{{if and .Success .Stdout}}{{context (printf \"[crabswarm chat] Messages just arrived. Reply with `crabswarm chat send <name|team/name> <text>` if any is addressed to you; otherwise carry on.\\n\\n%s\" .Stdout)}}{{end}}'",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "crabswarm chat report-state running >/dev/null 2>&1 || true",
+            "command": "crabswarm hook exec 'crabswarm chat report-state running' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]
@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/chat-stop-drain.sh\"",
+            "command": "crabswarm hook exec '{{if .Input.StopHookActive}}crabswarm chat report-state idle{{else}}crabswarm chat read --quiet --idle-when-empty{{end}}' '{{if and .Success .Stdout}}{{blockDecision (printf \"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, reply with `crabswarm chat send <name|team/name> <text>`, then finish.\\n\\n%s\" .Stdout)}}{{end}}'",
             "timeout": 10,
             "statusMessage": "Checking the crabswarm chat inbox..."
           }

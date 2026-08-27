@@ -19,6 +19,16 @@ Tools to swarm claude(, codex and others!)
 
 - Implement e2e tests if any existing test is not covering the case.
 - Don't think too much about backward compatibility, since the app was never actually deployed
+- Harness hook wiring (Claude Code / Codex hook config, in-repo or in an
+  apm package) is built on `crabswarm hook exec` — a command template plus
+  an output template (`blockDecision`, `context`, ...; a template that
+  records nothing means plain allow, even on failure). Never standalone
+  shell scripts or jq unless a template genuinely cannot express it; if a
+  two-step behavior doesn't fit, extend the CLI with a flag instead. Model:
+  the hooks packages in apm_modules/ngicks/agents-package/hooks/.
+- Before reporting "tool X cannot do Y" (apm, buf, cmdman, ...), read the
+  tool's --help or source and try a second layout/config; one failing
+  attempt is an observation, not a limitation.
 
 ```
 .

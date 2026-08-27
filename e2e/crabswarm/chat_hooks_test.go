@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"maps"
 	"os"
 	"os/exec"
@@ -15,171 +14,187 @@ import (
 	"testing"
 )
 
-// The two hook scripts the plugin wires into a live harness: the Stop-hook
-// inbox drain and the PostToolUse delivery. They are exercised here as the
-// harness runs them — piped an envelope on stdin, with a `crabswarm` on PATH —
-// because nothing else in the build compiles or type-checks a shell script.
-const (
-	chatDrainScript = "chat-stop-drain.sh"
-	chatHintScript  = "chat-inbox-hint.sh"
+// The hook wiring the plugin installs into a harness, one file per target. The
+// commands inside are `crabswarm hook exec` invocations, so every case below
+// runs the shipped command string verbatim rather than a Go paraphrase of it:
+// the wiring is a text file no compiler ever sees, and a template that renders
+// the wrong thing is exactly the bug that costs a message.
+var (
+	chatHooksClaudePath = []string{"hooks", "hooks.json"}
+	chatHooksCodexPath  = []string{".apm", "hooks", "hooks-codex.json"}
 )
 
-// chatEmptyInbox is what `crabswarm chat read` prints when nothing is waiting,
-// which is the one thing both scripts read out of the CLI's output rather than
-// out of its exit code. TestChatHookScripts_EmptyInboxLiteralMatchesTheCLI pins
-// it against the binary at both ends.
-const chatEmptyInbox = "no pending messages"
+// chatHookConfig is the hook file both harnesses read: events, each holding
+// matcher groups, each holding the commands to run.
+type chatHookConfig struct {
+	Version int                          `json:"version"`
+	Hooks   map[string][]chatHookMatcher `json:"hooks"`
+}
 
-// chatDrainedMessages stands in for what a read hands over. It carries a double
-// quote and a line break on purpose: those are what a shell script piping text
-// through jq gets wrong, and a mangled hand-over is a message the agent never
-// sees.
-const chatDrainedMessages = "[2026-01-02T03:04:05Z] alpha/ana: say \"hi\"\n" +
-	"[2026-01-02T03:04:06Z] alpha/bob: and a second line"
+type chatHookMatcher struct {
+	Matcher string          `json:"matcher"`
+	Hooks   []chatHookEntry `json:"hooks"`
+}
 
-// The invocations the scripts may make, spelled as the stub records them.
+type chatHookEntry struct {
+	Type          string `json:"type"`
+	Command       string `json:"command"`
+	Timeout       int    `json:"timeout"`
+	StatusMessage string `json:"statusMessage"`
+}
+
+// readChatHooks decodes one of the package's hook files out of the checkout
+// under test.
+func readChatHooks(t *testing.T, rel []string) chatHookConfig {
+	t.Helper()
+	path := filepath.Join(append(
+		[]string{repoRoot(), "apm-package", "crabswarm-chat"}, rel...)...)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read hook file %s: %v", path, err)
+	}
+	var cfg chatHookConfig
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatalf("decode hook file %s: %v", path, err)
+	}
+	if len(cfg.Hooks) == 0 {
+		t.Fatalf("hook file %s wires no events", path)
+	}
+	return cfg
+}
+
+// commands returns every command wired to event, in file order.
+func (c chatHookConfig) commands(event string) []string {
+	var out []string
+	for _, m := range c.Hooks[event] {
+		for _, h := range m.Hooks {
+			out = append(out, h.Command)
+		}
+	}
+	return out
+}
+
+// command returns the single command wired to event, failing when the file
+// wires none or several: a case that means to exercise "the Stop hook" must
+// not silently pick one of two.
+func (c chatHookConfig) command(t *testing.T, event string) string {
+	t.Helper()
+	got := c.commands(event)
+	if len(got) != 1 {
+		t.Fatalf("event %s wires %d commands, want exactly 1: %v", event, len(got), got)
+	}
+	return got[0]
+}
+
+// The envelopes the harnesses write to a hook's stdin, one per event this
+// package wires. Only the fields the hook commands actually read matter — the
+// Stop flag above all — but each carries the envelope metadata a real harness
+// sends, since `hook exec` parses the whole thing before it renders anything.
 const (
-	callRead = "chat read"
-	callIdle = "chat report-state idle"
+	chatStopEnvelope = `{` +
+		`"session_id":"sess-e2e",` +
+		`"transcript_path":"/tmp/e2e.jsonl",` +
+		`"cwd":"/tmp",` +
+		`"hook_event_name":"Stop",` +
+		`"stop_hook_active":false}`
+	chatStopActiveEnvelope = `{` +
+		`"session_id":"sess-e2e",` +
+		`"transcript_path":"/tmp/e2e.jsonl",` +
+		`"cwd":"/tmp",` +
+		`"hook_event_name":"Stop",` +
+		`"stop_hook_active":true}`
+	chatSessionStartEnvelope = `{` +
+		`"session_id":"sess-e2e",` +
+		`"transcript_path":"/tmp/e2e.jsonl",` +
+		`"cwd":"/tmp",` +
+		`"hook_event_name":"SessionStart",` +
+		`"source":"startup"}`
+	chatUserPromptSubmitEnvelope = `{` +
+		`"session_id":"sess-e2e",` +
+		`"transcript_path":"/tmp/e2e.jsonl",` +
+		`"cwd":"/tmp",` +
+		`"hook_event_name":"UserPromptSubmit",` +
+		`"prompt":"do the thing"}`
+	chatNotificationEnvelope = `{` +
+		`"session_id":"sess-e2e",` +
+		`"transcript_path":"/tmp/e2e.jsonl",` +
+		`"cwd":"/tmp",` +
+		`"hook_event_name":"Notification",` +
+		`"message":"Claude needs your permission to run a command"}`
+	// Codex's approval dialog. It is the one event Claude Code never sends, so
+	// it is also the one envelope that says whether `hook exec` speaks Codex's
+	// half of the surface at all.
+	chatPermissionRequestEnvelope = `{` +
+		`"session_id":"sess-e2e",` +
+		`"transcript_path":"/tmp/e2e.jsonl",` +
+		`"cwd":"/tmp",` +
+		`"hook_event_name":"PermissionRequest",` +
+		`"tool_name":"Bash",` +
+		`"tool_input":{"command":"ls"}}`
 )
 
-// stubCrabswarmScript is the `crabswarm` the hook scripts call. It records
-// every invocation — a read consumes, so which calls a script did *not* make is
-// as much of the contract as its output — and answers `chat read` from the
-// environment the case set up. Every other verb succeeds silently, which is all
-// `chat report-state idle` needs.
-const stubCrabswarmScript = `#!/bin/sh
-printf '%s\n' "$*" >>"$CRABSWARM_STUB_LOG"
-if [ "$1" = chat ] && [ "$2" = read ]; then
-	if [ -n "$CRABSWARM_STUB_READ" ]; then
-		printf '%s\n' "$CRABSWARM_STUB_READ"
-	fi
-	exit "$CRABSWARM_STUB_READ_EXIT"
-fi
-exit 0
-`
-
-// hookScriptRun is one invocation: which script, the envelope its harness
-// writes to stdin, how the stub `crabswarm` behind it answers `chat read`, and
-// whether jq is on the PATH it runs with.
-type hookScriptRun struct {
-	script   string
-	stdin    string
-	readOut  string // what `crabswarm chat read` prints; empty for nothing at all
-	readExit int    // and how it exits; non-zero stands in for an absent daemon
-	noJQ     bool
+// chatHookEnvelopes pairs each wired event with the stdin a harness would give
+// it. TestChatHooks_EveryWiredEventIsExercised keeps it exhaustive, so wiring a
+// new event without an envelope fails rather than going untested.
+var chatHookEnvelopes = map[string]string{
+	"SessionStart":      chatSessionStartEnvelope,
+	"UserPromptSubmit":  chatUserPromptSubmitEnvelope,
+	"Notification":      chatNotificationEnvelope,
+	"PermissionRequest": chatPermissionRequestEnvelope,
+	"PostToolUse":       postToolUseEnvelope,
+	"Stop":              chatStopEnvelope,
 }
 
-// hookScriptResult is what one run produced. The harness reads stdout and the
-// exit code; calls is every `crabswarm` invocation the script made on the way
-// there.
-type hookScriptResult struct {
-	stdout   string
-	stderr   string
-	exitCode int
-	calls    []string
-}
+// chatSentText is what a teammate sends in the delivery cases. The double quote
+// and the line break are the point: they are what a hand-rolled encoder gets
+// wrong, and a mangled hand-over is a message the agent never sees.
+const chatSentText = "say \"hi\"\nand a second line"
 
-// chatHookScriptPath locates a hook script inside the checkout under test,
-// which is the very file apm-package/crabswarm-chat/hooks/hooks.json points a
-// harness at.
-func chatHookScriptPath(t *testing.T, name string) string {
+// runChatHook runs one shipped hook command the way a harness does — through a
+// shell, with the envelope on stdin — against the daemon cfgPath describes,
+// acting as the holder of token.
+//
+// The built binary's directory leads the PATH so the `crabswarm` the command
+// names is this checkout's, and $CRABSWARM_CONF reaches both halves of the
+// invocation: the outer `hook exec` and the `crabswarm chat ...` it spawns.
+func runChatHook(t *testing.T, cfgPath, token, command, envelope string) hookResult {
 	t.Helper()
-	path := filepath.Join(repoRoot(), "apm-package", "crabswarm-chat", "scripts", name)
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("locate hook script %s: %v", name, err)
-	}
-	return path
-}
-
-// requireJQ skips a case that cannot run without jq. The scripts treat a
-// missing jq as "leave the inbox alone", so a machine without it can still say
-// something about the gate — just not about the encoding behind it.
-func requireJQ(t *testing.T) {
-	t.Helper()
-	if _, err := exec.LookPath("jq"); err != nil {
-		t.Skipf("jq is not installed: %v", err)
-	}
-}
-
-// runHookScript runs one hook script under `sh`, the way both harnesses invoke
-// it, against a stub `crabswarm` that shadows any real one on the PATH so no
-// case can reach a daemon of the developer's.
-func runHookScript(t *testing.T, run hookScriptRun) hookScriptResult {
-	t.Helper()
-	dir := t.TempDir()
-	stub := filepath.Join(dir, "crabswarm")
-	writeFile(t, stub, stubCrabswarmScript)
-	if err := os.Chmod(stub, 0o755); err != nil {
-		t.Fatalf("chmod stub crabswarm: %v", err)
-	}
-	log := filepath.Join(dir, "calls.log")
-
-	// Dropping the rest of the PATH is how the jq gate is reached. `cat` is
-	// linked in alongside the stub because the drain script reads its stdin with
-	// it before it ever looks for jq, and a script that died on the read would
-	// pass the gate's assertions for the wrong reason.
-	path := dir + string(os.PathListSeparator) + os.Getenv("PATH")
-	if run.noJQ {
-		linkTool(t, dir, "cat")
-		path = dir
-	}
-
-	cmd := exec.CommandContext(t.Context(), "sh", chatHookScriptPath(t, run.script))
-	cmd.Stdin = strings.NewReader(run.stdin)
+	cmd := exec.CommandContext(t.Context(), "sh", "-c", command)
+	cmd.Stdin = strings.NewReader(envelope)
 	cmd.Env = append(chatEnviron(),
-		"PATH="+path,
-		"CRABSWARM_STUB_LOG="+log,
-		"CRABSWARM_STUB_READ="+run.readOut,
-		fmt.Sprintf("CRABSWARM_STUB_READ_EXIT=%d", run.readExit),
+		"PATH="+filepath.Dir(crabswarmBin)+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"CRABSWARM_CONF="+cfgPath,
+		chatTokenEnvVar+"="+token,
 	)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if _, ok := errors.AsType[*exec.ExitError](err); !ok {
-			t.Fatalf("run %s: %v", run.script, err)
+			t.Fatalf("run hook command %q: %v", command, err)
 		}
 	}
-	return hookScriptResult{
+	return hookResult{
 		stdout:   stdout.String(),
 		stderr:   stderr.String(),
 		exitCode: cmd.ProcessState.ExitCode(),
-		calls:    readStubCalls(t, log),
 	}
 }
 
-// linkTool links one of the shell's external commands into dir, so a PATH
-// holding dir alone still has it.
-func linkTool(t *testing.T, dir, name string) {
+// chatAbsentDaemonConfig names a socket nothing listens on, which is how the
+// cases below stand a hook up against a daemon that is not running.
+func chatAbsentDaemonConfig(t *testing.T) string {
 	t.Helper()
-	src, err := exec.LookPath(name)
-	if err != nil {
-		t.Skipf("%s is not installed: %v", name, err)
-	}
-	if err := os.Symlink(src, filepath.Join(dir, name)); err != nil {
-		t.Fatalf("link %s into %s: %v", name, dir, err)
-	}
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	writeFile(t, cfgPath, fmt.Sprintf(`{"sock":%q}`, filepath.Join(dir, "absent.sock")))
+	return cfgPath
 }
 
-// readStubCalls returns the stub's recorded invocations. No log file means the
-// script never called crabswarm at all.
-func readStubCalls(t *testing.T, log string) []string {
-	t.Helper()
-	b, err := os.ReadFile(log)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		t.Fatalf("read stub call log: %v", err)
-	}
-	return lines(string(b))
-}
-
-// hookObject decodes a hook script's output as a plain JSON object, leaving the
-// key set for the case to pin: Codex rejects an output object carrying a field
-// its schema does not know, so "and nothing else" is half of what these scripts
-// have to get right. The struct the Go hook cases decode into cannot say that.
+// hookObject decodes a hook's output as a plain JSON object, leaving the key set
+// for the case to pin: Codex rejects an output object carrying a field its
+// schema does not know, so "and nothing else" is half of what these hooks have
+// to get right. A struct with named fields cannot say that.
 func hookObject(t *testing.T, s string) map[string]json.RawMessage {
 	t.Helper()
 	var obj map[string]json.RawMessage
@@ -209,140 +224,137 @@ func hookString(t *testing.T, obj map[string]json.RawMessage, key string) string
 	return s
 }
 
-// assertStopAllowed pins what every path that lets the stop through looks like:
-// nothing on stdout for the harness to read as a decision, exit 0, and exactly
-// the calls the path is allowed to make — the idle report among them, since
-// that is what re-arms the daemon's nudge for a member about to go quiet.
-func assertStopAllowed(t *testing.T, res hookScriptResult, wantCalls ...string) {
+// assertHookIsSilent pins what an allow looks like on the wire: nothing on
+// stdout for the harness to read as a decision, nothing on stderr, exit 0.
+func assertHookIsSilent(t *testing.T, res hookResult) {
 	t.Helper()
 	if res.exitCode != 0 {
 		t.Errorf("exit code = %d, want 0\nstderr:\n%s", res.exitCode, res.stderr)
 	}
 	if res.stdout != "" {
-		t.Errorf("stdout = %q, want nothing: an empty output lets the stop through",
-			res.stdout)
+		t.Errorf("stdout = %q, want nothing: an empty output is the allow", res.stdout)
 	}
 	if res.stderr != "" {
 		t.Errorf("stderr = %q, want nothing", res.stderr)
 	}
-	if !slices.Equal(res.calls, wantCalls) {
-		t.Errorf("crabswarm calls = %v, want %v", res.calls, wantCalls)
+}
+
+// startChatRoomWithMail brings up a daemon, attends as ana and bob, and leaves
+// one message from bob waiting in ana's inbox. It returns the config path the
+// hooks run against; every case acts as ana, the member whose turn is ending.
+func startChatRoomWithMail(t *testing.T) string {
+	t.Helper()
+	cfg := startChatDaemon(t)
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-bob", "send", "ana", chatSentText)
+	return cfg
+}
+
+// assertInboxStillHoldsTheMail reads ana's inbox directly and reports an inbox
+// a hook was supposed to leave alone.
+func assertInboxStillHoldsTheMail(t *testing.T, cfg string) {
+	t.Helper()
+	if got := runChat(t, cfg, "tok-ana", "read"); !strings.Contains(got, "say \"hi\"") {
+		t.Errorf("inbox after the hook = %q, want the message still waiting", got)
+	}
+}
+
+// assertInboxWasConsumed reads ana's inbox directly and reports mail a hook
+// handed over but left behind — the read that delivered it should have
+// consumed it.
+func assertInboxWasConsumed(t *testing.T, cfg string) {
+	t.Helper()
+	if got := runChat(t, cfg, "tok-ana", "read"); got != "no pending messages\n" {
+		t.Errorf("inbox after the hook = %q, want it emptied by the delivery", got)
+	}
+}
+
+// Messages in hand at turn end: the stop is blocked so they reach the agent,
+// carried through `hook exec`'s JSON intact — quotes and line breaks included.
+// decision and reason and nothing else, since a rejected output after a
+// consuming read is exactly the lost message this hook exists to prevent. The
+// inbox is empty afterwards: the block is the delivery.
+func TestChatHooks_StopBlocksWithTheMessages(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		rel  []string
+	}{
+		{"claude", chatHooksClaudePath},
+		{"codex", chatHooksCodexPath},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := startChatRoomWithMail(t)
+			hooks := readChatHooks(t, tc.rel)
+
+			res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
+			if res.exitCode != 0 {
+				t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
+					res.exitCode, res.stdout, res.stderr)
+			}
+			if res.stderr != "" {
+				t.Errorf("stderr = %q, want nothing", res.stderr)
+			}
+
+			obj := hookObject(t, res.stdout)
+			assertKeys(t, obj, "decision", "reason")
+			if got := hookString(t, obj, "decision"); got != "block" {
+				t.Errorf("decision = %q, want %q", got, "block")
+			}
+			reason := hookString(t, obj, "reason")
+			for _, want := range []string{
+				"alpha/bob: say \"hi\"",
+				"and a second line",
+				"crabswarm chat send",
+			} {
+				if !strings.Contains(reason, want) {
+					t.Errorf("reason = %q, want it to carry %q", reason, want)
+				}
+			}
+			assertInboxWasConsumed(t, cfg)
+		})
 	}
 }
 
 // stop_hook_active means an earlier Stop hook already blocked this turn.
 // Reading again would either loop the agent or, once the harness stops honoring
-// the block, consume messages it never shows — so the inbox is left alone. The
-// same goes for an envelope that cannot be read at all: an inbox left full
-// costs a late read, a drain nobody delivers costs the message.
-func TestChatHookScripts_DrainLeavesTheInboxAlone(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		stdin string
-	}{
-		{"an earlier stop hook is still blocking", `{"stop_hook_active":true}`},
-		{"the envelope is not JSON", "not an envelope at all"},
-		{"the envelope is empty", ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			requireJQ(t)
-			res := runHookScript(t, hookScriptRun{
-				script:  chatDrainScript,
-				stdin:   tc.stdin,
-				readOut: chatDrainedMessages,
-			})
-			assertStopAllowed(t, res, callIdle)
-		})
-	}
+// the block, consume messages it never shows — so the hook does not read at
+// all, and the mail is still there afterwards.
+func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
+	cfg := startChatRoomWithMail(t)
+	hooks := readChatHooks(t, chatHooksClaudePath)
+
+	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopActiveEnvelope)
+	assertHookIsSilent(t, res)
+	assertInboxStillHoldsTheMail(t, cfg)
 }
 
-// Without jq the drained text could not be encoded back to the harness, so the
-// messages are left where they are for the next turn rather than read out into
-// nowhere.
-func TestChatHookScripts_DrainWithoutJQLeavesTheInboxAlone(t *testing.T) {
-	res := runHookScript(t, hookScriptRun{
-		script:  chatDrainScript,
-		stdin:   `{"stop_hook_active":false}`,
-		readOut: chatDrainedMessages,
-		noJQ:    true,
-	})
-	assertStopAllowed(t, res, callIdle)
-}
+// Nothing waiting: the turn ends as it would have without the hook. The idle
+// report the same read makes on the way is not observable from outside the
+// daemon — TestClient_ReadIdleWhenEmpty pins that against the RPC — so what is
+// asserted here is the half a harness sees.
+func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
+	cfg := startChatDaemon(t)
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	hooks := readChatHooks(t, chatHooksClaudePath)
 
-// Nothing waiting, or nobody to ask: the turn ends as it would have without the
-// hook, and the member is reported idle so the daemon may nudge it when the
-// next message arrives.
-func TestChatHookScripts_DrainAllowsTheStopWithNothingToDeliver(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		run  hookScriptRun
-	}{
-		{"the inbox is empty", hookScriptRun{readOut: chatEmptyInbox}},
-		{"the read printed nothing", hookScriptRun{}},
-		{"the daemon is unreachable", hookScriptRun{readExit: 1}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			requireJQ(t)
-			tc.run.script = chatDrainScript
-			tc.run.stdin = `{"stop_hook_active":false}`
-			assertStopAllowed(t, runHookScript(t, tc.run), callRead, callIdle)
-		})
-	}
-}
-
-// Messages in hand: the stop is blocked so they reach the agent, with the text
-// carried through jq intact — quotes and line breaks included. decision and
-// reason and nothing else, since a rejected output after a consuming read is
-// exactly the lost message this script exists to prevent. No idle is reported
-// either: the turn is about to continue, so the member is running.
-func TestChatHookScripts_DrainBlocksWithTheMessages(t *testing.T) {
-	requireJQ(t)
-	res := runHookScript(t, hookScriptRun{
-		script:  chatDrainScript,
-		stdin:   `{"stop_hook_active":false}`,
-		readOut: chatDrainedMessages,
-	})
-
-	if res.exitCode != 0 {
-		t.Fatalf("exit code = %d, want 0\nstderr:\n%s", res.exitCode, res.stderr)
-	}
-	if res.stderr != "" {
-		t.Errorf("stderr = %q, want nothing", res.stderr)
-	}
-
-	obj := hookObject(t, res.stdout)
-	assertKeys(t, obj, "decision", "reason")
-	if got := hookString(t, obj, "decision"); got != "block" {
-		t.Errorf("decision = %q, want %q", got, "block")
-	}
-	reason := hookString(t, obj, "reason")
-	if !strings.Contains(reason, chatDrainedMessages) {
-		t.Errorf("reason = %q, want it to carry the drained messages verbatim:\n%s",
-			reason, chatDrainedMessages)
-	}
-	if !strings.Contains(reason, "crabswarm chat send") {
-		t.Errorf("reason = %q, want it to name how the agent replies", reason)
-	}
-	if want := []string{callRead}; !slices.Equal(res.calls, want) {
-		t.Errorf("crabswarm calls = %v, want %v: a blocked stop is not idle",
-			res.calls, want)
-	}
+	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
+	assertHookIsSilent(t, res)
 }
 
 // The PostToolUse hook hands the messages over as additionalContext rather than
 // announcing them: the read already consumed them, so injecting the text is the
-// delivery. hookSpecificOutput and nothing else, for the same reason the drain
-// keeps to decision and reason.
-func TestChatHookScripts_HintDeliversTheMessages(t *testing.T) {
-	requireJQ(t)
-	res := runHookScript(t, hookScriptRun{
-		script:  chatHintScript,
-		stdin:   postToolUseEnvelope,
-		readOut: chatDrainedMessages,
-	})
+// delivery. hookSpecificOutput and nothing else, for the same reason the Stop
+// drain keeps to decision and reason.
+func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
+	cfg := startChatRoomWithMail(t)
+	hooks := readChatHooks(t, chatHooksClaudePath)
 
+	res := runChatHook(t, cfg, "tok-ana",
+		hooks.commands("PostToolUse")[0], postToolUseEnvelope)
 	if res.exitCode != 0 {
-		t.Fatalf("exit code = %d, want 0\nstderr:\n%s", res.exitCode, res.stderr)
+		t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
+			res.exitCode, res.stdout, res.stderr)
 	}
 	if res.stderr != "" {
 		t.Errorf("stderr = %q, want nothing", res.stderr)
@@ -356,77 +368,217 @@ func TestChatHookScripts_HintDeliversTheMessages(t *testing.T) {
 		t.Errorf("hookEventName = %q, want %q", got, "PostToolUse")
 	}
 	injected := hookString(t, inner, "additionalContext")
-	if !strings.Contains(injected, chatDrainedMessages) {
-		t.Errorf("additionalContext = %q, want it to carry the messages verbatim:\n%s",
-			injected, chatDrainedMessages)
+	for _, want := range []string{
+		"alpha/bob: say \"hi\"",
+		"and a second line",
+		"crabswarm chat send",
+	} {
+		if !strings.Contains(injected, want) {
+			t.Errorf("additionalContext = %q, want it to carry %q", injected, want)
+		}
 	}
-	if want := []string{callRead}; !slices.Equal(res.calls, want) {
-		t.Errorf("crabswarm calls = %v, want %v", res.calls, want)
-	}
+	assertInboxWasConsumed(t, cfg)
 }
 
 // This one runs after every single tool call, so anything short of a message
-// actually having arrived ends in silence: an empty inbox, a daemon that is not
-// there and a missing jq are none of them news the agent needs mid-task. It
-// reports no state either — a member calling tools is plainly not idle.
-func TestChatHookScripts_HintIsSilentWithoutMessages(t *testing.T) {
+// actually having arrived ends in silence: an empty inbox and a daemon that is
+// not there are neither of them news the agent needs mid-task. The daemon-down
+// case is the one `.Output` would get wrong — the CLI's "start the daemon" hint
+// goes to stderr, and injecting that as a message would be a delivery of
+// something nobody sent.
+func TestChatHooks_PostToolUseIsSilentWithoutMessages(t *testing.T) {
+	hooks := readChatHooks(t, chatHooksClaudePath)
+	command := hooks.commands("PostToolUse")[0]
+
+	t.Run("the inbox is empty", func(t *testing.T) {
+		cfg := startChatDaemon(t)
+		runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+		assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", command, postToolUseEnvelope))
+	})
+
+	t.Run("the daemon is unreachable", func(t *testing.T) {
+		cfg := chatAbsentDaemonConfig(t)
+		assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", command, postToolUseEnvelope))
+	})
+}
+
+// Every shipped command, on every event, against a daemon that is not running:
+// none of them says anything and none of them fails. That is the whole
+// degradation story of this package — a chat nobody is hosting must not break a
+// session start, a turn, or a tool call — and it is asserted over the files
+// themselves so a newly wired command cannot skip it.
+func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
+	cfg := chatAbsentDaemonConfig(t)
 	for _, tc := range []struct {
-		name      string
-		run       hookScriptRun
-		wantCalls []string
+		name string
+		rel  []string
 	}{
-		{"the inbox is empty", hookScriptRun{readOut: chatEmptyInbox}, []string{callRead}},
-		{"the read printed nothing", hookScriptRun{}, []string{callRead}},
-		{"the daemon is unreachable", hookScriptRun{readExit: 1}, []string{callRead}},
-		{"jq is missing", hookScriptRun{readOut: chatDrainedMessages, noJQ: true}, nil},
+		{"claude", chatHooksClaudePath},
+		{"codex", chatHooksCodexPath},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if !tc.run.noJQ {
-				requireJQ(t)
-			}
-			tc.run.script = chatHintScript
-			tc.run.stdin = postToolUseEnvelope
-			res := runHookScript(t, tc.run)
-
-			if res.exitCode != 0 {
-				t.Errorf("exit code = %d, want 0\nstderr:\n%s", res.exitCode, res.stderr)
-			}
-			if res.stdout != "" {
-				t.Errorf("stdout = %q, want nothing", res.stdout)
-			}
-			if res.stderr != "" {
-				t.Errorf("stderr = %q, want nothing", res.stderr)
-			}
-			if !slices.Equal(res.calls, tc.wantCalls) {
-				t.Errorf("crabswarm calls = %v, want %v", res.calls, tc.wantCalls)
+			hooks := readChatHooks(t, tc.rel)
+			for _, event := range slices.Sorted(maps.Keys(hooks.Hooks)) {
+				for i, command := range hooks.commands(event) {
+					t.Run(fmt.Sprintf("%s/%d", event, i), func(t *testing.T) {
+						assertHookIsSilent(t,
+							runChatHook(t, cfg, "tok-ana", command, chatHookEnvelopes[event]))
+					})
+				}
 			}
 		})
 	}
 }
 
-// Both scripts decide whether anything arrived by comparing the read's output
-// against a literal sentence, and no Go build step knows that. So the wording is
-// pinned from both ends here: what the binary actually prints on an empty
-// inbox, and the string each script tests for. Reword the renderer's empty case
-// without touching the scripts and this fails, instead of every quiet turn
-// silently blocking on "no pending messages" as if it were mail.
-func TestChatHookScripts_EmptyInboxLiteralMatchesTheCLI(t *testing.T) {
+// The fire-and-forget hooks are silent by design, which makes "it did nothing"
+// and "it worked" look alike from the outside. SessionStart is the one whose
+// effect the room reports back, so it is checked against a live daemon: the
+// hook's bare `chat join` takes the name the daemon derives from the token.
+func TestChatHooks_SessionStartAttendsTheRoom(t *testing.T) {
 	cfg := startChatDaemon(t)
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	hooks := readChatHooks(t, chatHooksClaudePath)
 
-	printed := strings.TrimSuffix(runChat(t, cfg, "tok-ana", "read"), "\n")
-	if printed != chatEmptyInbox {
-		t.Fatalf("chat read on an empty inbox = %q, want %q", printed, chatEmptyInbox)
+	res := runChatHook(t, cfg, "tok-cid", hooks.command(t, "SessionStart"),
+		chatSessionStartEnvelope)
+	assertHookIsSilent(t, res)
+
+	members := lines(runChat(t, cfg, "tok-ana", "members"))
+	if len(members) != 2 {
+		t.Fatalf("members = %v, want ana plus the member the hook joined", members)
 	}
-	for _, name := range []string{chatDrainScript, chatHintScript} {
-		b, err := os.ReadFile(chatHookScriptPath(t, name))
-		if err != nil {
-			t.Fatalf("read %s: %v", name, err)
+	if !slices.ContainsFunc(members, func(m string) bool {
+		return strings.HasPrefix(m, "beta/")
+	}) {
+		t.Errorf("members = %v, want the hook's join to have attended under team beta", members)
+	}
+}
+
+// An envelope `hook exec` cannot parse is a plain error, not a decision: exit 1
+// with the reason on stderr and nothing on stdout. That is a louder failure
+// than the shell scripts this wiring replaced — they treated an unreadable
+// envelope as "leave the inbox alone" — but it is never a block, and a harness
+// that sends unparseable JSON is broken in a way worth hearing about.
+func TestChatHooks_UnparseableEnvelopeFailsWithoutBlocking(t *testing.T) {
+	cfg := startChatRoomWithMail(t)
+	hooks := readChatHooks(t, chatHooksClaudePath)
+
+	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), "not an envelope at all")
+	if res.exitCode != 1 {
+		t.Errorf("exit code = %d, want 1\nstdout:\n%s\nstderr:\n%s",
+			res.exitCode, res.stdout, res.stderr)
+	}
+	if res.stdout != "" {
+		t.Errorf("stdout = %q, want nothing: a failed parse emits no hook decision", res.stdout)
+	}
+	if !strings.Contains(res.stderr, "parsing hook input") {
+		t.Errorf("stderr = %q, want it to name the failed parse", res.stderr)
+	}
+	assertInboxStillHoldsTheMail(t, cfg)
+}
+
+// Everything the hooks need now ships inside `crabswarm hook exec`: no shell
+// scripts to copy alongside the JSON, no `jq` to have installed, and no plugin
+// root to resolve. This is asserted because losing it is invisible — a command
+// that reaches back out to a script keeps working on the author's machine and
+// breaks on every consumer that installed only the hook files.
+func TestChatHooks_AreSelfContained(t *testing.T) {
+	if _, err := os.Stat(filepath.Join(
+		repoRoot(), "apm-package", "crabswarm-chat", "scripts")); err == nil {
+		t.Error("apm-package/crabswarm-chat/scripts exists again; the hooks ship no scripts")
+	}
+	for _, rel := range [][]string{chatHooksClaudePath, chatHooksCodexPath} {
+		hooks := readChatHooks(t, rel)
+		for event, groups := range hooks.Hooks {
+			for _, g := range groups {
+				for _, h := range g.Hooks {
+					assertSelfContainedHookEntry(t, event, h)
+				}
+			}
 		}
-		if want := `"` + printed + `"`; !strings.Contains(string(b), want) {
-			t.Errorf("%s does not compare the read against %s, "+
-				"which is what `crabswarm chat read` prints on an empty inbox",
-				name, want)
+	}
+}
+
+// assertSelfContainedHookEntry pins one entry's command against the four ways
+// this wiring used to reach outside the binary, and against the timeout every
+// entry needs: the PostToolUse hook runs after every tool call, and a wedged
+// daemon must not stall the session.
+func assertSelfContainedHookEntry(t *testing.T, event string, h chatHookEntry) {
+	t.Helper()
+	if !strings.HasPrefix(h.Command, "crabswarm hook exec ") {
+		t.Errorf("%s command %q does not run through `crabswarm hook exec`", event, h.Command)
+	}
+	for _, banned := range []string{
+		"jq",
+		"CLAUDE_PLUGIN_ROOT",
+		"scripts/",
+		// The empty-inbox wording used to be the signal that mail arrived.
+		// `chat read --quiet` prints nothing at all instead, so no hook has to
+		// know a sentence the renderer is free to reword.
+		"no pending messages",
+	} {
+		if strings.Contains(h.Command, banned) {
+			t.Errorf("%s command %q still depends on %q", event, h.Command, banned)
+		}
+	}
+	if h.Timeout <= 0 {
+		t.Errorf("%s command %q carries no timeout", event, h.Command)
+	}
+	if h.Type != "command" {
+		t.Errorf("%s entry type = %q, want %q", event, h.Type, "command")
+	}
+}
+
+// The Codex file is the Claude one with its two differences and nothing else:
+// `Notification` becomes `PermissionRequest` (Codex's approval dialog is the
+// only prompt it announces), and `PostToolUse` reports running a second time,
+// since a tool call completing is Codex's only signal that a dialog resolved.
+// Everything the two share is compared verbatim, so a fix applied to one file
+// and forgotten in the other fails here.
+func TestChatHooks_CodexMirrorsClaude(t *testing.T) {
+	claude := readChatHooks(t, chatHooksClaudePath)
+	codex := readChatHooks(t, chatHooksCodexPath)
+
+	for _, event := range []string{"SessionStart", "UserPromptSubmit", "Stop"} {
+		if got, want := codex.command(t, event), claude.command(t, event); got != want {
+			t.Errorf("codex %s command = %q, want the Claude one %q", event, got, want)
+		}
+	}
+
+	if got := claude.commands("Notification"); len(got) != 1 {
+		t.Errorf("claude wires %d Notification commands, want 1", len(got))
+	}
+	if got := codex.commands("Notification"); got != nil {
+		t.Errorf("codex wires Notification %v; Codex has no such event", got)
+	}
+	if got := codex.command(t, "PermissionRequest"); !strings.Contains(got, "waiting_input") {
+		t.Errorf("codex PermissionRequest command = %q, want it to report waiting_input", got)
+	}
+
+	postToolUse := codex.commands("PostToolUse")
+	if len(postToolUse) != 2 {
+		t.Fatalf("codex wires %d PostToolUse commands, want the delivery plus the "+
+			"running report: %v", len(postToolUse), postToolUse)
+	}
+	if got, want := postToolUse[0], claude.commands("PostToolUse")[0]; got != want {
+		t.Errorf("codex PostToolUse delivery = %q, want the Claude one %q", got, want)
+	}
+	if !strings.Contains(postToolUse[1], "report-state running") {
+		t.Errorf("codex second PostToolUse command = %q, want the running report",
+			postToolUse[1])
+	}
+}
+
+// Every event either file wires has an envelope in chatHookEnvelopes, so
+// TestChatHooks_EveryCommandIsHarmlessWithoutADaemon really does feed each one
+// what its harness would. Without this, wiring a new event would quietly hand
+// that case an empty stdin and pass for the wrong reason.
+func TestChatHooks_EveryWiredEventIsExercised(t *testing.T) {
+	for _, rel := range [][]string{chatHooksClaudePath, chatHooksCodexPath} {
+		for event := range readChatHooks(t, rel).Hooks {
+			if _, ok := chatHookEnvelopes[event]; !ok {
+				t.Errorf("event %s is wired but has no envelope in chatHookEnvelopes", event)
+			}
 		}
 	}
 }

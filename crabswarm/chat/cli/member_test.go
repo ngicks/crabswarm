@@ -54,18 +54,89 @@ func TestClient_Broadcast(t *testing.T) {
 	assert.Equal(t, out.String(), "broadcast to 2 members\n")
 }
 
-func TestClient_Read(t *testing.T) {
-	fake := &fakeChatService{messages: []*chatv1.Message{{
+// pendingMessage is the one message the read cases below hand over.
+func pendingMessage() *chatv1.Message {
+	return &chatv1.Message{
 		From:   member("backend", "alice", "/work"),
 		Text:   "ping",
 		SentAt: timestamppb.New(time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)),
-	}}}
+	}
+}
+
+const pendingMessageLine = "[2026-08-27T09:30:00Z] backend/alice: ping\n"
+
+func TestClient_Read(t *testing.T) {
+	fake := &fakeChatService{messages: []*chatv1.Message{pendingMessage()}}
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
-	assert.NilError(t, d.client.Read(t.Context(), &out, "tok-b"))
-	assert.Equal(t, out.String(), "[2026-08-27T09:30:00Z] backend/alice: ping\n")
+	assert.NilError(t, d.client.Read(t.Context(), &out, "tok-b", ReadOptions{}))
+	assert.Equal(t, out.String(), pendingMessageLine)
 	assert.DeepEqual(t, d.seenTokens(), []string{"tok-b"})
+}
+
+// The empty-inbox line is what a human wants and what a hook has to tell apart
+// from mail, so --quiet is the only thing that removes it: output that is empty
+// at all then means nothing arrived, with no wording to compare against.
+func TestClient_ReadQuietPrintsNothingOnAnEmptyInbox(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		quiet bool
+		want  string
+	}{
+		{"a plain read says so", false, "no pending messages\n"},
+		{"a quiet read says nothing", true, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeChatService{}
+			d := serveTestDaemon(t, fake, nil)
+
+			var out strings.Builder
+			assert.NilError(t,
+				d.client.Read(t.Context(), &out, "tok-b", ReadOptions{Quiet: tc.quiet}))
+			assert.Equal(t, out.String(), tc.want)
+			assert.Assert(t, fake.state == nil, "a read alone reports no state")
+		})
+	}
+}
+
+// A drain that found nothing ends the turn, so the same process reports the
+// member idle — the state that lets the daemon nudge it when the next message
+// arrives. Messages in hand mean the opposite: the turn is about to continue.
+func TestClient_ReadIdleWhenEmpty(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		messages []*chatv1.Message
+		want     string
+		wantIdle bool
+	}{
+		{"an empty inbox reports idle", nil, "", true},
+		{
+			"messages report nothing",
+			[]*chatv1.Message{pendingMessage()},
+			pendingMessageLine,
+			false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeChatService{messages: tc.messages}
+			d := serveTestDaemon(t, fake, nil)
+
+			var out strings.Builder
+			assert.NilError(t, d.client.Read(t.Context(), &out, "tok-b",
+				ReadOptions{Quiet: true, IdleWhenEmpty: true}))
+			assert.Equal(t, out.String(), tc.want)
+
+			if !tc.wantIdle {
+				assert.Assert(t, fake.state == nil)
+				return
+			}
+			assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_IDLE)
+			// The report rides on the read's own credential; nothing about the
+			// caller is re-resolved on the way.
+			assert.DeepEqual(t, d.seenTokens(), []string{"tok-b", "tok-b"})
+		})
+	}
 }
 
 func TestClient_ListMembersAndAddresses(t *testing.T) {
