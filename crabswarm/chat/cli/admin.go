@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"filippo.io/age"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat"
 )
 
 // The admin RPCs are not gated by a token but by possession of an age identity
@@ -67,7 +67,7 @@ func DecryptNonce(path string, encrypted []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parsing the admin identity file %q: %w", path, err)
 	}
-	r, err := age.Decrypt(bytes.NewReader(encrypted), identities...)
+	nonce, err := chat.DecryptNonce(encrypted, identities...)
 	if err != nil {
 		return "", fmt.Errorf(
 			"decrypting the admin challenge with %q: %w\n"+
@@ -75,11 +75,7 @@ func DecryptNonce(path string, encrypted []byte) (string, error) {
 				"this file must hold that recipient's identity",
 			path, err)
 	}
-	nonce, err := io.ReadAll(r)
-	if err != nil {
-		return "", fmt.Errorf("reading the decrypted admin challenge: %w", err)
-	}
-	return string(nonce), nil
+	return nonce, nil
 }
 
 // nonce runs one challenge-response round: fetch a challenge and decrypt it

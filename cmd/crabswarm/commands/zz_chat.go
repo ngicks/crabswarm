@@ -42,11 +42,13 @@ func dialChatAsMember(
 }
 
 // chatIdentityPath resolves the age identity file the admin verbs authenticate
-// with. The chat config carries no key for it yet, so --identity is the only
-// source; this is the single place a configured default would be read from once
-// the chat config grows one.
+// with: --identity first, then the chat config's admin_identity_file.
 func chatIdentityPath(flags *chatFlags) (string, error) {
-	return chatcli.ResolveIdentityPath(*flags.identity, "")
+	cfg, err := crabswarm.LoadConfig(*flags.config)
+	if err != nil {
+		return "", err
+	}
+	return chatcli.ResolveIdentityPath(*flags.identity, cfg.Chat.AdminIdentityFile)
 }
 
 // chatCompletionTimeout bounds the lookup behind a completion so a stopped
