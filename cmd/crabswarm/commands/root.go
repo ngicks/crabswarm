@@ -62,6 +62,7 @@ func rootCmd() *cobra.Command {
 	statuslineCmd(cmd)
 	gitCmd(cmd, &flagConfig)
 	previewCmd(cmd, &flagConfig)
+	chatCmd(cmd, &flagSock, &flagConfig)
 
 	return cmd
 }
