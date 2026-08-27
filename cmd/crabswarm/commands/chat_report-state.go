@@ -16,9 +16,10 @@ func chatReportStateCmd(parent *cobra.Command, flags *chatFlags) {
 driven by harness hooks rather than typed by hand, and prints nothing so its
 output never reaches the agent reading the hook's stdout.
 
-The state gates keystroke-injection nudges, which are only safe to deliver
-while the harness is idle: running means it is working through a turn, and
-waiting_input means a dialog is open that would read a nudge as its answer.`,
+The state gates keystroke-injection nudges: done means the turn finished and
+the harness sits waiting for a new prompt, which is the one state a nudge is
+safe to land in. working means it is working through a turn, and waiting means
+a dialog is open that would read a nudge as its answer.`,
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: chatcli.HarnessStateNames(),
 		RunE: func(cmd *cobra.Command, args []string) error {

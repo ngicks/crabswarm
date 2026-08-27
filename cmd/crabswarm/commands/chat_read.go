@@ -18,11 +18,11 @@ in between. An empty inbox says so instead of printing nothing.
 
 The two flags are for harness hooks rather than for typing. --quiet drops the
 empty-inbox line, so a hook can tell mail from no mail by whether the output is
-empty at all. --idle-when-empty additionally reports this member idle when the
+empty at all. --done-when-empty additionally reports this member done when the
 read handed nothing over, which is what re-arms the daemon's terminal nudge for
 a member whose turn is ending. They belong to the same process as the read on
 purpose: hooks wired to one event run concurrently, so a separate report-state
-entry would race the delivering path and mark a continuing turn idle.`,
+entry would race the delivering path and mark a continuing turn done.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -33,8 +33,8 @@ entry would race the delivering path and mark a continuing turn idle.`,
 	f := cmd.Flags()
 	f.BoolVar(&opts.Quiet, "quiet", false,
 		"print nothing at all when the inbox is empty")
-	f.BoolVar(&opts.DoneWhenEmpty, "idle-when-empty", false,
-		"report this member idle when the read handed nothing over")
+	f.BoolVar(&opts.DoneWhenEmpty, "done-when-empty", false,
+		"report this member done when the read handed nothing over")
 
 	parent.AddCommand(cmd)
 }

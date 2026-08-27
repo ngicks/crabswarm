@@ -74,7 +74,7 @@ func TestChatMemberVerbs_RequireAToken(t *testing.T) {
 		{"leave"},
 		{"send", "alice", "hi"},
 		{"broadcast", "hi"},
-		{"report-state", "idle"},
+		{"report-state", "done"},
 	} {
 		t.Run(args[0], func(t *testing.T) {
 			chatHermeticEnv(t)
