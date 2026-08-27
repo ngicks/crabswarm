@@ -33,6 +33,8 @@ fallback via `logs --tail`).
 - [x] Post-review: D21 harness-state vocabulary aligned to
       `cmdman status set working|waiting|done` (proto enum renumbered,
       store strings, CLI words, `--done-when-empty` flag, hooks, docs)
+- [x] Post-review: D22 chat store SQL migrated to sqlc
+      (schema.sql + queries.sql + generated internal/chatdb)
 
 ## Done
 

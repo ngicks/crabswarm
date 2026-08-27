@@ -254,7 +254,8 @@ Each step is independently verifiable; later steps depend on earlier ones.
    surface delta. Verify with full build + web e2e. Delivers: D17; D10b
    addressing vocabulary, D11a rejection shape, D12 idempotent Join
    contract, D7 nonce RPCs, D15 Broadcast RPC.
-2. **Store.** `crabswarm/chat/store.go`: SQLite-backed (modernc driver)
+2. **Store.** `crabswarm/chat/store.go`: SQLite-backed (modernc driver;
+   queries sqlc-generated per D22)
    rooms/teams/members/inboxes with the collision rules (unique name per
    team; `<team>/<name>` resolution; bare-name own-team-first), a member
    state column (working/waiting/done per D21, D20a), and the `chat.db`
