@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"errors"
 	"fmt"
 	"net/url"
@@ -13,7 +12,8 @@ import (
 	// The pure-Go driver keeps the daemon cgo-free.
 	_ "modernc.org/sqlite"
 
-	"github.com/ngicks/crabswarm/crabswarm/chat/internal/chatdb"
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/db"
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/schema"
 )
 
 // Sentinel errors the transport layer maps to status codes. Every returned
@@ -110,18 +110,8 @@ type Room struct {
 // safe for concurrent use.
 type Store struct {
 	db *sql.DB
-	q  *chatdb.Queries
+	q  *db.Queries
 }
-
-//go:generate sqlc generate
-
-// schema is the DDL the store is built from. Embedding the same file sqlc
-// reads keeps the runtime tables and the generated queries from drifting: a
-// column added here is a compile error in the generated code until the
-// queries follow.
-//
-//go:embed schema.sql
-var schema string
 
 // NewStore opens the SQLite database at path, creating it and its schema when
 // missing, and returns a store ready for use. path is used as given — "~" is
@@ -130,7 +120,7 @@ var schema string
 //
 // The caller must [Store.Close] the returned store.
 func NewStore(ctx context.Context, path string) (*Store, error) {
-	db, err := sql.Open("sqlite", dsn(path))
+	conn, err := sql.Open("sqlite", dsn(path))
 	if err != nil {
 		return nil, fmt.Errorf("opening chat store %q: %w", path, err)
 	}
@@ -138,12 +128,14 @@ func NewStore(ctx context.Context, path string) (*Store, error) {
 	// serializing costs nothing, it keeps SQLITE_BUSY off the table, and it
 	// makes ":memory:" behave as one database instead of one per pooled
 	// connection.
-	db.SetMaxOpenConns(1)
-	if _, err := db.ExecContext(ctx, schema); err != nil {
-		_ = db.Close()
+	conn.SetMaxOpenConns(1)
+	// The tables come from the same files sqlc typed the queries against, so
+	// the two cannot drift.
+	if _, err := conn.ExecContext(ctx, schema.DDL()); err != nil {
+		_ = conn.Close()
 		return nil, fmt.Errorf("creating chat store schema in %q: %w", path, err)
 	}
-	return &Store{db: db, q: chatdb.New(db)}, nil
+	return &Store{db: conn, q: db.New(conn)}, nil
 }
 
 // Close releases the underlying database handle.
@@ -169,7 +161,7 @@ func dsn(path string) string {
 
 // tx runs fn in a transaction, committing when it returns nil and rolling back
 // otherwise. fn works through queries bound to that transaction.
-func (s *Store) tx(ctx context.Context, fn func(q *chatdb.Queries) error) error {
+func (s *Store) tx(ctx context.Context, fn func(q *db.Queries) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)

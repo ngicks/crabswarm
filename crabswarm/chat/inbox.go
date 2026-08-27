@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ngicks/crabswarm/crabswarm/chat/internal/chatdb"
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/db"
 )
 
 // Send resolves addr against the caller's room — see [Store.Resolve] for the
@@ -21,7 +21,7 @@ func (s *Store) Send(
 	sentAt time.Time,
 ) (Member, error) {
 	var recipient Member
-	err := s.tx(ctx, func(q *chatdb.Queries) error {
+	err := s.tx(ctx, func(q *db.Queries) error {
 		from, err := memberByToken(ctx, q, fromToken)
 		if err != nil {
 			return fmt.Errorf("sending message: %w", err)
@@ -53,7 +53,7 @@ func (s *Store) Broadcast(
 	excludeSender bool,
 ) ([]Member, error) {
 	var recipients []Member
-	err := s.tx(ctx, func(q *chatdb.Queries) error {
+	err := s.tx(ctx, func(q *db.Queries) error {
 		from, err := memberByToken(ctx, q, fromToken)
 		if err != nil {
 			return fmt.Errorf("broadcasting message: %w", err)
@@ -85,7 +85,7 @@ func (s *Store) Broadcast(
 // once, and a second Read returns nothing. An unknown token is [ErrNotFound].
 func (s *Store) Read(ctx context.Context, token string) ([]Message, error) {
 	var messages []Message
-	err := s.tx(ctx, func(q *chatdb.Queries) error {
+	err := s.tx(ctx, func(q *db.Queries) error {
 		if _, err := memberByToken(ctx, q, token); err != nil {
 			return fmt.Errorf("reading inbox: %w", err)
 		}
@@ -108,7 +108,7 @@ func (s *Store) Read(ctx context.Context, token string) ([]Message, error) {
 // pendingMessages reads the whole inbox before the caller deletes it. The
 // generated query closes its rows before returning, which the delete depends
 // on since the store holds a single connection.
-func pendingMessages(ctx context.Context, q *chatdb.Queries, token string) ([]Message, error) {
+func pendingMessages(ctx context.Context, q *db.Queries, token string) ([]Message, error) {
 	rows, err := q.PendingMessages(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("reading inbox of %q: %w", token, err)
@@ -134,13 +134,13 @@ func pendingMessages(ctx context.Context, q *chatdb.Queries, token string) ([]Me
 
 func appendMessage(
 	ctx context.Context,
-	q *chatdb.Queries,
+	q *db.Queries,
 	recipient string,
 	from Sender,
 	text string,
 	sentAt time.Time,
 ) error {
-	err := q.InsertMessage(ctx, chatdb.InsertMessageParams{
+	err := q.InsertMessage(ctx, db.InsertMessageParams{
 		Recipient: recipient,
 		FromName:  from.Name,
 		FromTeam:  from.Team,

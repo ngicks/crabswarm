@@ -1,9 +1,0 @@
-version: "2"
-sql:
-  - engine: "sqlite"
-    schema: "schema.sql"
-    queries: "queries.sql"
-    gen:
-      go:
-        package: "chatdb"
-        out: "internal/chatdb"

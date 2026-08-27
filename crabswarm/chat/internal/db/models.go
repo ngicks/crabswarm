@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.31.1
 
-package chatdb
+package db
 
 type Member struct {
 	Token string

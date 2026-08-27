@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ngicks/crabswarm/crabswarm/chat/internal/chatdb"
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/db"
 )
 
 // Join records m as a member and returns it.
@@ -39,7 +39,7 @@ func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 	}
 
 	joined := m
-	err := s.tx(ctx, func(q *chatdb.Queries) error {
+	err := s.tx(ctx, func(q *db.Queries) error {
 		existing, err := memberByToken(ctx, q, m.Token)
 		switch {
 		case err == nil:
@@ -54,7 +54,7 @@ func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
-		err = q.InsertMember(ctx, chatdb.InsertMemberParams{
+		err = q.InsertMember(ctx, db.InsertMemberParams{
 			Token: m.Token,
 			Name:  m.Name,
 			Team:  m.Team,
@@ -86,7 +86,7 @@ func (s *Store) SetState(ctx context.Context, token string, state MemberState) e
 	default:
 		return fmt.Errorf("setting state of %q: unknown state %q", token, state)
 	}
-	n, err := s.q.SetMemberState(ctx, chatdb.SetMemberStateParams{
+	n, err := s.q.SetMemberState(ctx, db.SetMemberStateParams{
 		State: string(state),
 		Token: token,
 	})
@@ -135,7 +135,7 @@ func (s *Store) ListRooms(ctx context.Context) ([]Room, error) {
 // [ErrNotFound].
 func (s *Store) RemoveMember(ctx context.Context, token string) (Member, error) {
 	var removed Member
-	err := s.tx(ctx, func(q *chatdb.Queries) error {
+	err := s.tx(ctx, func(q *db.Queries) error {
 		m, err := memberByToken(ctx, q, token)
 		if err != nil {
 			return fmt.Errorf("removing member: %w", err)
@@ -159,7 +159,7 @@ func (s *Store) RemoveMember(ctx context.Context, token string) (Member, error) 
 // [ErrNameTaken].
 func (s *Store) MoveMember(ctx context.Context, token, team string) (Member, error) {
 	var moved Member
-	err := s.tx(ctx, func(q *chatdb.Queries) error {
+	err := s.tx(ctx, func(q *db.Queries) error {
 		m, err := memberByToken(ctx, q, token)
 		if err != nil {
 			return fmt.Errorf("moving member: %w", err)
@@ -183,7 +183,7 @@ func (s *Store) MoveMemberByName(
 	room, team, name, toTeam string,
 ) (Member, error) {
 	var moved Member
-	err := s.tx(ctx, func(q *chatdb.Queries) error {
+	err := s.tx(ctx, func(q *db.Queries) error {
 		m, err := memberByName(ctx, q, room, team, name)
 		if err != nil {
 			return fmt.Errorf("moving %q in room %q: %w", team+"/"+name, room, err)
@@ -201,7 +201,7 @@ func (s *Store) MoveMemberByName(
 // caller's transaction.
 func moveMember(
 	ctx context.Context,
-	q *chatdb.Queries,
+	q *db.Queries,
 	m Member,
 	team string,
 ) (Member, error) {
@@ -216,7 +216,7 @@ func moveMember(
 	} else if !errors.Is(err, ErrNotFound) {
 		return Member{}, err
 	}
-	err := q.SetMemberTeam(ctx, chatdb.SetMemberTeamParams{Team: team, Token: m.Token})
+	err := q.SetMemberTeam(ctx, db.SetMemberTeamParams{Team: team, Token: m.Token})
 	if err != nil {
 		return Member{}, fmt.Errorf("moving %q into team %q: %w", m.Name, team, err)
 	}
@@ -238,7 +238,7 @@ func (s *Store) Resolve(ctx context.Context, callerToken, addr string) (Member, 
 
 // resolve implements [Store.Resolve] against any queries handle so a send can
 // resolve and deliver inside one transaction.
-func resolve(ctx context.Context, q *chatdb.Queries, callerToken, addr string) (Member, error) {
+func resolve(ctx context.Context, q *db.Queries, callerToken, addr string) (Member, error) {
 	caller, err := memberByToken(ctx, q, callerToken)
 	if err != nil {
 		return Member{}, fmt.Errorf("resolving %q: %w", addr, err)
@@ -250,7 +250,7 @@ func resolve(ctx context.Context, q *chatdb.Queries, callerToken, addr string) (
 // the member.
 func resolveFor(
 	ctx context.Context,
-	q *chatdb.Queries,
+	q *db.Queries,
 	caller Member,
 	addr string,
 ) (Member, error) {
@@ -270,7 +270,7 @@ func resolveFor(
 		return Member{}, fmt.Errorf("resolving %q: %w", addr, err)
 	}
 
-	rows, err := q.MembersByRoomAndName(ctx, chatdb.MembersByRoomAndNameParams{
+	rows, err := q.MembersByRoomAndName(ctx, db.MembersByRoomAndNameParams{
 		Room: caller.Room,
 		Name: addr,
 	})
@@ -294,12 +294,12 @@ func resolveFor(
 	}
 }
 
-func memberByToken(ctx context.Context, q *chatdb.Queries, token string) (Member, error) {
+func memberByToken(ctx context.Context, q *db.Queries, token string) (Member, error) {
 	return memberFrom(q.MemberByToken(ctx, token))
 }
 
-func memberByName(ctx context.Context, q *chatdb.Queries, room, team, name string) (Member, error) {
-	return memberFrom(q.MemberByName(ctx, chatdb.MemberByNameParams{
+func memberByName(ctx context.Context, q *db.Queries, room, team, name string) (Member, error) {
+	return memberFrom(q.MemberByName(ctx, db.MemberByNameParams{
 		Room: room,
 		Team: team,
 		Name: name,
@@ -308,7 +308,7 @@ func memberByName(ctx context.Context, q *chatdb.Queries, room, team, name strin
 
 // memberFrom adapts a single-row lookup, mapping the driver's "no rows" onto
 // [ErrNotFound] so every lookup reports a missing member the same way.
-func memberFrom(row chatdb.Member, err error) (Member, error) {
+func memberFrom(row db.Member, err error) (Member, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return Member{}, ErrNotFound
 	}
@@ -320,7 +320,7 @@ func memberFrom(row chatdb.Member, err error) (Member, error) {
 
 // memberOf converts a stored row into a [Member]. Kind and State are stored as
 // the string values of their named types.
-func memberOf(row chatdb.Member) Member {
+func memberOf(row db.Member) Member {
 	return Member{
 		Token: row.Token,
 		Name:  row.Name,
@@ -333,7 +333,7 @@ func memberOf(row chatdb.Member) Member {
 
 // membersOf converts queried rows into members, staying nil for an empty
 // result the way the queries themselves do.
-func membersOf(rows []chatdb.Member) []Member {
+func membersOf(rows []db.Member) []Member {
 	var members []Member
 	for _, row := range rows {
 		members = append(members, memberOf(row))
