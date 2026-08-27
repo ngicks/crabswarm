@@ -12,33 +12,75 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"filippo.io/age"
 )
 
-// chatRoom is the working directory the stub cmdman reports for every command
-// it knows, and therefore the room all the members below share.
-const chatRoom = "/work/proj"
+// chatRoom is the working directory the stub cmdman reports for most of the
+// commands it knows, and therefore the room those members share. chatOtherRoom
+// is a second working directory, so a case can put a member somewhere the first
+// room must not be able to see.
+const (
+	chatRoom      = "/work/proj"
+	chatOtherRoom = "/work/other"
+)
 
-// stubCmdmanScript answers the one cmdman surface the chat broker uses:
-// `inspect <ID> --format '{{json .Config}}'`. Each token it knows maps to a
-// compose project, which becomes the member's team; anything else fails the way
-// cmdman fails on an unknown ID, since the daemon reads that exact wording as
-// "this token names nothing" rather than "the lookup broke".
-const stubCmdmanScript = `#!/bin/sh
+// chatTokenEnvVar carries a registered human's identity token to the CLI. It is
+// spelled out rather than taken from the chat package: an e2e case reaches the
+// binary the way its user does, and the name of the variable is part of that
+// surface.
+const chatTokenEnvVar = "CRABSWARM_CHAT_TOKEN"
+
+// stubCommand is one command the stub cmdman knows: the token that names it,
+// the working directory that becomes its holder's room, and the compose project
+// that becomes its team. An empty project is a command started outside any
+// compose project, which carries no team coordination information at all.
+type stubCommand struct {
+	token   string
+	dir     string
+	project string
+}
+
+// defaultStubCommands is the roster the plain member cases run against: two
+// teammates and one member of another team, all in one room.
+func defaultStubCommands() []stubCommand {
+	return []stubCommand{
+		{token: "tok-ana", dir: chatRoom, project: "alpha"},
+		{token: "tok-bob", dir: chatRoom, project: "alpha"},
+		{token: "tok-cid", dir: chatRoom, project: "beta"},
+	}
+}
+
+// stubCmdmanScript renders a stub cmdman answering the one surface the chat
+// broker uses: `inspect <ID> --format '{{json .Config}}'`. Each token in
+// commands reports its own directory and compose project; anything else fails
+// the way cmdman fails on an unknown ID, since the daemon reads that exact
+// wording as "this token names nothing" rather than "the lookup broke".
+func stubCmdmanScript(commands []stubCommand) string {
+	var b strings.Builder
+	b.WriteString(`#!/bin/sh
 if [ "$1" != "inspect" ]; then
 	echo "stub cmdman: unsupported invocation: $*" >&2
 	exit 1
 fi
 case "$2" in
-	tok-ana) project=alpha ;;
-	tok-bob) project=alpha ;;
-	tok-cid) project=beta ;;
-	*)
+`)
+	for _, c := range commands {
+		fmt.Fprintf(&b, "\t%s) dir=%s; project=%s ;;\n", c.token, c.dir, c.project)
+	}
+	b.WriteString(`	*)
 		echo "error: resolve command: no command found matching \"$2\"" >&2
 		exit 1
 		;;
 esac
-printf '{"dir":"%s","labels":{"cmdman.compose.project":"%s"}}\n' "` + chatRoom + `" "$project"
-`
+if [ -z "$project" ]; then
+	printf '{"dir":"%s","labels":{}}\n' "$dir"
+else
+	printf '{"dir":"%s","labels":{"cmdman.compose.project":"%s"}}\n' "$dir" "$project"
+fi
+`)
+	return b.String()
+}
 
 // chatEnviron is the environment the crabswarm processes below run with: the
 // test's own, minus everything that would override the config file this test
@@ -56,14 +98,24 @@ func chatEnviron() []string {
 	return env
 }
 
-// startChatDaemon writes a config naming a private socket, database and stub
-// cmdman, starts `crabswarm serve` on it, and returns the config path.
+// startChatDaemon starts a daemon knowing the default roster and holding no
+// admin key, which is all the member verbs need.
 func startChatDaemon(t *testing.T) string {
+	t.Helper()
+	return startChatDaemonWith(t, defaultStubCommands(), "")
+}
+
+// startChatDaemonWith writes a config naming a private socket, database and
+// stub cmdman, starts `crabswarm serve` on it, and returns the config path.
+// commands is the roster the stub cmdman vouches for; adminRecipient is the age
+// public key the daemon encrypts admin challenges to, empty for a daemon that
+// was never given one and therefore refuses every admin verb.
+func startChatDaemonWith(t *testing.T, commands []stubCommand, adminRecipient string) string {
 	t.Helper()
 	dir := t.TempDir()
 
 	stub := filepath.Join(dir, "cmdman")
-	writeFile(t, stub, stubCmdmanScript)
+	writeFile(t, stub, stubCmdmanScript(commands))
 	if err := os.Chmod(stub, 0o755); err != nil {
 		t.Fatalf("chmod stub cmdman: %v", err)
 	}
@@ -71,8 +123,8 @@ func startChatDaemon(t *testing.T) string {
 	sock := filepath.Join(dir, "chat.sock")
 	cfgPath := filepath.Join(dir, "config.json")
 	writeFile(t, cfgPath, fmt.Sprintf(
-		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q}}`,
-		sock, filepath.Join(dir, "chat.db"), stub))
+		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipient":%q}}`,
+		sock, filepath.Join(dir, "chat.db"), stub, adminRecipient))
 
 	serve := exec.Command(crabswarmBin, "serve", "--config", cfgPath)
 	serve.Env = chatEnviron()
@@ -115,7 +167,8 @@ func runChat(t *testing.T, cfgPath, token string, args ...string) string {
 }
 
 // execChat is runChat without the failure check, for the cases that assert on
-// one.
+// one. An empty token passes no --token at all, which is what the admin verbs
+// want: they authenticate by identity file instead.
 func execChat(
 	t *testing.T,
 	cfgPath, token string,
@@ -126,18 +179,78 @@ func execChat(
 	if token != "" {
 		full = append(full, "--token", token)
 	}
-	cmd := exec.CommandContext(t.Context(), crabswarmBin, full...)
-	cmd.Env = chatEnviron()
+	return execChatEnv(t, nil, full...)
+}
+
+// execChatTokenEnv is execChat with the identity carried in the environment
+// instead of on the command line — how a registered human's shell holds the
+// token `chat register` printed.
+func execChatTokenEnv(
+	t *testing.T,
+	cfgPath, token string,
+	args ...string,
+) (stdout, stderr string, err error) {
+	t.Helper()
+	full := append([]string{"chat", "--config", cfgPath}, args...)
+	return execChatEnv(t, []string{chatTokenEnvVar + "=" + token}, full...)
+}
+
+// execChatEnv runs the built binary with the suite's scrubbed environment plus
+// extraEnv, which is appended last so a variable set here survives the scrub.
+func execChatEnv(
+	t *testing.T,
+	extraEnv []string,
+	args ...string,
+) (stdout, stderr string, err error) {
+	t.Helper()
+	cmd := exec.CommandContext(t.Context(), crabswarmBin, args...)
+	cmd.Env = append(chatEnviron(), extraEnv...)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 	err = cmd.Run()
 	if err != nil {
 		if _, ok := errors.AsType[*exec.ExitError](err); !ok {
-			t.Fatalf("run crabswarm chat %s: %v", strings.Join(args, " "), err)
+			t.Fatalf("run crabswarm %s: %v", strings.Join(args, " "), err)
 		}
 	}
 	return outBuf.String(), errBuf.String(), err
+}
+
+// newChatIdentityFile writes a fresh age identity the way the age CLI does —
+// one private key per line — and returns its path together with the recipient
+// string a daemon is configured with to challenge its holder.
+func newChatIdentityFile(t *testing.T) (path, recipient string) {
+	t.Helper()
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate age identity: %v", err)
+	}
+	path = filepath.Join(t.TempDir(), "chat_admin.key")
+	writeFile(t, path, "# created by the crabswarm e2e suite\n"+id.String()+"\n")
+	return path, id.Recipient().String()
+}
+
+// registerChatHuman runs the admin register verb and returns the token it
+// printed, which is the only time the daemon reveals it.
+func registerChatHuman(t *testing.T, cfgPath, identity, room, team, name string) string {
+	t.Helper()
+	out := runChat(t, cfgPath, "", "register",
+		"--room", room, "--team", team, "--name", name, "--identity", identity)
+	want := fmt.Sprintf("registered %s/%s in room %s", team, name, room)
+	if !strings.Contains(out, want) {
+		t.Errorf("register = %q, want it to report %q", out, want)
+	}
+	var token string
+	for _, l := range lines(out) {
+		if rest, ok := strings.CutPrefix(l, "token: "); ok {
+			token = rest
+		}
+	}
+	if token == "" {
+		t.Fatalf("register printed no token line; got:\n%s", out)
+	}
+	return token
 }
 
 // lines splits rendered output into its non-empty lines.
@@ -253,5 +366,313 @@ func TestChat_UnknownTokenIsRejected(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "error:") {
 		t.Errorf("stderr = %q, want a reported error", stderr)
+	}
+}
+
+// A command cmdman knows but that runs outside any compose project is refused
+// just as an unknown token is: it has a working directory, so it could be
+// placed in a room, but nothing says which team it coordinates with.
+func TestChat_NonComposeTokenIsRejected(t *testing.T) {
+	cfg := startChatDaemonWith(t, []stubCommand{
+		{token: "tok-loner", dir: chatRoom},
+	}, "")
+
+	stdout, stderr, err := execChat(t, cfg, "tok-loner", "join", "--name", "loner")
+	if err == nil {
+		t.Fatal("join without a compose project succeeded, want a failure")
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want nothing", stdout)
+	}
+	if !strings.Contains(stderr, "not part of a compose project") {
+		t.Errorf("stderr = %q, want it to name what the token is missing", stderr)
+	}
+}
+
+// One name carried by several teams of a room: a bare name means the caller's
+// own teammate first, then the room-wide member when only one carries it, and
+// is refused when two other teams both do.
+func TestChat_NameCollisionAddressing(t *testing.T) {
+	cfg := startChatDaemonWith(t, []stubCommand{
+		{token: "tok-alpha-sam", dir: chatRoom, project: "alpha"},
+		{token: "tok-beta-sam", dir: chatRoom, project: "beta"},
+		{token: "tok-alpha-uniq", dir: chatRoom, project: "alpha"},
+		{token: "tok-asker", dir: chatRoom, project: "gamma"},
+		{token: "tok-gamma-sam", dir: chatRoom, project: "gamma"},
+	}, "")
+
+	runChat(t, cfg, "tok-alpha-sam", "join", "--name", "sam")
+	runChat(t, cfg, "tok-beta-sam", "join", "--name", "sam")
+	runChat(t, cfg, "tok-alpha-uniq", "join", "--name", "uniq")
+	runChat(t, cfg, "tok-asker", "join", "--name", "asker")
+
+	// Two other teams carry the name and the caller's own does not, so there is
+	// nothing to prefer: the refusal names both teams and the form to retry
+	// with. Asserted before gamma has a sam of its own, which would resolve it.
+	_, stderr, err := execChat(t, cfg, "tok-asker", "send", "sam", "which one?")
+	if err == nil {
+		t.Fatal("send to an ambiguous bare name succeeded, want a failure")
+	}
+	for _, want := range []string{"alpha", "beta", `address it as "<team>/sam"`} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr missing %q; got:\n%s", want, stderr)
+		}
+	}
+
+	// The qualified form picks exactly one of them.
+	got := runChat(t, cfg, "tok-asker", "send", "beta/sam", "for beta")
+	if want := "sent to beta/sam\n"; got != want {
+		t.Errorf("qualified send = %q, want %q", got, want)
+	}
+	got = runChat(t, cfg, "tok-beta-sam", "read")
+	if !strings.Contains(got, "gamma/asker: for beta") {
+		t.Errorf("beta/sam read = %q, want the qualified message", got)
+	}
+	if got := runChat(t, cfg, "tok-alpha-sam", "read"); got != "no pending messages\n" {
+		t.Errorf("alpha/sam read = %q, want nothing: beta was addressed, not alpha", got)
+	}
+
+	// A bare name only one member of the room carries needs no qualification,
+	// even across teams.
+	got = runChat(t, cfg, "tok-asker", "send", "uniq", "hi")
+	if want := "sent to alpha/uniq\n"; got != want {
+		t.Errorf("unique bare send = %q, want %q", got, want)
+	}
+
+	// Once the caller's own team carries the name too, that one wins over the
+	// other teams' — and over the ambiguity the same address gave a moment ago.
+	runChat(t, cfg, "tok-gamma-sam", "join", "--name", "sam")
+	got = runChat(t, cfg, "tok-asker", "send", "sam", "for my own team")
+	if want := "sent to gamma/sam\n"; got != want {
+		t.Errorf("own-team send = %q, want %q", got, want)
+	}
+	got = runChat(t, cfg, "tok-gamma-sam", "read")
+	if !strings.Contains(got, "gamma/asker: for my own team") {
+		t.Errorf("gamma/sam read = %q, want the own-team message", got)
+	}
+}
+
+// A room is the working directory its members' commands run in, and nothing
+// crosses it: members of another room are neither listed nor addressable, not
+// even under a team name both rooms happen to use.
+func TestChat_RoomsAreIsolated(t *testing.T) {
+	cfg := startChatDaemonWith(t, []stubCommand{
+		{token: "tok-ana", dir: chatRoom, project: "alpha"},
+		{token: "tok-zed", dir: chatOtherRoom, project: "alpha"},
+	}, "")
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	got := runChat(t, cfg, "tok-zed", "join", "--name", "zed")
+	if want := "joined " + chatOtherRoom + " as alpha/zed\n"; got != want {
+		t.Errorf("join = %q, want %q", got, want)
+	}
+
+	// Each side lists its own room only, though both are team alpha.
+	if members := lines(runChat(t, cfg, "tok-ana", "members")); !slices.Equal(
+		members, []string{"alpha/ana"}) {
+		t.Errorf("members = %v, want only alpha/ana", members)
+	}
+	if members := lines(runChat(t, cfg, "tok-zed", "members")); !slices.Equal(
+		members, []string{"alpha/zed"}) {
+		t.Errorf("members of the other room = %v, want only alpha/zed", members)
+	}
+
+	// Neither spelling of the address reaches across.
+	for _, addr := range []string{"zed", "alpha/zed"} {
+		_, stderr, err := execChat(t, cfg, "tok-ana", "send", addr, "hello other room")
+		if err == nil {
+			t.Fatalf("send to %q in another room succeeded, want a failure", addr)
+		}
+		if !strings.Contains(stderr, "member not found") {
+			t.Errorf("stderr for %q = %q, want an unresolved address", addr, stderr)
+		}
+	}
+
+	// Nor does a broadcast, which addresses nobody by name at all.
+	got = runChat(t, cfg, "tok-ana", "broadcast", "anyone?")
+	if want := "broadcast to 0 members\n"; got != want {
+		t.Errorf("broadcast = %q, want %q", got, want)
+	}
+	if got := runChat(t, cfg, "tok-zed", "read"); got != "no pending messages\n" {
+		t.Errorf("read in the other room = %q, want nothing", got)
+	}
+}
+
+// A session-start hook may fire more than once, so joining twice with the same
+// token is not an error: the second join is answered from the stored
+// membership, leaving the name, the attendance and the inbox as they were.
+func TestChat_JoinIsIdempotent(t *testing.T) {
+	cfg := startChatDaemon(t)
+
+	wantJoined := "joined " + chatRoom + " as alpha/ana\n"
+	if got := runChat(t, cfg, "tok-ana", "join", "--name", "ana"); got != wantJoined {
+		t.Errorf("first join = %q, want %q", got, wantJoined)
+	}
+	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-bob", "send", "ana", "before the second join")
+
+	// Even a differently spelled name changes nothing: the first join settled
+	// this token's identity.
+	if got := runChat(t, cfg, "tok-ana", "join", "--name", "renamed"); got != wantJoined {
+		t.Errorf("second join = %q, want %q", got, wantJoined)
+	}
+
+	members := lines(runChat(t, cfg, "tok-ana", "members"))
+	slices.Sort(members)
+	if want := []string{"alpha/ana", "alpha/bob"}; !slices.Equal(members, want) {
+		t.Errorf("members = %v, want %v: the re-join must not add a member", members, want)
+	}
+
+	// The inbox survived: nothing waiting was dropped with the re-join.
+	got := runChat(t, cfg, "tok-ana", "read")
+	if !strings.Contains(got, "alpha/bob: before the second join") {
+		t.Errorf("read = %q, want the message queued before the second join", got)
+	}
+}
+
+// A human is registered by the host rather than vouched for by cmdman, and
+// takes part with the token that registration printed. No provider can ever
+// resolve that token — which must not cost the human their place in the room.
+func TestChat_RegisteredHumanParticipates(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	token := registerChatHuman(t, cfg, identity, chatRoom, "humans", "yuki")
+
+	// Registration is attendance: the room already lists the human.
+	members := lines(runChat(t, cfg, "tok-ana", "members"))
+	slices.Sort(members)
+	if want := []string{"alpha/ana", "humans/yuki"}; !slices.Equal(members, want) {
+		t.Errorf("members = %v, want %v", members, want)
+	}
+
+	// Joining as an already-registered human is answered from the store, so the
+	// token the daemon minted needs no provider to back it.
+	got := runChat(t, cfg, token, "join", "--name", "yuki")
+	if want := "joined " + chatRoom + " as humans/yuki\n"; got != want {
+		t.Errorf("human join = %q, want %q", got, want)
+	}
+
+	// The human writes with the token in the environment, the way a shell that
+	// ran `chat register` holds it.
+	stdout, stderr, err := execChatTokenEnv(t, cfg, token, "send", "ana", "from the host")
+	if err != nil {
+		t.Fatalf("send with $%s: %v\nstderr:\n%s", chatTokenEnvVar, err, stderr)
+	}
+	if want := "sent to alpha/ana\n"; stdout != want {
+		t.Errorf("send with $%s = %q, want %q", chatTokenEnvVar, stdout, want)
+	}
+	agentRead := runChat(t, cfg, "tok-ana", "read")
+	if !strings.Contains(agentRead, "humans/yuki: from the host") {
+		t.Errorf("agent read = %q, want the human's message", agentRead)
+	}
+
+	// And reads what the room sends back.
+	runChat(t, cfg, "tok-ana", "send", "humans/yuki", "welcome")
+	if got := runChat(t, cfg, token, "read"); !strings.Contains(got, "alpha/ana: welcome") {
+		t.Errorf("human read = %q, want the agent's message", got)
+	}
+
+	// Every one of these passes the daemon's liveness check, which for an agent
+	// would ask the stub cmdman about the token and reap a member it does not
+	// know. The human is left alone across all of them.
+	for range 3 {
+		runChat(t, cfg, token, "report-state", "idle")
+		if got := runChat(t, cfg, token, "read"); got != "no pending messages\n" {
+			t.Errorf("human read = %q, want an empty inbox", got)
+		}
+		if got := lines(runChat(t, cfg, token, "members")); !slices.Contains(got, "humans/yuki") {
+			t.Errorf("members seen by the human = %v, want it to still list humans/yuki", got)
+		}
+	}
+	if got := lines(runChat(t, cfg, "tok-ana", "members")); !slices.Contains(got, "humans/yuki") {
+		t.Errorf("members = %v, want the human still attending", got)
+	}
+}
+
+// The admin verbs are gated by possession of the age identity file the daemon
+// encrypts its challenge to, proven per call: the right file reads the whole
+// topology, another key reads nothing, and no file at all is refused before the
+// daemon is even dialed.
+func TestChat_AdminIdentityGatesTeamList(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+
+	got := runChat(t, cfg, "", "team", "list", "--identity", identity)
+	for _, want := range []string{"room: " + chatRoom, "team: alpha", "ana", "team: beta", "cid"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("team list missing %q; got:\n%s", want, got)
+		}
+	}
+
+	// A challenge is spent by the call that answers it, so the second listing
+	// runs a whole round of its own rather than reusing the first one's nonce.
+	if second := runChat(t, cfg, "", "team", "list", "--identity", identity); second != got {
+		t.Errorf("second team list = %q, want the same listing as the first %q", second, got)
+	}
+
+	// Another key cannot read the challenge, so it cannot answer it.
+	other, _ := newChatIdentityFile(t)
+	_, stderr, err := execChat(t, cfg, "", "team", "list", "--identity", other)
+	if err == nil {
+		t.Fatal("team list with the wrong identity succeeded, want a failure")
+	}
+	if !strings.Contains(stderr, "decrypting the admin challenge") {
+		t.Errorf("stderr = %q, want it to name the failed decryption", stderr)
+	}
+
+	// With no identity configured or passed, the CLI says which one it wants.
+	_, stderr, err = execChat(t, cfg, "", "team", "list")
+	if err == nil {
+		t.Fatal("team list without an identity succeeded, want a failure")
+	}
+	if !strings.Contains(stderr, "no admin age identity file") {
+		t.Errorf("stderr = %q, want it to ask for an identity file", stderr)
+	}
+}
+
+// Moving a member is an operator's edit to the room's team formation, and the
+// room reads it back immediately: the listing shows the new team and addressing
+// follows it, on both the new spelling and the stale one.
+func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+
+	got := runChat(t, cfg, "", "team", "move", chatRoom, "alpha/ana", "beta",
+		"--identity", identity)
+	if want := "moved beta/ana in room " + chatRoom + "\n"; got != want {
+		t.Errorf("team move = %q, want %q", got, want)
+	}
+
+	members := lines(runChat(t, cfg, "tok-cid", "members"))
+	slices.Sort(members)
+	if want := []string{"beta/ana", "beta/cid"}; !slices.Equal(members, want) {
+		t.Errorf("members after the move = %v, want %v", members, want)
+	}
+
+	// ana is cid's teammate now, so cid's bare name resolves inside beta.
+	got = runChat(t, cfg, "tok-cid", "send", "ana", "same team now")
+	if want := "sent to beta/ana\n"; got != want {
+		t.Errorf("send after the move = %q, want %q", got, want)
+	}
+	got = runChat(t, cfg, "tok-ana", "read")
+	if !strings.Contains(got, "beta/cid: same team now") {
+		t.Errorf("read after the move = %q, want the message", got)
+	}
+
+	// And the team it left no longer names it.
+	_, stderr, err := execChat(t, cfg, "tok-cid", "send", "alpha/ana", "stale address")
+	if err == nil {
+		t.Fatal("send to the team the member left succeeded, want a failure")
+	}
+	if !strings.Contains(stderr, "member not found") {
+		t.Errorf("stderr = %q, want an unresolved address", stderr)
 	}
 }
