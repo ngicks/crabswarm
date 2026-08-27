@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"errors"
 	"fmt"
 	"net/url"
@@ -109,30 +110,15 @@ type Store struct {
 	db *sql.DB
 }
 
-const schema = `
-CREATE TABLE IF NOT EXISTS members (
-	token TEXT PRIMARY KEY,
-	name  TEXT NOT NULL,
-	team  TEXT NOT NULL,
-	room  TEXT NOT NULL,
-	kind  TEXT NOT NULL,
-	state TEXT NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS members_room_team_name
-	ON members (room, team, name);
-CREATE INDEX IF NOT EXISTS members_room ON members (room);
+//go:generate sqlc generate
 
-CREATE TABLE IF NOT EXISTS messages (
-	id        INTEGER PRIMARY KEY AUTOINCREMENT,
-	recipient TEXT NOT NULL REFERENCES members (token) ON DELETE CASCADE,
-	from_name TEXT NOT NULL,
-	from_team TEXT NOT NULL,
-	from_room TEXT NOT NULL,
-	text      TEXT NOT NULL,
-	sent_at   TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS messages_recipient ON messages (recipient, id);
-`
+// schema is the DDL the store is built from. Embedding the same file sqlc
+// reads keeps the runtime tables and the generated queries from drifting: a
+// column added here is a compile error in the generated code until the
+// queries follow.
+//
+//go:embed schema.sql
+var schema string
 
 // NewStore opens the SQLite database at path, creating it and its schema when
 // missing, and returns a store ready for use. path is used as given — "~" is
