@@ -40,6 +40,6 @@ func runServe(cmd *cobra.Command, _ []string, flagSock, flagConfig string) error
 		cfg.Sock = flagSock
 	}
 
-	srv := server.New(logger, cfg.Sock)
+	srv := server.New(logger, cfg.Sock, cfg.Chat)
 	return srv.Serve(ctx)
 }
