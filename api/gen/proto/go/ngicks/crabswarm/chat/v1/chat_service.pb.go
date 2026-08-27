@@ -23,34 +23,35 @@ const (
 )
 
 // HarnessState is the state of the CLI harness a member runs under, as
-// reported by that harness's hooks.
+// reported by that harness's hooks. Values mirror the vocabulary of
+// `cmdman status set working|waiting|done`.
 type HarnessState int32
 
 const (
 	HarnessState_HARNESS_STATE_UNSPECIFIED HarnessState = 0
-	// Idle: the harness is waiting for a new prompt. The only state in which a
-	// keystroke-injection nudge is safe.
-	HarnessState_HARNESS_STATE_IDLE HarnessState = 1
-	// Running: the harness is working through a turn.
-	HarnessState_HARNESS_STATE_RUNNING HarnessState = 2
-	// WaitingInput: the harness is showing a dialog (permission request or a
+	// Working: the harness is working through a turn.
+	HarnessState_HARNESS_STATE_WORKING HarnessState = 1
+	// Waiting: the harness is showing a dialog (permission request or a
 	// question) and would read a nudge as the answer to it.
-	HarnessState_HARNESS_STATE_WAITING_INPUT HarnessState = 3
+	HarnessState_HARNESS_STATE_WAITING HarnessState = 2
+	// Done: the harness finished its turn and is waiting for a new prompt. The
+	// only state in which a keystroke-injection nudge is safe.
+	HarnessState_HARNESS_STATE_DONE HarnessState = 3
 )
 
 // Enum value maps for HarnessState.
 var (
 	HarnessState_name = map[int32]string{
 		0: "HARNESS_STATE_UNSPECIFIED",
-		1: "HARNESS_STATE_IDLE",
-		2: "HARNESS_STATE_RUNNING",
-		3: "HARNESS_STATE_WAITING_INPUT",
+		1: "HARNESS_STATE_WORKING",
+		2: "HARNESS_STATE_WAITING",
+		3: "HARNESS_STATE_DONE",
 	}
 	HarnessState_value = map[string]int32{
-		"HARNESS_STATE_UNSPECIFIED":   0,
-		"HARNESS_STATE_IDLE":          1,
-		"HARNESS_STATE_RUNNING":       2,
-		"HARNESS_STATE_WAITING_INPUT": 3,
+		"HARNESS_STATE_UNSPECIFIED": 0,
+		"HARNESS_STATE_WORKING":     1,
+		"HARNESS_STATE_WAITING":     2,
+		"HARNESS_STATE_DONE":        3,
 	}
 )
 
@@ -1364,12 +1365,12 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x04name\x18\x04 \x01(\tR\x04name\"h\n" +
 	"\x16RegisterMemberResponse\x128\n" +
 	"\x06member\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x06member\x12\x14\n" +
-	"\x05token\x18\x02 \x01(\tR\x05token*\x81\x01\n" +
+	"\x05token\x18\x02 \x01(\tR\x05token*{\n" +
 	"\fHarnessState\x12\x1d\n" +
-	"\x19HARNESS_STATE_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12HARNESS_STATE_IDLE\x10\x01\x12\x19\n" +
-	"\x15HARNESS_STATE_RUNNING\x10\x02\x12\x1f\n" +
-	"\x1bHARNESS_STATE_WAITING_INPUT\x10\x032\xaa\x05\n" +
+	"\x19HARNESS_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15HARNESS_STATE_WORKING\x10\x01\x12\x19\n" +
+	"\x15HARNESS_STATE_WAITING\x10\x02\x12\x16\n" +
+	"\x12HARNESS_STATE_DONE\x10\x032\xaa\x05\n" +
 	"\vChatService\x12U\n" +
 	"\x04Join\x12%.ngicks.crabswarm.chat.v1.JoinRequest\x1a&.ngicks.crabswarm.chat.v1.JoinResponse\x12U\n" +
 	"\x04Send\x12%.ngicks.crabswarm.chat.v1.SendRequest\x1a&.ngicks.crabswarm.chat.v1.SendResponse\x12d\n" +

@@ -46,14 +46,15 @@ const (
 // decide whether the member can be interrupted.
 type MemberState string
 
+// State names mirror the vocabulary of `cmdman status set working|waiting|done`.
 const (
-	// StateIdle means the harness is waiting for work.
-	StateIdle MemberState = "idle"
-	// StateRunning means the harness is working on a turn.
-	StateRunning MemberState = "running"
-	// StateWaitingInput means the harness is blocked on a prompt or a
+	// StateWorking means the harness is working on a turn.
+	StateWorking MemberState = "working"
+	// StateWaiting means the harness is blocked on a prompt or a
 	// permission dialog.
-	StateWaitingInput MemberState = "waiting_input"
+	StateWaiting MemberState = "waiting"
+	// StateDone means the harness finished its turn and is waiting for work.
+	StateDone MemberState = "done"
 )
 
 // Member is one participant of a room.

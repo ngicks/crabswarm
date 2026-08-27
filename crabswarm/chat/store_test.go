@@ -85,7 +85,7 @@ func TestStore_PersistsAcrossReopen(t *testing.T) {
 	join(t, s, "tok-b", "/work/repo", "beta", "bob")
 	_, err := s.Send(t.Context(), "tok-b", "alpha/alice", "still here?", sentAt)
 	assert.NilError(t, err)
-	assert.NilError(t, s.SetState(t.Context(), alice.Token, StateRunning))
+	assert.NilError(t, s.SetState(t.Context(), alice.Token, StateWorking))
 	assert.NilError(t, s.Close())
 
 	reopened, err := NewStore(t.Context(), path)
@@ -97,7 +97,7 @@ func TestStore_PersistsAcrossReopen(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, got, Member{
 		Token: "tok-a", Name: "alice", Team: "alpha", Room: "/work/repo",
-		Kind: KindAgent, State: StateRunning,
+		Kind: KindAgent, State: StateWorking,
 	})
 	rooms, err := reopened.ListRooms(t.Context())
 	assert.NilError(t, err)

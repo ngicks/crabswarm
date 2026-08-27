@@ -26,7 +26,7 @@ const memberColumns = `token, name, team, room, kind, state`
 //
 // A name already used by another member of the same team is [ErrNameTaken];
 // the same name in another team of the room is fine, that is what teams are
-// for. An empty State defaults to [StateIdle]: attendance is declared from a
+// for. An empty State defaults to [StateDone]: attendance is declared from a
 // session-start hook, before the session has work to do.
 func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 	if m.Token == "" {
@@ -42,7 +42,7 @@ func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 		return Member{}, fmt.Errorf("joining chat: %w", err)
 	}
 	if m.State == "" {
-		m.State = StateIdle
+		m.State = StateDone
 	}
 
 	joined := m
@@ -84,7 +84,7 @@ func (s *Store) Member(ctx context.Context, token string) (Member, error) {
 // [Store.Member].
 func (s *Store) SetState(ctx context.Context, token string, state MemberState) error {
 	switch state {
-	case StateIdle, StateRunning, StateWaitingInput:
+	case StateDone, StateWorking, StateWaiting:
 	default:
 		return fmt.Errorf("setting state of %q: unknown state %q", token, state)
 	}

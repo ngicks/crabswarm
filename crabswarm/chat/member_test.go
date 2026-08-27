@@ -9,7 +9,7 @@ import (
 func TestStore_JoinIsIdempotentPerToken(t *testing.T) {
 	s, _ := newTestStore(t)
 	first := join(t, s, "tok-a", "/work/repo", "alpha", "alice")
-	assert.Equal(t, first.State, StateIdle) // default for a fresh member
+	assert.Equal(t, first.State, StateDone) // default for a fresh member
 	join(t, s, "tok-b", "/work/repo", "alpha", "bob")
 	_, err := s.Send(t.Context(), "tok-b", "alice", "hi", sentAt)
 	assert.NilError(t, err)
@@ -189,7 +189,7 @@ func TestStore_SetState(t *testing.T) {
 	s, _ := newTestStore(t)
 	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
 
-	for _, state := range []MemberState{StateRunning, StateWaitingInput, StateIdle} {
+	for _, state := range []MemberState{StateWorking, StateWaiting, StateDone} {
 		assert.NilError(t, s.SetState(t.Context(), "tok-a", state))
 		got, err := s.Member(t.Context(), "tok-a")
 		assert.NilError(t, err)
@@ -198,7 +198,7 @@ func TestStore_SetState(t *testing.T) {
 
 	assert.Assert(t, s.SetState(t.Context(), "tok-a", "dozing") != nil,
 		"an unknown state should be rejected")
-	assert.ErrorIs(t, s.SetState(t.Context(), "tok-unknown", StateIdle), ErrNotFound)
+	assert.ErrorIs(t, s.SetState(t.Context(), "tok-unknown", StateDone), ErrNotFound)
 }
 
 func TestStore_ListMembersIsOrderedAndRoomScoped(t *testing.T) {

@@ -33,7 +33,7 @@ entry would race the delivering path and mark a continuing turn idle.`,
 	f := cmd.Flags()
 	f.BoolVar(&opts.Quiet, "quiet", false,
 		"print nothing at all when the inbox is empty")
-	f.BoolVar(&opts.IdleWhenEmpty, "idle-when-empty", false,
+	f.BoolVar(&opts.DoneWhenEmpty, "idle-when-empty", false,
 		"report this member idle when the read handed nothing over")
 
 	parent.AddCommand(cmd)

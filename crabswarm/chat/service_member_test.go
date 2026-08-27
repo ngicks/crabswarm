@@ -25,7 +25,7 @@ func TestService_JoinDerivesRoomAndTeamFromProvider(t *testing.T) {
 	stored, err := svc.store.Member(t.Context(), "tok-a")
 	assert.NilError(t, err)
 	assert.Equal(t, stored.Kind, KindAgent)
-	assert.Equal(t, stored.State, StateIdle)
+	assert.Equal(t, stored.State, StateDone)
 }
 
 func TestService_JoinRejectsUnknownToken(t *testing.T) {
@@ -137,17 +137,17 @@ func TestService_ReportState(t *testing.T) {
 	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
 
 	_, err := svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
-		State: chatv1.HarnessState_HARNESS_STATE_WAITING_INPUT,
+		State: chatv1.HarnessState_HARNESS_STATE_WAITING,
 	})
 	assert.NilError(t, err)
 	stored, err := svc.store.Member(t.Context(), "tok-a")
 	assert.NilError(t, err)
-	assert.Equal(t, stored.State, StateWaitingInput)
+	assert.Equal(t, stored.State, StateWaiting)
 
 	// An unfilled state must not silently mark the harness idle.
 	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{})
 	assert.Equal(t, status.Code(err), codes.InvalidArgument)
 	stored, err = svc.store.Member(t.Context(), "tok-a")
 	assert.NilError(t, err)
-	assert.Equal(t, stored.State, StateWaitingInput)
+	assert.Equal(t, stored.State, StateWaiting)
 }

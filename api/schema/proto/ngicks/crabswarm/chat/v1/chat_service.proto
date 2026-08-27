@@ -58,17 +58,18 @@ service ChatAdminService {
 }
 
 // HarnessState is the state of the CLI harness a member runs under, as
-// reported by that harness's hooks.
+// reported by that harness's hooks. Values mirror the vocabulary of
+// `cmdman status set working|waiting|done`.
 enum HarnessState {
   HARNESS_STATE_UNSPECIFIED = 0;
-  // Idle: the harness is waiting for a new prompt. The only state in which a
-  // keystroke-injection nudge is safe.
-  HARNESS_STATE_IDLE = 1;
-  // Running: the harness is working through a turn.
-  HARNESS_STATE_RUNNING = 2;
-  // WaitingInput: the harness is showing a dialog (permission request or a
+  // Working: the harness is working through a turn.
+  HARNESS_STATE_WORKING = 1;
+  // Waiting: the harness is showing a dialog (permission request or a
   // question) and would read a nudge as the answer to it.
-  HARNESS_STATE_WAITING_INPUT = 3;
+  HARNESS_STATE_WAITING = 2;
+  // Done: the harness finished its turn and is waiting for a new prompt. The
+  // only state in which a keystroke-injection nudge is safe.
+  HARNESS_STATE_DONE = 3;
 }
 
 // Member is one participant of a room.

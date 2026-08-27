@@ -51,19 +51,19 @@ type ReadOptions struct {
 	// sentence [RenderMessages] prints, which puts a wording nobody thinks of
 	// as an interface between the renderer and every hook that reads it.
 	Quiet bool
-	// IdleWhenEmpty reports the caller idle when the read handed nothing over.
+	// DoneWhenEmpty reports the caller done when the read handed nothing over.
 	//
 	// It rides on the read rather than being a hook entry of its own because
 	// the two decisions are the same decision: a turn-ending drain either
-	// delivers messages — and the turn continues, so the member is not idle —
+	// delivers messages — and the turn continues, so the member is not done —
 	// or it delivers none and the member goes quiet. Hooks wired to one event
 	// run concurrently, so a separate report-state entry would race the
-	// delivering path and mark a continuing turn idle.
+	// delivering path and mark a continuing turn done.
 	//
 	// A read that failed reports nothing: the caller's state is unknown, and
 	// the daemon that would hear the report is the one that just did not
 	// answer.
-	IdleWhenEmpty bool
+	DoneWhenEmpty bool
 }
 
 // Read prints the caller's pending messages and consumes them. A failure to
@@ -77,9 +77,9 @@ func (c *Client) Read(ctx context.Context, w io.Writer, token string, opts ReadO
 	}
 	messages := resp.GetMessages()
 	if len(messages) == 0 {
-		if opts.IdleWhenEmpty {
-			idle := chatv1.HarnessState_HARNESS_STATE_IDLE
-			if err := c.reportState(ctx, token, idle); err != nil {
+		if opts.DoneWhenEmpty {
+			done := chatv1.HarnessState_HARNESS_STATE_DONE
+			if err := c.reportState(ctx, token, done); err != nil {
 				return err
 			}
 		}

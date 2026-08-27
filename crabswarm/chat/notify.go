@@ -92,7 +92,7 @@ func (n *SendKeysNotifier) Notify(
 			"recipient", who, "kind", recipient.Kind)
 		return nil
 	}
-	if recipient.State != StateIdle {
+	if recipient.State != StateDone {
 		n.logger.Debug("chat: not nudging a busy member",
 			"recipient", who, "state", recipient.State)
 		return nil

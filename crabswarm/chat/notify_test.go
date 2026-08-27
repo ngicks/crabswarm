@@ -29,7 +29,7 @@ func idleAgent() Member {
 		Team:  "alpha",
 		Room:  "/work",
 		Kind:  KindAgent,
-		State: StateIdle,
+		State: StateDone,
 	}
 }
 
@@ -58,8 +58,8 @@ func TestSendKeysNotifier_SkipsBusyMember(t *testing.T) {
 		name  string
 		state MemberState
 	}{
-		{"running", StateRunning},
-		{"waiting for input", StateWaitingInput},
+		{"running", StateWorking},
+		{"waiting for input", StateWaiting},
 		// Only idle invites a nudge, so a state this notifier cannot read is
 		// declined rather than assumed harmless.
 		{"unset", ""},

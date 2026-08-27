@@ -42,9 +42,9 @@ func TestParseHarnessState(t *testing.T) {
 		in   string
 		want chatv1.HarnessState
 	}{
-		{"idle", chatv1.HarnessState_HARNESS_STATE_IDLE},
-		{"running", chatv1.HarnessState_HARNESS_STATE_RUNNING},
-		{"waiting_input", chatv1.HarnessState_HARNESS_STATE_WAITING_INPUT},
+		{"idle", chatv1.HarnessState_HARNESS_STATE_DONE},
+		{"running", chatv1.HarnessState_HARNESS_STATE_WORKING},
+		{"waiting_input", chatv1.HarnessState_HARNESS_STATE_WAITING},
 	} {
 		got, err := ParseHarnessState(tc.in)
 		assert.NilError(t, err)

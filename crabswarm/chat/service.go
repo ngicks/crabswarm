@@ -210,12 +210,12 @@ func defaultName(token string) string {
 // invites a keystroke nudge.
 func memberState(state chatv1.HarnessState) (MemberState, error) {
 	switch state {
-	case chatv1.HarnessState_HARNESS_STATE_IDLE:
-		return StateIdle, nil
-	case chatv1.HarnessState_HARNESS_STATE_RUNNING:
-		return StateRunning, nil
-	case chatv1.HarnessState_HARNESS_STATE_WAITING_INPUT:
-		return StateWaitingInput, nil
+	case chatv1.HarnessState_HARNESS_STATE_DONE:
+		return StateDone, nil
+	case chatv1.HarnessState_HARNESS_STATE_WORKING:
+		return StateWorking, nil
+	case chatv1.HarnessState_HARNESS_STATE_WAITING:
+		return StateWaiting, nil
 	default:
 		return "", status.Errorf(codes.InvalidArgument,
 			"unknown harness state %q", state)

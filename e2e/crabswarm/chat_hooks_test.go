@@ -331,7 +331,7 @@ func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 
 // Nothing waiting: the turn ends as it would have without the hook. The idle
 // report the same read makes on the way is not observable from outside the
-// daemon — TestClient_ReadIdleWhenEmpty pins that against the RPC — so what is
+// daemon — TestClient_ReadDoneWhenEmpty pins that against the RPC — so what is
 // asserted here is the half a harness sees.
 func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
 	cfg := startChatDaemon(t)

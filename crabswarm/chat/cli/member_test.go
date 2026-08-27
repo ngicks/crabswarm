@@ -103,7 +103,7 @@ func TestClient_ReadQuietPrintsNothingOnAnEmptyInbox(t *testing.T) {
 // A drain that found nothing ends the turn, so the same process reports the
 // member idle — the state that lets the daemon nudge it when the next message
 // arrives. Messages in hand mean the opposite: the turn is about to continue.
-func TestClient_ReadIdleWhenEmpty(t *testing.T) {
+func TestClient_ReadDoneWhenEmpty(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		messages []*chatv1.Message
@@ -124,14 +124,14 @@ func TestClient_ReadIdleWhenEmpty(t *testing.T) {
 
 			var out strings.Builder
 			assert.NilError(t, d.client.Read(t.Context(), &out, "tok-b",
-				ReadOptions{Quiet: true, IdleWhenEmpty: true}))
+				ReadOptions{Quiet: true, DoneWhenEmpty: true}))
 			assert.Equal(t, out.String(), tc.want)
 
 			if !tc.wantIdle {
 				assert.Assert(t, fake.state == nil)
 				return
 			}
-			assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_IDLE)
+			assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_DONE)
 			// The report rides on the read's own credential; nothing about the
 			// caller is re-resolved on the way.
 			assert.DeepEqual(t, d.seenTokens(), []string{"tok-b", "tok-b"})
@@ -173,7 +173,7 @@ func TestClient_ReportStateIsSilent(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	assert.NilError(t, d.client.ReportState(t.Context(), "tok-a", "waiting_input"))
-	assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_WAITING_INPUT)
+	assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_WAITING)
 }
 
 // An unknown state word never reaches the daemon: reporting the wrong state is

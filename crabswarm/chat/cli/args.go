@@ -8,13 +8,14 @@ import (
 )
 
 // harnessStates maps the words the CLI accepts for a harness state onto the
-// enum. The unspecified state has no word: a hook that cannot say what its
-// harness is doing must fail rather than report the one state that invites a
+// enum, mirroring the vocabulary of `cmdman status set working|waiting|done`.
+// The unspecified state has no word: a hook that cannot say what its harness
+// is doing must fail rather than report the one state that invites a
 // keystroke nudge.
 var harnessStates = map[string]chatv1.HarnessState{
-	"idle":          chatv1.HarnessState_HARNESS_STATE_IDLE,
-	"running":       chatv1.HarnessState_HARNESS_STATE_RUNNING,
-	"waiting_input": chatv1.HarnessState_HARNESS_STATE_WAITING_INPUT,
+	"working": chatv1.HarnessState_HARNESS_STATE_WORKING,
+	"waiting": chatv1.HarnessState_HARNESS_STATE_WAITING,
+	"done":    chatv1.HarnessState_HARNESS_STATE_DONE,
 }
 
 // HarnessStateNames returns the accepted harness-state words, in the order they
@@ -22,7 +23,7 @@ var harnessStates = map[string]chatv1.HarnessState{
 // shell completion, so the two cannot drift from what [ParseHarnessState]
 // accepts.
 func HarnessStateNames() []string {
-	return []string{"idle", "running", "waiting_input"}
+	return []string{"working", "waiting", "done"}
 }
 
 // ParseHarnessState maps a state word onto the reported enum.
