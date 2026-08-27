@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,6 +45,14 @@ func (p *fakeProvider) vouch(token, room, team string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.infos[token] = TeamInfo{Room: room, Team: team}
+}
+
+// forget makes the provider stop knowing token, the way cmdman stops knowing a
+// command once it is gone.
+func (p *fakeProvider) forget(token string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.infos, token)
 }
 
 func (p *fakeProvider) callCount() int {
@@ -103,6 +112,15 @@ func seedAgent(
 	t.Helper()
 	provider.vouch(token, room, team)
 	return join(t, svc.store, token, room, team, name)
+}
+
+// expireVerified back-dates the provider's verdict on token, which is how a
+// test reaches [providerCheckTTL] without waiting it out.
+func expireVerified(t *testing.T, svc *Service, token string) {
+	t.Helper()
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	svc.verified[token] = time.Now().Add(-providerCheckTTL - time.Second)
 }
 
 // callCtx is a request context carrying token, as the interceptor would leave
@@ -188,4 +206,38 @@ func TestService_ProviderCheckIsCachedAcrossCalls(t *testing.T) {
 	_, err = svc.Read(callCtx(t, "tok-a"), &chatv1.ReadRequest{})
 	assert.NilError(t, err)
 	assert.Equal(t, provider.callCount(), 1)
+}
+
+// Past the TTL the cached verdict no longer answers for anyone: the provider is
+// asked again, and its current answer decides. An agent it has forgotten is
+// reaped; one it still vouches for keeps its place.
+func TestService_ProviderCheckIsRedoneAfterTTL(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	provider.vouch("tok-a", "/work", "alpha")
+	provider.vouch("tok-b", "/work", "alpha")
+
+	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+	_, err = svc.Join(callCtx(t, "tok-b"), &chatv1.JoinRequest{Name: "bob"})
+	assert.NilError(t, err)
+	assert.Equal(t, provider.callCount(), 2)
+
+	expireVerified(t, svc, "tok-a")
+	expireVerified(t, svc, "tok-b")
+	provider.forget("tok-a")
+
+	// ana's command is gone: the call is refused and the attendance goes with
+	// it, rather than being answered from the verdict the join cached.
+	_, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
+	assert.Equal(t, provider.callCount(), 3)
+	_, err = svc.store.Member(t.Context(), "tok-a")
+	assert.ErrorIs(t, err, ErrNotFound)
+
+	// bob's is still running, so the re-check costs it nothing but the lookup.
+	res, err := svc.ListMembers(callCtx(t, "tok-b"), &chatv1.ListMembersRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, provider.callCount(), 4)
+	assert.Equal(t, len(res.GetMembers()), 1)
+	assert.Equal(t, res.GetMembers()[0].GetName(), "bob")
 }

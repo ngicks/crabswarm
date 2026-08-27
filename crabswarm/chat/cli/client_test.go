@@ -223,6 +223,22 @@ func TestClient_SurfacesServerMessageVerbatim(t *testing.T) {
 	assert.Equal(t, status.Code(errors.Unwrap(err)), codes.InvalidArgument)
 }
 
+// A running daemon answers Unavailable when its team-info provider could not be
+// asked, and that is not the daemon being absent: telling the operator to start
+// one would send them to restart what is already running. The answer reaches
+// them as the daemon wrote it.
+func TestClient_ProviderUnavailableIsNotTheDaemonBeingDown(t *testing.T) {
+	const msg = chat.ProviderUnavailableMessage + ": cmdman: connection refused"
+	fake := &fakeChatService{err: status.Error(codes.Unavailable, msg)}
+	d := serveTestDaemon(t, fake, nil)
+
+	err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice")
+	assert.Assert(t, err != nil)
+	assert.Equal(t, err.Error(), msg)
+	assert.Assert(t, !errors.Is(err, ErrDaemonUnreachable))
+	assert.Equal(t, status.Code(errors.Unwrap(err)), codes.Unavailable)
+}
+
 // Nothing listening on the socket is a different failure from a refused
 // request, and the CLI says how to fix it.
 func TestClient_UnreachableDaemonHint(t *testing.T) {

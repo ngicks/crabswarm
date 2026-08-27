@@ -10,6 +10,13 @@ import (
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
+// ProviderUnavailableMessage opens the message of the only Unavailable status a
+// running daemon returns: the team-info provider could not be asked. gRPC
+// itself reports Unavailable when nothing answers on the socket, and the two
+// mean opposite things to whoever reads them, so the CLI tells them apart by
+// this wording rather than by the code alone.
+const ProviderUnavailableMessage = "looking up team information"
+
 // Join declares attendance under the requested name, deriving room and team
 // from the caller's token.
 //
@@ -50,7 +57,7 @@ func (s *Service) Join(
 			"no team information for this token: %s", err)
 	case err != nil:
 		return nil, status.Errorf(codes.Unavailable,
-			"looking up team information: %s", err)
+			"%s: %s", ProviderUnavailableMessage, err)
 	}
 	s.recordVerified(token)
 

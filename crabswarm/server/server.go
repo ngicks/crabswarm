@@ -1,3 +1,6 @@
+// Package server hosts the crabswarm daemon: one gRPC server on a Unix socket
+// serving the hook audit service beside both halves of the chat broker, held to
+// a single instance per socket by a lock file next to it.
 package server
 
 import (

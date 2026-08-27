@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -76,9 +77,11 @@ func withToken(ctx context.Context, token string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, chat.TokenMetadataKey, token)
 }
 
-// ErrDaemonUnreachable reports that no daemon answered on the socket. It is
-// what every RPC in this package returns when the transport fails, so a caller
-// can tell "nobody is listening" from an answer it did not like.
+// ErrDaemonUnreachable reports that nothing answered on the socket. It is what
+// every RPC in this package returns when the transport fails, so a caller can
+// tell "nobody is listening" from an answer it did not like. An Unavailable a
+// running daemon sent is such an answer and does not carry it — see
+// [callError].
 var ErrDaemonUnreachable = errors.New("chat daemon unreachable")
 
 // rpcError presents a gRPC failure the way a CLI user wants to read it — the
@@ -98,9 +101,27 @@ func (e *rpcError) Error() string { return e.msg }
 
 func (e *rpcError) Unwrap() error { return e.err }
 
-// callError maps an RPC failure onto the error the CLI reports. An unavailable
-// daemon gets the hint that starts one; anything else keeps the server's own
-// wording.
+// callError maps an RPC failure onto the error the CLI reports. A daemon that
+// never answered gets the hint that starts one; anything else keeps the
+// server's own wording.
+//
+// Unavailable arrives from two places a status code cannot tell apart: gRPC
+// synthesizes it when nothing is listening on the socket, and a running daemon
+// returns it when its team-info provider could not be asked. Only the first is
+// worth "start the daemon", so an Unavailable carrying the daemon's own wording
+// ([chat.ProviderUnavailableMessage]) is passed through as the answer it is.
+//
+// Why the wording and not something sturdier. Having the daemon answer with
+// another code would misreport a dependency it could not reach to every client,
+// not just this one. Matching gRPC's transport text instead ("connection
+// error", "error reading from server") pins wording that belongs to the library
+// rather than to this repository. A status detail would not depend on wording
+// at all, but pulls google.golang.org/genproto in as a direct dependency to
+// carry one bit.
+//
+// A server-emitted Unavailable worded any other way still reads as daemon-down.
+// That covers every one the daemon sends today: the provider lookup is the only
+// place it returns the code at all.
 func callError(err error) error {
 	if err == nil {
 		return nil
@@ -109,7 +130,8 @@ func callError(err error) error {
 	if !ok {
 		return err
 	}
-	if st.Code() == codes.Unavailable {
+	if st.Code() == codes.Unavailable &&
+		!strings.Contains(st.Message(), chat.ProviderUnavailableMessage) {
 		return &rpcError{
 			msg: fmt.Sprintf("%s: %s\nhint: start it by running `crabswarm serve`",
 				ErrDaemonUnreachable, st.Message()),

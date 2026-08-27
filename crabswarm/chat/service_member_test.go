@@ -2,6 +2,7 @@ package chat
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -44,6 +45,10 @@ func TestService_JoinOnProviderFailureIsUnavailable(t *testing.T) {
 
 	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
 	assert.Equal(t, status.Code(err), codes.Unavailable)
+	// The wording is the CLI's only way to tell this apart from the Unavailable
+	// gRPC reports when no daemon is listening at all.
+	assert.Assert(t, strings.Contains(status.Convert(err).Message(),
+		ProviderUnavailableMessage))
 }
 
 func TestService_JoinIsIdempotent(t *testing.T) {
