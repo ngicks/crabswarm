@@ -326,3 +326,18 @@ user resolves it.
 - **Rejected:** keeping hand-written `database/sql` queries (typo-prone
   string SQL, schema/query drift unchecked); leaving dynamic queries
   hand-written (none turned out dynamic).
+
+### D22 amendment — sqlc layout gathered under internal/schema [user] [2026-08-28]
+- **Choice:** the flat crabswarm/chat/{schema,queries}.sql + sqlc.yaml
+  layout from D22's first cut is replaced by directory-style config:
+  `crabswarm/chat/internal/schema/` holds `sqlc.yaml`, `ddl/*.sql`, and
+  `queries/*.sql` (sqlc reads whole directories in filename order, so
+  new .sql files are drop-ins needing no config edit); generated code
+  moved to `crabswarm/chat/internal/db` (package `db`), replacing
+  `internal/chatdb`. The schema package owns the `go:embed` (go:embed
+  cannot cross package dirs) and exposes `DDL()` as the runtime source
+  of truth; the `go:generate` directive lives beside sqlc.yaml.
+- **Rationale:** user directive — "all things under this dir"-styled
+  config tolerates forward changes better than enumerating files.
+- **Rejected:** flat files in the package dir (the first cut);
+  `internal/schema/schema/` nesting (reads badly; `ddl/` chosen).
