@@ -2,9 +2,10 @@ package chat
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/chatdb"
 )
 
 // Send resolves addr against the caller's room — see [Store.Resolve] for the
@@ -20,16 +21,16 @@ func (s *Store) Send(
 	sentAt time.Time,
 ) (Member, error) {
 	var recipient Member
-	err := s.tx(ctx, func(tx *sql.Tx) error {
-		from, err := memberByToken(ctx, tx, fromToken)
+	err := s.tx(ctx, func(q *chatdb.Queries) error {
+		from, err := memberByToken(ctx, q, fromToken)
 		if err != nil {
 			return fmt.Errorf("sending message: %w", err)
 		}
-		to, err := resolveFor(ctx, tx, from, addr)
+		to, err := resolveFor(ctx, q, from, addr)
 		if err != nil {
 			return err
 		}
-		if err := appendMessage(ctx, tx, to.Token, senderOf(from), text, sentAt); err != nil {
+		if err := appendMessage(ctx, q, to.Token, senderOf(from), text, sentAt); err != nil {
 			return err
 		}
 		recipient = to
@@ -52,23 +53,21 @@ func (s *Store) Broadcast(
 	excludeSender bool,
 ) ([]Member, error) {
 	var recipients []Member
-	err := s.tx(ctx, func(tx *sql.Tx) error {
-		from, err := memberByToken(ctx, tx, fromToken)
+	err := s.tx(ctx, func(q *chatdb.Queries) error {
+		from, err := memberByToken(ctx, q, fromToken)
 		if err != nil {
 			return fmt.Errorf("broadcasting message: %w", err)
 		}
-		members, err := queryMembers(ctx, tx,
-			`SELECT `+memberColumns+` FROM members WHERE room = ? ORDER BY team, name`,
-			from.Room)
+		rows, err := q.ListRoomMembers(ctx, from.Room)
 		if err != nil {
 			return fmt.Errorf("broadcasting to room %q: %w", from.Room, err)
 		}
 		sender := senderOf(from)
-		for _, m := range members {
+		for _, m := range membersOf(rows) {
 			if excludeSender && m.Token == from.Token {
 				continue
 			}
-			if err := appendMessage(ctx, tx, m.Token, sender, text, sentAt); err != nil {
+			if err := appendMessage(ctx, q, m.Token, sender, text, sentAt); err != nil {
 				return err
 			}
 			recipients = append(recipients, m)
@@ -86,16 +85,15 @@ func (s *Store) Broadcast(
 // once, and a second Read returns nothing. An unknown token is [ErrNotFound].
 func (s *Store) Read(ctx context.Context, token string) ([]Message, error) {
 	var messages []Message
-	err := s.tx(ctx, func(tx *sql.Tx) error {
-		if _, err := memberByToken(ctx, tx, token); err != nil {
+	err := s.tx(ctx, func(q *chatdb.Queries) error {
+		if _, err := memberByToken(ctx, q, token); err != nil {
 			return fmt.Errorf("reading inbox: %w", err)
 		}
-		msgs, err := pendingMessages(ctx, tx, token)
+		msgs, err := pendingMessages(ctx, q, token)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM messages WHERE recipient = ?`, token); err != nil {
+		if err := q.DeleteMessages(ctx, token); err != nil {
 			return fmt.Errorf("draining inbox of %q: %w", token, err)
 		}
 		messages = msgs
@@ -107,56 +105,49 @@ func (s *Store) Read(ctx context.Context, token string) ([]Message, error) {
 	return messages, nil
 }
 
-// pendingMessages reads the whole inbox before the caller deletes it: the rows
-// must be consumed and closed before the delete runs, since the store holds a
-// single connection.
-func pendingMessages(ctx context.Context, tx *sql.Tx, token string) ([]Message, error) {
-	rows, err := tx.QueryContext(ctx,
-		`SELECT from_name, from_team, from_room, text, sent_at
-		 FROM messages WHERE recipient = ? ORDER BY id`, token)
+// pendingMessages reads the whole inbox before the caller deletes it. The
+// generated query closes its rows before returning, which the delete depends
+// on since the store holds a single connection.
+func pendingMessages(ctx context.Context, q *chatdb.Queries, token string) ([]Message, error) {
+	rows, err := q.PendingMessages(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("reading inbox of %q: %w", token, err)
 	}
-	defer func() { _ = rows.Close() }()
 	var messages []Message
-	for rows.Next() {
-		var (
-			m      Message
-			sentAt string
-		)
-		if err := rows.Scan(
-			&m.From.Name, &m.From.Team, &m.From.Room, &m.Text, &sentAt); err != nil {
-			return nil, fmt.Errorf("reading message row: %w", err)
-		}
-		parsed, err := time.Parse(time.RFC3339Nano, sentAt)
+	for _, row := range rows {
+		sentAt, err := time.Parse(time.RFC3339Nano, row.SentAt)
 		if err != nil {
-			return nil, fmt.Errorf("parsing message timestamp %q: %w", sentAt, err)
+			return nil, fmt.Errorf("parsing message timestamp %q: %w", row.SentAt, err)
 		}
-		m.SentAt = parsed
-		messages = append(messages, m)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("reading inbox of %q: %w", token, err)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("reading inbox of %q: %w", token, err)
+		messages = append(messages, Message{
+			From: Sender{
+				Name: row.FromName,
+				Team: row.FromTeam,
+				Room: row.FromRoom,
+			},
+			Text:   row.Text,
+			SentAt: sentAt,
+		})
 	}
 	return messages, nil
 }
 
 func appendMessage(
 	ctx context.Context,
-	tx *sql.Tx,
+	q *chatdb.Queries,
 	recipient string,
 	from Sender,
 	text string,
 	sentAt time.Time,
 ) error {
-	_, err := tx.ExecContext(ctx,
-		`INSERT INTO messages (recipient, from_name, from_team, from_room, text, sent_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		recipient, from.Name, from.Team, from.Room, text,
-		sentAt.UTC().Format(time.RFC3339Nano))
+	err := q.InsertMessage(ctx, chatdb.InsertMessageParams{
+		Recipient: recipient,
+		FromName:  from.Name,
+		FromTeam:  from.Team,
+		FromRoom:  from.Room,
+		Text:      text,
+		SentAt:    sentAt.UTC().Format(time.RFC3339Nano),
+	})
 	if err != nil {
 		return fmt.Errorf("appending message for %q: %w", recipient, err)
 	}

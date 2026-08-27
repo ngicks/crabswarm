@@ -12,6 +12,8 @@ import (
 
 	// The pure-Go driver keeps the daemon cgo-free.
 	_ "modernc.org/sqlite"
+
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/chatdb"
 )
 
 // Sentinel errors the transport layer maps to status codes. Every returned
@@ -108,6 +110,7 @@ type Room struct {
 // safe for concurrent use.
 type Store struct {
 	db *sql.DB
+	q  *chatdb.Queries
 }
 
 //go:generate sqlc generate
@@ -140,7 +143,7 @@ func NewStore(ctx context.Context, path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("creating chat store schema in %q: %w", path, err)
 	}
-	return &Store{db: db}, nil
+	return &Store{db: db, q: chatdb.New(db)}, nil
 }
 
 // Close releases the underlying database handle.
@@ -165,13 +168,13 @@ func dsn(path string) string {
 }
 
 // tx runs fn in a transaction, committing when it returns nil and rolling back
-// otherwise.
-func (s *Store) tx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+// otherwise. fn works through queries bound to that transaction.
+func (s *Store) tx(ctx context.Context, fn func(q *chatdb.Queries) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	if err := fn(tx); err != nil {
+	if err := fn(s.q.WithTx(tx)); err != nil {
 		_ = tx.Rollback()
 		return err
 	}
