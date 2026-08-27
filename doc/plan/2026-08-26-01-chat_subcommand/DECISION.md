@@ -341,3 +341,22 @@ user resolves it.
   config tolerates forward changes better than enumerating files.
 - **Rejected:** flat files in the package dir (the first cut);
   `internal/schema/schema/` nesting (reads badly; `ddl/` chosen).
+
+### D23. Token resolver and nonce auth split into subpackages [user] [2026-08-28]
+- **Choice:** two concerns moved out of the flat chat package so the root
+  can be skimmed: the token resolver (`crabswarm/chat/resolver`:
+  `TeamInfo`, `ErrUnknownToken`, `CmdmanCompose` — formerly provider.go)
+  and the age-nonce challenge (`crabswarm/chat/auth`: `Nonces`,
+  `EncryptNonce`/`DecryptNonce` — formerly inside admin.go, whose
+  `AdminService` keeps only RPC glue). Both plain subpackages, not
+  internal/ (server wiring constructs the resolver; chat/cli decrypts
+  nonces). `TeamInfoProvider` stays declared at its consumer in
+  service.go per the interfaces-at-the-consumer rule, keeping resolver a
+  stdlib-only leaf. Renames: `CmdmanComposeProvider`→`resolver.CmdmanCompose`,
+  `chat.DecryptNonce`→`auth.DecryptNonce`; `resolver.ValidateToken` and
+  `resolver.DefaultCmdmanBin` newly exported for the notifier's shared
+  cmdman surface.
+- **Rationale:** user directive 2026-08-28 — package-root skimmability.
+- **Rejected:** `internal/` placement (outside importers exist; auth kept
+  plain for symmetry); naming both packages "provider"; moving the
+  consumer interface down into resolver (would invert the dependency).
