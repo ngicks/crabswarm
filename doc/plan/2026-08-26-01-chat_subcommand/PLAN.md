@@ -109,7 +109,9 @@ flowchart TB
   inbox (D15); the notifier then nudges each recipient's harness (D9).
   `Read` drains the caller's pending messages from the SQLite store (D14).
 - **Admin**: `GetNonce` returns a nonce encrypted to the configured age
-  recipient; subsequent admin RPCs carry the decrypted nonce (D7).
+  recipient; subsequent admin RPCs carry the decrypted nonce as
+  `authorization: Bearer` metadata (D7 as amended by D25 — auth is a
+  provider interface, credentials in metadata, not request fields).
   Implemented with `filippo.io/age`.
 - **Rejected alternatives**: separate chat daemon (D3), long-lived
   streaming session (D5), strict team walls (superseded by D10), second
@@ -155,7 +157,8 @@ service ChatService {
 }
 
 service ChatAdminService {
-  // GetNonce returns a nonce encrypted to the configured age recipient (D7).
+  // GetNonce returns a nonce encrypted to the configured age recipient
+  // (D7; challenge issuance is provider-delegated per D25).
   rpc GetNonce(GetNonceRequest) returns (GetNonceResponse);
   // Admin RPCs below require the decrypted nonce.
   rpc ListRooms(ListRoomsRequest) returns (ListRoomsResponse);

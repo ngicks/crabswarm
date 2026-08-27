@@ -382,3 +382,29 @@ user resolves it.
   responsibility in a read-only package); failing RPCs on mirror errors
   (best-effort like the notifier); mapping table between vocabularies
   (D21 made them identical).
+
+### D25. Admin auth generalized to a provider interface [user] [2026-08-28]
+- **Context:** the age-nonce auth will soon gain a normal-ish OIDC/OAuth
+  provider behind a TLS-terminating reverse proxy; the user wants the
+  generalized shape settled before the imminent version cut.
+- **Choice (user, via AskUserQuestion):** (1) admin credentials travel as
+  gRPC metadata — the standard `authorization: Bearer <credential>`
+  header — and the per-message `nonce` proto fields are removed
+  (renumbered, not reserved; never deployed); (2) challenge issuance is
+  part of the provider interface, so GetNonce delegates and a
+  challenge-less provider (future OIDC) returns Unimplemented.
+- **Shape:** `chat.AdminAuthenticator { Challenge(ctx) (AdminChallenge,
+  error); Authenticate(ctx) error }` declared at the consumer;
+  `AdminChallenge` aliases the neutral `auth.Challenge` (leaf owns data,
+  consumer owns interface — the resolver.TeamInfo precedent).
+  `auth.AgeNonce` is the first provider; `auth/bearer.go` owns the
+  RFC 6750 bearer extraction. Providers return ready gRPC statuses for
+  verdicts (scoped exception to "no grpc in auth": only the provider can
+  word the refusal); missing/malformed/unknown/expired stay one
+  PermissionDenied. `NewAdminService` now takes the authenticator and no
+  longer returns an error (recipient parsing moved to NewAgeNonce);
+  config surface unchanged.
+- **Rejected:** keeping nonce as request fields (unusual for OAuth;
+  proxies forward Authorization natively); verification-only interface
+  with GetNonce staying age-specific; reserving the removed field
+  numbers (a scar from a field that never shipped).
