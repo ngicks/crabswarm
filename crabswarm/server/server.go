@@ -148,6 +148,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		chatStore,
 		resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin),
 		chat.NewSendKeysNotifier(s.chatCfg.CmdmanBin, s.logger),
+		chat.NewCmdmanStatusMirror(s.chatCfg.CmdmanBin, s.logger),
 		s.logger,
 	))
 	// The admin half shares the socket with the member half: it is gated by the

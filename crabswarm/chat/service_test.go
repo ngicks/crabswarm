@@ -96,10 +96,58 @@ func (n *fakeNotifier) notified() []notification {
 // and a recording notifier.
 func newTestService(t *testing.T) (*Service, *fakeProvider, *fakeNotifier) {
 	t.Helper()
+	svc, provider, notifier, _ := newTestServiceWithMirror(t)
+	return svc, provider, notifier
+}
+
+// newTestServiceWithMirror is [newTestService] with the recording status mirror
+// handed back too, for the cases that assert on what the service published.
+func newTestServiceWithMirror(
+	t *testing.T,
+) (*Service, *fakeProvider, *fakeNotifier, *fakeStatusMirror) {
+	t.Helper()
 	store, _ := newTestStore(t)
 	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
 	notifier := &fakeNotifier{}
-	return NewService(store, provider, notifier, nil), provider, notifier
+	mirror := &fakeStatusMirror{}
+	return NewService(store, provider, notifier, mirror, nil), provider, notifier, mirror
+}
+
+// published is one call the service made on its [StatusMirror]. A cleared
+// member carries no state, which is what tells the two apart.
+type published struct {
+	member  Member
+	state   MemberState
+	cleared bool
+}
+
+// fakeStatusMirror records what the service published, in order.
+type fakeStatusMirror struct {
+	mu  sync.Mutex
+	got []published
+	err error
+}
+
+var _ StatusMirror = (*fakeStatusMirror)(nil)
+
+func (m *fakeStatusMirror) Set(_ context.Context, member Member, state MemberState) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.got = append(m.got, published{member: member, state: state})
+	return m.err
+}
+
+func (m *fakeStatusMirror) Clear(_ context.Context, member Member) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.got = append(m.got, published{member: member, cleared: true})
+	return m.err
+}
+
+func (m *fakeStatusMirror) calls() []published {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return slices.Clone(m.got)
 }
 
 // seedAgent puts an agent in the store the way a past join left it, with the

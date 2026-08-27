@@ -165,7 +165,7 @@ func TestAdminService_RegisteredMemberChatsAsHuman(t *testing.T) {
 		infos: map[string]resolver.TeamInfo{},
 		err:   errors.New("cmdman: connection refused"),
 	}
-	member := NewService(admin.store, provider, nil, nil)
+	member := NewService(admin.store, provider, nil, nil, nil)
 
 	registered, err := admin.RegisterMember(t.Context(), &chatv1.RegisterMemberRequest{
 		Nonce: adminNonce(t, admin, id),

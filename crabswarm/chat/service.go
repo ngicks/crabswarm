@@ -40,6 +40,34 @@ var _ Notifier = NopNotifier{}
 // Notify does nothing and never fails.
 func (NopNotifier) Notify(context.Context, Member, Sender, string) error { return nil }
 
+// StatusMirror publishes a member's harness state somewhere the host can see
+// it, so an operator watching their commands reads the same words the chat
+// broker holds. It is the seam the cmdman status display plugs into.
+//
+// Set is called after the store has recorded state, Clear after a member is
+// gone. Both run inside the RPC that caused them, with that RPC's context; an
+// implementation that must outlive the call detaches on its own.
+//
+// A returned error never fails the RPC: the store is already authoritative by
+// then, and a display that lags behind it costs nothing but the display.
+type StatusMirror interface {
+	Set(ctx context.Context, m Member, state MemberState) error
+	Clear(ctx context.Context, m Member) error
+}
+
+// NopStatusMirror publishes nothing. It is what a [Service] runs with until a
+// real mirror is configured, which is every deployment that is not driving
+// cmdman.
+type NopStatusMirror struct{}
+
+var _ StatusMirror = NopStatusMirror{}
+
+// Set does nothing and never fails.
+func (NopStatusMirror) Set(context.Context, Member, MemberState) error { return nil }
+
+// Clear does nothing and never fails.
+func (NopStatusMirror) Clear(context.Context, Member) error { return nil }
+
 // providerCheckTTL is how long a successful team-info lookup vouches for an
 // agent's token. Re-checking on every RPC would put a cmdman process launch in
 // front of every message; re-checking never would keep vanished agents in the
@@ -78,6 +106,7 @@ type Service struct {
 	store    *Store
 	provider TeamInfoProvider
 	notifier Notifier
+	mirror   StatusMirror
 	logger   *slog.Logger
 
 	mu sync.Mutex
@@ -89,16 +118,21 @@ type Service struct {
 var _ chatv1.ChatServiceServer = (*Service)(nil)
 
 // NewService returns the ChatService implementation over store, admitting the
-// members provider knows and reporting deliveries to notifier. A nil notifier
-// means [NopNotifier]; a nil logger discards logs.
+// members provider knows, reporting deliveries to notifier and member state to
+// mirror. A nil notifier means [NopNotifier], a nil mirror [NopStatusMirror];
+// a nil logger discards logs.
 func NewService(
 	store *Store,
 	provider TeamInfoProvider,
 	notifier Notifier,
+	mirror StatusMirror,
 	logger *slog.Logger,
 ) *Service {
 	if notifier == nil {
 		notifier = NopNotifier{}
+	}
+	if mirror == nil {
+		mirror = NopStatusMirror{}
 	}
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
@@ -107,6 +141,7 @@ func NewService(
 		store:    store,
 		provider: provider,
 		notifier: notifier,
+		mirror:   mirror,
 		logger:   logger,
 		verified: make(map[string]time.Time),
 	}
@@ -160,6 +195,9 @@ func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 			"member", m.Team+"/"+m.Name, "err", err)
 		return true
 	}
+	// No status is withdrawn here: the member is reaped because the provider
+	// no longer knows its token, which means the command that carried the
+	// display is already gone.
 	s.logger.Info("chat: reaping member the provider no longer knows",
 		"member", m.Team+"/"+m.Name, "room", m.Room, "err", err)
 	if _, err := s.store.RemoveMember(ctx, m.Token); err != nil {
@@ -177,6 +215,26 @@ func (s *Service) notify(ctx context.Context, recipient Member, from Sender, tex
 	if err := s.notifier.Notify(ctx, recipient, from, text); err != nil {
 		s.logger.Warn("chat: notifying recipient failed",
 			"recipient", recipient.Team+"/"+recipient.Name, "err", err)
+	}
+}
+
+// mirrorState publishes m's state, logging what the mirror could not do. The
+// store already holds the state, so a failed mirror costs an operator a stale
+// display and the member nothing.
+func (s *Service) mirrorState(ctx context.Context, m Member, state MemberState) {
+	if err := s.mirror.Set(ctx, m, state); err != nil {
+		s.logger.Warn("chat: mirroring member state failed",
+			"member", m.Team+"/"+m.Name, "state", state, "err", err)
+	}
+}
+
+// mirrorGone withdraws m's published state. Failing is ordinary rather than
+// notable: a member leaves because its session is ending, so whatever held the
+// display is often gone before the withdrawal reaches it.
+func (s *Service) mirrorGone(ctx context.Context, m Member) {
+	if err := s.mirror.Clear(ctx, m); err != nil {
+		s.logger.Debug("chat: withdrawing member state failed",
+			"member", m.Team+"/"+m.Name, "err", err)
 	}
 }
 

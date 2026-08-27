@@ -47,6 +47,9 @@ func (s *Service) Join(
 			return nil, status.Errorf(codes.NotFound,
 				"token is no longer known to the team-info provider")
 		}
+		// Re-declared attendance re-publishes the stored state: a session that
+		// starts again is often one whose display was reset under it.
+		s.mirrorState(ctx, existing, existing.State)
 		return &chatv1.JoinResponse{Self: memberProto(existing)}, nil
 	case !errors.Is(err, ErrNotFound):
 		return nil, storeStatus(err)
@@ -77,6 +80,7 @@ func (s *Service) Join(
 	if err != nil {
 		return nil, storeStatus(err)
 	}
+	s.mirrorState(ctx, joined, joined.State)
 	return &chatv1.JoinResponse{Self: memberProto(joined)}, nil
 }
 
@@ -114,6 +118,7 @@ func (s *Service) Leave(
 		return nil, storeStatus(err)
 	}
 	s.forgetVerified(caller.Token)
+	s.mirrorGone(ctx, caller)
 	return &chatv1.LeaveResponse{}, nil
 }
 
@@ -133,5 +138,6 @@ func (s *Service) ReportState(
 	if err := s.store.SetState(ctx, caller.Token, state); err != nil {
 		return nil, storeStatus(err)
 	}
+	s.mirrorState(ctx, caller, state)
 	return &chatv1.ReportStateResponse{}, nil
 }

@@ -151,3 +151,89 @@ func TestService_ReportState(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, stored.State, StateWaiting)
 }
+
+// The state an operator sees on a command follows the state the store holds,
+// so every RPC that changes one publishes the other.
+func TestService_PublishesMemberStateOnJoinReportAndLeave(t *testing.T) {
+	svc, provider, _, mirror := newTestServiceWithMirror(t)
+	provider.vouch("tok-a", "/work", "alpha")
+
+	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+
+	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+	})
+	assert.NilError(t, err)
+
+	_, err = svc.Leave(callCtx(t, "tok-a"), &chatv1.LeaveRequest{})
+	assert.NilError(t, err)
+
+	calls := mirror.calls()
+	assert.Equal(t, len(calls), 3, "published: %v", calls)
+	// A fresh member starts done, which is what a session that has not been
+	// given work yet is.
+	assert.Equal(t, calls[0].state, StateDone)
+	assert.Equal(t, calls[0].member.Token, "tok-a")
+	assert.Equal(t, calls[1].state, StateWorking)
+	assert.Assert(t, calls[2].cleared)
+	assert.Equal(t, calls[2].member.Team+"/"+calls[2].member.Name, "alpha/ana")
+}
+
+// Re-declared attendance republishes what the store already holds: the session
+// starting again is often one whose display was reset under it.
+func TestService_JoinAgainRepublishesTheStoredState(t *testing.T) {
+	svc, provider, _, mirror := newTestServiceWithMirror(t)
+	provider.vouch("tok-a", "/work", "alpha")
+
+	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WAITING,
+	})
+	assert.NilError(t, err)
+
+	_, err = svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+
+	calls := mirror.calls()
+	assert.Equal(t, len(calls), 3, "published: %v", calls)
+	assert.Equal(t, calls[2].state, StateWaiting)
+}
+
+// A reaped member's command is gone with the token the provider stopped
+// knowing, so there is no status left to withdraw.
+func TestService_ReapingPublishesNothing(t *testing.T) {
+	svc, provider, _, mirror := newTestServiceWithMirror(t)
+	provider.vouch("tok-a", "/work", "alpha")
+	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+
+	provider.forget("tok-a")
+	svc.forgetVerified("tok-a")
+
+	_, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
+
+	// Only the join published; the reap added nothing.
+	calls := mirror.calls()
+	assert.Equal(t, len(calls), 1, "published: %v", calls)
+	assert.Equal(t, calls[0].state, StateDone)
+}
+
+// A mirror that cannot publish never fails the RPC: the store is authoritative
+// and a stale display costs only the display.
+func TestService_PublishFailureDoesNotFailTheRPC(t *testing.T) {
+	svc, provider, _, mirror := newTestServiceWithMirror(t)
+	provider.vouch("tok-a", "/work", "alpha")
+	mirror.err = errors.New("cmdman: command is not running")
+
+	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+	})
+	assert.NilError(t, err)
+	_, err = svc.Leave(callCtx(t, "tok-a"), &chatv1.LeaveRequest{})
+	assert.NilError(t, err)
+}
