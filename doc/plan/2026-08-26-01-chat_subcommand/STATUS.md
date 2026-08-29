@@ -1,10 +1,11 @@
 # STATUS — `crabswarm chat` subcommand
 
-**Current state:** IMPLEMENTED (2026-08-27) — steps 1–9 all landed on
-feat-add-agent-chat with unit + e2e coverage; awaiting user review. C3
-was confirmed empirically against the local cmdman v0.0.23 source
-(see DECISION.md [automatic] entries: query surface + capture-pane
-fallback via `logs --tail`).
+**Current state:** REVIEWED (2026-08-29) — steps 1–9 landed on
+feat-add-agent-chat with unit + e2e coverage; user review/QA complete
+and all findings addressed (D21–D25). C3 was confirmed empirically
+against the local cmdman v0.0.23 source (see DECISION.md [automatic]
+entries: query surface + capture-pane fallback via `logs --tail`).
+Remaining: fold HANDOFF.md into the issue backlog.
 
 ## Checklist
 
@@ -33,8 +34,14 @@ fallback via `logs --tail`).
 - [x] Post-review: D21 harness-state vocabulary aligned to
       `cmdman status set working|waiting|done` (proto enum renumbered,
       store strings, CLI words, `--done-when-empty` flag, hooks, docs)
-- [x] Post-review: D22 chat store SQL migrated to sqlc
-      (schema.sql + queries.sql + generated internal/chatdb)
+- [x] Post-review: D22 chat store SQL migrated to sqlc, layout gathered
+      under `crabswarm/chat/internal/schema` (D22 amendment)
+- [x] Post-review: D23 "token resolver … and the age-nonce challenge"
+      split into `crabswarm/chat/resolver` and `crabswarm/chat/auth`
+- [x] Post-review: D24 member state "publishes … to cmdman:
+      `cmdman status set`" via `StatusMirror` / `CmdmanStatusMirror`
+- [x] Post-review: D25 admin credential as `authorization: Bearer`
+      metadata; `AdminAuthenticator` provider with `auth.AgeNonce` first
 
 ## Done
 
@@ -49,7 +56,7 @@ fallback via `logs --tail`).
 
 ## In progress
 
-- Nothing. Implementation complete; awaiting user review.
+- Nothing. Implementation complete; user review/QA done.
 
 ## Blocked / needs decision
 
@@ -59,9 +66,8 @@ fallback via `logs --tail`).
 
 ## Next action
 
-- User review of the implementation; then fold HANDOFF.md (native
-  notification adapters; buf generate template unification) into the
-  issue backlog if desired.
+- Fold HANDOFF.md (native notification adapters; buf generate template
+  unification) into `doc/plan/issue/issue.md` as the user selects.
 - Untested-in-environment items: web playwright e2e (browser binary
   missing here) and the Codex hook wiring (no Codex session available;
   marked best-effort in plugin/README.md).
