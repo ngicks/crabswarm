@@ -17,16 +17,16 @@ import (
 const logArgs = "printf '%s\\n' \"$*\" >> \"$(dirname \"$0\")/args.log\"\n"
 
 // stubCmdman writes a stand-in cmdman whose body is the given shell script and
-// returns its absolute path. [NewSendKeysNotifier] takes the binary path
+// returns its absolute path. [NewCmdmanStatusMirror] takes the binary path
 // directly, so nothing here touches PATH.
 //
 // The tests using it do not call t.Parallel: writing an executable in one test
 // while another forks makes the child inherit the still-open write descriptor,
 // and the exec then fails with ETXTBSY.
 //
-// The resolver package keeps its own copy rather than sharing this one: a test
-// helper exported for another package's tests would have to live in
-// non-test code, which is a worse trade than two short functions.
+// The notify and resolver packages keep their own copies rather than sharing
+// this one: a test helper exported for another package's tests would have to
+// live in non-test code, which is a worse trade than a few short functions.
 func stubCmdman(t *testing.T, body string) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "cmdman")

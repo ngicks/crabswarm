@@ -1,4 +1,12 @@
-package chat
+// Package notify wakes a member whose harness has finished its turn, so a
+// message that just reached their inbox is read now rather than whenever they
+// next happen to look.
+//
+// It holds the delivery-side adapters for the chat broker's notification hook.
+// The interface itself is declared at its consumer, in the chat package; this
+// package only satisfies it — today with [SendKeys], which types into the
+// recipient's terminal through the cmdman CLI.
+package notify
 
 import (
 	"context"
@@ -10,11 +18,12 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 // notifyTimeout bounds one whole notification — the snapshot and the injection
-// together. [Service] calls a notifier inside the RPC that delivered the
+// together. [chat.Service] calls a notifier inside the RPC that delivered the
 // message, so a cmdman that hangs would otherwise hang the sender's Send.
 const notifyTimeout = 3 * time.Second
 
@@ -41,10 +50,10 @@ var dialogMarkers = []string{
 	"(y/n)",
 }
 
-// SendKeysNotifier wakes an agent by typing a line into its terminal through
-// the cmdman CLI: `cmdman send-keys <token> '<line>' Enter`. Agents run in
-// containers where nothing watches the inbox for them, and keystrokes are the
-// one channel every harness accepts.
+// SendKeys wakes an agent by typing a line into its terminal through the cmdman
+// CLI: `cmdman send-keys <token> '<line>' Enter`. Agents run in containers
+// where nothing watches the inbox for them, and keystrokes are the one channel
+// every harness accepts.
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so a nudge passes three guards — the member is an agent, its last
@@ -52,24 +61,24 @@ var dialogMarkers = []string{
 // dialog. A guard that declines drops the nudge and reports success: the
 // message is already in the inbox, so the recipient reads it at the end of its
 // current turn instead of a moment from now.
-type SendKeysNotifier struct {
+type SendKeys struct {
 	bin    string
 	logger *slog.Logger
 }
 
-var _ Notifier = (*SendKeysNotifier)(nil)
+var _ chat.Notifier = (*SendKeys)(nil)
 
-// NewSendKeysNotifier returns a notifier that shells out to the cmdman binary
-// named by bin. An empty bin means "cmdman", resolved on PATH, the same
-// default the token resolver uses; a nil logger discards logs.
-func NewSendKeysNotifier(bin string, logger *slog.Logger) *SendKeysNotifier {
+// NewSendKeys returns a notifier that shells out to the cmdman binary named by
+// bin. An empty bin means "cmdman", resolved on PATH, the same default the
+// token resolver uses; a nil logger discards logs.
+func NewSendKeys(bin string, logger *slog.Logger) *SendKeys {
 	if bin == "" {
 		bin = resolver.DefaultCmdmanBin
 	}
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	return &SendKeysNotifier{bin: bin, logger: logger}
+	return &SendKeys{bin: bin, logger: logger}
 }
 
 // Notify types a one-line arrival notice into the recipient's terminal, unless
@@ -78,10 +87,10 @@ func NewSendKeysNotifier(bin string, logger *slog.Logger) *SendKeysNotifier {
 // the notice only says who wrote and how to read.
 //
 // An error means the injection itself failed. A declined nudge is not an error.
-func (n *SendKeysNotifier) Notify(
+func (n *SendKeys) Notify(
 	ctx context.Context,
-	recipient Member,
-	from Sender,
+	recipient chat.Member,
+	from chat.Sender,
 	_ string,
 ) error {
 	who := recipient.Team + "/" + recipient.Name
@@ -89,12 +98,12 @@ func (n *SendKeysNotifier) Notify(
 	// Not "== KindHuman": a member kind this notifier has never heard of has no
 	// terminal it may type into either. A human's token is minted by the daemon
 	// and names no cmdman command, so send-keys would fail to resolve it.
-	if recipient.Kind != KindAgent {
+	if recipient.Kind != chat.KindAgent {
 		n.logger.Debug("chat: not nudging a member that runs no harness",
 			"recipient", who, "kind", recipient.Kind)
 		return nil
 	}
-	if recipient.State != StateDone {
+	if recipient.State != chat.StateDone {
 		n.logger.Debug("chat: not nudging a busy member",
 			"recipient", who, "state", recipient.State)
 		return nil
@@ -137,7 +146,7 @@ func (n *SendKeysNotifier) Notify(
 // far too heavy to open for a pre-send check. The replay is therefore the
 // closest thing to a screenshot the CLI offers — good enough for a text scan,
 // since a dialog paints its markers into the output like everything else.
-func (n *SendKeysNotifier) tailLogs(ctx context.Context, token string) (string, error) {
+func (n *SendKeys) tailLogs(ctx context.Context, token string) (string, error) {
 	// CombinedOutput: a harness paints its dialogs on whichever stream it
 	// likes, and a scan that reads only one of them would miss half of them.
 	out, err := exec.CommandContext(
@@ -151,7 +160,7 @@ func (n *SendKeysNotifier) tailLogs(ctx context.Context, token string) (string, 
 }
 
 // sendKeys types line into the recipient's terminal and submits it.
-func (n *SendKeysNotifier) sendKeys(ctx context.Context, token, line string) error {
+func (n *SendKeys) sendKeys(ctx context.Context, token, line string) error {
 	// "Enter" is a cmdman key name, translated to a carriage return; anything
 	// that is not a key name — the line itself — is sent as literal bytes.
 	out, err := exec.CommandContext(
@@ -179,7 +188,7 @@ func dialogMarker(snapshot string) (string, bool) {
 
 // nudgeLine is the line typed into the recipient's terminal: who has written,
 // and the command that hands the message over.
-func nudgeLine(from Sender) string {
+func nudgeLine(from chat.Sender) string {
 	return "[crabswarm chat] new message from " +
 		sanitizeLine(from.Team+"/"+from.Name) +
 		" — run: crabswarm chat read"

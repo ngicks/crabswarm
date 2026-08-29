@@ -19,6 +19,7 @@ import (
 	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/hook/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/chat/auth"
+	"github.com/ngicks/crabswarm/crabswarm/chat/notify"
 	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 	"google.golang.org/grpc"
 )
@@ -155,7 +156,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	chatv1.RegisterChatServiceServer(srv, chat.NewService(
 		chatStore,
 		resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin),
-		chat.NewSendKeysNotifier(s.chatCfg.CmdmanBin, s.logger),
+		notify.NewSendKeys(s.chatCfg.CmdmanBin, s.logger),
 		chat.NewCmdmanStatusMirror(s.chatCfg.CmdmanBin, s.logger),
 		s.logger,
 	))
