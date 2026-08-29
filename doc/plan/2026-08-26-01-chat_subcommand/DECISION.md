@@ -408,3 +408,22 @@ user resolves it.
   proxies forward Authorization natively); verification-only interface
   with GetNonce staying age-specific; reserving the removed field
   numbers (a scar from a field that never shipped).
+
+### D26. Send-keys notifier split into its own subpackage [user] [2026-08-29]
+- **Choice:** the notifier implementation moved out of the flat chat
+  package into `crabswarm/chat/notify`, the D23 pattern continued:
+  `SendKeysNotifier`→`notify.SendKeys`,
+  `NewSendKeysNotifier`→`notify.NewSendKeys`. The `Notifier` interface
+  and `NopNotifier` stay at the consumer in chat/service.go; the new
+  package imports chat for Member/Sender/state types (arrow points up —
+  unlike resolver, notify is not a stdlib-only leaf) plus resolver for
+  the shared cmdman surface. Test stubs duplicated into the package
+  rather than exported, same as resolver.
+- **Scope (user, via AskUserQuestion):** notifier only.
+  `CmdmanStatusMirror` stays in crabswarm/chat/status.go even though
+  D24 placed it "beside SendKeysNotifier" — that placement clause is
+  superseded by this entry; status.go's own comments never named the
+  notifier, so no code comment went stale.
+- **Rejected:** moving both write-side cmdman adapters together
+  (offered as the recommended option; user chose notifier only);
+  exporting the chat package's cmdman test stubs for reuse.

@@ -42,6 +42,9 @@ HANDOFF.md folded into the issue backlog 2026-08-29 — plan COMPLETE.
       `cmdman status set`" via `StatusMirror` / `CmdmanStatusMirror`
 - [x] Post-review: D25 admin credential as `authorization: Bearer`
       metadata; `AdminAuthenticator` provider with `auth.AgeNonce` first
+- [x] Post-review: D26 notifier "moved … into `crabswarm/chat/notify`"
+      as `notify.SendKeys`; `CmdmanStatusMirror` stays in chat (user
+      scoped the split to the notifier only)
 
 ## Done
 

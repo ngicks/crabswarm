@@ -2,7 +2,8 @@
 
 ## 1. Native notification adapters (user-approved deferral — D19)
 
-- **What:** the non-send-keys notifier adapters for `crabswarm/chat/notify.go`:
+- **What:** the non-send-keys notifier adapters for the
+  `crabswarm/chat/notify` package (moved there from chat/notify.go by D26):
   Claude Code (a crabswarm-owned Channels MCP server, or the messaging
   socket) and OpenCode (HTTP server API); plus the D13 devenv endpoint
   mounts and the reserved `JoinRequest` fields 2–3 (notify endpoint
