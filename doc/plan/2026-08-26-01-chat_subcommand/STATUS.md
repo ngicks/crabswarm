@@ -5,7 +5,7 @@ feat-add-agent-chat with unit + e2e coverage; user review/QA complete
 and all findings addressed (D21–D25). C3 was confirmed empirically
 against the local cmdman v0.0.23 source (see DECISION.md [automatic]
 entries: query surface + capture-pane fallback via `logs --tail`).
-Remaining: fold HANDOFF.md into the issue backlog.
+HANDOFF.md folded into the issue backlog 2026-08-29 — plan COMPLETE.
 
 ## Checklist
 
@@ -66,8 +66,13 @@ Remaining: fold HANDOFF.md into the issue backlog.
 
 ## Next action
 
-- Fold HANDOFF.md (native notification adapters; buf generate template
-  unification) into `doc/plan/issue/issue.md` as the user selects.
+- None. HANDOFF.md folded 2026-08-29: buf generate template unification
+  went to `doc/plan/issue/issue.md`; native notification adapters stay
+  with `doc/plan/2026-08-27-01-chat_channels_spike` (user chose not to
+  duplicate them in the backlog). Plan complete.
+
+## Caveats
+
 - Untested-in-environment items: web playwright e2e (browser binary
   missing here) and the Codex hook wiring (no Codex session available;
   marked best-effort in plugin/README.md).
