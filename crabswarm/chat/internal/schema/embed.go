@@ -4,7 +4,7 @@
 // so a column can only be added in one place.
 package schema
 
-//go:generate sqlc generate
+//go:generate go tool sqlc generate
 
 import (
 	"embed"
