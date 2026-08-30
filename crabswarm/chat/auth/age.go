@@ -10,39 +10,43 @@ import (
 )
 
 // AgeNonce authenticates the holder of an age identity file by challenge and
-// response. It issues a nonce encrypted to one configured recipient and accepts
-// that nonce back, once, as the caller's credential.
+// response. It issues a nonce encrypted to every configured recipient and
+// accepts that nonce back, once, as the caller's credential.
 //
-// The identity file is the host operator's, kept outside the mounts
+// The identity files are the host operators', kept outside the mounts
 // participants see. Only native age recipients are accepted, not the ssh keys
-// the age CLI also understands: a daemon names one recipient string, and an ssh
+// the age CLI also understands: a daemon names recipient strings, and an ssh
 // recipient would drag in its own key-format parsing for no gain here.
 type AgeNonce struct {
-	recipient age.Recipient
-	nonces    *Nonces
+	recipients []age.Recipient
+	nonces     *Nonces
 }
 
-// NewAgeNonce returns an authenticator that challenges the holder of the
-// identity matching recipient, the "age1..." public key of the operator's
-// identity file.
+// NewAgeNonce returns an authenticator that challenges the holders of the
+// identities matching recipients, the "age1..." public keys of the operators'
+// identity files. Any one of those identities can answer a challenge.
 //
-// An empty or unparseable recipient is an error: a daemon with no operator key
-// configured has no authenticator at all rather than one that refuses
-// everything, so that a caller is told to configure a key instead of being told
-// their credential was wrong.
-func NewAgeNonce(recipient string) (*AgeNonce, error) {
-	if recipient == "" {
-		return nil, fmt.Errorf("empty chat admin recipient")
+// No recipient at all, or one that does not parse, is an error: a daemon with
+// no operator key configured has no authenticator at all rather than one that
+// refuses everything, so that a caller is told to configure a key instead of
+// being told their credential was wrong.
+func NewAgeNonce(recipients ...string) (*AgeNonce, error) {
+	if len(recipients) == 0 {
+		return nil, fmt.Errorf("no chat admin recipients")
 	}
-	parsed, err := age.ParseX25519Recipient(recipient)
-	if err != nil {
-		return nil, fmt.Errorf("parsing chat admin recipient %q: %w", recipient, err)
+	parsed := make([]age.Recipient, len(recipients))
+	for i, recipient := range recipients {
+		r, err := age.ParseX25519Recipient(recipient)
+		if err != nil {
+			return nil, fmt.Errorf("parsing chat admin recipient %q: %w", recipient, err)
+		}
+		parsed[i] = r
 	}
-	return &AgeNonce{recipient: parsed, nonces: NewNonces()}, nil
+	return &AgeNonce{recipients: parsed, nonces: NewNonces()}, nil
 }
 
-// Challenge issues a nonce encrypted to the configured recipient. It proves
-// nothing on its own: the challenge is readable only by the identity file, so
+// Challenge issues a nonce encrypted to every configured recipient. It proves
+// nothing on its own: the challenge is readable only by the identity files, so
 // handing it to a caller who cannot decrypt it tells them nothing they did not
 // already know.
 //
@@ -51,7 +55,7 @@ func NewAgeNonce(recipient string) (*AgeNonce, error) {
 // carry arbitrary bytes.
 func (a *AgeNonce) Challenge(context.Context) (Challenge, error) {
 	nonce, expiresAt := a.nonces.Issue()
-	payload, err := EncryptNonce(a.recipient, nonce)
+	payload, err := EncryptNonce(nonce, a.recipients...)
 	if err != nil {
 		return Challenge{}, err
 	}

@@ -27,17 +27,20 @@ type Config struct {
 // PartialConfig is the sparse mirror of [Config], used by the parent
 // crabswarm config's merge layer: a nil field means "absent, leave the
 // lower layer"; a non-nil pointer is an explicit value, including an
-// explicit zero. It is file-only (no env tags): its variables are not
-// env-shaped, so the fields are simply not env-settable, which the
-// layered-config skill permits.
+// explicit zero.
+//
+// The env tags hold only the bare names: the parent's Preview field carries
+// envPrefix:"PREVIEW_" and the parent's env parse applies CRABSWARM_
+// globally, so caarlos0/env composes both onto each name (ADDR ->
+// CRABSWARM_PREVIEW_ADDR, DAEMON_NAME -> CRABSWARM_PREVIEW_DAEMON_NAME).
 //
 // JSON tags use ",omitzero" (Go 1.24+) so a marshaled partial stays sparse;
 // YAML has no omitzero, so its tags use ",omitempty".
 //
-//nolint:lll // dual json/yaml tags; one field per line, never wrap tags
+//nolint:lll // triple json/yaml/env tags; one field per line, never wrap tags
 type PartialConfig struct {
-	Addr       *string `json:"addr,omitzero" yaml:"addr,omitempty"`
-	DaemonName *string `json:"daemon_name,omitzero" yaml:"daemon_name,omitempty"`
+	Addr       *string `json:"addr,omitzero" yaml:"addr,omitempty" env:"ADDR"`
+	DaemonName *string `json:"daemon_name,omitzero" yaml:"daemon_name,omitempty" env:"DAEMON_NAME"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged

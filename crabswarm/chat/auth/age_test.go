@@ -12,15 +12,17 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-// newTestAgeNonce returns an authenticator gated by a throwaway identity
-// standing in for the operator's identity file.
-func newTestAgeNonce(t *testing.T) (*AgeNonce, *age.X25519Identity) {
+// newTestAgeNonce returns an authenticator gated by two throwaway identities
+// standing in for the operators' identity files.
+func newTestAgeNonce(t *testing.T) (*AgeNonce, *age.X25519Identity, *age.X25519Identity) {
 	t.Helper()
-	id, err := age.GenerateX25519Identity()
+	first, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
-	a, err := NewAgeNonce(id.Recipient().String())
+	second, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
-	return a, id
+	a, err := NewAgeNonce(first.Recipient().String(), second.Recipient().String())
+	assert.NilError(t, err)
+	return a, first, second
 }
 
 // bearerCtx is the context an RPC sees when the caller sent credential.
@@ -31,19 +33,22 @@ func bearerCtx(t *testing.T, credential string) context.Context {
 }
 
 func TestNewAgeNonce_RecipientParsing(t *testing.T) {
-	// A typo in the config is caught where the daemon starts, not at the first
-	// admin call.
-	_, err := NewAgeNonce("age1-not-a-key")
-	assert.ErrorContains(t, err, "chat admin recipient")
+	id, err := age.GenerateX25519Identity()
+	assert.NilError(t, err)
 
-	// No recipient is not an authenticator that refuses everything; it is no
+	// A typo in the config is caught where the daemon starts, not at the first
+	// admin call — and the offending key is named, not just the count.
+	_, err = NewAgeNonce(id.Recipient().String(), "age1-not-a-key")
+	assert.ErrorContains(t, err, "age1-not-a-key")
+
+	// No recipients is not an authenticator that refuses everything; it is no
 	// authenticator, which the caller has to notice and act on.
-	_, err = NewAgeNonce("")
-	assert.ErrorContains(t, err, "empty")
+	_, err = NewAgeNonce()
+	assert.ErrorContains(t, err, "no chat admin recipients")
 }
 
 func TestAgeNonce_ChallengeThenAuthenticate(t *testing.T) {
-	a, id := newTestAgeNonce(t)
+	a, first, second := newTestAgeNonce(t)
 
 	before := time.Now()
 	challenge, err := a.Challenge(t.Context())
@@ -52,7 +57,15 @@ func TestAgeNonce_ChallengeThenAuthenticate(t *testing.T) {
 	assert.Assert(t, challenge.ExpiresAt.After(before))
 	assert.Assert(t, !challenge.ExpiresAt.After(time.Now().Add(NonceTTL)))
 
-	nonce, err := DecryptNonce(challenge.Payload, id)
+	nonce, err := DecryptNonce(challenge.Payload, first)
+	assert.NilError(t, err)
+	assert.NilError(t, a.Authenticate(bearerCtx(t, nonce)))
+
+	// The second operator answers a challenge of their own with the same
+	// standing: one challenge is readable by every configured identity.
+	challenge, err = a.Challenge(t.Context())
+	assert.NilError(t, err)
+	nonce, err = DecryptNonce(challenge.Payload, second)
 	assert.NilError(t, err)
 	assert.NilError(t, a.Authenticate(bearerCtx(t, nonce)))
 }
@@ -60,7 +73,7 @@ func TestAgeNonce_ChallengeThenAuthenticate(t *testing.T) {
 // Every way of not presenting a usable credential is the same refusal, so a
 // caller who cannot decrypt a challenge learns nothing from which one it was.
 func TestAgeNonce_AuthenticateRefusals(t *testing.T) {
-	a, id := newTestAgeNonce(t)
+	a, id, _ := newTestAgeNonce(t)
 
 	spend := func(t *testing.T) string {
 		t.Helper()

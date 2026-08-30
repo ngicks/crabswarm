@@ -102,12 +102,14 @@ func DecryptNonce(payload []byte, identities ...age.Identity) (string, error) {
 	return string(nonce), nil
 }
 
-// EncryptNonce encrypts nonce to recipient as a raw age file, not ASCII armor:
-// the challenge travels as bytes on a binary transport, and armor exists for
-// the channels that cannot carry arbitrary bytes.
-func EncryptNonce(recipient age.Recipient, nonce string) ([]byte, error) {
+// EncryptNonce encrypts nonce to every recipient as a raw age file, not ASCII
+// armor: the challenge travels as bytes on a binary transport, and armor exists
+// for the channels that cannot carry arbitrary bytes. One file readable by any
+// of the recipients' identities is what lets several operators answer the same
+// challenge.
+func EncryptNonce(nonce string, recipients ...age.Recipient) ([]byte, error) {
 	var buf bytes.Buffer
-	w, err := age.Encrypt(&buf, recipient)
+	w, err := age.Encrypt(&buf, recipients...)
 	if err != nil {
 		return nil, fmt.Errorf("encrypting admin nonce: %w", err)
 	}

@@ -138,12 +138,12 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// Built before the listener is served so a misspelled admin recipient stops
 	// the daemon here, with the config key named, instead of at whatever later
-	// moment the operator first tries an admin call. No recipient at all is not
+	// moment the operator first tries an admin call. No recipients at all is not
 	// a misspelling: it leaves the admin half with no authenticator, which is
 	// what makes it refuse every call with "configure a key first".
 	var adminAuth chat.AdminAuthenticator
-	if s.chatCfg.AdminRecipient != "" {
-		ageAuth, err := auth.NewAgeNonce(s.chatCfg.AdminRecipient)
+	if len(s.chatCfg.AdminRecipients) > 0 {
+		ageAuth, err := auth.NewAgeNonce(s.chatCfg.AdminRecipients...)
 		if err != nil {
 			return err
 		}

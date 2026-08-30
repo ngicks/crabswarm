@@ -2,6 +2,7 @@ package crabswarm_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -134,15 +135,15 @@ func chatEnviron() []string {
 // admin key, which is all the member verbs need.
 func startChatDaemon(t *testing.T) string {
 	t.Helper()
-	return startChatDaemonWith(t, defaultStubCommands(), "")
+	return startChatDaemonWith(t, defaultStubCommands())
 }
 
 // startChatDaemonWith writes a config naming a private socket, database and
 // stub cmdman, starts `crabswarm serve` on it, and returns the config path.
-// commands is the roster the stub cmdman vouches for; adminRecipient is the age
-// public key the daemon encrypts admin challenges to, empty for a daemon that
-// was never given one and therefore refuses every admin verb.
-func startChatDaemonWith(t *testing.T, commands []stubCommand, adminRecipient string) string {
+// commands is the roster the stub cmdman vouches for; adminRecipients are the
+// age public keys the daemon encrypts admin challenges to, none for a daemon
+// that was never given one and therefore refuses every admin verb.
+func startChatDaemonWith(t *testing.T, commands []stubCommand, adminRecipients ...string) string {
 	t.Helper()
 	dir := t.TempDir()
 
@@ -152,11 +153,16 @@ func startChatDaemonWith(t *testing.T, commands []stubCommand, adminRecipient st
 		t.Fatalf("chmod stub cmdman: %v", err)
 	}
 
+	recipients, err := json.Marshal(adminRecipients)
+	if err != nil {
+		t.Fatalf("marshal admin recipients: %v", err)
+	}
+
 	sock := filepath.Join(dir, "chat.sock")
 	cfgPath := filepath.Join(dir, "config.json")
 	writeFile(t, cfgPath, fmt.Sprintf(
-		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipient":%q}}`,
-		sock, filepath.Join(dir, "chat.db"), stub, adminRecipient))
+		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipients":%s}}`,
+		sock, filepath.Join(dir, "chat.db"), stub, recipients))
 
 	serve := exec.Command(crabswarmBin, "serve", "--config", cfgPath)
 	serve.Env = chatEnviron()
@@ -407,7 +413,7 @@ func TestChat_UnknownTokenIsRejected(t *testing.T) {
 func TestChat_NonComposeTokenIsRejected(t *testing.T) {
 	cfg := startChatDaemonWith(t, []stubCommand{
 		{token: "tok-loner", dir: chatRoom},
-	}, "")
+	})
 
 	stdout, stderr, err := execChat(t, cfg, "tok-loner", "join", "--name", "loner")
 	if err == nil {
@@ -431,7 +437,7 @@ func TestChat_NameCollisionAddressing(t *testing.T) {
 		{token: "tok-alpha-uniq", dir: chatRoom, project: "alpha"},
 		{token: "tok-asker", dir: chatRoom, project: "gamma"},
 		{token: "tok-gamma-sam", dir: chatRoom, project: "gamma"},
-	}, "")
+	})
 
 	runChat(t, cfg, "tok-alpha-sam", "join", "--name", "sam")
 	runChat(t, cfg, "tok-beta-sam", "join", "--name", "sam")
@@ -491,7 +497,7 @@ func TestChat_RoomsAreIsolated(t *testing.T) {
 	cfg := startChatDaemonWith(t, []stubCommand{
 		{token: "tok-ana", dir: chatRoom, project: "alpha"},
 		{token: "tok-zed", dir: chatOtherRoom, project: "alpha"},
-	}, "")
+	})
 
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
 	got := runChat(t, cfg, "tok-zed", "join", "--name", "zed")

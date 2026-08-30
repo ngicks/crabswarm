@@ -46,13 +46,12 @@ list`/`remove` or the ConnectRPC API directly.
 
 ### Configuration
 
-The `preview` block of the crabswarm config (defaults < file < flags; these keys
-are file-only and are not settable via environment variables):
+The `preview` block of the crabswarm config (defaults < file < env < flags):
 
-| Key                   | Default            | Meaning                                        |
-| --------------------- | ------------------ | ---------------------------------------------- |
-| `preview.addr`        | `0.0.0.0:6419`     | TCP listen address of the preview HTTP server. |
-| `preview.daemon_name` | `crabswarm-preview`| cmdman command name the previewer runs under.  |
+| Key                   | Env                            | Default             | Meaning                                        |
+| --------------------- | ------------------------------ | ------------------- | ---------------------------------------------- |
+| `preview.addr`        | `CRABSWARM_PREVIEW_ADDR`       | `0.0.0.0:6419`      | TCP listen address of the preview HTTP server. |
+| `preview.daemon_name` | `CRABSWARM_PREVIEW_DAEMON_NAME`| `crabswarm-preview` | cmdman command name the previewer runs under.  |
 
 `preview.addr` can also be overridden per-invocation with `--addr`.
 

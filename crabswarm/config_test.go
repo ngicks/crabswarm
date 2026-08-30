@@ -15,11 +15,20 @@ import (
 
 // Env-var names used by the tests. They mirror the OS environment verbatim;
 // CLAUDE_PROJECT_DIR is the unprefixed external contract set by Claude Code.
+// The chat/preview names spell out the composition under test: the global
+// CRABSWARM_ prefix, then the sub-config's envPrefix, then the bare env tag.
 const (
-	envSock           = "CRABSWARM_SOCK"
-	envProjectDir     = "CLAUDE_PROJECT_DIR"
-	envGitRepoBaseDir = "CRABSWARM_GIT_REPO_BASE_DIR"
-	envXDGRuntime     = "XDG_RUNTIME_DIR"
+	envSock                  = "CRABSWARM_SOCK"
+	envProjectDir            = "CLAUDE_PROJECT_DIR"
+	envGitRepoBaseDir        = "CRABSWARM_GIT_REPO_BASE_DIR"
+	envGitListIgnorePatterns = "CRABSWARM_GIT_LIST_IGNORE_PATTERNS"
+	envChatDb                = "CRABSWARM_CHAT_DB"
+	envChatCmdmanBin         = "CRABSWARM_CHAT_CMDMAN_BIN"
+	envChatAdminRecipients   = "CRABSWARM_CHAT_ADMIN_RECIPIENTS"
+	envChatAdminIdentityFile = "CRABSWARM_CHAT_ADMIN_IDENTITY_FILE"
+	envPreviewAddr           = "CRABSWARM_PREVIEW_ADDR"
+	envPreviewDaemonName     = "CRABSWARM_PREVIEW_DAEMON_NAME"
+	envXDGRuntime            = "XDG_RUNTIME_DIR"
 )
 
 // baseEnv unsets every env var LoadConfig and the default resolvers read, so
@@ -33,6 +42,13 @@ func baseEnv(t *testing.T) {
 		envConfVar,
 		envProjectDir,
 		envGitRepoBaseDir,
+		envGitListIgnorePatterns,
+		envChatDb,
+		envChatCmdmanBin,
+		envChatAdminRecipients,
+		envChatAdminIdentityFile,
+		envPreviewAddr,
+		envPreviewDaemonName,
 		envXDGRuntime,
 		"XDG_CONFIG_HOME",
 		"XDG_STATE_HOME",
@@ -335,7 +351,7 @@ func TestLoadConfig_GitListIgnorePatternsFromFile(t *testing.T) {
 func TestLoadConfig_GitListIgnorePatternsFromEnv(t *testing.T) {
 	baseEnv(t)
 	configDir(t)
-	t.Setenv("CRABSWARM_GIT_LIST_IGNORE_PATTERNS", "vendor,node_modules")
+	t.Setenv(envGitListIgnorePatterns, "vendor,node_modules")
 
 	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
@@ -468,6 +484,61 @@ func TestLoadConfig_PreviewSparseKeepsDefault(t *testing.T) {
 	assert.Equal(t, cfg.Preview.DaemonName, "crabswarm-preview")
 }
 
+// The preview sub-config is env-settable: caarlos0/env composes the global
+// CRABSWARM_ prefix with the Preview field's envPrefix:"PREVIEW_" and the bare
+// env tags, so ADDR is reached as CRABSWARM_PREVIEW_ADDR.
+func TestLoadConfig_PreviewFromEnv(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv(envPreviewAddr, "127.0.0.1:7000")
+	t.Setenv(envPreviewDaemonName, "env-preview")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Preview.Addr, "127.0.0.1:7000")
+	assert.Equal(t, cfg.Preview.DaemonName, "env-preview")
+}
+
+// The nested env layer sits above the file layer like the top-level one: a set
+// addr wins, while an unset daemon_name leaves the file value alone.
+func TestLoadConfig_PreviewEnvOverridesFile(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envPreviewAddr, "127.0.0.1:7000")
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(
+			confPath,
+			[]byte(`{"preview":{"addr":"127.0.0.1:9999","daemon_name":"file-preview"}}`),
+			0o644,
+		),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Preview.Addr, "127.0.0.1:7000")
+	assert.Equal(t, cfg.Preview.DaemonName, "file-preview")
+}
+
+// The empty-value constraint holds under the preview prefix too (see
+// TestLoadConfig_ChatEnvEmptyTreatedAsAbsent): a present-but-empty
+// CRABSWARM_PREVIEW_ADDR= leaves the file layer standing.
+func TestLoadConfig_PreviewEnvEmptyTreatedAsAbsent(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envPreviewAddr, "") // present but empty
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(confPath, []byte(`{"preview":{"addr":"127.0.0.1:9999"}}`), 0o644),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Preview.Addr, "127.0.0.1:9999")
+}
+
 // PartialConfig.Apply: the preview sub-partial deep-merges field-by-field —
 // a non-nil pointer overwrites, a nil one leaves the base — and does not
 // mutate the base.
@@ -506,7 +577,7 @@ func TestLoadConfig_ChatDbDefault(t *testing.T) {
 	assert.Equal(t, cfg.Chat.CmdmanBin, "")
 	// No admin key by default: the admin RPCs stay shut until the operator
 	// names one.
-	assert.Equal(t, cfg.Chat.AdminRecipient, "")
+	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string(nil))
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "")
 }
 
@@ -536,7 +607,8 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 		os.WriteFile(
 			confPath,
 			[]byte(`{"chat":{"db":"/file/chat.db","cmdman_bin":"/opt/bin/cmdman",`+
-				`"admin_recipient":"age1recipient","admin_identity_file":"~/keys/chat.key"}}`),
+				`"admin_recipients":["age1recipient","age1second"],`+
+				`"admin_identity_file":"~/keys/chat.key"}}`),
 			0o644,
 		),
 	)
@@ -545,8 +617,72 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.Chat.Db, "/file/chat.db")
 	assert.Equal(t, cfg.Chat.CmdmanBin, "/opt/bin/cmdman")
-	assert.Equal(t, cfg.Chat.AdminRecipient, "age1recipient")
+	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string{"age1recipient", "age1second"})
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "~/keys/chat.key")
+}
+
+// The chat sub-config is env-settable: caarlos0/env composes the global
+// CRABSWARM_ prefix with the Chat field's envPrefix:"CHAT_" and the bare env
+// tags, so DB is reached as CRABSWARM_CHAT_DB and ADMIN_IDENTITY_FILE as
+// CRABSWARM_CHAT_ADMIN_IDENTITY_FILE. The recipients are a []string, which
+// caarlos0/env parses comma-separated.
+func TestLoadConfig_ChatFromEnv(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv("XDG_STATE_HOME", "/state")
+	t.Setenv(envChatDb, "/env/chat.db")
+	t.Setenv(envChatCmdmanBin, "/env/bin/cmdman")
+	t.Setenv(envChatAdminRecipients, "age1envrecipient,age1envsecond")
+	t.Setenv(envChatAdminIdentityFile, "/env/keys/chat.key")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Chat.Db, "/env/chat.db")
+	assert.Equal(t, cfg.Chat.CmdmanBin, "/env/bin/cmdman")
+	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string{"age1envrecipient", "age1envsecond"})
+	assert.Equal(t, cfg.Chat.AdminIdentityFile, "/env/keys/chat.key")
+}
+
+// The nested env layer sits above the file layer: a set db wins, while the
+// unset chat keys leave the file values alone.
+func TestLoadConfig_ChatEnvOverridesFile(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envChatDb, "/env/chat.db")
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(
+			confPath,
+			[]byte(`{"chat":{"db":"/file/chat.db","cmdman_bin":"/opt/bin/cmdman"}}`),
+			0o644,
+		),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Chat.Db, "/env/chat.db")
+	assert.Equal(t, cfg.Chat.CmdmanBin, "/opt/bin/cmdman")
+}
+
+// LIBRARY CONSTRAINT (same as the top-level fields, see
+// TestLoadConfig_EnvEmptyTreatedAsAbsent): caarlos0/env's setField skips a value
+// of "" unconditionally, so a present-but-empty CRABSWARM_CHAT_DB= is
+// indistinguishable from an absent var — the pointer stays nil and the file
+// layer survives. Prefixing a sub-config does not change that.
+func TestLoadConfig_ChatEnvEmptyTreatedAsAbsent(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envChatDb, "") // present but empty
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(confPath, []byte(`{"chat":{"db":"/file/chat.db"}}`), 0o644),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Chat.Db, "/file/chat.db")
 }
 
 // PartialConfig.Apply: the chat sub-partial deep-merges field-by-field — a
@@ -555,8 +691,8 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 func TestApply_ChatOverlay(t *testing.T) {
 	base := Config{
 		Chat: chat.Config{
-			Db:             "/state/crabswarm/chat.db",
-			AdminRecipient: "age1base",
+			Db:              "/state/crabswarm/chat.db",
+			AdminRecipients: []string{"age1base", "age1basesecond"},
 		},
 	}
 
@@ -565,27 +701,32 @@ func TestApply_ChatOverlay(t *testing.T) {
 	got := overlay.Apply(base)
 	assert.Equal(t, got.Chat.Db, "/elsewhere/chat.db")
 	assert.Equal(t, got.Chat.CmdmanBin, "")
-	assert.Equal(t, got.Chat.AdminRecipient, "age1base")
+	assert.DeepEqual(t, got.Chat.AdminRecipients, []string{"age1base", "age1basesecond"})
 
-	// An explicit empty recipient applies: it is how a layer turns the admin
-	// RPCs back off.
-	empty := ""
+	// The recipients overwrite wholesale rather than accumulating, so a layer
+	// naming one key leaves only that key.
 	identity := "~/keys/chat.key"
-	off := PartialConfig{Chat: chat.PartialConfig{
-		AdminRecipient:    &empty,
+	narrow := PartialConfig{Chat: chat.PartialConfig{
+		AdminRecipients:   []string{"age1only"},
 		AdminIdentityFile: &identity,
 	}}
-	got = off.Apply(base)
-	assert.Equal(t, got.Chat.AdminRecipient, "")
+	got = narrow.Apply(base)
+	assert.DeepEqual(t, got.Chat.AdminRecipients, []string{"age1only"})
 	assert.Equal(t, got.Chat.AdminIdentityFile, "~/keys/chat.key")
+
+	// An explicit empty list applies: it is how a layer turns the admin RPCs
+	// back off, which a nil one — meaning "absent" — cannot do.
+	off := PartialConfig{Chat: chat.PartialConfig{AdminRecipients: []string{}}}
+	got = off.Apply(base)
+	assert.DeepEqual(t, got.Chat.AdminRecipients, []string{})
 
 	// The base is unchanged.
 	assert.Equal(t, base.Chat.Db, "/state/crabswarm/chat.db")
-	assert.Equal(t, base.Chat.AdminRecipient, "age1base")
+	assert.DeepEqual(t, base.Chat.AdminRecipients, []string{"age1base", "age1basesecond"})
 
 	// A zero sub-partial merges nothing.
 	keep := PartialConfig{}
 	got = keep.Apply(base)
 	assert.Equal(t, got.Chat.Db, "/state/crabswarm/chat.db")
-	assert.Equal(t, got.Chat.AdminRecipient, "age1base")
+	assert.DeepEqual(t, got.Chat.AdminRecipients, []string{"age1base", "age1basesecond"})
 }

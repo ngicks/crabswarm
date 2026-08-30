@@ -106,8 +106,10 @@ func DefaultConfig() Config {
 //
 // HookExec is a nested sub-config with no env tags: a []filetype.Config is not
 // env-shaped, so it is file-only (env-unsettable), which the skill permits.
-// Preview is likewise a nested file-only sub-config (its scalars carry no env
-// tags); its zero sub-partial merges nothing.
+// Preview and Chat are env-settable instead: they carry envPrefix tags, which
+// caarlos0/env composes onto the global CRABSWARM_ prefix before the bare names
+// in the sub-partial's own env tags (CRABSWARM_ + CHAT_ + DB ->
+// CRABSWARM_CHAT_DB). Their zero sub-partials merge nothing.
 //
 // JSON tags use ",omitzero" (Go 1.24+) so a marshaled partial stays sparse
 // while preserving an explicit empty []/{}; YAML has no omitzero, so its tags
@@ -120,8 +122,8 @@ type PartialConfig struct {
 	GitRepoBaseDir        *string               `json:"git_repo_base_dir,omitzero" yaml:"git_repo_base_dir,omitempty" env:"GIT_REPO_BASE_DIR"`
 	GitListIgnorePatterns []string              `json:"git_list_ignore_patterns,omitzero" yaml:"git_list_ignore_patterns,omitempty" env:"GIT_LIST_IGNORE_PATTERNS"`
 	HookExec              exec.PartialConfig    `json:"hook_exec,omitzero" yaml:"hook_exec,omitempty"`
-	Preview               preview.PartialConfig `json:"preview,omitzero" yaml:"preview,omitempty"`
-	Chat                  chat.PartialConfig    `json:"chat,omitzero" yaml:"chat,omitempty"`
+	Preview               preview.PartialConfig `json:"preview,omitzero" yaml:"preview,omitempty" envPrefix:"PREVIEW_"`
+	Chat                  chat.PartialConfig    `json:"chat,omitzero" yaml:"chat,omitempty" envPrefix:"CHAT_"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged Config.
@@ -151,9 +153,11 @@ func (p PartialConfig) Apply(base Config) Config {
 }
 
 // envOptions configures caarlos0/env for the env layer in LoadConfig. The
-// variable names live in the env: tags on PartialConfig; the CRABSWARM_ prefix
-// is applied here, yielding CRABSWARM_SOCK, CRABSWARM_GIT_REPO_BASE_DIR, etc.
-// ProjectDir is deliberately omitted from this parse (see LoadConfig).
+// variable names live in the env: tags on PartialConfig and its nested
+// sub-partials; the CRABSWARM_ prefix is applied here, yielding CRABSWARM_SOCK,
+// CRABSWARM_GIT_REPO_BASE_DIR, and — composed with the sub-configs' envPrefix
+// tags — CRABSWARM_CHAT_DB, CRABSWARM_PREVIEW_ADDR, etc. ProjectDir is
+// deliberately omitted from this parse (see LoadConfig).
 var envOptions = env.Options{Prefix: "CRABSWARM_"}
 
 // LoadConfig assembles defaults < config file < environment through Apply. The
@@ -237,8 +241,8 @@ func unmarshalConfigFile(path string) (PartialConfig, error) {
 // the config path is needed before parsing and is not a Config field, and
 // CLAUDE_PROJECT_DIR is unprefixed and needs strict present-based semantics
 // caarlos0/env cannot express (see LoadConfig). Every other crabswarm variable
-// lives in PartialConfig's env tags. MixedCaps, so no naming-lint directive is
-// needed.
+// lives in the env tags of PartialConfig or of a nested sub-partial it reaches
+// through an envPrefix tag. MixedCaps, so no naming-lint directive is needed.
 const (
 	envConfVar       = "CRABSWARM_CONF"
 	envProjectDirVar = "CLAUDE_PROJECT_DIR"

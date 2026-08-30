@@ -18,12 +18,14 @@ type Config struct {
 	// Empty means "cmdman", resolved on PATH; a non-standard install names an
 	// absolute path here.
 	CmdmanBin string `json:"cmdman_bin" yaml:"cmdman_bin"`
-	// AdminRecipient is the age public key ("age1...") the daemon encrypts
-	// admin challenge nonces to — the recipient of the identity file the host
-	// operator keeps outside the mounts participants can see. Empty leaves the
-	// admin RPCs refusing every call: with no key nothing can prove that
-	// possession. A value that does not parse fails daemon startup.
-	AdminRecipient string `json:"admin_recipient" yaml:"admin_recipient"`
+	// AdminRecipients are the age public keys ("age1...") the daemon encrypts
+	// admin challenge nonces to — the recipients of the identity files the host
+	// operators keep outside the mounts participants can see. Every challenge
+	// goes to all of them, so the holder of any one listed key's identity can
+	// answer it. An empty list leaves the admin RPCs refusing every call: with
+	// no key nothing can prove that possession. A key that does not parse fails
+	// daemon startup.
+	AdminRecipients []string `json:"admin_recipients" yaml:"admin_recipients"`
 	// AdminIdentityFile is the path of that age identity file, read by the
 	// admin CLI on the host to answer the challenge. It is a client-side
 	// setting the daemon never opens; keeping it in the same block is what
@@ -34,23 +36,33 @@ type Config struct {
 
 // PartialConfig is the sparse mirror of [Config], used by the parent crabswarm
 // config's merge layer: a nil field means "absent, leave the lower layer"; a
-// non-nil pointer is an explicit value, including an explicit zero. It is
-// file-only (no env tags), like the preview sub-config.
+// non-nil pointer is an explicit value, including an explicit zero.
+//
+// The env tags hold only the bare names: the parent's Chat field carries
+// envPrefix:"CHAT_" and the parent's env parse applies CRABSWARM_ globally, so
+// caarlos0/env composes both onto each name (DB -> CRABSWARM_CHAT_DB,
+// CMDMAN_BIN -> CRABSWARM_CHAT_CMDMAN_BIN, ...).
+//
+// AdminRecipients is a []string rather than a pointer: it overwrites wholesale
+// on Apply (a non-nil incoming slice replaces the base, a nil one leaves it),
+// and it is env-shaped, so caarlos0/env parses
+// CRABSWARM_CHAT_ADMIN_RECIPIENTS as a comma-separated list.
 //
 // JSON tags use ",omitzero" (Go 1.24+) so a marshaled partial stays sparse;
 // YAML has no omitzero, so its tags use ",omitempty".
 //
-//nolint:lll // dual json/yaml tags; one field per line, never wrap tags
+//nolint:lll // triple json/yaml/env tags; one field per line, never wrap tags
 type PartialConfig struct {
-	Db                *string `json:"db,omitzero" yaml:"db,omitempty"`
-	CmdmanBin         *string `json:"cmdman_bin,omitzero" yaml:"cmdman_bin,omitempty"`
-	AdminRecipient    *string `json:"admin_recipient,omitzero" yaml:"admin_recipient,omitempty"`
-	AdminIdentityFile *string `json:"admin_identity_file,omitzero" yaml:"admin_identity_file,omitempty"`
+	Db                *string  `json:"db,omitzero" yaml:"db,omitempty" env:"DB"`
+	CmdmanBin         *string  `json:"cmdman_bin,omitzero" yaml:"cmdman_bin,omitempty" env:"CMDMAN_BIN"`
+	AdminRecipients   []string `json:"admin_recipients,omitzero" yaml:"admin_recipients,omitempty" env:"ADMIN_RECIPIENTS"`
+	AdminIdentityFile *string  `json:"admin_identity_file,omitzero" yaml:"admin_identity_file,omitempty" env:"ADMIN_IDENTITY_FILE"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged [Config].
-// Each field is a scalar: a non-nil pointer overwrites (explicit zero
-// included); a nil pointer leaves the base untouched.
+// A scalar field is a non-nil pointer that overwrites (explicit zero included),
+// a nil pointer that leaves the base untouched; AdminRecipients is a slice that
+// overwrites wholesale when non-nil, an explicit empty list included.
 func (p PartialConfig) Apply(base Config) Config {
 	if p.Db != nil {
 		base.Db = *p.Db
@@ -58,8 +70,8 @@ func (p PartialConfig) Apply(base Config) Config {
 	if p.CmdmanBin != nil {
 		base.CmdmanBin = *p.CmdmanBin
 	}
-	if p.AdminRecipient != nil {
-		base.AdminRecipient = *p.AdminRecipient
+	if p.AdminRecipients != nil {
+		base.AdminRecipients = p.AdminRecipients
 	}
 	if p.AdminIdentityFile != nil {
 		base.AdminIdentityFile = *p.AdminIdentityFile

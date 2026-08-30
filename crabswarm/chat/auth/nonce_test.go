@@ -79,14 +79,22 @@ func TestNonces_OutstandingAreBounded(t *testing.T) {
 }
 
 func TestNonceRoundTrip(t *testing.T) {
-	id, err := age.GenerateX25519Identity()
+	first, err := age.GenerateX25519Identity()
+	assert.NilError(t, err)
+	second, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
 
-	payload, err := EncryptNonce(id.Recipient(), "nonce-abc123")
+	payload, err := EncryptNonce("nonce-abc123", first.Recipient(), second.Recipient())
 	assert.NilError(t, err)
 	assert.Assert(t, len(payload) > 0)
 
-	got, err := DecryptNonce(payload, id)
+	// One payload, either identity: that is what makes several operators able to
+	// answer the same challenge.
+	got, err := DecryptNonce(payload, first)
+	assert.NilError(t, err)
+	assert.Equal(t, got, "nonce-abc123")
+
+	got, err = DecryptNonce(payload, second)
 	assert.NilError(t, err)
 	assert.Equal(t, got, "nonce-abc123")
 }
@@ -97,7 +105,7 @@ func TestDecryptNonce_RefusesWhatItCannotRead(t *testing.T) {
 	other, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
 
-	payload, err := EncryptNonce(id.Recipient(), "nonce-abc123")
+	payload, err := EncryptNonce("nonce-abc123", id.Recipient())
 	assert.NilError(t, err)
 
 	_, err = DecryptNonce(payload, other)
