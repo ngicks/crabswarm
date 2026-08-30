@@ -2,11 +2,10 @@
 // message that just reached their inbox is read now rather than whenever they
 // next happen to look.
 //
-// It holds the delivery-side adapters for the chat broker's notification hook.
-// The interface itself is declared at its consumer, in the chat package; this
-// package only satisfies it — today with [SendKeys], which types into the
-// recipient's terminal through [Cmdman], the package's terminal-injection
-// machinery.
+// It holds the implementors of the chat broker's notification hook, and nothing
+// else: the interface itself is declared at its consumer, in the chat package,
+// and the terminal-injection machinery they are built on lives in
+// ../internal/cmdman. Today the only implementor is [SendKeys].
 package notify
 
 import (
@@ -16,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/cmdman"
 )
 
 // maxNudgeAddrLen caps the sender address the injected line carries. A member
@@ -23,7 +23,8 @@ import (
 // cap is what keeps one line one line; a longer address is cut short.
 const maxNudgeAddrLen = 64
 
-// SendKeys wakes an agent by typing a line into its terminal with [Cmdman].
+// SendKeys wakes an agent by typing a line into its terminal with a
+// [cmdman.Terminal].
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so a nudge passes three guards — the member is an agent, its last
@@ -32,8 +33,8 @@ const maxNudgeAddrLen = 64
 // message is already in the inbox, so the recipient reads it at the end of its
 // current turn instead of a moment from now.
 type SendKeys struct {
-	cmdman *Cmdman
-	logger *slog.Logger
+	terminal *cmdman.Terminal
+	logger   *slog.Logger
 }
 
 var _ chat.Notifier = (*SendKeys)(nil)
@@ -42,10 +43,10 @@ var _ chat.Notifier = (*SendKeys)(nil)
 // bin. An empty bin means "cmdman", resolved on PATH, the same default the
 // token resolver uses; a nil logger discards logs.
 func NewSendKeys(bin string, logger *slog.Logger) *SendKeys {
-	c := NewCmdman(bin, logger)
-	// The Cmdman's logger, not the argument: it has already been defaulted, so
-	// a nil logger is turned into a discarding one in exactly one place.
-	return &SendKeys{cmdman: c, logger: c.logger}
+	term := cmdman.NewTerminal(bin, logger)
+	// The Terminal's logger, not the argument: it has already been defaulted,
+	// so a nil logger is turned into a discarding one in exactly one place.
+	return &SendKeys{terminal: term, logger: term.Logger()}
 }
 
 // Notify types a one-line arrival notice into the recipient's terminal, unless
@@ -69,8 +70,8 @@ func (n *SendKeys) Notify(
 		return nil
 	}
 
-	err := n.cmdman.SendCommand(ctx, recipient, nudgeLine(from))
-	if errors.Is(err, ErrDeclined) {
+	err := n.terminal.SendCommand(ctx, recipient, nudgeLine(from))
+	if errors.Is(err, cmdman.ErrDeclined) {
 		// A declined nudge is reported as success: the message is already in
 		// the inbox, so the recipient reads it at the end of its current turn
 		// instead of a moment from now.

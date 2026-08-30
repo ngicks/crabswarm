@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
+	"github.com/ngicks/crabswarm/crabswarm/chat/internal/cmdman"
 	"gotest.tools/v3/assert"
 )
 
@@ -30,9 +31,10 @@ const logArgs = "printf '%s\\n' \"$*\" >> \"$(dirname \"$0\")/args.log\"\n"
 // while another forks makes the child inherit the still-open write descriptor,
 // and the exec then fails with ETXTBSY.
 //
-// The chat and resolver packages keep their own copies rather than sharing this
-// one: a test helper exported for another package's tests would have to live in
-// non-test code, which is a worse trade than a few short functions.
+// The chat, cmdman and resolver packages keep their own copies rather than
+// sharing this one: a test helper exported for another package's tests would
+// have to live in non-test code, which is a worse trade than a few short
+// functions.
 func stubCmdman(t *testing.T, body string) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "cmdman")
@@ -140,10 +142,11 @@ func TestSendKeys_SkipsHuman(t *testing.T) {
 
 func TestSendKeys_SkipsWhenTerminalShowsDialog(t *testing.T) {
 	// A dialog on screen: injecting here would answer it instead of typing a
-	// nudge. The whole marker set is covered by [TestDialogMarker]; this pins
-	// that a hit stops the injection, so the snapshot is built from the set
-	// rather than from a literal — the set is the guard's own to change.
-	bin := stubCmdmanLogs(t, "some dialog\n"+dialogMarkers[0]+"\nmore text")
+	// nudge. The whole marker set is covered by the cmdman package's own
+	// TestDialogMarker; this pins that a hit stops the injection, so the
+	// snapshot is built from the set rather than from a literal — the set is
+	// the guard's own to change.
+	bin := stubCmdmanLogs(t, "some dialog\n"+cmdman.DialogMarkers[0]+"\nmore text")
 
 	err := NewSendKeys(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
@@ -151,28 +154,6 @@ func TestSendKeys_SkipsWhenTerminalShowsDialog(t *testing.T) {
 	args := stubArgs(t, bin)
 	assert.Equal(t, len(args), 1, "invocations: %v", args)
 	assert.Assert(t, strings.HasPrefix(args[0], "logs "), "got %v", args)
-}
-
-func TestDialogMarker(t *testing.T) {
-	// Every marker must match whatever casing the harness prints it in, and an
-	// idle prompt must match none of them — the guard declining forever would
-	// be as silent a failure as it never declining.
-	for _, marker := range dialogMarkers {
-		t.Run(marker, func(t *testing.T) {
-			for _, snapshot := range []string{
-				"noise\n" + marker + "\nnoise",
-				"noise\n" + strings.ToUpper(marker) + "\nnoise",
-				"noise\n" + strings.ToLower(marker) + "\nnoise",
-			} {
-				got, found := dialogMarker(snapshot)
-				assert.Assert(t, found, "no marker found in %q", snapshot)
-				assert.Equal(t, got, marker)
-			}
-		})
-	}
-
-	_, found := dialogMarker("$ echo hello\nhello\n" + idlePrompt)
-	assert.Assert(t, !found, "an idle prompt must not read as a dialog")
 }
 
 func TestSendKeys_SkipsWhenSnapshotFails(t *testing.T) {
@@ -267,6 +248,6 @@ func TestSendKeys_NudgesAfterTheRequestIsCancelled(t *testing.T) {
 }
 
 func TestNewSendKeys_DefaultsToPathLookup(t *testing.T) {
-	assert.Equal(t, NewSendKeys("", nil).cmdman.bin, "cmdman")
-	assert.Equal(t, NewSendKeys("/opt/bin/cmdman", nil).cmdman.bin, "/opt/bin/cmdman")
+	assert.Equal(t, NewSendKeys("", nil).terminal.Bin(), "cmdman")
+	assert.Equal(t, NewSendKeys("/opt/bin/cmdman", nil).terminal.Bin(), "/opt/bin/cmdman")
 }

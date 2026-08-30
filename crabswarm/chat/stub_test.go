@@ -24,9 +24,10 @@ const logArgs = "printf '%s\\n' \"$*\" >> \"$(dirname \"$0\")/args.log\"\n"
 // while another forks makes the child inherit the still-open write descriptor,
 // and the exec then fails with ETXTBSY.
 //
-// The notify and resolver packages keep their own copies rather than sharing
-// this one: a test helper exported for another package's tests would have to
-// live in non-test code, which is a worse trade than a few short functions.
+// The cmdman, notify and resolver packages keep their own copies rather than
+// sharing this one: a test helper exported for another package's tests would
+// have to live in non-test code, which is a worse trade than a few short
+// functions.
 func stubCmdman(t *testing.T, body string) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "cmdman")

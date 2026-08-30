@@ -1,4 +1,11 @@
-package notify
+// Package cmdman types lines into a member's terminal through the cmdman CLI.
+//
+// It is the terminal-injection machinery the chat notifiers are built on, kept
+// here rather than beside them so ../../notify holds only implementors of the
+// broker's notification hook. The chat package is consumed, never the other way
+// round: a notifier composes a [Terminal], and nothing in chat knows this
+// package exists.
+package cmdman
 
 import (
 	"context"
@@ -15,7 +22,7 @@ import (
 )
 
 // sendTimeout bounds one whole send — the snapshot and the injections
-// together. A caller runs [Cmdman.SendCommand] inside the request that
+// together. A caller runs [Terminal.SendCommand] inside the request that
 // occasioned it, so a cmdman that hangs would otherwise hang that request.
 const sendTimeout = 3 * time.Second
 
@@ -31,12 +38,16 @@ const logsTailLines = 40
 // failed.
 var ErrDeclined = errors.New("declined to type into the member's terminal")
 
-// dialogMarkers are the strings that mean the recipient's terminal is showing a
+// DialogMarkers are the strings that mean the recipient's terminal is showing a
 // dialog rather than an idle prompt: injecting there would answer the dialog
 // instead of typing the line. They are heuristics read off Claude Code's
 // permission and question UI plus the classic yes/no prompt, matched
 // case-insensitively as substrings — updating the set is a one-line edit here.
-var dialogMarkers = []string{
+//
+// Exported only so sibling packages' tests can build a snapshot that trips the
+// guard without copying a marker; this is an internal package, so the set is
+// not public API and stays free to change.
+var DialogMarkers = []string{
 	"Do you want",
 	"❯ 1. Yes",
 	"Esc to cancel",
@@ -44,26 +55,38 @@ var dialogMarkers = []string{
 	"(y/n)",
 }
 
-// Cmdman types a line into a member's terminal through the cmdman CLI. Agents
+// Terminal types a line into a member's terminal through the cmdman CLI. Agents
 // run in containers where nothing watches them, and keystrokes are the one
 // channel every harness accepts.
-type Cmdman struct {
+type Terminal struct {
 	bin    string
 	logger *slog.Logger
 }
 
-// NewCmdman returns a sender that shells out to the cmdman binary named by bin.
-// An empty bin means "cmdman", resolved on PATH, the same default the token
-// resolver uses; a nil logger discards logs.
-func NewCmdman(bin string, logger *slog.Logger) *Cmdman {
+// NewTerminal returns a sender that shells out to the cmdman binary named by
+// bin. An empty bin means "cmdman", resolved on PATH, the same default the
+// token resolver uses; a nil logger discards logs.
+func NewTerminal(bin string, logger *slog.Logger) *Terminal {
 	if bin == "" {
 		bin = resolver.DefaultCmdmanBin
 	}
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	return &Cmdman{bin: bin, logger: logger}
+	return &Terminal{bin: bin, logger: logger}
 }
+
+// Logger returns the logger the terminal logs through, already defaulted. A
+// wrapper that logs about its own decisions reads it rather than defaulting the
+// caller's argument again, so a nil logger is turned into a discarding one in
+// exactly one place.
+func (t *Terminal) Logger() *slog.Logger { return t.logger }
+
+// Bin returns the cmdman binary the terminal shells out to, already defaulted.
+// Exported only so sibling packages' tests can pin what a wrapper's constructor
+// resolved without exec'ing whatever cmdman happens to be on PATH; this is an
+// internal package, so it is not public API.
+func (t *Terminal) Bin() string { return t.bin }
 
 // SendCommand types line into member's terminal and submits it.
 //
@@ -77,19 +100,19 @@ func NewCmdman(bin string, logger *slog.Logger) *Cmdman {
 //
 // A guard that declines logs why and returns an error wrapping [ErrDeclined],
 // leaving the terminal untouched. Any other error means cmdman itself failed.
-func (c *Cmdman) SendCommand(ctx context.Context, member chat.Member, line string) error {
+func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line string) error {
 	who := member.Team + "/" + member.Name
 
 	// Not "== KindHuman": a member kind this package has never heard of has no
 	// terminal it may type into either. A human's token is minted by the daemon
 	// and names no cmdman command, so send-keys would fail to resolve it.
 	if member.Kind != chat.KindAgent {
-		c.logger.Debug("chat: not typing into a member that runs no harness",
+		t.logger.Debug("chat: not typing into a member that runs no harness",
 			"member", who, "kind", member.Kind)
 		return fmt.Errorf("member runs no harness: %w", ErrDeclined)
 	}
 	if err := resolver.ValidateToken(member.Token); err != nil {
-		c.logger.Warn("chat: not typing into a member whose token cmdman cannot take",
+		t.logger.Warn("chat: not typing into a member whose token cmdman cannot take",
 			"member", who, "err", err)
 		return fmt.Errorf("token cmdman cannot take: %w", ErrDeclined)
 	}
@@ -101,19 +124,19 @@ func (c *Cmdman) SendCommand(ctx context.Context, member chat.Member, line strin
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sendTimeout)
 	defer cancel()
 
-	snapshot, err := c.tailLogs(ctx, member.Token)
+	snapshot, err := t.tailLogs(ctx, member.Token)
 	if err != nil {
 		// Fail safe: with no snapshot there is no evidence the terminal is at a
 		// prompt, and a dropped line costs the caller a retry while a wrong one
 		// answers a dialog.
-		c.logger.Info("chat: not typing, terminal snapshot unavailable",
+		t.logger.Info("chat: not typing, terminal snapshot unavailable",
 			"member", who, "err", err)
 		// The exec failure stays out of the chain: it is why the guard could
 		// not decide, not something a caller should match through a decline.
 		return fmt.Errorf("terminal snapshot unavailable: %w", ErrDeclined)
 	}
 	if marker, found := dialogMarker(snapshot); found {
-		c.logger.Info("chat: not typing, terminal is showing a dialog",
+		t.logger.Info("chat: not typing, terminal is showing a dialog",
 			"member", who, "marker", marker)
 		return fmt.Errorf("terminal is showing a dialog: %w", ErrDeclined)
 	}
@@ -121,13 +144,13 @@ func (c *Cmdman) SendCommand(ctx context.Context, member chat.Member, line strin
 	// Text and submit go in separate invocations. A terminal handed the line
 	// and the Enter key in one send-keys treats the trailing key as part of the
 	// pasted text rather than as a keypress, and the line is never submitted.
-	if err := c.sendKeys(ctx, member.Token, line); err != nil {
+	if err := t.sendKeys(ctx, member.Token, line); err != nil {
 		return err
 	}
 	// Not swallowed: a line typed but never submitted sits in the recipient's
 	// prompt, where the next thing typed runs it. That is worth an error even
 	// though the text did land.
-	return c.sendKeys(ctx, member.Token, "Enter")
+	return t.sendKeys(ctx, member.Token, "Enter")
 }
 
 // tailLogs snapshots the member terminal's recent output.
@@ -137,11 +160,11 @@ func (c *Cmdman) SendCommand(ctx context.Context, member chat.Member, line strin
 // far too heavy to open for a pre-send check. The replay is therefore the
 // closest thing to a screenshot the CLI offers — good enough for a text scan,
 // since a dialog paints its markers into the output like everything else.
-func (c *Cmdman) tailLogs(ctx context.Context, token string) (string, error) {
+func (t *Terminal) tailLogs(ctx context.Context, token string) (string, error) {
 	// CombinedOutput: a harness paints its dialogs on whichever stream it
 	// likes, and a scan that reads only one of them would miss half of them.
 	out, err := exec.CommandContext(
-		ctx, c.bin, "logs", "--tail", strconv.Itoa(logsTailLines), token,
+		ctx, t.bin, "logs", "--tail", strconv.Itoa(logsTailLines), token,
 	).CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("cmdman logs %q: %w: %s",
@@ -151,11 +174,11 @@ func (c *Cmdman) tailLogs(ctx context.Context, token string) (string, error) {
 }
 
 // sendKeys hands cmdman one argument to deliver to the member's terminal.
-func (c *Cmdman) sendKeys(ctx context.Context, token, arg string) error {
+func (t *Terminal) sendKeys(ctx context.Context, token, arg string) error {
 	// "Enter" is a cmdman key name, translated to a carriage return; anything
 	// that is not a key name — the line itself — is sent as literal bytes.
 	out, err := exec.CommandContext(
-		ctx, c.bin, "send-keys", token, arg,
+		ctx, t.bin, "send-keys", token, arg,
 	).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("cmdman send-keys %q %q: %w: %s",
@@ -164,10 +187,10 @@ func (c *Cmdman) sendKeys(ctx context.Context, token, arg string) error {
 	return nil
 }
 
-// dialogMarker returns the first of [dialogMarkers] that snapshot contains.
+// dialogMarker returns the first of [DialogMarkers] that snapshot contains.
 func dialogMarker(snapshot string) (string, bool) {
 	lower := strings.ToLower(snapshot)
-	for _, m := range dialogMarkers {
+	for _, m := range DialogMarkers {
 		// Both sides are lowered here rather than keeping the list lowered, so
 		// adding a marker stays a copy of what the harness actually prints.
 		if strings.Contains(lower, strings.ToLower(m)) {
