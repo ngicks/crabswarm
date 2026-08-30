@@ -28,7 +28,7 @@ const maxNudgeAddrLen = 64
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so a nudge passes three guards — the member is an agent, its last
-// reported harness state is done, and a snapshot of its recent output shows no
+// reported harness state is done, and a snapshot of its screen shows no
 // dialog. A guard that declines drops the nudge and reports success: the
 // message is already in the inbox, so the recipient reads it at the end of its
 // current turn instead of a moment from now.

@@ -12,7 +12,7 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-// idlePrompt is what a harness waiting for a command leaves in its log: no
+// idlePrompt is what a harness waiting for a command leaves on its screen: no
 // dialog marker anywhere in it.
 const idlePrompt = "> ready"
 
@@ -40,13 +40,13 @@ func stubCmdman(t *testing.T, body string) string {
 	return bin
 }
 
-// stubCmdmanLogs writes a stand-in cmdman whose `logs` prints out and whose
-// every other subcommand succeeds silently, recording all invocations. See
-// [stubCmdman] for why these tests do not call t.Parallel.
-func stubCmdmanLogs(t *testing.T, out string) string {
+// stubCmdmanScreen writes a stand-in cmdman whose `capture-screen` prints out
+// and whose every other subcommand succeeds silently, recording all
+// invocations. See [stubCmdman] for why these tests do not call t.Parallel.
+func stubCmdmanScreen(t *testing.T, out string) string {
 	t.Helper()
 	return stubCmdman(t, logArgs+
-		"if [ \"$1\" = logs ]; then printf '%s\\n' '"+out+"'; fi\nexit 0\n")
+		"if [ \"$1\" = capture-screen ]; then printf '%s\\n' '"+out+"'; fi\nexit 0\n")
 }
 
 // stubArgs returns the argument lines the stub at bin recorded, one invocation
@@ -82,7 +82,7 @@ func doneAgent() chat.Member {
 }
 
 func TestTerminal_SendCommandTypesThenSubmits(t *testing.T) {
-	bin := stubCmdmanLogs(t, idlePrompt)
+	bin := stubCmdmanScreen(t, idlePrompt)
 
 	err := NewTerminal(bin, nil).SendCommand(t.Context(), doneAgent(), "/new")
 	assert.NilError(t, err)
@@ -92,7 +92,7 @@ func TestTerminal_SendCommandTypesThenSubmits(t *testing.T) {
 	// text, and the line never submits.
 	args := stubArgs(t, bin)
 	assert.Equal(t, len(args), 3, "invocations: %v", args)
-	assert.Equal(t, args[0], "logs --tail 40 0123456789abcdef")
+	assert.Equal(t, args[0], "capture-screen 0123456789abcdef")
 	assert.Equal(t, args[1], "send-keys 0123456789abcdef /new")
 	assert.Equal(t, args[2], "send-keys 0123456789abcdef Enter")
 }
@@ -100,7 +100,7 @@ func TestTerminal_SendCommandTypesThenSubmits(t *testing.T) {
 func TestTerminal_SendCommandDeclines(t *testing.T) {
 	// Every guard reports the same way, so a caller can tell "there was nothing
 	// to type into" apart from "the typing failed" with one errors.Is.
-	idle := func(t *testing.T) string { return stubCmdmanLogs(t, idlePrompt) }
+	idle := func(t *testing.T) string { return stubCmdmanScreen(t, idlePrompt) }
 	for _, tc := range []struct {
 		name   string
 		stub   func(t *testing.T) string
@@ -116,14 +116,14 @@ func TestTerminal_SendCommandDeclines(t *testing.T) {
 		{
 			"token cmdman cannot take",
 			idle,
-			func(m chat.Member) chat.Member { m.Token = "--tail"; return m },
+			func(m chat.Member) chat.Member { m.Token = "--start-line"; return m },
 		},
 		{
 			// Fail safe: no snapshot is no evidence the terminal is at a prompt.
 			"snapshot unavailable",
 			func(t *testing.T) string {
 				return stubCmdman(t, logArgs+
-					"if [ \"$1\" = logs ]; then exit 1; fi\nexit 0\n")
+					"if [ \"$1\" = capture-screen ]; then exit 1; fi\nexit 0\n")
 			},
 			func(m chat.Member) chat.Member { return m },
 		},
@@ -132,7 +132,7 @@ func TestTerminal_SendCommandDeclines(t *testing.T) {
 			// Which strings mean "dialog" is the guard's own business, so the
 			// snapshot is built from the set rather than from a literal.
 			"terminal shows a dialog",
-			func(t *testing.T) string { return stubCmdmanLogs(t, DialogMarkers[0]) },
+			func(t *testing.T) string { return stubCmdmanScreen(t, DialogMarkers[0]) },
 			func(m chat.Member) chat.Member { return m },
 		},
 	} {
@@ -166,7 +166,7 @@ func TestTerminal_SendCommandReportsExecFailure(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			bin := stubCmdman(t, logArgs+
-				"if [ \"$1\" = logs ]; then printf '%s\\n' '"+idlePrompt+"'; exit 0; fi\n"+
+				"if [ \"$1\" = capture-screen ]; then printf '%s\\n' '"+idlePrompt+"'; exit 0; fi\n"+
 				"if [ \"$3\" = '"+tc.failOn+"' ]; then "+
 				"echo 'error: command is not running' >&2; exit 1; fi\n"+
 				"exit 0\n")

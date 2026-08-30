@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,11 +24,6 @@ import (
 // together. A caller runs [Terminal.SendCommand] inside the request that
 // occasioned it, so a cmdman that hangs would otherwise hang that request.
 const sendTimeout = 3 * time.Second
-
-// logsTailLines is how much recent terminal output the snapshot guard reads
-// back. Enough to hold a permission dialog and the prompt around it, few enough
-// that a marker from some long-finished dialog has already scrolled out.
-const logsTailLines = 40
 
 // ErrDeclined reports that a guard stopped the send before cmdman typed
 // anything: the member has no terminal to type into, or its terminal is in no
@@ -92,7 +86,7 @@ func (t *Terminal) Bin() string { return t.bin }
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so the send passes three guards — the member is an agent, its token
-// is one cmdman can take, and a snapshot of its recent output shows no dialog.
+// is one cmdman can take, and a snapshot of its screen shows no dialog.
 // That last one is a best-effort text scan: what a dialog looks like is
 // whatever the harness happens to paint today, so the scan catches the obvious
 // cases and is revised as those UIs change. It is not a guarantee that the
@@ -124,7 +118,7 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sendTimeout)
 	defer cancel()
 
-	snapshot, err := t.tailLogs(ctx, member.Token)
+	snapshot, err := t.captureScreen(ctx, member.Token)
 	if err != nil {
 		// Fail safe: with no snapshot there is no evidence the terminal is at a
 		// prompt, and a dropped line costs the caller a retry while a wrong one
@@ -153,21 +147,24 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 	return t.sendKeys(ctx, member.Token, "Enter")
 }
 
-// tailLogs snapshots the member terminal's recent output.
+// captureScreen snapshots what the member's terminal is showing.
 //
-// cmdman replays its on-disk PTY log; it has no one-shot screen capture, and
-// its only live view of the screen is the streaming `attach` protocol, which is
-// far too heavy to open for a pre-send check. The replay is therefore the
-// closest thing to a screenshot the CLI offers — good enough for a text scan,
-// since a dialog paints its markers into the output like everything else.
-func (t *Terminal) tailLogs(ctx context.Context, token string) (string, error) {
-	// CombinedOutput: a harness paints its dialogs on whichever stream it
-	// likes, and a scan that reads only one of them would miss half of them.
+// The visible screen with no line range, not the scrollback: it is what a
+// dialog is painting right now, so a marker from some long-finished dialog
+// cannot linger in the scan the way it could in a log replay. Only a command
+// running under a TTY has a screen; for one without, cmdman errors here and the
+// caller reads that as any other unavailable snapshot and declines.
+func (t *Terminal) captureScreen(ctx context.Context, token string) (string, error) {
+	// Plain text, no --escapes: attribute sequences would sit inside the strings
+	// the scan looks for and split a marker the terminal is showing whole.
+	//
+	// CombinedOutput: the screen comes back on stdout, and on failure cmdman's
+	// own diagnostic on stderr is what makes the error say anything.
 	out, err := exec.CommandContext(
-		ctx, t.bin, "logs", "--tail", strconv.Itoa(logsTailLines), token,
+		ctx, t.bin, "capture-screen", token,
 	).CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("cmdman logs %q: %w: %s",
+		return "", fmt.Errorf("cmdman capture-screen %q: %w: %s",
 			token, err, strings.TrimSpace(string(out)))
 	}
 	return string(out), nil

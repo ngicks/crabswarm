@@ -14,7 +14,7 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-// idlePrompt is what a harness waiting for a command leaves in its log: no
+// idlePrompt is what a harness waiting for a command leaves on its screen: no
 // dialog marker anywhere in it.
 const idlePrompt = "> ready"
 
@@ -60,13 +60,13 @@ func stubArgs(t *testing.T, bin string) []string {
 	return lines
 }
 
-// stubCmdmanLogs writes a stand-in cmdman whose `logs` prints out and whose
-// every other subcommand succeeds silently, recording all invocations. See
-// [stubCmdman] for why these tests do not call t.Parallel.
-func stubCmdmanLogs(t *testing.T, out string) string {
+// stubCmdmanScreen writes a stand-in cmdman whose `capture-screen` prints out
+// and whose every other subcommand succeeds silently, recording all
+// invocations. See [stubCmdman] for why these tests do not call t.Parallel.
+func stubCmdmanScreen(t *testing.T, out string) string {
 	t.Helper()
 	return stubCmdman(t, logArgs+
-		"if [ \"$1\" = logs ]; then printf '%s\\n' '"+out+"'; fi\nexit 0\n")
+		"if [ \"$1\" = capture-screen ]; then printf '%s\\n' '"+out+"'; fi\nexit 0\n")
 }
 
 // doneAgent is a member in the one state that invites a nudge.
@@ -86,7 +86,7 @@ func bob() chat.Sender {
 }
 
 func TestSendKeys_NudgesDoneAgent(t *testing.T) {
-	bin := stubCmdmanLogs(t, idlePrompt)
+	bin := stubCmdmanScreen(t, idlePrompt)
 
 	err := NewSendKeys(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
@@ -97,7 +97,7 @@ func TestSendKeys_NudgesDoneAgent(t *testing.T) {
 	// submits.
 	args := stubArgs(t, bin)
 	assert.Equal(t, len(args), 3, "invocations: %v", args)
-	assert.Equal(t, args[0], "logs --tail 40 0123456789abcdef")
+	assert.Equal(t, args[0], "capture-screen 0123456789abcdef")
 	assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
 		"[crabswarm chat] new message from beta/bob — run: crabswarm chat read")
 	assert.Equal(t, args[2], "send-keys 0123456789abcdef Enter")
@@ -117,7 +117,7 @@ func TestSendKeys_SkipsBusyMember(t *testing.T) {
 		{"unset", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			bin := stubCmdmanLogs(t, idlePrompt)
+			bin := stubCmdmanScreen(t, idlePrompt)
 			m := doneAgent()
 			m.State = tc.state
 
@@ -131,7 +131,7 @@ func TestSendKeys_SkipsBusyMember(t *testing.T) {
 func TestSendKeys_SkipsHuman(t *testing.T) {
 	// A human's token is daemon-issued and names no cmdman command, so there is
 	// no terminal to type into.
-	bin := stubCmdmanLogs(t, idlePrompt)
+	bin := stubCmdmanScreen(t, idlePrompt)
 	m := doneAgent()
 	m.Kind = chat.KindHuman
 
@@ -146,27 +146,28 @@ func TestSendKeys_SkipsWhenTerminalShowsDialog(t *testing.T) {
 	// TestDialogMarker; this pins that a hit stops the injection, so the
 	// snapshot is built from the set rather than from a literal — the set is
 	// the guard's own to change.
-	bin := stubCmdmanLogs(t, "some dialog\n"+cmdman.DialogMarkers[0]+"\nmore text")
+	bin := stubCmdmanScreen(t, "some dialog\n"+cmdman.DialogMarkers[0]+"\nmore text")
 
 	err := NewSendKeys(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
 
 	args := stubArgs(t, bin)
 	assert.Equal(t, len(args), 1, "invocations: %v", args)
-	assert.Assert(t, strings.HasPrefix(args[0], "logs "), "got %v", args)
+	assert.Assert(t, strings.HasPrefix(args[0], "capture-screen "), "got %v", args)
 }
 
 func TestSendKeys_SkipsWhenSnapshotFails(t *testing.T) {
 	// Fail safe: no snapshot is no evidence the terminal is at a prompt.
 	bin := stubCmdman(t, logArgs+
-		"if [ \"$1\" = logs ]; then echo 'error: no log for command' >&2; exit 1; fi\nexit 0\n")
+		"if [ \"$1\" = capture-screen ]; then "+
+		"echo 'error: command has no tty' >&2; exit 1; fi\nexit 0\n")
 
 	err := NewSendKeys(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err, "a declined nudge is not an error")
 
 	args := stubArgs(t, bin)
 	assert.Equal(t, len(args), 1, "invocations: %v", args)
-	assert.Assert(t, strings.HasPrefix(args[0], "logs "), "got %v", args)
+	assert.Assert(t, strings.HasPrefix(args[0], "capture-screen "), "got %v", args)
 }
 
 func TestSendKeys_InjectionFailureIsAnError(t *testing.T) {
@@ -205,7 +206,7 @@ func TestSendKeys_SanitizesSenderAddress(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			bin := stubCmdmanLogs(t, idlePrompt)
+			bin := stubCmdmanScreen(t, idlePrompt)
 
 			err := NewSendKeys(bin, nil).Notify(t.Context(), doneAgent(), tc.from, "hi")
 			assert.NilError(t, err)
@@ -222,9 +223,9 @@ func TestSendKeys_SanitizesSenderAddress(t *testing.T) {
 }
 
 func TestSendKeys_RejectsMalformedTokenWithoutExec(t *testing.T) {
-	for _, token := range []string{"", "--tail", "tok id", "tok\nid"} {
+	for _, token := range []string{"", "--start-line", "tok id", "tok\nid"} {
 		t.Run(token, func(t *testing.T) {
-			bin := stubCmdmanLogs(t, idlePrompt)
+			bin := stubCmdmanScreen(t, idlePrompt)
 			m := doneAgent()
 			m.Token = token
 
@@ -238,7 +239,7 @@ func TestSendKeys_RejectsMalformedTokenWithoutExec(t *testing.T) {
 func TestSendKeys_NudgesAfterTheRequestIsCancelled(t *testing.T) {
 	// The message is already stored by the time the notifier runs, so a sender
 	// that walked away must not leave the recipient's terminal half-typed.
-	bin := stubCmdmanLogs(t, idlePrompt)
+	bin := stubCmdmanScreen(t, idlePrompt)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
