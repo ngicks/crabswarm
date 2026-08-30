@@ -479,3 +479,27 @@ user resolves it.
 - **Rejected:** `crabswarm/internal/` rooting (over-widens visibility; the
   only consumers live under chat/); keeping the machinery exported in
   notify (invites outside coupling to what is plumbing).
+
+### D29. Snapshot guard switched to cmdman capture-screen [user] [2026-08-31]
+- **Choice:** the pre-injection snapshot guard in
+  `crabswarm/chat/internal/cmdman` now uses cmdman v0.0.24's new one-shot
+  `cmdman capture-screen <token>` (plain-text visible screen, no flags)
+  instead of the `logs --tail 40` playback. This supersedes the
+  "Capture-pane guard fallback — logs --tail text scan" entry
+  [automatic, 2026-08-27], exercising exactly the replacement seam that
+  entry reserved ("a true screen-snapshot surface (if cmdman grows one)
+  can replace it without touching callers"). Guard semantics unchanged:
+  text-scan for DialogMarkers, fail-safe decline when the snapshot is
+  unavailable — which now also covers capture-screen erroring on a
+  command created without a TTY.
+- **Rationale:** user directive 2026-08-31 ("cmdman have capture-screen
+  feature. So it won't need log fallback"). The visible screen is what
+  the guard actually wants — what the dialog currently paints — and,
+  unlike the log replay, cannot be tricked by a marker that scrolled out
+  long ago or trip on one from a finished dialog still in the tail.
+- **Rejected:** keeping `logs --tail` as a secondary fallback for
+  non-TTY commands (an agent harness without a TTY paints no dialog UI
+  the markers could match, and the fail-safe decline already handles it);
+  `-e/--escapes` output (escape sequences would pollute the substring
+  scan); explicit `-S/-E` ranges (the default visible screen is the
+  right window).

@@ -1,6 +1,7 @@
 # STATUS — `crabswarm chat` subcommand
 
-**Current state:** REVIEWED (2026-08-29) — steps 1–9 landed on
+**Current state:** REVIEWED + D29 follow-up landed (2026-08-31); steps
+1–9 landed on
 feat-add-agent-chat with unit + e2e coverage; user review/QA complete
 and all findings addressed (D21–D25). C3 was confirmed empirically
 against the local cmdman v0.0.23 source (see DECISION.md [automatic]
@@ -52,6 +53,10 @@ HANDOFF.md folded into the issue backlog 2026-08-29 — plan COMPLETE.
 - [x] Post-review: D28 machinery moved to
       `crabswarm/chat/internal/cmdman` as `cmdman.Terminal`; "notify/
       holds only implementors of chat.Notifier"
+- [x] Post-review: D29 snapshot guard switched to "`cmdman
+      capture-screen <token>` (plain-text visible screen, no flags)",
+      superseding the logs --tail fallback (cmdman v0.0.24; full
+      `go test ./...` green 2026-08-31)
 
 ## Done
 
@@ -66,7 +71,8 @@ HANDOFF.md folded into the issue backlog 2026-08-29 — plan COMPLETE.
 
 ## In progress
 
-- Nothing. Implementation complete; user review/QA done.
+- Nothing. Implementation complete; user review/QA done; D29 follow-up
+  landed (uncommitted, awaiting user review).
 
 ## Blocked / needs decision
 
