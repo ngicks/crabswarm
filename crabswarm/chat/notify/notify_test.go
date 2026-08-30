@@ -89,12 +89,16 @@ func TestSendKeys_NudgesDoneAgent(t *testing.T) {
 	err := NewSendKeys(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
 
-	// Both invocations are the contract with cmdman; pin them.
+	// All three invocations are the contract with cmdman; pin them. The text
+	// and the Enter are separate sends: cmdman hands a trailing key name in the
+	// same invocation to the terminal as pasted text, and the line never
+	// submits.
 	args := stubArgs(t, bin)
-	assert.Equal(t, len(args), 2, "invocations: %v", args)
+	assert.Equal(t, len(args), 3, "invocations: %v", args)
 	assert.Equal(t, args[0], "logs --tail 40 0123456789abcdef")
 	assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
-		"[crabswarm chat] new message from beta/bob — run: crabswarm chat read Enter")
+		"[crabswarm chat] new message from beta/bob — run: crabswarm chat read")
+	assert.Equal(t, args[2], "send-keys 0123456789abcdef Enter")
 }
 
 func TestSendKeys_SkipsBusyMember(t *testing.T) {
@@ -135,10 +139,11 @@ func TestSendKeys_SkipsHuman(t *testing.T) {
 }
 
 func TestSendKeys_SkipsWhenTerminalShowsDialog(t *testing.T) {
-	// A permission dialog on screen: injecting here would answer it instead of
-	// typing a nudge. The whole marker set is covered by [TestDialogMarker];
-	// this pins that a hit stops the injection.
-	bin := stubCmdmanLogs(t, "Do you want to make this edit?\n❯ 1. Yes\n  2. No")
+	// A dialog on screen: injecting here would answer it instead of typing a
+	// nudge. The whole marker set is covered by [TestDialogMarker]; this pins
+	// that a hit stops the injection, so the snapshot is built from the set
+	// rather than from a literal — the set is the guard's own to change.
+	bin := stubCmdmanLogs(t, "some dialog\n"+dialogMarkers[0]+"\nmore text")
 
 	err := NewSendKeys(bin, nil).Notify(t.Context(), doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
@@ -227,10 +232,10 @@ func TestSendKeys_SanitizesSenderAddress(t *testing.T) {
 			// The stub logs one line per invocation, so a break inside the
 			// injected text would show up as an extra line here.
 			args := stubArgs(t, bin)
-			assert.Equal(t, len(args), 2, "invocations: %v", args)
+			assert.Equal(t, len(args), 3, "invocations: %v", args)
 			assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
 				"[crabswarm chat] new message from "+tc.want+
-				" — run: crabswarm chat read Enter")
+				" — run: crabswarm chat read")
 		})
 	}
 }
@@ -258,10 +263,10 @@ func TestSendKeys_NudgesAfterTheRequestIsCancelled(t *testing.T) {
 
 	err := NewSendKeys(bin, nil).Notify(ctx, doneAgent(), bob(), "hi")
 	assert.NilError(t, err)
-	assert.Equal(t, len(stubArgs(t, bin)), 2)
+	assert.Equal(t, len(stubArgs(t, bin)), 3)
 }
 
 func TestNewSendKeys_DefaultsToPathLookup(t *testing.T) {
-	assert.Equal(t, NewSendKeys("", nil).bin, "cmdman")
-	assert.Equal(t, NewSendKeys("/opt/bin/cmdman", nil).bin, "/opt/bin/cmdman")
+	assert.Equal(t, NewSendKeys("", nil).cmdman.bin, "cmdman")
+	assert.Equal(t, NewSendKeys("/opt/bin/cmdman", nil).cmdman.bin, "/opt/bin/cmdman")
 }

@@ -5,55 +5,25 @@
 // It holds the delivery-side adapters for the chat broker's notification hook.
 // The interface itself is declared at its consumer, in the chat package; this
 // package only satisfies it — today with [SendKeys], which types into the
-// recipient's terminal through the cmdman CLI.
+// recipient's terminal through [Cmdman], the package's terminal-injection
+// machinery.
 package notify
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
-	"os/exec"
-	"strconv"
-	"strings"
-	"time"
 	"unicode"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
-	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
-
-// notifyTimeout bounds one whole notification — the snapshot and the injection
-// together. [chat.Service] calls a notifier inside the RPC that delivered the
-// message, so a cmdman that hangs would otherwise hang the sender's Send.
-const notifyTimeout = 3 * time.Second
-
-// logsTailLines is how much recent terminal output the snapshot guard reads
-// back. Enough to hold a permission dialog and the prompt around it, few enough
-// that a marker from some long-finished dialog has already scrolled out.
-const logsTailLines = 40
 
 // maxNudgeAddrLen caps the sender address the injected line carries. A member
 // name comes from the agent that joined and nothing upstream bounds it, so the
 // cap is what keeps one line one line; a longer address is cut short.
 const maxNudgeAddrLen = 64
 
-// dialogMarkers are the strings that mean the recipient's terminal is showing a
-// dialog rather than an idle prompt: injecting there would answer the dialog
-// instead of typing a nudge. They are heuristics read off Claude Code's
-// permission and question UI plus the classic yes/no prompt, matched
-// case-insensitively as substrings — updating the set is a one-line edit here.
-var dialogMarkers = []string{
-	"Do you want",
-	"❯ 1. Yes",
-	"Esc to cancel",
-	"esc to interrupt)",
-	"(y/n)",
-}
-
-// SendKeys wakes an agent by typing a line into its terminal through the cmdman
-// CLI: `cmdman send-keys <token> '<line>' Enter`. Agents run in containers
-// where nothing watches the inbox for them, and keystrokes are the one channel
-// every harness accepts.
+// SendKeys wakes an agent by typing a line into its terminal with [Cmdman].
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so a nudge passes three guards — the member is an agent, its last
@@ -62,7 +32,7 @@ var dialogMarkers = []string{
 // message is already in the inbox, so the recipient reads it at the end of its
 // current turn instead of a moment from now.
 type SendKeys struct {
-	bin    string
+	cmdman *Cmdman
 	logger *slog.Logger
 }
 
@@ -72,13 +42,10 @@ var _ chat.Notifier = (*SendKeys)(nil)
 // bin. An empty bin means "cmdman", resolved on PATH, the same default the
 // token resolver uses; a nil logger discards logs.
 func NewSendKeys(bin string, logger *slog.Logger) *SendKeys {
-	if bin == "" {
-		bin = resolver.DefaultCmdmanBin
-	}
-	if logger == nil {
-		logger = slog.New(slog.DiscardHandler)
-	}
-	return &SendKeys{bin: bin, logger: logger}
+	c := NewCmdman(bin, logger)
+	// The Cmdman's logger, not the argument: it has already been defaulted, so
+	// a nil logger is turned into a discarding one in exactly one place.
+	return &SendKeys{cmdman: c, logger: c.logger}
 }
 
 // Notify types a one-line arrival notice into the recipient's terminal, unless
@@ -93,97 +60,23 @@ func (n *SendKeys) Notify(
 	from chat.Sender,
 	_ string,
 ) error {
-	who := recipient.Team + "/" + recipient.Name
-
-	// Not "== KindHuman": a member kind this notifier has never heard of has no
-	// terminal it may type into either. A human's token is minted by the daemon
-	// and names no cmdman command, so send-keys would fail to resolve it.
-	if recipient.Kind != chat.KindAgent {
-		n.logger.Debug("chat: not nudging a member that runs no harness",
-			"recipient", who, "kind", recipient.Kind)
-		return nil
-	}
+	// The state guard is nudge policy rather than a property of typing, so it
+	// stays here: a member mid-turn has a terminal that could be typed into,
+	// and the reason not to is that its inbox already holds the message.
 	if recipient.State != chat.StateDone {
 		n.logger.Debug("chat: not nudging a busy member",
-			"recipient", who, "state", recipient.State)
-		return nil
-	}
-	if err := resolver.ValidateToken(recipient.Token); err != nil {
-		n.logger.Warn("chat: not nudging a member whose token cmdman cannot take",
-			"recipient", who, "err", err)
+			"recipient", recipient.Team+"/"+recipient.Name, "state", recipient.State)
 		return nil
 	}
 
-	// Detached from the request: a client that cancels its Send mid-flight
-	// would otherwise kill cmdman halfway through the injection, leaving a
-	// half-typed line in someone's terminal. The timeout replaces the
-	// cancellation the RPC context would have provided.
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), notifyTimeout)
-	defer cancel()
-
-	snapshot, err := n.tailLogs(ctx, recipient.Token)
-	if err != nil {
-		// Fail safe: with no snapshot there is no evidence the terminal is at a
-		// prompt, and a dropped nudge costs a late read while a wrong one
-		// answers a dialog.
-		n.logger.Info("chat: not nudging, terminal snapshot unavailable",
-			"recipient", who, "err", err)
+	err := n.cmdman.SendCommand(ctx, recipient, nudgeLine(from))
+	if errors.Is(err, ErrDeclined) {
+		// A declined nudge is reported as success: the message is already in
+		// the inbox, so the recipient reads it at the end of its current turn
+		// instead of a moment from now.
 		return nil
 	}
-	if marker, found := dialogMarker(snapshot); found {
-		n.logger.Info("chat: not nudging, terminal is showing a dialog",
-			"recipient", who, "marker", marker)
-		return nil
-	}
-
-	return n.sendKeys(ctx, recipient.Token, nudgeLine(from))
-}
-
-// tailLogs snapshots the recipient terminal's recent output.
-//
-// cmdman replays its on-disk PTY log; it has no one-shot screen capture, and
-// its only live view of the screen is the streaming `attach` protocol, which is
-// far too heavy to open for a pre-send check. The replay is therefore the
-// closest thing to a screenshot the CLI offers — good enough for a text scan,
-// since a dialog paints its markers into the output like everything else.
-func (n *SendKeys) tailLogs(ctx context.Context, token string) (string, error) {
-	// CombinedOutput: a harness paints its dialogs on whichever stream it
-	// likes, and a scan that reads only one of them would miss half of them.
-	out, err := exec.CommandContext(
-		ctx, n.bin, "logs", "--tail", strconv.Itoa(logsTailLines), token,
-	).CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("cmdman logs %q: %w: %s",
-			token, err, strings.TrimSpace(string(out)))
-	}
-	return string(out), nil
-}
-
-// sendKeys types line into the recipient's terminal and submits it.
-func (n *SendKeys) sendKeys(ctx context.Context, token, line string) error {
-	// "Enter" is a cmdman key name, translated to a carriage return; anything
-	// that is not a key name — the line itself — is sent as literal bytes.
-	out, err := exec.CommandContext(
-		ctx, n.bin, "send-keys", token, line, "Enter",
-	).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("cmdman send-keys %q: %w: %s",
-			token, err, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// dialogMarker returns the first of [dialogMarkers] that snapshot contains.
-func dialogMarker(snapshot string) (string, bool) {
-	lower := strings.ToLower(snapshot)
-	for _, m := range dialogMarkers {
-		// Both sides are lowered here rather than keeping the list lowered, so
-		// adding a marker stays a copy of what the harness actually prints.
-		if strings.Contains(lower, strings.ToLower(m)) {
-			return m, true
-		}
-	}
-	return "", false
+	return err
 }
 
 // nudgeLine is the line typed into the recipient's terminal: who has written,
