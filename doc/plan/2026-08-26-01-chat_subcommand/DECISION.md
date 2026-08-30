@@ -503,3 +503,31 @@ user resolves it.
   `-e/--escapes` output (escape sequences would pollute the substring
   scan); explicit `-S/-E` ranges (the default visible screen is the
   right window).
+
+### D30. Per-harness hook files merged into one universal report-state.json [user] [2026-08-31]
+- **Choice:** the apm package's two hook files (`hooks/hooks.json` for
+  Claude, `.apm/hooks/hooks-codex.json` for Codex) merge into a single
+  universal `.apm/hooks/report-state.json` — the union of both wirings:
+  SessionStart join, UserPromptSubmit working, Notification waiting,
+  PermissionRequest waiting, PostToolUse read --quiet + working, Stop
+  done. The root `hooks/` directory is deleted; the `.claude-plugin/`
+  manifest is ignored per the user ("It's not a claude plugin. It's a
+  apm package"), so `claude --plugin-dir` loadability is no longer a
+  design constraint. File name and `.apm/hooks/` placement per user
+  directive 2026-08-31.
+- **Rationale:** both assumptions behind the step-8 split are now
+  disproven: Codex's loader (`codex-rs/config/src/hook_config.rs`,
+  `HookEventsToml` — plain serde struct, no deny_unknown_fields)
+  silently ignores the unknown `Notification` key, and Claude Code now
+  natively supports `PermissionRequest`, so the Codex-only wiring going
+  live on Claude is an improvement, not a hazard: a more precise waiting
+  trigger, and PostToolUse `report-state working` closes the same
+  recovery-to-working gap after a granted permission that it closed on
+  Codex. apm v0.28.0 treats a target-token-less stem as universal and
+  globs `*.json` under `.apm/hooks/`, so the rename routes to every
+  target; one file also un-breaks `apm pack` and drops the dependence on
+  apm's deprecated filename routing.
+- **Rejected:** keeping the split (duplicated commands drift silently;
+  pack stays broken; filename routing is deprecated upstream); merging
+  under the root `hooks/` name (the package is apm-first, and
+  `.apm/hooks/` is apm's own convention directory).
