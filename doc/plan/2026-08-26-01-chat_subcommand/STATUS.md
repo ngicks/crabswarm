@@ -49,6 +49,9 @@ HANDOFF.md folded into the issue backlog 2026-08-29 — plan COMPLETE.
       `notify.Cmdman.SendCommand` with `ErrDeclined`; "no promise …
       about the dialog-marker set"; text and Enter sent as two separate
       cmdman invocations (tmux paste behavior)
+- [x] Post-review: D28 machinery moved to
+      `crabswarm/chat/internal/cmdman` as `cmdman.Terminal`; "notify/
+      holds only implementors of chat.Notifier"
 
 ## Done
 

@@ -454,3 +454,28 @@ user resolves it.
   treats speculative structure as over-engineering); `(bool, error)`
   decline reporting (errors.Is composes better); moving the state guard
   into SendCommand (policy, not typing safety).
+
+### D28. Injection machinery moved to internal/cmdman [user] [2026-08-30]
+- **Choice:** the terminal-injection machinery moved again, from the notify
+  package into `crabswarm/chat/internal/cmdman` (beside internal/db and
+  internal/schema): notify/ holds only implementors of chat.Notifier —
+  today just SendKeys ("you have messages in your inbox"), with more
+  expected later. Renames to kill the package-name stutter:
+  `notify.Cmdman`→`cmdman.Terminal`, `NewCmdman`→`cmdman.NewTerminal`;
+  `SendCommand` and `ErrDeclined` keep their names. This supersedes D27's
+  placement clause (an exported notify.Cmdman); D27's guard split, decline
+  semantics, and two-invocation send carry over unchanged. `NewSendKeys`
+  keeps its signature; server wiring untouched. internal/ visibility means
+  a future clear command must live under crabswarm/chat/ to reach it.
+- **Supporting choices:** `DialogMarkers` exported (internal package, not
+  public API) so sibling tests build dialog fixtures from the set instead
+  of re-pinning a literal marker; `Terminal.Logger()`/`Bin()` accessors so
+  NewSendKeys reuses the once-defaulted logger and the notify constructor
+  test avoids exec'ing a real PATH cmdman; test stubs duplicated a third
+  time per the established no-exported-test-helpers trade.
+- **Rationale:** user directive 2026-08-30 — one responsibility per
+  package: notify is the set of notification implementors, not a grab bag
+  of cmdman plumbing.
+- **Rejected:** `crabswarm/internal/` rooting (over-widens visibility; the
+  only consumers live under chat/); keeping the machinery exported in
+  notify (invites outside coupling to what is plumbing).
