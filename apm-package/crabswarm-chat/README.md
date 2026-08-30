@@ -10,8 +10,8 @@ The agent-facing half is the
 room's verbs and etiquette. The hooks below only move messages; the skill is
 what makes an agent answer them.
 
-Every hook is a `crabswarm hook exec` invocation, so the package is two JSON
-files and a skill — no shell scripts, no `jq`, nothing to copy alongside the
+Every hook is a `crabswarm hook exec` invocation, so the package is one JSON
+file and a skill — no shell scripts, no `jq`, nothing to copy alongside the
 wiring. Everything here assumes `crabswarm` is on `PATH`, the same assumption
 the skill makes when it tells an agent to type `crabswarm chat read`.
 
@@ -48,16 +48,15 @@ hooks into crabswarm's own development sessions is available by adding the
 stanza above to the repository root `apm.yml`, and is deliberately not done by
 default.
 
-Installing from source is the only supported route. `apm pack` builds a plugin
-bundle, and a bundle cannot carry two hook files: `apm pack` skips the
-root-level `hooks/` directory outright when `.apm/` is present ("Skipping
-root-level hooks/ because .apm/ is present") and ships `.apm/hooks/hooks-codex.json`
-as the bundle's one `hooks.json`. Every consumer of that bundle — Claude Code
-included — would get the Codex wiring, which announces a `PermissionRequest`
-event Claude Code does not have and omits the `Notification` one it does.
-`apm pack --target` no longer changes this; it is deprecated and recorded as
-metadata only, so `--target claude` and `--target codex` produce the same
-bundle. The dependency stanza above is the shape that works.
+Installing from source is the route that has been exercised. `apm pack` builds a
+plugin bundle, which used to be the wrong shape for this package outright: back
+when the wiring shipped as two files it skipped the root-level `hooks/`
+directory whenever `.apm/` was present and handed every consumer — Claude Code
+included — the Codex-only file as the bundle's one `hooks.json`. With a single
+universal hook file there is nothing left to pick wrong: a bundle carries the
+same wiring an install from source produces. `apm pack --target` is deprecated
+and recorded as metadata only, so `--target claude` and `--target codex` produce
+the same bundle, which is now the right answer rather than a hazard.
 
 ## Layout
 
@@ -65,27 +64,23 @@ bundle. The dependency stanza above is the shape that works.
 apm-package/crabswarm-chat/
 ├── apm.yml                             package metadata (targets: claude, codex)
 ├── .claude-plugin/plugin.json          Claude Code plugin manifest
-├── hooks/hooks.json                    hook wiring for every target but Codex
 └── .apm/
-    ├── hooks/hooks-codex.json          hook wiring for Codex (see below)
+    ├── hooks/report-state.json         hook wiring for every target
     └── skills/crabswarm-chat/SKILL.md
 ```
 
-The two files are the same wiring twice, differing only in the two places Codex
-differs (below). Both harnesses feed hooks the same snake_case envelope on
-stdin and read the same camelCase decision back, so the commands themselves are
-shared verbatim.
+One file wires every target. Its stem carries no target token, so `apm` hands
+the same events to Claude Code and to Codex, and what the file declares is the
+union of what the two harnesses announce — each keeps the events it knows and
+drops the rest. Both feed hooks the same snake_case envelope on stdin and read
+the same camelCase decision back, so the commands themselves are shared
+verbatim.
 
-The package is also shaped like a Claude Code plugin, so a checkout should load
-directly with `claude --plugin-dir ./apm-package/crabswarm-chat` — that path
-reads `hooks/hooks.json` and `.claude-plugin/plugin.json` and ignores `.apm/`.
-Nothing in the wiring depends on where the plugin was unpacked any more: every
-command starts with the bare word `crabswarm`, resolved on `PATH`, so
-`hooks/hooks.json` is plain Claude hook configuration that works wherever it is
-read from. `apm install` is still the route that has actually been exercised;
-the `--plugin-dir` one is untested beyond `claude plugin validate` passing, and
-`hooks/hooks.json` carries a top-level `"version": 1` that only `apm` is known
-to tolerate.
+Only `Notification` and `PermissionRequest` are not common ground.
+`PermissionRequest` is Codex's approval dialog, and Claude Code implements it
+too, so it runs on both. `Notification` is Claude Code's alone; Codex parses
+`hooks.json` into a struct of the events it knows and ignores every other key,
+so the block lands in `.codex/hooks.json` and never becomes a hook there.
 
 ## What each hook does
 
@@ -93,9 +88,15 @@ to tolerate.
 | --- | --- | --- |
 | `SessionStart` | `crabswarm chat join` | Attend the room. Idempotent, so the duplicate SessionStart a resumed session fires is harmless. |
 | `UserPromptSubmit` | `crabswarm chat report-state working` | A turn began. |
-| `Notification` | `crabswarm chat report-state waiting` | A prompt is open (see the caveat below). |
-| `PostToolUse` | `crabswarm chat read --quiet` | Deliver messages that arrived mid-turn as `additionalContext`. |
+| `Notification` | `crabswarm chat report-state waiting` | A prompt is open — Claude Code only (see the caveat below). |
+| `PermissionRequest` | `crabswarm chat report-state waiting` | An approval dialog is about to open. |
+| `PostToolUse` | `crabswarm chat read --quiet`, then `crabswarm chat report-state working` | Deliver messages that arrived mid-turn as `additionalContext`; the dialog, if there was one, has resolved. |
 | `Stop` | `crabswarm chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; block the stop when it had mail, otherwise report done. |
+
+The second `PostToolUse` entry is how a member gets out of `waiting` again.
+Neither harness announces a dialog being answered or dismissed, so the next tool
+call completing is the only signal that the approval the member was waiting on
+resolved.
 
 ### How `hook exec` shapes the decision
 
@@ -218,54 +219,47 @@ agent left alone long enough therefore stops receiving terminal nudges until
 its next turn; its messages still arrive, just at the next turn boundary
 instead of immediately.
 
-The refinement is to branch on the event's `notification_type` — a permission
-prompt is `waiting`, an idle prompt is `done`, which is precisely where a
-nudge is meant to land. That needs the exact `notification_type` values
-confirmed against the harness before it is worth shipping, so the simple
+`PermissionRequest` now covers the permission prompt on its own, so what
+`Notification` still adds on Claude Code is the idle case — which is the half
+this mapping gets wrong. The refinement is to branch on the event's
+`notification_type` — a permission prompt is `waiting`, an idle prompt is
+`done`, which is precisely where a nudge is meant to land; dropping
+`Notification` outright is the other way out. Both want the exact
+`notification_type` values confirmed against a live session first, so the simple
 mapping stands for now.
 
 ## Codex
 
-**Best-effort and unverified.** Codex's hook surface is recent; the wiring in
-`.apm/hooks/hooks-codex.json` was written against the Codex source (its
-`hooks.json` loader, `HookEventsToml`/`MatcherGroup`/`HookHandlerConfig` shapes,
-and the Stop/PostToolUse stdin and output schemas) but **has not been run
-against a Codex session**. Treat every behavior below as a claim to check, not a
-fact. Each hook is independent and failure-tolerant, so a hook Codex silently
-ignores degrades to late delivery.
+**Best-effort and unverified.** Codex's hook surface is recent; the wiring was
+written against the Codex source (its `hooks.json` loader,
+`HookEventsToml`/`MatcherGroup`/`HookHandlerConfig` shapes, and the
+Stop/PostToolUse stdin and output schemas) but **has not been run against a
+Codex session**. Treat every behavior below as a claim to check, not a fact.
+Each hook is independent and failure-tolerant, so a hook Codex silently ignores
+degrades to late delivery.
 
 What has been checked from this side is that `crabswarm hook exec` speaks
 Codex's half of the envelope surface: a `PermissionRequest` envelope parses into
 its typed variant and the hook exits 0 silently, which is what
-`e2e/crabswarm/chat_hooks_test.go` runs the shipped Codex commands to prove.
-An event neither harness declares would parse too and simply render nothing.
+`e2e/crabswarm/chat_hooks_test.go` runs the shipped commands to prove. An event
+neither harness declares would parse too and simply render nothing.
 
-It ships as a second hook file rather than as the same one because `apm` does
-not translate hook event names for Codex — it merges whatever events the file
-declares into `.codex/hooks.json` verbatim, unlike the Gemini target, which
-renames events on the way out. `Notification` has no Codex equivalent, so
-shipping the Claude file to Codex would put an event Codex does not know into
-its config; `PermissionRequest` is the event that actually covers the case.
+Codex gets the same file Claude Code does. `apm` does not translate hook event
+names for Codex — it merges whatever events the file declares into
+`.codex/hooks.json` verbatim, unlike the Gemini target, which renames events on
+the way out — so the merged file's `Notification` block reaches Codex's config
+untouched. Codex deserializes that config into a struct of the events it knows
+and ignores the rest, so the block costs a few unread lines and nothing else,
+and `PermissionRequest` is the event that actually covers the case there.
 
-`apm` picks the right file by filename: a hook file whose stem ends in a target
-token (`hooks-codex`) is used only for that target, and a target with such a
-file does not also receive the untagged `hooks.json`. Filename routing is
-deprecated upstream and logs a warning suggesting per-dependency `targets:` in
-the consumer's `apm.yml`, but that setting selects targets for a whole
-dependency and cannot pick between two hook files inside one package, so this
-remains the only in-package mechanism. If it is removed upstream, both files
-would become universal and Claude would receive the Codex wiring too — merge
-them by hand at that point. (`apm pack` already behaves that way, which is one
-reason a bundle is the wrong shape for this package.)
-
-Nothing here needs a rewritten path any more. The commands name `crabswarm`
-and nothing else, so the Codex file installs exactly as written and does not
-care what directory Codex runs its hooks from.
+Nothing here needs a rewritten path. The commands name `crabswarm` and nothing
+else, so the file installs exactly as written and does not care what directory
+Codex runs its hooks from.
 
 Codex loads hooks as untrusted until you say otherwise — expect to approve them
 before they run.
 
-The wiring:
+What Codex ends up running:
 
 | Event | Runs | Purpose |
 | --- | --- | --- |
@@ -275,23 +269,18 @@ The wiring:
 | `PostToolUse` | `chat read --quiet`, then `report-state working` | Deliver mid-turn messages; the dialog, if there was one, has resolved. |
 | `Stop` | `chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; report done when the stop goes through. |
 
-Two differences from the Claude Code wiring, both deliberate:
-
-- Codex reports `working` again from `PostToolUse`. It has no event for a
-  dialog being answered or dismissed, so a tool call completing is the only
-  signal that a `PermissionRequest` resolved. Claude Code needs no such
-  workaround.
-- Codex has no `Notification` equivalent; `PermissionRequest` covers the
-  dialog case, and nothing covers a session sitting idle.
+The one difference from what Claude Code runs is the missing `Notification`:
+`PermissionRequest` covers the dialog case, and nothing on Codex covers a
+session sitting idle.
 
 Codex's `notify` program (`agent-turn-complete`) could report `done` redundantly,
 but the Stop hook already does it — no `config.toml` change ships here.
 
 ## Verifying a change
 
-Both JSON files parse with `jq`, and `e2e/crabswarm/chat_hooks_test.go` drives
-the wiring end to end from Go: it reads the two files, pulls each `command`
-string out, and runs it **verbatim** through a shell with sample hook envelopes
+The hook file parses with `jq`, and `e2e/crabswarm/chat_hooks_test.go` drives
+the wiring end to end from Go: it reads the file, pulls each `command` string
+out, and runs it **verbatim** through a shell with sample hook envelopes
 on stdin, the real `crabswarm` binary on `PATH` and a real daemon behind it. So
 what the suite exercises is the wiring that ships, not a Go paraphrase of it —
 including that every command stays silent and exits 0 when no daemon is

@@ -14,15 +14,14 @@ import (
 	"testing"
 )
 
-// The hook wiring the plugin installs into a harness, one file per target. The
-// commands inside are `crabswarm hook exec` invocations, so every case below
-// runs the shipped command string verbatim rather than a Go paraphrase of it:
-// the wiring is a text file no compiler ever sees, and a template that renders
-// the wrong thing is exactly the bug that costs a message.
-var (
-	chatHooksClaudePath = []string{"hooks", "hooks.json"}
-	chatHooksCodexPath  = []string{".apm", "hooks", "hooks-codex.json"}
-)
+// The one hook file the package installs into every harness: its stem carries
+// no target token, so apm hands the same wiring to Claude Code and to Codex,
+// and each ignores the events it does not know. The commands inside are
+// `crabswarm hook exec` invocations, so every case below runs the shipped
+// command string verbatim rather than a Go paraphrase of it: the wiring is a
+// text file no compiler ever sees, and a template that renders the wrong thing
+// is exactly the bug that costs a message.
+var chatHooksPath = []string{".apm", "hooks", "report-state.json"}
 
 // chatHookConfig is the hook file both harnesses read: events, each holding
 // matcher groups, each holding the commands to run.
@@ -43,12 +42,11 @@ type chatHookEntry struct {
 	StatusMessage string `json:"statusMessage"`
 }
 
-// readChatHooks decodes one of the package's hook files out of the checkout
-// under test.
-func readChatHooks(t *testing.T, rel []string) chatHookConfig {
+// readChatHooks decodes the package's hook file out of the checkout under test.
+func readChatHooks(t *testing.T) chatHookConfig {
 	t.Helper()
 	path := filepath.Join(append(
-		[]string{repoRoot(), "apm-package", "crabswarm-chat"}, rel...)...)
+		[]string{repoRoot(), "apm-package", "crabswarm-chat"}, chatHooksPath...)...)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read hook file %s: %v", path, err)
@@ -121,8 +119,8 @@ const (
 		`"cwd":"/tmp",` +
 		`"hook_event_name":"Notification",` +
 		`"message":"Claude needs your permission to run a command"}`
-	// Codex's approval dialog. It is the one event Claude Code never sends, so
-	// it is also the one envelope that says whether `hook exec` speaks Codex's
+	// The approval dialog both harnesses announce. Codex has no other event for
+	// it, and it is the envelope that says whether `hook exec` speaks Codex's
 	// half of the surface at all.
 	chatPermissionRequestEnvelope = `{` +
 		`"session_id":"sess-e2e",` +
@@ -276,44 +274,34 @@ func assertInboxWasConsumed(t *testing.T, cfg string) {
 // consuming read is exactly the lost message this hook exists to prevent. The
 // inbox is empty afterwards: the block is the delivery.
 func TestChatHooks_StopBlocksWithTheMessages(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		rel  []string
-	}{
-		{"claude", chatHooksClaudePath},
-		{"codex", chatHooksCodexPath},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := startChatRoomWithMail(t)
-			hooks := readChatHooks(t, tc.rel)
+	cfg := startChatRoomWithMail(t)
+	hooks := readChatHooks(t)
 
-			res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
-			if res.exitCode != 0 {
-				t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
-					res.exitCode, res.stdout, res.stderr)
-			}
-			if res.stderr != "" {
-				t.Errorf("stderr = %q, want nothing", res.stderr)
-			}
-
-			obj := hookObject(t, res.stdout)
-			assertKeys(t, obj, "decision", "reason")
-			if got := hookString(t, obj, "decision"); got != "block" {
-				t.Errorf("decision = %q, want %q", got, "block")
-			}
-			reason := hookString(t, obj, "reason")
-			for _, want := range []string{
-				"alpha/bob: say \"hi\"",
-				"and a second line",
-				"crabswarm chat send",
-			} {
-				if !strings.Contains(reason, want) {
-					t.Errorf("reason = %q, want it to carry %q", reason, want)
-				}
-			}
-			assertInboxWasConsumed(t, cfg)
-		})
+	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
+	if res.exitCode != 0 {
+		t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
+			res.exitCode, res.stdout, res.stderr)
 	}
+	if res.stderr != "" {
+		t.Errorf("stderr = %q, want nothing", res.stderr)
+	}
+
+	obj := hookObject(t, res.stdout)
+	assertKeys(t, obj, "decision", "reason")
+	if got := hookString(t, obj, "decision"); got != "block" {
+		t.Errorf("decision = %q, want %q", got, "block")
+	}
+	reason := hookString(t, obj, "reason")
+	for _, want := range []string{
+		"alpha/bob: say \"hi\"",
+		"and a second line",
+		"crabswarm chat send",
+	} {
+		if !strings.Contains(reason, want) {
+			t.Errorf("reason = %q, want it to carry %q", reason, want)
+		}
+	}
+	assertInboxWasConsumed(t, cfg)
 }
 
 // stop_hook_active means an earlier Stop hook already blocked this turn.
@@ -322,7 +310,7 @@ func TestChatHooks_StopBlocksWithTheMessages(t *testing.T) {
 // all, and the mail is still there afterwards.
 func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 	cfg := startChatRoomWithMail(t)
-	hooks := readChatHooks(t, chatHooksClaudePath)
+	hooks := readChatHooks(t)
 
 	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopActiveEnvelope)
 	assertHookIsSilent(t, res)
@@ -336,7 +324,7 @@ func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
 	cfg := startChatDaemon(t)
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	hooks := readChatHooks(t, chatHooksClaudePath)
+	hooks := readChatHooks(t)
 
 	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
 	assertHookIsSilent(t, res)
@@ -348,7 +336,7 @@ func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
 // drain keeps to decision and reason.
 func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
 	cfg := startChatRoomWithMail(t)
-	hooks := readChatHooks(t, chatHooksClaudePath)
+	hooks := readChatHooks(t)
 
 	res := runChatHook(t, cfg, "tok-ana",
 		hooks.commands("PostToolUse")[0], postToolUseEnvelope)
@@ -387,7 +375,7 @@ func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
 // goes to stderr, and injecting that as a message would be a delivery of
 // something nobody sent.
 func TestChatHooks_PostToolUseIsSilentWithoutMessages(t *testing.T) {
-	hooks := readChatHooks(t, chatHooksClaudePath)
+	hooks := readChatHooks(t)
 	command := hooks.commands("PostToolUse")[0]
 
 	t.Run("the inbox is empty", func(t *testing.T) {
@@ -405,28 +393,18 @@ func TestChatHooks_PostToolUseIsSilentWithoutMessages(t *testing.T) {
 // Every shipped command, on every event, against a daemon that is not running:
 // none of them says anything and none of them fails. That is the whole
 // degradation story of this package — a chat nobody is hosting must not break a
-// session start, a turn, or a tool call — and it is asserted over the files
-// themselves so a newly wired command cannot skip it.
+// session start, a turn, or a tool call — and it is asserted over the file
+// itself so a newly wired command cannot skip it.
 func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
 	cfg := chatAbsentDaemonConfig(t)
-	for _, tc := range []struct {
-		name string
-		rel  []string
-	}{
-		{"claude", chatHooksClaudePath},
-		{"codex", chatHooksCodexPath},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			hooks := readChatHooks(t, tc.rel)
-			for _, event := range slices.Sorted(maps.Keys(hooks.Hooks)) {
-				for i, command := range hooks.commands(event) {
-					t.Run(fmt.Sprintf("%s/%d", event, i), func(t *testing.T) {
-						assertHookIsSilent(t,
-							runChatHook(t, cfg, "tok-ana", command, chatHookEnvelopes[event]))
-					})
-				}
-			}
-		})
+	hooks := readChatHooks(t)
+	for _, event := range slices.Sorted(maps.Keys(hooks.Hooks)) {
+		for i, command := range hooks.commands(event) {
+			t.Run(fmt.Sprintf("%s/%d", event, i), func(t *testing.T) {
+				assertHookIsSilent(t,
+					runChatHook(t, cfg, "tok-ana", command, chatHookEnvelopes[event]))
+			})
+		}
 	}
 }
 
@@ -437,7 +415,7 @@ func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
 func TestChatHooks_SessionStartAttendsTheRoom(t *testing.T) {
 	cfg := startChatDaemon(t)
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	hooks := readChatHooks(t, chatHooksClaudePath)
+	hooks := readChatHooks(t)
 
 	res := runChatHook(t, cfg, "tok-cid", hooks.command(t, "SessionStart"),
 		chatSessionStartEnvelope)
@@ -461,7 +439,7 @@ func TestChatHooks_SessionStartAttendsTheRoom(t *testing.T) {
 // that sends unparseable JSON is broken in a way worth hearing about.
 func TestChatHooks_UnparseableEnvelopeFailsWithoutBlocking(t *testing.T) {
 	cfg := startChatRoomWithMail(t)
-	hooks := readChatHooks(t, chatHooksClaudePath)
+	hooks := readChatHooks(t)
 
 	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), "not an envelope at all")
 	if res.exitCode != 1 {
@@ -481,19 +459,16 @@ func TestChatHooks_UnparseableEnvelopeFailsWithoutBlocking(t *testing.T) {
 // scripts to copy alongside the JSON, no `jq` to have installed, and no plugin
 // root to resolve. This is asserted because losing it is invisible — a command
 // that reaches back out to a script keeps working on the author's machine and
-// breaks on every consumer that installed only the hook files.
+// breaks on every consumer that installed only the hook file.
 func TestChatHooks_AreSelfContained(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(
 		repoRoot(), "apm-package", "crabswarm-chat", "scripts")); err == nil {
 		t.Error("apm-package/crabswarm-chat/scripts exists again; the hooks ship no scripts")
 	}
-	for _, rel := range [][]string{chatHooksClaudePath, chatHooksCodexPath} {
-		hooks := readChatHooks(t, rel)
-		for event, groups := range hooks.Hooks {
-			for _, g := range groups {
-				for _, h := range g.Hooks {
-					assertSelfContainedHookEntry(t, event, h)
-				}
+	for event, groups := range readChatHooks(t).Hooks {
+		for _, g := range groups {
+			for _, h := range g.Hooks {
+				assertSelfContainedHookEntry(t, event, h)
 			}
 		}
 	}
@@ -529,57 +504,48 @@ func assertSelfContainedHookEntry(t *testing.T, event string, h chatHookEntry) {
 	}
 }
 
-// The Codex file is the Claude one with its two differences and nothing else:
-// `Notification` becomes `PermissionRequest` (Codex's approval dialog is the
-// only prompt it announces), and `PostToolUse` reports working a second time,
-// since a tool call completing is Codex's only signal that a dialog resolved.
-// Everything the two share is compared verbatim, so a fix applied to one file
-// and forgotten in the other fails here.
-func TestChatHooks_CodexMirrorsClaude(t *testing.T) {
-	claude := readChatHooks(t, chatHooksClaudePath)
-	codex := readChatHooks(t, chatHooksCodexPath)
+// One file wires the union of what the two harnesses announce, and each drops
+// what it does not know: Codex's config loader ignores `Notification`, Claude
+// Code runs `PermissionRequest` natively. So both waiting events carry the same
+// report — byte for byte, since a waiting report reworded in one place and not
+// the other is a member stuck in the wrong state on one harness — and
+// `PostToolUse` reports working again after the delivery, which is Codex's only
+// signal that a dialog resolved and Claude Code's way back out of `waiting`
+// once a permission is granted.
+func TestChatHooks_WireTheUnionOfBothHarnesses(t *testing.T) {
+	hooks := readChatHooks(t)
 
-	for _, event := range []string{"SessionStart", "UserPromptSubmit", "Stop"} {
-		if got, want := codex.command(t, event), claude.command(t, event); got != want {
-			t.Errorf("codex %s command = %q, want the Claude one %q", event, got, want)
-		}
+	notification := hooks.command(t, "Notification")
+	if !strings.Contains(notification, "report-state waiting") {
+		t.Errorf("Notification command = %q, want it to report waiting", notification)
 	}
-
-	if got := claude.commands("Notification"); len(got) != 1 {
-		t.Errorf("claude wires %d Notification commands, want 1", len(got))
-	}
-	if got := codex.commands("Notification"); got != nil {
-		t.Errorf("codex wires Notification %v; Codex has no such event", got)
-	}
-	permission := codex.command(t, "PermissionRequest")
-	if !strings.Contains(permission, "report-state waiting") {
-		t.Errorf("codex PermissionRequest command = %q, want it to report waiting", permission)
+	if got := hooks.command(t, "PermissionRequest"); got != notification {
+		t.Errorf("PermissionRequest command = %q, want the Notification one %q",
+			got, notification)
 	}
 
-	postToolUse := codex.commands("PostToolUse")
+	postToolUse := hooks.commands("PostToolUse")
 	if len(postToolUse) != 2 {
-		t.Fatalf("codex wires %d PostToolUse commands, want the delivery plus the "+
+		t.Fatalf("PostToolUse wires %d commands, want the delivery plus the "+
 			"working report: %v", len(postToolUse), postToolUse)
 	}
-	if got, want := postToolUse[0], claude.commands("PostToolUse")[0]; got != want {
-		t.Errorf("codex PostToolUse delivery = %q, want the Claude one %q", got, want)
+	if !strings.Contains(postToolUse[0], "chat read --quiet") {
+		t.Errorf("first PostToolUse command = %q, want the delivering read", postToolUse[0])
 	}
-	if !strings.Contains(postToolUse[1], "report-state working") {
-		t.Errorf("codex second PostToolUse command = %q, want the working report",
-			postToolUse[1])
+	if got, want := postToolUse[1], hooks.command(t, "UserPromptSubmit"); got != want {
+		t.Errorf("second PostToolUse command = %q, want the UserPromptSubmit one %q",
+			got, want)
 	}
 }
 
-// Every event either file wires has an envelope in chatHookEnvelopes, so
+// Every event the file wires has an envelope in chatHookEnvelopes, so
 // TestChatHooks_EveryCommandIsHarmlessWithoutADaemon really does feed each one
 // what its harness would. Without this, wiring a new event would quietly hand
 // that case an empty stdin and pass for the wrong reason.
 func TestChatHooks_EveryWiredEventIsExercised(t *testing.T) {
-	for _, rel := range [][]string{chatHooksClaudePath, chatHooksCodexPath} {
-		for event := range readChatHooks(t, rel).Hooks {
-			if _, ok := chatHookEnvelopes[event]; !ok {
-				t.Errorf("event %s is wired but has no envelope in chatHookEnvelopes", event)
-			}
+	for event := range readChatHooks(t).Hooks {
+		if _, ok := chatHookEnvelopes[event]; !ok {
+			t.Errorf("event %s is wired but has no envelope in chatHookEnvelopes", event)
 		}
 	}
 }

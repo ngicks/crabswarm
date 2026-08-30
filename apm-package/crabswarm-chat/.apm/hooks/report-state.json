@@ -24,6 +24,17 @@
         ]
       }
     ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "crabswarm hook exec 'crabswarm chat report-state waiting' '{{/* records nothing, so a failed report never blocks a turn */}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PermissionRequest": [
       {
         "hooks": [
