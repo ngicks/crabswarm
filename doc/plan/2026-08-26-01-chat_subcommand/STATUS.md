@@ -45,6 +45,10 @@ HANDOFF.md folded into the issue backlog 2026-08-29 — plan COMPLETE.
 - [x] Post-review: D26 notifier "moved … into `crabswarm/chat/notify`"
       as `notify.SendKeys`; `CmdmanStatusMirror` stays in chat (user
       scoped the split to the notifier only)
+- [x] Post-review: D27 injection machinery generalized as
+      `notify.Cmdman.SendCommand` with `ErrDeclined`; "no promise …
+      about the dialog-marker set"; text and Enter sent as two separate
+      cmdman invocations (tmux paste behavior)
 
 ## Done
 

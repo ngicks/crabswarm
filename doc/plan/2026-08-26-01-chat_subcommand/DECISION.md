@@ -427,3 +427,30 @@ user resolves it.
 - **Rejected:** moving both write-side cmdman adapters together
   (offered as the recommended option; user chose notifier only);
   exporting the chat package's cmdman test stubs for reuse.
+
+### D27. Terminal injection generalized as Cmdman.SendCommand [user] [2026-08-30]
+- **Context:** a later `clear` command (typing `/new` into an interactive
+  session, or removing and restarting the container) will need the same
+  typing machinery the nudge uses.
+- **Choice:** the injection machinery moved from SendKeys into an exported
+  `notify.Cmdman` with `SendCommand(ctx, member, line)` (new file
+  crabswarm/chat/notify/cmdman.go). A guard lives in SendCommand iff it is
+  inherent to typing into a terminal (agent kind, token validity, detached
+  ctx + timeout, snapshot dialog scan); the state==done guard stays in
+  Notify as nudge policy — a future clear may target other states.
+  Declines return errors wrapping exported `ErrDeclined` (errors.Is-able);
+  Notify maps them to nil, real send failures propagate. `NewSendKeys`
+  keeps its signature and builds the inner Cmdman itself.
+- **Choice (user):** no promise anywhere about the dialog-marker set —
+  SendCommand's doc frames the scan as a best-effort, revisable heuristic
+  naming no markers, and tests build dialog fixtures from `dialogMarkers`
+  itself instead of literals, so markers can be added or removed freely.
+- **Choice (user):** text and Enter go in two separate cmdman send-keys
+  invocations — sent together, the tty treats the trailing key as pasted
+  text and the line never submits (user's tmux experience). A submit that
+  fails after the text landed is reported as an error, since the line sits
+  unsubmitted in the recipient's prompt.
+- **Rejected:** a command abstraction/interface now (one impl; the repo
+  treats speculative structure as over-engineering); `(bool, error)`
+  decline reporting (errors.Is composes better); moving the state guard
+  into SendCommand (policy, not typing safety).
