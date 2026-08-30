@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	pb "github.com/ngicks/crabswarm/api/gen/proto/go/crabhook/v1"
+	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/hook/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 	"google.golang.org/grpc"
 	"gotest.tools/v3/assert"

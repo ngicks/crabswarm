@@ -17,8 +17,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
-	"github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1/crabpreviewv1connect"
+	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
+	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1/previewv1connect"
 	"github.com/ngicks/crabswarm/crabswarm/preview/httpapi"
 	"github.com/ngicks/crabswarm/crabswarm/preview/render"
 )
@@ -30,7 +30,7 @@ const shutdownTimeout = 5 * time.Second
 // Service is the running previewer: it composes the in-memory [RootStore], a
 // shared broadcast [Hub], the markdown [render.Renderer] and one [Watcher] per
 // registered root, and serves them over HTTP (connect API + /healthz + /raw +
-// SPA static). It implements [crabpreviewv1connect.PreviewServiceHandler] so the
+// SPA static). It implements [previewv1connect.PreviewServiceHandler] so the
 // HTTP layer mounts it directly, and [httpapi.RawResolver] for /raw path safety.
 //
 // Watchers are started when a root is added and stopped when it is removed, all
@@ -59,8 +59,8 @@ type watchHandle struct {
 }
 
 var (
-	_ crabpreviewv1connect.PreviewServiceHandler = (*Service)(nil)
-	_ httpapi.RawResolver                        = (*Service)(nil)
+	_ previewv1connect.PreviewServiceHandler = (*Service)(nil)
+	_ httpapi.RawResolver                    = (*Service)(nil)
 )
 
 // New builds a previewer service from cfg. A nil logger discards logs. The
@@ -230,51 +230,51 @@ func (s *Service) startWatcherLocked(root Root) bool {
 	return true
 }
 
-// --- crabpreviewv1connect.PreviewServiceHandler ---
+// --- previewv1connect.PreviewServiceHandler ---
 
 // ListRoots returns the currently registered roots.
 func (s *Service) ListRoots(
 	_ context.Context,
-	_ *connect.Request[crabpreviewv1.ListRootsRequest],
-) (*connect.Response[crabpreviewv1.ListRootsResponse], error) {
+	_ *connect.Request[previewv1.ListRootsRequest],
+) (*connect.Response[previewv1.ListRootsResponse], error) {
 	roots := s.store.List()
-	pbRoots := make([]*crabpreviewv1.Root, len(roots))
+	pbRoots := make([]*previewv1.Root, len(roots))
 	for i, r := range roots {
 		pbRoots[i] = rootToProto(r)
 	}
-	return connect.NewResponse(&crabpreviewv1.ListRootsResponse{Roots: pbRoots}), nil
+	return connect.NewResponse(&previewv1.ListRootsResponse{Roots: pbRoots}), nil
 }
 
 // AddRoot registers a directory path as a preview root and returns it. Adding an
 // already-registered path is idempotent.
 func (s *Service) AddRoot(
 	ctx context.Context,
-	req *connect.Request[crabpreviewv1.AddRootRequest],
-) (*connect.Response[crabpreviewv1.AddRootResponse], error) {
+	req *connect.Request[previewv1.AddRootRequest],
+) (*connect.Response[previewv1.AddRootResponse], error) {
 	root, err := s.addRoot(ctx, req.Msg.GetPath())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	return connect.NewResponse(&crabpreviewv1.AddRootResponse{Root: rootToProto(root)}), nil
+	return connect.NewResponse(&previewv1.AddRootResponse{Root: rootToProto(root)}), nil
 }
 
 // RemoveRoot drops a registered root and its watcher.
 func (s *Service) RemoveRoot(
 	_ context.Context,
-	req *connect.Request[crabpreviewv1.RemoveRootRequest],
-) (*connect.Response[crabpreviewv1.RemoveRootResponse], error) {
+	req *connect.Request[previewv1.RemoveRootRequest],
+) (*connect.Response[previewv1.RemoveRootResponse], error) {
 	if _, ok := s.removeRoot(req.Msg.GetRootId()); !ok {
 		return nil, connect.NewError(connect.CodeNotFound,
 			fmt.Errorf("root %q not found", req.Msg.GetRootId()))
 	}
-	return connect.NewResponse(&crabpreviewv1.RemoveRootResponse{}), nil
+	return connect.NewResponse(&previewv1.RemoveRootResponse{}), nil
 }
 
 // GetTree lists one directory level under a root.
 func (s *Service) GetTree(
 	_ context.Context,
-	req *connect.Request[crabpreviewv1.GetTreeRequest],
-) (*connect.Response[crabpreviewv1.GetTreeResponse], error) {
+	req *connect.Request[previewv1.GetTreeRequest],
+) (*connect.Response[previewv1.GetTreeResponse], error) {
 	root, ok := s.store.Get(req.Msg.GetRootId())
 	if !ok {
 		return nil, connect.NewError(connect.CodeNotFound,
@@ -284,23 +284,23 @@ func (s *Service) GetTree(
 	if err != nil {
 		return nil, s.fsErrToConnect(err)
 	}
-	pbEntries := make([]*crabpreviewv1.TreeEntry, len(entries))
+	pbEntries := make([]*previewv1.TreeEntry, len(entries))
 	for i, e := range entries {
-		pbEntries[i] = &crabpreviewv1.TreeEntry{
+		pbEntries[i] = &previewv1.TreeEntry{
 			Name:       e.Name,
 			Type:       entryTypeToProto(e.Type),
 			IsMarkdown: e.IsMarkdown,
 		}
 	}
-	return connect.NewResponse(&crabpreviewv1.GetTreeResponse{Entries: pbEntries}), nil
+	return connect.NewResponse(&previewv1.GetTreeResponse{Entries: pbEntries}), nil
 }
 
 // GetDocument renders a markdown file under a root to HTML with its title, TOC
 // and modification time. The title falls back to the file name.
 func (s *Service) GetDocument(
 	_ context.Context,
-	req *connect.Request[crabpreviewv1.GetDocumentRequest],
-) (*connect.Response[crabpreviewv1.GetDocumentResponse], error) {
+	req *connect.Request[previewv1.GetDocumentRequest],
+) (*connect.Response[previewv1.GetDocumentResponse], error) {
 	root, ok := s.store.Get(req.Msg.GetRootId())
 	if !ok {
 		return nil, connect.NewError(connect.CodeNotFound,
@@ -328,11 +328,11 @@ func (s *Service) GetDocument(
 	if title == "" {
 		title = documentTitleFallback(req.Msg.GetPath(), abs)
 	}
-	toc := make([]*crabpreviewv1.Heading, len(doc.TOC))
+	toc := make([]*previewv1.Heading, len(doc.TOC))
 	for i, h := range doc.TOC {
-		toc[i] = &crabpreviewv1.Heading{Level: int32(h.Level), Text: h.Text, Id: h.ID}
+		toc[i] = &previewv1.Heading{Level: int32(h.Level), Text: h.Text, Id: h.ID}
 	}
-	return connect.NewResponse(&crabpreviewv1.GetDocumentResponse{
+	return connect.NewResponse(&previewv1.GetDocumentResponse{
 		Html:  string(doc.HTML),
 		Title: title,
 		Toc:   toc,
@@ -346,8 +346,8 @@ func (s *Service) GetDocument(
 // shuts down (both cancel ctx, which derives from the serve context).
 func (s *Service) WatchEvents(
 	ctx context.Context,
-	_ *connect.Request[crabpreviewv1.WatchEventsRequest],
-	stream *connect.ServerStream[crabpreviewv1.WatchEventsResponse],
+	_ *connect.Request[previewv1.WatchEventsRequest],
+	stream *connect.ServerStream[previewv1.WatchEventsResponse],
 ) error {
 	sub, unsub := s.hub.Subscribe()
 	defer unsub()
@@ -416,39 +416,39 @@ func documentTitleFallback(reqPath, abs string) string {
 	return base
 }
 
-func rootToProto(r Root) *crabpreviewv1.Root {
-	return &crabpreviewv1.Root{Id: r.ID, Path: r.Path, Name: r.Name}
+func rootToProto(r Root) *previewv1.Root {
+	return &previewv1.Root{Id: r.ID, Path: r.Path, Name: r.Name}
 }
 
-func entryTypeToProto(t EntryType) crabpreviewv1.EntryType {
+func entryTypeToProto(t EntryType) previewv1.EntryType {
 	switch t {
 	case EntryDir:
-		return crabpreviewv1.EntryType_ENTRY_TYPE_DIR
+		return previewv1.EntryType_ENTRY_TYPE_DIR
 	case EntryFile:
-		return crabpreviewv1.EntryType_ENTRY_TYPE_FILE
+		return previewv1.EntryType_ENTRY_TYPE_FILE
 	default:
-		return crabpreviewv1.EntryType_ENTRY_TYPE_UNSPECIFIED
+		return previewv1.EntryType_ENTRY_TYPE_UNSPECIFIED
 	}
 }
 
-func watchEventToProto(ev Event) *crabpreviewv1.WatchEventsResponse {
+func watchEventToProto(ev Event) *previewv1.WatchEventsResponse {
 	switch ev.Kind {
 	case DocChanged:
-		return &crabpreviewv1.WatchEventsResponse{
-			Event: &crabpreviewv1.WatchEventsResponse_DocChanged{
-				DocChanged: &crabpreviewv1.DocChanged{RootId: ev.RootID, Path: ev.Path},
+		return &previewv1.WatchEventsResponse{
+			Event: &previewv1.WatchEventsResponse_DocChanged{
+				DocChanged: &previewv1.DocChanged{RootId: ev.RootID, Path: ev.Path},
 			},
 		}
 	case TreeChanged:
-		return &crabpreviewv1.WatchEventsResponse{
-			Event: &crabpreviewv1.WatchEventsResponse_TreeChanged{
-				TreeChanged: &crabpreviewv1.TreeChanged{RootId: ev.RootID, Dir: ev.Path},
+		return &previewv1.WatchEventsResponse{
+			Event: &previewv1.WatchEventsResponse_TreeChanged{
+				TreeChanged: &previewv1.TreeChanged{RootId: ev.RootID, Dir: ev.Path},
 			},
 		}
 	case RootsChanged:
-		return &crabpreviewv1.WatchEventsResponse{
-			Event: &crabpreviewv1.WatchEventsResponse_RootsChanged{
-				RootsChanged: &crabpreviewv1.RootsChanged{},
+		return &previewv1.WatchEventsResponse{
+			Event: &previewv1.WatchEventsResponse_RootsChanged{
+				RootsChanged: &previewv1.RootsChanged{},
 			},
 		}
 	default:

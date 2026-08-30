@@ -9,7 +9,7 @@ import (
 	"github.com/ngicks/go-common/contextkey"
 	"github.com/spf13/cobra"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
+	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
 	"github.com/ngicks/crabswarm/crabswarm"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
@@ -76,7 +76,7 @@ func completePreviewRoots(
 	defer cancel()
 
 	resp, err := preview.NewClient(pcfg.Addr).
-		ListRoots(ctx, connect.NewRequest(&crabpreviewv1.ListRootsRequest{}))
+		ListRoots(ctx, connect.NewRequest(&previewv1.ListRootsRequest{}))
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

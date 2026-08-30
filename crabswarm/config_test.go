@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/hook/exec"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 	"github.com/ngicks/crabswarm/pkg/filetype"
@@ -34,6 +35,7 @@ func baseEnv(t *testing.T) {
 		envGitRepoBaseDir,
 		envXDGRuntime,
 		"XDG_CONFIG_HOME",
+		"XDG_STATE_HOME",
 		"HOME",
 	}
 	for _, k := range keys {
@@ -490,4 +492,100 @@ func TestApply_PreviewOverlay(t *testing.T) {
 	got = keep.Apply(base)
 	assert.Equal(t, got.Preview.Addr, "0.0.0.0:6419")
 	assert.Equal(t, got.Preview.DaemonName, "crabswarm-preview")
+}
+
+// The chat database path is derived from $XDG_STATE_HOME.
+func TestLoadConfig_ChatDbDefault(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv("XDG_STATE_HOME", "/state")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Chat.Db, filepath.Join("/state", "crabswarm", "chat.db"))
+	assert.Equal(t, cfg.Chat.CmdmanBin, "")
+	// No admin key by default: the admin RPCs stay shut until the operator
+	// names one.
+	assert.Equal(t, cfg.Chat.AdminRecipient, "")
+	assert.Equal(t, cfg.Chat.AdminIdentityFile, "")
+}
+
+// Without XDG_STATE_HOME the default follows the XDG fallback under $HOME.
+func TestLoadConfig_ChatDbDefaultFallsBackToHome(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv("HOME", "/home/someone")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(
+		t,
+		cfg.Chat.Db,
+		filepath.Join("/home/someone", ".local", "state", "crabswarm", "chat.db"),
+	)
+}
+
+// A chat section in the file overrides the derived default.
+func TestLoadConfig_ChatFromFile(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("XDG_STATE_HOME", "/state")
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(
+			confPath,
+			[]byte(`{"chat":{"db":"/file/chat.db","cmdman_bin":"/opt/bin/cmdman",`+
+				`"admin_recipient":"age1recipient","admin_identity_file":"~/keys/chat.key"}}`),
+			0o644,
+		),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Chat.Db, "/file/chat.db")
+	assert.Equal(t, cfg.Chat.CmdmanBin, "/opt/bin/cmdman")
+	assert.Equal(t, cfg.Chat.AdminRecipient, "age1recipient")
+	assert.Equal(t, cfg.Chat.AdminIdentityFile, "~/keys/chat.key")
+}
+
+// PartialConfig.Apply: the chat sub-partial deep-merges field-by-field — a
+// non-nil pointer overwrites, a nil one leaves the base — and does not mutate
+// the base.
+func TestApply_ChatOverlay(t *testing.T) {
+	base := Config{
+		Chat: chat.Config{
+			Db:             "/state/crabswarm/chat.db",
+			AdminRecipient: "age1base",
+		},
+	}
+
+	db := "/elsewhere/chat.db"
+	overlay := PartialConfig{Chat: chat.PartialConfig{Db: &db}}
+	got := overlay.Apply(base)
+	assert.Equal(t, got.Chat.Db, "/elsewhere/chat.db")
+	assert.Equal(t, got.Chat.CmdmanBin, "")
+	assert.Equal(t, got.Chat.AdminRecipient, "age1base")
+
+	// An explicit empty recipient applies: it is how a layer turns the admin
+	// RPCs back off.
+	empty := ""
+	identity := "~/keys/chat.key"
+	off := PartialConfig{Chat: chat.PartialConfig{
+		AdminRecipient:    &empty,
+		AdminIdentityFile: &identity,
+	}}
+	got = off.Apply(base)
+	assert.Equal(t, got.Chat.AdminRecipient, "")
+	assert.Equal(t, got.Chat.AdminIdentityFile, "~/keys/chat.key")
+
+	// The base is unchanged.
+	assert.Equal(t, base.Chat.Db, "/state/crabswarm/chat.db")
+	assert.Equal(t, base.Chat.AdminRecipient, "age1base")
+
+	// A zero sub-partial merges nothing.
+	keep := PartialConfig{}
+	got = keep.Apply(base)
+	assert.Equal(t, got.Chat.Db, "/state/crabswarm/chat.db")
+	assert.Equal(t, got.Chat.AdminRecipient, "age1base")
 }

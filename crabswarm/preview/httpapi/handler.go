@@ -18,7 +18,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1/crabpreviewv1connect"
+	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1/previewv1connect"
 	"github.com/ngicks/crabswarm/crabswarm/preview/render"
 	"github.com/ngicks/crabswarm/crabswarm/preview/render/alert"
 )
@@ -42,7 +42,7 @@ type Config struct {
 	Logger *slog.Logger
 	// Connect is the PreviewService implementation mounted at the connect
 	// route. It is the only inbound RPC surface.
-	Connect crabpreviewv1connect.PreviewServiceHandler
+	Connect previewv1connect.PreviewServiceHandler
 	// Raw resolves /raw requests to absolute filesystem paths with path-escape
 	// rejection.
 	Raw RawResolver
@@ -63,7 +63,7 @@ func New(cfg Config) http.Handler {
 
 	mux := http.NewServeMux()
 
-	connectPath, connectHandler := crabpreviewv1connect.NewPreviewServiceHandler(
+	connectPath, connectHandler := previewv1connect.NewPreviewServiceHandler(
 		cfg.Connect,
 		cfg.ConnectOpts...)
 	mux.Handle(connectPath, connectHandler)

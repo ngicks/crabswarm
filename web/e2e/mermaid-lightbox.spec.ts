@@ -18,7 +18,7 @@ let docUrl: string;
 test.beforeAll(async () => {
   // Connect RPC accepts plain JSON POSTs; roots are process-local, so
   // re-registering the same path on every run is idempotent daemon state.
-  const resp = await fetch(`${E2E_BASE_URL}/crabpreview.v1.PreviewService/AddRoot`, {
+  const resp = await fetch(`${E2E_BASE_URL}/ngicks.crabswarm.preview.v1.PreviewService/AddRoot`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ path: fixtureDir }),

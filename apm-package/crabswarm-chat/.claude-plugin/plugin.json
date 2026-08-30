@@ -1,0 +1,15 @@
+{
+  "name": "crabswarm-chat",
+  "version": "0.1.0",
+  "description": "Puts a Claude Code session into its crabswarm chat room: joins on start, delivers teammates' messages mid-turn and at turn end, and reports harness state.",
+  "author": {
+    "name": "ngicks"
+  },
+  "repository": "https://github.com/ngicks/crabswarm",
+  "license": "Unlicense",
+  "keywords": [
+    "crabswarm",
+    "chat",
+    "multi-agent"
+  ]
+}

@@ -23,7 +23,7 @@ const placeholderIndexHTML = `<!doctype html>
 <main>
 <h1>crabswarm preview</h1>
 <p>The preview web UI is not embedded in this build. The API is available under
-<code>/crabpreview.v1.PreviewService/</code>.</p>
+<code>/ngicks.crabswarm.preview.v1.PreviewService/</code>.</p>
 </main>
 </body>
 </html>

@@ -14,6 +14,7 @@ import (
 
 	"github.com/caarlos0/env/v11"
 
+	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/hook/exec"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
@@ -47,6 +48,9 @@ type Config struct {
 	// Preview is the configuration consumed by `crabswarm preview`
 	// (nested sub-config: deep-merged).
 	Preview preview.Config `json:"preview" yaml:"preview"`
+	// Chat is the configuration of the chat broker the server hosts
+	// (nested sub-config: deep-merged).
+	Chat chat.Config `json:"chat" yaml:"chat"`
 }
 
 // DefaultConfig is the lowest-precedence layer. The path-like defaults are
@@ -54,15 +58,20 @@ type Config struct {
 // socket, the home dir for the repo base) so they are correct per host; file,
 // env, and flag layers override them in turn.
 //
-// These env reads (XDG_RUNTIME_DIR, the user home dir) are DEFAULT DERIVATION,
-// not crabswarm config overrides: they compute a per-host default rather than
-// reading a crabswarm-owned variable, so they live here in DefaultConfig and
-// are not routed through PartialConfig / caarlos0/env.
+// These env reads (XDG_RUNTIME_DIR, XDG_STATE_HOME, the user home dir) are
+// DEFAULT DERIVATION, not crabswarm config overrides: they compute a per-host
+// default rather than reading a crabswarm-owned variable, so they live here in
+// DefaultConfig and are not routed through PartialConfig / caarlos0/env.
 func DefaultConfig() Config {
 	return Config{
 		Sock:           defaultSockPath(),
 		GitRepoBaseDir: defaultGitRepoBaseDir(),
 		Preview:        preview.Default(),
+		// The chat package has no Default of its own: the database path is
+		// host-derived, which only this layer knows how to do, and its other
+		// keys already say something when empty — "cmdman, resolved on PATH"
+		// and "no admin key configured".
+		Chat: chat.Config{Db: defaultChatDbPath()},
 	}
 }
 
@@ -112,6 +121,7 @@ type PartialConfig struct {
 	GitListIgnorePatterns []string              `json:"git_list_ignore_patterns,omitzero" yaml:"git_list_ignore_patterns,omitempty" env:"GIT_LIST_IGNORE_PATTERNS"`
 	HookExec              exec.PartialConfig    `json:"hook_exec,omitzero" yaml:"hook_exec,omitempty"`
 	Preview               preview.PartialConfig `json:"preview,omitzero" yaml:"preview,omitempty"`
+	Chat                  chat.PartialConfig    `json:"chat,omitzero" yaml:"chat,omitempty"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged Config.
@@ -136,6 +146,7 @@ func (p PartialConfig) Apply(base Config) Config {
 	}
 	base.HookExec = p.HookExec.Apply(base.HookExec)
 	base.Preview = p.Preview.Apply(base.Preview)
+	base.Chat = p.Chat.Apply(base.Chat)
 	return base
 }
 
@@ -260,6 +271,22 @@ func defaultSockPath() string {
 		runtimeDir = "/tmp"
 	}
 	return filepath.Join(runtimeDir, "crabswarm", "default.sock")
+}
+
+// defaultChatDbPath derives the chat database path from $XDG_STATE_HOME,
+// falling back to the XDG default $HOME/.local/state when it is unset. It
+// returns "" when no home dir is resolvable either, leaving the field empty.
+// This is default derivation (see DefaultConfig), not a config override.
+func defaultChatDbPath() string {
+	stateDir := os.Getenv("XDG_STATE_HOME")
+	if stateDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil || home == "" {
+			return ""
+		}
+		stateDir = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(stateDir, "crabswarm", "chat.db")
 }
 
 // defaultGitRepoBaseDir derives $HOME/gitrepo via the platform-native home dir.

@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  # Both inputs are directories rather than files: adding a DDL or query file
+  # is then a drop-in, with no config edit to forget.
+  - engine: "sqlite"
+    schema: "ddl"
+    queries: "queries"
+    gen:
+      go:
+        package: "db"
+        out: "../db"

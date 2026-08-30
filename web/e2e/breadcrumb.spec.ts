@@ -21,7 +21,7 @@ let rootId: string;
 let rootName: string;
 
 test.beforeAll(async () => {
-  const resp = await fetch(`${E2E_BASE_URL}/crabpreview.v1.PreviewService/AddRoot`, {
+  const resp = await fetch(`${E2E_BASE_URL}/ngicks.crabswarm.preview.v1.PreviewService/AddRoot`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ path: fixtureDir }),

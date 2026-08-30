@@ -14,7 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	crabpreviewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/crabpreview/v1"
+	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
 
@@ -51,7 +51,7 @@ func TestPreviewServe(t *testing.T) {
 
 	// AddRoot: register the temp directory.
 	addResp, err := client.AddRoot(rpcCtx,
-		connect.NewRequest(&crabpreviewv1.AddRootRequest{Path: root}))
+		connect.NewRequest(&previewv1.AddRootRequest{Path: root}))
 	if err != nil {
 		t.Fatalf("AddRoot: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestPreviewServe(t *testing.T) {
 	// GetDocument: the first h1 becomes the title and appears in the rendered
 	// HTML.
 	docResp, err := client.GetDocument(rpcCtx,
-		connect.NewRequest(&crabpreviewv1.GetDocumentRequest{RootId: rootID, Path: "doc.md"}))
+		connect.NewRequest(&previewv1.GetDocumentRequest{RootId: rootID, Path: "doc.md"}))
 	if err != nil {
 		t.Fatalf("GetDocument: %v", err)
 	}
@@ -85,11 +85,11 @@ func TestPreviewServe(t *testing.T) {
 	watchCtx, watchCancel := context.WithTimeout(rpcCtx, 30*time.Second)
 	defer watchCancel()
 
-	events := make(chan *crabpreviewv1.WatchEventsResponse, 8)
+	events := make(chan *previewv1.WatchEventsResponse, 8)
 	errs := make(chan error, 1)
 	go func() {
 		stream, err := client.WatchEvents(watchCtx,
-			connect.NewRequest(&crabpreviewv1.WatchEventsRequest{}))
+			connect.NewRequest(&previewv1.WatchEventsRequest{}))
 		if err != nil {
 			errs <- err
 			return

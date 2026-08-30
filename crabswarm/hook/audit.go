@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	pb "github.com/ngicks/crabswarm/api/gen/proto/go/crabhook/v1"
+	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/hook/v1"
 	"github.com/ngicks/crabswarm/pkg/claudehook/handler"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
