@@ -88,7 +88,8 @@ so the block lands in `.codex/hooks.json` and never becomes a hook there.
 | --- | --- | --- |
 | `SessionStart` | `crabswarm chat join` | Attend the room. Idempotent, so the duplicate SessionStart a resumed session fires is harmless. |
 | `UserPromptSubmit` | `crabswarm chat report-state working` | A turn began. |
-| `Notification` | `crabswarm chat report-state waiting` | A prompt is open — Claude Code only (see the caveat below). |
+| `Notification` (`permission_prompt`) | `crabswarm chat report-state waiting` | A permission prompt is open — Claude Code only. |
+| `Notification` (`idle_prompt`) | `crabswarm chat report-state done` | The session has been sitting quiet for about a minute — Claude Code only (see below). |
 | `PermissionRequest` | `crabswarm chat report-state waiting` | An approval dialog is about to open. |
 | `PostToolUse` | `crabswarm chat read --quiet`, then `crabswarm chat report-state working` | Deliver messages that arrived mid-turn as `additionalContext`; the dialog, if there was one, has resolved. |
 | `Stop` | `crabswarm chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; block the stop when it had mail, otherwise report done. |
@@ -209,24 +210,27 @@ The last line of defence is outside this package: the daemon nudges the terminal
 of an agent that reported `done` (`[crabswarm chat] new message from ...`),
 which the skill teaches the agent to answer with `crabswarm chat read`.
 
-### Caveat: `Notification` also fires when the session goes idle
+### The idle notification is how an interrupted turn heals
 
-Claude Code's `Notification` hook fires both for a permission prompt and for
-the idle prompt some time after a turn ends. This wiring maps both to
-`waiting`, which means an idle-prompt notification overwrites the `done`
-the Stop hook just reported — and the daemon only nudges **done** members. An
-agent left alone long enough therefore stops receiving terminal nudges until
-its next turn; its messages still arrive, just at the next turn boundary
-instead of immediately.
+Claude Code's `Notification` hook fires for a permission prompt and again for
+the idle prompt roughly a minute after Claude stops responding, and its matcher
+selects on the event's `notification_type`. The two are wired apart because they
+mean opposite things: `permission_prompt` is a member blocked on a dialog,
+`idle_prompt` is a member with nothing left to do.
 
-`PermissionRequest` now covers the permission prompt on its own, so what
-`Notification` still adds on Claude Code is the idle case — which is the half
-this mapping gets wrong. The refinement is to branch on the event's
-`notification_type` — a permission prompt is `waiting`, an idle prompt is
-`done`, which is precisely where a nudge is meant to land; dropping
-`Notification` outright is the other way out. Both want the exact
-`notification_type` values confirmed against a live session first, so the simple
-mapping stands for now.
+The idle branch is the only path back for a turn the user interrupted. `Stop`
+hooks do not run when a session is cancelled with ESC, so the member keeps
+whatever the last report left it in — `working` after a tool call, `waiting` if
+a dialog was open — and the daemon only nudges **done** members. Without the idle branch that member stops
+receiving terminal nudges until it takes another turn, which is exactly the turn
+nobody is there to start. Reporting `done` on the idle prompt re-arms the nudge
+without the agent doing anything.
+
+Every other notification type — `elicitation_complete`, `elicitation_response`,
+`auth_success` — now reports nothing rather than `waiting`. That is deliberate:
+`PermissionRequest` covers the dialog case on both harnesses on its own, and a
+catch-all group would also match `idle_prompt` and race a `waiting` report
+against the `done` one, which is the wedge this split exists to remove.
 
 ## Codex
 
@@ -271,7 +275,9 @@ What Codex ends up running:
 
 The one difference from what Claude Code runs is the missing `Notification`:
 `PermissionRequest` covers the dialog case, and nothing on Codex covers a
-session sitting idle.
+session sitting idle. So the split above buys Codex nothing, and an interrupted
+turn stays wedged there until the member takes another one — Codex announces no
+event that says "this session has gone quiet", so there is nothing to wire.
 
 Codex's `notify` program (`agent-turn-complete`) could report `done` redundantly,
 but the Stop hook already does it — no `config.toml` change ships here.

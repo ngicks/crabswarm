@@ -26,10 +26,21 @@
     ],
     "Notification": [
       {
+        "matcher": "permission_prompt",
         "hooks": [
           {
             "type": "command",
             "command": "crabswarm hook exec 'crabswarm chat report-state waiting' '{{/* records nothing, so a failed report never blocks a turn */}}'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "crabswarm hook exec 'crabswarm chat report-state done' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]

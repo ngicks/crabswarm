@@ -84,6 +84,28 @@ func (c chatHookConfig) command(t *testing.T, event string) string {
 	return got[0]
 }
 
+// commandForMatcher returns the single command event wires under matcher. The
+// lookup is by the matcher string itself rather than by position, so a typo in
+// it fails here — a hook whose matcher matches no notification type is a hook
+// that silently never runs, which no other case would notice.
+func (c chatHookConfig) commandForMatcher(t *testing.T, event, matcher string) string {
+	t.Helper()
+	var got []string
+	for _, m := range c.Hooks[event] {
+		if m.Matcher != matcher {
+			continue
+		}
+		for _, h := range m.Hooks {
+			got = append(got, h.Command)
+		}
+	}
+	if len(got) != 1 {
+		t.Fatalf("event %s matcher %q wires %d commands, want exactly 1: %v",
+			event, matcher, len(got), got)
+	}
+	return got[0]
+}
+
 // The envelopes the harnesses write to a hook's stdin, one per event this
 // package wires. Only the fields the hook commands actually read matter — the
 // Stop flag above all — but each carries the envelope metadata a real harness
@@ -118,7 +140,19 @@ const (
 		`"transcript_path":"/tmp/e2e.jsonl",` +
 		`"cwd":"/tmp",` +
 		`"hook_event_name":"Notification",` +
-		`"message":"Claude needs your permission to run a command"}`
+		`"message":"Claude needs your permission to run a command",` +
+		`"title":"Permission needed",` +
+		`"notification_type":"permission_prompt"}`
+	// The other half of the Notification event: Claude Code announces a session
+	// that has gone quiet about a minute after it stopped responding, and that is
+	// the envelope the idle group is selected by.
+	chatIdleNotificationEnvelope = `{` +
+		`"session_id":"sess-e2e",` +
+		`"transcript_path":"/tmp/e2e.jsonl",` +
+		`"cwd":"/tmp",` +
+		`"hook_event_name":"Notification",` +
+		`"message":"Claude is waiting for your input",` +
+		`"notification_type":"idle_prompt"}`
 	// The approval dialog both harnesses announce. Codex has no other event for
 	// it, and it is the envelope that says whether `hook exec` speaks Codex's
 	// half of the surface at all.
@@ -141,6 +175,24 @@ var chatHookEnvelopes = map[string]string{
 	"PermissionRequest": chatPermissionRequestEnvelope,
 	"PostToolUse":       postToolUseEnvelope,
 	"Stop":              chatStopEnvelope,
+}
+
+// chatMatcherEnvelopes overrides chatHookEnvelopes for the matcher groups a
+// harness feeds something other than the event's default. Claude Code routes
+// Notification by `notification_type`, so the idle group only ever sees an idle
+// envelope, and a case that fed it the permission one would be exercising a
+// pairing that cannot happen.
+var chatMatcherEnvelopes = map[string]string{
+	"Notification/idle_prompt": chatIdleNotificationEnvelope,
+}
+
+// chatHookEnvelope is the stdin a harness gives the group event wires under
+// matcher.
+func chatHookEnvelope(event, matcher string) string {
+	if e, ok := chatMatcherEnvelopes[event+"/"+matcher]; ok {
+		return e
+	}
+	return chatHookEnvelopes[event]
 }
 
 // chatSentText is what a teammate sends in the delivery cases. The double quote
@@ -399,11 +451,13 @@ func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
 	cfg := chatAbsentDaemonConfig(t)
 	hooks := readChatHooks(t)
 	for _, event := range slices.Sorted(maps.Keys(hooks.Hooks)) {
-		for i, command := range hooks.commands(event) {
-			t.Run(fmt.Sprintf("%s/%d", event, i), func(t *testing.T) {
-				assertHookIsSilent(t,
-					runChatHook(t, cfg, "tok-ana", command, chatHookEnvelopes[event]))
-			})
+		for _, group := range hooks.Hooks[event] {
+			envelope := chatHookEnvelope(event, group.Matcher)
+			for i, h := range group.Hooks {
+				t.Run(fmt.Sprintf("%s/%s/%d", event, group.Matcher, i), func(t *testing.T) {
+					assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", h.Command, envelope))
+				})
+			}
 		}
 	}
 }
@@ -429,6 +483,42 @@ func TestChatHooks_SessionStartAttendsTheRoom(t *testing.T) {
 		return strings.HasPrefix(m, "beta/")
 	}) {
 		t.Errorf("members = %v, want the hook's join to have attended under team beta", members)
+	}
+}
+
+// Interrupting a turn with ESC runs no Stop hook, so the member keeps whatever
+// the last report left it in — `working` after a tool call, `waiting` after a
+// dialog — and the daemon only nudges members that reported `done`. Claude
+// Code's idle notification is the way out: about a minute after the session goes
+// quiet it fires with `notification_type` `idle_prompt`, and that group reports
+// done, which re-arms the nudge without the member taking a turn it has nobody
+// to start.
+//
+// The state is read back off the stub cmdman's status log, the same surface
+// TestChat_MirrorsMemberStateOntoCmdmanStatus pins: the daemon publishes every
+// report there, so the whole trail is visible rather than just the last state.
+func TestChatHooks_IdleNotificationRecoversAnInterruptedTurn(t *testing.T) {
+	idle := readChatHooks(t).commandForMatcher(t, "Notification", "idle_prompt")
+
+	for _, stuck := range []string{"working", "waiting"} {
+		t.Run("interrupted while "+stuck, func(t *testing.T) {
+			cfg := startChatDaemon(t)
+			runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+			runChat(t, cfg, "tok-ana", "report-state", stuck)
+
+			assertHookIsSilent(t,
+				runChatHook(t, cfg, "tok-ana", idle, chatIdleNotificationEnvelope))
+
+			got := stubStatus(t, cfg)
+			want := []string{
+				"set done tok-ana --detail crabswarm chat",
+				"set " + stuck + " tok-ana --detail crabswarm chat",
+				"set done tok-ana --detail crabswarm chat",
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("cmdman status invocations =\n%q\nwant\n%q", got, want)
+			}
+		})
 	}
 }
 
@@ -512,16 +602,24 @@ func assertSelfContainedHookEntry(t *testing.T, event string, h chatHookEntry) {
 // `PostToolUse` reports working again after the delivery, which is Codex's only
 // signal that a dialog resolved and Claude Code's way back out of `waiting`
 // once a permission is granted.
+//
+// `Notification` is split by `notification_type`: the permission prompt is the
+// half that pairs with `PermissionRequest`, and the idle prompt is the opposite
+// report, so a catch-all group would race the two.
 func TestChatHooks_WireTheUnionOfBothHarnesses(t *testing.T) {
 	hooks := readChatHooks(t)
 
-	notification := hooks.command(t, "Notification")
+	notification := hooks.commandForMatcher(t, "Notification", "permission_prompt")
 	if !strings.Contains(notification, "report-state waiting") {
-		t.Errorf("Notification command = %q, want it to report waiting", notification)
+		t.Errorf("permission_prompt command = %q, want it to report waiting", notification)
 	}
 	if got := hooks.command(t, "PermissionRequest"); got != notification {
 		t.Errorf("PermissionRequest command = %q, want the Notification one %q",
 			got, notification)
+	}
+	idle := hooks.commandForMatcher(t, "Notification", "idle_prompt")
+	if !strings.Contains(idle, "report-state done") {
+		t.Errorf("idle_prompt command = %q, want it to report done", idle)
 	}
 
 	postToolUse := hooks.commands("PostToolUse")
