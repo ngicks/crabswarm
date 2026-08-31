@@ -34,6 +34,16 @@ const testRoom = "/work/proj"
 func startSession(t *testing.T, svc *fakeChatService) *mcp.ClientSession {
 	t.Helper()
 
+	return startSessionWith(t, svc, nil)
+}
+
+// startSessionWith is [startSession] for a harness that listens for what the
+// bridge announces, rather than only calling it.
+func startSessionWith(
+	t *testing.T, svc *fakeChatService, opts *mcp.ClientOptions,
+) *mcp.ClientSession {
+	t.Helper()
+
 	bridge, err := New(slog.New(slog.DiscardHandler), serveTestDaemon(t, svc), testToken)
 	assert.NilError(t, err)
 
@@ -42,7 +52,7 @@ func startSession(t *testing.T, svc *fakeChatService) *mcp.ClientSession {
 	var served errgroup.Group
 	served.Go(func() error { return bridge.serve(ctx, serverSide) })
 
-	client := mcp.NewClient(&mcp.Implementation{Name: "test-harness", Version: "v0"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-harness", Version: "v0"}, opts)
 	session, err := client.Connect(t.Context(), clientSide, nil)
 	assert.NilError(t, err)
 

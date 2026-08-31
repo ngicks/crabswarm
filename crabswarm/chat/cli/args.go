@@ -37,6 +37,20 @@ func ParseHarnessState(s string) (chatv1.HarnessState, error) {
 	return state, nil
 }
 
+// HarnessStateName spells a reported state as the word [ParseHarnessState]
+// takes, so a caller presenting a member's state and a caller setting one use
+// the same three words. A state outside them — the unspecified one, which is
+// what a member built without a state carries — reads as "unknown", since that
+// is what it tells whoever is reading.
+func HarnessStateName(state chatv1.HarnessState) string {
+	for _, name := range HarnessStateNames() {
+		if harnessStates[name] == state {
+			return name
+		}
+	}
+	return "unknown"
+}
+
 // ParseQualifiedName splits the "team/name" form the admin verbs address a
 // member by. Admin RPCs carry team and name as separate fields, but a member is
 // written as one word everywhere else — in `chat members` output and in the

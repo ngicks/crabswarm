@@ -107,14 +107,19 @@ func memberLeftEvent(m Member) *chatv1.RoomEvent {
 	}
 }
 
-// memberStateChangedEvent announces the state m now reports. It takes the
-// reported state rather than the stored one so nothing has to map a
-// [MemberState] back onto the wire enum it came from.
+// memberStateChangedEvent announces the state m now reports. The state is an
+// argument rather than something read off m: m is the member as it stood
+// before the report landed, which is the one state the event must not carry.
 func memberStateChangedEvent(m Member, state chatv1.HarnessState) *chatv1.RoomEvent {
+	member := memberProto(m)
+	// m was read before the new state was recorded, so the state it carries is
+	// the one being replaced. Announcing the member as still being in it, beside
+	// the state it just moved to, would make the event contradict itself.
+	member.State = state
 	return &chatv1.RoomEvent{
 		Event: &chatv1.RoomEvent_MemberStateChanged{
 			MemberStateChanged: &chatv1.MemberStateChanged{
-				Member: memberProto(m),
+				Member: member,
 				State:  state,
 			},
 		},

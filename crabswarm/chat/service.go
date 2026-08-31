@@ -315,8 +315,30 @@ func storeStatus(err error) error {
 	}
 }
 
+// harnessStateProto maps the stored state back onto the wire enum. Unlike
+// [memberState] it refuses nothing: a [Member] carrying no state is one nobody
+// recorded a state for, which is a member to describe rather than a request to
+// turn down.
+func harnessStateProto(state MemberState) chatv1.HarnessState {
+	switch state {
+	case StateWorking:
+		return chatv1.HarnessState_HARNESS_STATE_WORKING
+	case StateWaiting:
+		return chatv1.HarnessState_HARNESS_STATE_WAITING
+	case StateDone:
+		return chatv1.HarnessState_HARNESS_STATE_DONE
+	default:
+		return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED
+	}
+}
+
 func memberProto(m Member) *chatv1.Member {
-	return &chatv1.Member{Name: m.Name, Team: m.Team, Room: m.Room}
+	return &chatv1.Member{
+		Name:  m.Name,
+		Team:  m.Team,
+		Room:  m.Room,
+		State: harnessStateProto(m.State),
+	}
 }
 
 func senderProto(s Sender) *chatv1.Member {

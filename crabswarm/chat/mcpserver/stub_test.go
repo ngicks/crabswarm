@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -39,11 +41,45 @@ type fakeChatService struct {
 	messages  []*chatv1.Message
 	members   []*chatv1.Member
 
+	// watchFailures is how many WatchRoom calls are refused before one is
+	// served, which is how a test plays the daemon dropping a watcher that fell
+	// behind. It is set before the bridge starts and never written again.
+	watchFailures int
+	// events is the room feed a served WatchRoom forwards. Unbuffered on
+	// purpose: a test that handed over an event knows the stub took it, which
+	// is the only synchronisation either side needs.
+	events chan *chatv1.RoomEvent
+
 	mu        sync.Mutex
 	join      *chatv1.JoinRequest
 	send      *chatv1.SendRequest
 	broadcast *chatv1.BroadcastRequest
 	reads     int
+	watches   int
+}
+
+func (f *fakeChatService) WatchRoom(
+	_ *chatv1.WatchRoomRequest,
+	stream grpc.ServerStreamingServer[chatv1.RoomEvent],
+) error {
+	f.mu.Lock()
+	f.watches++
+	refuse := f.watches <= f.watchFailures
+	f.mu.Unlock()
+	if refuse {
+		return status.Error(codes.ResourceExhausted, "watcher fell behind")
+	}
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ev := <-f.events:
+			if err := stream.Send(ev); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 func (f *fakeChatService) Join(
@@ -127,10 +163,17 @@ func (f *fakeChatService) readCount() int {
 	return f.reads
 }
 
+func (f *fakeChatService) watchCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.watches
+}
+
 // serveTestDaemon starts the stub on a Unix socket behind the daemon's own
-// [chat.UnaryTokenInterceptor] and returns the socket path. A real socket
-// rather than a bufconn because [New] takes a path and dials it itself, which
-// is the half of startup worth exercising.
+// token interceptors and returns the socket path. A real socket rather than a
+// bufconn because [New] takes a path and dials it itself, which is the half of
+// startup worth exercising. Both interceptors, because the bridge watches the
+// room over the streaming half as well.
 func serveTestDaemon(t *testing.T, svc chatv1.ChatServiceServer) string {
 	t.Helper()
 
@@ -138,7 +181,10 @@ func serveTestDaemon(t *testing.T, svc chatv1.ChatServiceServer) string {
 	lis, err := net.Listen("unix", sock)
 	assert.NilError(t, err)
 
-	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()))
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()),
+		grpc.ChainStreamInterceptor(chat.StreamTokenInterceptor()),
+	)
 	chatv1.RegisterChatServiceServer(srv, svc)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)

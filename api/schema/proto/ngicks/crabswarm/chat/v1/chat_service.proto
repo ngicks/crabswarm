@@ -96,6 +96,11 @@ message Member {
   // Room is the chat room. The cmdman-compose provider derives it from the
   // working directory of the caller's command.
   string room = 3;
+  // State is the harness state the member last reported, which is what tells
+  // a reader whether the member can be interrupted. It is unspecified where no
+  // state was recorded alongside the member: the sender a delivered message
+  // carries is the identity as of send time rather than a live member.
+  HarnessState state = 4;
 }
 
 // Room is a chat room and its current attendance.

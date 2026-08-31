@@ -12,6 +12,11 @@
 // [cli.Client], and hands back the text that client rendered. That is what
 // keeps a tool result and a CLI verb's output the same words: a room reads the
 // same whether a member is wired to it through MCP or through a shell.
+//
+// Beside the tools, the room's attendance is offered as a subscribable
+// resource, so a harness can hold a view of who is around and what each of them
+// is doing instead of spending a turn asking. That one is answered as
+// structured data rather than in the CLI's words: its reader is the harness.
 package mcpserver
 
 import (
@@ -46,6 +51,13 @@ type Server struct {
 	// answer would tell the first nothing it did not already know.
 	joinMu sync.Mutex
 	joined bool
+
+	// watchWanted is closed by the first subscription to the members resource,
+	// which is what starts the room's event feed. A channel rather than a
+	// context held on the struct: the feed belongs to the session Run serves,
+	// and this is how the subscription reaches the goroutine that owns it.
+	watchWanted chan struct{}
+	watchOnce   sync.Once
 }
 
 // New dials sockPath, resolves identity for token, and prepares the MCP
@@ -70,15 +82,21 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		logger: logger,
-		client: client,
-		token:  token,
-		mcp: mcp.NewServer(
-			&mcp.Implementation{Name: serverName, Version: libver.Version},
-			&mcp.ServerOptions{Logger: logger},
-		),
+		logger:      logger,
+		client:      client,
+		token:       token,
+		watchWanted: make(chan struct{}),
 	}
+	s.mcp = mcp.NewServer(
+		&mcp.Implementation{Name: serverName, Version: libver.Version},
+		&mcp.ServerOptions{
+			Logger:             logger,
+			SubscribeHandler:   s.subscribed,
+			UnsubscribeHandler: s.unsubscribed,
+		},
+	)
 	s.addTools()
+	s.addResources()
 	return s, nil
 }
 
@@ -103,6 +121,13 @@ func (s *Server) serve(ctx context.Context, transport mcp.Transport) error {
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		s.joinWithRetry(gctx)
+		return nil
+	})
+	g.Go(func() error {
+		// Waits for a subscription before it watches anything, so the feed
+		// exists only for a session that asked for it and ends with that
+		// session rather than with the process.
+		s.watchMembers(gctx)
 		return nil
 	})
 	g.Go(func() error {

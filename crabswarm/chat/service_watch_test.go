@@ -140,6 +140,42 @@ func TestService_WatchRoomStreamsWhatHappensInTheRoom(t *testing.T) {
 	waitUnwatched(t, svc.store, "/work")
 }
 
+// A watched member carries its state, and a state change carries the state it
+// changed to. The member snapshot the daemon builds the event from is read
+// before the new state is stored, so an event reporting the member as still
+// working beside a state saying it is done would contradict itself.
+func TestService_WatchRoomCarriesTheStateEachMemberIsIn(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
+	provider.vouch("tok-b", "/work", "alpha")
+
+	sub := svc.store.events.subscribe("/work")
+	defer svc.store.events.unsubscribe(sub)
+
+	_, err := svc.Join(callCtx(t, "tok-b"), &chatv1.JoinRequest{Name: "bob"})
+	assert.NilError(t, err)
+	for _, state := range []chatv1.HarnessState{
+		chatv1.HarnessState_HARNESS_STATE_WORKING,
+		chatv1.HarnessState_HARNESS_STATE_DONE,
+	} {
+		_, err = svc.ReportState(callCtx(t, "tok-b"),
+			&chatv1.ReportStateRequest{State: state})
+		assert.NilError(t, err)
+	}
+
+	joined := nextEvent(t, sub.events).GetMemberJoined()
+	assert.Equal(t, joined.GetMember().GetState(),
+		chatv1.HarnessState_HARNESS_STATE_DONE)
+	for _, want := range []chatv1.HarnessState{
+		chatv1.HarnessState_HARNESS_STATE_WORKING,
+		chatv1.HarnessState_HARNESS_STATE_DONE,
+	} {
+		changed := nextEvent(t, sub.events).GetMemberStateChanged()
+		assert.Equal(t, changed.GetState(), want)
+		assert.Equal(t, changed.GetMember().GetState(), want)
+	}
+}
+
 // Re-declared attendance is not news: nothing about the room changed.
 func TestService_WatchRoomIgnoresARepeatedJoin(t *testing.T) {
 	svc, provider, _ := newTestService(t)
