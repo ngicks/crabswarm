@@ -1,7 +1,7 @@
 {
   "name": "crabswarm-chat",
   "version": "0.1.0",
-  "description": "Puts a Claude Code session into its crabswarm chat room: joins on start, delivers teammates' messages mid-turn and at turn end, and reports harness state.",
+  "description": "Puts a Claude Code session into its crabswarm chat room: an MCP bridge attends the room and serves the chat verbs as tools, while hooks deliver teammates' messages mid-turn and at turn end and report harness state.",
   "author": {
     "name": "ngicks"
   },

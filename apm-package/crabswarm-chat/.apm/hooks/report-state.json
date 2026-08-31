@@ -1,18 +1,6 @@
 {
   "version": 1,
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "crabswarm hook exec 'crabswarm chat join' '{{/* records nothing, so a chat that is not there never blocks a session */}}'",
-            "timeout": 10,
-            "statusMessage": "Joining the crabswarm chat room..."
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [

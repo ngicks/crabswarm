@@ -123,12 +123,6 @@ const (
 		`"cwd":"/tmp",` +
 		`"hook_event_name":"Stop",` +
 		`"stop_hook_active":true}`
-	chatSessionStartEnvelope = `{` +
-		`"session_id":"sess-e2e",` +
-		`"transcript_path":"/tmp/e2e.jsonl",` +
-		`"cwd":"/tmp",` +
-		`"hook_event_name":"SessionStart",` +
-		`"source":"startup"}`
 	chatUserPromptSubmitEnvelope = `{` +
 		`"session_id":"sess-e2e",` +
 		`"transcript_path":"/tmp/e2e.jsonl",` +
@@ -169,7 +163,6 @@ const (
 // it. TestChatHooks_EveryWiredEventIsExercised keeps it exhaustive, so wiring a
 // new event without an envelope fails rather than going untested.
 var chatHookEnvelopes = map[string]string{
-	"SessionStart":      chatSessionStartEnvelope,
 	"UserPromptSubmit":  chatUserPromptSubmitEnvelope,
 	"Notification":      chatNotificationEnvelope,
 	"PermissionRequest": chatPermissionRequestEnvelope,
@@ -462,27 +455,26 @@ func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
 	}
 }
 
-// The fire-and-forget hooks are silent by design, which makes "it did nothing"
-// and "it worked" look alike from the outside. SessionStart is the one whose
-// effect the room reports back, so it is checked against a live daemon: the
-// hook's bare `chat join` takes the name the daemon derives from the token.
-func TestChatHooks_SessionStartAttendsTheRoom(t *testing.T) {
-	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+// No hook attends the room any more. The MCP bridge the package declares in
+// its apm.yml joins as it starts, so a `SessionStart` hook running
+// `crabswarm chat join` beside it would be a second automatic join for the same
+// session — and the wiring having one join path is the kind of fact a later
+// edit undoes by reflex, since re-adding a hook entry breaks nothing loudly.
+func TestChatHooks_LeaveTheJoinToTheBridge(t *testing.T) {
 	hooks := readChatHooks(t)
-
-	res := runChatHook(t, cfg, "tok-cid", hooks.command(t, "SessionStart"),
-		chatSessionStartEnvelope)
-	assertHookIsSilent(t, res)
-
-	members := lines(runChat(t, cfg, "tok-ana", "members"))
-	if len(members) != 2 {
-		t.Fatalf("members = %v, want ana plus the member the hook joined", members)
+	if groups, ok := hooks.Hooks["SessionStart"]; ok {
+		t.Errorf("SessionStart is wired again (%d group(s)); the MCP bridge attends the room",
+			len(groups))
 	}
-	if !slices.ContainsFunc(members, func(m string) bool {
-		return strings.HasPrefix(m, "beta/")
-	}) {
-		t.Errorf("members = %v, want the hook's join to have attended under team beta", members)
+	for event, groups := range hooks.Hooks {
+		for _, g := range groups {
+			for _, h := range g.Hooks {
+				if strings.Contains(h.Command, "chat join") {
+					t.Errorf("%s command %q joins the room; that is the bridge's job",
+						event, h.Command)
+				}
+			}
+		}
 	}
 }
 

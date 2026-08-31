@@ -15,7 +15,7 @@ Next action: step 2 (daemon fan-out + `WatchRoom` impl).
 - [x] 5. Bridge package `crabswarm/chat/mcpserver`, auto-Join + 4 tools (D1, D2, D3) — SDK v1.7.0; join is async with per-tool ensureJoined; `chat_members` mirrors the CLI renderer byte-for-byte, which today prints team/name only (proto `Member` has no state field — step 6 adds it for the resource)
 - [x] 6. `crabswarm://chat/members` resource + `resources/updated` (D4); history resource blocked on plan 05 — `Member.state` added to the proto (D8) so ListMembers/events carry state; CLI output unchanged
 - [x] 7. CLI entry `crabswarm chat mcp` (thin, per repo rule) — verified live over stdio (initialize/tools_list, stderr-only logs, exit 0 on SIGTERM)
-- [ ] 8. apm-package MCP registration, SessionStart join removed (D5: "the `SessionStart → chat join` entry is removed", user decision)
+- [x] 8. apm-package MCP registration, SessionStart join removed (D5: "the `SessionStart → chat join` entry is removed", user decision) — self-defined stdio MCP in apm.yml renders into .mcp.json and .codex/config.toml; transitive installs need --trust-transitive-mcp (documented in README)
 - [ ] 9. e2e: dual-bridge idempotent join, tool round-trip, interrupt heal
 
 ## Blocked / external
