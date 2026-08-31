@@ -393,6 +393,7 @@ const (
 	ChatAdminService_ListRooms_FullMethodName      = "/ngicks.crabswarm.chat.v1.ChatAdminService/ListRooms"
 	ChatAdminService_MoveMember_FullMethodName     = "/ngicks.crabswarm.chat.v1.ChatAdminService/MoveMember"
 	ChatAdminService_RegisterMember_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatAdminService/RegisterMember"
+	ChatAdminService_Send_FullMethodName           = "/ngicks.crabswarm.chat.v1.ChatAdminService/Send"
 )
 
 // ChatAdminServiceClient is the client API for ChatAdminService service.
@@ -400,8 +401,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // ChatAdminService carries the host-side operations that participants must not
-// be able to perform: inspecting every room, editing team formation, and
-// minting tokens for humans who have no provider entry.
+// be able to perform: inspecting every room, sending into any room without
+// attending it, editing team formation, and minting tokens for humans who have
+// no provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -425,6 +427,9 @@ type ChatAdminServiceClient interface {
 	// RegisterMember registers a member that no provider can vouch for -- a
 	// human on the host -- and returns the token they present to ChatService.
 	RegisterMember(ctx context.Context, in *RegisterMemberRequest, opts ...grpc.CallOption) (*RegisterMemberResponse, error)
+	// Send delivers a message into a named room, addressed to one member or to
+	// the whole room, without the caller attending that room.
+	Send(ctx context.Context, in *AdminSendRequest, opts ...grpc.CallOption) (*AdminSendResponse, error)
 }
 
 type chatAdminServiceClient struct {
@@ -475,13 +480,24 @@ func (c *chatAdminServiceClient) RegisterMember(ctx context.Context, in *Registe
 	return out, nil
 }
 
+func (c *chatAdminServiceClient) Send(ctx context.Context, in *AdminSendRequest, opts ...grpc.CallOption) (*AdminSendResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminSendResponse)
+	err := c.cc.Invoke(ctx, ChatAdminService_Send_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatAdminServiceServer is the server API for ChatAdminService service.
 // All implementations must embed UnimplementedChatAdminServiceServer
 // for forward compatibility.
 //
 // ChatAdminService carries the host-side operations that participants must not
-// be able to perform: inspecting every room, editing team formation, and
-// minting tokens for humans who have no provider entry.
+// be able to perform: inspecting every room, sending into any room without
+// attending it, editing team formation, and minting tokens for humans who have
+// no provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -505,6 +521,9 @@ type ChatAdminServiceServer interface {
 	// RegisterMember registers a member that no provider can vouch for -- a
 	// human on the host -- and returns the token they present to ChatService.
 	RegisterMember(context.Context, *RegisterMemberRequest) (*RegisterMemberResponse, error)
+	// Send delivers a message into a named room, addressed to one member or to
+	// the whole room, without the caller attending that room.
+	Send(context.Context, *AdminSendRequest) (*AdminSendResponse, error)
 	mustEmbedUnimplementedChatAdminServiceServer()
 }
 
@@ -526,6 +545,9 @@ func (UnimplementedChatAdminServiceServer) MoveMember(context.Context, *MoveMemb
 }
 func (UnimplementedChatAdminServiceServer) RegisterMember(context.Context, *RegisterMemberRequest) (*RegisterMemberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RegisterMember not implemented")
+}
+func (UnimplementedChatAdminServiceServer) Send(context.Context, *AdminSendRequest) (*AdminSendResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Send not implemented")
 }
 func (UnimplementedChatAdminServiceServer) mustEmbedUnimplementedChatAdminServiceServer() {}
 func (UnimplementedChatAdminServiceServer) testEmbeddedByValue()                          {}
@@ -620,6 +642,24 @@ func _ChatAdminService_RegisterMember_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatAdminService_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminSendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatAdminServiceServer).Send(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatAdminService_Send_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatAdminServiceServer).Send(ctx, req.(*AdminSendRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatAdminService_ServiceDesc is the grpc.ServiceDesc for ChatAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -642,6 +682,10 @@ var ChatAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterMember",
 			Handler:    _ChatAdminService_RegisterMember_Handler,
+		},
+		{
+			MethodName: "Send",
+			Handler:    _ChatAdminService_Send_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -61,6 +61,8 @@ const (
 	// ChatAdminServiceRegisterMemberProcedure is the fully-qualified name of the ChatAdminService's
 	// RegisterMember RPC.
 	ChatAdminServiceRegisterMemberProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/RegisterMember"
+	// ChatAdminServiceSendProcedure is the fully-qualified name of the ChatAdminService's Send RPC.
+	ChatAdminServiceSendProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/Send"
 )
 
 // ChatServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatService service.
@@ -327,6 +329,9 @@ type ChatAdminServiceClient interface {
 	// RegisterMember registers a member that no provider can vouch for -- a
 	// human on the host -- and returns the token they present to ChatService.
 	RegisterMember(context.Context, *connect.Request[v1.RegisterMemberRequest]) (*connect.Response[v1.RegisterMemberResponse], error)
+	// Send delivers a message into a named room, addressed to one member or to
+	// the whole room, without the caller attending that room.
+	Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error)
 }
 
 // NewChatAdminServiceClient constructs a client for the ngicks.crabswarm.chat.v1.ChatAdminService
@@ -364,6 +369,12 @@ func NewChatAdminServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(chatAdminServiceMethods.ByName("RegisterMember")),
 			connect.WithClientOptions(opts...),
 		),
+		send: connect.NewClient[v1.AdminSendRequest, v1.AdminSendResponse](
+			httpClient,
+			baseURL+ChatAdminServiceSendProcedure,
+			connect.WithSchema(chatAdminServiceMethods.ByName("Send")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -373,6 +384,7 @@ type chatAdminServiceClient struct {
 	listRooms      *connect.Client[v1.ListRoomsRequest, v1.ListRoomsResponse]
 	moveMember     *connect.Client[v1.MoveMemberRequest, v1.MoveMemberResponse]
 	registerMember *connect.Client[v1.RegisterMemberRequest, v1.RegisterMemberResponse]
+	send           *connect.Client[v1.AdminSendRequest, v1.AdminSendResponse]
 }
 
 // GetNonce calls ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce.
@@ -395,6 +407,11 @@ func (c *chatAdminServiceClient) RegisterMember(ctx context.Context, req *connec
 	return c.registerMember.CallUnary(ctx, req)
 }
 
+// Send calls ngicks.crabswarm.chat.v1.ChatAdminService.Send.
+func (c *chatAdminServiceClient) Send(ctx context.Context, req *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error) {
+	return c.send.CallUnary(ctx, req)
+}
+
 // ChatAdminServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatAdminService
 // service.
 type ChatAdminServiceHandler interface {
@@ -408,6 +425,9 @@ type ChatAdminServiceHandler interface {
 	// RegisterMember registers a member that no provider can vouch for -- a
 	// human on the host -- and returns the token they present to ChatService.
 	RegisterMember(context.Context, *connect.Request[v1.RegisterMemberRequest]) (*connect.Response[v1.RegisterMemberResponse], error)
+	// Send delivers a message into a named room, addressed to one member or to
+	// the whole room, without the caller attending that room.
+	Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error)
 }
 
 // NewChatAdminServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -441,6 +461,12 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 		connect.WithSchema(chatAdminServiceMethods.ByName("RegisterMember")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatAdminServiceSendHandler := connect.NewUnaryHandler(
+		ChatAdminServiceSendProcedure,
+		svc.Send,
+		connect.WithSchema(chatAdminServiceMethods.ByName("Send")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ngicks.crabswarm.chat.v1.ChatAdminService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChatAdminServiceGetNonceProcedure:
@@ -451,6 +477,8 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 			chatAdminServiceMoveMemberHandler.ServeHTTP(w, r)
 		case ChatAdminServiceRegisterMemberProcedure:
 			chatAdminServiceRegisterMemberHandler.ServeHTTP(w, r)
+		case ChatAdminServiceSendProcedure:
+			chatAdminServiceSendHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -474,4 +502,8 @@ func (UnimplementedChatAdminServiceHandler) MoveMember(context.Context, *connect
 
 func (UnimplementedChatAdminServiceHandler) RegisterMember(context.Context, *connect.Request[v1.RegisterMemberRequest]) (*connect.Response[v1.RegisterMemberResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember is not implemented"))
+}
+
+func (UnimplementedChatAdminServiceHandler) Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.Send is not implemented"))
 }
