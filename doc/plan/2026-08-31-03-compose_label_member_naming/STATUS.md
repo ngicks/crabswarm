@@ -1,12 +1,12 @@
 # Status
 
-Current state: **not started** — plan drafted with automatic decisions
+Current state: **in progress** — step 1 done (resolver carries the name); IDEA.md gate taken as confirmed by the /goal directive (DECISION.md D6).
 (user directive to skip questions); IDEA.md gate not yet confirmed by the
 user.
 
 ## Checklist
 
-- [ ] Step 1 — resolver carries the name: `TeamInfo.Name` + label constants +
+- [x] Step 1 — resolver carries the name: `TeamInfo.Name` + label constants +
       derivation in `CmdmanCompose.Resolve`, unit tests
       (D1 "Name field filled by CmdmanCompose.Resolve",
       D2 "`<command>-<scale-index>`, degrading gracefully",
@@ -18,4 +18,4 @@ user.
 - [ ] Step 3 — e2e: default-named member listed as `<command>-<scale-index>`
       (goal criterion "covered by ... an e2e join test")
 
-Next action: user reviews IDEA.md gate + automatic decisions, then step 1.
+Next action: step 2 — Service.Join prefers the resolver-provided name.

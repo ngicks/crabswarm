@@ -30,4 +30,9 @@ type TeamInfo struct {
 	// is a name namespace inside a room, so a member whose bare name collides
 	// with another team's is addressed as "<Team>/<name>".
 	Team string
+	// Name is the display name the provider derives for the token's holder
+	// (compose: "<command>-<scale-index>"). It is empty when the provider has
+	// no naming information, and the chat service then falls back to its own
+	// default.
+	Name string
 }

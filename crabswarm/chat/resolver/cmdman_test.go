@@ -59,6 +59,8 @@ func TestCmdmanCompose_Resolve_ComposeCommand(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, got.Room, "/work/repo")
 	assert.Equal(t, got.Team, "swarm")
+	// No naming labels at all, so the resolver derives no name.
+	assert.Equal(t, got.Name, "")
 
 	// The inspect surface is the contract with cmdman; pin it.
 	args := stubArgs(t, bin)
@@ -68,6 +70,39 @@ func TestCmdmanCompose_Resolve_ComposeCommand(t *testing.T) {
 		args[0],
 		"inspect 0123456789abcdef0123456789abcdef --format {{json .Config}}",
 	)
+}
+
+func TestCmdmanCompose_Resolve_NameFromCommandAndScaleIndex(t *testing.T) {
+	bin := stubCmdman(t, `printf '%s\n' '{"dir":"/work/repo","labels":{`+
+		`"cmdman.compose.project":"swarm","cmdman.compose.command":"worker",`+
+		`"cmdman.compose.scale-index":"2"}}'`+"\n")
+
+	got, err := NewCmdmanCompose(bin).Resolve(t.Context(), "deadbeef")
+	assert.NilError(t, err)
+	assert.Equal(t, got.Name, "worker-2")
+}
+
+func TestCmdmanCompose_Resolve_NameFromCommandOnly(t *testing.T) {
+	// cmdman-compose always stamps a scale index, so this is the defensive
+	// shape: without one the command name has to stand on its own rather than
+	// leave the member unnamed.
+	bin := stubCmdman(t, `printf '%s\n' '{"dir":"/work/repo","labels":{`+
+		`"cmdman.compose.project":"swarm","cmdman.compose.command":"worker"}}'`+"\n")
+
+	got, err := NewCmdmanCompose(bin).Resolve(t.Context(), "deadbeef")
+	assert.NilError(t, err)
+	assert.Equal(t, got.Name, "worker")
+}
+
+func TestCmdmanCompose_Resolve_NameNeedsCommandLabel(t *testing.T) {
+	// A scale index without a command names nothing on its own; the caller
+	// must fall back to its own default rather than be handed "-2".
+	bin := stubCmdman(t, `printf '%s\n' '{"dir":"/work/repo","labels":{`+
+		`"cmdman.compose.project":"swarm","cmdman.compose.scale-index":"2"}}'`+"\n")
+
+	got, err := NewCmdmanCompose(bin).Resolve(t.Context(), "deadbeef")
+	assert.NilError(t, err)
+	assert.Equal(t, got.Name, "")
 }
 
 func TestCmdmanCompose_Resolve_NoComposeLabel(t *testing.T) {

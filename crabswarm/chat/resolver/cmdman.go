@@ -20,6 +20,17 @@ const DefaultCmdmanBin = "cmdman"
 // compose project does not carry it.
 const composeProjectLabel = "cmdman.compose.project"
 
+// composeCommandLabel holds the name the compose file declares the command
+// under, shared by every replica of it.
+const composeCommandLabel = "cmdman.compose.command"
+
+// composeScaleIndexLabel holds the 1-based index that tells one replica of a
+// scaled command from another; an unscaled command's sole instance is "1".
+// Verified against cmdman v0.0.24, where every compose-created command carries
+// it — the name is still derived without it rather than treating its absence
+// as an error, since that is a cmdman detail crabswarm does not control.
+const composeScaleIndexLabel = "cmdman.compose.scale-index"
+
 // maxTokenLen bounds a token before it becomes an argv entry. A cmdman ID is
 // 32 hex characters and a command name is short; the cap is generous for both
 // while keeping an unbounded blob away from the CLI.
@@ -106,7 +117,19 @@ func (p *CmdmanCompose) Resolve(ctx context.Context, token string) (TeamInfo, er
 		return TeamInfo{}, fmt.Errorf(
 			"%w: cmdman command %q is not part of a compose project", ErrUnknownToken, token)
 	}
-	return TeamInfo{Room: cfg.Dir, Team: project}, nil
+	// The label values are used verbatim. Compose authors choose them, and a
+	// name that cannot be addressed — one carrying the "/" that separates team
+	// from name — is rejected when the member joins; sanitizing here would
+	// instead hand out a name nobody wrote. A command label is not required:
+	// without it there is simply no derived name, and the caller falls back to
+	// its own default.
+	name := cfg.Labels[composeCommandLabel]
+	if name != "" {
+		if scaleIndex := cfg.Labels[composeScaleIndexLabel]; scaleIndex != "" {
+			name += "-" + scaleIndex
+		}
+	}
+	return TeamInfo{Room: cfg.Dir, Team: project, Name: name}, nil
 }
 
 // inspectConfig runs `cmdman inspect <token> --format '{{json .Config}}'` and

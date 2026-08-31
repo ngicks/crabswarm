@@ -69,3 +69,21 @@ naturally refreshes everything.
 **Rejected**: renaming existing members on rejoin (would break in-flight
 addressing and violate the idempotent-rejoin decision D12 of the chat
 subcommand plan).
+
+## D6 — Goal directive taken as the IDEA.md gate confirmation [automatic]
+
+**Choice**: proceed with implementation; the user's /goal instruction to
+implement this plan is treated as approval of the IDEA.md gate and the
+automatic decisions D1-D5.
+
+**Rationale**: the user set the goal and declared themselves away for the
+run; stalling on the gate would contradict the directive.
+
+## D7 — Plan-file updates land in the branch worktree copy [automatic]
+
+**Choice**: STATUS.md / DECISION.md updates during this run are made in the
+`compose_label_member_naming` worktree's copy of the plan directory and
+committed with the branch, not in main's copy.
+
+**Rationale**: the branch copy travels with the implementation commits and
+merges back; editing both copies would drift.
