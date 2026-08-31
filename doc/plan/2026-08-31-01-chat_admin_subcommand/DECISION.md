@@ -81,3 +81,11 @@ AD4 listed `team/name | name | team | *`, but the member resolver
 only to admin send would fork the grammar AD4 wants shared, and adding
 it to both paths needs a name-vs-team collision rule. Shipped
 `team/name | name | *`; bare-team fan-out deferred to HANDOFF.md.
+
+## AD9: chat group parents get cobra.NoArgs so removed spellings fail [automatic]
+
+`chat register`/`chat team ...` after the regroup hit cobra's legacy
+group-parent behavior: print help, exit 0. The plan's e2e wants an
+unknown-command failure. Fix scoped to the chat tree only (`chat` and
+`chat admin` parents get `Args: cobra.NoArgs`); making that a repo-wide
+convention for other group commands (git/preview) is left to the user.

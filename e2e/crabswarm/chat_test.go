@@ -222,7 +222,7 @@ func execChat(
 
 // execChatTokenEnv is execChat with the identity carried in the environment
 // instead of on the command line — how a registered human's shell holds the
-// token `chat register` printed.
+// token `chat admin register` printed.
 func execChatTokenEnv(
 	t *testing.T,
 	cfgPath, token string,
@@ -273,8 +273,8 @@ func newChatIdentityFile(t *testing.T) (path, recipient string) {
 // printed, which is the only time the daemon reveals it.
 func registerChatHuman(t *testing.T, cfgPath, identity, room, team, name string) string {
 	t.Helper()
-	out := runChat(t, cfgPath, "", "register",
-		"--room", room, "--team", team, "--name", name, "--identity", identity)
+	out := runChat(t, cfgPath, "", "admin", "register",
+		room, team, name, "--identity", identity)
 	want := fmt.Sprintf("registered %s/%s in room %s", team, name, room)
 	if !strings.Contains(out, want) {
 		t.Errorf("register = %q, want it to report %q", out, want)
@@ -593,7 +593,7 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 	}
 
 	// The human writes with the token in the environment, the way a shell that
-	// ran `chat register` holds it.
+	// ran `chat admin register` holds it.
 	stdout, stderr, err := execChatTokenEnv(t, cfg, token, "send", "ana", "from the host")
 	if err != nil {
 		t.Fatalf("send with $%s: %v\nstderr:\n%s", chatTokenEnvVar, err, stderr)
@@ -633,40 +633,40 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 // encrypts its challenge to, proven per call: the right file reads the whole
 // topology, another key reads nothing, and no file at all is refused before the
 // daemon is even dialed.
-func TestChat_AdminIdentityGatesTeamList(t *testing.T) {
+func TestChat_AdminIdentityGatesRoomList(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
 	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
 
-	got := runChat(t, cfg, "", "team", "list", "--identity", identity)
+	got := runChat(t, cfg, "", "admin", "list", "--identity", identity)
 	for _, want := range []string{"room: " + chatRoom, "team: alpha", "ana", "team: beta", "cid"} {
 		if !strings.Contains(got, want) {
-			t.Errorf("team list missing %q; got:\n%s", want, got)
+			t.Errorf("admin list missing %q; got:\n%s", want, got)
 		}
 	}
 
 	// A challenge is spent by the call that answers it, so the second listing
 	// runs a whole round of its own rather than reusing the first one's nonce.
-	if second := runChat(t, cfg, "", "team", "list", "--identity", identity); second != got {
-		t.Errorf("second team list = %q, want the same listing as the first %q", second, got)
+	if second := runChat(t, cfg, "", "admin", "list", "--identity", identity); second != got {
+		t.Errorf("second admin list = %q, want the same listing as the first %q", second, got)
 	}
 
 	// Another key cannot read the challenge, so it cannot answer it.
 	other, _ := newChatIdentityFile(t)
-	_, stderr, err := execChat(t, cfg, "", "team", "list", "--identity", other)
+	_, stderr, err := execChat(t, cfg, "", "admin", "list", "--identity", other)
 	if err == nil {
-		t.Fatal("team list with the wrong identity succeeded, want a failure")
+		t.Fatal("admin list with the wrong identity succeeded, want a failure")
 	}
 	if !strings.Contains(stderr, "decrypting the admin challenge") {
 		t.Errorf("stderr = %q, want it to name the failed decryption", stderr)
 	}
 
 	// With no identity configured or passed, the CLI says which one it wants.
-	_, stderr, err = execChat(t, cfg, "", "team", "list")
+	_, stderr, err = execChat(t, cfg, "", "admin", "list")
 	if err == nil {
-		t.Fatal("team list without an identity succeeded, want a failure")
+		t.Fatal("admin list without an identity succeeded, want a failure")
 	}
 	if !strings.Contains(stderr, "no admin age identity file") {
 		t.Errorf("stderr = %q, want it to ask for an identity file", stderr)
@@ -683,10 +683,10 @@ func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
 	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
 
-	got := runChat(t, cfg, "", "team", "move", chatRoom, "alpha/ana", "beta",
+	got := runChat(t, cfg, "", "admin", "move", chatRoom, "alpha/ana", "beta",
 		"--identity", identity)
 	if want := "moved beta/ana in room " + chatRoom + "\n"; got != want {
-		t.Errorf("team move = %q, want %q", got, want)
+		t.Errorf("admin move = %q, want %q", got, want)
 	}
 
 	members := lines(runChat(t, cfg, "tok-cid", "members"))
