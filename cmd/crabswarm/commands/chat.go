@@ -36,6 +36,13 @@ token. Attending no room, its verbs name the room they act on.`,
 		Example: `  crabswarm chat join --name reviewer
   crabswarm chat send backend/alice "PR is ready"
   crabswarm chat read`,
+		// Runnable with NoArgs rather than a bare group: cobra returns help for a
+		// command it cannot run before it ever validates the arguments, so a group
+		// parent left non-runnable answers `chat register ...` — a verb that has
+		// moved under `admin` — with help and a success exit instead of saying the
+		// spelling is gone.
+		Args: cobra.NoArgs,
+		RunE: runChat,
 	}
 
 	cmd.PersistentFlags().StringVar(&flagToken, "token", "",
@@ -60,4 +67,8 @@ token. Attending no room, its verbs name the room they act on.`,
 	chatAdminCmd(cmd, flags)
 
 	parent.AddCommand(cmd)
+}
+
+func runChat(cmd *cobra.Command, _ []string) error {
+	return cmd.Help()
 }

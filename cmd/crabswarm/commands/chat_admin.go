@@ -16,6 +16,11 @@ so every room-scoped verb names its room as its first argument.`,
 		Example: `  crabswarm chat admin list --identity ~/.config/crabswarm/chat_admin.key
   crabswarm chat admin send /work/proj backend/alice "ship it" \
     --identity ~/.config/crabswarm/chat_admin.key`,
+		// Runnable for the same reason `chat` is: cobra skips argument validation
+		// for a command it cannot run, so a mistyped verb here would be answered
+		// with help and a success exit.
+		Args: cobra.NoArgs,
+		RunE: runChatAdmin,
 	}
 
 	chatAdminListCmd(cmd, flags)
@@ -24,4 +29,8 @@ so every room-scoped verb names its room as its first argument.`,
 	chatAdminSendCmd(cmd, flags)
 
 	parent.AddCommand(cmd)
+}
+
+func runChatAdmin(cmd *cobra.Command, _ []string) error {
+	return cmd.Help()
 }

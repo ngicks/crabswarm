@@ -89,3 +89,8 @@ group-parent behavior: print help, exit 0. The plan's e2e wants an
 unknown-command failure. Fix scoped to the chat tree only (`chat` and
 `chat admin` parents get `Args: cobra.NoArgs`); making that a repo-wide
 convention for other group commands (git/preview) is left to the user.
+
+Amendment: `Args: cobra.NoArgs` alone is a no-op on a non-runnable
+parent (cobra returns help before ValidateArgs); the chat and chat
+admin parents therefore also gained a help-printing RunE, the same
+pattern the root command uses.
