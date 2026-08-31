@@ -14,7 +14,7 @@ Next action: step 2 (daemon fan-out + `WatchRoom` impl).
 - [x] 4. Hook split `Notification[idle_prompt] → done` (D6: "splitting the current catch-all `Notification → waiting`") — codex cannot see Notification events at all, so codex relies on the staleness fallback (step 3) alone
 - [x] 5. Bridge package `crabswarm/chat/mcpserver`, auto-Join + 4 tools (D1, D2, D3) — SDK v1.7.0; join is async with per-tool ensureJoined; `chat_members` mirrors the CLI renderer byte-for-byte, which today prints team/name only (proto `Member` has no state field — step 6 adds it for the resource)
 - [ ] 6. `crabswarm://chat/members` resource + `resources/updated` (D4); history resource blocked on plan 05
-- [ ] 7. CLI entry `crabswarm chat mcp` (thin, per repo rule)
+- [x] 7. CLI entry `crabswarm chat mcp` (thin, per repo rule) — verified live over stdio (initialize/tools_list, stderr-only logs, exit 0 on SIGTERM)
 - [ ] 8. apm-package MCP registration, SessionStart join removed (D5: "the `SessionStart → chat join` entry is removed", user decision)
 - [ ] 9. e2e: dual-bridge idempotent join, tool round-trip, interrupt heal
 

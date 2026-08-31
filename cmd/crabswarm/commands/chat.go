@@ -57,6 +57,7 @@ carrying a token.`,
 	chatMembersCmd(cmd, flags)
 	chatLeaveCmd(cmd, flags)
 	chatReportStateCmd(cmd, flags)
+	chatMCPCmd(cmd, flags)
 	chatRegisterCmd(cmd, flags)
 	chatTeamCmd(cmd, flags)
 
