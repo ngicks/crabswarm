@@ -8,7 +8,8 @@ hardened against ESC interrupts.
 ## Goal / success criteria
 
 - A harness configured with `crabswarm chat mcp` is a joined room member
-  before its first turn, with no `SessionStart → chat join` hook needed.
+  before its first turn; the `SessionStart → chat join` hook is removed
+  and the bridge is the sole automatic join path (D5).
 - The agent can send, broadcast, read its inbox and list members through
   MCP tools; results match the CLI verbs byte-for-byte in content.
 - `crabswarm://chat/members` is a readable, subscribable resource that
@@ -121,7 +122,7 @@ crabswarm://chat/history         # per-room history; lands with plan 05
 # Hook wiring (apm-package/crabswarm-chat/.apm/hooks/report-state.json)
 Notification[idle_prompt]      -> crabswarm chat report-state done   # new
 Notification[permission_...]   -> crabswarm chat report-state waiting # was: all Notifications
-SessionStart -> chat join       # kept for harnesses without MCP configured
+# SessionStart -> chat join     # REMOVED (D5): the bridge's auto-join is the sole join path
 ```
 
 Durable state vocabulary: none added here (the room log table belongs to
@@ -168,9 +169,10 @@ block as-is.
    `crabswarm chat mcp` under a live daemon answers `initialize` and
    `tools/list` over stdio.
 8. **apm package wiring** — add the MCP server registration to
-   `apm-package/crabswarm-chat` for claude and codex targets; drop
-   nothing (SessionStart join stays, D5). Verifiable: e2e chat test
-   variant where join comes only from the bridge.
+   `apm-package/crabswarm-chat` for claude and codex targets; remove
+   the `SessionStart → chat join` entry from `report-state.json` (D5).
+   Verifiable: e2e chat test variant where join comes only from the
+   bridge, and no join happens with hooks alone.
 9. **e2e** — extend `e2e/crabswarm/chat_test.go`: two bridges in one
    container-shape (same token) both start cleanly; send/read via tools
    round-trips; interrupted-state heal path from step 4.

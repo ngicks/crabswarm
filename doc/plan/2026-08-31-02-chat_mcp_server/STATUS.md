@@ -15,7 +15,7 @@ DECISION.md; then step 1.
 - [ ] 5. Bridge package `crabswarm/chat/mcpserver`, auto-Join + 4 tools (D1, D2, D3)
 - [ ] 6. `crabswarm://chat/members` resource + `resources/updated` (D4); history resource blocked on plan 05
 - [ ] 7. CLI entry `crabswarm chat mcp` (thin, per repo rule)
-- [ ] 8. apm-package MCP registration, SessionStart join kept (D5: "the hook stays")
+- [ ] 8. apm-package MCP registration, SessionStart join removed (D5: "the `SessionStart → chat join` entry is removed", user decision)
 - [ ] 9. e2e: dual-bridge idempotent join, tool round-trip, interrupt heal
 
 ## Blocked / external

@@ -85,7 +85,7 @@ turn-end signal, and Claude Code hooks cannot call MCP tools
 (anthropics/claude-code#26112). So `working`/`waiting`/`done` keeps
 flowing through hooks shelling out to `crabswarm chat report-state`; the
 MCP server does not and cannot replace it. What the MCP server does
-replace is the `SessionStart → chat join` hook.
+replace is the `SessionStart → chat join` hook, which is removed (D5).
 
 ### Interrupted harness recovers its nudges
 

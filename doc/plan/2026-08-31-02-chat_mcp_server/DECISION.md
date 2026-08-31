@@ -35,13 +35,19 @@ bridge-side polling (latency and N-bridges load) and bridges opening the
 SQLite DB directly (daemon owns the store). The RPC doubles as the feed
 for the admin TUI plan (2026-08-31-06-admin_tui).
 
-## D5 — Keep the `SessionStart → chat join` hook (automatic decision)
+## D5 — Remove the `SessionStart → chat join` hook (user decision, 2026-08-31)
 
-The bridge auto-joins at startup, but the hook stays: harnesses without
-MCP configured still need it, and `Service.Join` idempotency
-(`crabswarm/chat/service_member.go:44-53`) makes the duplication free.
-Rejected: removing the hook when the MCP server is present (conditional
-hook wiring buys nothing and breaks the no-MCP path).
+The bridge's startup auto-join is the sole join path; the
+`SessionStart → chat join` entry is removed from
+`apm-package/crabswarm-chat/.apm/hooks/report-state.json`. Decided by
+the user ("(2) => remove start hook"), overriding this entry's earlier
+automatic choice to keep it. Consequence: joining now requires the MCP
+server configured — a harness wired with only the hooks package no
+longer joins at session start (the CLI `chat join` remains for manual
+use).
+Rejected (previous automatic choice): keeping the hook for
+harnesses without MCP configured, on the grounds Join idempotency
+makes duplication free.
 
 ## D6 — ESC-interrupt heal: idle_prompt hook + staleness fallback (automatic decision)
 
