@@ -1,8 +1,8 @@
 # Status
 
-Current state: implemented through step 5; step 7 in progress; step 6
+Current state: implemented (steps 1-5, 7) and reviewed; step 6
 deliberately absent (blocked on plan 05). Run executed unattended via
-/goal — see AD6-AD9.
+/goal — see AD6-AD9. Awaiting user review; HANDOFF.md awaits triage.
 
 ## Checklist
 
@@ -18,8 +18,8 @@ deliberately absent (blocked on plan 05). Run executed unattended via
       delete old spellings (AD1); update `chat.go` help text
 - [ ] Step 6 — `admin log` hook point for plan 05 (AD5) — blocked,
       not stubbed
-- [ ] Step 7 — e2e: admin send attribution, no member row, old
+- [x] Step 7 — e2e: admin send attribution, no member row, old
       spellings gone (plus AD9 NoArgs fix)
 
-Next action: finish step 7, then final review/test gate; HANDOFF.md
-awaits user triage.
+Next action: user reviews the implementation and the automatic
+decisions (AD6-AD9), then triages HANDOFF.md.

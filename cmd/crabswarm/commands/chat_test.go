@@ -110,6 +110,7 @@ func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
 		{"admin", "list"},
 		{"admin", "move", "/work", "backend/alice", "frontend"},
 		{"admin", "register", "/work", "humans", "yuki"},
+		{"admin", "send", "/work", "backend/alice", "hello"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			chatHermeticEnv(t)
@@ -143,6 +144,7 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		{"broadcast needs a text", []string{"broadcast"}},
 		{"read takes no arguments", []string{"read", "extra"}},
 		{"admin move needs three arguments", []string{"admin", "move", "/work", "backend/alice"}},
+		{"admin send needs three arguments", []string{"admin", "send", "/work", "backend/alice"}},
 		{"report-state needs a state", []string{"report-state"}},
 		// An unknown state is rejected by the command itself, so a typo never
 		// reaches the daemon as a report.

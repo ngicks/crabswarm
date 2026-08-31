@@ -161,11 +161,4 @@ func TestRenderAdminSent(t *testing.T) {
 		return RenderAdminSent(b, "/work/proj", "*", 3)
 	})
 	assert.Equal(t, got, "sent to * in room /work/proj: delivered to 3 members\n")
-
-	// A room-wide send into a room nobody attends succeeds, and has to read as
-	// the empty room it found rather than as a failure.
-	got = render(t, func(b *strings.Builder) error {
-		return RenderAdminSent(b, "/work/proj", "*", 0)
-	})
-	assert.Equal(t, got, "sent to * in room /work/proj: delivered to 0 members\n")
 }

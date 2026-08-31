@@ -14,8 +14,9 @@ import (
 
 // AdminService is the host-facing half of the chat broker: the ChatAdminService
 // gRPC implementation over the [Store]. It carries the operations a participant
-// must not be able to perform — reading every room, editing team formation, and
-// minting tokens for humans no provider vouches for.
+// must not be able to perform — reading every room, editing team formation,
+// minting tokens for humans no provider vouches for, and sending into any room
+// without attending it.
 //
 // Its caller is not identified by a token: an agent holds one of those. It is
 // identified per call by the credential its [AdminAuthenticator] accepts, which

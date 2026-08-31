@@ -165,10 +165,8 @@ func RenderMoved(w io.Writer, member *chatv1.Member) error {
 
 // RenderAdminSent reports an admin delivery, echoing the room and the target it
 // was addressed to. Both come back from the request rather than from the daemon,
-// which answers with a count alone — and the count is what the echo makes
-// readable: "0 members" against "*" is an empty room, while the same count
-// against a named target could not happen, since an address that resolves to
-// nobody fails the call instead.
+// which answers with a count alone — and an address that resolves to nobody
+// fails the call instead of reporting zero, so a rendered count is at least 1.
 func RenderAdminSent(w io.Writer, room, target string, delivered int32) error {
 	_, err := fmt.Fprintf(w, "sent to %s in room %s: delivered to %d %s\n",
 		target, room, delivered, memberNoun(delivered))

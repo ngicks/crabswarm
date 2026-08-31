@@ -191,6 +191,12 @@ func validateName(team, name string) error {
 	case name == adminName:
 		return fmt.Errorf("name %q is reserved for the host operator: %w",
 			name, ErrInvalidName)
+	case team == adminName:
+		// A team named admin would win bare-name resolution for admin sends
+		// (the resolver tries the sender's own team first) and render members
+		// as admin/<name>, next door to the reserved attribution.
+		return fmt.Errorf("team %q is reserved for the host operator: %w",
+			team, ErrInvalidName)
 	}
 	return nil
 }

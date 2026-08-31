@@ -180,6 +180,14 @@ func TestAdminService_RegisterMember(t *testing.T) {
 			Room: "/work", Kind: KindAgent,
 		})
 		assert.ErrorIs(t, err, ErrInvalidName)
+
+		// The team is reserved too: members of a team named admin would win
+		// bare-name resolution for admin sends and render as admin/<name>.
+		_, err = svc.store.Join(t.Context(), Member{
+			Token: "tok-admteam", Name: "carl", Team: adminName,
+			Room: "/work", Kind: KindAgent,
+		})
+		assert.ErrorIs(t, err, ErrInvalidName)
 	})
 }
 

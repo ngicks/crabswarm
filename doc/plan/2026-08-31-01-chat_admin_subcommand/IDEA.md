@@ -1,6 +1,6 @@
 # Idea: `crabswarm chat admin` subcommand
 
-Gate: not confirmed (automatic decisions, pending user review)
+Gate: confirmed via the /goal implement directive (see DECISION.md AD6)
 
 ## How it should be
 
