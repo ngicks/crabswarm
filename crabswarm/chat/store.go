@@ -76,6 +76,11 @@ type Member struct {
 	Kind MemberKind
 	// State is the last harness state reported for the member.
 	State MemberState
+	// StateReportedAt is when State was reported. A notifier reads it to tell
+	// a member that is genuinely busy from one whose state-reporting hook was
+	// missed — an interrupted session, or a harness that has no idle
+	// notification at all — and would otherwise stay busy forever.
+	StateReportedAt time.Time
 }
 
 // Sender is the identity a message carries: who sent it, as of send time. It
@@ -182,6 +187,15 @@ func (s *Store) tx(ctx context.Context, fn func(q *db.Queries) error) error {
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 	return nil
+}
+
+// formatTimestamp renders t the way every timestamp column stores one:
+// RFC3339Nano in UTC, which parses back to the same instant. Rows are ordered
+// by id rather than by this text, which would sort wrong — RFC3339Nano drops
+// trailing zeros from the fraction, so ".5Z" and "Z" do not compare as their
+// instants do.
+func formatTimestamp(t time.Time) string {
+	return t.UTC().Format(time.RFC3339Nano)
 }
 
 // validateName rejects the "/" that separates team from name in an address.

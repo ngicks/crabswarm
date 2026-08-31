@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat/internal/db"
 )
@@ -20,7 +21,8 @@ import (
 // A name already used by another member of the same team is [ErrNameTaken];
 // the same name in another team of the room is fine, that is what teams are
 // for. An empty State defaults to [StateDone]: attendance is declared from a
-// session-start hook, before the session has work to do.
+// session-start hook, before the session has work to do. A zero
+// StateReportedAt defaults to now, the moment that state was declared.
 func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 	if m.Token == "" {
 		return Member{}, errors.New("joining chat: empty token")
@@ -36,6 +38,9 @@ func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 	}
 	if m.State == "" {
 		m.State = StateDone
+	}
+	if m.StateReportedAt.IsZero() {
+		m.StateReportedAt = time.Now()
 	}
 
 	joined := m
@@ -55,12 +60,13 @@ func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 			return err
 		}
 		err = q.InsertMember(ctx, db.InsertMemberParams{
-			Token: m.Token,
-			Name:  m.Name,
-			Team:  m.Team,
-			Room:  m.Room,
-			Kind:  string(m.Kind),
-			State: string(m.State),
+			Token:           m.Token,
+			Name:            m.Name,
+			Team:            m.Team,
+			Room:            m.Room,
+			Kind:            string(m.Kind),
+			State:           string(m.State),
+			StateReportedAt: formatTimestamp(m.StateReportedAt),
 		})
 		if err != nil {
 			return fmt.Errorf("inserting member %q: %w", m.Name, err)
@@ -78,17 +84,23 @@ func (s *Store) Member(ctx context.Context, token string) (Member, error) {
 	return memberByToken(ctx, s.q, token)
 }
 
-// SetState records the harness state token last reported. Reading it back is
-// [Store.Member].
-func (s *Store) SetState(ctx context.Context, token string, state MemberState) error {
+// SetState records the harness state token last reported, as of reportedAt.
+// Reading both back is [Store.Member].
+func (s *Store) SetState(
+	ctx context.Context,
+	token string,
+	state MemberState,
+	reportedAt time.Time,
+) error {
 	switch state {
 	case StateDone, StateWorking, StateWaiting:
 	default:
 		return fmt.Errorf("setting state of %q: unknown state %q", token, state)
 	}
 	n, err := s.q.SetMemberState(ctx, db.SetMemberStateParams{
-		State: string(state),
-		Token: token,
+		State:           string(state),
+		StateReportedAt: formatTimestamp(reportedAt),
+		Token:           token,
 	})
 	if err != nil {
 		return fmt.Errorf("setting state of %q: %w", token, err)
@@ -105,7 +117,11 @@ func (s *Store) ListMembers(ctx context.Context, room string) ([]Member, error) 
 	if err != nil {
 		return nil, fmt.Errorf("listing members of room %q: %w", room, err)
 	}
-	return membersOf(rows), nil
+	members, err := membersOf(rows)
+	if err != nil {
+		return nil, fmt.Errorf("listing members of room %q: %w", room, err)
+	}
+	return members, nil
 }
 
 // ListRooms returns every room with its teams and members, all ordered by
@@ -115,8 +131,12 @@ func (s *Store) ListRooms(ctx context.Context) ([]Room, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing rooms: %w", err)
 	}
+	members, err := membersOf(rows)
+	if err != nil {
+		return nil, fmt.Errorf("listing rooms: %w", err)
+	}
 	var rooms []Room
-	for _, m := range membersOf(rows) {
+	for _, m := range members {
 		if len(rooms) == 0 || rooms[len(rooms)-1].Name != m.Room {
 			rooms = append(rooms, Room{Name: m.Room})
 		}
@@ -277,7 +297,10 @@ func resolveFor(
 	if err != nil {
 		return Member{}, fmt.Errorf("resolving %q: %w", addr, err)
 	}
-	candidates := membersOf(rows)
+	candidates, err := membersOf(rows)
+	if err != nil {
+		return Member{}, fmt.Errorf("resolving %q: %w", addr, err)
+	}
 	switch len(candidates) {
 	case 0:
 		return Member{}, fmt.Errorf("resolving %q in room %q: %w", addr, caller.Room, ErrNotFound)
@@ -315,28 +338,39 @@ func memberFrom(row db.Member, err error) (Member, error) {
 	if err != nil {
 		return Member{}, fmt.Errorf("reading member row: %w", err)
 	}
-	return memberOf(row), nil
+	return memberOf(row)
 }
 
 // memberOf converts a stored row into a [Member]. Kind and State are stored as
-// the string values of their named types.
-func memberOf(row db.Member) Member {
-	return Member{
-		Token: row.Token,
-		Name:  row.Name,
-		Team:  row.Team,
-		Room:  row.Room,
-		Kind:  MemberKind(row.Kind),
-		State: MemberState(row.State),
+// the string values of their named types, the report time as text the way
+// every timestamp column holds one.
+func memberOf(row db.Member) (Member, error) {
+	reportedAt, err := time.Parse(time.RFC3339Nano, row.StateReportedAt)
+	if err != nil {
+		return Member{}, fmt.Errorf("parsing state timestamp %q of member %q: %w",
+			row.StateReportedAt, row.Token, err)
 	}
+	return Member{
+		Token:           row.Token,
+		Name:            row.Name,
+		Team:            row.Team,
+		Room:            row.Room,
+		Kind:            MemberKind(row.Kind),
+		State:           MemberState(row.State),
+		StateReportedAt: reportedAt,
+	}, nil
 }
 
 // membersOf converts queried rows into members, staying nil for an empty
 // result the way the queries themselves do.
-func membersOf(rows []db.Member) []Member {
+func membersOf(rows []db.Member) ([]Member, error) {
 	var members []Member
 	for _, row := range rows {
-		members = append(members, memberOf(row))
+		m, err := memberOf(row)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, m)
 	}
-	return members
+	return members, nil
 }

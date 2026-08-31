@@ -10,7 +10,7 @@ Next action: step 2 (daemon fan-out + `WatchRoom` impl).
 
 - [x] 1. Proto `WatchRoom` RPC + regenerate (D4: "server-streaming `ChatService.WatchRoom`")
 - [x] 2. Daemon per-room event fan-out + `WatchRoom` impl (D4) — disconnect-slowest policy; stream token interceptor and bounded GracefulStop added as required enablers
-- [ ] 3. Staleness fallback in nudge gate, `state_reported_at` column (D6: "staleness threshold … in the `notify.SendKeys` gate")
+- [x] 3. Staleness fallback in nudge gate, `state_reported_at` column (D6: "staleness threshold … in the `notify.SendKeys` gate") — threshold is an unexported 10min const; old dev DBs need deleting (no migration, per no-backcompat rule)
 - [x] 4. Hook split `Notification[idle_prompt] → done` (D6: "splitting the current catch-all `Notification → waiting`") — codex cannot see Notification events at all, so codex relies on the staleness fallback (step 3) alone
 - [ ] 5. Bridge package `crabswarm/chat/mcpserver`, auto-Join + 4 tools (D1, D2, D3)
 - [ ] 6. `crabswarm://chat/members` resource + `resources/updated` (D4); history resource blocked on plan 05

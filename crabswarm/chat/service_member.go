@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -139,7 +140,7 @@ func (s *Service) ReportState(
 	if err != nil {
 		return nil, err
 	}
-	if err := s.store.SetState(ctx, caller.Token, state); err != nil {
+	if err := s.store.SetState(ctx, caller.Token, state, time.Now()); err != nil {
 		return nil, storeStatus(err)
 	}
 	s.mirrorState(ctx, caller, state)

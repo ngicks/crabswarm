@@ -14,6 +14,10 @@ import (
 // sentAt is a fixed send time; RFC3339Nano round-trips it exactly.
 var sentAt = time.Date(2026, 8, 27, 10, 30, 0, 0, time.UTC)
 
+// reportedAt is a fixed state-report time, a different instant from [sentAt] so
+// a test that swapped the two columns would not still pass.
+var reportedAt = time.Date(2026, 8, 27, 11, 45, 0, 0, time.UTC)
+
 // newTestStore opens a store on a temp file. A file, not ":memory:", so a test
 // can close and reopen the same database.
 func newTestStore(t *testing.T) (*Store, string) {
@@ -85,19 +89,20 @@ func TestStore_PersistsAcrossReopen(t *testing.T) {
 	join(t, s, "tok-b", "/work/repo", "beta", "bob")
 	_, err := s.Send(t.Context(), "tok-b", "alpha/alice", "still here?", sentAt)
 	assert.NilError(t, err)
-	assert.NilError(t, s.SetState(t.Context(), alice.Token, StateWorking))
+	assert.NilError(t, s.SetState(t.Context(), alice.Token, StateWorking, reportedAt))
 	assert.NilError(t, s.Close())
 
 	reopened, err := NewStore(t.Context(), path)
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = reopened.Close() })
 
-	// Members, their state, and the room layout survive.
+	// Members, their state and when it was reported, and the room layout
+	// survive.
 	got, err := reopened.Member(t.Context(), "tok-a")
 	assert.NilError(t, err)
 	assert.DeepEqual(t, got, Member{
 		Token: "tok-a", Name: "alice", Team: "alpha", Room: "/work/repo",
-		Kind: KindAgent, State: StateWorking,
+		Kind: KindAgent, State: StateWorking, StateReportedAt: reportedAt,
 	})
 	rooms, err := reopened.ListRooms(t.Context())
 	assert.NilError(t, err)

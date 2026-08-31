@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/chat/internal/cmdman"
@@ -69,16 +70,24 @@ func stubCmdmanScreen(t *testing.T, out string) string {
 		"if [ \"$1\" = capture-screen ]; then printf '%s\\n' '"+out+"'; fi\nexit 0\n")
 }
 
-// doneAgent is a member in the one state that invites a nudge.
+// doneAgent is a member whose last report — made just now — invites a nudge.
 func doneAgent() chat.Member {
 	return chat.Member{
-		Token: "0123456789abcdef",
-		Name:  "ana",
-		Team:  "alpha",
-		Room:  "/work",
-		Kind:  chat.KindAgent,
-		State: chat.StateDone,
+		Token:           "0123456789abcdef",
+		Name:            "ana",
+		Team:            "alpha",
+		Room:            "/work",
+		Kind:            chat.KindAgent,
+		State:           chat.StateDone,
+		StateReportedAt: time.Now(),
 	}
+}
+
+// staleReport is a report time old enough that the state it carries is no
+// longer believed, with a minute to spare so a slow test cannot land inside
+// the threshold.
+func staleReport() time.Time {
+	return time.Now().Add(-staleStateAfter - time.Minute)
 }
 
 func bob() chat.Sender {
@@ -109,23 +118,66 @@ func TestSendKeys_SkipsBusyMember(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		state chat.MemberState
+		// reportedAt is when the state was reported: a report this fresh is
+		// still believed, so it blocks.
+		reportedAt time.Time
 	}{
-		{"working", chat.StateWorking},
-		{"waiting", chat.StateWaiting},
-		// Only done invites a nudge, so a state this notifier cannot read is
-		// declined rather than assumed harmless.
-		{"unset", ""},
+		{"working", chat.StateWorking, time.Now()},
+		{"waiting", chat.StateWaiting, time.Now()},
+		// A state this notifier cannot read is declined rather than assumed
+		// harmless, and age does not rescue it: the zero report time is as old
+		// as they come, and it still must not be nudged.
+		{"unset", "", time.Time{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			bin := stubCmdmanScreen(t, idlePrompt)
 			m := doneAgent()
 			m.State = tc.state
+			m.StateReportedAt = tc.reportedAt
 
 			err := NewSendKeys(bin, nil).Notify(t.Context(), m, bob(), "hi")
 			assert.NilError(t, err)
 			assert.Assert(t, stubArgs(t, bin) == nil, "cmdman must not be invoked")
 		})
 	}
+}
+
+func TestSendKeys_NudgesMemberWedgedInABusyState(t *testing.T) {
+	// A state only changes when a harness hook reports the change, so a hook
+	// that never fired — the user interrupted the session, or the harness has
+	// no idle notification to hook — would leave the member busy forever and
+	// never nudged again. Past the threshold the report stops being believed.
+	for _, state := range []chat.MemberState{chat.StateWorking, chat.StateWaiting} {
+		t.Run(string(state), func(t *testing.T) {
+			bin := stubCmdmanScreen(t, idlePrompt)
+			m := doneAgent()
+			m.State = state
+			m.StateReportedAt = staleReport()
+
+			err := NewSendKeys(bin, nil).Notify(t.Context(), m, bob(), "hi")
+			assert.NilError(t, err)
+
+			args := stubArgs(t, bin)
+			assert.Equal(t, len(args), 3, "invocations: %v", args)
+			assert.Equal(t, args[0], "capture-screen 0123456789abcdef")
+		})
+	}
+}
+
+func TestSendKeys_SkipsStaleBusyMemberShowingDialog(t *testing.T) {
+	// Age lifts the state guard, not the one that looks at the terminal: a
+	// stale report is the reason to ask the screen, not to skip asking it.
+	bin := stubCmdmanScreen(t, "some dialog\n"+cmdman.DialogMarkers[0]+"\nmore text")
+	m := doneAgent()
+	m.State = chat.StateWorking
+	m.StateReportedAt = staleReport()
+
+	err := NewSendKeys(bin, nil).Notify(t.Context(), m, bob(), "hi")
+	assert.NilError(t, err)
+
+	args := stubArgs(t, bin)
+	assert.Equal(t, len(args), 1, "invocations: %v", args)
+	assert.Assert(t, strings.HasPrefix(args[0], "capture-screen "), "got %v", args)
 }
 
 func TestSendKeys_SkipsHuman(t *testing.T) {
