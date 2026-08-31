@@ -63,22 +63,6 @@ resources + `resources/updated` subscriptions for member state and room
 history), wire server-startup auto-join, and keep the CLI as the
 hook-facing entry.
 
-## Default member name from cmdman compose labels (2026-08-31)
-
-Member names must be aliased from cmdman-compose's command name, not
-from the token. Today the default is `agent-<first-8-hex-of-token>`
-(`defaultName` in `crabswarm/chat/service.go`), and the resolver
-decodes only `dir` and the labels map, using just
-`cmdman.compose.project` (`crabswarm/chat/resolver/cmdman.go`).
-
-Follow-up: read `cmdman.compose.command` and
-`cmdman.compose.scale-index` from the already-decoded labels (i.e. what
-`cmdman inspect $ID --format '{{index .Config.Labels
-"cmdman.compose.command"}}'` returns), carry a `Name` on
-`resolver.TeamInfo` (`crabswarm/chat/resolver/resolver.go`), and have
-`Service.Join` prefer it (e.g. `<command>-<scale-index>`) over the
-token-derived fallback when `--name` is absent.
-
 ## Nudge opt-in kind for members (deferred) (2026-08-31)
 
 Every cmdman-resolved member is unconditionally `KindAgent`
@@ -123,3 +107,45 @@ Follow-up: build an admin TUI (room picker / explicit room id, live
 view of the room's conversation via the per-room history plus a
 streaming or polling tail, send-as-admin input). Depends on the `chat
 admin` subcommand and per-room history entries above.
+
+## Reclaim a gone member's name on duplicate-name join (2026-08-31)
+
+A recreated compose replica cannot rejoin the chat room: the identity
+token is `$CMDMAN_CMD_ID`, the per-instance cmdman command ID
+(`crabswarm/chat/cli/token.go`), and cmdman compose recreate (also
+`down`+`up` and `scale` down/up) is remove-then-create — the replica
+comes back with a new command ID but the same `cmdman.compose.command` /
+`cmdman.compose.scale-index` labels, so it derives the same default name
+(e.g. `worker-1`). The new token is unknown to the store, `Service.Join`
+takes the fresh-join path, and `Store.Join` rejects the taken name
+(`crabswarm/chat/member.go` → `codes.AlreadyExists`). The stale member
+holding the name is never freed: reaping is lazy and fires only when the
+stale member itself makes an RPC (`crabswarm/chat/service.go`), its
+command is gone so it never will, there is no sweep or admin
+member-removal RPC, and the store persists across daemon restarts
+(`$XDG_STATE_HOME/crabswarm/chat.db`). The only workaround is an
+explicit `--name`, which defeats the label-derived-naming feature.
+
+Decided policy: on a duplicate-name join, the server checks whether the
+existing holder of that name is still around — resolve its stored token
+through the team-info provider — and when the previous member is gone
+(token no longer resolves), frees the name and admits the joiner;
+a collision with a live member stays a clear `AlreadyExists` rejection.
+
+Regression test to add with the fix: `Service.Join` with a
+provider-derived name already taken in the same team by a token the
+provider no longer knows.
+
+## Untested guarantee: `/` in a provider-derived member name (2026-08-31)
+
+The comment in `crabswarm/chat/resolver/cmdman.go` (label values used
+verbatim) leans on join-time rejection of `/` in names, but only
+`req.Name` is test-driven through that path
+(`crabswarm/chat/service_member_test.go`); no test sends a
+`resolver.TeamInfo.Name` containing `/` through `Service.Join`. A future
+"cmdman is trusted, skip validation" refactor could silently break the
+documented guarantee.
+
+Follow-up: add a service test driving a `/`-carrying provider-derived
+name through `Service.Join` and asserting the `InvalidArgument`
+rejection.
