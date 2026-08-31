@@ -128,6 +128,15 @@ func (s *Service) Leave(
 }
 
 // ReportState records the harness state the caller's hooks report.
+//
+// The report is always stored, even when it repeats the state already held: it
+// carries the moment the harness was last seen in that state, which is what
+// tells a member still working from one that stopped saying so.
+//
+// The room only hears about it when the state actually changed. Hooks report
+// working after every tool call, so a room of busy agents would otherwise spend
+// its event feed telling every watcher to re-read a roster that says exactly
+// what it said before.
 func (s *Service) ReportState(
 	ctx context.Context,
 	req *chatv1.ReportStateRequest,
@@ -144,6 +153,8 @@ func (s *Service) ReportState(
 		return nil, storeStatus(err)
 	}
 	s.mirrorState(ctx, caller, state)
-	s.store.events.publish(caller.Room, memberStateChangedEvent(caller, req.GetState()))
+	if state != caller.State {
+		s.store.events.publish(caller.Room, memberStateChangedEvent(caller, req.GetState()))
+	}
 	return &chatv1.ReportStateResponse{}, nil
 }

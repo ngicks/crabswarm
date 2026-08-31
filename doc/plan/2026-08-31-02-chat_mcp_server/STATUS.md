@@ -1,10 +1,12 @@
 # Status
 
-Current state: in progress — step 1 done (proto `WatchRoom` + regen,
-`buf lint`/`go build` green; `RoomEvent` name kept via per-RPC lint
-ignore, see D7).
+Current state: all 9 steps implemented, and the fixes from the review of
+the branch are applied — the bridge re-attends after the daemon forgets a
+member, the Join RPC is bounded per attempt, an unchanged state report no
+longer publishes an event, and the comments and docs that still described
+the removed session-start join or a done-only nudge gate are corrected.
 
-Next action: step 2 (daemon fan-out + `WatchRoom` impl).
+Next action: user review.
 
 ## Checklist
 

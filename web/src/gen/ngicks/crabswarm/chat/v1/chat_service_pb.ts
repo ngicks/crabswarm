@@ -733,7 +733,10 @@ export enum HarnessState {
 
   /**
    * Done: the harness finished its turn and is waiting for a new prompt. The
-   * only state in which a keystroke-injection nudge is safe.
+   * state a keystroke-injection nudge is meant for, and the only one it is
+   * sent on sight; a working or waiting report is nudged too once it is old
+   * enough to have stopped describing the terminal, since the hook that would
+   * have reported the change can go missing.
    *
    * @generated from enum value: HARNESS_STATE_DONE = 3;
    */

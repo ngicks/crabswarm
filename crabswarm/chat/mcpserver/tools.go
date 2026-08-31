@@ -111,6 +111,8 @@ func (s *Server) members(
 // Attendance is checked first because none of these calls mean anything from
 // outside the room, and a member whose startup join never landed would
 // otherwise get the daemon's answer to a question it should not have asked.
+// A refusal on the way out re-opens that question, so a bridge whose member
+// the daemon has since forgotten attends again on the next call.
 func (s *Server) call(
 	ctx context.Context,
 	rpc func(w io.Writer) error,
@@ -120,7 +122,7 @@ func (s *Server) call(
 	}
 	var rendered bytes.Buffer
 	if err := rpc(&rendered); err != nil {
-		return nil, nil, err
+		return nil, nil, s.forgetJoined(err)
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: rendered.String()}},

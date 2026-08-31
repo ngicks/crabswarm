@@ -29,6 +29,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 	"github.com/ngicks/crabswarm/internal/libver"
@@ -150,6 +152,14 @@ const (
 	joinBackoffMax  = 2 * time.Second
 )
 
+// joinTimeout bounds one attempt at attending. The lock is held across the
+// call, so a daemon that accepted the connection and then never answered would
+// otherwise wedge every tool call behind it — including the ones whose own
+// deadline has already passed, which would be waiting on an answer nobody is
+// left to read. A local socket answers in microseconds; this is only the point
+// past which no answer is coming.
+const joinTimeout = 10 * time.Second
+
 // joinWithRetry declares attendance as soon as the process starts, so a
 // message addressed to this member has an inbox to land in before its harness
 // takes a turn.
@@ -185,12 +195,18 @@ func (s *Server) joinWithRetry(ctx context.Context) {
 // behalf. Join is idempotent for a known token, so asking again costs one
 // round trip — and it is what lets a tool succeed against a daemon that came
 // back after the startup attempts ran out.
+//
+// Attendance already declared is remembered rather than re-declared per call,
+// so the round trip is spent once; [Server.forgetJoined] is what puts the
+// memory back when the daemon stops counting this member as one.
 func (s *Server) ensureJoined(ctx context.Context) error {
 	s.joinMu.Lock()
 	defer s.joinMu.Unlock()
 	if s.joined {
 		return nil
 	}
+	ctx, cancel := context.WithTimeout(ctx, joinTimeout)
+	defer cancel()
 	// The empty name takes the one the daemon derives from the token: an agent
 	// is named by whoever registered it, not by the harness it happens to run.
 	var identity strings.Builder
@@ -200,4 +216,29 @@ func (s *Server) ensureJoined(ctx context.Context) error {
 	s.joined = true
 	s.logger.Info("attending the chat room", "identity", strings.TrimSpace(identity.String()))
 	return nil
+}
+
+// forgetJoined drops the remembered attendance when err is the daemon refusing
+// a caller it does not count as a member, so the next call declares it again.
+// It hands err back unchanged, so the call site returns it in place.
+//
+// Attendance outlives the bridge's memory of it in more than one way: the
+// daemon reaps a member whose command the team-info provider stopped knowing,
+// a human types `crabswarm chat leave`, a restarted daemon comes back on a
+// fresh database. Without this the bridge would keep acting on a membership
+// that no longer exists — every tool failing the same way forever, and the
+// watch loop spending its backoff on the same refusal — with a join it is
+// already sure it made standing in the way of the one that would fix it.
+//
+// Unauthenticated alone: that is the code the daemon answers a caller it
+// cannot resolve to a member with. NotFound means the member the caller
+// addressed does not exist, which attending again would not change.
+func (s *Server) forgetJoined(err error) error {
+	if status.Code(err) != codes.Unauthenticated {
+		return err
+	}
+	s.joinMu.Lock()
+	defer s.joinMu.Unlock()
+	s.joined = false
+	return err
 }

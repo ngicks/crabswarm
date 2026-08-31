@@ -20,9 +20,9 @@ import (
 //
 // A name already used by another member of the same team is [ErrNameTaken];
 // the same name in another team of the room is fine, that is what teams are
-// for. An empty State defaults to [StateDone]: attendance is declared from a
-// session-start hook, before the session has work to do. A zero
-// StateReportedAt defaults to now, the moment that state was declared.
+// for. An empty State defaults to [StateDone]: attendance is declared as the
+// member's bridge to the room starts, before the session has work to do. A
+// zero StateReportedAt defaults to now, the moment that state was declared.
 func (s *Store) Join(ctx context.Context, m Member) (Member, error) {
 	if m.Token == "" {
 		return Member{}, errors.New("joining chat: empty token")

@@ -30,11 +30,6 @@ func member(team, name, room string) *chatv1.Member {
 type fakeChatService struct {
 	chatv1.UnimplementedChatServiceServer
 
-	// err, when set, fails every RPC — the daemon rejecting what the caller
-	// asked for rather than being unreachable. It is set before the bridge
-	// starts and never written again.
-	err error
-
 	self      *chatv1.Member
 	recipient *chatv1.Member
 	delivered int32
@@ -50,12 +45,26 @@ type fakeChatService struct {
 	// is the only synchronisation either side needs.
 	events chan *chatv1.RoomEvent
 
-	mu        sync.Mutex
+	mu sync.Mutex
+	// err, when set, fails every unary RPC — the daemon rejecting what the
+	// caller asked for rather than being unreachable. It is guarded because a
+	// test may flip it mid-session with [fakeChatService.setErr], which is how
+	// a daemon that forgot a member it had admitted is played.
+	err       error
 	join      *chatv1.JoinRequest
+	joins     int
 	send      *chatv1.SendRequest
 	broadcast *chatv1.BroadcastRequest
 	reads     int
 	watches   int
+}
+
+// failure is the canned error as it stands, read under the lock so a test that
+// flips it mid-session races with nothing.
+func (f *fakeChatService) failure() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.err
 }
 
 func (f *fakeChatService) WatchRoom(
@@ -87,9 +96,10 @@ func (f *fakeChatService) Join(
 ) (*chatv1.JoinResponse, error) {
 	f.mu.Lock()
 	f.join = req
+	f.joins++
 	f.mu.Unlock()
-	if f.err != nil {
-		return nil, f.err
+	if err := f.failure(); err != nil {
+		return nil, err
 	}
 	return &chatv1.JoinResponse{Self: f.self}, nil
 }
@@ -100,8 +110,8 @@ func (f *fakeChatService) Send(
 	f.mu.Lock()
 	f.send = req
 	f.mu.Unlock()
-	if f.err != nil {
-		return nil, f.err
+	if err := f.failure(); err != nil {
+		return nil, err
 	}
 	return &chatv1.SendResponse{Recipient: f.recipient}, nil
 }
@@ -112,8 +122,8 @@ func (f *fakeChatService) Broadcast(
 	f.mu.Lock()
 	f.broadcast = req
 	f.mu.Unlock()
-	if f.err != nil {
-		return nil, f.err
+	if err := f.failure(); err != nil {
+		return nil, err
 	}
 	return &chatv1.BroadcastResponse{DeliveredCount: f.delivered}, nil
 }
@@ -124,8 +134,8 @@ func (f *fakeChatService) Read(
 	f.mu.Lock()
 	f.reads++
 	f.mu.Unlock()
-	if f.err != nil {
-		return nil, f.err
+	if err := f.failure(); err != nil {
+		return nil, err
 	}
 	return &chatv1.ReadResponse{Messages: f.messages}, nil
 }
@@ -133,16 +143,33 @@ func (f *fakeChatService) Read(
 func (f *fakeChatService) ListMembers(
 	_ context.Context, _ *chatv1.ListMembersRequest,
 ) (*chatv1.ListMembersResponse, error) {
-	if f.err != nil {
-		return nil, f.err
+	if err := f.failure(); err != nil {
+		return nil, err
 	}
 	return &chatv1.ListMembersResponse{Members: f.members}, nil
+}
+
+// setErr changes what every unary RPC answers with from here on, so a test can
+// play a daemon that stops recognising a member it had already admitted — and
+// then recognises it again once the bridge attends afresh.
+func (f *fakeChatService) setErr(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = err
 }
 
 func (f *fakeChatService) lastJoin() *chatv1.JoinRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.join
+}
+
+// joinCount is how many times attendance was declared, which is what pins the
+// bridge asking once per session rather than once per call.
+func (f *fakeChatService) joinCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.joins
 }
 
 func (f *fakeChatService) lastSend() *chatv1.SendRequest {

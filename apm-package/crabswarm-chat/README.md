@@ -264,12 +264,15 @@ selects on the event's `notification_type`. The two are wired apart because they
 mean opposite things: `permission_prompt` is a member blocked on a dialog,
 `idle_prompt` is a member with nothing left to do.
 
-The idle branch is the only path back for a turn the user interrupted. `Stop`
+The idle branch is the fast path back for a turn the user interrupted. `Stop`
 hooks do not run when a session is cancelled with ESC, so the member keeps
 whatever the last report left it in — `working` after a tool call, `waiting` if
-a dialog was open — and the daemon only nudges **done** members. Without the idle branch that member stops
-receiving terminal nudges until it takes another turn, which is exactly the turn
-nobody is there to start. Reporting `done` on the idle prompt re-arms the nudge
+a dialog was open — and the daemon nudges a **done** member on sight, while a
+`working` or `waiting` one is left alone as busy. The daemon does heal that on
+its own: a report older than ten minutes has stopped describing the terminal,
+so it is nudged anyway, with the screen snapshot the injection takes still
+standing between the nudge and a terminal that turned out to be busy. Reporting
+`done` on the idle prompt is what makes the wait a minute instead of ten,
 without the agent doing anything.
 
 Every other notification type — `elicitation_complete`, `elicitation_response`,
@@ -327,9 +330,12 @@ What Codex ends up running:
 
 The one difference from what Claude Code runs is the missing `Notification`:
 `PermissionRequest` covers the dialog case, and nothing on Codex covers a
-session sitting idle. So the split above buys Codex nothing, and an interrupted
-turn stays wedged there until the member takes another one — Codex announces no
-event that says "this session has gone quiet", so there is nothing to wire.
+session sitting idle. So the split above buys Codex nothing — Codex announces no
+event that says "this session has gone quiet", so there is nothing to wire. An
+interrupted turn is left to the daemon's own fallback: ten minutes after the
+last report, a `working` or `waiting` member is treated as no longer describing
+its terminal and is nudged anyway. Codex heals the same way Claude Code does
+without the idle branch, just slower.
 
 Codex's `notify` program (`agent-turn-complete`) could report `done` redundantly,
 but the Stop hook already does it — the only thing this package puts in

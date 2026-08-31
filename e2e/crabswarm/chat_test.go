@@ -649,9 +649,10 @@ func TestChat_RoomsAreIsolated(t *testing.T) {
 	}
 }
 
-// A session-start hook may fire more than once, so joining twice with the same
-// token is not an error: the second join is answered from the stored
-// membership, leaving the name, the attendance and the inbox as they were.
+// The MCP bridge attends as it starts, and a harness may start more than one of
+// them against the same token, so joining twice is not an error: the second
+// join is answered from the stored membership, leaving the name, the attendance
+// and the inbox as they were.
 func TestChat_JoinIsIdempotent(t *testing.T) {
 	cfg := startChatDaemon(t)
 

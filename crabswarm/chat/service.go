@@ -283,8 +283,9 @@ func defaultName(token string) string {
 
 // memberState maps the reported harness state onto the stored one. The
 // unspecified state is rejected rather than defaulted: a hook that failed to
-// fill it in must not silently mark its agent done, which is the one state that
-// invites a keystroke nudge.
+// fill it in must not silently mark its agent done, which is the one state a
+// keystroke nudge is sent to on sight rather than only once the report has
+// gone stale.
 func memberState(state chatv1.HarnessState) (MemberState, error) {
 	switch state {
 	case chatv1.HarnessState_HARNESS_STATE_DONE:

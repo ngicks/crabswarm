@@ -189,6 +189,37 @@ func TestService_WatchRoomIgnoresARepeatedJoin(t *testing.T) {
 	noMoreEvents(t, sub.events)
 }
 
+// A state report that changes nothing is not news either. Harness hooks report
+// working after every tool call, so a room of busy agents would otherwise spend
+// its feed telling every watcher to re-read a roster that reads exactly as it
+// did the last time they were told.
+func TestService_WatchRoomIgnoresAnUnchangedStateReport(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
+
+	sub := svc.store.events.subscribe("/work")
+	defer svc.store.events.unsubscribe(sub)
+
+	working := &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+	}
+	_, err := svc.ReportState(callCtx(t, "tok-a"), working)
+	assert.NilError(t, err)
+	assert.Equal(t, describeEvent(nextEvent(t, sub.events)),
+		"state:alpha/ana:HARNESS_STATE_WORKING")
+
+	_, err = svc.ReportState(callCtx(t, "tok-a"), working)
+	assert.NilError(t, err)
+	noMoreEvents(t, sub.events)
+
+	// The repeat still landed: it is the report time a stale-state check reads,
+	// and the state it leaves behind is the one it repeated.
+	stored, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.State, StateWorking)
+	assert.Assert(t, !stored.StateReportedAt.IsZero())
+}
+
 func TestService_WatchRoomIsRoomScoped(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")

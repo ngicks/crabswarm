@@ -10,8 +10,8 @@ import (
 // harnessStates maps the words the CLI accepts for a harness state onto the
 // enum, mirroring the vocabulary of `cmdman status set working|waiting|done`.
 // The unspecified state has no word: a hook that cannot say what its harness
-// is doing must fail rather than report the one state that invites a
-// keystroke nudge.
+// is doing must fail rather than report the one state a keystroke nudge is
+// sent to on sight rather than only once the report has gone stale.
 var harnessStates = map[string]chatv1.HarnessState{
 	"working": chatv1.HarnessState_HARNESS_STATE_WORKING,
 	"waiting": chatv1.HarnessState_HARNESS_STATE_WAITING,

@@ -225,6 +225,57 @@ func TestServer_JoinFailureDegradesToErroringTools(t *testing.T) {
 	assert.Equal(t, len(tools.Tools), 4)
 }
 
+// Attendance is declared once and remembered. A join per tool call would spend
+// a round trip re-asking a question the daemon has already answered, on every
+// message an agent sends for the rest of its session.
+func TestServer_AttendsOnceForTheWholeSession(t *testing.T) {
+	fake := &fakeChatService{self: member("backend", "alice", testRoom)}
+	session := startSession(t, fake)
+
+	for range 2 {
+		res, err := session.CallTool(t.Context(), &mcp.CallToolParams{Name: "chat_read"})
+		assert.NilError(t, err)
+		assert.Assert(t, !res.IsError, "tool failed: %s", textOf(t, res))
+	}
+
+	assert.Equal(t, fake.readCount(), 2)
+	assert.Equal(t, fake.joinCount(), 1)
+}
+
+// A daemon can stop counting this bridge as a member while the session is still
+// running — it reaps a command the team-info provider stopped knowing, a human
+// types `crabswarm chat leave`, a restarted daemon comes back on a fresh
+// database. The refusal that follows is what tells the bridge, so the call after
+// it attends again and works, rather than every call failing that way until the
+// harness is restarted.
+func TestServer_AttendsAgainAfterTheDaemonForgetsTheMember(t *testing.T) {
+	// The daemon's own wording for a caller it cannot resolve to a member.
+	const refusal = "token is not attending any room; join first"
+	fake := &fakeChatService{self: member("backend", "alice", testRoom)}
+	session := startSession(t, fake)
+
+	read := &mcp.CallToolParams{Name: "chat_read"}
+	res, err := session.CallTool(t.Context(), read)
+	assert.NilError(t, err)
+	assert.Assert(t, !res.IsError, "tool failed: %s", textOf(t, res))
+	assert.Equal(t, fake.joinCount(), 1)
+
+	fake.setErr(status.Error(codes.Unauthenticated, refusal))
+	res, err = session.CallTool(t.Context(), read)
+	assert.NilError(t, err)
+	assert.Assert(t, res.IsError)
+	assert.Assert(t, strings.Contains(textOf(t, res), refusal), "got %q", textOf(t, res))
+	// The read was refused, not a join: the bridge still counted itself a
+	// member when it went out, which is the state the refusal has to undo.
+	assert.Equal(t, fake.joinCount(), 1)
+
+	fake.setErr(nil)
+	res, err = session.CallTool(t.Context(), read)
+	assert.NilError(t, err)
+	assert.Assert(t, !res.IsError, "tool failed: %s", textOf(t, res))
+	assert.Equal(t, fake.joinCount(), 2)
+}
+
 func TestNew_RejectsEmptySocketPath(t *testing.T) {
 	_, err := New(nil, "", testToken)
 	assert.Assert(t, err != nil)

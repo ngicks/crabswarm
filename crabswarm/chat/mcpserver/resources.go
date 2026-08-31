@@ -78,7 +78,7 @@ func (s *Server) readMembers(
 	}
 	members, err := s.client.Members(ctx, s.token)
 	if err != nil {
-		return nil, err
+		return nil, s.forgetJoined(err)
 	}
 	body, err := json.MarshalIndent(rosterOf(members), "", "  ")
 	if err != nil {
@@ -170,14 +170,15 @@ func (s *Server) watchMembers(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		s.logger.Warn("the room event feed ended; watching again",
-			"backoff", backoff, "error", err)
 		// A feed that stayed up for a while and then broke is not the trouble a
 		// feed that never got going is, so it starts its retries over rather
-		// than inheriting the wait the previous failure had climbed to.
+		// than inheriting the wait the previous failure had climbed to. Settled
+		// before the log, so the wait it reports is the one it takes.
 		if time.Since(started) >= watchBackoffMax {
 			backoff = watchBackoffBase
 		}
+		s.logger.Warn("the room event feed ended; watching again",
+			"backoff", backoff, "error", err)
 		select {
 		case <-ctx.Done():
 			return
@@ -198,14 +199,16 @@ func (s *Server) watchMembers(ctx context.Context) {
 // Attendance is declared first, as it is for a tool call. A subscription can
 // arrive before the startup join has landed, and watching a room on behalf of a
 // member the daemon does not acknowledge only spends the backoff on a refusal
-// the join would have cleared.
+// the join would have cleared. A feed refused for that reason gives the
+// declared attendance back up, so the next attempt declares it again instead of
+// looping on the same no.
 func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
 	if err := s.ensureJoined(ctx); err != nil {
 		return err
 	}
 	stream, err := s.client.WatchRoom(ctx, s.token)
 	if err != nil {
-		return err
+		return s.forgetJoined(err)
 	}
 	if resumed {
 		s.membersChanged(ctx)
@@ -213,7 +216,7 @@ func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
 	for {
 		ev, err := stream.Recv()
 		if err != nil {
-			return err
+			return s.forgetJoined(err)
 		}
 		if rosterChanged(ev) {
 			s.membersChanged(ctx)
