@@ -150,3 +150,22 @@ func TestRenderMovedAndRegistered(t *testing.T) {
 	assert.Equal(t, got,
 		"registered humans/yuki in room /work/proj\ntoken: tok-secret\n")
 }
+
+func TestRenderAdminSent(t *testing.T) {
+	got := render(t, func(b *strings.Builder) error {
+		return RenderAdminSent(b, "/work/proj", "backend/alice", 1)
+	})
+	assert.Equal(t, got, "sent to backend/alice in room /work/proj: delivered to 1 member\n")
+
+	got = render(t, func(b *strings.Builder) error {
+		return RenderAdminSent(b, "/work/proj", "*", 3)
+	})
+	assert.Equal(t, got, "sent to * in room /work/proj: delivered to 3 members\n")
+
+	// A room-wide send into a room nobody attends succeeds, and has to read as
+	// the empty room it found rather than as a failure.
+	got = render(t, func(b *strings.Builder) error {
+		return RenderAdminSent(b, "/work/proj", "*", 0)
+	})
+	assert.Equal(t, got, "sent to * in room /work/proj: delivered to 0 members\n")
+}

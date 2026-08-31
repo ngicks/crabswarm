@@ -49,12 +49,16 @@ func RenderSent(w io.Writer, recipient *chatv1.Member) error {
 // RenderBroadcast reports how many inboxes the message reached. Zero is worth
 // saying out loud: it means nobody else is attending, not that the send failed.
 func RenderBroadcast(w io.Writer, delivered int32) error {
-	noun := "members"
-	if delivered == 1 {
-		noun = "member"
-	}
-	_, err := fmt.Fprintf(w, "broadcast to %d %s\n", delivered, noun)
+	_, err := fmt.Fprintf(w, "broadcast to %d %s\n", delivered, memberNoun(delivered))
 	return err
+}
+
+// memberNoun agrees the noun with a count of recipients.
+func memberNoun(delivered int32) string {
+	if delivered == 1 {
+		return "member"
+	}
+	return "members"
 }
 
 // RenderLeft confirms the withdrawal, which the daemon acknowledges with an
@@ -156,6 +160,18 @@ func groupByTeam(members []*chatv1.Member) []teamMembers {
 // rather than echoed from the request.
 func RenderMoved(w io.Writer, member *chatv1.Member) error {
 	_, err := fmt.Fprintf(w, "moved %s in room %s\n", qualify(member), member.GetRoom())
+	return err
+}
+
+// RenderAdminSent reports an admin delivery, echoing the room and the target it
+// was addressed to. Both come back from the request rather than from the daemon,
+// which answers with a count alone — and the count is what the echo makes
+// readable: "0 members" against "*" is an empty room, while the same count
+// against a named target could not happen, since an address that resolves to
+// nobody fails the call instead.
+func RenderAdminSent(w io.Writer, room, target string, delivered int32) error {
+	_, err := fmt.Fprintf(w, "sent to %s in room %s: delivered to %d %s\n",
+		target, room, delivered, memberNoun(delivered))
 	return err
 }
 

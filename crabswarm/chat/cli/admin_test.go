@@ -106,8 +106,10 @@ type fakeAdminService struct {
 	bearer     string
 	move       *chatv1.MoveMemberRequest
 	register   *chatv1.RegisterMemberRequest
+	send       *chatv1.AdminSendRequest
 
-	rooms []*chatv1.Room
+	rooms     []*chatv1.Room
+	delivered int32
 }
 
 func (f *fakeAdminService) GetNonce(
@@ -154,6 +156,14 @@ func (f *fakeAdminService) RegisterMember(
 		Member: member(req.GetTeam(), req.GetName(), req.GetRoom()),
 		Token:  "tok-issued",
 	}, nil
+}
+
+func (f *fakeAdminService) Send(
+	ctx context.Context, req *chatv1.AdminSendRequest,
+) (*chatv1.AdminSendResponse, error) {
+	f.bearer, _ = auth.BearerFromContext(ctx)
+	f.send = req
+	return &chatv1.AdminSendResponse{Delivered: f.delivered}, nil
 }
 
 func TestClient_ListRoomsDecryptsTheChallenge(t *testing.T) {
@@ -221,6 +231,40 @@ func TestClient_RegisterMemberPrintsTheToken(t *testing.T) {
 	assert.Equal(t, fake.register.GetName(), "yuki")
 	assert.Equal(t, out.String(),
 		"registered humans/yuki in room /work/proj\ntoken: tok-issued\n")
+}
+
+// The target reaches the daemon exactly as it was typed — "*" included — since
+// the admin RPC resolves it with the same grammar member send uses.
+func TestClient_AdminSendReportsTheDeliveredCount(t *testing.T) {
+	path, recipient := newIdentityFile(t)
+	fake := &fakeAdminService{recipient: recipient, nonce: "nonce-send", delivered: 3}
+	d := serveTestDaemon(t, nil, fake)
+
+	var out strings.Builder
+	assert.NilError(t, d.client.AdminSend(
+		t.Context(), &out, path, "/work/proj", "*", "standup in five"))
+	assert.Equal(t, fake.bearer, "nonce-send")
+	assert.Equal(t, fake.send.GetRoom(), "/work/proj")
+	assert.Equal(t, fake.send.GetTarget(), "*")
+	assert.Equal(t, fake.send.GetText(), "standup in five")
+	assert.Equal(t, out.String(),
+		"sent to * in room /work/proj: delivered to 3 members\n")
+}
+
+// An identity the daemon does not encrypt to stops the send at the challenge,
+// and the failure has to name the file to look at rather than fail as the send.
+func TestClient_AdminSendWithWrongIdentity(t *testing.T) {
+	path, _ := newIdentityFile(t)
+	_, other := newIdentityFile(t)
+	fake := &fakeAdminService{recipient: other, nonce: "nonce-send"}
+	d := serveTestDaemon(t, nil, fake)
+
+	err := d.client.AdminSend(
+		t.Context(), &strings.Builder{}, path, "/work/proj", "backend/alice", "hi")
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), path))
+	assert.Assert(t, strings.Contains(err.Error(), "hint:"))
+	assert.Assert(t, fake.send == nil)
 }
 
 // An identity the daemon does not encrypt to stops the command at the

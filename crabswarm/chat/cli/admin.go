@@ -152,3 +152,31 @@ func (c *Client) RegisterMember(
 	}
 	return RenderRegistered(w, resp.GetMember(), resp.GetToken())
 }
+
+// AdminSend delivers text into a room the operator does not attend, addressed
+// to one member as "name" or "team/name" or — as "*" — to everyone there.
+//
+// Unlike the member address [Client.MoveMember] takes, the target is passed
+// through untouched: the RPC carries it as one field, and resolving it is the
+// daemon's job, which is what keeps the grammar the same as the one `chat send`
+// takes.
+func (c *Client) AdminSend(
+	ctx context.Context,
+	w io.Writer,
+	identityPath, room, target, text string,
+) error {
+	nonce, err := c.nonce(ctx, identityPath)
+	if err != nil {
+		return err
+	}
+	resp, err := c.admin.Send(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.AdminSendRequest{
+			Room:   room,
+			Target: target,
+			Text:   text,
+		})
+	if err != nil {
+		return callError(err)
+	}
+	return RenderAdminSent(w, room, target, resp.GetDelivered())
+}
