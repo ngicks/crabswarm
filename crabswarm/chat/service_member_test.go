@@ -73,6 +73,26 @@ func TestService_JoinDefaultsNameToTokenPrefix(t *testing.T) {
 	assert.Equal(t, res.GetSelf().GetName(), "agent-01234567")
 }
 
+// A joiner that reported no name is better named by whatever the provider knows
+// it as than by its own token.
+func TestService_JoinDefaultsNameToProviderName(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	provider.vouchNamed("0123456789abcdef", "/work", "alpha", "worker-1")
+
+	res, err := svc.Join(callCtx(t, "0123456789abcdef"), &chatv1.JoinRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetSelf().GetName(), "worker-1")
+}
+
+func TestService_JoinPrefersRequestedNameOverProviderName(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	provider.vouchNamed("tok-a", "/work", "alpha", "worker-1")
+
+	res, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetSelf().GetName(), "ana")
+}
+
 func TestService_JoinAnswersRegisteredHumanWithoutProvider(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.err = errors.New("cmdman: connection refused")

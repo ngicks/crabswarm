@@ -267,8 +267,8 @@ func (s *Service) forgetVerified(token string) {
 	delete(s.verified, token)
 }
 
-// defaultName names a joiner that reported none after its token, which is the
-// only thing about it the daemon knows.
+// defaultName names a joiner after its token, the last thing left to name it by
+// once neither the join request nor the team-info provider supplied a name.
 func defaultName(token string) string {
 	if len(token) > tokenNamePrefixLen {
 		token = token[:tokenNamePrefixLen]

@@ -48,6 +48,14 @@ func (p *fakeProvider) vouch(token, room, team string) {
 	p.infos[token] = resolver.TeamInfo{Room: room, Team: team}
 }
 
+// vouchNamed is vouch for a provider that also knows what to call the token's
+// holder, the way the compose provider reads a name off the command's labels.
+func (p *fakeProvider) vouchNamed(token, room, team, name string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.infos[token] = resolver.TeamInfo{Room: room, Team: team, Name: name}
+}
+
 // forget makes the provider stop knowing token, the way cmdman stops knowing a
 // command once it is gone.
 func (p *fakeProvider) forget(token string) {

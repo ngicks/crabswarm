@@ -68,6 +68,9 @@ func (s *Service) Join(
 
 	name := req.GetName()
 	if name == "" {
+		name = info.Name
+	}
+	if name == "" {
 		name = defaultName(token)
 	}
 	joined, err := s.store.Join(ctx, Member{
