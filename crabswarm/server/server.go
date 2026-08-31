@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	pb "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/hook/v1"
@@ -23,6 +24,12 @@ import (
 	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 	"google.golang.org/grpc"
 )
+
+// shutdownGrace is how long a shutting-down daemon waits for its open streams
+// to end on their own before closing them. Long enough for a watcher to finish
+// the event it is handling, short enough that stopping the daemon stays a
+// keystroke rather than a wait.
+const shutdownGrace = 5 * time.Second
 
 // Server is the crabswarm server.
 type Server struct {
@@ -151,7 +158,11 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 	adminSvc := chat.NewAdminService(chatStore, adminAuth, s.logger)
 
-	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()))
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()),
+		// WatchRoom is a stream, and the unary interceptor never sees one.
+		grpc.ChainStreamInterceptor(chat.StreamTokenInterceptor()),
+	)
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})
 	chatv1.RegisterChatServiceServer(srv, chat.NewService(
 		chatStore,
@@ -168,9 +179,21 @@ func (s *Server) Serve(ctx context.Context) error {
 	chatv1.RegisterChatAdminServiceServer(srv, adminSvc)
 
 	// Graceful shutdown when context is cancelled (e.g. SIGINT).
+	//
+	// GracefulStop waits for every in-flight RPC, and WatchRoom is a stream
+	// that ends only when its client does — an attached watcher would hold the
+	// daemon open through SIGINT for as long as it kept watching. Watchers get
+	// shutdownGrace to notice the closing connection and hang up; after that
+	// what is left is cut.
 	go func() {
 		<-ctx.Done()
 		s.logger.Info("shutting down server")
+		cut := time.AfterFunc(shutdownGrace, func() {
+			s.logger.Warn("shutdown grace elapsed, closing open streams",
+				slog.Duration("grace", shutdownGrace))
+			srv.Stop()
+		})
+		defer cut.Stop()
 		srv.GracefulStop()
 	}()
 

@@ -45,7 +45,8 @@ func tokenFromContext(ctx context.Context) (string, error) {
 // UnaryTokenInterceptor lifts the [TokenMetadataKey] metadata of a ChatService
 // call into its context and rejects a call that carries none with
 // Unauthenticated. A [Service] reads the caller identity from there and nowhere
-// else, so a server hosting one must install this interceptor.
+// else, so a server hosting one must install this interceptor and
+// [StreamTokenInterceptor] beside it.
 //
 // Only ChatService methods are touched. The interceptor is installed on the
 // whole gRPC server — grpc-go has no per-service interceptors — and the other
@@ -57,7 +58,7 @@ func tokenFromContext(ctx context.Context) (string, error) {
 // credential in the call's authorization metadata instead. Requiring a token
 // there would lock out the very caller the service exists for.
 func UnaryTokenInterceptor() grpc.UnaryServerInterceptor {
-	prefix := "/" + chatv1.ChatService_ServiceDesc.ServiceName + "/"
+	prefix := chatServicePrefix()
 	return func(
 		ctx context.Context,
 		req any,
@@ -67,12 +68,65 @@ func UnaryTokenInterceptor() grpc.UnaryServerInterceptor {
 		if !strings.HasPrefix(info.FullMethod, prefix) {
 			return handler(ctx, req)
 		}
-		md, _ := metadata.FromIncomingContext(ctx)
-		values := md.Get(TokenMetadataKey)
-		if len(values) == 0 || values[0] == "" {
-			return nil, status.Errorf(codes.Unauthenticated,
-				"missing %q metadata", TokenMetadataKey)
+		token, err := tokenFromMetadata(ctx)
+		if err != nil {
+			return nil, err
 		}
-		return handler(ContextWithToken(ctx, values[0]), req)
+		return handler(ContextWithToken(ctx, token), req)
 	}
+}
+
+// StreamTokenInterceptor is [UnaryTokenInterceptor] for the streaming half of
+// ChatService. A unary interceptor never sees a stream, so without this one
+// WatchRoom would reach the service with no token at all and refuse every
+// caller.
+func StreamTokenInterceptor() grpc.StreamServerInterceptor {
+	prefix := chatServicePrefix()
+	return func(
+		srv any,
+		ss grpc.ServerStream,
+		info *grpc.StreamServerInfo,
+		handler grpc.StreamHandler,
+	) error {
+		if !strings.HasPrefix(info.FullMethod, prefix) {
+			return handler(srv, ss)
+		}
+		ctx := ss.Context()
+		token, err := tokenFromMetadata(ctx)
+		if err != nil {
+			return err
+		}
+		return handler(srv, tokenStream{
+			ServerStream: ss,
+			ctx:          ContextWithToken(ctx, token),
+		})
+	}
+}
+
+// tokenStream carries the token-bearing context into a stream handler. A
+// stream's context is read from the stream rather than passed in, so the only
+// way to add to it is to hand the handler a stream that answers differently.
+type tokenStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (s tokenStream) Context() context.Context { return s.ctx }
+
+// tokenFromMetadata reads the caller's token off an incoming call, refusing one
+// that carries none.
+func tokenFromMetadata(ctx context.Context) (string, error) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	values := md.Get(TokenMetadataKey)
+	if len(values) == 0 || values[0] == "" {
+		return "", status.Errorf(codes.Unauthenticated,
+			"missing %q metadata", TokenMetadataKey)
+	}
+	return values[0], nil
+}
+
+// chatServicePrefix is what a ChatService method's full name starts with, which
+// is how the interceptors tell the calls they gate from the ones they let past.
+func chatServicePrefix() string {
+	return "/" + chatv1.ChatService_ServiceDesc.ServiceName + "/"
 }

@@ -203,6 +203,11 @@ func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 	if _, err := s.store.RemoveMember(ctx, m.Token); err != nil {
 		s.logger.Warn("chat: removing reaped member failed",
 			"member", m.Team+"/"+m.Name, "err", err)
+	} else {
+		// Unlike the status display, the room hears about a reap: the watchers
+		// are the other members' sessions, which are still running and would
+		// otherwise keep a vanished member on their list forever.
+		s.store.events.publish(m.Room, memberLeftEvent(m))
 	}
 	s.forgetVerified(m.Token)
 	return false

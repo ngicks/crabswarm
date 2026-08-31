@@ -111,6 +111,14 @@ type Room struct {
 type Store struct {
 	db *sql.DB
 	q  *db.Queries
+	// events carries what changed to the watchers of the room it changed in.
+	// It hangs on the store rather than on either service because both of them
+	// mutate the same rooms — a member leaving and an operator moving one are
+	// the same news to a watcher — and the store is where the two meet.
+	//
+	// The store itself never publishes: an event must announce a mutation that
+	// has already persisted, which is only known one call up.
+	events *roomBroadcaster
 }
 
 // NewStore opens the SQLite database at path, creating it and its schema when
@@ -135,7 +143,7 @@ func NewStore(ctx context.Context, path string) (*Store, error) {
 		_ = conn.Close()
 		return nil, fmt.Errorf("creating chat store schema in %q: %w", path, err)
 	}
-	return &Store{db: conn, q: db.New(conn)}, nil
+	return &Store{db: conn, q: db.New(conn), events: newRoomBroadcaster()}, nil
 }
 
 // Close releases the underlying database handle.

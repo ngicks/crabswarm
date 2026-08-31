@@ -81,6 +81,9 @@ func (s *Service) Join(
 		return nil, storeStatus(err)
 	}
 	s.mirrorState(ctx, joined, joined.State)
+	// Only a first join is news: re-declared attendance returns above, having
+	// changed nothing a watcher of the room can see.
+	s.store.events.publish(joined.Room, memberJoinedEvent(joined))
 	return &chatv1.JoinResponse{Self: memberProto(joined)}, nil
 }
 
@@ -119,6 +122,7 @@ func (s *Service) Leave(
 	}
 	s.forgetVerified(caller.Token)
 	s.mirrorGone(ctx, caller)
+	s.store.events.publish(caller.Room, memberLeftEvent(caller))
 	return &chatv1.LeaveResponse{}, nil
 }
 
@@ -139,5 +143,6 @@ func (s *Service) ReportState(
 		return nil, storeStatus(err)
 	}
 	s.mirrorState(ctx, caller, state)
+	s.store.events.publish(caller.Room, memberStateChangedEvent(caller, req.GetState()))
 	return &chatv1.ReportStateResponse{}, nil
 }

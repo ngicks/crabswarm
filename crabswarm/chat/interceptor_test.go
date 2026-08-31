@@ -72,15 +72,60 @@ func TestUnaryTokenInterceptor(t *testing.T) {
 	})
 }
 
-// TestService_OverGRPC exercises the wiring the daemon uses: request metadata
-// through the interceptor into the service.
-func TestService_OverGRPC(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
-	provider.vouch("tok-b", "/work", "alpha")
+// fakeStream is a [grpc.ServerStream] carrying nothing but a context, which is
+// all the stream interceptor touches.
+type fakeStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
 
+func (s fakeStream) Context() context.Context { return s.ctx }
+
+func TestStreamTokenInterceptor(t *testing.T) {
+	interceptor := StreamTokenInterceptor()
+	chatCall := &grpc.StreamServerInfo{
+		FullMethod: chatv1.ChatService_WatchRoom_FullMethodName,
+	}
+
+	var seen string
+	handler := func(_ any, ss grpc.ServerStream) error {
+		seen, _ = ss.Context().Value(tokenContextKey{}).(string)
+		return nil
+	}
+
+	t.Run("token reaches the handler", func(t *testing.T) {
+		ctx := metadata.NewIncomingContext(t.Context(),
+			metadata.Pairs(TokenMetadataKey, "tok-a"))
+		assert.NilError(t, interceptor(nil, fakeStream{ctx: ctx}, chatCall, handler))
+		assert.Equal(t, seen, "tok-a")
+	})
+
+	t.Run("missing metadata is rejected", func(t *testing.T) {
+		err := interceptor(nil, fakeStream{ctx: t.Context()}, chatCall, handler)
+		assert.Equal(t, status.Code(err), codes.Unauthenticated)
+	})
+
+	t.Run("other services pass through untouched", func(t *testing.T) {
+		seen = "unset"
+		other := &grpc.StreamServerInfo{
+			FullMethod: "/ngicks.crabswarm.preview.v1.PreviewService/Watch",
+		}
+		assert.NilError(t, interceptor(nil, fakeStream{ctx: t.Context()}, other, handler))
+		assert.Equal(t, seen, "")
+	})
+}
+
+// dialTestService serves svc over an in-memory listener with the interceptors
+// the daemon installs, and returns a client of it. Both interceptors: a stream
+// carries no token without the streaming one, so a WatchRoom test without it
+// would exercise a server the daemon never runs.
+func dialTestService(t *testing.T, svc *Service) chatv1.ChatServiceClient {
+	t.Helper()
 	lis := bufconn.Listen(1 << 16)
-	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(UnaryTokenInterceptor()))
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(UnaryTokenInterceptor()),
+		grpc.ChainStreamInterceptor(StreamTokenInterceptor()),
+	)
 	chatv1.RegisterChatServiceServer(srv, svc)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
@@ -92,7 +137,17 @@ func TestService_OverGRPC(t *testing.T) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
-	client := chatv1.NewChatServiceClient(conn)
+	return chatv1.NewChatServiceClient(conn)
+}
+
+// TestService_OverGRPC exercises the wiring the daemon uses: request metadata
+// through the interceptor into the service.
+func TestService_OverGRPC(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	provider.vouch("tok-a", "/work", "alpha")
+	provider.vouch("tok-b", "/work", "alpha")
+
+	client := dialTestService(t, svc)
 
 	asAna := metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-a")
 	asBob := metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-b")
