@@ -1,0 +1,24 @@
+# Status
+
+Current state: not started — plan drafted with automatic decisions
+(D1–D6), idea gate NOT confirmed by the user yet.
+
+Next action: user reviews IDEA.md (gate) and the automatic decisions in
+DECISION.md; then step 1.
+
+## Checklist
+
+- [ ] 1. Proto `WatchRoom` RPC + regenerate (D4: "server-streaming `ChatService.WatchRoom`")
+- [ ] 2. Daemon per-room event fan-out + `WatchRoom` impl (D4)
+- [ ] 3. Staleness fallback in nudge gate, `state_reported_at` column (D6: "staleness threshold … in the `notify.SendKeys` gate")
+- [ ] 4. Hook split `Notification[idle_prompt] → done` (D6: "splitting the current catch-all `Notification → waiting`")
+- [ ] 5. Bridge package `crabswarm/chat/mcpserver`, auto-Join + 4 tools (D1, D2, D3)
+- [ ] 6. `crabswarm://chat/members` resource + `resources/updated` (D4); history resource blocked on plan 05
+- [ ] 7. CLI entry `crabswarm chat mcp` (thin, per repo rule)
+- [ ] 8. apm-package MCP registration, SessionStart join kept (D5: "the hook stays")
+- [ ] 9. e2e: dual-bridge idempotent join, tool round-trip, interrupt heal
+
+## Blocked / external
+
+- History resource (step 6 tail) and `MessageAppended` events: blocked on
+  plan 2026-08-31-05-per_room_message_history.
