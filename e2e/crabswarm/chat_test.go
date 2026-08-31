@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"filippo.io/age"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // chatRoom is the working directory the stub cmdman reports for most of the
@@ -300,6 +301,118 @@ func lines(s string) []string {
 		}
 	}
 	return out
+}
+
+// The addresses the bridge cases below spell. A bridge joins with no name at
+// all — an agent is named by whoever registered it, not by the harness it runs
+// under — so the daemon derives one from the token, and that derivation is what
+// makes these addresses writable in a test.
+const (
+	chatBridgeAna = "alpha/agent-tok-ana"
+	chatBridgeBob = "alpha/agent-tok-bob"
+)
+
+// startChatBridge starts `crabswarm chat mcp` the way a configured harness
+// does — as a stdio subprocess spoken to over MCP — and returns the session
+// that harness would hold. Connecting is the handshake, so a bridge that failed
+// to serve one fails the test here.
+//
+// The bridge is the only thing that ever declares this token's attendance: no
+// case below runs `chat join` for a token it hands to one.
+func startChatBridge(t *testing.T, cfgPath, token string) *mcp.ClientSession {
+	t.Helper()
+	cmd := exec.CommandContext(t.Context(), crabswarmBin,
+		"chat", "mcp", "--config", cfgPath, "--token", token)
+	cmd.Env = chatEnviron()
+	// Everything the bridge says goes to stderr by design, since stdout carries
+	// the protocol; forwarding it is what makes a failing case readable.
+	cmd.Stderr = os.Stderr
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "crabswarm-e2e", Version: "v0"}, nil)
+	session, err := client.Connect(t.Context(), &mcp.CommandTransport{Command: cmd}, nil)
+	if err != nil {
+		t.Fatalf("connect to the chat bridge for %s: %v", token, err)
+	}
+	// Closing the session shuts the subprocess down the way the stdio transport
+	// is meant to: stdin first, then a wait for the process to go.
+	t.Cleanup(func() { _ = session.Close() })
+	return session
+}
+
+// callChatTool calls one of the bridge's tools and returns the text it answered
+// with. A tool that reported a failure fails the test with the words the model
+// would have read, which is where a refusal from the daemon ends up.
+func callChatTool(
+	t *testing.T,
+	session *mcp.ClientSession,
+	name string,
+	args map[string]any,
+) string {
+	t.Helper()
+	res, err := session.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: args})
+	if err != nil {
+		t.Fatalf("call %s: %v", name, err)
+	}
+	text := chatToolText(t, res)
+	if res.IsError {
+		t.Fatalf("%s reported an error: %s", name, text)
+	}
+	return text
+}
+
+// chatToolText unwraps the one text block a chat tool answers with.
+func chatToolText(t *testing.T, res *mcp.CallToolResult) string {
+	t.Helper()
+	if len(res.Content) != 1 {
+		t.Fatalf("tool answered with %d content blocks, want exactly one", len(res.Content))
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("tool content is %T, want text", res.Content[0])
+	}
+	return text.Text
+}
+
+// waitChatAttendance blocks until token attends, observed by a member verb the
+// daemon answers for members alone.
+//
+// It is deliberately not a tool call: every tool declares attendance itself
+// before it acts, so calling one would prove nothing about the join the bridge
+// makes on its own — which is the only automatic join a consumer gets now that
+// the session-start hook is gone.
+func waitChatAttendance(t *testing.T, cfgPath, token string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	var refusal string
+	for time.Now().Before(deadline) {
+		_, stderr, err := execChat(t, cfgPath, token, "members")
+		if err == nil {
+			return
+		}
+		refusal = stderr
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("the bridge for %s did not attend within %s; last refusal:\n%s",
+		token, timeout, refusal)
+}
+
+// chatMessageBody strips the stamp off a rendered message and returns the rest.
+// The instant is the one part of the rendering a case cannot pin, so it is
+// checked for being an instant at all and then dropped.
+func chatMessageBody(t *testing.T, rendered string) string {
+	t.Helper()
+	stamped, ok := strings.CutPrefix(rendered, "[")
+	if !ok {
+		t.Fatalf("read = %q, want it to open with a timestamp", rendered)
+	}
+	stamp, body, ok := strings.Cut(stamped, "] ")
+	if !ok {
+		t.Fatalf("read = %q, want a timestamped message line", rendered)
+	}
+	if _, err := time.Parse(time.RFC3339, stamp); err != nil {
+		t.Fatalf("read = %q carries %q, which is not an RFC3339 instant: %v", rendered, stamp, err)
+	}
+	return body
 }
 
 // TestChat drives the member verbs against a real daemon over its Unix socket,
@@ -770,5 +883,97 @@ func TestChat_NeverPublishesAHumanToken(t *testing.T) {
 		if strings.Contains(line, token) {
 			t.Errorf("cmdman status invocation %q carries the human's token", line)
 		}
+	}
+}
+
+// A container that comes back brings its token with it, so two bridges can be
+// live on one identity at once. Both have to serve — a harness whose MCP
+// subprocess died during the handshake has no chat at all — and the room must
+// still hold a single member: attendance follows the token, not the process
+// that declared it.
+func TestChat_TwoBridgesOnOneTokenAttendOnce(t *testing.T) {
+	cfg := startChatDaemon(t)
+
+	bridges := []*mcp.ClientSession{
+		startChatBridge(t, cfg, "tok-ana"),
+		startChatBridge(t, cfg, "tok-ana"),
+	}
+	for i, session := range bridges {
+		if got := session.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
+			t.Errorf("bridge %d announced itself as %q, want %q", i, got, "crabswarm-chat")
+		}
+	}
+
+	// Attendance is observed before anything is asked of either bridge, so what
+	// passes here is the join a bridge makes on its own rather than the one a
+	// tool call would have made on its way to answering.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	// Asking both settles both joins, and the room names the member once: the
+	// second was answered from the stored membership rather than attending
+	// again beside it.
+	want := chatBridgeAna + "\n"
+	for i, session := range bridges {
+		if got := callChatTool(t, session, "chat_members", nil); got != want {
+			t.Errorf("bridge %d chat_members = %q, want %q", i, got, want)
+		}
+	}
+}
+
+// The whole path a configured harness takes: two agents, each with a bridge of
+// its own started from the command line the apm package declares, talking
+// through the tools alone. Nothing here runs `chat join` — the bridges attend,
+// which is the only automatic join left — and what a tool hands back is
+// compared against what the CLI verb prints for the same message, since a
+// member wired through MCP is meant to read its room in the same words as one
+// typing commands.
+func TestChat_BridgeToolsCarryTheRoom(t *testing.T) {
+	cfg := startChatDaemon(t)
+
+	ana := startChatBridge(t, cfg, "tok-ana")
+	bob := startChatBridge(t, cfg, "tok-bob")
+
+	// Both are asked for the roster before either is addressed. A bridge
+	// declares attendance as it starts, but a message that overtook that join
+	// would name a member the daemon does not have yet.
+	callChatTool(t, ana, "chat_members", nil)
+	members := lines(callChatTool(t, bob, "chat_members", nil))
+	slices.Sort(members)
+	if want := []string{chatBridgeAna, chatBridgeBob}; !slices.Equal(members, want) {
+		t.Errorf("chat_members = %v, want %v", members, want)
+	}
+
+	// A bare name resolves inside the sender's own team, and the tool reports
+	// whose inbox it landed in.
+	got := callChatTool(t, ana, "chat_send", map[string]any{
+		"to": "agent-tok-bob", "message": "the bridge is up",
+	})
+	if want := "sent to " + chatBridgeBob + "\n"; got != want {
+		t.Errorf("chat_send = %q, want %q", got, want)
+	}
+
+	throughBridge := chatMessageBody(t, callChatTool(t, bob, "chat_read", nil))
+	if want := chatBridgeAna + ": the bridge is up\n"; throughBridge != want {
+		t.Errorf("chat_read = %q, want %q", throughBridge, want)
+	}
+
+	// The same message read the other way. The second copy is sent after the
+	// first read rather than beside it: a read hands over the whole inbox, and
+	// would have taken both.
+	callChatTool(t, ana, "chat_send", map[string]any{
+		"to": "agent-tok-bob", "message": "the bridge is up",
+	})
+	throughCLI := chatMessageBody(t, runChat(t, cfg, "tok-bob", "read"))
+	if throughCLI != throughBridge {
+		t.Errorf("`chat read` printed %q, want the tool's %q", throughCLI, throughBridge)
+	}
+
+	// The attendance the bridges declared is the daemon's, not something the
+	// tools keep between themselves: a member verb typed at the CLI, which the
+	// daemon answers for members alone, reads back the same room.
+	roster := lines(runChat(t, cfg, "tok-ana", "members"))
+	slices.Sort(roster)
+	if want := []string{chatBridgeAna, chatBridgeBob}; !slices.Equal(roster, want) {
+		t.Errorf("members = %v, want %v", roster, want)
 	}
 }

@@ -16,7 +16,7 @@ Next action: step 2 (daemon fan-out + `WatchRoom` impl).
 - [x] 6. `crabswarm://chat/members` resource + `resources/updated` (D4); history resource blocked on plan 05 — `Member.state` added to the proto (D8) so ListMembers/events carry state; CLI output unchanged
 - [x] 7. CLI entry `crabswarm chat mcp` (thin, per repo rule) — verified live over stdio (initialize/tools_list, stderr-only logs, exit 0 on SIGTERM)
 - [x] 8. apm-package MCP registration, SessionStart join removed (D5: "the `SessionStart → chat join` entry is removed", user decision) — self-defined stdio MCP in apm.yml renders into .mcp.json and .codex/config.toml; transitive installs need --trust-transitive-mcp (documented in README)
-- [ ] 9. e2e: dual-bridge idempotent join, tool round-trip, interrupt heal
+- [x] 9. e2e: dual-bridge idempotent join, tool round-trip, interrupt heal — heal path was already covered by the hook e2e; the post-staleness nudge leg is unreachable without exporting the 10min const (skipped)
 
 ## Blocked / external
 
