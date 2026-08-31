@@ -105,7 +105,7 @@ type Service struct {
 
 	store    *Store
 	provider TeamInfoProvider
-	notifier Notifier
+	deliver  deliverer
 	mirror   StatusMirror
 	logger   *slog.Logger
 
@@ -128,9 +128,6 @@ func NewService(
 	mirror StatusMirror,
 	logger *slog.Logger,
 ) *Service {
-	if notifier == nil {
-		notifier = NopNotifier{}
-	}
 	if mirror == nil {
 		mirror = NopStatusMirror{}
 	}
@@ -140,7 +137,7 @@ func NewService(
 	return &Service{
 		store:    store,
 		provider: provider,
-		notifier: notifier,
+		deliver:  newDeliverer(store, notifier, logger),
 		mirror:   mirror,
 		logger:   logger,
 		verified: make(map[string]time.Time),
@@ -206,16 +203,6 @@ func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 	}
 	s.forgetVerified(m.Token)
 	return false
-}
-
-// notify reports one delivery, logging what the notifier could not do. The
-// message is already stored, so a failed nudge costs the recipient a late read,
-// not the message.
-func (s *Service) notify(ctx context.Context, recipient Member, from Sender, text string) {
-	if err := s.notifier.Notify(ctx, recipient, from, text); err != nil {
-		s.logger.Warn("chat: notifying recipient failed",
-			"recipient", recipient.Team+"/"+recipient.Name, "err", err)
-	}
 }
 
 // mirrorState publishes m's state, logging what the mirror could not do. The

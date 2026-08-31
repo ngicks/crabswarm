@@ -24,11 +24,10 @@ func (s *Service) Send(
 	if req.GetText() == "" {
 		return nil, status.Error(codes.InvalidArgument, "empty message text")
 	}
-	recipient, err := s.store.Send(ctx, from.Token, req.GetTo(), req.GetText(), time.Now())
+	recipient, err := s.deliver.send(ctx, from, req.GetTo(), req.GetText(), time.Now())
 	if err != nil {
 		return nil, storeStatus(err)
 	}
-	s.notify(ctx, recipient, senderOf(from), req.GetText())
 	return &chatv1.SendResponse{Recipient: memberProto(recipient)}, nil
 }
 
@@ -47,13 +46,9 @@ func (s *Service) Broadcast(
 	if req.GetText() == "" {
 		return nil, status.Error(codes.InvalidArgument, "empty message text")
 	}
-	recipients, err := s.store.Broadcast(ctx, from.Token, req.GetText(), time.Now(), true)
+	recipients, err := s.deliver.broadcast(ctx, from, req.GetText(), time.Now(), true)
 	if err != nil {
 		return nil, storeStatus(err)
-	}
-	sender := senderOf(from)
-	for _, r := range recipients {
-		s.notify(ctx, r, sender, req.GetText())
 	}
 	return &chatv1.BroadcastResponse{DeliveredCount: int32(len(recipients))}, nil
 }
