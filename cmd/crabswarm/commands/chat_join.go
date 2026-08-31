@@ -11,8 +11,10 @@ func chatJoinCmd(parent *cobra.Command, flags *chatFlags) {
 		Long: `join declares attendance and prints the identity the daemon settled on.
 
 The room and the team are derived from the identity token, not chosen here;
-only the name within the team is, and leaving it out takes the name the daemon
-derives from the token. Joining again with the same token is a no-op.`,
+only the name within the team is, and leaving it out takes the default the
+daemon derives — from the cmdman-compose command and scale-index labels when
+present, otherwise from the token. Joining again with the same token is a
+no-op.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -21,7 +23,7 @@ derives from the token. Joining again with the same token is a no-op.`,
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "",
-		"name to attend under, unique within the team (default derived from the token)")
+		"name to attend under, unique within the team (default derived from compose labels, else the token)")
 
 	parent.AddCommand(cmd)
 }

@@ -7,8 +7,9 @@ import (
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-// Join declares attendance under name — empty for the name the daemon derives
-// from the token — and reports the identity the daemon settled on, which is
+// Join declares attendance under name — empty for the default the daemon
+// derives from the compose labels, or from the token when it has none — and
+// reports the identity the daemon settled on, which is
 // where the caller learns its own room and team.
 func (c *Client) Join(ctx context.Context, w io.Writer, token, name string) error {
 	resp, err := c.chat.Join(withToken(ctx, token), &chatv1.JoinRequest{Name: name})

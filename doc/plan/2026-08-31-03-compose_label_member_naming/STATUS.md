@@ -1,6 +1,6 @@
 # Status
 
-Current state: **implemented** — steps 1-3 done; awaiting final review/test gate and user review of the automatic decisions.
+Current state: **implemented** — steps 1-3 done; final review + test gate passed with one deferred blocker (recreate-collision, HANDOFF.md) awaiting user decision.
 
 ## Checklist
 
@@ -16,4 +16,4 @@ Current state: **implemented** — steps 1-3 done; awaiting final review/test ga
 - [x] Step 3 — e2e: default-named member listed as `<command>-<scale-index>`
       (goal criterion "covered by ... an e2e join test")
 
-Next action: user reviews the implementation and DECISION.md.
+Next action: user reviews the implementation, the automatic decisions, and the HANDOFF.md recreate-collision policy question.

@@ -1,6 +1,7 @@
 # Default member name from cmdman compose labels
 
-Gate: not confirmed (automatic decisions, pending user review)
+Gate: taken as confirmed by the /goal implementation directive (see
+DECISION.md D6); automatic decisions still pending user review.
 
 ## How it should be
 

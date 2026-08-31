@@ -87,3 +87,19 @@ committed with the branch, not in main's copy.
 
 **Rationale**: the branch copy travels with the implementation commits and
 merges back; editing both copies would drift.
+
+## D8 — Recreate-collision fix deferred to user decision [automatic]
+
+**Choice**: the review-found hard failure (a recreated compose replica
+cannot rejoin because the stale member permanently holds its derived name;
+full chain in HANDOFF.md) is deferred, not fixed in this run.
+
+**Rationale**: every fix is new collision policy (stale-member eviction, or
+fallback naming that is silent aliasing in spirit), and the plan explicitly
+declared collision semantics a non-goal — "clear rejection stays". With the
+user away, overriding a written non-goal is a scope change reserved for
+them; the shipped failure mode is a loud AlreadyExists at join time, and
+the app has never been deployed.
+
+**Rejected (for this run)**: evict-on-unresolvable-token; fallback to the
+token-derived name on derived-name collision.
