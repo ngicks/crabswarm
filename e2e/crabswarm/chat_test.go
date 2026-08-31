@@ -37,10 +37,18 @@ const chatTokenEnvVar = "CRABSWARM_CHAT_TOKEN"
 // the working directory that becomes its holder's room, and the compose project
 // that becomes its team. An empty project is a command started outside any
 // compose project, which carries no team coordination information at all.
+//
+// command and scaleIndex are the other two compose labels, the ones a joiner
+// that names itself nothing is named after: the name the compose file declares
+// the command under and the replica index that tells one instance of a scaled
+// command from another. Either may be empty, which is a command whose labels do
+// not say.
 type stubCommand struct {
-	token   string
-	dir     string
-	project string
+	token      string
+	dir        string
+	project    string
+	command    string
+	scaleIndex string
 }
 
 // defaultStubCommands is the roster the plain member cases run against: two
@@ -63,6 +71,9 @@ func defaultStubCommands() []stubCommand {
 // Status invocations are recorded beside the stub rather than answered, so a
 // test can read back what the daemon published. The stub finds the log relative
 // to $0, which keeps it independent of the environment the daemon runs it with.
+//
+// The label object of each command is rendered in Go and embedded whole: the
+// stub only has to echo it back, so the shell never assembles JSON.
 func stubCmdmanScript(commands []stubCommand) string {
 	var b strings.Builder
 	b.WriteString(`#!/bin/sh
@@ -78,20 +89,38 @@ fi
 case "$2" in
 `)
 	for _, c := range commands {
-		fmt.Fprintf(&b, "\t%s) dir=%s; project=%s ;;\n", c.token, c.dir, c.project)
+		fmt.Fprintf(&b, "\t%s) dir=%s; labels='%s' ;;\n", c.token, c.dir, stubLabels(c))
 	}
 	b.WriteString(`	*)
 		echo "error: resolve command: no command found matching \"$2\"" >&2
 		exit 1
 		;;
 esac
-if [ -z "$project" ]; then
-	printf '{"dir":"%s","labels":{}}\n' "$dir"
-else
-	printf '{"dir":"%s","labels":{"cmdman.compose.project":"%s"}}\n' "$dir" "$project"
-fi
+printf '{"dir":"%s","labels":%s}\n' "$dir" "$labels"
 `)
 	return b.String()
+}
+
+// stubLabels renders one stub command's compose labels as the JSON object a
+// cmdman config carries them in. A label the command leaves empty is omitted
+// rather than emitted blank: that is how a command whose compose file declares
+// none looks to the daemon.
+func stubLabels(c stubCommand) string {
+	labels := map[string]string{}
+	for _, l := range []struct{ name, value string }{
+		{"cmdman.compose.project", c.project},
+		{"cmdman.compose.command", c.command},
+		{"cmdman.compose.scale-index", c.scaleIndex},
+	} {
+		if l.value != "" {
+			labels[l.name] = l.value
+		}
+	}
+	b, err := json.Marshal(labels)
+	if err != nil {
+		panic(err) // a map[string]string always marshals
+	}
+	return string(b)
 }
 
 // stubStatus returns the `cmdman status` invocations the daemon made through
@@ -424,6 +453,61 @@ func TestChat_NonComposeTokenIsRejected(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "not part of a compose project") {
 		t.Errorf("stderr = %q, want it to name what the token is missing", stderr)
+	}
+}
+
+// A joiner that names itself nothing is named after the compose labels of the
+// command it runs under: the declared command name, suffixed with the replica
+// index that tells one instance of a scaled command apart from its siblings. A
+// compose author therefore addresses an agent by the name their compose file
+// already gives it, without every command template having to pass --name.
+func TestChat_JoinWithoutNameTakesComposeLabels(t *testing.T) {
+	cfg := startChatDaemonWith(t, []stubCommand{
+		{token: "tok-worker", dir: chatRoom, project: "alpha",
+			command: "worker", scaleIndex: "2"},
+		{token: "tok-solo", dir: chatRoom, project: "alpha", command: "solo"},
+		// Exactly eight characters, which is as much of a token as a
+		// token-derived name carries, so the fallback below is spelled out
+		// whole.
+		{token: "tok-bare", dir: chatRoom, project: "alpha"},
+	})
+
+	got := runChat(t, cfg, "tok-worker", "join")
+	if want := "joined " + chatRoom + " as alpha/worker-2\n"; got != want {
+		t.Errorf("join = %q, want %q", got, want)
+	}
+
+	// An unscaled command carries no replica index to append, so the declared
+	// name stands on its own.
+	got = runChat(t, cfg, "tok-solo", "join")
+	if want := "joined " + chatRoom + " as alpha/solo\n"; got != want {
+		t.Errorf("join of an unscaled command = %q, want %q", got, want)
+	}
+
+	// Nothing in the labels names this one, so the daemon falls back to the
+	// token, as it did before the labels were read at all.
+	got = runChat(t, cfg, "tok-bare", "join")
+	if want := "joined " + chatRoom + " as alpha/agent-tok-bare\n"; got != want {
+		t.Errorf("join without naming labels = %q, want %q", got, want)
+	}
+
+	// The derived names are the ones a teammate sees and addresses.
+	members := lines(runChat(t, cfg, "tok-worker", "members"))
+	slices.Sort(members)
+	want := []string{"alpha/agent-tok-bare", "alpha/solo", "alpha/worker-2"}
+	if !slices.Equal(members, want) {
+		t.Errorf("members = %v, want %v", members, want)
+	}
+
+	// An explicit name still wins over the labels: the request is the first
+	// thing consulted, not a default the labels override.
+	cfg = startChatDaemonWith(t, []stubCommand{
+		{token: "tok-worker", dir: chatRoom, project: "alpha",
+			command: "worker", scaleIndex: "2"},
+	})
+	got = runChat(t, cfg, "tok-worker", "join", "--name", "chosen")
+	if want := "joined " + chatRoom + " as alpha/chosen\n"; got != want {
+		t.Errorf("join with an explicit name = %q, want %q", got, want)
 	}
 }
 

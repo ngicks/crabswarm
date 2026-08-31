@@ -1,6 +1,6 @@
 # Status
 
-Current state: **in progress** — steps 1-2 done (resolver carries the name; Service.Join prefers it); IDEA.md gate taken as confirmed by the /goal directive (DECISION.md D6).
+Current state: **implemented** — steps 1-3 done; awaiting final review/test gate and user review of the automatic decisions.
 
 ## Checklist
 
@@ -13,7 +13,7 @@ Current state: **in progress** — steps 1-2 done (resolver carries the name; Se
       `defaultName(token)`; update `defaultName` doc comment; service tests
       (D1; D3 "clear rejection at join time" untouched;
       D5 "no migration for already-stored names")
-- [ ] Step 3 — e2e: default-named member listed as `<command>-<scale-index>`
+- [x] Step 3 — e2e: default-named member listed as `<command>-<scale-index>`
       (goal criterion "covered by ... an e2e join test")
 
-Next action: step 3 — e2e coverage of the derived default name.
+Next action: user reviews the implementation and DECISION.md.
