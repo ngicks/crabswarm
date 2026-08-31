@@ -33,6 +33,13 @@ service ChatService {
   // driven by harness hooks and gates keystroke-injection nudges, which are
   // only safe to deliver while the harness is idle.
   rpc ReportState(ReportStateRequest) returns (ReportStateResponse);
+  // WatchRoom streams events of the caller's room until cancelled.
+  //
+  // The stream element is named for what it is rather than for this RPC: the
+  // same event feed is what an admin TUI subscribes to, so tying the name to
+  // one RPC would misname it everywhere else.
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc WatchRoom(WatchRoomRequest) returns (stream RoomEvent);
 }
 
 // ChatAdminService carries the host-side operations that participants must not
@@ -173,6 +180,41 @@ message ReportStateRequest {
 }
 
 message ReportStateResponse {}
+
+message WatchRoomRequest {}
+
+// MemberStateChanged signals that a member reported a new harness state.
+message MemberStateChanged {
+  // Member is whose state changed.
+  Member member = 1;
+  // State is the state the member now reports.
+  HarnessState state = 2;
+}
+
+// MemberJoined signals that a member started attending the room.
+message MemberJoined {
+  Member member = 1;
+}
+
+// MemberLeft signals that a member withdrew its attendance.
+message MemberLeft {
+  Member member = 1;
+}
+
+// MessageAppended signals that a message was appended to the room's history.
+message MessageAppended {
+  Message message = 1;
+}
+
+// RoomEvent is a single notification about the watched room.
+message RoomEvent {
+  oneof event {
+    MemberStateChanged member_state_changed = 1;
+    MemberJoined member_joined = 2;
+    MemberLeft member_left = 3;
+    MessageAppended message_appended = 4;
+  }
+}
 
 message GetNonceRequest {}
 

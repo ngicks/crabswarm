@@ -26,6 +26,7 @@ const (
 	ChatService_ListMembers_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
 	ChatService_Leave_FullMethodName       = "/ngicks.crabswarm.chat.v1.ChatService/Leave"
 	ChatService_ReportState_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
+	ChatService_WatchRoom_FullMethodName   = "/ngicks.crabswarm.chat.v1.ChatService/WatchRoom"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -59,6 +60,13 @@ type ChatServiceClient interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(ctx context.Context, in *ReportStateRequest, opts ...grpc.CallOption) (*ReportStateResponse, error)
+	// WatchRoom streams events of the caller's room until cancelled.
+	//
+	// The stream element is named for what it is rather than for this RPC: the
+	// same event feed is what an admin TUI subscribes to, so tying the name to
+	// one RPC would misname it everywhere else.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	WatchRoom(ctx context.Context, in *WatchRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoomEvent], error)
 }
 
 type chatServiceClient struct {
@@ -139,6 +147,25 @@ func (c *chatServiceClient) ReportState(ctx context.Context, in *ReportStateRequ
 	return out, nil
 }
 
+func (c *chatServiceClient) WatchRoom(ctx context.Context, in *WatchRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoomEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_WatchRoom_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WatchRoomRequest, RoomEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_WatchRoomClient = grpc.ServerStreamingClient[RoomEvent]
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -170,6 +197,13 @@ type ChatServiceServer interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error)
+	// WatchRoom streams events of the caller's room until cancelled.
+	//
+	// The stream element is named for what it is rather than for this RPC: the
+	// same event feed is what an admin TUI subscribes to, so tying the name to
+	// one RPC would misname it everywhere else.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	WatchRoom(*WatchRoomRequest, grpc.ServerStreamingServer[RoomEvent]) error
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -200,6 +234,9 @@ func (UnimplementedChatServiceServer) Leave(context.Context, *LeaveRequest) (*Le
 }
 func (UnimplementedChatServiceServer) ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReportState not implemented")
+}
+func (UnimplementedChatServiceServer) WatchRoom(*WatchRoomRequest, grpc.ServerStreamingServer[RoomEvent]) error {
+	return status.Error(codes.Unimplemented, "method WatchRoom not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -348,6 +385,17 @@ func _ChatService_ReportState_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_WatchRoom_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchRoomRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ChatServiceServer).WatchRoom(m, &grpc.GenericServerStream[WatchRoomRequest, RoomEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_WatchRoomServer = grpc.ServerStreamingServer[RoomEvent]
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -384,7 +432,13 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_ReportState_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "WatchRoom",
+			Handler:       _ChatService_WatchRoom_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "ngicks/crabswarm/chat/v1/chat_service.proto",
 }
 

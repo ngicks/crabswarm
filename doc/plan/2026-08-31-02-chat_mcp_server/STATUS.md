@@ -1,14 +1,14 @@
 # Status
 
-Current state: not started — plan drafted with automatic decisions
-(D1–D6), idea gate NOT confirmed by the user yet.
+Current state: in progress — step 1 done (proto `WatchRoom` + regen,
+`buf lint`/`go build` green; `RoomEvent` name kept via per-RPC lint
+ignore, see D7).
 
-Next action: user reviews IDEA.md (gate) and the automatic decisions in
-DECISION.md; then step 1.
+Next action: step 2 (daemon fan-out + `WatchRoom` impl).
 
 ## Checklist
 
-- [ ] 1. Proto `WatchRoom` RPC + regenerate (D4: "server-streaming `ChatService.WatchRoom`")
+- [x] 1. Proto `WatchRoom` RPC + regenerate (D4: "server-streaming `ChatService.WatchRoom`")
 - [ ] 2. Daemon per-room event fan-out + `WatchRoom` impl (D4)
 - [ ] 3. Staleness fallback in nudge gate, `state_reported_at` column (D6: "staleness threshold … in the `notify.SendKeys` gate")
 - [ ] 4. Hook split `Notification[idle_prompt] → done` (D6: "splitting the current catch-all `Notification → waiting`")
