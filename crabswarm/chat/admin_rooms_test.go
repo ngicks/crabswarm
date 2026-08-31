@@ -161,6 +161,149 @@ func TestAdminService_RegisterMember(t *testing.T) {
 		)
 		assert.Equal(t, status.Code(err), codes.InvalidArgument)
 	})
+
+	// The name an admin message is attributed to belongs to nobody, so a
+	// recipient reading it cannot be reading a peer that named itself well.
+	t.Run("the reserved name is InvalidArgument", func(t *testing.T) {
+		_, err := svc.RegisterMember(
+			adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.RegisterMemberRequest{
+				Room: "/work", Team: "hosts", Name: adminName,
+			},
+		)
+		assert.Equal(t, status.Code(err), codes.InvalidArgument)
+
+		// Not the admin RPC's rule but the store's: an agent joining under the
+		// name is refused the same way.
+		_, err = svc.store.Join(t.Context(), Member{
+			Token: "tok-admin", Name: adminName, Team: "alpha",
+			Room: "/work", Kind: KindAgent,
+		})
+		assert.ErrorIs(t, err, ErrInvalidName)
+	})
+}
+
+func TestAdminService_Send(t *testing.T) {
+	svc, id, notifier := newTestAdminServiceWithNotifier(t)
+	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
+	join(t, svc.store, "tok-b", "/work", "beta", "bob")
+	join(t, svc.store, "tok-c", "/other", "alpha", "cho")
+
+	t.Run("a call carrying no credential is refused", func(t *testing.T) {
+		_, err := svc.Send(t.Context(), &chatv1.AdminSendRequest{
+			Room: "/work", Target: "alpha/ana", Text: "hi",
+		})
+		assert.Equal(t, status.Code(err), codes.PermissionDenied)
+		assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM messages`), 0)
+	})
+
+	t.Run("delivers to the addressed member as the operator", func(t *testing.T) {
+		before := len(notifier.notified())
+		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: "alpha/ana", Text: "stand down",
+		})
+		assert.NilError(t, err)
+		assert.Equal(t, res.GetDelivered(), int32(1))
+
+		// The recipient reads the message as coming from the operator, not from
+		// anyone in the room.
+		msgs, err := svc.store.Read(t.Context(), "tok-a")
+		assert.NilError(t, err)
+		assert.Equal(t, len(msgs), 1)
+		assert.Equal(t, msgs[0].Text, "stand down")
+		assert.Equal(t, msgs[0].From, Sender{Name: "admin", Team: "admin", Room: "/work"})
+
+		// Nobody else was written to, and the notifier heard about the one
+		// delivery the way it hears about a member's.
+		assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM messages`), 0)
+		got := notifier.notified()[before:]
+		assert.Equal(t, len(got), 1)
+		assert.Equal(t, got[0].recipient.Name, "ana")
+		assert.Equal(t, got[0].from, Sender{Name: "admin", Team: "admin", Room: "/work"})
+	})
+
+	t.Run("a bare name resolves as it does for a member", func(t *testing.T) {
+		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: "bob", Text: "you too",
+		})
+		assert.NilError(t, err)
+		assert.Equal(t, res.GetDelivered(), int32(1))
+
+		msgs, err := svc.store.Read(t.Context(), "tok-b")
+		assert.NilError(t, err)
+		assert.Equal(t, len(msgs), 1)
+	})
+
+	t.Run("* reaches everyone in the room and nobody outside it", func(t *testing.T) {
+		before := len(notifier.notified())
+		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: "*", Text: "all hands",
+		})
+		assert.NilError(t, err)
+		assert.Equal(t, res.GetDelivered(), int32(2))
+		assert.Equal(t, len(notifier.notified()[before:]), 2)
+
+		for _, token := range []string{"tok-a", "tok-b"} {
+			msgs, err := svc.store.Read(t.Context(), token)
+			assert.NilError(t, err)
+			assert.Equal(t, len(msgs), 1)
+			assert.Equal(t, msgs[0].Text, "all hands")
+			assert.Equal(t, msgs[0].From.Name, "admin")
+		}
+		// The member of the other room shares a team name with one of them and
+		// still hears nothing: the room is the boundary.
+		msgs, err := svc.store.Read(t.Context(), "tok-c")
+		assert.NilError(t, err)
+		assert.Equal(t, len(msgs), 0)
+	})
+
+	t.Run("an unknown room is NotFound", func(t *testing.T) {
+		_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/nowhere", Target: "alpha/ana", Text: "hi",
+		})
+		assert.Equal(t, status.Code(err), codes.NotFound)
+
+		// Addressing the whole of a room nobody attends is the same mistake.
+		_, err = svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/nowhere", Target: "*", Text: "hi",
+		})
+		assert.Equal(t, status.Code(err), codes.NotFound)
+	})
+
+	t.Run("an unknown target is NotFound", func(t *testing.T) {
+		_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: "alpha/nobody", Text: "hi",
+		})
+		assert.Equal(t, status.Code(err), codes.NotFound)
+
+		// A member of another room is unknown here too.
+		_, err = svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: "alpha/cho", Text: "hi",
+		})
+		assert.Equal(t, status.Code(err), codes.NotFound)
+	})
+
+	t.Run("an empty field is InvalidArgument", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			req  *chatv1.AdminSendRequest
+		}{
+			{"room", &chatv1.AdminSendRequest{Target: "alpha/ana", Text: "hi"}},
+			{"target", &chatv1.AdminSendRequest{Room: "/work", Text: "hi"}},
+			{"text", &chatv1.AdminSendRequest{Room: "/work", Target: "alpha/ana"}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), tc.req)
+				assert.Equal(t, status.Code(err), codes.InvalidArgument)
+			})
+		}
+	})
+
+	// Speaking into a room never puts the operator in it: no member row, so
+	// nothing to address back, to nudge, or to reap.
+	assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM members`), 3)
+	assert.Equal(t, countRows(t, svc.store,
+		`SELECT COUNT(*) FROM members WHERE name = ?`, "admin"), 0)
 }
 
 // TestAdminService_RegisteredMemberChatsAsHuman is the point of RegisterMember:

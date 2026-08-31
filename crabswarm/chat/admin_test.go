@@ -23,12 +23,24 @@ import (
 // throwaway age identity standing in for the operator's identity file.
 func newTestAdminService(t *testing.T) (*AdminService, *age.X25519Identity) {
 	t.Helper()
+	svc, id, _ := newTestAdminServiceWithNotifier(t)
+	return svc, id
+}
+
+// newTestAdminServiceWithNotifier is [newTestAdminService] with the recording
+// notifier handed back too, for the cases that assert on what a delivery
+// reported.
+func newTestAdminServiceWithNotifier(
+	t *testing.T,
+) (*AdminService, *age.X25519Identity, *fakeNotifier) {
+	t.Helper()
 	id, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
 	store, _ := newTestStore(t)
 	ageAuth, err := auth.NewAgeNonce(id.Recipient().String())
 	assert.NilError(t, err)
-	return NewAdminService(store, ageAuth, nil), id
+	notifier := &fakeNotifier{}
+	return NewAdminService(store, ageAuth, notifier, nil), id, notifier
 }
 
 // adminCtx is the context an admin RPC sees when the caller sent credential as
@@ -55,7 +67,7 @@ func adminNonce(t *testing.T, svc *AdminService, id age.Identity) string {
 func TestNewAdminService_WithoutAnAuthenticator(t *testing.T) {
 	store, _ := newTestStore(t)
 
-	svc := NewAdminService(store, nil, nil)
+	svc := NewAdminService(store, nil, nil, nil)
 	assert.Assert(t, svc.auth == nil)
 }
 
@@ -132,7 +144,7 @@ func TestAdminService_RejectsSpentNonce(t *testing.T) {
 
 func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 	store, _ := newTestStore(t)
-	svc := NewAdminService(store, nil, nil)
+	svc := NewAdminService(store, nil, nil, nil)
 
 	_, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
@@ -149,6 +161,11 @@ func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 
 	_, err = svc.RegisterMember(adminCtx(t, "anything"), &chatv1.RegisterMemberRequest{
 		Room: "/work", Team: "hosts", Name: "hana",
+	})
+	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
+
+	_, err = svc.Send(adminCtx(t, "anything"), &chatv1.AdminSendRequest{
+		Room: "/work", Target: "alpha/ana", Text: "hi",
 	})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 }
@@ -213,7 +230,7 @@ func (a *noChallengeAuth) Authenticate(ctx context.Context) error {
 // minted needs no challenge to become usable.
 func TestAdminService_ChallengelessAuthenticator(t *testing.T) {
 	store, _ := newTestStore(t)
-	svc := NewAdminService(store, &noChallengeAuth{credential: "issued-token"}, nil)
+	svc := NewAdminService(store, &noChallengeAuth{credential: "issued-token"}, nil, nil)
 
 	_, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.Equal(t, status.Code(err), codes.Unimplemented)

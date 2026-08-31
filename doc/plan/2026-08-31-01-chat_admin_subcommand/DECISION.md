@@ -72,3 +72,12 @@ planned `AdminSendRequest`/`AdminSendResponse` names and added
 api/buf.yaml scoped to chat_service.proto. Inline `// buf:lint:ignore`
 was tried and rejected: buf leaks those lines verbatim into generated
 TS/Go docs.
+
+## AD8: admin send target grammar excludes bare `team` [automatic]
+
+AD4 listed `team/name | name | team | *`, but the member resolver
+(crabswarm/chat/member.go resolveFor) supports only `team/name` and bare
+`name`; bare-team fan-out does not exist on the member path. Adding it
+only to admin send would fork the grammar AD4 wants shared, and adding
+it to both paths needs a name-vs-team collision rule. Shipped
+`team/name | name | *`; bare-team fan-out deferred to HANDOFF.md.

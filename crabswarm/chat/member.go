@@ -243,15 +243,18 @@ func resolve(ctx context.Context, q *db.Queries, callerToken, addr string) (Memb
 	if err != nil {
 		return Member{}, fmt.Errorf("resolving %q: %w", addr, err)
 	}
-	return resolveFor(ctx, q, caller, addr)
+	return resolveFor(ctx, q, senderOf(caller), addr)
 }
 
-// resolveFor resolves addr as caller sees it, for callers that already hold
-// the member.
+// resolveFor resolves addr as caller sees it, for callers that already know
+// where they stand. The perspective is a [Sender] rather than a [Member]
+// because the room and the team are the whole of it: the host operator
+// addresses a room by the same grammar and holds no member row to resolve
+// from.
 func resolveFor(
 	ctx context.Context,
 	q *db.Queries,
-	caller Member,
+	caller Sender,
 	addr string,
 ) (Member, error) {
 	if team, name, qualified := strings.Cut(addr, "/"); qualified {

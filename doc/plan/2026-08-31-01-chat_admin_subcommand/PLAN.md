@@ -73,7 +73,7 @@ Rejected alternatives:
 crabswarm chat admin list                              # was: chat team list
 crabswarm chat admin register ROOM TEAM NAME           # was: chat register --room --team --name
 crabswarm chat admin move ROOM TEAM/NAME TO_TEAM       # was: chat team move
-crabswarm chat admin send ROOM TARGET TEXT             # new; TARGET: team/name | name | team | '*'
+crabswarm chat admin send ROOM TARGET TEXT             # new; TARGET: team/name | name | '*' (bare team deferred, see AD8)
 crabswarm chat admin log ROOM [--limit N]              # new; delivered by plan 05's storage
 
 # removed

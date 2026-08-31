@@ -68,6 +68,41 @@ func (d deliverer) broadcast(
 	return recipients, nil
 }
 
+// sendAs is [deliverer.send] for a sender that holds no member row: from is
+// both the perspective addr resolves from and the attribution the message
+// keeps.
+func (d deliverer) sendAs(
+	ctx context.Context,
+	from Sender,
+	addr, text string,
+	sentAt time.Time,
+) (Member, error) {
+	recipient, err := d.store.sendAs(ctx, from, addr, text, sentAt)
+	if err != nil {
+		return Member{}, err
+	}
+	d.notify(ctx, recipient, from, text)
+	return recipient, nil
+}
+
+// broadcastAs is [deliverer.broadcast] for a sender that holds no member row.
+// Nobody is left out: a sender outside the room is not in it to be excluded.
+func (d deliverer) broadcastAs(
+	ctx context.Context,
+	from Sender,
+	text string,
+	sentAt time.Time,
+) ([]Member, error) {
+	recipients, err := d.store.broadcastAs(ctx, from, text, sentAt)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range recipients {
+		d.notify(ctx, r, from, text)
+	}
+	return recipients, nil
+}
+
 // notify reports one delivery, logging what the notifier could not do. The
 // message is already stored, so a failed nudge costs the recipient a late read,
 // not the message.
