@@ -1,6 +1,7 @@
 # Reclaim a gone member's name on duplicate-name join
 
-Gate: not confirmed
+Gate: confirmed by user, 2026-08-31 (with the reclaim extended to admin
+MoveMember by the same answer round)
 
 ## How it should be
 
@@ -60,3 +61,7 @@ flowchart TD
 - Applies to any joiner's name — label-derived or explicit `--name` — the
   same way; the joiner cannot tell how the name was chosen and neither
   should the collision rule.
+- The same rule holds when an admin moves a member between teams: a name
+  collision in the target team first checks whether the holder is still
+  around, and a gone holder does not block the move. Only a live member
+  blocks it.

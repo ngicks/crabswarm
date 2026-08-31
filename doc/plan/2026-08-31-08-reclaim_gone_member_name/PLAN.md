@@ -14,17 +14,15 @@ team-info provider and free the name when the holder is gone.
 
 ## Scope
 
-- `crabswarm/chat` — `Service.Join` collision path plus whatever store
-  lookup it needs; all within the one package.
+- `crabswarm/chat` — `Service.Join` and `AdminService.MoveMember`
+  collision paths plus whatever store lookup they need; all within the
+  one package.
 
 ## Non-goals
 
-- No admin member-removal verb, no periodic sweep — reclaim happens at the
-  moment it matters, on the colliding join. (Those may still be wanted
-  someday; not here.)
-- No change to `Store.MoveMember` collision semantics (an admin moving a
-  member onto a stale name keeps being rejected; the admin plane can
-  remove members when it grows that verb).
+- No admin member-removal verb, no periodic sweep — reclaim happens at
+  the moment it matters, on the colliding join or move. (Those may still
+  be wanted someday; not here.)
 - No change to `defaultName`, label derivation, or explicit `--name`
   precedence.
 
@@ -98,11 +96,24 @@ sequenceDiagram
 
 ## Public surface delta
 
-None. The reclaim is internal to package `crabswarm/chat` (`stillKnown`
-and `memberByName` are unexported and in-package); no new exported symbol,
-CLI flag, config key, RPC message, or schema change. The only visible
-change is behavioral: a join that used to fail `AlreadyExists` against a
-gone holder now succeeds.
+The join-side reclaim is internal to package `crabswarm/chat`. Extending
+it to the admin move path gives `AdminService` the provider it lacks
+today:
+
+```go
+// crabswarm/chat/admin.go — NewAdminService gains the provider parameter
+// (AdminService has no TeamInfoProvider field today).
+func NewAdminService(
+	store *Store,
+	provider TeamInfoProvider, // added
+	authenticator AdminAuthenticator,
+	logger *slog.Logger,
+) *AdminService
+```
+
+No CLI flag, config key, RPC message, or schema change. The other visible
+change is behavioral: a join or admin move that used to fail
+`AlreadyExists` against a gone holder now succeeds.
 
 ## Implementation steps
 
@@ -121,7 +132,19 @@ gone holder now succeeds.
    (b) held by a live agent → `AlreadyExists`; (c) held by a human →
    `AlreadyExists`; (d) provider lookup fails without verdict →
    `AlreadyExists`, holder kept.
-3. **e2e.** In `e2e/crabswarm/chat_test.go`, recreate-shaped flow: join as
+3. **Admin move reclaim.** Give `AdminService` the provider:
+   `NewAdminService` gains the `TeamInfoProvider` parameter
+   (`crabswarm/chat/admin.go:65-69`; sole non-test caller
+   `crabswarm/server/server.go:152` passes the resolver it already builds
+   for `NewService`). In `AdminService.MoveMember`
+   (`crabswarm/chat/admin_rooms.go:35-50`), on `ErrNameTaken`: look up the
+   target-team holder, check its token against the provider (agent-only;
+   a verdict-less failure keeps the holder, mirroring `stillKnown`),
+   remove a gone holder, retry the move once. Share the
+   holder-check-and-reap logic with step 2 via an in-package helper
+   rather than duplicating it. Verify: admin service tests mirroring
+   step 2's cases for the move path.
+4. **e2e.** In `e2e/crabswarm/chat_test.go`, recreate-shaped flow: join as
    derived `worker-1`, drop the old token from the stub roster, join with
    a new token carrying the same labels, assert the new member is
    `worker-1` and the member list holds exactly one.
@@ -143,6 +166,5 @@ gone holder now succeeds.
 
 ## Open questions
 
-1. Should the reclaim also cover `Store.MoveMember` / admin-path name
-   collisions, or stay join-only? Tentative default: join-only (see
-   Non-goals); the admin plane grows explicit removal instead.
+None — question 1 (reclaim scope) resolved by the user: also cover the
+admin `MoveMember` path; see DECISION.md D3.

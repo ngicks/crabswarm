@@ -1,8 +1,8 @@
 # Status
 
-Current state: **not started** — scaffold drafted from the user-decided
-policy (issue backlog entry "Reclaim a gone member's name on
-duplicate-name join"); IDEA.md gate not yet confirmed.
+Current state: **planned, not started** — IDEA.md gate confirmed by the
+user 2026-08-31; open questions drained (reclaim also covers admin
+MoveMember, D3).
 
 ## Checklist
 
@@ -14,9 +14,12 @@ duplicate-name join"); IDEA.md gate not yet confirmed.
       (D1 "frees the name and admits the joiner"; D1 "collision with a
       live member stays a clear AlreadyExists rejection"; D2 reuse of
       reap semantics)
-- [ ] Step 3 — e2e recreate-shaped rejoin under the same derived name
+- [ ] Step 3 — admin move reclaim: `NewAdminService` provider parameter +
+      `AdminService.MoveMember` holder check via shared helper; admin
+      service tests (D3 "applies to AdminService.MoveMember name
+      collisions as well"; D2 shared helper)
+- [ ] Step 4 — e2e recreate-shaped rejoin under the same derived name
       (goal criterion "recreated compose replica ... rejoins
       successfully")
 
-Next action: user confirms the IDEA.md gate and answers open question 1
-(join-only vs also MoveMember/admin paths).
+Next action: implement step 1.

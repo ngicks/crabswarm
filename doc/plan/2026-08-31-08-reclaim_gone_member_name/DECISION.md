@@ -20,15 +20,32 @@ feature in its own target scenario); automatic suffixing (explicitly ruled
 out by the inherited rule); requiring the operator to remove the stale
 member by hand (no admin verb exists, and the flow must be automatic).
 
-## D2 — Reuse the existing reap semantics for the liveness check (stub)
+## D2 — Reuse the existing reap semantics for the liveness check
 
-Tentative: the collision path calls the existing `stillKnown`
-(`crabswarm/chat/service.go:184`) so agent-only checking, the
-verdict-less-failure-keeps-the-member rule, TTL caching, and reap logging
-stay single-sourced. To be confirmed with the idea gate / question round.
+**Choice**: the collision paths follow the semantics of `stillKnown`
+(`crabswarm/chat/service.go:184`) — agent-only checking, a verdict-less
+provider failure keeps the holder (and rejects the newcomer), a reaped
+member is removed with its inbox and logged. Join uses `stillKnown`
+itself; the admin move path shares the holder-check-and-reap logic via an
+in-package helper (AdminService has no TTL cache; a direct provider check
+is fine for a rare admin operation).
 
-## D3 — Join-only; MoveMember and admin paths unchanged (stub)
+**Rationale**: one definition of "gone" across the daemon; a flaky cmdman
+must not free names, exactly as it must not empty rooms.
 
-Tentative default for open question 1: reclaim happens only in
-`Service.Join`; an admin moving a member onto a stale name keeps being
-rejected until the admin plane grows explicit member removal.
+**Rejected**: a separate, looser staleness heuristic for collisions;
+duplicating the reap logic per path.
+
+## D3 — Reclaim covers admin MoveMember too (user decision)
+
+**Choice**: the gone-holder check applies to `AdminService.MoveMember`
+name collisions as well as `Service.Join` — a gone holder does not block
+an admin move. Chosen by the user (2026-08-31) over the join-only
+default.
+
+**Consequence**: `NewAdminService` gains a `TeamInfoProvider` parameter
+(see PLAN.md Public surface delta); the sole caller is
+`crabswarm/server/server.go:152`.
+
+**Rejected**: join-only reclaim (leaves the admin hitting a wall a plain
+member would pass through, with no removal verb to clear it).
