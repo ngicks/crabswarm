@@ -289,9 +289,11 @@ func TestService_ProviderCheckIsRedoneAfterTTL(t *testing.T) {
 	provider.vouch("tok-a", "/work", "alpha")
 	provider.vouch("tok-b", "/work", "alpha")
 
-	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	_, err := svc.Join(callCtx(t, "tok-a"),
+		&chatv1.JoinRequest{Name: "ana", Agent: true})
 	assert.NilError(t, err)
-	_, err = svc.Join(callCtx(t, "tok-b"), &chatv1.JoinRequest{Name: "bob"})
+	_, err = svc.Join(callCtx(t, "tok-b"),
+		&chatv1.JoinRequest{Name: "bob", Agent: true})
 	assert.NilError(t, err)
 	assert.Equal(t, provider.callCount(), 2)
 

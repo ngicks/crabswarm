@@ -173,10 +173,10 @@ func (s *Service) caller(ctx context.Context) (Member, error) {
 // stillKnown reports whether m may keep attending, dropping it from the store
 // when it may not.
 //
-// Only an agent is checked, and only past [providerCheckTTL]: a human's token
-// was minted by the daemon, so no provider has ever heard of it. A lookup that
-// carried no verdict is not remembered either, so the next RPC asks again
-// instead of riding an answer nobody gave.
+// Only an agent is checked, and only past [providerCheckTTL]: a member that
+// declared no harness stays until it leaves, whatever the provider makes of
+// its token. A lookup that carried no verdict is not remembered either, so the
+// next RPC asks again instead of riding an answer nobody gave.
 func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 	if m.Kind != KindAgent || s.recentlyVerified(m.Token) {
 		return true
@@ -212,10 +212,12 @@ const (
 // by the name-collision paths of both halves: a flaky cmdman must not free
 // names any more than it may empty rooms.
 //
-// Only an agent is asked about: a human's token was minted by the daemon, so no
-// provider has ever heard of it. A lookup that fails without a verdict keeps
-// the member — a missing cmdman binary or a locked cmdman store would otherwise
-// empty every room at once, and a stale member costs far less than that.
+// Only an agent is asked about: an agent is gone when the session that carried
+// it is, while anyone else stays until they say otherwise, and a name they hold
+// is theirs until an operator moves them. A lookup that fails without a verdict
+// keeps the member — a missing cmdman binary or a locked cmdman store would
+// otherwise empty every room at once, and a stale member costs far less than
+// that.
 //
 // forget is handed the token of a member that is reaped, so no cached verdict
 // outlives the member it vouched for. It is nil for a caller holding no such

@@ -32,16 +32,22 @@ var (
 	ErrInvalidName = errors.New("invalid name")
 )
 
-// MemberKind tells how a member entered the store, which decides whether the
-// daemon may reap it: an agent's token comes from the team-info provider and
-// stops resolving once the agent is gone, while a human's token is issued by
-// the daemon itself and no provider ever knows it.
+// MemberKind tells what the daemon may do to a member besides handing it its
+// inbox. An agent said it runs a harness, so its terminal is typed into, its
+// command carries the state display, and its attendance lasts only as long as
+// the team-info provider still places its token. Anything else is left alone:
+// nothing is injected, nothing is published, and no provider verdict takes its
+// membership away.
+//
+// Which one a joiner is, it declares — the daemon cannot tell a harness from a
+// shell that happens to run under the same command.
 type MemberKind string
 
 const (
-	// KindAgent is a provider-originated agent session.
+	// KindAgent is an agent harness; nudgeable by keystroke injection.
 	KindAgent MemberKind = "agent"
-	// KindHuman is a member registered through an admin RPC.
+	// KindHuman is any other member (plain shell, admin-registered);
+	// inbox-only.
 	KindHuman MemberKind = "human"
 )
 

@@ -17,17 +17,58 @@ func TestService_JoinDerivesRoomAndTeamFromProvider(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.vouch("tok-a", "/work/repo", "alpha")
 
-	res, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	res, err := svc.Join(callCtx(t, "tok-a"),
+		&chatv1.JoinRequest{Name: "ana", Agent: true})
 	assert.NilError(t, err)
 	assert.Equal(t, res.GetSelf().GetName(), "ana")
 	assert.Equal(t, res.GetSelf().GetTeam(), "alpha")
 	assert.Equal(t, res.GetSelf().GetRoom(), "/work/repo")
 
-	// The member is in the store as a provider-originated agent.
 	stored, err := svc.store.Member(t.Context(), "tok-a")
 	assert.NilError(t, err)
-	assert.Equal(t, stored.Kind, KindAgent)
 	assert.Equal(t, stored.State, StateDone)
+}
+
+// The nudge is what a joiner opts into, and the kind is where the opt-in is
+// kept: everything that types into a terminal or labels a command asks it.
+func TestService_JoinTakesItsKindFromTheDeclaration(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		agent bool
+		want  MemberKind
+	}{
+		{name: "declared agent", agent: true, want: KindAgent},
+		{name: "declared nothing", agent: false, want: KindHuman},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, provider, _ := newTestService(t)
+			provider.vouch("tok-a", "/work", "alpha")
+
+			_, err := svc.Join(callCtx(t, "tok-a"),
+				&chatv1.JoinRequest{Name: "ana", Agent: tc.agent})
+			assert.NilError(t, err)
+
+			stored, err := svc.store.Member(t.Context(), "tok-a")
+			assert.NilError(t, err)
+			assert.Equal(t, stored.Kind, tc.want)
+		})
+	}
+}
+
+// A member that declared no harness is not reaped when the provider forgets its
+// token: the command the token names is not what its attendance rests on.
+func TestService_JoinWithoutTheDeclarationOutlivesItsToken(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	provider.vouch("tok-a", "/work", "alpha")
+	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	assert.NilError(t, err)
+
+	provider.forget("tok-a")
+	svc.forgetVerified("tok-a")
+
+	res, err := svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, len(res.GetMembers()), 1)
 }
 
 func TestService_JoinRejectsUnknownToken(t *testing.T) {
@@ -154,7 +195,7 @@ func TestService_JoinReclaimsTheNameOfAGoneMember(t *testing.T) {
 func TestService_JoinReclaimLooksPastTheCachedVerdict(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.vouchNamed("tok-old", "/work", "alpha", "worker-1")
-	_, err := svc.Join(callCtx(t, "tok-old"), &chatv1.JoinRequest{})
+	_, err := svc.Join(callCtx(t, "tok-old"), &chatv1.JoinRequest{Agent: true})
 	assert.NilError(t, err)
 
 	provider.forget("tok-old")
@@ -357,7 +398,8 @@ func TestService_JoinAgainRepublishesTheStoredState(t *testing.T) {
 func TestService_ReapingPublishesNothing(t *testing.T) {
 	svc, provider, _, mirror := newTestServiceWithMirror(t)
 	provider.vouch("tok-a", "/work", "alpha")
-	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	_, err := svc.Join(callCtx(t, "tok-a"),
+		&chatv1.JoinRequest{Name: "ana", Agent: true})
 	assert.NilError(t, err)
 
 	provider.forget("tok-a")
