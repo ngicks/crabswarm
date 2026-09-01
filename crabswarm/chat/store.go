@@ -72,8 +72,8 @@ type Member struct {
 	// as opaque: whoever joined from a command the team-info provider knows
 	// presents the session id it reports, and whoever an admin registered
 	// carries a secret the daemon minted. Which of the two it is follows from
-	// how the member joined, not from [Member.Kind] — a person joining by hand
-	// from a plain shell presents a provider-reported token too.
+	// how the member joined, not from the kind it declared — a person joining
+	// by hand from a plain shell presents a provider-reported token too.
 	Token string
 	// Name is the member's display name, unique within Team.
 	Name string
