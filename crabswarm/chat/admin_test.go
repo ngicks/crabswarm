@@ -46,14 +46,27 @@ func newTestAdminServiceWith(
 	t *testing.T,
 ) (*AdminService, *age.X25519Identity, *fakeNotifier, *fakeProvider) {
 	t.Helper()
+	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
+	svc, id, notifier := newTestAdminServiceOver(t, provider)
+	return svc, id, notifier, provider
+}
+
+// newTestAdminServiceOver is [newTestAdminServiceWith] over a provider the
+// caller supplies. A nil one is the daemon that was given no team-info provider
+// at all, and it must be passed as an untyped nil: a typed nil would still be a
+// provider to ask.
+func newTestAdminServiceOver(
+	t *testing.T,
+	provider TeamInfoProvider,
+) (*AdminService, *age.X25519Identity, *fakeNotifier) {
+	t.Helper()
 	id, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
 	store, _ := newTestStore(t)
 	ageAuth, err := auth.NewAgeNonce(id.Recipient().String())
 	assert.NilError(t, err)
 	notifier := &fakeNotifier{}
-	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
-	return NewAdminService(store, provider, ageAuth, notifier, nil), id, notifier, provider
+	return NewAdminService(store, provider, ageAuth, notifier, nil), id, notifier
 }
 
 // adminCtx is the context an admin RPC sees when the caller sent credential as

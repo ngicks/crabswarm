@@ -2,10 +2,12 @@ package chat
 
 import (
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gotest.tools/v3/assert"
@@ -204,6 +206,19 @@ func TestService_JoinKeepsAHolderTheProviderCouldNotJudge(t *testing.T) {
 	assert.Equal(t, stored.Name, "worker-1")
 	_, err = svc.store.Member(t.Context(), "tok-new")
 	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+// The holder can be gone before the lookup meant to judge it: it left between
+// the store's refusal and that lookup, and a name nobody holds is free without
+// the provider being asked about anybody. Reporting so is what makes the join
+// retry — the only way the joiner ends up with the name.
+func TestReclaimName_HolderLeftBeforeTheLookup(t *testing.T) {
+	store, _ := newTestStore(t)
+	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
+
+	assert.Assert(t, reclaimName(t.Context(), store, provider,
+		slog.New(slog.DiscardHandler), nil, "/work", "alpha", "worker-1"))
+	assert.Equal(t, provider.callCount(), 0)
 }
 
 func TestService_JoinRejectsNameWithTeamSeparator(t *testing.T) {

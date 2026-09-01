@@ -158,6 +158,29 @@ func TestAdminService_MoveMemberKeepsAHolderTheProviderCouldNotJudge(t *testing.
 	assert.Equal(t, stayed.Team, "alpha")
 }
 
+// A daemon with no team-info provider has nothing that could show a holder
+// gone, so every collision an operator's move runs into stays a refusal — the
+// holder is left alone rather than asked about by nobody.
+func TestAdminService_MoveMemberWithoutAProviderRefusesTheCollision(t *testing.T) {
+	svc, id, _ := newTestAdminServiceOver(t, nil)
+	// Both are agents: a human holder is kept without the provider being
+	// consulted at all, which would leave the collision refused either way.
+	join(t, svc.store, "tok-old", "/work", "beta", "worker-1")
+	join(t, svc.store, "tok-a", "/work", "alpha", "worker-1")
+
+	_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+		Room: "/work", Team: "alpha", Name: "worker-1", ToTeam: "beta",
+	})
+	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	held, err := svc.store.Member(t.Context(), "tok-old")
+	assert.NilError(t, err)
+	assert.Equal(t, held.Team+"/"+held.Name, "beta/worker-1")
+	stayed, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, stayed.Team+"/"+stayed.Name, "alpha/worker-1")
+}
+
 // A move stays inside the room, so what the room hears is an address change:
 // the member it knew is gone and one of that name is now in another team.
 func TestAdminService_MoveMemberPublishesTheAddressChange(t *testing.T) {
