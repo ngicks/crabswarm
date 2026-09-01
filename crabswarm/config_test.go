@@ -26,6 +26,7 @@ const (
 	envChatCmdmanBin         = "CRABSWARM_CHAT_CMDMAN_BIN"
 	envChatAdminRecipients   = "CRABSWARM_CHAT_ADMIN_RECIPIENTS"
 	envChatAdminIdentityFile = "CRABSWARM_CHAT_ADMIN_IDENTITY_FILE"
+	envChatHistoryLimit      = "CRABSWARM_CHAT_HISTORY_LIMIT"
 	envPreviewAddr           = "CRABSWARM_PREVIEW_ADDR"
 	envPreviewDaemonName     = "CRABSWARM_PREVIEW_DAEMON_NAME"
 	envXDGRuntime            = "XDG_RUNTIME_DIR"
@@ -47,6 +48,7 @@ func baseEnv(t *testing.T) {
 		envChatCmdmanBin,
 		envChatAdminRecipients,
 		envChatAdminIdentityFile,
+		envChatHistoryLimit,
 		envPreviewAddr,
 		envPreviewDaemonName,
 		envXDGRuntime,
@@ -579,6 +581,8 @@ func TestLoadConfig_ChatDbDefault(t *testing.T) {
 	// names one.
 	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string(nil))
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "")
+	// No opinion on retention either: the store reads zero as its own default.
+	assert.Equal(t, cfg.Chat.HistoryLimit, 0)
 }
 
 // Without XDG_STATE_HOME the default follows the XDG fallback under $HOME.
@@ -608,7 +612,8 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 			confPath,
 			[]byte(`{"chat":{"db":"/file/chat.db","cmdman_bin":"/opt/bin/cmdman",`+
 				`"admin_recipients":["age1recipient","age1second"],`+
-				`"admin_identity_file":"~/keys/chat.key"}}`),
+				`"admin_identity_file":"~/keys/chat.key",`+
+				`"history_limit":250}}`),
 			0o644,
 		),
 	)
@@ -619,6 +624,7 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 	assert.Equal(t, cfg.Chat.CmdmanBin, "/opt/bin/cmdman")
 	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string{"age1recipient", "age1second"})
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "~/keys/chat.key")
+	assert.Equal(t, cfg.Chat.HistoryLimit, 250)
 }
 
 // The chat sub-config is env-settable: caarlos0/env composes the global
@@ -634,6 +640,9 @@ func TestLoadConfig_ChatFromEnv(t *testing.T) {
 	t.Setenv(envChatCmdmanBin, "/env/bin/cmdman")
 	t.Setenv(envChatAdminRecipients, "age1envrecipient,age1envsecond")
 	t.Setenv(envChatAdminIdentityFile, "/env/keys/chat.key")
+	// Negative is the spelling of "keep no transcript", so it has to survive
+	// the env layer as written rather than being read as absent.
+	t.Setenv(envChatHistoryLimit, "-1")
 
 	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
@@ -641,6 +650,7 @@ func TestLoadConfig_ChatFromEnv(t *testing.T) {
 	assert.Equal(t, cfg.Chat.CmdmanBin, "/env/bin/cmdman")
 	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string{"age1envrecipient", "age1envsecond"})
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "/env/keys/chat.key")
+	assert.Equal(t, cfg.Chat.HistoryLimit, -1)
 }
 
 // The nested env layer sits above the file layer: a set db wins, while the

@@ -139,6 +139,35 @@ func TestClient_ReadDoneWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestClient_History(t *testing.T) {
+	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
+	fake := &fakeChatService{entries: []*chatv1.HistoryEntry{
+		{
+			From:   member("backend", "alice", "/work"),
+			To:     member("frontend", "bob", "/work"),
+			Text:   "ping",
+			SentAt: timestamppb.New(sent),
+		},
+		{
+			From:   member("frontend", "bob", "/work"),
+			Text:   "standup in 5",
+			SentAt: timestamppb.New(sent.Add(time.Minute)),
+		},
+	}}
+	d := serveTestDaemon(t, fake, nil)
+
+	var out strings.Builder
+	assert.NilError(t, d.client.History(t.Context(), &out, "tok-a", 0))
+	assert.Equal(t, out.String(),
+		"[2026-08-27T09:30:00Z] backend/alice → frontend/bob: ping\n"+
+			"[2026-08-27T09:31:00Z] frontend/bob → *: standup in 5\n")
+	// An unasked-for window is left to the daemon rather than guessed at here.
+	assert.Equal(t, fake.history.GetLimit(), int32(0))
+
+	assert.NilError(t, d.client.History(t.Context(), &strings.Builder{}, "tok-a", 20))
+	assert.Equal(t, fake.history.GetLimit(), int32(20))
+}
+
 func TestClient_ListMembersAndAddresses(t *testing.T) {
 	fake := &fakeChatService{members: []*chatv1.Member{
 		member("backend", "alice", "/work"),

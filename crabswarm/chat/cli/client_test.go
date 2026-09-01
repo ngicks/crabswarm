@@ -110,11 +110,13 @@ type fakeChatService struct {
 	delivered int32
 	messages  []*chatv1.Message
 	members   []*chatv1.Member
+	entries   []*chatv1.HistoryEntry
 
 	join       *chatv1.JoinRequest
 	send       *chatv1.SendRequest
 	broadcast  *chatv1.BroadcastRequest
 	state      *chatv1.ReportStateRequest
+	history    *chatv1.HistoryRequest
 	leaveCalls int
 }
 
@@ -155,6 +157,16 @@ func (f *fakeChatService) Read(
 		return nil, f.err
 	}
 	return &chatv1.ReadResponse{Messages: f.messages}, nil
+}
+
+func (f *fakeChatService) History(
+	_ context.Context, req *chatv1.HistoryRequest,
+) (*chatv1.HistoryResponse, error) {
+	f.history = req
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &chatv1.HistoryResponse{Entries: f.entries}, nil
 }
 
 func (f *fakeChatService) ListMembers(

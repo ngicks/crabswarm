@@ -47,7 +47,7 @@ func TestChatCmd_Subcommands(t *testing.T) {
 		names[c.Name()] = true
 	}
 	for _, want := range []string{
-		"join", "send", "broadcast", "read", "members", "leave",
+		"join", "send", "broadcast", "read", "history", "members", "leave",
 		"report-state", "admin",
 	} {
 		assert.Assert(t, names[want], "chat has no %q subcommand", want)
@@ -71,6 +71,7 @@ func TestChatMemberVerbs_RequireAToken(t *testing.T) {
 	for _, args := range [][]string{
 		{"join"},
 		{"read"},
+		{"history"},
 		{"members"},
 		{"leave"},
 		{"send", "alice", "hi"},
@@ -143,6 +144,7 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		{"send takes no third argument", []string{"send", "alice", "hi", "extra"}},
 		{"broadcast needs a text", []string{"broadcast"}},
 		{"read takes no arguments", []string{"read", "extra"}},
+		{"history takes no arguments", []string{"history", "extra"}},
 		{"admin move needs three arguments", []string{"admin", "move", "/work", "backend/alice"}},
 		{"admin send needs three arguments", []string{"admin", "send", "/work", "backend/alice"}},
 		{"report-state needs a state", []string{"report-state"}},

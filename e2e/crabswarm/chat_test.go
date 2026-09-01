@@ -733,6 +733,68 @@ func TestChat_RoomsAreIsolated(t *testing.T) {
 	}
 }
 
+// The room keeps what was said even after every inbox has been drained, and
+// every member reads the same transcript — the directed message included, which
+// only its recipient ever received.
+func TestChat_HistoryOutlivesTheInbox(t *testing.T) {
+	cfg := startChatDaemon(t)
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+
+	runChat(t, cfg, "tok-ana", "send", "bob", "ping")
+	runChat(t, cfg, "tok-ana", "broadcast", "standup in 5")
+
+	// Drain every inbox: from here on nothing is pending anywhere.
+	for _, token := range []string{"tok-ana", "tok-bob", "tok-cid"} {
+		runChat(t, cfg, token, "read")
+	}
+	if got := runChat(t, cfg, "tok-bob", "read"); got != "no pending messages\n" {
+		t.Fatalf("read after draining = %q, want nothing pending", got)
+	}
+
+	// cid was never the addressee of the send and still reads it, oldest first,
+	// with the addressee spelled out and the broadcast addressed to "*".
+	got := lines(runChat(t, cfg, "tok-cid", "history"))
+	if len(got) != 2 {
+		t.Fatalf("history = %v, want two entries", got)
+	}
+	if !strings.Contains(got[0], "alpha/ana → alpha/bob: ping") {
+		t.Errorf("first entry = %q, want the directed send with its addressee", got[0])
+	}
+	if !strings.Contains(got[1], "alpha/ana → *: standup in 5") {
+		t.Errorf("second entry = %q, want the broadcast addressed to the room", got[1])
+	}
+	if !strings.HasPrefix(got[0], "[") {
+		t.Errorf("first entry = %q, want it to open with a timestamp", got[0])
+	}
+
+	// Reading it consumed nothing, and every member sees the same thing.
+	if again := lines(runChat(t, cfg, "tok-cid", "history")); !slices.Equal(again, got) {
+		t.Errorf("second history = %v, want the same transcript as %v", again, got)
+	}
+	if bobs := lines(runChat(t, cfg, "tok-bob", "history")); !slices.Equal(bobs, got) {
+		t.Errorf("bob's history = %v, want the same transcript as cid's %v", bobs, got)
+	}
+
+	// The window takes the newest entries.
+	if last := lines(runChat(t, cfg, "tok-ana", "history", "--limit", "1")); !slices.Equal(
+		last, got[1:]) {
+		t.Errorf("history --limit 1 = %v, want the newest entry %v", last, got[1:])
+	}
+}
+
+// A room nobody has spoken in reports itself rather than printing nothing at
+// all, the way an empty inbox does.
+func TestChat_HistoryOfASilentRoom(t *testing.T) {
+	cfg := startChatDaemon(t)
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+
+	if got := runChat(t, cfg, "tok-ana", "history"); got != "no messages yet\n" {
+		t.Errorf("history of a silent room = %q, want %q", got, "no messages yet\n")
+	}
+}
+
 // The MCP bridge attends as it starts, and a harness may start more than one of
 // them against the same token, so joining twice is not an error: the second
 // join is answered from the stored membership, leaving the name, the attendance
