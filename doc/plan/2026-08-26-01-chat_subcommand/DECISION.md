@@ -122,6 +122,14 @@ user resolves it.
   machinery.
 - **Rejected:** explicit-only (stale entries); periodic sweep (timer
   complexity).
+- **Amendment (2026-09-02):** the gate is no longer provenance. Since
+  `chat join --agent` (doc/plan/2026-08-31-04-nudge_opt_in_kind), the
+  member kind is what the joiner declared, and the lazy reap keys on
+  that: a member that declared no harness is never reaped even though
+  its token is provider-originated and would resolve. The
+  admin-registered side of the reconciliation above is unchanged — those
+  members still declare no harness and still leave only by explicit
+  Leave or an admin RPC.
 
 ### D19. Notifier v1 scope narrowed (user follow-up) — **send-keys only; native adapters spun off** [2026-08-27]
 - **Supersedes D13 and narrows D9 for v1.** User's words: "For now we'll

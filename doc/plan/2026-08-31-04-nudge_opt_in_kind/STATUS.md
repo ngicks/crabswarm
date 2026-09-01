@@ -5,7 +5,10 @@ The user's implement-all-plans directive superseded the D1 deferral
 (DECISION.md D1 Amendment); the automatic decisions D2 and D3 were carried out
 as drafted, D3 with the retarget D5 records.
 
-Next action: review and merge. `go test ./...` passes.
+Next action: re-review and merge. The review of 2026-09-02 returned
+needs-changes on the doc sweep above and on a test that declared no agent (so
+the TTL cache it names went unexercised); both are fixed. `go test ./...`
+passes.
 
 ## Checklist
 
@@ -13,9 +16,13 @@ Next action: review and merge. `go test ./...` passes.
       from the join request)
 - [x] Step 2 — `Service.Join` maps flag to `KindAgent`/`KindHuman`; kind doc
       comments updated (D2: "represent opt-in via the existing MemberKind").
-      The same change falsified the provenance rationale in
-      `internal/cmdman/cmdman.go`, `status.go` and the two liveness doc
-      comments in `service.go`; all four now read off capability.
+      The same change falsified the provenance rationale wherever it was
+      written down. The first pass caught `internal/cmdman/cmdman.go`,
+      `status.go`'s guard and the two liveness doc comments in `service.go`;
+      the review of 2026-09-02 found four more — `status.go`'s struct doc,
+      `Member.Token` and `Member.Kind` in `store.go`, and `TokenMetadataKey`
+      in `interceptor.go` — plus the parent `chat` command's help and five
+      test comments. All of them now read off capability.
 - [x] Step 3 — `chat join --agent` CLI flag threaded through
       `chatcli.Client.Join` (D1 quote: "`--agent` means notification. But
       without it, there shouldn't be notification."), and the MCP bridge's
