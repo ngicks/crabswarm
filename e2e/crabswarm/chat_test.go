@@ -175,6 +175,20 @@ func startChatDaemon(t *testing.T) string {
 // that was never given one and therefore refuses every admin verb.
 func startChatDaemonWith(t *testing.T, commands []stubCommand, adminRecipients ...string) string {
 	t.Helper()
+	return startChatDaemonKeeping(t, 0, commands, adminRecipients...)
+}
+
+// startChatDaemonKeeping is startChatDaemonWith with the per-room transcript
+// cap the config names, for the cases that assert on what a host's
+// chat.history_limit does to a live room. Zero is the config's own "unset", so
+// the daemon keeps its default.
+func startChatDaemonKeeping(
+	t *testing.T,
+	historyLimit int,
+	commands []stubCommand,
+	adminRecipients ...string,
+) string {
+	t.Helper()
 	dir := t.TempDir()
 
 	stub := filepath.Join(dir, "cmdman")
@@ -191,8 +205,8 @@ func startChatDaemonWith(t *testing.T, commands []stubCommand, adminRecipients .
 	sock := filepath.Join(dir, "chat.sock")
 	cfgPath := filepath.Join(dir, "config.json")
 	writeFile(t, cfgPath, fmt.Sprintf(
-		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipients":%s}}`,
-		sock, filepath.Join(dir, "chat.db"), stub, recipients))
+		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipients":%s,"history_limit":%d}}`,
+		sock, filepath.Join(dir, "chat.db"), stub, recipients, historyLimit))
 
 	serve := exec.Command(crabswarmBin, "serve", "--config", cfgPath)
 	serve.Env = chatEnviron()
@@ -781,6 +795,31 @@ func TestChat_HistoryOutlivesTheInbox(t *testing.T) {
 	if last := lines(runChat(t, cfg, "tok-ana", "history", "--limit", "1")); !slices.Equal(
 		last, got[1:]) {
 		t.Errorf("history --limit 1 = %v, want the newest entry %v", last, got[1:])
+	}
+}
+
+// The cap the host writes into chat.history_limit reaches the room the members
+// talk in: a daemon told to keep three entries answers with the three newest,
+// however many were said. The environment spelling of the same setting,
+// $CRABSWARM_CHAT_HISTORY_LIMIT, lands on the field this config file sets, and
+// the config layers pin that separately.
+func TestChat_ConfiguredHistoryLimitBoundsTheRoom(t *testing.T) {
+	cfg := startChatDaemonKeeping(t, 3, defaultStubCommands())
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+
+	for i := range 5 {
+		runChat(t, cfg, "tok-ana", "send", "bob", fmt.Sprintf("line %d", i))
+	}
+
+	got := lines(runChat(t, cfg, "tok-bob", "history"))
+	if len(got) != 3 {
+		t.Fatalf("history = %v, want the three entries the cap keeps", got)
+	}
+	for i, want := range []string{"line 2", "line 3", "line 4"} {
+		if !strings.Contains(got[i], "alpha/ana → alpha/bob: "+want) {
+			t.Errorf("entry %d = %q, want it to carry %q", i, got[i], want)
+		}
 	}
 }
 

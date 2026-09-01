@@ -177,6 +177,26 @@ func TestStore_HistoryDisabledRecordsNothing(t *testing.T) {
 	assert.Equal(t, len(entries), 0)
 }
 
+// Switching history off leaves whatever an earlier run recorded in the table,
+// and a caller that names no window falls back to the cap — which is negative
+// here, the one value that would read as "no limit" all the way down to SQLite.
+func TestStore_HistoryDisabledHandsBackNothingItKept(t *testing.T) {
+	s, path := newTestStoreWithHistory(t, 3)
+	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
+	_, err := s.Broadcast(t.Context(), "tok-a", "said while it was recording", sentAt, true)
+	assert.NilError(t, err)
+	assert.NilError(t, s.Close())
+
+	off, err := NewStore(t.Context(), path, -1)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = off.Close() })
+	assert.Equal(t, countRows(t, off, `SELECT COUNT(*) FROM room_log`), 1)
+
+	entries, err := off.History(t.Context(), "/work/repo", 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(entries), 0)
+}
+
 // The cap defaults rather than pruning everything away: an unconfigured store
 // is one nobody has an opinion about, not one that must forget.
 func TestStore_HistoryCapDefaults(t *testing.T) {
