@@ -57,6 +57,14 @@ func fixtureEntries(n int) []*chatv1.AdminHistoryEntry {
 	return entries
 }
 
+// fixtureModel is the screen as it stands the moment the room lookup answered:
+// told who attends and nothing yet of what was said.
+func fixtureModel(t *testing.T, deps Deps) *model {
+	t.Helper()
+	deps.Room = fixtureRoom
+	return newModel(t.Context(), deps, fixtureRoster())
+}
+
 // press builds the keypress a terminal would have delivered.
 func press(code rune, text string) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: code, Text: text}
@@ -76,7 +84,7 @@ func update(t *testing.T, m *model, msg tea.Msg) *model {
 // the conversation is what the operator is watching, and the roster is a
 // second, slower question.
 func TestResizeDropsTheRosterBeforeTheConversation(t *testing.T) {
-	m := newModel(fixtureRoom, fixtureRoster())
+	m := fixtureModel(t, Deps{})
 	m.entries = fixtureEntries(3)
 	m.layout()
 
@@ -101,7 +109,7 @@ func TestResizeDropsTheRosterBeforeTheConversation(t *testing.T) {
 // A terminal that has not said how big it is — a program driven through a pipe
 // — is drawn at the conventional size rather than at nothing.
 func TestUnreportedTerminalSizeFallsBackToATerminalShape(t *testing.T) {
-	m := newModel(fixtureRoom, fixtureRoster())
+	m := fixtureModel(t, Deps{})
 
 	m = update(t, m, tea.WindowSizeMsg{Width: 0, Height: 0})
 	assert.Assert(t, m.rosterShown())
@@ -112,7 +120,7 @@ func TestUnreportedTerminalSizeFallsBackToATerminalShape(t *testing.T) {
 // Scrolling up leaves the tail behind and the view stays where it was put while
 // the room talks on; scrolling back to the bottom picks the tail up again.
 func TestScrollingAwayAndBackReattachesTheTail(t *testing.T) {
-	m := newModel(fixtureRoom, fixtureRoster())
+	m := fixtureModel(t, Deps{})
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 12})
 	m.entries = fixtureEntries(60)
 	m.layout()
@@ -146,7 +154,7 @@ func TestScrollingAwayAndBackReattachesTheTail(t *testing.T) {
 // The input line is out of the way until it is asked for: the letters navigate
 // while the screen is being watched and are text once it is focused.
 func TestFocusSwitchesLettersBetweenNavigationAndText(t *testing.T) {
-	m := newModel(fixtureRoom, fixtureRoster())
+	m := fixtureModel(t, Deps{})
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 12})
 	m.entries = fixtureEntries(60)
 	m.layout()
@@ -172,7 +180,7 @@ func TestFocusSwitchesLettersBetweenNavigationAndText(t *testing.T) {
 // Every member is on the sidebar with the state that says whether it can be
 // interrupted, grouped under the team it belongs to.
 func TestRosterListsEveryMemberWithItsState(t *testing.T) {
-	m := newModel(fixtureRoom, fixtureRoster())
+	m := fixtureModel(t, Deps{})
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 20})
 
 	pane := m.rosterPane(m.view.Height())
@@ -190,7 +198,7 @@ func TestRosterListsEveryMemberWithItsState(t *testing.T) {
 // The transcript reads the way the CLI's does — who said it, who to, and what —
 // so an operator comparing the screen with `chat admin log` reads one text.
 func TestConversationSpellsSenderAddressee(t *testing.T) {
-	m := newModel(fixtureRoom, fixtureRoster())
+	m := fixtureModel(t, Deps{})
 	m.entries = []*chatv1.AdminHistoryEntry{
 		{
 			Id:     1,

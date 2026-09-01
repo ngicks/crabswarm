@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -57,6 +58,11 @@ const entryTimeFormat = "15:04:05"
 // model is the whole screen. It owns no connection: everything it shows was
 // handed to it, and everything it does to the room goes out through [Deps].
 type model struct {
+	// ctx is the one [Run] was given, held here rather than passed because a
+	// bubbletea command is a func() Msg with nowhere to take one: the poll
+	// loops are built in Update and have no other way to reach it.
+	ctx  context.Context
+	deps Deps
 	room string
 
 	width  int
@@ -70,6 +76,16 @@ type model struct {
 	entries []*chatv1.AdminHistoryEntry
 	roster  []*chatv1.Member
 
+	// cursor is the id of the newest entry the screen holds, which is what the
+	// next read of the log asks to be told about.
+	cursor int64
+
+	// tailErr and rosterErr are how the last read of each kind went, so the
+	// status bar can say the daemon stopped answering instead of the screen
+	// simply going quiet.
+	tailErr   error
+	rosterErr error
+
 	// following says the view is pinned to the newest entry. Scrolling away
 	// clears it and scrolling back to the bottom sets it again, which is what
 	// makes a scrolled-back reader stay where it is while the room talks on.
@@ -80,7 +96,7 @@ type model struct {
 	notice string
 }
 
-func newModel(room string, roster []*chatv1.Member) *model {
+func newModel(ctx context.Context, deps Deps, roster []*chatv1.Member) *model {
 	input := textinput.New()
 	input.Prompt = "> "
 	input.Placeholder = `team/name: text`
@@ -91,7 +107,9 @@ func newModel(room string, roster []*chatv1.Member) *model {
 	view.SoftWrap = true
 
 	m := &model{
-		room:      room,
+		ctx:       ctx,
+		deps:      deps,
+		room:      deps.Room,
 		width:     defaultWidth,
 		height:    defaultHeight,
 		view:      view,
@@ -103,8 +121,11 @@ func newModel(room string, roster []*chatv1.Member) *model {
 	return m
 }
 
+// Init opens both loops at once: the conversation the operator arrived to read
+// is fetched immediately rather than a tick later, and so is the roster, which
+// the room lookup already read but may since have moved.
 func (m *model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(m.tail(), m.pollRoster())
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -113,6 +134,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.layout()
 		return m, nil
+	case tailTickMsg:
+		return m, m.tail()
+	case rosterTickMsg:
+		return m, m.pollRoster()
+	case tailMsg:
+		m.applyTail(msg)
+		return m, tickTail()
+	case rosterMsg:
+		m.applyRoster(msg)
+		return m, tickRoster()
 	case tea.KeyPressMsg:
 		return m.key(msg)
 	}
@@ -251,11 +282,27 @@ func (m *model) statusBar() string {
 	} else {
 		parts = append(parts, "scrolled back")
 	}
+	parts = append(parts, m.connection())
 	if m.notice != "" {
 		parts = append(parts, m.notice)
 	}
 	parts = append(parts, m.keyHint())
 	return clip(strings.Join(parts, " · "), width)
+}
+
+// connection says how the daemon is answering. The conversation is what the
+// operator is here for, so a log that stopped coming is reported ahead of a
+// roster that did — and a screen still being fed says so, since silence in a
+// quiet room otherwise looks exactly like silence from a dead socket.
+func (m *model) connection() string {
+	switch {
+	case m.tailErr != nil:
+		return "log unread: " + m.tailErr.Error()
+	case m.rosterErr != nil:
+		return "roster unread: " + m.rosterErr.Error()
+	default:
+		return "connected"
+	}
 }
 
 // keyHint names the two keys that are not guessable from the screen: how to

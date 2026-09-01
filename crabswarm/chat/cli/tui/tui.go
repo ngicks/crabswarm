@@ -78,7 +78,7 @@ func Run(ctx context.Context, deps Deps, opts ...tea.ProgramOption) error {
 		return err
 	}
 	program := tea.NewProgram(
-		newModel(deps.Room, roster),
+		newModel(ctx, deps, roster),
 		append([]tea.ProgramOption{tea.WithContext(ctx)}, opts...)...,
 	)
 	_, err = program.Run()
