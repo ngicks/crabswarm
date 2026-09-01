@@ -107,8 +107,8 @@ func TestTerminal_SendCommandDeclines(t *testing.T) {
 		member func(chat.Member) chat.Member
 	}{
 		{
-			// A human's token is daemon-issued and names no cmdman command, so
-			// there is no terminal to type into.
+			// A member that declared no harness never asked to be typed into,
+			// and its token need not name a terminal to type into either.
 			"member runs no harness",
 			idle,
 			func(m chat.Member) chat.Member { m.Kind = chat.KindHuman; return m },

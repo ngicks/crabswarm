@@ -50,8 +50,9 @@ func TestCmdmanStatusMirror_ClearWithdrawsTheStatus(t *testing.T) {
 	assert.Equal(t, args[0], "status delete 0123456789abcdef")
 }
 
-// A human's token is minted by the daemon and names no cmdman command, so it
-// must never reach a cmdman command line — not even to be rejected there.
+// A member that declared no harness reports no state to label a command with,
+// and its token need not name a command at all, so it must never reach a
+// cmdman command line — not even to be rejected there.
 func TestCmdmanStatusMirror_SkipsMembersWithoutACommand(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

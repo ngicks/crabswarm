@@ -118,8 +118,8 @@ func TestAdminService_MoveMemberReclaimsTheNameOfAGoneMember(t *testing.T) {
 	assert.Equal(t, moved.Team+"/"+moved.Name, "beta/worker-1")
 }
 
-// A human's token was minted by the daemon and no provider can vouch for it, so
-// the name an operator's move collides with stays the human's.
+// A member that declared no harness is never reaped, so the name an operator's
+// move collides with stays with the member holding it.
 func TestAdminService_MoveMemberNeverReclaimsAHumanName(t *testing.T) {
 	svc, id, _, provider := newTestAdminServiceWith(t)
 	_, err := svc.store.Join(t.Context(), Member{

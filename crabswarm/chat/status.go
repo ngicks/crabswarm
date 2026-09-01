@@ -29,9 +29,10 @@ const statusDetail = "crabswarm chat"
 // three words cmdman's status takes — working, waiting, done — which is why the
 // state reaches the CLI as itself rather than through a mapping table.
 //
-// Only agents are published. A human's token is minted by the daemon and names
-// no command, so cmdman could only reject it; the guard is what keeps a
-// daemon-issued secret off a cmdman command line.
+// Only agents are published. A member that declared no harness reports no
+// state, so its command would sit in the display showing whatever it was
+// admitted in; and its token need not name a command at all — an
+// admin-registered one never does, and cmdman could only reject it.
 type CmdmanStatusMirror struct {
 	bin    string
 	logger *slog.Logger

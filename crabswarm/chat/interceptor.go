@@ -13,8 +13,10 @@ import (
 )
 
 // TokenMetadataKey is the gRPC metadata key carrying the caller's identity on
-// every ChatService call: the provider-reported session id for an agent, the
-// daemon-issued token for an admin-registered human.
+// every ChatService call: the session id the team-info provider reports for a
+// command it knows — an agent harness and the shell a person types in alike —
+// or the token `chat admin register` printed for someone attending from
+// outside.
 const TokenMetadataKey = "x-crabswarm-token"
 
 // tokenContextKey types the context value the interceptor hands to the

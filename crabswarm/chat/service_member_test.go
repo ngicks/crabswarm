@@ -226,8 +226,9 @@ func TestService_JoinReclaimLooksPastTheCachedVerdict(t *testing.T) {
 	assert.Assert(t, !svc.recentlyVerified("tok-old"))
 }
 
-// A human's token was minted by the daemon, so no provider can vouch for it and
-// none is asked: their name is theirs until an operator says otherwise.
+// A member that declared no harness is never reaped, so a collision cannot
+// free its name — the provider is not even asked about it. The name is theirs
+// until they leave or an operator says otherwise.
 func TestService_JoinNeverReclaimsAHumanName(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	_, err := svc.store.Join(t.Context(), Member{

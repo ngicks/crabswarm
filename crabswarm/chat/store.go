@@ -69,8 +69,11 @@ const (
 // Member is one participant of a room.
 type Member struct {
 	// Token identifies the member across the whole store. The store treats it
-	// as opaque: it is a provider-reported session id for [KindAgent] and a
-	// daemon-issued secret for [KindHuman].
+	// as opaque: whoever joined from a command the team-info provider knows
+	// presents the session id it reports, and whoever an admin registered
+	// carries a secret the daemon minted. Which of the two it is follows from
+	// how the member joined, not from [Member.Kind] — a person joining by hand
+	// from a plain shell presents a provider-reported token too.
 	Token string
 	// Name is the member's display name, unique within Team.
 	Name string
@@ -78,7 +81,9 @@ type Member struct {
 	Team string
 	// Room is the space whose members can address each other.
 	Room string
-	// Kind records how the member entered the store.
+	// Kind is what the joiner declared it is, and so what may be done to the
+	// member besides handing it its inbox — being nudged by keystroke
+	// injection above all. See [MemberKind].
 	Kind MemberKind
 	// State is the last harness state reported for the member.
 	State MemberState
