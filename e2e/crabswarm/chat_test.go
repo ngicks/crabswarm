@@ -62,16 +62,20 @@ func defaultStubCommands() []stubCommand {
 	}
 }
 
-// stubCmdmanScript renders a stub cmdman answering the two surfaces the chat
-// broker uses: `inspect <ID> --format '{{json .Config}}'` for placement, and
-// `status set|delete` for the state display. Each token in commands reports its
-// own directory and compose project; an unknown ID fails the way cmdman fails
-// on one, since the daemon reads that exact wording as "this token names
-// nothing" rather than "the lookup broke".
+// stubCmdmanScript renders a stub cmdman answering the surfaces the chat broker
+// uses: `inspect <ID> --format '{{json .Config}}'` for placement, `status
+// set|delete` for the state display, and `capture-screen` / `send-keys` for the
+// terminal nudge. Each token in commands reports its own directory and compose
+// project; an unknown ID fails the way cmdman fails on one, since the daemon
+// reads that exact wording as "this token names nothing" rather than "the
+// lookup broke".
 //
-// Status invocations are recorded beside the stub rather than answered, so a
-// test can read back what the daemon published. The stub finds the log relative
-// to $0, which keeps it independent of the environment the daemon runs it with.
+// Status and send-keys invocations are recorded beside the stub rather than
+// answered, so a test can read back what the daemon published and what it typed.
+// The stub finds the logs relative to $0, which keeps it independent of the
+// environment the daemon runs it with. The screen it captures is a bare prompt:
+// the nudge declines on anything that looks like a dialog, and every case here
+// wants the terminal to be idle.
 //
 // The label object of each command is rendered in Go and embedded whole: the
 // stub only has to echo it back, so the shell never assembles JSON.
@@ -81,6 +85,15 @@ func stubCmdmanScript(commands []stubCommand) string {
 if [ "$1" = "status" ]; then
 	shift
 	printf '%s\n' "$*" >> "$(dirname "$0")/status.log"
+	exit 0
+fi
+if [ "$1" = "send-keys" ]; then
+	shift
+	printf '%s\n' "$*" >> "$(dirname "$0")/send-keys.log"
+	exit 0
+fi
+if [ "$1" = "capture-screen" ]; then
+	printf 'stub@terminal:~$ \n'
 	exit 0
 fi
 if [ "$1" != "inspect" ]; then
@@ -129,12 +142,27 @@ func stubLabels(c stubCommand) string {
 // file means the daemon never published anything.
 func stubStatus(t *testing.T, cfgPath string) []string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join(filepath.Dir(cfgPath), "status.log"))
+	return stubLog(t, cfgPath, "status.log")
+}
+
+// stubSendKeys returns the `cmdman send-keys` invocations the daemon made
+// through the stub, oldest first, with the leading "send-keys" already
+// stripped. No log file means no terminal was typed into at all.
+func stubSendKeys(t *testing.T, cfgPath string) []string {
+	t.Helper()
+	return stubLog(t, cfgPath, "send-keys.log")
+}
+
+// stubLog reads back one of the logs the stub cmdman appends its invocations
+// to, oldest first. A log that is not there is one nothing was recorded in.
+func stubLog(t *testing.T, cfgPath, name string) []string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(cfgPath), name))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
-		t.Fatalf("reading stub status log: %v", err)
+		t.Fatalf("reading stub %s: %v", name, err)
 	}
 	var lines []string
 	for l := range strings.SplitSeq(strings.TrimSpace(string(b)), "\n") {
@@ -1244,6 +1272,37 @@ func TestChat_MirrorsMemberStateOntoCmdmanStatus(t *testing.T) {
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("cmdman status invocations =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// Typing into a terminal is what `--agent` asks for, and the only thing it
+// changes. A member that joined without it is delivered to like anyone else and
+// simply never typed at: it reads its inbox when it chooses to, which is what a
+// person at a shell wants and what a harness cannot wait for.
+//
+// Two lines per nudge is the injection itself — the text, then the Enter that
+// submits it — read off the same stub cmdman the status cases use.
+func TestChat_OnlyAnAgentIsTypedAt(t *testing.T) {
+	cfg := startChatDaemon(t)
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
+	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+
+	runChat(t, cfg, "tok-bob", "send", "ana", "PR is ready")
+	runChat(t, cfg, "tok-ana", "send", "bob", "looking now")
+
+	got := stubSendKeys(t, cfg)
+	want := []string{
+		"tok-ana [crabswarm chat] new message from alpha/bob — run: crabswarm chat read",
+		"tok-ana Enter",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("cmdman send-keys invocations =\n%q\nwant\n%q", got, want)
+	}
+
+	// bob was not woken, but the message is bob's all the same.
+	if out := runChat(t, cfg, "tok-bob", "read"); !strings.Contains(out, "looking now") {
+		t.Errorf("bob's read = %q, want it to carry the message nobody typed", out)
 	}
 }
 
