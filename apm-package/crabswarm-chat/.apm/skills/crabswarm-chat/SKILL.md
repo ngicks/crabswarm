@@ -27,8 +27,10 @@ Prints the messages waiting for you, oldest first, one per line:
 An empty inbox prints `no pending messages`.
 
 **Reading consumes.** A message is handed over exactly once — a second `read`
-shows only what arrived in between. So act on what you just read, or carry it
-forward yourself; you cannot fetch it again.
+shows only what arrived in between. Act on what you just read; when you need it
+again, `crabswarm chat history [--limit N]` reprints the room's conversation —
+every message, to anyone, as far back as the room still keeps — and consumes
+nothing.
 
 Read when:
 

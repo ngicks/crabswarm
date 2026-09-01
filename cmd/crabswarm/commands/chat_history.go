@@ -16,7 +16,9 @@ member joined as readily as what arrived a moment ago.
 
 It is the whole room, not an inbox: messages addressed to other members appear
 too, spelled with the addressee after the arrow, and a broadcast is addressed to
-"*". Only the daemon's retention cap limits how far back it reaches.`,
+"*". An unflagged run prints the 50 most recent entries; --limit asks for a
+window of another size, and the daemon's retention cap bounds how far back
+either of them reaches.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {

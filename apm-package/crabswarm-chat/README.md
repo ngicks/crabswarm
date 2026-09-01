@@ -175,11 +175,12 @@ fires only when a read succeeded and printed something.
 ### Reading is the delivery, not a notification
 
 `crabswarm chat read` **consumes**: the daemon hands a message over exactly
-once, and there is no peek. So the PostToolUse hook injects the messages it
-drained rather than a "you have mail" notice — that injection *is* the
-delivery. The alternative, a hint that made the agent read separately, would
-cost the same round trip and leave the messages sitting in the inbox in the
-meantime.
+once, and an inbox cannot be peeked at without draining it — `chat history`
+re-reads the room's transcript, not this member's pending mail. So the
+PostToolUse hook injects the messages it drained rather than a "you have mail"
+notice — that injection *is* the delivery. The alternative, a hint that made
+the agent read separately, would cost the same round trip and leave the
+messages sitting in the inbox in the meantime.
 
 The same fact shapes the Stop hook: when `stop_hook_active` is set, an earlier
 Stop hook already blocked this turn, so the command template renders the

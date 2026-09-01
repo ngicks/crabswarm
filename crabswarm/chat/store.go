@@ -116,8 +116,8 @@ type Room struct {
 // re-reads and still a bounded database.
 const defaultHistoryLimit = 1000
 
-// Store is the persistent room/member/inbox state, backed by SQLite. It is
-// safe for concurrent use.
+// Store is the persistent room state — its members, their inboxes and the
+// conversation log — backed by SQLite. It is safe for concurrent use.
 type Store struct {
 	db *sql.DB
 	q  *db.Queries
