@@ -23,3 +23,14 @@ type Message struct {
 	Text      string
 	SentAt    string
 }
+
+type RoomLog struct {
+	ID       int64
+	Room     string
+	FromName string
+	FromTeam string
+	ToName   string
+	ToTeam   string
+	Text     string
+	SentAt   string
+}
