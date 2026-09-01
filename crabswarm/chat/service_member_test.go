@@ -100,11 +100,19 @@ func TestService_JoinIsIdempotent(t *testing.T) {
 
 	first, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
 	assert.NilError(t, err)
-	// A second join under another name keeps the attendance already declared.
-	second, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "renamed"})
+	// A second join under another name, now declaring a harness, keeps the
+	// attendance already declared: the kind is no more re-negotiable than the
+	// name, so a token that attended inbox-only cannot start being typed into
+	// by joining again.
+	second, err := svc.Join(callCtx(t, "tok-a"),
+		&chatv1.JoinRequest{Name: "renamed", Agent: true})
 	assert.NilError(t, err)
 	assert.Equal(t, second.GetSelf().GetName(), first.GetSelf().GetName())
 	assert.Equal(t, second.GetSelf().GetName(), "ana")
+
+	stored, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.Kind, KindHuman)
 }
 
 func TestService_JoinDefaultsNameToTokenPrefix(t *testing.T) {
@@ -144,10 +152,17 @@ func TestService_JoinAnswersRegisteredHumanWithoutProvider(t *testing.T) {
 	})
 	assert.NilError(t, err)
 
-	res, err := svc.Join(callCtx(t, "human-tok"), &chatv1.JoinRequest{Name: "ignored"})
+	// The declaration is ignored along with the name: an operator put this
+	// member in the room inbox-only, and its own join does not overrule that.
+	res, err := svc.Join(callCtx(t, "human-tok"),
+		&chatv1.JoinRequest{Name: "ignored", Agent: true})
 	assert.NilError(t, err)
 	assert.Equal(t, res.GetSelf().GetName(), "hana")
 	assert.Equal(t, provider.callCount(), 0)
+
+	stored, err := svc.store.Member(t.Context(), "human-tok")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.Kind, KindHuman)
 }
 
 func TestService_JoinRejectsNameTakenInTeam(t *testing.T) {
