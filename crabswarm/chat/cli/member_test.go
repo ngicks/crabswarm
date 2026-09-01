@@ -16,14 +16,26 @@ func TestClient_Join(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
-	assert.NilError(t, d.client.Join(t.Context(), &out, "tok-a", "alice"))
+	assert.NilError(t, d.client.Join(t.Context(), &out, "tok-a", "alice", false))
 	assert.Equal(t, fake.join.GetName(), "alice")
+	assert.Equal(t, fake.join.GetAgent(), false)
 	assert.Equal(t, out.String(), "joined /work/proj as backend/alice\n")
 
 	// An unnamed join sends an empty name: naming the member is the daemon's
 	// job when the caller declines to.
-	assert.NilError(t, d.client.Join(t.Context(), &strings.Builder{}, "tok-a", ""))
+	assert.NilError(t, d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "", false))
 	assert.Equal(t, fake.join.GetName(), "")
+}
+
+// Only a caller that says so attends as a harness; the daemon has nothing else
+// to read it off.
+func TestClient_JoinCarriesTheAgentDeclaration(t *testing.T) {
+	fake := &fakeChatService{self: member("backend", "alice", "/work/proj")}
+	d := serveTestDaemon(t, fake, nil)
+
+	assert.NilError(t,
+		d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice", true))
+	assert.Equal(t, fake.join.GetAgent(), true)
 }
 
 // The address is handed to the daemon exactly as typed — resolving a bare name

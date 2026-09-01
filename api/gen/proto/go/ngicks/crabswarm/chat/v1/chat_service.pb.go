@@ -286,7 +286,11 @@ func (x *Message) GetSentAt() *timestamppb.Timestamp {
 type JoinRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is the name to attend under, unique within the caller's team.
-	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Agent declares the caller is an agent harness whose terminal may be
+	// nudged by keystroke injection while idle. Without it the member is
+	// inbox-only and is never typed at.
+	Agent         bool `protobuf:"varint,4,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -326,6 +330,13 @@ func (x *JoinRequest) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *JoinRequest) GetAgent() bool {
+	if x != nil {
+		return x.Agent
+	}
+	return false
 }
 
 type JoinResponse struct {
@@ -2117,9 +2128,10 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\aMessage\x124\n" +
 	"\x04from\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x04from\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x123\n" +
-	"\asent_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\"-\n" +
+	"\asent_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\"C\n" +
 	"\vJoinRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04nameJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"D\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05agent\x18\x04 \x01(\bR\x05agentJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"D\n" +
 	"\fJoinResponse\x124\n" +
 	"\x04self\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x04self\"1\n" +
 	"\vSendRequest\x12\x0e\n" +

@@ -212,8 +212,11 @@ func (s *Server) ensureJoined(ctx context.Context) error {
 	defer cancel()
 	// The empty name takes the one the daemon derives from the token: an agent
 	// is named by whoever registered it, not by the harness it happens to run.
+	//
+	// Always as an agent: this bridge is started by a harness and serves
+	// nothing else, so the terminal behind it is one a nudge belongs in.
 	var identity strings.Builder
-	if err := s.client.Join(ctx, &identity, s.token, ""); err != nil {
+	if err := s.client.Join(ctx, &identity, s.token, "", true); err != nil {
 		return fmt.Errorf("attending the chat room: %w", err)
 	}
 	s.joined = true

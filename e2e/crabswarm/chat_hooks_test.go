@@ -495,7 +495,7 @@ func TestChatHooks_IdleNotificationRecoversAnInterruptedTurn(t *testing.T) {
 	for _, stuck := range []string{"working", "waiting"} {
 		t.Run("interrupted while "+stuck, func(t *testing.T) {
 			cfg := startChatDaemon(t)
-			runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+			runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
 			runChat(t, cfg, "tok-ana", "report-state", stuck)
 
 			assertHookIsSilent(t,

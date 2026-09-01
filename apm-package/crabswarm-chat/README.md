@@ -122,7 +122,11 @@ to run `crabswarm chat join` as well; it is gone, because the bridge already
 attends before the first turn and a second path to the same idempotent call buys
 nothing. The trade is deliberate and worth stating: a harness that installs the
 hooks and no MCP server no longer joins by itself. Every hook below still runs,
-and `crabswarm chat join` typed by hand still works.
+and `crabswarm chat join --agent` typed by hand still works.
+
+The flag is what the bridge sends too, and it is what asks to be nudged: a
+member that joins without it gets an inbox and nothing else, which is right for
+a person at a shell and wrong for a session that is meant to be woken.
 
 Running out of attempts does not take the bridge down. It stays up serving tools
 that report why they cannot act, and each tool call asks to attend again — so a
@@ -318,7 +322,7 @@ The MCP server is the same story one layer over: `apm install` writes an
 `crabswarm` with `["chat", "mcp"]`, which is what a Codex install was observed
 to produce; whether Codex then starts the bridge and joins the room has not been
 run against a Codex session either. Without it Codex attends only when someone
-types `crabswarm chat join`.
+types `crabswarm chat join --agent`.
 
 What Codex ends up running:
 

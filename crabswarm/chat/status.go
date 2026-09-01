@@ -29,9 +29,10 @@ const statusDetail = "crabswarm chat"
 // three words cmdman's status takes — working, waiting, done — which is why the
 // state reaches the CLI as itself rather than through a mapping table.
 //
-// Only agents are published. A human's token is minted by the daemon and names
-// no command, so cmdman could only reject it; the guard is what keeps a
-// daemon-issued secret off a cmdman command line.
+// Only agents are published. A member that declared no harness reports no
+// state, so its command would sit in the display showing whatever it was
+// admitted in; and its token need not name a command at all — an
+// admin-registered one never does, and cmdman could only reject it.
 type CmdmanStatusMirror struct {
 	bin    string
 	logger *slog.Logger
@@ -54,7 +55,8 @@ func NewCmdmanStatusMirror(bin string, logger *slog.Logger) *CmdmanStatusMirror 
 
 // Set publishes state as the status of m's command. A member cmdman cannot be
 // told about is skipped rather than reported as an error: there is nothing
-// wrong, the member simply has no command to label.
+// wrong, the member simply has no harness whose state a display would mean
+// anything about.
 func (m *CmdmanStatusMirror) Set(ctx context.Context, member Member, state MemberState) error {
 	if !m.publishable(member, "publish state for") {
 		return nil
@@ -84,7 +86,9 @@ func (m *CmdmanStatusMirror) publishable(member Member, what string) bool {
 	who := member.Team + "/" + member.Name
 
 	// Not "== KindHuman": a member kind this mirror has never heard of has no
-	// command to label either.
+	// harness state to label a command with either. A member that declared no
+	// harness reports none, so its command would only ever show the state it
+	// was admitted in.
 	if member.Kind != KindAgent {
 		m.logger.Debug("chat: not asked to "+what+" a member that runs no command",
 			"member", who, "kind", member.Kind)

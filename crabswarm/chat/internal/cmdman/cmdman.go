@@ -98,8 +98,9 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 	who := member.Team + "/" + member.Name
 
 	// Not "== KindHuman": a member kind this package has never heard of has no
-	// terminal it may type into either. A human's token is minted by the daemon
-	// and names no cmdman command, so send-keys would fail to resolve it.
+	// terminal it may type into either. Only a joiner that declared itself a
+	// harness is typed at — anything else reads its inbox when it chooses to,
+	// and a line typed into it would land wherever its shell happens to be.
 	if member.Kind != chat.KindAgent {
 		t.logger.Debug("chat: not typing into a member that runs no harness",
 			"member", who, "kind", member.Kind)

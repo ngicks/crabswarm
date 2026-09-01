@@ -181,8 +181,8 @@ func TestSendKeys_SkipsStaleBusyMemberShowingDialog(t *testing.T) {
 }
 
 func TestSendKeys_SkipsHuman(t *testing.T) {
-	// A human's token is daemon-issued and names no cmdman command, so there is
-	// no terminal to type into.
+	// A member that declared no harness never asked to be typed into, and its
+	// token need not name a terminal to type into either.
 	bin := stubCmdmanScreen(t, idlePrompt)
 	m := doneAgent()
 	m.Kind = chat.KindHuman

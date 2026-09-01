@@ -193,6 +193,9 @@ func TestServer_ToolsAnswerWithTheCLIWording(t *testing.T) {
 	// resolving an address is the daemon's job, not the bridge's.
 	assert.Assert(t, fake.lastJoin() != nil)
 	assert.Equal(t, fake.lastJoin().GetName(), "")
+	// As an agent: a harness is the only thing that starts a bridge, and a
+	// message reaching it should be typed into the terminal it runs in.
+	assert.Equal(t, fake.lastJoin().GetAgent(), true)
 	assert.Equal(t, fake.lastSend().GetTo(), "bob")
 	assert.Equal(t, fake.lastSend().GetText(), "PR is ready")
 	assert.Equal(t, fake.lastBroadcast().GetText(), "starting the release")
