@@ -27,21 +27,26 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "create temp dir: %v\n", err)
 		os.Exit(1)
 	}
-	defer os.RemoveAll(tmp)
+	// os.Exit skips deferred calls, so the removal must run before it —
+	// otherwise every test run leaks a ~40MB binary dir into TMPDIR.
+	code := func() int {
+		defer os.RemoveAll(tmp)
 
-	bin := filepath.Join(tmp, "crabswarm")
-	build := exec.Command("go", "build", "-o", bin, "./cmd/crabswarm")
-	// Build from the repository root.
-	build.Dir = repoRoot()
-	build.Stdout = os.Stdout
-	build.Stderr = os.Stderr
-	if err := build.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "build crabswarm: %v\n", err)
-		os.Exit(1)
-	}
-	crabswarmBin = bin
+		bin := filepath.Join(tmp, "crabswarm")
+		build := exec.Command("go", "build", "-o", bin, "./cmd/crabswarm")
+		// Build from the repository root.
+		build.Dir = repoRoot()
+		build.Stdout = os.Stdout
+		build.Stderr = os.Stderr
+		if err := build.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "build crabswarm: %v\n", err)
+			return 1
+		}
+		crabswarmBin = bin
 
-	os.Exit(m.Run())
+		return m.Run()
+	}()
+	os.Exit(code)
 }
 
 func repoRoot() string {
