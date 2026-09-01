@@ -30,3 +30,19 @@ Rejected:
 
 Tagged automatic per user directive (2026-08-31): skip questions, use
 the recommendation.
+
+## D2 — invoke the Go plugins as `go tool`, not `go run` (automatic decision)
+
+Choice: the template spells the Go plugins
+`local: ["go", "tool", "protoc-gen-go"]` (and siblings) instead of the
+originally drafted `["go", "run", "<pkg>"]`.
+
+Rationale: review pointed out the repo's one existing go.mod-tool
+invocation already uses this form (`//go:generate go tool sqlc generate`
+in `crabswarm/chat/internal/schema/embed.go`); both forms resolve the
+identical version through the same module graph, so matching precedent
+wins. Verified after the switch: `buf generate` leaves the committed
+trees byte-identical.
+
+Rejected: keeping `go run <pkg>` (works, but diverges from the
+established spelling for no benefit).

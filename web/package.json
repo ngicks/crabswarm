@@ -6,7 +6,7 @@
   "description": "Preact SPA frontend for `crabswarm preview` (markdown previewer).",
   "scripts": {
     "vendor": "node scripts/copy-mathjax.mjs",
-    "gen": "cd ../api && buf generate --template buf.gen.ts.yaml",
+    "gen": "cd ../api && buf generate",
     "dev": "pnpm run vendor && vite",
     "build": "pnpm run gen && pnpm run vendor && vite build && pnpm run pack",
     "pack": "go run ./scripts/packdist",
