@@ -6,9 +6,9 @@ The user's implement-all-plans directive superseded the D1 deferral
 as drafted, D3 with the retarget D5 records.
 
 Next action: re-review and merge. The review of 2026-09-02 returned
-needs-changes on the doc sweep above and on a test that declared no agent (so
-the TTL cache it names went unexercised); both are fixed. `go test ./...`
-passes.
+needs-changes on the doc sweep step 2 records below and on a test that declared
+no agent, so the TTL cache it names went unexercised; both are fixed.
+`go test ./...` passes.
 
 ## Checklist
 
@@ -21,8 +21,12 @@ passes.
       `status.go`'s guard and the two liveness doc comments in `service.go`;
       the review of 2026-09-02 found four more — `status.go`'s struct doc,
       `Member.Token` and `Member.Kind` in `store.go`, and `TokenMetadataKey`
-      in `interceptor.go` — plus the parent `chat` command's help and five
-      test comments. All of them now read off capability.
+      in `interceptor.go` — plus the parent `chat` command's help and six test
+      comments. All of them now read off capability. Checked by grepping the
+      old vocabulary (`daemon-issued`, `minted by the daemon`,
+      `provider-originated`) across `*.go` and `*.md`: what remains is only
+      where it is still literally true, namely the admin-register token in the
+      proto and the store test that presents one.
 - [x] Step 3 — `chat join --agent` CLI flag threaded through
       `chatcli.Client.Join` (D1 quote: "`--agent` means notification. But
       without it, there shouldn't be notification."), and the MCP bridge's
