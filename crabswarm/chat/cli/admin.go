@@ -180,3 +180,30 @@ func (c *Client) AdminSend(
 	}
 	return RenderAdminSent(w, room, target, resp.GetDelivered())
 }
+
+// AdminLog prints the conversation of a room the operator does not attend, the
+// tail of it that limit asks for — zero meaning the daemon's own window.
+//
+// It reads the tail rather than paging: the cursor the RPC takes is there for a
+// caller that keeps following the room, and a command run once has nothing to
+// carry between runs.
+func (c *Client) AdminLog(
+	ctx context.Context,
+	w io.Writer,
+	identityPath, room string,
+	limit int32,
+) error {
+	nonce, err := c.nonce(ctx, identityPath)
+	if err != nil {
+		return err
+	}
+	resp, err := c.admin.History(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.AdminHistoryRequest{
+			Room:  room,
+			Limit: limit,
+		})
+	if err != nil {
+		return callError(err)
+	}
+	return RenderAdminHistory(w, resp.GetEntries())
+}
