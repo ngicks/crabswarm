@@ -658,7 +658,7 @@ func TestChat_RecreatedReplicaRejoinsUnderTheSameName(t *testing.T) {
 	}
 	cfg := startChatDaemonWith(t, []stubCommand{replica("tok-first")})
 
-	got := runChat(t, cfg, "tok-first", "join")
+	got := runChat(t, cfg, "tok-first", "join", "--agent")
 	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
 		t.Errorf("join = %q, want %q", got, want)
 	}
@@ -667,7 +667,7 @@ func TestChat_RecreatedReplicaRejoinsUnderTheSameName(t *testing.T) {
 	// and the one that replaced it answers under a new ID with the same labels.
 	rewriteStubRoster(t, cfg, []stubCommand{replica("tok-second")})
 
-	got = runChat(t, cfg, "tok-second", "join")
+	got = runChat(t, cfg, "tok-second", "join", "--agent")
 	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
 		t.Errorf("join after recreate = %q, want %q", got, want)
 	}
@@ -1229,7 +1229,7 @@ func TestChat_RemovedSpellingsAreRejected(t *testing.T) {
 func TestChat_MirrorsMemberStateOntoCmdmanStatus(t *testing.T) {
 	cfg := startChatDaemon(t)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
 	runChat(t, cfg, "tok-ana", "report-state", "working")
 	runChat(t, cfg, "tok-ana", "report-state", "waiting")
 	runChat(t, cfg, "tok-ana", "leave")
@@ -1261,7 +1261,7 @@ func TestChat_NeverPublishesAHumanToken(t *testing.T) {
 
 	// An agent doing the same thing proves the recording works at all, so the
 	// human half below cannot pass by nothing being recorded.
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
 
 	published := stubStatus(t, cfg)
 	if want := []string{

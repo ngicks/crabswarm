@@ -13,8 +13,19 @@ import (
 // derives from the compose labels, or from the token when it has none — and
 // reports the identity the daemon settled on, which is
 // where the caller learns its own room and team.
-func (c *Client) Join(ctx context.Context, w io.Writer, token, name string) error {
-	resp, err := c.chat.Join(withToken(ctx, token), &chatv1.JoinRequest{Name: name})
+//
+// agent says an agent harness is what attends, which is what lets an arriving
+// message be typed into its terminal. A caller that is anything else — a person
+// at a shell, a script — passes false and is only ever handed its inbox when it
+// asks.
+func (c *Client) Join(
+	ctx context.Context,
+	w io.Writer,
+	token, name string,
+	agent bool,
+) error {
+	resp, err := c.chat.Join(withToken(ctx, token),
+		&chatv1.JoinRequest{Name: name, Agent: agent})
 	if err != nil {
 		return callError(err)
 	}
