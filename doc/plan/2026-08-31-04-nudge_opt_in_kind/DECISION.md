@@ -12,6 +12,11 @@ notification."
   semantics the user specified are not lost.
 - Consequence: the human-in-a-room use case is served by the admin plane
   (`chat admin` plan) in the meantime.
+- Amendment (2026-09-02): superseded. The user re-scheduled this plan by
+  directing that every outstanding plan be implemented, which lifts the
+  deferral this entry records; the `--agent` semantics quoted above are
+  unchanged and are what was built. D4's account of the earlier run skipping
+  the plan stands as history.
 
 ## D2: represent opt-in via the existing MemberKind (automatic decision)
 
@@ -49,3 +54,26 @@ directive was not read as silently re-scheduling a specifically deferred
 plan whose change alters runtime nudge behavior for every joining agent.
 The user can override by re-scheduling; the plan and the issue-backlog
 entry are unchanged.
+
+(Superseded 2026-09-02 — see the amendment on D1.)
+
+## D5 — the MCP bridge is the joiner that declares --agent (automatic decision)
+
+Step 4 of the plan, and D3 with it, targeted the apm-package `SessionStart`
+hook that ran `crabswarm chat join`. That hook no longer exists: the chat
+MCP-server work removed it (its own D5), leaving the stdio bridge's async
+auto-join as the sole automatic join path for a harness — both the claude and
+the codex target reach it through the apm-registered MCP server.
+
+- Choice: the bridge's join declares `agent=true` unconditionally, and the
+  apm-package README's two manual-join sentences spell `crabswarm chat join
+  --agent`. Verified by grep that no `chat join` remains in the package's
+  hooks, skill, or `apm.yml`; an e2e case already fails if a join hook is
+  wired again.
+- Rationale: D3's principle is untouched — the joiner declares, the daemon
+  never guesses. Only the identity of the joiner changed. The bridge exists to
+  serve an agent harness and is started by one, so it has nothing else to
+  declare.
+- Rejected: re-adding a `SessionStart` join hook so the plan's step could be
+  followed literally (it would restore the second join path that work
+  deliberately removed).
