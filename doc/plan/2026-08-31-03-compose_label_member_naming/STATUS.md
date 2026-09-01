@@ -1,6 +1,6 @@
 # Status
 
-Current state: **implemented** — steps 1-3 done; final review + test gate passed with one deferred blocker (recreate-collision, HANDOFF.md) awaiting user decision.
+Current state: **implemented** — steps 1-3 done; final review + test gate passed with one deferred blocker (recreate-collision, HANDOFF.md), which the user decided and plan 2026-08-31-08-reclaim_gone_member_name implemented 2026-09-02: a gone holder's name is reclaimed at join/move time.
 
 ## Checklist
 

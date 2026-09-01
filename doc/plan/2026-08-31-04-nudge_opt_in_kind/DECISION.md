@@ -38,3 +38,14 @@ notification."
   caused the original bug (every cmdman command assumed to be an agent).
 - Rejected: defaulting to agent and adding `--no-nudge` (keeps the unsafe
   default; the user explicitly specified opt-in semantics — see D1 quote).
+
+## D4 — left deferred during the 2026-09-02 implement-all run (automatic decision)
+
+The autonomous run that implemented every other outstanding plan
+("implement all unimplemented plans except the channels spike") skipped
+this one: D1 records the user explicitly deferring it ("ignore that for
+now ... We may be coming back to later"), and a blanket implement-all
+directive was not read as silently re-scheduling a specifically deferred
+plan whose change alters runtime nudge behavior for every joining agent.
+The user can override by re-scheduling; the plan and the issue-backlog
+entry are unchanged.

@@ -3,7 +3,9 @@
 Current state: implemented (all steps). Steps 1-5 and 7 landed
 2026-08-31 unattended via /goal (see AD6-AD9) and were reviewed; step 6
 followed on 2026-09-02, once plan 05 had delivered the per-room log it
-reads, and is not reviewed yet. Awaiting user review; HANDOFF.md is
+reads, and was reviewed the same day (approve-with-nits; the doc sweep,
+comment corrections, cap-clamp pin, and verb-wiring parity tests all
+landed). Awaiting user review; HANDOFF.md is
 empty — nothing this plan deferred is still outstanding.
 
 ## Checklist

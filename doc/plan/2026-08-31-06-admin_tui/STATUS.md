@@ -1,7 +1,14 @@
 # Status — admin TUI
 
-Current state: **implemented** 2026-09-02 — all six steps landed on
-`worktree-admin-tui`. The contracts this plan consumes all exist on
+Current state: **implemented + reviewed** 2026-09-02 — all six steps
+landed on `worktree-admin-tui`. Review returned needs-changes: the
+roster pane rendered past its height budget, so past ~19 members on a
+24-row terminal the input line and status bar were pushed off-frame
+(lipgloss Height pads, never truncates, and AltScreen drops overflow
+rows silently). Fixed by clipping the roster to its budget with an
+`… +N more` line, pinned by tests that fail against the pre-fix code;
+the review's optional nits (input-width off-by-one, help text, package
+doc, send-guard and quit-key pins) landed too. The contracts this plan consumes all exist on
 main: the admin auth plane, `AdminService.Send`, `AdminService.ListRooms`
 and `ChatAdminService.History` with its `since_id` cursor. Judgment
 calls made while implementing are DECISION.md D7–D14, tagged automatic
