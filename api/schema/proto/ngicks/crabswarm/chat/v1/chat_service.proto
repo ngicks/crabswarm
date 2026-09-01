@@ -25,6 +25,11 @@ service ChatService {
   // Read returns the caller's pending messages and consumes them, so a
   // message is handed out exactly once.
   rpc Read(ReadRequest) returns (ReadResponse);
+  // History returns the tail of the conversation of the caller's room, oldest
+  // first. It consumes nothing, and it shows the whole room: directed
+  // messages the caller never received included, since a room's transcript is
+  // a shared record of what was said rather than a second copy of an inbox.
+  rpc History(HistoryRequest) returns (HistoryResponse);
   // ListMembers lists every member of the caller's room, team-qualified.
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   // Leave withdraws the caller's attendance.
@@ -174,6 +179,30 @@ message ReadResponse {
   // Messages are the caller's pending messages, oldest first. Returning them
   // consumes them.
   repeated Message messages = 1;
+}
+
+message HistoryRequest {
+  // Limit caps how many entries come back, counting from the newest. Zero
+  // means the server's own window.
+  int32 limit = 1;
+}
+
+// HistoryEntry is one utterance of a room's conversation, as it was said.
+message HistoryEntry {
+  // From is who said it, as resolved at send time.
+  Member from = 1;
+  // To is the member a directed send was addressed to. Unset for a broadcast,
+  // which addressed the room rather than anyone in it.
+  Member to = 2;
+  // Text is the message body.
+  string text = 3;
+  // SentAt is when the daemon accepted the message.
+  google.protobuf.Timestamp sent_at = 4;
+}
+
+message HistoryResponse {
+  // Entries are the tail of the room's conversation, oldest first.
+  repeated HistoryEntry entries = 1;
 }
 
 message ListMembersRequest {}

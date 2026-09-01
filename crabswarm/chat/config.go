@@ -10,9 +10,10 @@ package chat
 // database path), or already meaningful when empty — "cmdman, resolved on
 // PATH", and "no admin key, so no admin RPCs".
 type Config struct {
-	// Db is the path of the SQLite database holding rooms, members and
-	// inboxes. A leading "~" is expanded when the daemon opens the store, so
-	// the path stays as written wherever the config is printed back.
+	// Db is the path of the SQLite database holding rooms, members, inboxes
+	// and the rooms' conversation logs. A leading "~" is expanded when the
+	// daemon opens the store, so the path stays as written wherever the config
+	// is printed back.
 	Db string `json:"db" yaml:"db"`
 	// CmdmanBin is the cmdman binary the team-info provider shells out to.
 	// Empty means "cmdman", resolved on PATH; a non-standard install names an
@@ -32,6 +33,11 @@ type Config struct {
 	// lets one config file describe both ends. A leading "~" is expanded by
 	// the reader.
 	AdminIdentityFile string `json:"admin_identity_file" yaml:"admin_identity_file"`
+	// HistoryLimit is how many messages each room keeps of its conversation,
+	// pruned as new ones arrive. Zero means the default, which is what keeps
+	// this block meaningful when empty; a negative value records no
+	// conversation at all, for a host that would rather keep none.
+	HistoryLimit int `json:"history_limit" yaml:"history_limit"`
 }
 
 // PartialConfig is the sparse mirror of [Config], used by the parent crabswarm
@@ -57,6 +63,7 @@ type PartialConfig struct {
 	CmdmanBin         *string  `json:"cmdman_bin,omitzero" yaml:"cmdman_bin,omitempty" env:"CMDMAN_BIN"`
 	AdminRecipients   []string `json:"admin_recipients,omitzero" yaml:"admin_recipients,omitempty" env:"ADMIN_RECIPIENTS"`
 	AdminIdentityFile *string  `json:"admin_identity_file,omitzero" yaml:"admin_identity_file,omitempty" env:"ADMIN_IDENTITY_FILE"`
+	HistoryLimit      *int     `json:"history_limit,omitzero" yaml:"history_limit,omitempty" env:"HISTORY_LIMIT"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged [Config].
@@ -75,6 +82,9 @@ func (p PartialConfig) Apply(base Config) Config {
 	}
 	if p.AdminIdentityFile != nil {
 		base.AdminIdentityFile = *p.AdminIdentityFile
+	}
+	if p.HistoryLimit != nil {
+		base.HistoryLimit = *p.HistoryLimit
 	}
 	return base
 }

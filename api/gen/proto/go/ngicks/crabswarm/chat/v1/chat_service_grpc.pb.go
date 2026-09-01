@@ -23,6 +23,7 @@ const (
 	ChatService_Send_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatService/Send"
 	ChatService_Broadcast_FullMethodName   = "/ngicks.crabswarm.chat.v1.ChatService/Broadcast"
 	ChatService_Read_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatService/Read"
+	ChatService_History_FullMethodName     = "/ngicks.crabswarm.chat.v1.ChatService/History"
 	ChatService_ListMembers_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
 	ChatService_Leave_FullMethodName       = "/ngicks.crabswarm.chat.v1.ChatService/Leave"
 	ChatService_ReportState_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
@@ -52,6 +53,11 @@ type ChatServiceClient interface {
 	// Read returns the caller's pending messages and consumes them, so a
 	// message is handed out exactly once.
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
+	// History returns the tail of the conversation of the caller's room, oldest
+	// first. It consumes nothing, and it shows the whole room: directed
+	// messages the caller never received included, since a room's transcript is
+	// a shared record of what was said rather than a second copy of an inbox.
+	History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	// Leave withdraws the caller's attendance.
@@ -111,6 +117,16 @@ func (c *chatServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...g
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ReadResponse)
 	err := c.cc.Invoke(ctx, ChatService_Read_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HistoryResponse)
+	err := c.cc.Invoke(ctx, ChatService_History_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +205,11 @@ type ChatServiceServer interface {
 	// Read returns the caller's pending messages and consumes them, so a
 	// message is handed out exactly once.
 	Read(context.Context, *ReadRequest) (*ReadResponse, error)
+	// History returns the tail of the conversation of the caller's room, oldest
+	// first. It consumes nothing, and it shows the whole room: directed
+	// messages the caller never received included, since a room's transcript is
+	// a shared record of what was said rather than a second copy of an inbox.
+	History(context.Context, *HistoryRequest) (*HistoryResponse, error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	// Leave withdraws the caller's attendance.
@@ -225,6 +246,9 @@ func (UnimplementedChatServiceServer) Broadcast(context.Context, *BroadcastReque
 }
 func (UnimplementedChatServiceServer) Read(context.Context, *ReadRequest) (*ReadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Read not implemented")
+}
+func (UnimplementedChatServiceServer) History(context.Context, *HistoryRequest) (*HistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method History not implemented")
 }
 func (UnimplementedChatServiceServer) ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMembers not implemented")
@@ -331,6 +355,24 @@ func _ChatService_Read_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).History(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_History_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).History(ctx, req.(*HistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_ListMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListMembersRequest)
 	if err := dec(in); err != nil {
@@ -418,6 +460,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Read",
 			Handler:    _ChatService_Read_Handler,
+		},
+		{
+			MethodName: "History",
+			Handler:    _ChatService_History_Handler,
 		},
 		{
 			MethodName: "ListMembers",

@@ -76,3 +76,48 @@ func (s *Service) Read(
 	}
 	return &chatv1.ReadResponse{Messages: out}, nil
 }
+
+// defaultHistoryWindow is how much of the conversation a caller that asked for
+// no particular amount gets: a screenful of recent context rather than the
+// whole retained room, which is what a member catching up is after.
+const defaultHistoryWindow = 50
+
+// History hands back the tail of the caller's room's conversation without
+// consuming anything, so the same window can be read again.
+func (s *Service) History(
+	ctx context.Context,
+	req *chatv1.HistoryRequest,
+) (*chatv1.HistoryResponse, error) {
+	caller, err := s.caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = defaultHistoryWindow
+	}
+	// Asking for more than the room keeps is not an error: the answer to it is
+	// everything there is, which is what the retention cap left. A store that
+	// records nothing has no cap to clamp against — it answers with whatever it
+	// held before it was switched off, and that is already a short list.
+	if kept := s.store.historyLimit; kept > 0 && limit > kept {
+		limit = kept
+	}
+	entries, err := s.store.History(ctx, caller.Room, limit)
+	if err != nil {
+		return nil, storeStatus(err)
+	}
+	out := make([]*chatv1.HistoryEntry, len(entries))
+	for i, e := range entries {
+		entry := &chatv1.HistoryEntry{
+			From:   senderProto(e.From),
+			Text:   e.Text,
+			SentAt: timestamppb.New(e.SentAt),
+		}
+		if e.To != nil {
+			entry.To = senderProto(*e.To)
+		}
+		out[i] = entry
+	}
+	return &chatv1.HistoryResponse{Entries: out}, nil
+}

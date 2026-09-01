@@ -93,6 +93,22 @@ func (c *Client) Read(ctx context.Context, w io.Writer, token string, opts ReadO
 	return RenderMessages(w, messages)
 }
 
+// History prints the tail of the caller's room's conversation, oldest first,
+// and consumes nothing: the same window can be printed again, and a message
+// another member already read is still in it.
+//
+// limit is how many entries to ask for; zero leaves the window to the daemon,
+// which also caps a limit larger than the room keeps. It is an int32 because
+// that is what the request carries — a window nobody could scroll is not worth
+// a conversion that could silently wrap.
+func (c *Client) History(ctx context.Context, w io.Writer, token string, limit int32) error {
+	resp, err := c.chat.History(withToken(ctx, token), &chatv1.HistoryRequest{Limit: limit})
+	if err != nil {
+		return callError(err)
+	}
+	return RenderHistory(w, resp.GetEntries())
+}
+
 // ListMembers prints everyone attending the caller's room.
 func (c *Client) ListMembers(ctx context.Context, w io.Writer, token string) error {
 	resp, err := c.chat.ListMembers(withToken(ctx, token), &chatv1.ListMembersRequest{})

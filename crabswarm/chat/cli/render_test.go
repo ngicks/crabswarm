@@ -94,6 +94,39 @@ func TestRenderMessages_MissingTimestamp(t *testing.T) {
 	assert.Equal(t, got, "[unknown time] backend/alice: hi\n")
 }
 
+// A transcript line names who was addressed, so a directed message is not read
+// as something said to the whole room. A broadcast is addressed to "*", the
+// same target the admin send verb takes for "everyone here".
+func TestRenderHistory(t *testing.T) {
+	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
+	entries := []*chatv1.HistoryEntry{
+		{
+			From:   member("backend", "alice", "/work"),
+			To:     member("frontend", "bob", "/work"),
+			Text:   "rebased onto main",
+			SentAt: timestamppb.New(sent),
+		},
+		{
+			From:   member("frontend", "bob", "/work"),
+			Text:   "standup in 5",
+			SentAt: timestamppb.New(sent.Add(time.Minute)),
+		},
+		{From: member("backend", "alice", "/work"), Text: "when?"},
+	}
+
+	got := render(t, func(b *strings.Builder) error { return RenderHistory(b, entries) })
+	assert.Equal(t, got,
+		"[2026-08-27T09:30:00Z] backend/alice → frontend/bob: rebased onto main\n"+
+			"[2026-08-27T09:31:00Z] frontend/bob → *: standup in 5\n"+
+			"[unknown time] backend/alice → *: when?\n")
+}
+
+// A room nobody has spoken in says so, the way an empty inbox does.
+func TestRenderHistory_Empty(t *testing.T) {
+	got := render(t, func(b *strings.Builder) error { return RenderHistory(b, nil) })
+	assert.Equal(t, got, "no messages yet\n")
+}
+
 func TestRenderMembers(t *testing.T) {
 	members := []*chatv1.Member{
 		member("backend", "alice", "/work"),

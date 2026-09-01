@@ -26,7 +26,7 @@ func (s *Store) Send(
 		if err != nil {
 			return fmt.Errorf("sending message: %w", err)
 		}
-		recipient, err = sendFrom(ctx, q, senderOf(from), addr, text, sentAt)
+		recipient, err = s.sendFrom(ctx, q, senderOf(from), addr, text, sentAt)
 		return err
 	})
 	if err != nil {
@@ -48,7 +48,7 @@ func (s *Store) sendAs(
 	var recipient Member
 	err := s.tx(ctx, func(q *db.Queries) error {
 		var err error
-		recipient, err = sendFrom(ctx, q, from, addr, text, sentAt)
+		recipient, err = s.sendFrom(ctx, q, from, addr, text, sentAt)
 		return err
 	})
 	if err != nil {
@@ -57,9 +57,10 @@ func (s *Store) sendAs(
 	return recipient, nil
 }
 
-// sendFrom resolves addr and appends the message through the caller's queries
-// handle, which is what keeps the two halves of a delivery in one transaction.
-func sendFrom(
+// sendFrom resolves addr, appends the message and records it in the room's
+// conversation through the caller's queries handle, which is what keeps the
+// halves of a delivery in one transaction.
+func (s *Store) sendFrom(
 	ctx context.Context,
 	q *db.Queries,
 	from Sender,
@@ -71,6 +72,10 @@ func sendFrom(
 		return Member{}, err
 	}
 	if err := appendMessage(ctx, q, to.Token, from, text, sentAt); err != nil {
+		return Member{}, err
+	}
+	addressed := senderOf(to)
+	if err := s.logMessage(ctx, q, from, &addressed, text, sentAt); err != nil {
 		return Member{}, err
 	}
 	return to, nil
@@ -96,7 +101,7 @@ func (s *Store) Broadcast(
 		if excludeSender {
 			excluded = from.Token
 		}
-		recipients, err = broadcastFrom(ctx, q, senderOf(from), excluded, text, sentAt)
+		recipients, err = s.broadcastFrom(ctx, q, senderOf(from), excluded, text, sentAt)
 		return err
 	})
 	if err != nil {
@@ -118,7 +123,7 @@ func (s *Store) broadcastAs(
 	var recipients []Member
 	err := s.tx(ctx, func(q *db.Queries) error {
 		var err error
-		recipients, err = broadcastFrom(ctx, q, from, "", text, sentAt)
+		recipients, err = s.broadcastFrom(ctx, q, from, "", text, sentAt)
 		if err != nil {
 			return err
 		}
@@ -133,10 +138,14 @@ func (s *Store) broadcastAs(
 	return recipients, nil
 }
 
-// broadcastFrom appends the message to every member of from's room inside the
-// caller's transaction, skipping the member holding excludeToken. An empty
-// excludeToken excludes nobody: no member holds one, [Store.Join] refuses it.
-func broadcastFrom(
+// broadcastFrom appends the message to every member of from's room and records
+// it once in the room's conversation, inside the caller's transaction, skipping
+// the member holding excludeToken. An empty excludeToken excludes nobody: no
+// member holds one, [Store.Join] refuses it.
+//
+// The single record is the announcement itself, so it is written whoever heard
+// it — a room that was empty at the time still said the words.
+func (s *Store) broadcastFrom(
 	ctx context.Context,
 	q *db.Queries,
 	from Sender,
@@ -160,6 +169,9 @@ func broadcastFrom(
 			return nil, err
 		}
 		recipients = append(recipients, m)
+	}
+	if err := s.logMessage(ctx, q, from, nil, text, sentAt); err != nil {
+		return nil, err
 	}
 	return recipients, nil
 }
