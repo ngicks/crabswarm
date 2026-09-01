@@ -92,6 +92,39 @@ func RenderMessages(w io.Writer, messages []*chatv1.Message) error {
 	return err
 }
 
+// broadcastTarget spells the addressee of an entry that went to the whole room.
+// It is the "*" the admin send verb already takes for "everyone here", so the
+// transcript names a target the reader can type back.
+const broadcastTarget = "*"
+
+// RenderHistory prints a room's conversation, oldest first, one line each: the
+// instant, the team-qualified speaker, who it was said to, then the text. A
+// broadcast is addressed to [broadcastTarget] rather than to a member.
+//
+// A room nobody has spoken in says so, the way an empty inbox does: the
+// transcript is a read, and a read that printed nothing at all would be
+// indistinguishable from a command that never ran.
+func RenderHistory(w io.Writer, entries []*chatv1.HistoryEntry) error {
+	if len(entries) == 0 {
+		_, err := fmt.Fprintln(w, "no messages yet")
+		return err
+	}
+	var b strings.Builder
+	for _, e := range entries {
+		sentAt := "unknown time"
+		if ts := e.GetSentAt(); ts != nil {
+			sentAt = ts.AsTime().UTC().Format(messageTimeFormat)
+		}
+		to := broadcastTarget
+		if e.GetTo() != nil {
+			to = qualify(e.GetTo())
+		}
+		fmt.Fprintf(&b, "[%s] %s → %s: %s\n", sentAt, qualify(e.GetFrom()), to, e.GetText())
+	}
+	_, err := io.WriteString(w, b.String())
+	return err
+}
+
 // RenderMembers lists the room's attendance, one team-qualified member per
 // line. That spelling is the point: each line is exactly the address argument
 // `chat send` takes, so the reader never has to assemble one.
