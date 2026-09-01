@@ -216,7 +216,10 @@ func (m *model) layout() {
 	}
 	m.view.SetWidth(conversation)
 	m.view.SetHeight(max(height-chromeHeight, 1))
-	m.input.SetWidth(max(width-lipgloss.Width(m.input.Prompt), 1))
+	// One cell under the prompt is the caret's, which the input line draws past
+	// its width: asking for the whole remainder makes the line a cell wider than
+	// the terminal and the caret the cell that falls off the right edge.
+	m.input.SetWidth(max(width-lipgloss.Width(m.input.Prompt)-1, 1))
 	m.view.SetContent(m.conversation())
 	if m.following {
 		m.view.GotoBottom()
@@ -262,17 +265,41 @@ func (m *model) conversation() string {
 
 // rosterPane renders the sidebar: the room's attendance grouped by team, each
 // member with the harness state that says whether it can be interrupted.
+//
+// A room with more members than the pane has lines is cut to fit rather than
+// run past the bottom of it — lipgloss pads a short block to a height but does
+// not cut a long one, and a taller sidebar pushes the input line and the status
+// bar off the terminal, where the alternate buffer simply never draws them.
+// What was cut is counted on the last line, so the sidebar says it is showing
+// part of the room rather than looking like all of it.
 func (m *model) rosterPane(height int) string {
 	lines := []string{fmt.Sprintf("roster (%d)", len(m.roster))}
+	// memberRow[i] is the line member i sits on, which is what says how many
+	// members a cut at a given line takes off the pane.
+	memberRow := make([]int, 0, len(m.roster))
 	team := ""
 	for _, member := range m.roster {
 		if member.GetTeam() != team {
 			team = member.GetTeam()
 			lines = append(lines, clip(team, rosterWidth))
 		}
+		memberRow = append(memberRow, len(lines))
 		lines = append(lines, clip(fmt.Sprintf(" %-*s %s",
 			nameColumn, member.GetName(), cli.HarnessStateName(member.GetState())),
 			rosterWidth))
+	}
+	if height > 0 && len(lines) > height {
+		// The last line the pane has goes to the count, so the cut is one line
+		// above it.
+		kept := height - 1
+		shown := 0
+		for _, row := range memberRow {
+			if row < kept {
+				shown++
+			}
+		}
+		lines = append(lines[:kept],
+			clip(fmt.Sprintf("… +%d more", len(m.roster)-shown), rosterWidth))
 	}
 	return lipgloss.NewStyle().
 		Width(rosterWidth).
