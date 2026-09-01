@@ -37,7 +37,7 @@ func newTestStoreWithHistory(t *testing.T, historyLimit int) (*Store, string) {
 	return s, path
 }
 
-// join adds a provider-originated member, failing the test on error.
+// join adds a member that declared a harness, failing the test on error.
 func join(t *testing.T, s *Store, token, room, team, name string) Member {
 	t.Helper()
 	m, err := s.Join(t.Context(), Member{
