@@ -148,7 +148,9 @@ the whole room to walk back one screen).
 Chosen: the screen opens unfocused, where `q` quits, `i` (or enter)
 moves to the input line, and the arrows/page keys scroll; on the input
 line every key is text, enter sends and esc leaves it. `ctrl-c` quits
-from either. The status bar reads
+from either, and `esc` quits from the watch mode — so esc twice leaves
+the screen from the input line, which is the one way out that needs no
+keys the operator has not already used. The status bar reads
 `room R · tailing|scrolled back · connected|… · <last report> · <keys>`,
 and entries are stamped with the UTC time of day. Rationale: IDEA.md
 UC1 wants a screen useful without keypresses and UC3 has the operator
