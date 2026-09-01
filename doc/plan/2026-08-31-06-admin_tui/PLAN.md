@@ -139,6 +139,10 @@ must be reconciled when the family is reviewed together.
    plan directory demonstrating the layout of IDEA.md's flowchart with
    fixture data, with a MOCK_LIMITS note (fakes: RPCs, states,
    timing). Deliberately not created in this drafting pass (D6).
+   Delivered as [`mock/main.go`](./mock/main.go), disposable and kept
+   out of the module build by the `tuimock` build tag; run it with
+   `go run -tags tuimock ./doc/plan/2026-08-31-06-admin_tui/mock`. Its
+   MOCK_LIMITS note is the file's header comment.
 2. **`crabswarm/chat/cli/tui` model** — bubbletea model with
    conversation viewport, roster sidebar, input line, status bar;
    fixture-data unit tests for update logic (resize collapse order,
