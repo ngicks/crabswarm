@@ -88,6 +88,36 @@ func TestStore_HistoryOutlivesItsAuthor(t *testing.T) {
 	assert.Equal(t, entries[0].From.Name, "alice")
 }
 
+// What the host operator says into a room reaches the same inboxes a member's
+// message does, so the transcript records it too — otherwise it would claim
+// members received something nobody said.
+func TestStore_HistoryRecordsWhatTheHostSaid(t *testing.T) {
+	s, _ := newTestStore(t)
+	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
+	admin := adminSender("/work/repo")
+
+	_, err := s.sendAs(t.Context(), admin, "alice", "restarting the box", sentAt)
+	assert.NilError(t, err)
+	_, err = s.broadcastAs(t.Context(), admin, "all hands", sentAt.Add(time.Minute))
+	assert.NilError(t, err)
+
+	entries, err := s.History(t.Context(), "/work/repo", 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(entries), 2)
+	assert.DeepEqual(t, entries[0].From, admin)
+	assert.Equal(t, entries[0].Text, "restarting the box")
+	assert.Equal(t, entries[0].To.Name, "alice")
+	assert.Equal(t, entries[1].Text, "all hands")
+	assert.Assert(t, entries[1].To == nil)
+
+	// A broadcast into a room with nobody in it fails, and the failure takes
+	// the record with it: the transaction that would have delivered it rolled
+	// back.
+	_, err = s.broadcastAs(t.Context(), adminSender("/work/empty"), "anyone?", sentAt)
+	assert.ErrorIs(t, err, ErrNotFound)
+	assert.Equal(t, countRows(t, s, `SELECT COUNT(*) FROM room_log`), 2)
+}
+
 func TestStore_HistoryWindowTakesTheNewest(t *testing.T) {
 	s, _ := newTestStore(t)
 	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
