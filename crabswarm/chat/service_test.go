@@ -269,11 +269,13 @@ func TestService_ProviderCheckIsCachedAcrossCalls(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.vouch("tok-a", "/work", "alpha")
 
-	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	_, err := svc.Join(callCtx(t, "tok-a"),
+		&chatv1.JoinRequest{Name: "ana", Agent: true})
 	assert.NilError(t, err)
 	assert.Equal(t, provider.callCount(), 1)
 
-	// Within the TTL the following calls ride the join's verification.
+	// Within the TTL the following calls ride the join's verification. Only an
+	// agent is checked at all, so only an agent can show the cache working.
 	_, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
 	assert.NilError(t, err)
 	_, err = svc.Read(callCtx(t, "tok-a"), &chatv1.ReadRequest{})
