@@ -18,12 +18,20 @@ var sentAt = time.Date(2026, 8, 27, 10, 30, 0, 0, time.UTC)
 // a test that swapped the two columns would not still pass.
 var reportedAt = time.Date(2026, 8, 27, 11, 45, 0, 0, time.UTC)
 
-// newTestStore opens a store on a temp file. A file, not ":memory:", so a test
-// can close and reopen the same database.
+// newTestStore opens a store on a temp file, keeping history at the default
+// cap. A file, not ":memory:", so a test can close and reopen the same
+// database.
 func newTestStore(t *testing.T) (*Store, string) {
 	t.Helper()
+	return newTestStoreWithHistory(t, 0)
+}
+
+// newTestStoreWithHistory is [newTestStore] with the conversation cap chosen,
+// for the cases that assert on pruning or on history being switched off.
+func newTestStoreWithHistory(t *testing.T, historyLimit int) (*Store, string) {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "chat.db")
-	s, err := NewStore(t.Context(), path)
+	s, err := NewStore(t.Context(), path, historyLimit)
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 	return s, path
@@ -61,7 +69,7 @@ func TestStore_OpenCreatesSchema(t *testing.T) {
 	assert.Equal(t, len(rooms), 0)
 
 	// Opening an existing database again is not an error either.
-	again, err := NewStore(t.Context(), path)
+	again, err := NewStore(t.Context(), path, 0)
 	assert.NilError(t, err)
 	assert.NilError(t, again.Close())
 }
@@ -92,7 +100,7 @@ func TestStore_PersistsAcrossReopen(t *testing.T) {
 	assert.NilError(t, s.SetState(t.Context(), alice.Token, StateWorking, reportedAt))
 	assert.NilError(t, s.Close())
 
-	reopened, err := NewStore(t.Context(), path)
+	reopened, err := NewStore(t.Context(), path, 0)
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = reopened.Close() })
 
@@ -118,7 +126,7 @@ func TestStore_PersistsAcrossReopen(t *testing.T) {
 }
 
 func TestStore_InMemory(t *testing.T) {
-	s, err := NewStore(t.Context(), ":memory:")
+	s, err := NewStore(t.Context(), ":memory:", 0)
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 

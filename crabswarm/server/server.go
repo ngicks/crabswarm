@@ -95,7 +95,9 @@ func (s *Server) openChatStore(ctx context.Context) (*chat.Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
 	}
-	return chat.NewStore(ctx, path)
+	// Zero keeps the store's default conversation cap until the config carries
+	// one.
+	return chat.NewStore(ctx, path, 0)
 }
 
 // expandHome resolves a leading "~" against the user's home directory. The

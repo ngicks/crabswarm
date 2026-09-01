@@ -111,11 +111,19 @@ type Room struct {
 	Teams []Team
 }
 
+// defaultHistoryLimit is how many conversation rows a room keeps when the
+// configuration names no cap. A thousand utterances is far more than a room
+// re-reads and still a bounded database.
+const defaultHistoryLimit = 1000
+
 // Store is the persistent room/member/inbox state, backed by SQLite. It is
 // safe for concurrent use.
 type Store struct {
 	db *sql.DB
 	q  *db.Queries
+	// historyLimit is the per-room row cap of the conversation log, already
+	// resolved: positive is the cap, negative means nothing is logged at all.
+	historyLimit int
 	// events carries what changed to the watchers of the room it changed in.
 	// It hangs on the store rather than on either service because both of them
 	// mutate the same rooms — a member leaving and an operator moving one are
@@ -131,8 +139,16 @@ type Store struct {
 // not expanded, that belongs to the configuration layer — except for
 // ":memory:", which opens a private in-memory database.
 //
+// historyLimit caps how many conversation rows each room keeps: zero means the
+// default, a negative value records no conversation at all. Zero is resolved
+// here rather than by the caller so that every caller of an unconfigured store
+// keeps its history instead of pruning every row it writes.
+//
 // The caller must [Store.Close] the returned store.
-func NewStore(ctx context.Context, path string) (*Store, error) {
+func NewStore(ctx context.Context, path string, historyLimit int) (*Store, error) {
+	if historyLimit == 0 {
+		historyLimit = defaultHistoryLimit
+	}
 	conn, err := sql.Open("sqlite", dsn(path))
 	if err != nil {
 		return nil, fmt.Errorf("opening chat store %q: %w", path, err)
@@ -148,7 +164,12 @@ func NewStore(ctx context.Context, path string) (*Store, error) {
 		_ = conn.Close()
 		return nil, fmt.Errorf("creating chat store schema in %q: %w", path, err)
 	}
-	return &Store{db: conn, q: db.New(conn), events: newRoomBroadcaster()}, nil
+	return &Store{
+		db:           conn,
+		q:            db.New(conn),
+		historyLimit: historyLimit,
+		events:       newRoomBroadcaster(),
+	}, nil
 }
 
 // Close releases the underlying database handle.
