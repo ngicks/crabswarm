@@ -1,7 +1,7 @@
 # STATUS
 
-**Current state:** implementing — steps 1-5 landed; review fixes applied,
-re-review pending.
+**Current state:** implemented + reviewed — steps 1-5 landed; re-review
+2026-09-01 returned approve-with-nits and all four nits are fixed.
 
 ## Checklist (mirrors PLAN.md steps)
 
@@ -100,10 +100,26 @@ re-review pending.
   protocol-agnostic. Only `output.go`'s "owns the JSON assembly and the
   exit-code protocol" comment was trimmed.
 
+## Re-review 2026-09-01 (approve-with-nits) — fixes applied
+
+- `OutputFuncDoc.Usage`'s example said `block REASON`, a function that cannot
+  exist; it names `blockDecision` now, matching the note above.
+- PLAN.md's early "omitting the output template preserves today's behavior
+  exactly" contradicted the protocol section that supersedes it. The decision
+  is still unchanged; only the wire form is, and the bullet now says so.
+- `permission`, `permissionDeny` and `elicitation` read index 0 of their
+  variadic and ignored the rest, while `permissionAllow` errored — a
+  silent-degradation asymmetry against the fail-loud design. All four now
+  share `errSurplusArgs`; `TestRenderOutput_ArgumentValidation` covers each.
+- e2e had no case for the nil-output plain-allow path, the idiom the shipped
+  chat hooks ride on. `TestHookExec_OutputTemplateRecordingNothingIsPlainAllow`
+  pins empty stdout + exit 0 for a template that records nothing, with a
+  failing command so it also proves the built-in block is out of the picture.
+
 ## Blocked / waiting
 
 - Nothing.
 
 ## Next action
 
-Re-run the ng-reviewer + ng-test-runner gate over the review fixes.
+None — the feature is landed and reviewed.

@@ -330,6 +330,17 @@ func TestRenderOutput_ArgumentValidation(t *testing.T) {
 			`{{ permissionAllow "{}" "not json" }}`, "as a JSON array"},
 		{"permissionAllow with too many arguments", types.HookEventPermissionRequest,
 			`{{ permissionAllow "{}" "[]" "extra" }}`, "at most 2 arguments"},
+		// Every optional trailing argument is bounded: text/template happily
+		// passes extras to a variadic func, so an unchecked one would drop a
+		// template typo instead of reporting it.
+		{"permission with too many arguments", types.HookEventPreToolUse,
+			`{{ permission "allow" "because" "extra" }}`, "at most 2 arguments"},
+		{"permissionDeny with too many arguments", types.HookEventPermissionRequest,
+			`{{ permissionDeny "no" true false }}`, "at most 2 arguments"},
+		{"elicitation with too many arguments", types.HookEventElicitation,
+			`{{ elicitation "accept" "{}" "extra" }}`, "at most 2 arguments"},
+		{"elicitation result with too many arguments", types.HookEventElicitationResult,
+			`{{ elicitation "accept" "{}" "extra" }}`, "at most 2 arguments"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := renderOutput(tc.src, outputDataFor(tc.event))

@@ -116,6 +116,16 @@ func unsupportedEvent(fn string, event types.HookEvent) error {
 	return fmt.Errorf("%s: not supported for hook event %q", fn, event)
 }
 
+// errSurplusArgs reports a call carrying more arguments than the function
+// accepts. text/template type-checks only a variadic function's fixed
+// parameters, so trailing extras arrive silently; every optional argument is
+// bounded explicitly rather than letting a template typo be dropped.
+// usage lists the accepted arguments and want/got count all of them, fixed
+// ones included, so the message lines up with the documented usage string.
+func errSurplusArgs(fn, usage string, want, got int) error {
+	return fmt.Errorf("%s: want at most %d arguments (%s), got %d", fn, want, usage, got)
+}
+
 // newHookSpecificOutput returns a fresh hookSpecificOutput variant for event
 // with its discriminator filled in, or nil when the event has no variant.
 // It mirrors the event → variant mapping of
@@ -254,6 +264,9 @@ func (b *outputBuilder) permission(decision string, reason ...string) (string, e
 	if err != nil {
 		return "", err
 	}
+	if len(reason) > 1 {
+		return "", errSurplusArgs("permission", "DECISION, REASON", 2, 1+len(reason))
+	}
 	d := types.HookPermissionDecision(decision)
 	switch d {
 	case types.HookPermissionDecisionAllow,
@@ -313,11 +326,8 @@ func (b *outputBuilder) permissionAllow(args ...string) (string, error) {
 		return "", err
 	}
 	if len(args) > 2 {
-		return "", fmt.Errorf(
-			"permissionAllow: want at most 2 arguments "+
-				"(UPDATED_INPUT_JSON, UPDATED_PERMISSIONS_JSON), got %d",
-			len(args),
-		)
+		return "", errSurplusArgs(
+			"permissionAllow", "UPDATED_INPUT_JSON, UPDATED_PERMISSIONS_JSON", 2, len(args))
 	}
 	allow := &types.PermissionRequestDecisionAllow{
 		Behavior: types.PermissionRequestDecisionBehaviorAllow,
@@ -343,6 +353,9 @@ func (b *outputBuilder) permissionDeny(message string, interrupt ...bool) (strin
 	v, err := hookSpecificAs[types.HookSpecificOutputPermissionRequest](b, "permissionDeny")
 	if err != nil {
 		return "", err
+	}
+	if len(interrupt) > 1 {
+		return "", errSurplusArgs("permissionDeny", "MSG, INTERRUPT", 2, 1+len(interrupt))
 	}
 	deny := &types.PermissionRequestDecisionDeny{
 		Behavior: types.PermissionRequestDecisionBehaviorDeny,
@@ -498,6 +511,9 @@ func elicitationContent(args []string) (map[string]any, error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
+	if len(args) > 1 {
+		return nil, errSurplusArgs("elicitation", "ACTION, CONTENT", 2, 1+len(args))
+	}
 	var m map[string]any
 	if err := json.Unmarshal([]byte(args[0]), &m); err != nil {
 		return nil, fmt.Errorf("elicitation: parsing %q as a JSON object: %w", args[0], err)
@@ -591,7 +607,7 @@ type OutputFuncDoc struct {
 	// Name is the bare function name as registered in outputFuncMap.
 	Name string
 	// Usage is the function name together with its argument placeholders,
-	// e.g. "block REASON".
+	// e.g. "blockDecision REASON".
 	Usage string
 	// Desc is a one-line human description, naming the events the function
 	// applies to when it is event-scoped.
