@@ -32,12 +32,16 @@ type HistoryEntry struct {
 // attending it, and a member's own token only ever names one room anyway.
 //
 // A non-positive limit returns the whole retained tail, which the per-room cap
-// already bounds. A room nobody has spoken in yields no entries and no error:
+// already bounds, and nothing at all from a store that records no conversation:
+// a host who switched history off is not asking to be handed what an earlier
+// run left behind. A room nobody has spoken in yields no entries and no error:
 // there is no such thing as a room that does not exist yet, only one nothing
 // was said in.
 func (s *Store) History(ctx context.Context, room string, limit int) ([]HistoryEntry, error) {
 	if limit <= 0 {
-		limit = s.historyLimit
+		// Clamped because the cap of a store that records nothing is negative,
+		// and SQLite reads a negative LIMIT as no limit at all.
+		limit = max(s.historyLimit, 0)
 	}
 	rows, err := s.q.RoomLogTail(ctx, db.RoomLogTailParams{
 		Room:  room,
