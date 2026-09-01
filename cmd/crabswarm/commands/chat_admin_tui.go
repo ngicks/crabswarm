@@ -16,11 +16,13 @@ func chatAdminTUICmd(parent *cobra.Command, flags *chatFlags) {
 members have it, a sidebar naming everyone attending and the harness state each
 last reported, and a line to send into the room from.
 
-Watching needs no keypresses. i moves to the input line, which takes the
-addressing ` + "`chat admin send`" + ` takes — "name: text", "team/name: text",
-or "*: text" for everyone — and enter sends it; esc leaves the line and q the
-screen. Scrolling up holds the view still while the room talks on, and
-scrolling back to the bottom follows it again.
+Watching needs no keypresses. i or enter moves to the input line, which takes
+the addressing ` + "`chat admin send`" + ` takes — "name: text", "team/name: text",
+or "*: text" for everyone — and enter sends it; esc leaves the line with what is
+written on it still there. q or esc leaves the screen while watching, and ctrl-c
+leaves it from anywhere, the input line included. Scrolling up holds the view
+still while the room talks on, and scrolling back to the bottom follows it
+again.
 
 The room is named explicitly and has no default: the admin attends none, and a
 name the daemon does not know is refused before the screen opens.`,

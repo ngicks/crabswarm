@@ -245,8 +245,10 @@ func (m *model) rosterShown() bool {
 }
 
 // conversation renders the room's log as the pane's content: one entry per
-// line, spelled the way the CLI transcript spells one so an operator reading
-// both reads one text.
+// line, naming who said it and who to the way the CLI transcript names them, so
+// an operator reading both reads one text. The stamp is where the two part, and
+// deliberately — the pane spells the time of day where the transcript spells
+// the whole date, for the reason [entryTimeFormat] gives.
 func (m *model) conversation() string {
 	var b strings.Builder
 	for _, e := range m.entries {

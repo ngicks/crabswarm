@@ -5,8 +5,11 @@
 // three interfaces below, which the admin half of
 // [github.com/ngicks/crabswarm/crabswarm/chat/cli] implements — the package
 // dials, authenticates and speaks the schema, and this one decides what a
-// terminal shows. Nothing here reaches for a socket, an identity file or a
-// clock the caller did not hand over.
+// terminal shows. Nothing here reaches for a socket or an identity file: both
+// stay behind [Deps]. The clock is the screen's own, since keeping itself
+// current is its job — it polls what it was handed on intervals it sets, and
+// bounds each call so a daemon that stops answering is reported rather than
+// waited on.
 package tui
 
 import (
