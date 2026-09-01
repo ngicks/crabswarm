@@ -89,18 +89,95 @@ func (c *Client) nonce(ctx context.Context, identityPath string) (string, error)
 	return DecryptNonce(identityPath, resp.GetEncryptedNonce())
 }
 
+// AdminClient is the admin half of a [Client] bound to one identity file. It
+// hands back what the daemon said instead of rendering it, for the callers that
+// keep asking — a screen following a room — rather than making one call and
+// printing it.
+//
+// Each of its calls takes its own challenge, exactly as a one-shot verb does: a
+// nonce is spent by the RPC it accompanies, so there is nothing to hold onto
+// between two of them.
+type AdminClient struct {
+	client   *Client
+	identity string
+}
+
+// Admin returns the admin half bound to the age identity file at identityPath.
+func (c *Client) Admin(identityPath string) *AdminClient {
+	return &AdminClient{client: c, identity: identityPath}
+}
+
+// Rooms reports every room the daemon knows, with everyone attending it and the
+// state each member last reported.
+func (a *AdminClient) Rooms(ctx context.Context) ([]*chatv1.Room, error) {
+	nonce, err := a.client.nonce(ctx, a.identity)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := a.client.admin.ListRooms(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.ListRoomsRequest{})
+	if err != nil {
+		return nil, callError(err)
+	}
+	return resp.GetRooms(), nil
+}
+
+// RoomLog reads a room's conversation, oldest first. sinceID is the id of the
+// newest entry the caller already holds, which asks for what was said after it;
+// zero asks for the tail instead. limit caps how many entries come back, zero
+// leaving the window to the daemon, which also clamps a limit larger than the
+// room keeps.
+func (a *AdminClient) RoomLog(
+	ctx context.Context,
+	room string,
+	sinceID int64,
+	limit int32,
+) ([]*chatv1.AdminHistoryEntry, error) {
+	nonce, err := a.client.nonce(ctx, a.identity)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := a.client.admin.History(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.AdminHistoryRequest{
+			Room:    room,
+			Limit:   limit,
+			SinceId: sinceID,
+		})
+	if err != nil {
+		return nil, callError(err)
+	}
+	return resp.GetEntries(), nil
+}
+
+// Send delivers text into room addressed to target and reports how many
+// inboxes it reached. The target is the grammar [Client.AdminSend] takes.
+func (a *AdminClient) Send(
+	ctx context.Context,
+	room, target, text string,
+) (delivered int32, err error) {
+	nonce, err := a.client.nonce(ctx, a.identity)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := a.client.admin.Send(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.AdminSendRequest{
+			Room:   room,
+			Target: target,
+			Text:   text,
+		})
+	if err != nil {
+		return 0, callError(err)
+	}
+	return resp.GetDelivered(), nil
+}
+
 // ListRooms prints every room the daemon knows and who attends it.
 func (c *Client) ListRooms(ctx context.Context, w io.Writer, identityPath string) error {
-	nonce, err := c.nonce(ctx, identityPath)
+	rooms, err := c.Admin(identityPath).Rooms(ctx)
 	if err != nil {
 		return err
 	}
-	resp, err := c.admin.ListRooms(auth.ContextWithBearer(ctx, nonce),
-		&chatv1.ListRoomsRequest{})
-	if err != nil {
-		return callError(err)
-	}
-	return RenderRooms(w, resp.GetRooms())
+	return RenderRooms(w, rooms)
 }
 
 // MoveMember moves the member addressed as "team/name" in room into toTeam.
@@ -165,20 +242,11 @@ func (c *Client) AdminSend(
 	w io.Writer,
 	identityPath, room, target, text string,
 ) error {
-	nonce, err := c.nonce(ctx, identityPath)
+	delivered, err := c.Admin(identityPath).Send(ctx, room, target, text)
 	if err != nil {
 		return err
 	}
-	resp, err := c.admin.Send(auth.ContextWithBearer(ctx, nonce),
-		&chatv1.AdminSendRequest{
-			Room:   room,
-			Target: target,
-			Text:   text,
-		})
-	if err != nil {
-		return callError(err)
-	}
-	return RenderAdminSent(w, room, target, resp.GetDelivered())
+	return RenderAdminSent(w, room, target, delivered)
 }
 
 // AdminLog prints the conversation of a room the operator does not attend, the
@@ -193,17 +261,9 @@ func (c *Client) AdminLog(
 	identityPath, room string,
 	limit int32,
 ) error {
-	nonce, err := c.nonce(ctx, identityPath)
+	entries, err := c.Admin(identityPath).RoomLog(ctx, room, 0, limit)
 	if err != nil {
 		return err
 	}
-	resp, err := c.admin.History(auth.ContextWithBearer(ctx, nonce),
-		&chatv1.AdminHistoryRequest{
-			Room:  room,
-			Limit: limit,
-		})
-	if err != nil {
-		return callError(err)
-	}
-	return RenderAdminHistory(w, resp.GetEntries())
+	return RenderAdminHistory(w, entries)
 }

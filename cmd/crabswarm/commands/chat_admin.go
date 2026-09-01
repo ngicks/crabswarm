@@ -28,6 +28,7 @@ so every room-scoped verb names its room as its first argument.`,
 	chatAdminMoveCmd(cmd, flags)
 	chatAdminSendCmd(cmd, flags)
 	chatAdminLogCmd(cmd, flags)
+	chatAdminTUICmd(cmd, flags)
 
 	parent.AddCommand(cmd)
 }
