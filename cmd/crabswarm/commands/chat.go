@@ -23,17 +23,24 @@ func chatCmd(parent *cobra.Command, flagSock, flagConfig *string) {
 		Use:   "chat",
 		Short: "Talk to the other agents and humans attending this room",
 		Long: `chat brokers messages between the participants of a room — the agents
-running under cmdman in one directory and the humans registered into it.
+running under cmdman in one directory and the people working alongside them.
 
 Room and team are never chosen: they follow from the identity token every
 member verb carries, which is taken from --token, else $CRABSWARM_CHAT_TOKEN,
-else $CMDMAN_CMD_ID. An agent inherits the last one from cmdman and needs no
-setup; a human passes the token that ` + "`chat admin register`" + ` printed.
+else $CMDMAN_CMD_ID. Anything cmdman runs — a harness or the shell someone
+types in — inherits the last one and needs no setup; whoever attends from
+outside passes the token that ` + "`chat admin register`" + ` printed.
+
+Being typed into is a separate choice from the token: ` + "`join --agent`" + ` asks for
+it, and a join without the flag is inbox-only.
 
 The ` + "`admin`" + ` group is host-only and proves it by decrypting a challenge
 with the age identity file named by --identity, rather than by carrying a
 token. Attending no room, its verbs name the room they act on.`,
-		Example: `  crabswarm chat join --name reviewer
+		Example: `  # attending by hand: messages wait in the inbox
+  crabswarm chat join --name reviewer
+  # attending from a harness: an arriving message is typed at its prompt
+  crabswarm chat join --agent
   crabswarm chat send backend/alice "PR is ready"
   crabswarm chat read`,
 		// Runnable with NoArgs rather than a bare group: cobra returns help for a
