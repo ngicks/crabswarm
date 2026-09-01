@@ -336,12 +336,15 @@ func (m *model) View() tea.View {
 	return v
 }
 
-// clip shortens s to width cells, so an over-long line cannot push the region
-// beside it off the screen.
+// clip makes s one line of at most width cells, so nothing it is put beside or
+// under moves. Lines are folded into spaces rather than kept: what goes through
+// here is a region of a fixed size, and the daemon's errors — which the status
+// bar shows — carry a second line of hint.
 func clip(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
+	s = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(s)
 	if lipgloss.Width(s) <= width {
 		return s
 	}

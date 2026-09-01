@@ -179,6 +179,24 @@ func TestAFailedReadIsReportedAndRetried(t *testing.T) {
 	assert.Assert(t, strings.Contains(m.statusBar(), "connected"))
 }
 
+// The daemon's errors carry a second line of hint, and the status bar is one
+// line: the whole screen would shift down otherwise.
+func TestAMultiLineErrorStaysOnOneLine(t *testing.T) {
+	log := &fakeLog{
+		reply: func(logCall) ([]*chatv1.AdminHistoryEntry, error) {
+			return nil, errors.New(
+				"chat daemon unreachable\nhint: start it by running `crabswarm serve`")
+		},
+	}
+	m := fixtureModel(t, Deps{Log: log, Roster: &fakeRoster{}})
+	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 12})
+	m, _ = step(t, m, m.tail())
+
+	assert.Assert(t, strings.Contains(m.statusBar(), "chat daemon unreachable"))
+	assert.Assert(t, !strings.Contains(m.statusBar(), "\n"), "status bar = %q", m.statusBar())
+	assert.Equal(t, len(strings.Split(m.View().Content, "\n")), 12)
+}
+
 // The screen drops the oldest lines rather than growing forever — but not out
 // from under a reader who has scrolled into them.
 func TestScrollbackIsTrimmedOnlyWhileFollowing(t *testing.T) {
