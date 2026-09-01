@@ -49,3 +49,26 @@ default.
 
 **Rejected**: join-only reclaim (leaves the admin hitting a wall a plain
 member would pass through, with no removal verb to clear it).
+
+## D4 — collision liveness check bypasses the join-time TTL cache (automatic decision)
+
+**Choice**: the collision paths do not run `s.stillKnown(ctx, holder)` as
+the plan said. The reap semantics D2 asks for are extracted into a shared
+`checkLiveness` helper (`crabswarm/chat/service.go:220`) that asks the
+team-info provider directly, and both collision paths go through that.
+`stillKnown` keeps its `providerCheckTTL` cache layered on top of the same
+helper and behaves exactly as it did before.
+
+**Rationale**: `stillKnown` answers from a 30s cache of successful provider
+lookups, and the predecessor's own join is what stamps its token as
+verified — so the cache would vouch for precisely the holder a recreated
+replica replaces, and D1's target scenario would be refused until the entry
+expired. A collision is rare enough to be worth one direct lookup, and the
+answer decides whether the caller gets in at all. The cache-bypass is
+pinned by `TestService_JoinReclaimLooksPastTheCachedVerdict`
+(`crabswarm/chat/service_member_test.go:152`).
+
+**Rejected**: sleeping the cache out in tests (hides a real 30s window in
+which a user is refused, rather than removing it); invalidating the
+holder's cache entry on collision (more machinery for the same result as a
+direct check).

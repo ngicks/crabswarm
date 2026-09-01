@@ -46,7 +46,7 @@ func TestAdminService_ListRooms(t *testing.T) {
 }
 
 func TestAdminService_MoveMember(t *testing.T) {
-	svc, id := newTestAdminService(t)
+	svc, id, _, provider := newTestAdminServiceWith(t)
 	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
 	join(t, svc.store, "tok-b", "/work", "beta", "bob")
 
@@ -74,10 +74,17 @@ func TestAdminService_MoveMember(t *testing.T) {
 
 	t.Run("a colliding name is AlreadyExists", func(t *testing.T) {
 		join(t, svc.store, "tok-c", "/work", "gamma", "bob")
+		// The provider still places the bob already in the target team, so that
+		// bob keeps the name and the move is refused.
+		provider.vouch("tok-b", "/work", "beta")
 		_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
 			Room: "/work", Team: "gamma", Name: "bob", ToTeam: "beta",
 		})
 		assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+		stored, err := svc.store.Member(t.Context(), "tok-b")
+		assert.NilError(t, err)
+		assert.Equal(t, stored.Team+"/"+stored.Name, "beta/bob")
 	})
 
 	t.Run("a team name that breaks addressing is InvalidArgument", func(t *testing.T) {
@@ -86,6 +93,92 @@ func TestAdminService_MoveMember(t *testing.T) {
 		})
 		assert.Equal(t, status.Code(err), codes.InvalidArgument)
 	})
+}
+
+// An operator meets the same rule a joiner does: a name carried by a member the
+// provider no longer knows is not in the way, and the ghost goes with the move.
+func TestAdminService_MoveMemberReclaimsTheNameOfAGoneMember(t *testing.T) {
+	svc, id, _, provider := newTestAdminServiceWith(t)
+	join(t, svc.store, "tok-old", "/work", "beta", "worker-1")
+	join(t, svc.store, "tok-a", "/work", "alpha", "worker-1")
+	provider.vouch("tok-a", "/work", "alpha")
+
+	res, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+		Room: "/work", Team: "alpha", Name: "worker-1", ToTeam: "beta",
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetMember().GetTeam(), "beta")
+
+	_, err = svc.store.Member(t.Context(), "tok-old")
+	assert.ErrorIs(t, err, ErrNotFound)
+	moved, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, moved.Team+"/"+moved.Name, "beta/worker-1")
+}
+
+// A human's token was minted by the daemon and no provider can vouch for it, so
+// the name an operator's move collides with stays the human's.
+func TestAdminService_MoveMemberNeverReclaimsAHumanName(t *testing.T) {
+	svc, id, _, provider := newTestAdminServiceWith(t)
+	_, err := svc.store.Join(t.Context(), Member{
+		Token: "human-tok", Name: "hana", Team: "beta", Room: "/work", Kind: KindHuman,
+	})
+	assert.NilError(t, err)
+	join(t, svc.store, "tok-a", "/work", "alpha", "hana")
+
+	_, err = svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+		Room: "/work", Team: "alpha", Name: "hana", ToTeam: "beta",
+	})
+	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	stored, err := svc.store.Member(t.Context(), "human-tok")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.Name, "hana")
+	assert.Equal(t, provider.callCount(), 0)
+}
+
+// A cmdman that could not be asked says nothing about the member holding the
+// name, and nothing is not enough to move it aside.
+func TestAdminService_MoveMemberKeepsAHolderTheProviderCouldNotJudge(t *testing.T) {
+	svc, id, _, provider := newTestAdminServiceWith(t)
+	join(t, svc.store, "tok-old", "/work", "beta", "worker-1")
+	join(t, svc.store, "tok-a", "/work", "alpha", "worker-1")
+	provider.failLookup("tok-old", errors.New("cmdman: connection refused"))
+
+	_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+		Room: "/work", Team: "alpha", Name: "worker-1", ToTeam: "beta",
+	})
+	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	stored, err := svc.store.Member(t.Context(), "tok-old")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.Team+"/"+stored.Name, "beta/worker-1")
+	stayed, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, stayed.Team, "alpha")
+}
+
+// A daemon with no team-info provider has nothing that could show a holder
+// gone, so every collision an operator's move runs into stays a refusal — the
+// holder is left alone rather than asked about by nobody.
+func TestAdminService_MoveMemberWithoutAProviderRefusesTheCollision(t *testing.T) {
+	svc, id, _ := newTestAdminServiceOver(t, nil)
+	// Both are agents: a human holder is kept without the provider being
+	// consulted at all, which would leave the collision refused either way.
+	join(t, svc.store, "tok-old", "/work", "beta", "worker-1")
+	join(t, svc.store, "tok-a", "/work", "alpha", "worker-1")
+
+	_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+		Room: "/work", Team: "alpha", Name: "worker-1", ToTeam: "beta",
+	})
+	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	held, err := svc.store.Member(t.Context(), "tok-old")
+	assert.NilError(t, err)
+	assert.Equal(t, held.Team+"/"+held.Name, "beta/worker-1")
+	stayed, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, stayed.Team+"/"+stayed.Name, "alpha/worker-1")
 }
 
 // A move stays inside the room, so what the room hears is an address change:

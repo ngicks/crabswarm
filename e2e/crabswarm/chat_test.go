@@ -207,6 +207,15 @@ func startChatDaemonWith(t *testing.T, commands []stubCommand, adminRecipients .
 	return cfgPath
 }
 
+// rewriteStubRoster replaces what the running daemon's stub cmdman knows with
+// commands, which is what the daemon sees when a command is recreated: the ID
+// that joined is gone and another one has taken its place. The stub is run
+// afresh for every lookup, so the next one reads the new roster.
+func rewriteStubRoster(t *testing.T, cfgPath string, commands []stubCommand) {
+	t.Helper()
+	writeFile(t, filepath.Join(filepath.Dir(cfgPath), "cmdman"), stubCmdmanScript(commands))
+}
+
 // waitSocket blocks until something accepts on the Unix socket at path.
 func waitSocket(t *testing.T, path string, timeout time.Duration) {
 	t.Helper()
@@ -621,6 +630,37 @@ func TestChat_JoinWithoutNameTakesComposeLabels(t *testing.T) {
 	got = runChat(t, cfg, "tok-worker", "join", "--name", "chosen")
 	if want := "joined " + chatRoom + " as alpha/chosen\n"; got != want {
 		t.Errorf("join with an explicit name = %q, want %q", got, want)
+	}
+}
+
+// A recreated replica carries the labels its predecessor carried, so it derives
+// the very name the predecessor is still holding — and nothing else would ever
+// free it. The predecessor's command is gone, so the name is handed over and
+// the room is left with one worker-1, not a collision and a stranded ghost.
+func TestChat_RecreatedReplicaRejoinsUnderTheSameName(t *testing.T) {
+	replica := func(token string) stubCommand {
+		return stubCommand{token: token, dir: chatRoom, project: "alpha",
+			command: "worker", scaleIndex: "1"}
+	}
+	cfg := startChatDaemonWith(t, []stubCommand{replica("tok-first")})
+
+	got := runChat(t, cfg, "tok-first", "join")
+	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
+		t.Errorf("join = %q, want %q", got, want)
+	}
+
+	// The replica is recreated: cmdman stops knowing the command that joined,
+	// and the one that replaced it answers under a new ID with the same labels.
+	rewriteStubRoster(t, cfg, []stubCommand{replica("tok-second")})
+
+	got = runChat(t, cfg, "tok-second", "join")
+	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
+		t.Errorf("join after recreate = %q, want %q", got, want)
+	}
+
+	members := lines(runChat(t, cfg, "tok-second", "members"))
+	if want := []string{"alpha/worker-1"}; !slices.Equal(members, want) {
+		t.Errorf("members = %v, want %v", members, want)
 	}
 }
 

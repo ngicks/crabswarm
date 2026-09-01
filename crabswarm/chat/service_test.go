@@ -19,10 +19,12 @@ import (
 
 // fakeProvider resolves tokens from a table. A token missing from it is
 // unknown — permanently unresolvable; err, when set, is returned for every
-// token instead and stands in for a cmdman that could not be asked at all.
+// token instead and stands in for a cmdman that could not be asked at all, and
+// errs does the same for one token only.
 type fakeProvider struct {
 	mu    sync.Mutex
 	infos map[string]resolver.TeamInfo
+	errs  map[string]error
 	err   error
 	calls int
 }
@@ -33,6 +35,9 @@ func (p *fakeProvider) Resolve(_ context.Context, token string) (resolver.TeamIn
 	p.calls++
 	if p.err != nil {
 		return resolver.TeamInfo{}, p.err
+	}
+	if err := p.errs[token]; err != nil {
+		return resolver.TeamInfo{}, err
 	}
 	info, ok := p.infos[token]
 	if !ok {
@@ -54,6 +59,17 @@ func (p *fakeProvider) vouchNamed(token, room, team, name string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.infos[token] = resolver.TeamInfo{Room: room, Team: team, Name: name}
+}
+
+// failLookup makes the provider fail for token alone, carrying no verdict about
+// it, while every other token is still answered.
+func (p *fakeProvider) failLookup(token string, err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.errs == nil {
+		p.errs = map[string]error{}
+	}
+	p.errs[token] = err
 }
 
 // forget makes the provider stop knowing token, the way cmdman stops knowing a

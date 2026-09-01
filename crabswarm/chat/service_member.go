@@ -33,6 +33,12 @@ const ProviderUnavailableMessage = "looking up team information"
 // name included, since the store keeps the first join. An admin-registered
 // human may call Join too: they are already a member, and their token is theirs
 // to present, so it is answered from the store without consulting the provider.
+//
+// A name a teammate already carries is AlreadyExists, unless that teammate
+// turns out to be gone — an agent whose token the provider has stopped knowing
+// is dropped here the way the reaper drops it elsewhere, and the joiner takes
+// the name. That is what a recreated command looks like: it derives the exact
+// name its predecessor is still holding, and nobody else would ever free it.
 func (s *Service) Join(
 	ctx context.Context,
 	req *chatv1.JoinRequest,
@@ -74,13 +80,22 @@ func (s *Service) Join(
 	if name == "" {
 		name = defaultName(token)
 	}
-	joined, err := s.store.Join(ctx, Member{
+	joiner := Member{
 		Token: token,
 		Name:  name,
 		Team:  info.Team,
 		Room:  info.Room,
 		Kind:  KindAgent,
-	})
+	}
+	joined, err := s.store.Join(ctx, joiner)
+	if errors.Is(err, ErrNameTaken) &&
+		reclaimName(ctx, s.store, s.provider, s.logger, s.forgetVerified,
+			info.Room, info.Team, name) {
+		// Retried once and no further: a name taken again in between is another
+		// joiner that won the race, which is a refusal to report rather than a
+		// reason to keep trying.
+		joined, err = s.store.Join(ctx, joiner)
+	}
 	if err != nil {
 		return nil, storeStatus(err)
 	}
