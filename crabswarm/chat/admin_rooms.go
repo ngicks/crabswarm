@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -44,6 +45,11 @@ func (a *AdminService) ListRooms(
 // MoveMember moves the named member into another team of the same room. The
 // member is addressed by room/team/name rather than by token: an operator reads
 // names out of ListRooms and never sees a participant's token.
+//
+// A name already carried in the target team is AlreadyExists, unless whoever
+// carries it is gone — an operator meets the same rule a joiner does, so a
+// vanished member does not block a move that a fresh join would walk straight
+// through.
 func (a *AdminService) MoveMember(
 	ctx context.Context,
 	req *chatv1.MoveMemberRequest,
@@ -51,8 +57,7 @@ func (a *AdminService) MoveMember(
 	if err := a.authenticate(ctx); err != nil {
 		return nil, err
 	}
-	moved, err := a.store.MoveMemberByName(
-		ctx, req.GetRoom(), req.GetTeam(), req.GetName(), req.GetToTeam())
+	moved, err := a.moveMember(ctx, req)
 	if err != nil {
 		return nil, storeStatus(err)
 	}
@@ -71,6 +76,30 @@ func (a *AdminService) MoveMember(
 		a.store.events.publish(moved.Room, memberJoinedEvent(moved))
 	}
 	return &chatv1.MoveMemberResponse{Member: memberProto(moved)}, nil
+}
+
+// moveMember runs the move itself, freeing a colliding name in the target team
+// first when the member holding it has vanished. The error is the store's own,
+// for [AdminService.MoveMember] to map onto a status.
+//
+// Retried once and no further: a name taken again in between is somebody else
+// winning the race, which is a refusal to report rather than a reason to keep
+// trying.
+func (a *AdminService) moveMember(
+	ctx context.Context,
+	req *chatv1.MoveMemberRequest,
+) (Member, error) {
+	moved, err := a.store.MoveMemberByName(
+		ctx, req.GetRoom(), req.GetTeam(), req.GetName(), req.GetToTeam())
+	if !errors.Is(err, ErrNameTaken) || a.provider == nil {
+		return moved, err
+	}
+	if !reclaimName(ctx, a.store, a.provider, a.logger,
+		req.GetRoom(), req.GetToTeam(), req.GetName()) {
+		return moved, err
+	}
+	return a.store.MoveMemberByName(
+		ctx, req.GetRoom(), req.GetTeam(), req.GetName(), req.GetToTeam())
 }
 
 // RegisterMember registers a human and returns the token they present to

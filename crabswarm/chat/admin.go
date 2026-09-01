@@ -29,10 +29,11 @@ import (
 type AdminService struct {
 	chatv1.UnimplementedChatAdminServiceServer
 
-	store   *Store
-	auth    AdminAuthenticator
-	deliver deliverer
-	logger  *slog.Logger
+	store    *Store
+	provider TeamInfoProvider
+	auth     AdminAuthenticator
+	deliver  deliverer
+	logger   *slog.Logger
 }
 
 // AdminChallenge is what [AdminAuthenticator.Challenge] hands a caller to
@@ -64,13 +65,17 @@ var _ chatv1.ChatAdminServiceServer = (*AdminService)(nil)
 //
 // The notifier is the same seam the member half is given, and normally the same
 // instance: a recipient is nudged for an operator's message the way it is for a
-// peer's, since from where it sits both are mail.
+// peer's, since from where it sits both are mail. The provider is the same one
+// too, and is consulted for one thing only: whether the member holding a name
+// an operator's move collides with is still there. A nil provider leaves every
+// such collision a refusal, since nothing can then show the name to be free.
 //
 // A nil authenticator is not an error: it is a daemon that was never given a
 // way to recognise its operator, and it leaves every admin RPC failing with
 // FailedPrecondition rather than refusing to serve chat at all.
 func NewAdminService(
 	store *Store,
+	provider TeamInfoProvider,
 	authenticator AdminAuthenticator,
 	notifier Notifier,
 	logger *slog.Logger,
@@ -79,10 +84,11 @@ func NewAdminService(
 		logger = slog.New(slog.DiscardHandler)
 	}
 	return &AdminService{
-		store:   store,
-		auth:    authenticator,
-		deliver: newDeliverer(store, notifier, logger),
-		logger:  logger,
+		store:    store,
+		provider: provider,
+		auth:     authenticator,
+		deliver:  newDeliverer(store, notifier, logger),
+		logger:   logger,
 	}
 }
 

@@ -17,13 +17,14 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/auth"
+	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 // newTestAdminService wires an admin service over a fresh store, gated by a
 // throwaway age identity standing in for the operator's identity file.
 func newTestAdminService(t *testing.T) (*AdminService, *age.X25519Identity) {
 	t.Helper()
-	svc, id, _ := newTestAdminServiceWithNotifier(t)
+	svc, id, _, _ := newTestAdminServiceWith(t)
 	return svc, id
 }
 
@@ -34,13 +35,25 @@ func newTestAdminServiceWithNotifier(
 	t *testing.T,
 ) (*AdminService, *age.X25519Identity, *fakeNotifier) {
 	t.Helper()
+	svc, id, notifier, _ := newTestAdminServiceWith(t)
+	return svc, id, notifier
+}
+
+// newTestAdminServiceWith is [newTestAdminService] with the seams handed back
+// too: the notifier for what a delivery reported, the provider for which tokens
+// it still places.
+func newTestAdminServiceWith(
+	t *testing.T,
+) (*AdminService, *age.X25519Identity, *fakeNotifier, *fakeProvider) {
+	t.Helper()
 	id, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
 	store, _ := newTestStore(t)
 	ageAuth, err := auth.NewAgeNonce(id.Recipient().String())
 	assert.NilError(t, err)
 	notifier := &fakeNotifier{}
-	return NewAdminService(store, ageAuth, notifier, nil), id, notifier
+	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
+	return NewAdminService(store, provider, ageAuth, notifier, nil), id, notifier, provider
 }
 
 // adminCtx is the context an admin RPC sees when the caller sent credential as
@@ -67,7 +80,7 @@ func adminNonce(t *testing.T, svc *AdminService, id age.Identity) string {
 func TestNewAdminService_WithoutAnAuthenticator(t *testing.T) {
 	store, _ := newTestStore(t)
 
-	svc := NewAdminService(store, nil, nil, nil)
+	svc := NewAdminService(store, nil, nil, nil, nil)
 	assert.Assert(t, svc.auth == nil)
 }
 
@@ -144,7 +157,7 @@ func TestAdminService_RejectsSpentNonce(t *testing.T) {
 
 func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 	store, _ := newTestStore(t)
-	svc := NewAdminService(store, nil, nil, nil)
+	svc := NewAdminService(store, nil, nil, nil, nil)
 
 	_, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
@@ -230,7 +243,8 @@ func (a *noChallengeAuth) Authenticate(ctx context.Context) error {
 // minted needs no challenge to become usable.
 func TestAdminService_ChallengelessAuthenticator(t *testing.T) {
 	store, _ := newTestStore(t)
-	svc := NewAdminService(store, &noChallengeAuth{credential: "issued-token"}, nil, nil)
+	svc := NewAdminService(store, nil,
+		&noChallengeAuth{credential: "issued-token"}, nil, nil)
 
 	_, err := svc.GetNonce(t.Context(), &chatv1.GetNonceRequest{})
 	assert.Equal(t, status.Code(err), codes.Unimplemented)

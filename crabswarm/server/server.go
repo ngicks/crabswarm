@@ -157,9 +157,12 @@ func (s *Server) Serve(ctx context.Context) error {
 		adminAuth = ageAuth
 	}
 	// One notifier for both halves: a recipient is nudged the same way whether
-	// the message came from a peer or from the operator.
+	// the message came from a peer or from the operator. The team-info provider
+	// is shared for the same kind of reason: both halves have to ask the same
+	// question of whether a member is still out there.
 	notifier := notify.NewSendKeys(s.chatCfg.CmdmanBin, s.logger)
-	adminSvc := chat.NewAdminService(chatStore, adminAuth, notifier, s.logger)
+	provider := resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin)
+	adminSvc := chat.NewAdminService(chatStore, provider, adminAuth, notifier, s.logger)
 
 	srv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()),
@@ -169,7 +172,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})
 	chatv1.RegisterChatServiceServer(srv, chat.NewService(
 		chatStore,
-		resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin),
+		provider,
 		notifier,
 		chat.NewCmdmanStatusMirror(s.chatCfg.CmdmanBin, s.logger),
 		s.logger,
