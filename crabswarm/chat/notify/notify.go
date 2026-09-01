@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 	"unicode"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
@@ -23,15 +24,25 @@ import (
 // cap is what keeps one line one line; a longer address is cut short.
 const maxNudgeAddrLen = 64
 
+// staleStateAfter is how long a reported working or waiting state is believed.
+// A state only changes when a harness hook reports the change, and a hook can
+// go missing — the user interrupts the session, or the harness has no idle
+// notification to hook in the first place — which would leave the member busy
+// forever and never nudged again. Past this, the report is treated as no
+// longer describing the terminal, and the screen snapshot in
+// [cmdman.Terminal.SendCommand] is what still stands between the nudge and a
+// terminal that is busy after all.
+const staleStateAfter = 10 * time.Minute
+
 // SendKeys wakes an agent by typing a line into its terminal with a
 // [cmdman.Terminal].
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so a nudge passes three guards — the member is an agent, its last
-// reported harness state is done, and a snapshot of its screen shows no
-// dialog. A guard that declines drops the nudge and reports success: the
-// message is already in the inbox, so the recipient reads it at the end of its
-// current turn instead of a moment from now.
+// reported harness state invites one (see [nudgeable]), and a snapshot of its
+// screen shows no dialog. A guard that declines drops the nudge and reports
+// success: the message is already in the inbox, so the recipient reads it at
+// the end of its current turn instead of a moment from now.
 type SendKeys struct {
 	terminal *cmdman.Terminal
 	logger   *slog.Logger
@@ -64,9 +75,11 @@ func (n *SendKeys) Notify(
 	// The state guard is nudge policy rather than a property of typing, so it
 	// stays here: a member mid-turn has a terminal that could be typed into,
 	// and the reason not to is that its inbox already holds the message.
-	if recipient.State != chat.StateDone {
+	if !nudgeable(recipient) {
 		n.logger.Debug("chat: not nudging a busy member",
-			"recipient", recipient.Team+"/"+recipient.Name, "state", recipient.State)
+			"recipient", recipient.Team+"/"+recipient.Name,
+			"state", recipient.State,
+			"reportedAt", recipient.StateReportedAt)
 		return nil
 	}
 
@@ -78,6 +91,26 @@ func (n *SendKeys) Notify(
 		return nil
 	}
 	return err
+}
+
+// nudgeable reports whether the member's last state report invites a nudge.
+//
+// Done does. Working and waiting do not, until the report has gone stale: past
+// [staleStateAfter] a member is likelier wedged by a state change nobody
+// reported than still on the same turn, and a member that is never nudged
+// again is the worse outcome — the screen snapshot the injection takes still
+// stops a nudge landing in a terminal that is busy after all. Any other state,
+// none reported included, is one this notifier cannot read, so it declines
+// rather than guess: an unset state has no report time to have gone stale.
+func nudgeable(m chat.Member) bool {
+	switch m.State {
+	case chat.StateDone:
+		return true
+	case chat.StateWorking, chat.StateWaiting:
+		return time.Since(m.StateReportedAt) >= staleStateAfter
+	default:
+		return false
+	}
 }
 
 // nudgeLine is the line typed into the recipient's terminal: who has written,

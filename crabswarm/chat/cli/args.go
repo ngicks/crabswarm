@@ -10,8 +10,8 @@ import (
 // harnessStates maps the words the CLI accepts for a harness state onto the
 // enum, mirroring the vocabulary of `cmdman status set working|waiting|done`.
 // The unspecified state has no word: a hook that cannot say what its harness
-// is doing must fail rather than report the one state that invites a
-// keystroke nudge.
+// is doing must fail rather than report the one state a keystroke nudge is
+// sent to on sight rather than only once the report has gone stale.
 var harnessStates = map[string]chatv1.HarnessState{
 	"working": chatv1.HarnessState_HARNESS_STATE_WORKING,
 	"waiting": chatv1.HarnessState_HARNESS_STATE_WAITING,
@@ -35,6 +35,20 @@ func ParseHarnessState(s string) (chatv1.HarnessState, error) {
 				s, strings.Join(HarnessStateNames(), ", "))
 	}
 	return state, nil
+}
+
+// HarnessStateName spells a reported state as the word [ParseHarnessState]
+// takes, so a caller presenting a member's state and a caller setting one use
+// the same three words. A state outside them — the unspecified one, which is
+// what a member built without a state carries — reads as "unknown", since that
+// is what it tells whoever is reading.
+func HarnessStateName(state chatv1.HarnessState) string {
+	for _, name := range HarnessStateNames() {
+		if harnessStates[name] == state {
+			return name
+		}
+	}
+	return "unknown"
 }
 
 // ParseQualifiedName splits the "team/name" form the admin verbs address a

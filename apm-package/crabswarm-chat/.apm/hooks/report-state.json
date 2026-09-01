@@ -1,18 +1,6 @@
 {
   "version": 1,
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "crabswarm hook exec 'crabswarm chat join' '{{/* records nothing, so a chat that is not there never blocks a session */}}'",
-            "timeout": 10,
-            "statusMessage": "Joining the crabswarm chat room..."
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -26,10 +14,21 @@
     ],
     "Notification": [
       {
+        "matcher": "permission_prompt",
         "hooks": [
           {
             "type": "command",
             "command": "crabswarm hook exec 'crabswarm chat report-state waiting' '{{/* records nothing, so a failed report never blocks a turn */}}'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "crabswarm hook exec 'crabswarm chat report-state done' '{{/* records nothing, so a failed report never blocks a turn */}}'",
             "timeout": 5
           }
         ]

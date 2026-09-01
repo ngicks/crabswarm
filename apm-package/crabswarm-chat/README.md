@@ -1,9 +1,10 @@
 # crabswarm-chat
 
 Wires an agent harness into its `crabswarm chat` room, packaged for
-[apm](https://github.com/microsoft/apm): it joins on session start, delivers
-teammates' messages mid-turn and again at turn end, and reports what the harness
-is doing so the daemon knows when a terminal nudge is safe.
+[apm](https://github.com/microsoft/apm): an MCP bridge attends the room and
+serves the chat verbs as tools, hooks deliver teammates' messages mid-turn and
+again at turn end, and those same hooks report what the harness is doing so the
+daemon knows when a terminal nudge is safe.
 
 The agent-facing half is the
 [`crabswarm-chat`](.apm/skills/crabswarm-chat/SKILL.md) skill, which teaches the
@@ -11,9 +12,11 @@ room's verbs and etiquette. The hooks below only move messages; the skill is
 what makes an agent answer them.
 
 Every hook is a `crabswarm hook exec` invocation, so the package is one JSON
-file and a skill — no shell scripts, no `jq`, nothing to copy alongside the
-wiring. Everything here assumes `crabswarm` is on `PATH`, the same assumption
-the skill makes when it tells an agent to type `crabswarm chat read`.
+file, one MCP server declaration and a skill — no shell scripts, no `jq`,
+nothing to copy alongside the wiring. Everything here assumes `crabswarm` is on
+`PATH`: the skill assumes it when it tells an agent to type
+`crabswarm chat read`, and the MCP declaration assumes it when it names
+`crabswarm` as the server's command.
 
 ## Install
 
@@ -34,10 +37,11 @@ apm install
 
 `apm` compiles the package per target: the hooks merge into
 `.claude/settings.json` (Claude Code) and `.codex/hooks.json` (Codex) with the
-command strings copied through byte for byte, and the skill materializes at
-`.claude/skills/crabswarm-chat/` and `.agents/skills/crabswarm-chat/`. Both
-target directories are created if they are not there yet. Installing twice
-changes nothing.
+command strings copied through byte for byte, the MCP server is written to the
+project's `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex), and the
+skill materializes at `.claude/skills/crabswarm-chat/` and
+`.agents/skills/crabswarm-chat/`. Both target directories are created if they
+are not there yet. Installing twice changes nothing.
 
 `apm` prints `Hook script not found: .../n/n%s` while it installs. That is its
 heuristic scan for a script path to rewrite, tripping over the `\n\n%s` inside
@@ -58,11 +62,34 @@ same wiring an install from source produces. `apm pack --target` is deprecated
 and recorded as metadata only, so `--target claude` and `--target codex` produce
 the same bundle, which is now the right answer rather than a hazard.
 
+### Two ways to end up without the bridge
+
+`apm.yml` declares the bridge as a *self-defined* MCP server — `registry:
+false`, a command rather than a registry name — and `apm` trusts one of those on
+sight only at depth one, which is what the stanza above makes this package. A
+project that reaches it through some other package gets the hooks and the skill,
+gets no server, and says so:
+
+```
+Transitive package 'crabswarm-chat' declares self-defined MCP server
+'crabswarm-chat' (registry: false). Re-declare it in your apm.yml or use
+--trust-transitive-mcp.
+```
+
+Either remedy works, and one of them is needed: without the bridge nothing joins
+the room on its own.
+
+A packed bundle loses the declaration outright. `apm pack` writes `plugin.json`,
+`hooks.json` and `skills/` and nothing else — no `apm.yml`, which is where the
+server is declared — so installing a bundle configures no server, whatever else
+it places. Installing from source is the route that brings all three.
+
 ## Layout
 
 ```
 apm-package/crabswarm-chat/
 ├── apm.yml                             package metadata (targets: claude, codex)
+│                                       and the `crabswarm chat mcp` server
 ├── .claude-plugin/plugin.json          Claude Code plugin manifest
 └── .apm/
     ├── hooks/report-state.json         hook wiring for every target
@@ -82,13 +109,33 @@ too, so it runs on both. `Notification` is Claude Code's alone; Codex parses
 `hooks.json` into a struct of the events it knows and ignores every other key,
 so the block lands in `.codex/hooks.json` and never becomes a hook there.
 
+## The bridge is what attends the room
+
+The declared server is `crabswarm chat mcp` over stdio, which the harness starts
+as its own subprocess. It asks to attend while it is starting up — a few tries
+with a growing backoff, which covers a daemon still binding its socket — and
+then serves the room's verbs as tools. So a member has an inbox before its first
+turn, and no hook is involved in getting one.
+
+That is the only automatic join this package ships. A `SessionStart` hook used
+to run `crabswarm chat join` as well; it is gone, because the bridge already
+attends before the first turn and a second path to the same idempotent call buys
+nothing. The trade is deliberate and worth stating: a harness that installs the
+hooks and no MCP server no longer joins by itself. Every hook below still runs,
+and `crabswarm chat join` typed by hand still works.
+
+Running out of attempts does not take the bridge down. It stays up serving tools
+that report why they cannot act, and each tool call asks to attend again — so a
+daemon that comes up late is picked up by the next thing the agent does, which
+is the same "a late delivery, never a lost message" the hooks aim for.
+
 ## What each hook does
 
 | Event | Runs | Purpose |
 | --- | --- | --- |
-| `SessionStart` | `crabswarm chat join` | Attend the room. Idempotent, so the duplicate SessionStart a resumed session fires is harmless. |
 | `UserPromptSubmit` | `crabswarm chat report-state working` | A turn began. |
-| `Notification` | `crabswarm chat report-state waiting` | A prompt is open — Claude Code only (see the caveat below). |
+| `Notification` (`permission_prompt`) | `crabswarm chat report-state waiting` | A permission prompt is open — Claude Code only. |
+| `Notification` (`idle_prompt`) | `crabswarm chat report-state done` | The session has been sitting quiet for about a minute — Claude Code only (see below). |
 | `PermissionRequest` | `crabswarm chat report-state waiting` | An approval dialog is about to open. |
 | `PostToolUse` | `crabswarm chat read --quiet`, then `crabswarm chat report-state working` | Deliver messages that arrived mid-turn as `additionalContext`; the dialog, if there was one, has resolved. |
 | `Stop` | `crabswarm chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; block the stop when it had mail, otherwise report done. |
@@ -109,7 +156,7 @@ That gives this package its two idioms.
 
 **A template that records nothing is a plain allow**, whatever the command did.
 The fire-and-forget hooks pass `'{{/* records nothing ... */}}'` as their output
-template, so a `chat join` against a daemon nobody is running writes no JSON,
+template, so a `report-state` against a daemon nobody is running writes no JSON,
 prints nothing and exits 0.
 
 The comment matters: an *empty* second argument is indistinguishable from an
@@ -181,8 +228,8 @@ costs a late delivery and never a message:
 
 - Every fire-and-forget hook records nothing in its output template, so a
   daemon that is not running, or a session with no identity token, never breaks
-  session start or a turn. The command's own stderr is captured by `hook exec`
-  and never reaches the transcript.
+  a turn. The command's own stderr is captured by `hook exec` and never reaches
+  the transcript.
 - A failed `chat read` produces no `.Stdout`, so nothing is injected: nothing
   was handed over, so nothing is lost.
 - Every hook entry carries a `timeout`. The PostToolUse hook runs after every
@@ -209,24 +256,30 @@ The last line of defence is outside this package: the daemon nudges the terminal
 of an agent that reported `done` (`[crabswarm chat] new message from ...`),
 which the skill teaches the agent to answer with `crabswarm chat read`.
 
-### Caveat: `Notification` also fires when the session goes idle
+### The idle notification is how an interrupted turn heals
 
-Claude Code's `Notification` hook fires both for a permission prompt and for
-the idle prompt some time after a turn ends. This wiring maps both to
-`waiting`, which means an idle-prompt notification overwrites the `done`
-the Stop hook just reported — and the daemon only nudges **done** members. An
-agent left alone long enough therefore stops receiving terminal nudges until
-its next turn; its messages still arrive, just at the next turn boundary
-instead of immediately.
+Claude Code's `Notification` hook fires for a permission prompt and again for
+the idle prompt roughly a minute after Claude stops responding, and its matcher
+selects on the event's `notification_type`. The two are wired apart because they
+mean opposite things: `permission_prompt` is a member blocked on a dialog,
+`idle_prompt` is a member with nothing left to do.
 
-`PermissionRequest` now covers the permission prompt on its own, so what
-`Notification` still adds on Claude Code is the idle case — which is the half
-this mapping gets wrong. The refinement is to branch on the event's
-`notification_type` — a permission prompt is `waiting`, an idle prompt is
-`done`, which is precisely where a nudge is meant to land; dropping
-`Notification` outright is the other way out. Both want the exact
-`notification_type` values confirmed against a live session first, so the simple
-mapping stands for now.
+The idle branch is the fast path back for a turn the user interrupted. `Stop`
+hooks do not run when a session is cancelled with ESC, so the member keeps
+whatever the last report left it in — `working` after a tool call, `waiting` if
+a dialog was open — and the daemon nudges a **done** member on sight, while a
+`working` or `waiting` one is left alone as busy. The daemon does heal that on
+its own: a report older than ten minutes has stopped describing the terminal,
+so it is nudged anyway, with the screen snapshot the injection takes still
+standing between the nudge and a terminal that turned out to be busy. Reporting
+`done` on the idle prompt is what makes the wait a minute instead of ten,
+without the agent doing anything.
+
+Every other notification type — `elicitation_complete`, `elicitation_response`,
+`auth_success` — now reports nothing rather than `waiting`. That is deliberate:
+`PermissionRequest` covers the dialog case on both harnesses on its own, and a
+catch-all group would also match `idle_prompt` and race a `waiting` report
+against the `done` one, which is the wedge this split exists to remove.
 
 ## Codex
 
@@ -259,11 +312,17 @@ Codex runs its hooks from.
 Codex loads hooks as untrusted until you say otherwise — expect to approve them
 before they run.
 
+The MCP server is the same story one layer over: `apm install` writes an
+`[mcp_servers.crabswarm-chat]` table into `.codex/config.toml` naming
+`crabswarm` with `["chat", "mcp"]`, which is what a Codex install was observed
+to produce; whether Codex then starts the bridge and joins the room has not been
+run against a Codex session either. Without it Codex attends only when someone
+types `crabswarm chat join`.
+
 What Codex ends up running:
 
 | Event | Runs | Purpose |
 | --- | --- | --- |
-| `SessionStart` | `crabswarm chat join` | Attend the room. |
 | `UserPromptSubmit` | `report-state working` | A turn began. |
 | `PermissionRequest` | `report-state waiting` | An approval dialog is about to open. |
 | `PostToolUse` | `chat read --quiet`, then `report-state working` | Deliver mid-turn messages; the dialog, if there was one, has resolved. |
@@ -271,10 +330,16 @@ What Codex ends up running:
 
 The one difference from what Claude Code runs is the missing `Notification`:
 `PermissionRequest` covers the dialog case, and nothing on Codex covers a
-session sitting idle.
+session sitting idle. So the split above buys Codex nothing — Codex announces no
+event that says "this session has gone quiet", so there is nothing to wire. An
+interrupted turn is left to the daemon's own fallback: ten minutes after the
+last report, a `working` or `waiting` member is treated as no longer describing
+its terminal and is nudged anyway. Codex heals the same way Claude Code does
+without the idle branch, just slower.
 
 Codex's `notify` program (`agent-turn-complete`) could report `done` redundantly,
-but the Stop hook already does it — no `config.toml` change ships here.
+but the Stop hook already does it — the only thing this package puts in
+`config.toml` is the bridge's `[mcp_servers]` table.
 
 ## Verifying a change
 

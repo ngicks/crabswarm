@@ -1,12 +1,19 @@
 name: crabswarm-chat
 version: 0.1.0
-description: Wires an agent harness into its crabswarm chat room — joins on session start, delivers teammates' messages mid-turn and at turn end, and reports harness state.
+description: Wires an agent harness into its crabswarm chat room — an MCP bridge attends the room and serves the chat verbs as tools, and hooks deliver teammates' messages mid-turn and at turn end and report harness state.
 author: ngicks
 license: Unlicense
 repository: https://github.com/ngicks/crabswarm
 dependencies:
   apm: []
-  mcp: []
+  mcp:
+  - name: crabswarm-chat
+    registry: false
+    transport: stdio
+    command: crabswarm
+    args:
+    - chat
+    - mcp
 targets:
 - claude
 - codex

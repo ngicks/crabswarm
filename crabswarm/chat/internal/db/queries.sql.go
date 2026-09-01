@@ -28,16 +28,18 @@ func (q *Queries) DeleteMessages(ctx context.Context, recipient string) error {
 }
 
 const insertMember = `-- name: InsertMember :exec
-INSERT INTO members (token, name, team, room, kind, state) VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO members (token, name, team, room, kind, state, state_reported_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertMemberParams struct {
-	Token string
-	Name  string
-	Team  string
-	Room  string
-	Kind  string
-	State string
+	Token           string
+	Name            string
+	Team            string
+	Room            string
+	Kind            string
+	State           string
+	StateReportedAt string
 }
 
 func (q *Queries) InsertMember(ctx context.Context, arg InsertMemberParams) error {
@@ -48,6 +50,7 @@ func (q *Queries) InsertMember(ctx context.Context, arg InsertMemberParams) erro
 		arg.Room,
 		arg.Kind,
 		arg.State,
+		arg.StateReportedAt,
 	)
 	return err
 }
@@ -79,7 +82,8 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) er
 }
 
 const listAllMembers = `-- name: ListAllMembers :many
-SELECT token, name, team, room, kind, state FROM members ORDER BY room, team, name
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
+ORDER BY room, team, name
 `
 
 func (q *Queries) ListAllMembers(ctx context.Context) ([]Member, error) {
@@ -98,6 +102,7 @@ func (q *Queries) ListAllMembers(ctx context.Context) ([]Member, error) {
 			&i.Room,
 			&i.Kind,
 			&i.State,
+			&i.StateReportedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -113,7 +118,7 @@ func (q *Queries) ListAllMembers(ctx context.Context) ([]Member, error) {
 }
 
 const listRoomMembers = `-- name: ListRoomMembers :many
-SELECT token, name, team, room, kind, state FROM members
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? ORDER BY team, name
 `
 
@@ -133,6 +138,7 @@ func (q *Queries) ListRoomMembers(ctx context.Context, room string) ([]Member, e
 			&i.Room,
 			&i.Kind,
 			&i.State,
+			&i.StateReportedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -148,7 +154,7 @@ func (q *Queries) ListRoomMembers(ctx context.Context, room string) ([]Member, e
 }
 
 const memberByName = `-- name: MemberByName :one
-SELECT token, name, team, room, kind, state FROM members
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? AND team = ? AND name = ?
 `
 
@@ -168,12 +174,13 @@ func (q *Queries) MemberByName(ctx context.Context, arg MemberByNameParams) (Mem
 		&i.Room,
 		&i.Kind,
 		&i.State,
+		&i.StateReportedAt,
 	)
 	return i, err
 }
 
 const memberByToken = `-- name: MemberByToken :one
-SELECT token, name, team, room, kind, state FROM members WHERE token = ?
+SELECT token, name, team, room, kind, state, state_reported_at FROM members WHERE token = ?
 `
 
 func (q *Queries) MemberByToken(ctx context.Context, token string) (Member, error) {
@@ -186,12 +193,13 @@ func (q *Queries) MemberByToken(ctx context.Context, token string) (Member, erro
 		&i.Room,
 		&i.Kind,
 		&i.State,
+		&i.StateReportedAt,
 	)
 	return i, err
 }
 
 const membersByRoomAndName = `-- name: MembersByRoomAndName :many
-SELECT token, name, team, room, kind, state FROM members
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? AND name = ? ORDER BY team
 `
 
@@ -219,6 +227,7 @@ func (q *Queries) MembersByRoomAndName(ctx context.Context, arg MembersByRoomAnd
 			&i.Room,
 			&i.Kind,
 			&i.State,
+			&i.StateReportedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -276,16 +285,17 @@ func (q *Queries) PendingMessages(ctx context.Context, recipient string) ([]Pend
 }
 
 const setMemberState = `-- name: SetMemberState :execrows
-UPDATE members SET state = ? WHERE token = ?
+UPDATE members SET state = ?, state_reported_at = ? WHERE token = ?
 `
 
 type SetMemberStateParams struct {
-	State string
-	Token string
+	State           string
+	StateReportedAt string
+	Token           string
 }
 
 func (q *Queries) SetMemberState(ctx context.Context, arg SetMemberStateParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, setMemberState, arg.State, arg.Token)
+	result, err := q.db.ExecContext(ctx, setMemberState, arg.State, arg.StateReportedAt, arg.Token)
 	if err != nil {
 		return 0, err
 	}

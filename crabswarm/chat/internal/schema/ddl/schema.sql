@@ -4,7 +4,12 @@ CREATE TABLE IF NOT EXISTS members (
 	team  TEXT NOT NULL,
 	room  TEXT NOT NULL,
 	kind  TEXT NOT NULL,
-	state TEXT NOT NULL
+	state TEXT NOT NULL,
+	-- When state was last reported, RFC3339Nano in UTC like messages.sent_at.
+	-- A state is only believed for so long: the harness hook that reports it can
+	-- be missed, and a member stuck in working forever would never be nudged
+	-- again.
+	state_reported_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS members_room_team_name
 	ON members (room, team, name);

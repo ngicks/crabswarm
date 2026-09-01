@@ -49,6 +49,8 @@ const (
 	ChatServiceLeaveProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Leave"
 	// ChatServiceReportStateProcedure is the fully-qualified name of the ChatService's ReportState RPC.
 	ChatServiceReportStateProcedure = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
+	// ChatServiceWatchRoomProcedure is the fully-qualified name of the ChatService's WatchRoom RPC.
+	ChatServiceWatchRoomProcedure = "/ngicks.crabswarm.chat.v1.ChatService/WatchRoom"
 	// ChatAdminServiceGetNonceProcedure is the fully-qualified name of the ChatAdminService's GetNonce
 	// RPC.
 	ChatAdminServiceGetNonceProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/GetNonce"
@@ -87,6 +89,13 @@ type ChatServiceClient interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
+	// WatchRoom streams events of the caller's room until cancelled.
+	//
+	// The stream element is named for what it is rather than for this RPC: the
+	// same event feed is what an admin TUI subscribes to, so tying the name to
+	// one RPC would misname it everywhere else.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	WatchRoom(context.Context, *connect.Request[v1.WatchRoomRequest]) (*connect.ServerStreamForClient[v1.RoomEvent], error)
 }
 
 // NewChatServiceClient constructs a client for the ngicks.crabswarm.chat.v1.ChatService service. By
@@ -142,6 +151,12 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(chatServiceMethods.ByName("ReportState")),
 			connect.WithClientOptions(opts...),
 		),
+		watchRoom: connect.NewClient[v1.WatchRoomRequest, v1.RoomEvent](
+			httpClient,
+			baseURL+ChatServiceWatchRoomProcedure,
+			connect.WithSchema(chatServiceMethods.ByName("WatchRoom")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -154,6 +169,7 @@ type chatServiceClient struct {
 	listMembers *connect.Client[v1.ListMembersRequest, v1.ListMembersResponse]
 	leave       *connect.Client[v1.LeaveRequest, v1.LeaveResponse]
 	reportState *connect.Client[v1.ReportStateRequest, v1.ReportStateResponse]
+	watchRoom   *connect.Client[v1.WatchRoomRequest, v1.RoomEvent]
 }
 
 // Join calls ngicks.crabswarm.chat.v1.ChatService.Join.
@@ -191,6 +207,11 @@ func (c *chatServiceClient) ReportState(ctx context.Context, req *connect.Reques
 	return c.reportState.CallUnary(ctx, req)
 }
 
+// WatchRoom calls ngicks.crabswarm.chat.v1.ChatService.WatchRoom.
+func (c *chatServiceClient) WatchRoom(ctx context.Context, req *connect.Request[v1.WatchRoomRequest]) (*connect.ServerStreamForClient[v1.RoomEvent], error) {
+	return c.watchRoom.CallServerStream(ctx, req)
+}
+
 // ChatServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatService service.
 type ChatServiceHandler interface {
 	// Join declares attendance under the given name. The server derives the
@@ -213,6 +234,13 @@ type ChatServiceHandler interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
+	// WatchRoom streams events of the caller's room until cancelled.
+	//
+	// The stream element is named for what it is rather than for this RPC: the
+	// same event feed is what an admin TUI subscribes to, so tying the name to
+	// one RPC would misname it everywhere else.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	WatchRoom(context.Context, *connect.Request[v1.WatchRoomRequest], *connect.ServerStream[v1.RoomEvent]) error
 }
 
 // NewChatServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -264,6 +292,12 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(chatServiceMethods.ByName("ReportState")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatServiceWatchRoomHandler := connect.NewServerStreamHandler(
+		ChatServiceWatchRoomProcedure,
+		svc.WatchRoom,
+		connect.WithSchema(chatServiceMethods.ByName("WatchRoom")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ngicks.crabswarm.chat.v1.ChatService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChatServiceJoinProcedure:
@@ -280,6 +314,8 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 			chatServiceLeaveHandler.ServeHTTP(w, r)
 		case ChatServiceReportStateProcedure:
 			chatServiceReportStateHandler.ServeHTTP(w, r)
+		case ChatServiceWatchRoomProcedure:
+			chatServiceWatchRoomHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -315,6 +351,10 @@ func (UnimplementedChatServiceHandler) Leave(context.Context, *connect.Request[v
 
 func (UnimplementedChatServiceHandler) ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.ReportState is not implemented"))
+}
+
+func (UnimplementedChatServiceHandler) WatchRoom(context.Context, *connect.Request[v1.WatchRoomRequest], *connect.ServerStream[v1.RoomEvent]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.WatchRoom is not implemented"))
 }
 
 // ChatAdminServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatAdminService service.

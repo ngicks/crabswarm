@@ -2,6 +2,7 @@ package chat
 
 import (
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
 )
@@ -187,18 +188,27 @@ func TestStore_ResolveNotFound(t *testing.T) {
 
 func TestStore_SetState(t *testing.T) {
 	s, _ := newTestStore(t)
-	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
+	joined := join(t, s, "tok-a", "/work/repo", "alpha", "alice")
+	// Attendance is declared as of now, so the join is a state report of its
+	// own: a member that never reports again still has a time to be judged by.
+	assert.Assert(t, !joined.StateReportedAt.IsZero())
 
-	for _, state := range []MemberState{StateWorking, StateWaiting, StateDone} {
-		assert.NilError(t, s.SetState(t.Context(), "tok-a", state))
+	for i, state := range []MemberState{StateWorking, StateWaiting, StateDone} {
+		at := reportedAt.Add(time.Duration(i) * time.Minute)
+		assert.NilError(t, s.SetState(t.Context(), "tok-a", state, at))
 		got, err := s.Member(t.Context(), "tok-a")
 		assert.NilError(t, err)
 		assert.Equal(t, got.State, state)
+		// Stored with the state rather than derived on read: how old the report
+		// is decides whether a notifier still believes it.
+		assert.Assert(t, got.StateReportedAt.Equal(at), "got %v, want %v",
+			got.StateReportedAt, at)
 	}
 
-	assert.Assert(t, s.SetState(t.Context(), "tok-a", "dozing") != nil,
+	assert.Assert(t, s.SetState(t.Context(), "tok-a", "dozing", reportedAt) != nil,
 		"an unknown state should be rejected")
-	assert.ErrorIs(t, s.SetState(t.Context(), "tok-unknown", StateDone), ErrNotFound)
+	assert.ErrorIs(t,
+		s.SetState(t.Context(), "tok-unknown", StateDone, reportedAt), ErrNotFound)
 }
 
 func TestStore_ListMembersIsOrderedAndRoomScoped(t *testing.T) {

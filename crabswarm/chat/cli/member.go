@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 
+	"google.golang.org/grpc"
+
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
@@ -100,19 +102,60 @@ func (c *Client) ListMembers(ctx context.Context, w io.Writer, token string) err
 	return RenderMembers(w, resp.GetMembers())
 }
 
-// MemberAddresses returns the room's attendance as the addresses `chat send`
-// takes. It backs shell completion, which needs the values themselves rather
-// than the listing [Client.ListMembers] prints.
-func (c *Client) MemberAddresses(ctx context.Context, token string) ([]string, error) {
+// Members returns the room's attendance as the daemon reports it, states
+// included. It is for the callers that present the roster some other way than
+// the listing [Client.ListMembers] prints — a structured document, say — and so
+// need the members themselves rather than lines about them.
+func (c *Client) Members(ctx context.Context, token string) ([]*chatv1.Member, error) {
 	resp, err := c.chat.ListMembers(withToken(ctx, token), &chatv1.ListMembersRequest{})
 	if err != nil {
 		return nil, callError(err)
 	}
-	addresses := make([]string, 0, len(resp.GetMembers()))
-	for _, m := range resp.GetMembers() {
+	return resp.GetMembers(), nil
+}
+
+// Address spells a member the way every chat verb addresses one — "team/name",
+// or the bare name when the daemon reported no team.
+//
+// It is exported for the callers that present the roster themselves instead of
+// printing [RenderMembers]'s lines: they owe their reader the same address, and
+// assembling a second one would be a second spelling to keep in step.
+func Address(m *chatv1.Member) string {
+	return qualify(m)
+}
+
+// MemberAddresses returns the room's attendance as the addresses `chat send`
+// takes. It backs shell completion, which needs the values themselves rather
+// than the listing [Client.ListMembers] prints.
+func (c *Client) MemberAddresses(ctx context.Context, token string) ([]string, error) {
+	members, err := c.Members(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	addresses := make([]string, 0, len(members))
+	for _, m := range members {
 		addresses = append(addresses, qualify(m))
 	}
 	return addresses, nil
+}
+
+// WatchRoom opens the caller's feed of what happens in its room. The stream
+// runs until ctx is cancelled or the daemon ends it; a caller that falls behind
+// is dropped with an error, and the answer to that is to list the room again
+// and watch anew.
+//
+// It hands back the stream rather than rendering it: an event feed has no CLI
+// verb of its own, and the callers that have one — a bridge keeping a view of
+// the room current — act on the events instead of printing them.
+func (c *Client) WatchRoom(
+	ctx context.Context,
+	token string,
+) (grpc.ServerStreamingClient[chatv1.RoomEvent], error) {
+	stream, err := c.chat.WatchRoom(withToken(ctx, token), &chatv1.WatchRoomRequest{})
+	if err != nil {
+		return nil, callError(err)
+	}
+	return stream, nil
 }
 
 // Leave withdraws the caller's attendance.

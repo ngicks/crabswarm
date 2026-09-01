@@ -59,6 +59,17 @@ func (a *AdminService) MoveMember(
 	a.logger.InfoContext(ctx, "chat: admin moved member",
 		"room", moved.Room, "member", req.GetTeam()+"/"+req.GetName(),
 		"to_team", moved.Team)
+	// A move stays inside the room, so what a watcher sees is not a member
+	// coming or going but one changing address: the member it knew as
+	// "team/name" is gone and a member of that name is now in another team.
+	// Moving into the team the member already occupies changes no address and
+	// is announced as nothing.
+	if moved.Team != req.GetTeam() {
+		a.store.events.publish(moved.Room, memberLeftEvent(Member{
+			Name: req.GetName(), Team: req.GetTeam(), Room: moved.Room,
+		}))
+		a.store.events.publish(moved.Room, memberJoinedEvent(moved))
+	}
 	return &chatv1.MoveMemberResponse{Member: memberProto(moved)}, nil
 }
 
@@ -95,6 +106,10 @@ func (a *AdminService) RegisterMember(
 	}
 	a.logger.InfoContext(ctx, "chat: admin registered human member",
 		"room", registered.Room, "member", registered.Team+"/"+registered.Name)
+	// Registering is where a human enters the room: they are listed from here
+	// on, and their later Join finds the membership already made, so this is
+	// the only moment their arrival can be announced.
+	a.store.events.publish(registered.Room, memberJoinedEvent(registered))
 	return &chatv1.RegisterMemberResponse{
 		Member: memberProto(registered),
 		Token:  token,

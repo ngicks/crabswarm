@@ -76,6 +76,11 @@ type Member struct {
 	Kind MemberKind
 	// State is the last harness state reported for the member.
 	State MemberState
+	// StateReportedAt is when State was reported. A notifier reads it to tell
+	// a member that is genuinely busy from one whose state-reporting hook was
+	// missed — an interrupted session, or a harness that has no idle
+	// notification at all — and would otherwise stay busy forever.
+	StateReportedAt time.Time
 }
 
 // Sender is the identity a message carries: who sent it, as of send time. It
@@ -111,6 +116,14 @@ type Room struct {
 type Store struct {
 	db *sql.DB
 	q  *db.Queries
+	// events carries what changed to the watchers of the room it changed in.
+	// It hangs on the store rather than on either service because both of them
+	// mutate the same rooms — a member leaving and an operator moving one are
+	// the same news to a watcher — and the store is where the two meet.
+	//
+	// The store itself never publishes: an event must announce a mutation that
+	// has already persisted, which is only known one call up.
+	events *roomBroadcaster
 }
 
 // NewStore opens the SQLite database at path, creating it and its schema when
@@ -135,7 +148,7 @@ func NewStore(ctx context.Context, path string) (*Store, error) {
 		_ = conn.Close()
 		return nil, fmt.Errorf("creating chat store schema in %q: %w", path, err)
 	}
-	return &Store{db: conn, q: db.New(conn)}, nil
+	return &Store{db: conn, q: db.New(conn), events: newRoomBroadcaster()}, nil
 }
 
 // Close releases the underlying database handle.
@@ -174,6 +187,15 @@ func (s *Store) tx(ctx context.Context, fn func(q *db.Queries) error) error {
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 	return nil
+}
+
+// formatTimestamp renders t the way every timestamp column stores one:
+// RFC3339Nano in UTC, which parses back to the same instant. Rows are ordered
+// by id rather than by this text, which would sort wrong — RFC3339Nano drops
+// trailing zeros from the fraction, so ".5Z" and "Z" do not compare as their
+// instants do.
+func formatTimestamp(t time.Time) string {
+	return t.UTC().Format(time.RFC3339Nano)
 }
 
 // validateName rejects the "/" that separates team from name in an address,

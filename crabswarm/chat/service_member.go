@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -84,6 +85,9 @@ func (s *Service) Join(
 		return nil, storeStatus(err)
 	}
 	s.mirrorState(ctx, joined, joined.State)
+	// Only a first join is news: re-declared attendance returns above, having
+	// changed nothing a watcher of the room can see.
+	s.store.events.publish(joined.Room, memberJoinedEvent(joined))
 	return &chatv1.JoinResponse{Self: memberProto(joined)}, nil
 }
 
@@ -122,10 +126,20 @@ func (s *Service) Leave(
 	}
 	s.forgetVerified(caller.Token)
 	s.mirrorGone(ctx, caller)
+	s.store.events.publish(caller.Room, memberLeftEvent(caller))
 	return &chatv1.LeaveResponse{}, nil
 }
 
 // ReportState records the harness state the caller's hooks report.
+//
+// The report is always stored, even when it repeats the state already held: it
+// carries the moment the harness was last seen in that state, which is what
+// tells a member still working from one that stopped saying so.
+//
+// The room only hears about it when the state actually changed. Hooks report
+// working after every tool call, so a room of busy agents would otherwise spend
+// its event feed telling every watcher to re-read a roster that says exactly
+// what it said before.
 func (s *Service) ReportState(
 	ctx context.Context,
 	req *chatv1.ReportStateRequest,
@@ -138,9 +152,12 @@ func (s *Service) ReportState(
 	if err != nil {
 		return nil, err
 	}
-	if err := s.store.SetState(ctx, caller.Token, state); err != nil {
+	if err := s.store.SetState(ctx, caller.Token, state, time.Now()); err != nil {
 		return nil, storeStatus(err)
 	}
 	s.mirrorState(ctx, caller, state)
+	if state != caller.State {
+		s.store.events.publish(caller.Room, memberStateChangedEvent(caller, req.GetState()))
+	}
 	return &chatv1.ReportStateResponse{}, nil
 }

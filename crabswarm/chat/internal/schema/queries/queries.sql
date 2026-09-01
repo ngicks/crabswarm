@@ -1,15 +1,16 @@
 -- name: MemberByToken :one
-SELECT token, name, team, room, kind, state FROM members WHERE token = ?;
+SELECT token, name, team, room, kind, state, state_reported_at FROM members WHERE token = ?;
 
 -- name: MemberByName :one
-SELECT token, name, team, room, kind, state FROM members
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? AND team = ? AND name = ?;
 
 -- name: InsertMember :exec
-INSERT INTO members (token, name, team, room, kind, state) VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO members (token, name, team, room, kind, state, state_reported_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: SetMemberState :execrows
-UPDATE members SET state = ? WHERE token = ?;
+UPDATE members SET state = ?, state_reported_at = ? WHERE token = ?;
 
 -- name: SetMemberTeam :exec
 UPDATE members SET team = ? WHERE token = ?;
@@ -18,17 +19,18 @@ UPDATE members SET team = ? WHERE token = ?;
 DELETE FROM members WHERE token = ?;
 
 -- name: ListRoomMembers :many
-SELECT token, name, team, room, kind, state FROM members
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? ORDER BY team, name;
 
 -- name: ListAllMembers :many
-SELECT token, name, team, room, kind, state FROM members ORDER BY room, team, name;
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
+ORDER BY room, team, name;
 
 -- Bare-name resolution falls back to this when the caller's own team has no
 -- such member: every other team of the room is a candidate, and two or more
 -- make the address ambiguous.
 -- name: MembersByRoomAndName :many
-SELECT token, name, team, room, kind, state FROM members
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? AND name = ? ORDER BY team;
 
 -- name: PendingMessages :many

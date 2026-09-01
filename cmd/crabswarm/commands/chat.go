@@ -64,6 +64,7 @@ token. Attending no room, its verbs name the room they act on.`,
 	chatMembersCmd(cmd, flags)
 	chatLeaveCmd(cmd, flags)
 	chatReportStateCmd(cmd, flags)
+	chatMCPCmd(cmd, flags)
 	chatAdminCmd(cmd, flags)
 
 	parent.AddCommand(cmd)

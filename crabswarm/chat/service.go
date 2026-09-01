@@ -200,6 +200,11 @@ func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 	if _, err := s.store.RemoveMember(ctx, m.Token); err != nil {
 		s.logger.Warn("chat: removing reaped member failed",
 			"member", m.Team+"/"+m.Name, "err", err)
+	} else {
+		// Unlike the status display, the room hears about a reap: the watchers
+		// are the other members' sessions, which are still running and would
+		// otherwise keep a vanished member on their list forever.
+		s.store.events.publish(m.Room, memberLeftEvent(m))
 	}
 	s.forgetVerified(m.Token)
 	return false
@@ -265,8 +270,9 @@ func defaultName(token string) string {
 
 // memberState maps the reported harness state onto the stored one. The
 // unspecified state is rejected rather than defaulted: a hook that failed to
-// fill it in must not silently mark its agent done, which is the one state that
-// invites a keystroke nudge.
+// fill it in must not silently mark its agent done, which is the one state a
+// keystroke nudge is sent to on sight rather than only once the report has
+// gone stale.
 func memberState(state chatv1.HarnessState) (MemberState, error) {
 	switch state {
 	case chatv1.HarnessState_HARNESS_STATE_DONE:
@@ -297,8 +303,30 @@ func storeStatus(err error) error {
 	}
 }
 
+// harnessStateProto maps the stored state back onto the wire enum. Unlike
+// [memberState] it refuses nothing: a [Member] carrying no state is one nobody
+// recorded a state for, which is a member to describe rather than a request to
+// turn down.
+func harnessStateProto(state MemberState) chatv1.HarnessState {
+	switch state {
+	case StateWorking:
+		return chatv1.HarnessState_HARNESS_STATE_WORKING
+	case StateWaiting:
+		return chatv1.HarnessState_HARNESS_STATE_WAITING
+	case StateDone:
+		return chatv1.HarnessState_HARNESS_STATE_DONE
+	default:
+		return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED
+	}
+}
+
 func memberProto(m Member) *chatv1.Member {
-	return &chatv1.Member{Name: m.Name, Team: m.Team, Room: m.Room}
+	return &chatv1.Member{
+		Name:  m.Name,
+		Team:  m.Team,
+		Room:  m.Room,
+		State: harnessStateProto(m.State),
+	}
 }
 
 func senderProto(s Sender) *chatv1.Member {

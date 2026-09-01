@@ -88,6 +88,46 @@ func TestAdminService_MoveMember(t *testing.T) {
 	})
 }
 
+// A move stays inside the room, so what the room hears is an address change:
+// the member it knew is gone and one of that name is now in another team.
+func TestAdminService_MoveMemberPublishesTheAddressChange(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
+
+	sub := svc.store.events.subscribe("/work")
+	defer svc.store.events.unsubscribe(sub)
+
+	_, err := svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+		Room: "/work", Team: "alpha", Name: "ana", ToTeam: "beta",
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, describeEvent(nextEvent(t, sub.events)), "left:alpha/ana")
+	assert.Equal(t, describeEvent(nextEvent(t, sub.events)), "joined:beta/ana")
+
+	// Moving into the team the member already occupies changes no address.
+	_, err = svc.MoveMember(adminCtx(t, adminNonce(t, svc, id)), &chatv1.MoveMemberRequest{
+		Room: "/work", Team: "beta", Name: "ana", ToTeam: "beta",
+	})
+	assert.NilError(t, err)
+	noMoreEvents(t, sub.events)
+}
+
+// Registering is where a human enters the room: their later Join finds the
+// membership already made, so no other moment can announce their arrival.
+func TestAdminService_RegisterMemberPublishesTheArrival(t *testing.T) {
+	svc, id := newTestAdminService(t)
+
+	sub := svc.store.events.subscribe("/work")
+	defer svc.store.events.unsubscribe(sub)
+
+	_, err := svc.RegisterMember(
+		adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.RegisterMemberRequest{Room: "/work", Team: "hosts", Name: "hana"},
+	)
+	assert.NilError(t, err)
+	assert.Equal(t, describeEvent(nextEvent(t, sub.events)), "joined:hosts/hana")
+}
+
 func TestAdminService_RegisterMember(t *testing.T) {
 	svc, id := newTestAdminService(t)
 

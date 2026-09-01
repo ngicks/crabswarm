@@ -1,0 +1,278 @@
+package mcpserver
+
+import (
+	"context"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gotest.tools/v3/assert"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+)
+
+// eventTimeout bounds how long a test waits on something the bridge does off
+// its own goroutines — announcing a change, watching the room again. Generous
+// enough to ride out a loaded machine and the retry backoff, short enough that
+// a bridge that never does it fails instead of hanging the suite.
+const eventTimeout = 5 * time.Second
+
+func memberInState(
+	team, name, room string, state chatv1.HarnessState,
+) *chatv1.Member {
+	m := member(team, name, room)
+	m.State = state
+	return m
+}
+
+func stateChangedEvent(m *chatv1.Member, state chatv1.HarnessState) *chatv1.RoomEvent {
+	return &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MemberStateChanged{
+			MemberStateChanged: &chatv1.MemberStateChanged{Member: m, State: state},
+		},
+	}
+}
+
+func joinedEvent(m *chatv1.Member) *chatv1.RoomEvent {
+	return &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MemberJoined{
+			MemberJoined: &chatv1.MemberJoined{Member: m},
+		},
+	}
+}
+
+func messageAppendedEvent(from *chatv1.Member, text string) *chatv1.RoomEvent {
+	return &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MessageAppended{
+			MessageAppended: &chatv1.MessageAppended{
+				Message: &chatv1.Message{From: from, Text: text},
+			},
+		},
+	}
+}
+
+// watchedUpdates connects a harness that records what the bridge announces, and
+// returns the session beside the URIs as they arrive.
+func watchedUpdates(
+	t *testing.T, svc *fakeChatService,
+) (*mcp.ClientSession, <-chan string) {
+	t.Helper()
+
+	updated := make(chan string, 8)
+	session := startSessionWith(t, svc, &mcp.ClientOptions{
+		ResourceUpdatedHandler: func(
+			_ context.Context, req *mcp.ResourceUpdatedNotificationRequest,
+		) {
+			updated <- req.Params.URI
+		},
+	})
+	return session, updated
+}
+
+// pushEvent hands one event to the stub's feed. The channel is unbuffered, so
+// this returns once the stub has taken it — and fails rather than hanging when
+// nothing is watching.
+func pushEvent(t *testing.T, svc *fakeChatService, ev *chatv1.RoomEvent) {
+	t.Helper()
+
+	select {
+	case svc.events <- ev:
+	case <-time.After(eventTimeout):
+		t.Fatal("nothing is watching the room")
+	}
+}
+
+func nextUpdate(t *testing.T, updated <-chan string) string {
+	t.Helper()
+
+	select {
+	case uri := <-updated:
+		return uri
+	case <-time.After(eventTimeout):
+		t.Fatal("the bridge announced nothing")
+		return ""
+	}
+}
+
+// noMoreUpdates asserts that nothing further is announced. The wait is short:
+// it is bounding a notification the bridge would already have sent, not one it
+// is expected to get around to.
+func noMoreUpdates(t *testing.T, updated <-chan string) {
+	t.Helper()
+
+	select {
+	case uri := <-updated:
+		t.Fatalf("announced %q with nothing to announce", uri)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+// The roster is a resource rather than a fifth tool, and it is the only one.
+// The room's history is deliberately absent: the daemon has no RPC to read it
+// with, so a resource for it could only answer "not yet".
+func TestServer_ServesTheRosterAsTheOneResource(t *testing.T) {
+	fake := &fakeChatService{
+		self: member("backend", "alice", testRoom),
+		members: []*chatv1.Member{
+			memberInState("backend", "alice", testRoom,
+				chatv1.HarnessState_HARNESS_STATE_WORKING),
+			memberInState("frontend", "bob", testRoom,
+				chatv1.HarnessState_HARNESS_STATE_WAITING),
+			// A member the daemon reported no state for still belongs on the
+			// roster: it attends the room either way.
+			member("ops", "carol", testRoom),
+		},
+	}
+	session := startSession(t, fake)
+
+	listed, err := session.ListResources(t.Context(), nil)
+	assert.NilError(t, err)
+	assert.Equal(t, len(listed.Resources), 1)
+	assert.Equal(t, listed.Resources[0].URI, membersURI)
+	assert.Equal(t, listed.Resources[0].MIMEType, membersMIMEType)
+
+	res, err := session.ReadResource(t.Context(),
+		&mcp.ReadResourceParams{URI: membersURI})
+	assert.NilError(t, err)
+	assert.Equal(t, len(res.Contents), 1)
+	assert.Equal(t, res.Contents[0].URI, membersURI)
+	assert.Equal(t, res.Contents[0].MIMEType, membersMIMEType)
+
+	// Pinned as the text it is rather than as a structure it decodes to: the
+	// reader of a resource is whatever the harness hands the document to, so
+	// the keys and the words are the interface, not the Go type behind them.
+	assert.Equal(t, res.Contents[0].Text, `{
+  "room": "/work/proj",
+  "members": [
+    {
+      "address": "backend/alice",
+      "team": "backend",
+      "name": "alice",
+      "state": "working"
+    },
+    {
+      "address": "frontend/bob",
+      "team": "frontend",
+      "name": "bob",
+      "state": "waiting"
+    },
+    {
+      "address": "ops/carol",
+      "team": "ops",
+      "name": "carol",
+      "state": "unknown"
+    }
+  ]
+}`)
+
+	// Reading the roster attends the room first, the way a tool call does:
+	// listing a room from outside it would be asking for a refusal.
+	assert.Assert(t, fake.lastJoin() != nil)
+}
+
+// A subscribed harness is told to look again whenever the room's attendance or
+// anyone's state changes, and left alone otherwise.
+func TestServer_AnnouncesTheRosterWhenTheRoomChanges(t *testing.T) {
+	fake := &fakeChatService{
+		self:    member("backend", "alice", testRoom),
+		members: []*chatv1.Member{member("backend", "alice", testRoom)},
+		events:  make(chan *chatv1.RoomEvent),
+	}
+	session, updated := watchedUpdates(t, fake)
+
+	assert.NilError(t, session.Subscribe(t.Context(),
+		&mcp.SubscribeParams{URI: membersURI}))
+
+	pushEvent(t, fake, stateChangedEvent(
+		member("frontend", "bob", testRoom),
+		chatv1.HarnessState_HARNESS_STATE_WAITING))
+	assert.Equal(t, nextUpdate(t, updated), membersURI)
+
+	// A message being appended leaves the same members in the same states, and
+	// there is no history resource for it to stand for. The join behind it is
+	// what the harness hears about, and only once.
+	pushEvent(t, fake, messageAppendedEvent(
+		member("frontend", "bob", testRoom), "rebased onto main"))
+	pushEvent(t, fake, joinedEvent(member("ops", "carol", testRoom)))
+	assert.Equal(t, nextUpdate(t, updated), membersURI)
+	noMoreUpdates(t, updated)
+}
+
+// Nothing is watched until something asks to be told. A harness that lists what
+// the bridge offers and never subscribes should cost the daemon no stream.
+func TestServer_WatchesNothingUntilSomethingSubscribes(t *testing.T) {
+	fake := &fakeChatService{
+		self:    member("backend", "alice", testRoom),
+		members: []*chatv1.Member{member("backend", "alice", testRoom)},
+		events:  make(chan *chatv1.RoomEvent),
+	}
+	session := startSession(t, fake)
+
+	_, err := session.ReadResource(t.Context(),
+		&mcp.ReadResourceParams{URI: membersURI})
+	assert.NilError(t, err)
+	assert.Equal(t, fake.watchCount(), 0)
+
+	assert.NilError(t, session.Subscribe(t.Context(),
+		&mcp.SubscribeParams{URI: membersURI}))
+	// The feed is up once it can carry an event.
+	pushEvent(t, fake, joinedEvent(member("ops", "carol", testRoom)))
+	assert.Equal(t, fake.watchCount(), 1)
+}
+
+// A subscription to something this bridge does not serve is refused rather than
+// recorded: the SDK would otherwise leave the harness waiting on news that
+// could never come, and start a room feed for it.
+//
+// The handler is exercised directly because the protocol the SDK negotiates
+// here opens a subscription without waiting for the answer, so a refusal never
+// reaches the client as the error of a call.
+func TestServer_RefusesToWatchAnUnknownResource(t *testing.T) {
+	bridge, err := New(slog.New(slog.DiscardHandler),
+		serveTestDaemon(t, &fakeChatService{}), testToken)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = bridge.client.Close() })
+
+	err = bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
+		Params: &mcp.SubscribeParams{URI: "crabswarm://chat/history"},
+	})
+	assert.Assert(t, err != nil)
+	select {
+	case <-bridge.watchWanted:
+		t.Fatal("a URI the bridge does not serve started the room feed")
+	default:
+	}
+
+	assert.NilError(t, bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
+		Params: &mcp.SubscribeParams{URI: membersURI},
+	}))
+	<-bridge.watchWanted
+}
+
+// The daemon drops a watcher that falls behind, so the bridge watches again —
+// and says the roster changed as soon as it is back, because whatever happened
+// while nothing was watching went unannounced and only a re-read can find it.
+func TestServer_WatchesAgainAfterTheFeedEnds(t *testing.T) {
+	fake := &fakeChatService{
+		self:          member("backend", "alice", testRoom),
+		members:       []*chatv1.Member{member("backend", "alice", testRoom)},
+		events:        make(chan *chatv1.RoomEvent),
+		watchFailures: 1,
+	}
+	session, updated := watchedUpdates(t, fake)
+
+	assert.NilError(t, session.Subscribe(t.Context(),
+		&mcp.SubscribeParams{URI: membersURI}))
+
+	assert.Equal(t, nextUpdate(t, updated), membersURI)
+
+	// The new feed carries what the dropped one would have. Taking the event is
+	// also what proves a second watcher is up: the first was refused before it
+	// could read anything.
+	pushEvent(t, fake, stateChangedEvent(
+		member("frontend", "bob", testRoom),
+		chatv1.HarnessState_HARNESS_STATE_DONE))
+	assert.Equal(t, fake.watchCount(), 2)
+	assert.Equal(t, nextUpdate(t, updated), membersURI)
+}

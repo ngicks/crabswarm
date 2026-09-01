@@ -33,6 +33,13 @@ service ChatService {
   // driven by harness hooks and gates keystroke-injection nudges, which are
   // only safe to deliver while the harness is idle.
   rpc ReportState(ReportStateRequest) returns (ReportStateResponse);
+  // WatchRoom streams events of the caller's room until cancelled.
+  //
+  // The stream element is named for what it is rather than for this RPC: the
+  // same event feed is what an admin TUI subscribes to, so tying the name to
+  // one RPC would misname it everywhere else.
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  rpc WatchRoom(WatchRoomRequest) returns (stream RoomEvent);
 }
 
 // ChatAdminService carries the host-side operations that participants must not
@@ -78,7 +85,10 @@ enum HarnessState {
   // question) and would read a nudge as the answer to it.
   HARNESS_STATE_WAITING = 2;
   // Done: the harness finished its turn and is waiting for a new prompt. The
-  // only state in which a keystroke-injection nudge is safe.
+  // state a keystroke-injection nudge is meant for, and the only one it is
+  // sent on sight; a working or waiting report is nudged too once it is old
+  // enough to have stopped describing the terminal, since the hook that would
+  // have reported the change can go missing.
   HARNESS_STATE_DONE = 3;
 }
 
@@ -93,6 +103,11 @@ message Member {
   // Room is the chat room. The cmdman-compose provider derives it from the
   // working directory of the caller's command.
   string room = 3;
+  // State is the harness state the member last reported, which is what tells
+  // a reader whether the member can be interrupted. It is unspecified where no
+  // state was recorded alongside the member: the sender a delivered message
+  // carries is the identity as of send time rather than a live member.
+  HarnessState state = 4;
 }
 
 // Room is a chat room and its current attendance.
@@ -177,6 +192,41 @@ message ReportStateRequest {
 }
 
 message ReportStateResponse {}
+
+message WatchRoomRequest {}
+
+// MemberStateChanged signals that a member reported a new harness state.
+message MemberStateChanged {
+  // Member is whose state changed.
+  Member member = 1;
+  // State is the state the member now reports.
+  HarnessState state = 2;
+}
+
+// MemberJoined signals that a member started attending the room.
+message MemberJoined {
+  Member member = 1;
+}
+
+// MemberLeft signals that a member withdrew its attendance.
+message MemberLeft {
+  Member member = 1;
+}
+
+// MessageAppended signals that a message was appended to the room's history.
+message MessageAppended {
+  Message message = 1;
+}
+
+// RoomEvent is a single notification about the watched room.
+message RoomEvent {
+  oneof event {
+    MemberStateChanged member_state_changed = 1;
+    MemberJoined member_joined = 2;
+    MemberLeft member_left = 3;
+    MessageAppended message_appended = 4;
+  }
+}
 
 message GetNonceRequest {}
 

@@ -5,12 +5,13 @@
 package db
 
 type Member struct {
-	Token string
-	Name  string
-	Team  string
-	Room  string
-	Kind  string
-	State string
+	Token           string
+	Name            string
+	Team            string
+	Room            string
+	Kind            string
+	State           string
+	StateReportedAt string
 }
 
 type Message struct {

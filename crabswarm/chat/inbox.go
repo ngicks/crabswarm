@@ -147,8 +147,12 @@ func broadcastFrom(
 	if err != nil {
 		return nil, fmt.Errorf("broadcasting to room %q: %w", from.Room, err)
 	}
+	members, err := membersOf(rows)
+	if err != nil {
+		return nil, fmt.Errorf("broadcasting to room %q: %w", from.Room, err)
+	}
 	var recipients []Member
-	for _, m := range membersOf(rows) {
+	for _, m := range members {
 		if m.Token == excludeToken {
 			continue
 		}
@@ -226,7 +230,7 @@ func appendMessage(
 		FromTeam:  from.Team,
 		FromRoom:  from.Room,
 		Text:      text,
-		SentAt:    sentAt.UTC().Format(time.RFC3339Nano),
+		SentAt:    formatTimestamp(sentAt),
 	})
 	if err != nil {
 		return fmt.Errorf("appending message for %q: %w", recipient, err)

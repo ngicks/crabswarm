@@ -12,7 +12,7 @@ import type { Message as Message$1 } from "@bufbuild/protobuf";
  * Describes the file ngicks/crabswarm/chat/v1/chat_service.proto.
  */
 export const file_ngicks_crabswarm_chat_v1_chat_service: GenFile = /*@__PURE__*/
-  fileDesc("CituZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjEvY2hhdF9zZXJ2aWNlLnByb3RvEhhuZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEiMgoGTWVtYmVyEgwKBG5hbWUYASABKAkSDAoEdGVhbRgCIAEoCRIMCgRyb29tGAMgASgJIkcKBFJvb20SDAoEbmFtZRgBIAEoCRIxCgdtZW1iZXJzGAIgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJ0CgdNZXNzYWdlEi4KBGZyb20YASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEgwKBHRleHQYAiABKAkSKwoHc2VudF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiJwoLSm9pblJlcXVlc3QSDAoEbmFtZRgBIAEoCUoECAIQA0oECAMQBCI+CgxKb2luUmVzcG9uc2USLgoEc2VsZhgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiJwoLU2VuZFJlcXVlc3QSCgoCdG8YASABKAkSDAoEdGV4dBgCIAEoCSJDCgxTZW5kUmVzcG9uc2USMwoJcmVjaXBpZW50GAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciIgChBCcm9hZGNhc3RSZXF1ZXN0EgwKBHRleHQYASABKAkiLAoRQnJvYWRjYXN0UmVzcG9uc2USFwoPZGVsaXZlcmVkX2NvdW50GAEgASgFIg0KC1JlYWRSZXF1ZXN0IkMKDFJlYWRSZXNwb25zZRIzCghtZXNzYWdlcxgBIAMoCzIhLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZXNzYWdlIhQKEkxpc3RNZW1iZXJzUmVxdWVzdCJIChNMaXN0TWVtYmVyc1Jlc3BvbnNlEjEKB21lbWJlcnMYASADKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIg4KDExlYXZlUmVxdWVzdCIPCg1MZWF2ZVJlc3BvbnNlIksKElJlcG9ydFN0YXRlUmVxdWVzdBI1CgVzdGF0ZRgBIAEoDjImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5IYXJuZXNzU3RhdGUiFQoTUmVwb3J0U3RhdGVSZXNwb25zZSIRCg9HZXROb25jZVJlcXVlc3QiWwoQR2V0Tm9uY2VSZXNwb25zZRIXCg9lbmNyeXB0ZWRfbm9uY2UYASABKAwSLgoKZXhwaXJlc19hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiEgoQTGlzdFJvb21zUmVxdWVzdCJCChFMaXN0Um9vbXNSZXNwb25zZRItCgVyb29tcxgBIAMoCzIeLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Sb29tIk4KEU1vdmVNZW1iZXJSZXF1ZXN0EgwKBHJvb20YASABKAkSDAoEdGVhbRgCIAEoCRIMCgRuYW1lGAMgASgJEg8KB3RvX3RlYW0YBCABKAkiRgoSTW92ZU1lbWJlclJlc3BvbnNlEjAKBm1lbWJlchgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiQQoVUmVnaXN0ZXJNZW1iZXJSZXF1ZXN0EgwKBHJvb20YASABKAkSDAoEdGVhbRgCIAEoCRIMCgRuYW1lGAMgASgJIlkKFlJlZ2lzdGVyTWVtYmVyUmVzcG9uc2USMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchINCgV0b2tlbhgCIAEoCSI+ChBBZG1pblNlbmRSZXF1ZXN0EgwKBHJvb20YASABKAkSDgoGdGFyZ2V0GAIgASgJEgwKBHRleHQYAyABKAkiJgoRQWRtaW5TZW5kUmVzcG9uc2USEQoJZGVsaXZlcmVkGAEgASgFKnsKDEhhcm5lc3NTdGF0ZRIdChlIQVJORVNTX1NUQVRFX1VOU1BFQ0lGSUVEEAASGQoVSEFSTkVTU19TVEFURV9XT1JLSU5HEAESGQoVSEFSTkVTU19TVEFURV9XQUlUSU5HEAISFgoSSEFSTkVTU19TVEFURV9ET05FEAMyqgUKC0NoYXRTZXJ2aWNlElUKBEpvaW4SJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSm9pblJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSm9pblJlc3BvbnNlElUKBFNlbmQSJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuU2VuZFJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuU2VuZFJlc3BvbnNlEmQKCUJyb2FkY2FzdBIqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Ccm9hZGNhc3RSZXF1ZXN0GisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkJyb2FkY2FzdFJlc3BvbnNlElUKBFJlYWQSJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVhZFJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVhZFJlc3BvbnNlEmoKC0xpc3RNZW1iZXJzEiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RNZW1iZXJzUmVxdWVzdBotLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0TWVtYmVyc1Jlc3BvbnNlElgKBUxlYXZlEiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxlYXZlUmVxdWVzdBonLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MZWF2ZVJlc3BvbnNlEmoKC1JlcG9ydFN0YXRlEiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlcG9ydFN0YXRlUmVxdWVzdBotLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZXBvcnRTdGF0ZVJlc3BvbnNlMpoEChBDaGF0QWRtaW5TZXJ2aWNlEmEKCEdldE5vbmNlEikubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkdldE5vbmNlUmVxdWVzdBoqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5HZXROb25jZVJlc3BvbnNlEmQKCUxpc3RSb29tcxIqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0Um9vbXNSZXF1ZXN0GisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RSb29tc1Jlc3BvbnNlEmcKCk1vdmVNZW1iZXISKy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTW92ZU1lbWJlclJlcXVlc3QaLC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTW92ZU1lbWJlclJlc3BvbnNlEnMKDlJlZ2lzdGVyTWVtYmVyEi8ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlZ2lzdGVyTWVtYmVyUmVxdWVzdBowLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWdpc3Rlck1lbWJlclJlc3BvbnNlEl8KBFNlbmQSKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQWRtaW5TZW5kUmVxdWVzdBorLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5BZG1pblNlbmRSZXNwb25zZUKBAgocY29tLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MUIQQ2hhdFNlcnZpY2VQcm90b1ABWkxnaXRodWIuY29tL25naWNrcy9jcmFic3dhcm0vYXBpL2dlbi9wcm90by9nby9uZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjE7Y2hhdHYxogIDTkNDqgIYTmdpY2tzLkNyYWJzd2FybS5DaGF0LlYxygIYTmdpY2tzXENyYWJzd2FybVxDaGF0XFYx4gIkTmdpY2tzXENyYWJzd2FybVxDaGF0XFYxXEdQQk1ldGFkYXRh6gIbTmdpY2tzOjpDcmFic3dhcm06OkNoYXQ6OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("CituZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjEvY2hhdF9zZXJ2aWNlLnByb3RvEhhuZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEiaQoGTWVtYmVyEgwKBG5hbWUYASABKAkSDAoEdGVhbRgCIAEoCRIMCgRyb29tGAMgASgJEjUKBXN0YXRlGAQgASgOMiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkhhcm5lc3NTdGF0ZSJHCgRSb29tEgwKBG5hbWUYASABKAkSMQoHbWVtYmVycxgCIAMoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIidAoHTWVzc2FnZRIuCgRmcm9tGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchIMCgR0ZXh0GAIgASgJEisKB3NlbnRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIicKC0pvaW5SZXF1ZXN0EgwKBG5hbWUYASABKAlKBAgCEANKBAgDEAQiPgoMSm9pblJlc3BvbnNlEi4KBHNlbGYYASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIicKC1NlbmRSZXF1ZXN0EgoKAnRvGAEgASgJEgwKBHRleHQYAiABKAkiQwoMU2VuZFJlc3BvbnNlEjMKCXJlY2lwaWVudBgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiIAoQQnJvYWRjYXN0UmVxdWVzdBIMCgR0ZXh0GAEgASgJIiwKEUJyb2FkY2FzdFJlc3BvbnNlEhcKD2RlbGl2ZXJlZF9jb3VudBgBIAEoBSINCgtSZWFkUmVxdWVzdCJDCgxSZWFkUmVzcG9uc2USMwoIbWVzc2FnZXMYASADKAsyIS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVzc2FnZSIUChJMaXN0TWVtYmVyc1JlcXVlc3QiSAoTTGlzdE1lbWJlcnNSZXNwb25zZRIxCgdtZW1iZXJzGAEgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciIOCgxMZWF2ZVJlcXVlc3QiDwoNTGVhdmVSZXNwb25zZSJLChJSZXBvcnRTdGF0ZVJlcXVlc3QSNQoFc3RhdGUYASABKA4yJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSGFybmVzc1N0YXRlIhUKE1JlcG9ydFN0YXRlUmVzcG9uc2UiEgoQV2F0Y2hSb29tUmVxdWVzdCJ9ChJNZW1iZXJTdGF0ZUNoYW5nZWQSMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchI1CgVzdGF0ZRgCIAEoDjImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5IYXJuZXNzU3RhdGUiQAoMTWVtYmVySm9pbmVkEjAKBm1lbWJlchgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiPgoKTWVtYmVyTGVmdBIwCgZtZW1iZXIYASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIkUKD01lc3NhZ2VBcHBlbmRlZBIyCgdtZXNzYWdlGAEgASgLMiEubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lc3NhZ2UipwIKCVJvb21FdmVudBJMChRtZW1iZXJfc3RhdGVfY2hhbmdlZBgBIAEoCzIsLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJTdGF0ZUNoYW5nZWRIABI/Cg1tZW1iZXJfam9pbmVkGAIgASgLMiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlckpvaW5lZEgAEjsKC21lbWJlcl9sZWZ0GAMgASgLMiQubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlckxlZnRIABJFChBtZXNzYWdlX2FwcGVuZGVkGAQgASgLMikubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lc3NhZ2VBcHBlbmRlZEgAQgcKBWV2ZW50IhEKD0dldE5vbmNlUmVxdWVzdCJbChBHZXROb25jZVJlc3BvbnNlEhcKD2VuY3J5cHRlZF9ub25jZRgBIAEoDBIuCgpleHBpcmVzX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCISChBMaXN0Um9vbXNSZXF1ZXN0IkIKEUxpc3RSb29tc1Jlc3BvbnNlEi0KBXJvb21zGAEgAygLMh4ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJvb20iTgoRTW92ZU1lbWJlclJlcXVlc3QSDAoEcm9vbRgBIAEoCRIMCgR0ZWFtGAIgASgJEgwKBG5hbWUYAyABKAkSDwoHdG9fdGVhbRgEIAEoCSJGChJNb3ZlTWVtYmVyUmVzcG9uc2USMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJBChVSZWdpc3Rlck1lbWJlclJlcXVlc3QSDAoEcm9vbRgBIAEoCRIMCgR0ZWFtGAIgASgJEgwKBG5hbWUYAyABKAkiWQoWUmVnaXN0ZXJNZW1iZXJSZXNwb25zZRIwCgZtZW1iZXIYASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEg0KBXRva2VuGAIgASgJIj4KEEFkbWluU2VuZFJlcXVlc3QSDAoEcm9vbRgBIAEoCRIOCgZ0YXJnZXQYAiABKAkSDAoEdGV4dBgDIAEoCSImChFBZG1pblNlbmRSZXNwb25zZRIRCglkZWxpdmVyZWQYASABKAUqewoMSGFybmVzc1N0YXRlEh0KGUhBUk5FU1NfU1RBVEVfVU5TUEVDSUZJRUQQABIZChVIQVJORVNTX1NUQVRFX1dPUktJTkcQARIZChVIQVJORVNTX1NUQVRFX1dBSVRJTkcQAhIWChJIQVJORVNTX1NUQVRFX0RPTkUQAzKKBgoLQ2hhdFNlcnZpY2USVQoESm9pbhIlLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Kb2luUmVxdWVzdBomLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Kb2luUmVzcG9uc2USVQoEU2VuZBIlLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5TZW5kUmVxdWVzdBomLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5TZW5kUmVzcG9uc2USZAoJQnJvYWRjYXN0EioubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkJyb2FkY2FzdFJlcXVlc3QaKy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQnJvYWRjYXN0UmVzcG9uc2USVQoEUmVhZBIlLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWFkUmVxdWVzdBomLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWFkUmVzcG9uc2USagoLTGlzdE1lbWJlcnMSLC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGlzdE1lbWJlcnNSZXF1ZXN0Gi0ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RNZW1iZXJzUmVzcG9uc2USWAoFTGVhdmUSJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGVhdmVSZXF1ZXN0GicubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxlYXZlUmVzcG9uc2USagoLUmVwb3J0U3RhdGUSLC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVwb3J0U3RhdGVSZXF1ZXN0Gi0ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlcG9ydFN0YXRlUmVzcG9uc2USXgoJV2F0Y2hSb29tEioubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLldhdGNoUm9vbVJlcXVlc3QaIy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUm9vbUV2ZW50MAEymgQKEENoYXRBZG1pblNlcnZpY2USYQoIR2V0Tm9uY2USKS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuR2V0Tm9uY2VSZXF1ZXN0GioubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkdldE5vbmNlUmVzcG9uc2USZAoJTGlzdFJvb21zEioubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RSb29tc1JlcXVlc3QaKy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTGlzdFJvb21zUmVzcG9uc2USZwoKTW92ZU1lbWJlchIrLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Nb3ZlTWVtYmVyUmVxdWVzdBosLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Nb3ZlTWVtYmVyUmVzcG9uc2UScwoOUmVnaXN0ZXJNZW1iZXISLy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVnaXN0ZXJNZW1iZXJSZXF1ZXN0GjAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlZ2lzdGVyTWVtYmVyUmVzcG9uc2USXwoEU2VuZBIqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5BZG1pblNlbmRSZXF1ZXN0GisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkFkbWluU2VuZFJlc3BvbnNlQoECChxjb20ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxQhBDaGF0U2VydmljZVByb3RvUAFaTGdpdGh1Yi5jb20vbmdpY2tzL2NyYWJzd2FybS9hcGkvZ2VuL3Byb3RvL2dvL25naWNrcy9jcmFic3dhcm0vY2hhdC92MTtjaGF0djGiAgNOQ0OqAhhOZ2lja3MuQ3JhYnN3YXJtLkNoYXQuVjHKAhhOZ2lja3NcQ3JhYnN3YXJtXENoYXRcVjHiAiROZ2lja3NcQ3JhYnN3YXJtXENoYXRcVjFcR1BCTWV0YWRhdGHqAhtOZ2lja3M6OkNyYWJzd2FybTo6Q2hhdDo6VjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * Member is one participant of a room.
@@ -43,6 +43,16 @@ export type Member = Message$1<"ngicks.crabswarm.chat.v1.Member"> & {
    * @generated from field: string room = 3;
    */
   room: string;
+
+  /**
+   * State is the harness state the member last reported, which is what tells
+   * a reader whether the member can be interrupted. It is unspecified where no
+   * state was recorded alongside the member: the sender a delivered message
+   * carries is the identity as of send time rather than a live member.
+   *
+   * @generated from field: ngicks.crabswarm.chat.v1.HarnessState state = 4;
+   */
+  state: HarnessState;
 };
 
 /**
@@ -363,6 +373,147 @@ export const ReportStateResponseSchema: GenMessage<ReportStateResponse> = /*@__P
   messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 16);
 
 /**
+ * @generated from message ngicks.crabswarm.chat.v1.WatchRoomRequest
+ */
+export type WatchRoomRequest = Message$1<"ngicks.crabswarm.chat.v1.WatchRoomRequest"> & {
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.WatchRoomRequest.
+ * Use `create(WatchRoomRequestSchema)` to create a new message.
+ */
+export const WatchRoomRequestSchema: GenMessage<WatchRoomRequest> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 17);
+
+/**
+ * MemberStateChanged signals that a member reported a new harness state.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.MemberStateChanged
+ */
+export type MemberStateChanged = Message$1<"ngicks.crabswarm.chat.v1.MemberStateChanged"> & {
+  /**
+   * Member is whose state changed.
+   *
+   * @generated from field: ngicks.crabswarm.chat.v1.Member member = 1;
+   */
+  member?: Member | undefined;
+
+  /**
+   * State is the state the member now reports.
+   *
+   * @generated from field: ngicks.crabswarm.chat.v1.HarnessState state = 2;
+   */
+  state: HarnessState;
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.MemberStateChanged.
+ * Use `create(MemberStateChangedSchema)` to create a new message.
+ */
+export const MemberStateChangedSchema: GenMessage<MemberStateChanged> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 18);
+
+/**
+ * MemberJoined signals that a member started attending the room.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.MemberJoined
+ */
+export type MemberJoined = Message$1<"ngicks.crabswarm.chat.v1.MemberJoined"> & {
+  /**
+   * @generated from field: ngicks.crabswarm.chat.v1.Member member = 1;
+   */
+  member?: Member | undefined;
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.MemberJoined.
+ * Use `create(MemberJoinedSchema)` to create a new message.
+ */
+export const MemberJoinedSchema: GenMessage<MemberJoined> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 19);
+
+/**
+ * MemberLeft signals that a member withdrew its attendance.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.MemberLeft
+ */
+export type MemberLeft = Message$1<"ngicks.crabswarm.chat.v1.MemberLeft"> & {
+  /**
+   * @generated from field: ngicks.crabswarm.chat.v1.Member member = 1;
+   */
+  member?: Member | undefined;
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.MemberLeft.
+ * Use `create(MemberLeftSchema)` to create a new message.
+ */
+export const MemberLeftSchema: GenMessage<MemberLeft> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 20);
+
+/**
+ * MessageAppended signals that a message was appended to the room's history.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.MessageAppended
+ */
+export type MessageAppended = Message$1<"ngicks.crabswarm.chat.v1.MessageAppended"> & {
+  /**
+   * @generated from field: ngicks.crabswarm.chat.v1.Message message = 1;
+   */
+  message?: Message | undefined;
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.MessageAppended.
+ * Use `create(MessageAppendedSchema)` to create a new message.
+ */
+export const MessageAppendedSchema: GenMessage<MessageAppended> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 21);
+
+/**
+ * RoomEvent is a single notification about the watched room.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.RoomEvent
+ */
+export type RoomEvent = Message$1<"ngicks.crabswarm.chat.v1.RoomEvent"> & {
+  /**
+   * @generated from oneof ngicks.crabswarm.chat.v1.RoomEvent.event
+   */
+  event: {
+    /**
+     * @generated from field: ngicks.crabswarm.chat.v1.MemberStateChanged member_state_changed = 1;
+     */
+    value: MemberStateChanged;
+    case: "memberStateChanged";
+  } | {
+    /**
+     * @generated from field: ngicks.crabswarm.chat.v1.MemberJoined member_joined = 2;
+     */
+    value: MemberJoined;
+    case: "memberJoined";
+  } | {
+    /**
+     * @generated from field: ngicks.crabswarm.chat.v1.MemberLeft member_left = 3;
+     */
+    value: MemberLeft;
+    case: "memberLeft";
+  } | {
+    /**
+     * @generated from field: ngicks.crabswarm.chat.v1.MessageAppended message_appended = 4;
+     */
+    value: MessageAppended;
+    case: "messageAppended";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.RoomEvent.
+ * Use `create(RoomEventSchema)` to create a new message.
+ */
+export const RoomEventSchema: GenMessage<RoomEvent> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 22);
+
+/**
  * @generated from message ngicks.crabswarm.chat.v1.GetNonceRequest
  */
 export type GetNonceRequest = Message$1<"ngicks.crabswarm.chat.v1.GetNonceRequest"> & {
@@ -373,7 +524,7 @@ export type GetNonceRequest = Message$1<"ngicks.crabswarm.chat.v1.GetNonceReques
  * Use `create(GetNonceRequestSchema)` to create a new message.
  */
 export const GetNonceRequestSchema: GenMessage<GetNonceRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 17);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 23);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.GetNonceResponse
@@ -401,7 +552,7 @@ export type GetNonceResponse = Message$1<"ngicks.crabswarm.chat.v1.GetNonceRespo
  * Use `create(GetNonceResponseSchema)` to create a new message.
  */
 export const GetNonceResponseSchema: GenMessage<GetNonceResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 18);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 24);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.ListRoomsRequest
@@ -414,7 +565,7 @@ export type ListRoomsRequest = Message$1<"ngicks.crabswarm.chat.v1.ListRoomsRequ
  * Use `create(ListRoomsRequestSchema)` to create a new message.
  */
 export const ListRoomsRequestSchema: GenMessage<ListRoomsRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 19);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 25);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.ListRoomsResponse
@@ -431,7 +582,7 @@ export type ListRoomsResponse = Message$1<"ngicks.crabswarm.chat.v1.ListRoomsRes
  * Use `create(ListRoomsResponseSchema)` to create a new message.
  */
 export const ListRoomsResponseSchema: GenMessage<ListRoomsResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 20);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 26);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.MoveMemberRequest
@@ -471,7 +622,7 @@ export type MoveMemberRequest = Message$1<"ngicks.crabswarm.chat.v1.MoveMemberRe
  * Use `create(MoveMemberRequestSchema)` to create a new message.
  */
 export const MoveMemberRequestSchema: GenMessage<MoveMemberRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 21);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 27);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.MoveMemberResponse
@@ -490,7 +641,7 @@ export type MoveMemberResponse = Message$1<"ngicks.crabswarm.chat.v1.MoveMemberR
  * Use `create(MoveMemberResponseSchema)` to create a new message.
  */
 export const MoveMemberResponseSchema: GenMessage<MoveMemberResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 22);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 28);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.RegisterMemberRequest
@@ -523,7 +674,7 @@ export type RegisterMemberRequest = Message$1<"ngicks.crabswarm.chat.v1.Register
  * Use `create(RegisterMemberRequestSchema)` to create a new message.
  */
 export const RegisterMemberRequestSchema: GenMessage<RegisterMemberRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 23);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 29);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.RegisterMemberResponse
@@ -550,7 +701,7 @@ export type RegisterMemberResponse = Message$1<"ngicks.crabswarm.chat.v1.Registe
  * Use `create(RegisterMemberResponseSchema)` to create a new message.
  */
 export const RegisterMemberResponseSchema: GenMessage<RegisterMemberResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 24);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 30);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.AdminSendRequest
@@ -584,7 +735,7 @@ export type AdminSendRequest = Message$1<"ngicks.crabswarm.chat.v1.AdminSendRequ
  * Use `create(AdminSendRequestSchema)` to create a new message.
  */
 export const AdminSendRequestSchema: GenMessage<AdminSendRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 25);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 31);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.AdminSendResponse
@@ -603,7 +754,7 @@ export type AdminSendResponse = Message$1<"ngicks.crabswarm.chat.v1.AdminSendRes
  * Use `create(AdminSendResponseSchema)` to create a new message.
  */
 export const AdminSendResponseSchema: GenMessage<AdminSendResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 26);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 32);
 
 /**
  * HarnessState is the state of the CLI harness a member runs under, as
@@ -635,7 +786,10 @@ export enum HarnessState {
 
   /**
    * Done: the harness finished its turn and is waiting for a new prompt. The
-   * only state in which a keystroke-injection nudge is safe.
+   * state a keystroke-injection nudge is meant for, and the only one it is
+   * sent on sight; a working or waiting report is nudged too once it is old
+   * enough to have stopped describing the terminal, since the hook that would
+   * have reported the change can go missing.
    *
    * @generated from enum value: HARNESS_STATE_DONE = 3;
    */
@@ -734,6 +888,21 @@ export const ChatService: GenService<{
     methodKind: "unary";
     input: typeof ReportStateRequestSchema;
     output: typeof ReportStateResponseSchema;
+  },
+  /**
+   * WatchRoom streams events of the caller's room until cancelled.
+   *
+   * The stream element is named for what it is rather than for this RPC: the
+   * same event feed is what an admin TUI subscribes to, so tying the name to
+   * one RPC would misname it everywhere else.
+   * buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+   *
+   * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.WatchRoom
+   */
+  watchRoom: {
+    methodKind: "server_streaming";
+    input: typeof WatchRoomRequestSchema;
+    output: typeof RoomEventSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_ngicks_crabswarm_chat_v1_chat_service, 0);

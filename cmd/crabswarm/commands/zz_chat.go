@@ -10,18 +10,28 @@ import (
 	chatcli "github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
-// dialChat resolves the daemon socket the way every other client command does —
-// layered config with an explicitly-set --sock on top — and returns a client
-// for it. The caller closes it.
-func dialChat(cmd *cobra.Command, flags *chatFlags) (*chatcli.Client, error) {
+// chatSockPath resolves the daemon socket the way every client command does —
+// layered config with an explicitly-set --sock on top. It is separate from
+// dialChat because the MCP bridge dials for itself and needs only the path.
+func chatSockPath(cmd *cobra.Command, flags *chatFlags) (string, error) {
 	cfg, err := crabswarm.LoadConfig(*flags.config)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if cmd.Flags().Changed("sock") {
 		cfg.Sock = *flags.sock
 	}
-	return chatcli.Dial(cfg.Sock)
+	return cfg.Sock, nil
+}
+
+// dialChat returns a client for the resolved daemon socket. The caller closes
+// it.
+func dialChat(cmd *cobra.Command, flags *chatFlags) (*chatcli.Client, error) {
+	sock, err := chatSockPath(cmd, flags)
+	if err != nil {
+		return nil, err
+	}
+	return chatcli.Dial(sock)
 }
 
 // dialChatAsMember resolves the caller's identity token and dials the daemon,

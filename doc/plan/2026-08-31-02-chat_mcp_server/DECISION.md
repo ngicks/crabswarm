@@ -60,3 +60,23 @@ member forever. Grounded in: "Stop hooks … don't fire on user
 interrupts" (code.claude.com/docs/en/hooks-guide). Rejected: hook-only
 (codex has no idle_prompt equivalent) and gate-only (a 10min heal alone
 is a poor experience when the ~60s hook signal exists).
+
+## D7 — Keep `RoomEvent` name, suppress lint per-RPC [automatic]
+
+`buf lint`'s `RPC_RESPONSE_STANDARD_NAME` wants the `WatchRoom` stream
+element named `WatchRoomResponse`. Kept `RoomEvent` with a per-RPC
+`buf:lint:ignore` comment: the event feed outlives this one RPC (the
+admin TUI subscribes to the same stream), and a comment ignore is
+narrower than an `ignore_only` config entry. Rejected: renaming to
+`WatchRoomResponse` (misnames the type everywhere else it is consumed).
+
+## D8 — Member state exposure: proto field + resource, not tool output [automatic]
+
+The plan wants `chat_members` to show team/name/state, but also requires
+tool results to match the CLI verbs byte-for-byte, and `chatv1.Member`
+carried no state field. Resolution: byte-for-byte wins (it is a success
+criterion), so `chat_members` keeps mirroring `cli.RenderMembers`
+(team/name lines); a `HarnessState state` field is added to
+`chatv1.Member`, filled by the daemon's ListMembers, and the
+`crabswarm://chat/members` resource carries the roster including state.
+Rejected: diverging the tool output from the CLI renderer.

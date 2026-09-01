@@ -138,6 +138,32 @@ func TestService_ListMembersIsRoomScoped(t *testing.T) {
 	assert.Equal(t, res.GetMembers()[1].GetTeam(), "beta")
 }
 
+// The listing carries every member's harness state, so a caller holding the
+// roster knows who can be interrupted without asking about them one at a time.
+func TestService_ListMembersCarriesReportedState(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
+	seedAgent(t, svc, provider, "tok-b", "/work", "alpha", "bob")
+
+	_, err := svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WAITING,
+	})
+	assert.NilError(t, err)
+
+	res, err := svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, len(res.GetMembers()), 2)
+	assert.Equal(t, res.GetMembers()[0].GetName(), "ana")
+	assert.Equal(t, res.GetMembers()[0].GetState(),
+		chatv1.HarnessState_HARNESS_STATE_WAITING)
+	// A member whose harness has reported nothing yet is listed as done, which
+	// is the state the store admits a joiner in: it has taken no turn, so
+	// nothing about it is in the way.
+	assert.Equal(t, res.GetMembers()[1].GetName(), "bob")
+	assert.Equal(t, res.GetMembers()[1].GetState(),
+		chatv1.HarnessState_HARNESS_STATE_DONE)
+}
+
 func TestService_LeaveWithdrawsAttendance(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
