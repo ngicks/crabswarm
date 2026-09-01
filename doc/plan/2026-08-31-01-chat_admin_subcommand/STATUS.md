@@ -1,8 +1,9 @@
 # Status
 
-Current state: implemented (steps 1-5, 7) and reviewed; step 6
-deliberately absent (blocked on plan 05). Run executed unattended via
-/goal — see AD6-AD9. Awaiting user review; HANDOFF.md awaits triage.
+Current state: implemented (all steps) and reviewed. Steps 1-5 and 7
+landed 2026-08-31 unattended via /goal (see AD6-AD9); step 6 followed on
+2026-09-02, once plan 05 had delivered the per-room log it reads.
+Awaiting user review; HANDOFF.md awaits triage.
 
 ## Checklist
 
@@ -16,10 +17,10 @@ deliberately absent (blocked on plan 05). Run executed unattended via
 - [x] Step 4 — cli client `AdminSend` + rendering
 - [x] Step 5 — cobra re-group `chat admin {list,register,move,send}`;
       delete old spellings (AD1); update `chat.go` help text
-- [ ] Step 6 — `admin log` hook point for plan 05 (AD5) — blocked,
-      not stubbed
+- [x] Step 6 — `admin log` verb + `AdminService.History` over plan 05's
+      per-room log (AD5), with a since-id cursor and entry ids (AD10)
 - [x] Step 7 — e2e: admin send attribution, no member row, old
       spellings gone (plus AD9 NoArgs fix)
 
 Next action: user reviews the implementation and the automatic
-decisions (AD6-AD9), then triages HANDOFF.md.
+decisions (AD6-AD10), then triages HANDOFF.md.

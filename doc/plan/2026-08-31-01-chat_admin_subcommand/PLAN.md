@@ -84,7 +84,8 @@ crabswarm chat team move
 
 ```proto
 // api/schema/proto/ngicks/crabswarm/chat/v1/chat_service.proto
-service AdminService {
+// (the proto service is spelled ChatAdminService; AdminService is its Go type)
+service ChatAdminService {
   // existing: GetNonce, ListRooms, MoveMember, RegisterMember
   rpc Send(AdminSendRequest) returns (AdminSendResponse);
   // History reads a named room's log, admin-authenticated. Owned here
@@ -101,14 +102,37 @@ message AdminSendRequest {
 message AdminSendResponse {
   int32 delivered = 1; // recipients reached
 }
+
+message AdminHistoryRequest {
+  string room = 1;
+  int32 limit = 2;    // 0 = the server's own window (50)
+  int64 since_id = 3; // 0 = tail read; >0 = rows after that id, oldest first
+}
+// The member-facing HistoryEntry plus the id a reader pages by (AD10).
+message AdminHistoryEntry {
+  int64 id = 1;
+  Member from = 2;
+  Member to = 3; // unset for a broadcast
+  string text = 4;
+  google.protobuf.Timestamp sent_at = 5;
+}
+message AdminHistoryResponse {
+  repeated AdminHistoryEntry entries = 1;
+}
 ```
 
 ```go
 // crabswarm/chat/admin_rooms.go
 func (a *AdminService) Send(ctx context.Context, req *chatv1.AdminSendRequest) (*chatv1.AdminSendResponse, error)
+func (a *AdminService) History(ctx context.Context, req *chatv1.AdminHistoryRequest) (*chatv1.AdminHistoryResponse, error)
+
+// crabswarm/chat/history.go — the cursor read behind AdminHistoryRequest.since_id
+func (s *Store) HistorySince(ctx context.Context, room string, sinceID int64, limit int) ([]HistoryEntry, error)
 
 // crabswarm/chat/cli (client + rendering)
 func (c *Client) AdminSend(ctx context.Context, w io.Writer, identityPath, room, target, text string) error
+func (c *Client) AdminLog(ctx context.Context, w io.Writer, identityPath, room string, limit int32) error
+func RenderAdminHistory(w io.Writer, entries []*chatv1.AdminHistoryEntry) error
 ```
 
 Durable vocabulary: sender identity of admin messages is the reserved
