@@ -94,7 +94,9 @@ func (a *AdminService) moveMember(
 	if !errors.Is(err, ErrNameTaken) || a.provider == nil {
 		return moved, err
 	}
-	if !reclaimName(ctx, a.store, a.provider, a.logger,
+	// Nothing to forget on a reap: no verdict is cached on this half, which
+	// asks the provider afresh every time it asks at all.
+	if !reclaimName(ctx, a.store, a.provider, a.logger, nil,
 		req.GetRoom(), req.GetToTeam(), req.GetName()) {
 		return moved, err
 	}

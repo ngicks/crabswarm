@@ -163,6 +163,9 @@ func TestService_JoinReclaimLooksPastTheCachedVerdict(t *testing.T) {
 	assert.Equal(t, res.GetSelf().GetName(), "worker-1")
 	_, err = svc.store.Member(t.Context(), "tok-old")
 	assert.ErrorIs(t, err, ErrNotFound)
+	// The verdict the reap overrode is gone with the member it vouched for, the
+	// way the lazy reap leaves one: both paths reap on the same terms.
+	assert.Assert(t, !svc.recentlyVerified("tok-old"))
 }
 
 // A human's token was minted by the daemon, so no provider can vouch for it and

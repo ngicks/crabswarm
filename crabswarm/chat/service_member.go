@@ -89,7 +89,8 @@ func (s *Service) Join(
 	}
 	joined, err := s.store.Join(ctx, joiner)
 	if errors.Is(err, ErrNameTaken) &&
-		reclaimName(ctx, s.store, s.provider, s.logger, info.Room, info.Team, name) {
+		reclaimName(ctx, s.store, s.provider, s.logger, s.forgetVerified,
+			info.Room, info.Team, name) {
 		// Retried once and no further: a name taken again in between is another
 		// joiner that won the race, which is a refusal to report rather than a
 		// reason to keep trying.

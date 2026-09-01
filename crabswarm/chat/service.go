@@ -181,11 +181,10 @@ func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 	if m.Kind != KindAgent || s.recentlyVerified(m.Token) {
 		return true
 	}
-	switch checkLiveness(ctx, s.store, s.provider, s.logger, m) {
+	switch checkLiveness(ctx, s.store, s.provider, s.logger, s.forgetVerified, m) {
 	case memberVouchedFor:
 		s.recordVerified(m.Token)
 	case memberReaped:
-		s.forgetVerified(m.Token)
 		return false
 	}
 	return true
@@ -217,11 +216,16 @@ const (
 // provider has ever heard of it. A lookup that fails without a verdict keeps
 // the member — a missing cmdman binary or a locked cmdman store would otherwise
 // empty every room at once, and a stale member costs far less than that.
+//
+// forget is handed the token of a member that is reaped, so no cached verdict
+// outlives the member it vouched for. It is nil for a caller holding no such
+// cache, which the admin half is.
 func checkLiveness(
 	ctx context.Context,
 	store *Store,
 	provider TeamInfoProvider,
 	logger *slog.Logger,
+	forget func(token string),
 	m Member,
 ) livenessVerdict {
 	if m.Kind != KindAgent {
@@ -250,6 +254,12 @@ func checkLiveness(
 		// otherwise keep a vanished member on their list forever.
 		store.events.publish(m.Room, memberLeftEvent(m))
 	}
+	// The verdict is what the cache holds, so it goes even when the removal
+	// did not: a token this call has judged gone must not be vouched for by
+	// what an earlier call cached about it.
+	if forget != nil {
+		forget(m.Token)
+	}
 	return memberReaped
 }
 
@@ -268,6 +278,7 @@ func reclaimName(
 	store *Store,
 	provider TeamInfoProvider,
 	logger *slog.Logger,
+	forget func(token string),
 	room, team, name string,
 ) bool {
 	holder, err := store.memberNamed(ctx, room, team, name)
@@ -276,7 +287,7 @@ func reclaimName(
 		// and this lookup. Any other failure leaves the refusal standing.
 		return errors.Is(err, ErrNotFound)
 	}
-	return checkLiveness(ctx, store, provider, logger, holder) == memberReaped
+	return checkLiveness(ctx, store, provider, logger, forget, holder) == memberReaped
 }
 
 // mirrorState publishes m's state, logging what the mirror could not do. The
