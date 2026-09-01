@@ -1,7 +1,7 @@
 # The only generate template; both `go generate ./api` and web's `gen` script
 # run it as-is. Plugins are spelled toolchain-relative rather than as bare
 # names so neither entry point needs plugin binaries installed on PATH: the Go
-# ones run through `go run` and are version-pinned by go.mod's tool directives,
+# ones run through `go tool` and are version-pinned by go.mod's tool directives,
 # protoc-gen-es is picked up from web/node_modules and is version-pinned by
 # web/package.json, which means `pnpm install` must have run in web/ before
 # generating.
@@ -12,13 +12,13 @@ managed:
     - file_option: go_package_prefix
       value: github.com/ngicks/crabswarm/api/gen/proto/go
 plugins:
-  - local: ["go", "run", "google.golang.org/protobuf/cmd/protoc-gen-go"]
+  - local: ["go", "tool", "protoc-gen-go"]
     out: gen/proto/go
     opt: paths=source_relative
-  - local: ["go", "run", "google.golang.org/grpc/cmd/protoc-gen-go-grpc"]
+  - local: ["go", "tool", "protoc-gen-go-grpc"]
     out: gen/proto/go
     opt: paths=source_relative
-  - local: ["go", "run", "connectrpc.com/connect/cmd/protoc-gen-connect-go"]
+  - local: ["go", "tool", "protoc-gen-connect-go"]
     out: gen/proto/go
     opt: paths=source_relative
   # TypeScript client types for the web/ frontend (connect-es v2 needs no

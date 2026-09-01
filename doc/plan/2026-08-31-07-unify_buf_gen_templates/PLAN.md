@@ -80,13 +80,13 @@ removed: api/buf.gen.ts.yaml
 ```yaml
 # api/buf.gen.yaml — plugins section becomes
 plugins:
-  - local: ["go", "run", "google.golang.org/protobuf/cmd/protoc-gen-go"]
+  - local: ["go", "tool", "protoc-gen-go"]
     out: gen/proto/go
     opt: paths=source_relative
-  - local: ["go", "run", "google.golang.org/grpc/cmd/protoc-gen-go-grpc"]
+  - local: ["go", "tool", "protoc-gen-go-grpc"]
     out: gen/proto/go
     opt: paths=source_relative
-  - local: ["go", "run", "connectrpc.com/connect/cmd/protoc-gen-connect-go"]
+  - local: ["go", "tool", "protoc-gen-connect-go"]
     out: gen/proto/go
     opt: paths=source_relative
   - local: ../web/node_modules/.bin/protoc-gen-es
