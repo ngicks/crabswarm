@@ -77,6 +77,14 @@ service ChatAdminService {
   // Send delivers a message into a named room, addressed to one member or to
   // the whole room, without the caller attending that room.
   rpc Send(AdminSendRequest) returns (AdminSendResponse);
+  // History returns a named room's conversation, oldest first, without the
+  // caller attending that room. It reads the same shared record the members
+  // read, and consumes nothing.
+  //
+  // Unlike the member-facing counterpart it can be paged forward from a
+  // cursor, and every entry carries the id to advance that cursor with, so a
+  // reader following a live room asks only for what it has not seen.
+  rpc History(AdminHistoryRequest) returns (AdminHistoryResponse);
 }
 
 // HarnessState is the state of the CLI harness a member runs under, as
@@ -320,4 +328,39 @@ message AdminSendRequest {
 message AdminSendResponse {
   // Delivered is how many recipients the message was queued for.
   int32 delivered = 1;
+}
+
+message AdminHistoryRequest {
+  // Room is the room whose conversation to read.
+  string room = 1;
+  // Limit caps how many entries come back. Zero means the server's own window.
+  int32 limit = 2;
+  // SinceId pages the conversation forward: entries newer than that id come
+  // back, oldest first, and Limit caps how many of them. Zero reads the tail
+  // instead, counting Limit back from the newest, which is where a reader with
+  // no cursor yet starts.
+  int64 since_id = 3;
+}
+
+// AdminHistoryEntry is one utterance of a room's conversation, as it was said.
+// It is the member-facing HistoryEntry plus the id a reader pages by.
+message AdminHistoryEntry {
+  // Id orders the entry within its room and is what the next request sends as
+  // SinceId. Ids grow, but not by one per entry of the room: every room shares
+  // one log, so the ids in between went to what was said elsewhere.
+  int64 id = 1;
+  // From is who said it, as resolved at send time.
+  Member from = 2;
+  // To is the member a directed send was addressed to. Unset for a broadcast,
+  // which addressed the room rather than anyone in it.
+  Member to = 3;
+  // Text is the message body.
+  string text = 4;
+  // SentAt is when the daemon accepted the message.
+  google.protobuf.Timestamp sent_at = 5;
+}
+
+message AdminHistoryResponse {
+  // Entries are the requested slice of the room's conversation, oldest first.
+  repeated AdminHistoryEntry entries = 1;
 }

@@ -35,7 +35,7 @@ func runChatCmd(t *testing.T, args ...string) (stdout, stderr string, err error)
 }
 
 // The chat tree is wired: every member verb, and the admin group with its own
-// four children.
+// five children.
 func TestChatCmd_Subcommands(t *testing.T) {
 	root := rootCmd()
 	chat, _, err := root.Find([]string{"chat"})
@@ -60,7 +60,7 @@ func TestChatCmd_Subcommands(t *testing.T) {
 	for _, c := range admin.Commands() {
 		adminNames[c.Name()] = true
 	}
-	for _, want := range []string{"list", "register", "move", "send"} {
+	for _, want := range []string{"list", "register", "move", "send", "log"} {
 		assert.Assert(t, adminNames[want], "chat admin has no %q subcommand", want)
 	}
 }
@@ -112,6 +112,7 @@ func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
 		{"admin", "move", "/work", "backend/alice", "frontend"},
 		{"admin", "register", "/work", "humans", "yuki"},
 		{"admin", "send", "/work", "backend/alice", "hello"},
+		{"admin", "log", "/work"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			chatHermeticEnv(t)
@@ -147,6 +148,8 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		{"history takes no arguments", []string{"history", "extra"}},
 		{"admin move needs three arguments", []string{"admin", "move", "/work", "backend/alice"}},
 		{"admin send needs three arguments", []string{"admin", "send", "/work", "backend/alice"}},
+		{"admin log needs a room", []string{"admin", "log"}},
+		{"admin log takes no second argument", []string{"admin", "log", "/work", "extra"}},
 		{"report-state needs a state", []string{"report-state"}},
 		// An unknown state is rejected by the command itself, so a typo never
 		// reaches the daemon as a report.

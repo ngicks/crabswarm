@@ -63,6 +63,12 @@ autonomously and tagging them [automatic]. The `History` RPC is NOT
 added to the proto in this run (step 6 skipped, blocked on the per-room
 message-history plan); only `Send` lands.
 
+Amendment: step 6 followed on 2026-09-02, once the per-room
+message-history plan had delivered the log it reads.
+`ChatAdminService.History`, its messages, and the `admin log` verb are
+in the tree, carrying the since-id cursor and the entry ids AD10
+settles.
+
 ## AD7: buf lint standard-name exemption for admin Send messages [automatic]
 
 buf's STANDARD lint demands `SendRequest`/`ChatAdminServiceSendRequest`
@@ -94,3 +100,21 @@ Amendment: `Args: cobra.NoArgs` alone is a no-op on a non-runnable
 parent (cobra returns help before ValidateArgs); the chat and chat
 admin parents therefore also gained a help-printing RunE, the same
 pattern the root command uses.
+
+## AD10 — admin history carries a since-id cursor and row ids (automatic decision)
+
+Chosen: `AdminHistoryRequest` takes `since_id` alongside `room` and
+`limit` (0 = tail read like the member RPC; >0 = rows after that id,
+oldest first, capped by `limit`), and every `AdminHistoryEntry` carries
+its row `id`. Store-side that is `Store.HistorySince(ctx, room,
+sinceID, limit)` over an ascending room-log query, with the ids now
+selected by the tail read too so a reader can bootstrap its cursor from
+the first read.
+Rationale: the admin TUI (2026-08-31-06-admin_tui, boundary ledger
+"Room-log read RPC (cursor/since paging)") tails a room by polling; a
+cursor-less window would make it re-read and diff, and adding the
+cursor later would be a second revision of an RPC that has just landed.
+The member-facing `History` RPC deliberately stays cursor-less: members
+read a bounded recent window and nothing members-facing pages yet.
+Rejected: adding the cursor to the member RPC too — it widens the
+member surface with no consumer.

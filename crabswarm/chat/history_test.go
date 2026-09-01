@@ -135,6 +135,61 @@ func TestStore_HistoryWindowTakesTheNewest(t *testing.T) {
 	assert.Equal(t, entries[1].Text, "line 4")
 }
 
+// Reading forward from a cursor is how a reader that follows a room asks for
+// what it has not seen: it keeps the id of the last entry it read and steps by
+// it, instead of taking a window it would have to diff against the last one.
+func TestStore_HistorySinceReadsForward(t *testing.T) {
+	s, _ := newTestStoreWithHistory(t, 3)
+	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
+	join(t, s, "tok-far", "/work/elsewhere", "alpha", "stranger")
+
+	for i := range 5 {
+		_, err := s.Broadcast(t.Context(), "tok-a",
+			fmt.Sprintf("line %d", i), sentAt.Add(time.Duration(i)*time.Minute), true)
+		assert.NilError(t, err)
+	}
+	// Said last, so it holds the newest id of the table — and still belongs to
+	// another room's conversation.
+	_, err := s.Broadcast(t.Context(), "tok-far", "elsewhere", sentAt, true)
+	assert.NilError(t, err)
+
+	kept, err := s.History(t.Context(), "/work/repo", 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(kept), 3)
+
+	// No cursor precedes every entry, so it reads as the whole retained
+	// conversation.
+	all, err := s.HistorySince(t.Context(), "/work/repo", 0, 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(all), 3)
+	assert.Equal(t, all[0].Text, "line 2")
+	assert.Equal(t, all[0].ID, kept[0].ID)
+
+	// A cursor hands back what follows it, oldest first, out of this room only.
+	after, err := s.HistorySince(t.Context(), "/work/repo", kept[0].ID, 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(after), 2)
+	assert.Equal(t, after[0].Text, "line 3")
+	assert.Equal(t, after[1].Text, "line 4")
+
+	// The limit caps a step the way it caps a tail read.
+	step, err := s.HistorySince(t.Context(), "/work/repo", kept[0].ID, 1)
+	assert.NilError(t, err)
+	assert.Equal(t, len(step), 1)
+	assert.Equal(t, step[0].Text, "line 3")
+
+	// A reader that was away longer than the cap resumes at what is left rather
+	// than being told it missed something: the entry it last saw is pruned.
+	resumed, err := s.HistorySince(t.Context(), "/work/repo", kept[0].ID-2, 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(resumed), 3)
+
+	// A reader that is up to date is handed nothing.
+	caughtUp, err := s.HistorySince(t.Context(), "/work/repo", kept[2].ID, 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(caughtUp), 0)
+}
+
 func TestStore_HistoryPrunesToTheCap(t *testing.T) {
 	s, _ := newTestStoreWithHistory(t, 3)
 	join(t, s, "tok-a", "/work/repo", "alpha", "alice")
@@ -195,6 +250,12 @@ func TestStore_HistoryDisabledHandsBackNothingItKept(t *testing.T) {
 	entries, err := off.History(t.Context(), "/work/repo", 0)
 	assert.NilError(t, err)
 	assert.Equal(t, len(entries), 0)
+
+	// The cursor read falls back to the same cap, so following the room hands
+	// back nothing either rather than walking the whole table.
+	since, err := off.HistorySince(t.Context(), "/work/repo", 0, 0)
+	assert.NilError(t, err)
+	assert.Equal(t, len(since), 0)
 }
 
 // The cap defaults rather than pruning everything away: an unconfigured store

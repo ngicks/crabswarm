@@ -127,6 +127,39 @@ func TestRenderHistory_Empty(t *testing.T) {
 	assert.Equal(t, got, "no messages yet\n")
 }
 
+// The admin reads the transcript the members read: the same lines, down to the
+// wording of a silent room. The entry ids the admin read also carries are a
+// cursor for a program that follows the room, not part of what was said, so no
+// line mentions them.
+func TestRenderAdminHistory(t *testing.T) {
+	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
+	entries := []*chatv1.AdminHistoryEntry{
+		{
+			Id:     41,
+			From:   member("admin", "admin", "/work"),
+			To:     member("frontend", "bob", "/work"),
+			Text:   "deploy is frozen",
+			SentAt: timestamppb.New(sent),
+		},
+		{
+			Id:     42,
+			From:   member("frontend", "bob", "/work"),
+			Text:   "standup in 5",
+			SentAt: timestamppb.New(sent.Add(time.Minute)),
+		},
+		{Id: 43, From: member("backend", "alice", "/work"), Text: "when?"},
+	}
+
+	got := render(t, func(b *strings.Builder) error { return RenderAdminHistory(b, entries) })
+	assert.Equal(t, got,
+		"[2026-08-27T09:30:00Z] admin/admin → frontend/bob: deploy is frozen\n"+
+			"[2026-08-27T09:31:00Z] frontend/bob → *: standup in 5\n"+
+			"[unknown time] backend/alice → *: when?\n")
+
+	got = render(t, func(b *strings.Builder) error { return RenderAdminHistory(b, nil) })
+	assert.Equal(t, got, "no messages yet\n")
+}
+
 func TestRenderMembers(t *testing.T) {
 	members := []*chatv1.Member{
 		member("backend", "alice", "/work"),

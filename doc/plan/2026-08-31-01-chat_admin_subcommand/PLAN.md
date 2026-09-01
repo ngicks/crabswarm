@@ -19,9 +19,10 @@ its history without ever being a member.
 
 - CLI tree under `cmd/crabswarm/commands/` and presentation in
   `crabswarm/chat/cli/`.
-- `AdminService` (proto + `crabswarm/chat/admin_rooms.go`): one new
-  `Send` RPC. `Log`/history read is surfaced here but its storage and
-  RPC are owned by sibling plan `2026-08-31-05-per_room_message_history`.
+- `AdminService` (proto + `crabswarm/chat/admin_rooms.go`): two new
+  RPCs, `Send` and `History`. The `Log` verb and its `History` RPC are
+  owned here; the per-room log they read over is owned by sibling plan
+  `2026-08-31-05-per_room_message_history`.
 
 ## Non-goals
 
@@ -74,7 +75,7 @@ crabswarm chat admin list                              # was: chat team list
 crabswarm chat admin register ROOM TEAM NAME           # was: chat register --room --team --name
 crabswarm chat admin move ROOM TEAM/NAME TO_TEAM       # was: chat team move
 crabswarm chat admin send ROOM TARGET TEXT             # new; TARGET: team/name | name | '*' (bare team deferred, see AD8)
-crabswarm chat admin log ROOM [--limit N]              # new; delivered by plan 05's storage
+crabswarm chat admin log ROOM [--limit N]              # new; reads plan 05's per-room log
 
 # removed
 crabswarm chat register
@@ -84,7 +85,8 @@ crabswarm chat team move
 
 ```proto
 // api/schema/proto/ngicks/crabswarm/chat/v1/chat_service.proto
-service AdminService {
+// (the proto service is spelled ChatAdminService; AdminService is its Go type)
+service ChatAdminService {
   // existing: GetNonce, ListRooms, MoveMember, RegisterMember
   rpc Send(AdminSendRequest) returns (AdminSendResponse);
   // History reads a named room's log, admin-authenticated. Owned here
@@ -101,14 +103,37 @@ message AdminSendRequest {
 message AdminSendResponse {
   int32 delivered = 1; // recipients reached
 }
+
+message AdminHistoryRequest {
+  string room = 1;
+  int32 limit = 2;    // 0 = the server's own window (50)
+  int64 since_id = 3; // 0 = tail read; >0 = rows after that id, oldest first
+}
+// The member-facing HistoryEntry plus the id a reader pages by (AD10).
+message AdminHistoryEntry {
+  int64 id = 1;
+  Member from = 2;
+  Member to = 3; // unset for a broadcast
+  string text = 4;
+  google.protobuf.Timestamp sent_at = 5;
+}
+message AdminHistoryResponse {
+  repeated AdminHistoryEntry entries = 1;
+}
 ```
 
 ```go
 // crabswarm/chat/admin_rooms.go
 func (a *AdminService) Send(ctx context.Context, req *chatv1.AdminSendRequest) (*chatv1.AdminSendResponse, error)
+func (a *AdminService) History(ctx context.Context, req *chatv1.AdminHistoryRequest) (*chatv1.AdminHistoryResponse, error)
+
+// crabswarm/chat/history.go — the cursor read behind AdminHistoryRequest.since_id
+func (s *Store) HistorySince(ctx context.Context, room string, sinceID int64, limit int) ([]HistoryEntry, error)
 
 // crabswarm/chat/cli (client + rendering)
 func (c *Client) AdminSend(ctx context.Context, w io.Writer, identityPath, room, target, text string) error
+func (c *Client) AdminLog(ctx context.Context, w io.Writer, identityPath, room string, limit int32) error
+func RenderAdminHistory(w io.Writer, entries []*chatv1.AdminHistoryEntry) error
 ```
 
 Durable vocabulary: sender identity of admin messages is the reserved
@@ -135,8 +160,10 @@ stays unambiguous.
    `chat_team*.go`; update `chat.go`'s long help text (its admin-verbs
    paragraph names register/team).
 6. **`admin log`**: implement `AdminService.History` (room-keyed, over
-   plan 05's `Store.History(ctx, room, limit)`) and register the verb —
-   blocked on plan 05 step 3; no stub before that.
+   plan 05's `Store.History(ctx, room, limit)` for the tail read and
+   `Store.HistorySince(ctx, room, sinceID, limit)` for the cursor read
+   this plan adds beside it) and register the verb — was blocked on
+   plan 05 step 3 with no stub before that; delivered 2026-09-02.
 7. **e2e**: extend `e2e/crabswarm/chat_test.go` — admin send reaches a
    member inbox with `admin` attribution and no new member row; removed
    spellings return unknown-command.
@@ -148,7 +175,7 @@ stays unambiguous.
 | `chat admin` group, list/register/move/send verbs | this plan |
 | Reserved `admin` sender identity + name rejection | this plan, step 3 |
 | Room history storage + `Store.History` room-keyed read | plan 2026-08-31-05-per_room_message_history |
-| `chat admin log` verb + `AdminService.History` RPC | this plan, step 6 (blocked on plan 05 step 3) |
+| `chat admin log` verb + `AdminService.History` RPC | this plan, step 6 (delivered 2026-09-02) |
 | Live watch / TUI over rooms | plan 2026-08-31-06-admin_tui |
 | MCP exposure of admin state/resources | plan 2026-08-31-02-chat_mcp_server |
 

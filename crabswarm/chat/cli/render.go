@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
@@ -97,14 +99,37 @@ func RenderMessages(w io.Writer, messages []*chatv1.Message) error {
 // transcript names a target the reader can type back.
 const broadcastTarget = "*"
 
-// RenderHistory prints a room's conversation, oldest first, one line each: the
-// instant, the team-qualified speaker, who it was said to, then the text. A
+// RenderHistory prints the room's conversation as the member verbs read it.
+func RenderHistory(w io.Writer, entries []*chatv1.HistoryEntry) error {
+	return renderTranscript(w, entries)
+}
+
+// RenderAdminHistory prints a room's conversation as the admin verbs read it,
+// which is the same transcript spelled the same way: an operator comparing what
+// a room shows its members with what it shows the host should be reading one
+// text, not two. The entry ids the admin read also carries are left out — they
+// are a cursor for a program that follows the room, not part of what was said.
+func RenderAdminHistory(w io.Writer, entries []*chatv1.AdminHistoryEntry) error {
+	return renderTranscript(w, entries)
+}
+
+// transcriptEntry is what rendering one logged utterance needs, and all the
+// member-facing and admin-facing entries have in common.
+type transcriptEntry interface {
+	GetFrom() *chatv1.Member
+	GetTo() *chatv1.Member
+	GetText() string
+	GetSentAt() *timestamppb.Timestamp
+}
+
+// renderTranscript prints a room's conversation, oldest first, one line each:
+// the instant, the team-qualified speaker, who it was said to, then the text. A
 // broadcast is addressed to [broadcastTarget] rather than to a member.
 //
 // A room nobody has spoken in says so, the way an empty inbox does: the
 // transcript is a read, and a read that printed nothing at all would be
 // indistinguishable from a command that never ran.
-func RenderHistory(w io.Writer, entries []*chatv1.HistoryEntry) error {
+func renderTranscript[E transcriptEntry](w io.Writer, entries []E) error {
 	if len(entries) == 0 {
 		_, err := fmt.Fprintln(w, "no messages yet")
 		return err

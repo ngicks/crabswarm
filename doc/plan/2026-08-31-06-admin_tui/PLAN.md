@@ -127,7 +127,7 @@ must be reconciled when the family is reviewed together.
 | `chat admin` verb grouping | 2026-08-31-01-chat_admin_subcommand |
 | Admin send verb + RPC (admin-labelled sender) | 2026-08-31-01-chat_admin_subcommand |
 | Per-room history table + retention | 2026-08-31-05-per_room_message_history |
-| Room-log read RPC (cursor/since paging) | 2026-08-31-05-per_room_message_history |
+| Room-log read RPC (cursor/since paging) | 2026-08-31-01-chat_admin_subcommand (delivered: `ChatAdminService.History`, `since_id`) |
 | Member roster + state listing | exists (`crabswarm/chat/admin_rooms.go`) |
 | TUI screen (viewport/roster/input/status) | this plan, steps 2–4 |
 | `chat admin tui` command wiring | this plan, step 5 |

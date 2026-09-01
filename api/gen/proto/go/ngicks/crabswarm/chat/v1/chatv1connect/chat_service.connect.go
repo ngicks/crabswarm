@@ -67,6 +67,9 @@ const (
 	ChatAdminServiceRegisterMemberProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/RegisterMember"
 	// ChatAdminServiceSendProcedure is the fully-qualified name of the ChatAdminService's Send RPC.
 	ChatAdminServiceSendProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/Send"
+	// ChatAdminServiceHistoryProcedure is the fully-qualified name of the ChatAdminService's History
+	// RPC.
+	ChatAdminServiceHistoryProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/History"
 )
 
 // ChatServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatService service.
@@ -408,6 +411,14 @@ type ChatAdminServiceClient interface {
 	// Send delivers a message into a named room, addressed to one member or to
 	// the whole room, without the caller attending that room.
 	Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error)
+	// History returns a named room's conversation, oldest first, without the
+	// caller attending that room. It reads the same shared record the members
+	// read, and consumes nothing.
+	//
+	// Unlike the member-facing counterpart it can be paged forward from a
+	// cursor, and every entry carries the id to advance that cursor with, so a
+	// reader following a live room asks only for what it has not seen.
+	History(context.Context, *connect.Request[v1.AdminHistoryRequest]) (*connect.Response[v1.AdminHistoryResponse], error)
 }
 
 // NewChatAdminServiceClient constructs a client for the ngicks.crabswarm.chat.v1.ChatAdminService
@@ -451,6 +462,12 @@ func NewChatAdminServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(chatAdminServiceMethods.ByName("Send")),
 			connect.WithClientOptions(opts...),
 		),
+		history: connect.NewClient[v1.AdminHistoryRequest, v1.AdminHistoryResponse](
+			httpClient,
+			baseURL+ChatAdminServiceHistoryProcedure,
+			connect.WithSchema(chatAdminServiceMethods.ByName("History")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -461,6 +478,7 @@ type chatAdminServiceClient struct {
 	moveMember     *connect.Client[v1.MoveMemberRequest, v1.MoveMemberResponse]
 	registerMember *connect.Client[v1.RegisterMemberRequest, v1.RegisterMemberResponse]
 	send           *connect.Client[v1.AdminSendRequest, v1.AdminSendResponse]
+	history        *connect.Client[v1.AdminHistoryRequest, v1.AdminHistoryResponse]
 }
 
 // GetNonce calls ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce.
@@ -488,6 +506,11 @@ func (c *chatAdminServiceClient) Send(ctx context.Context, req *connect.Request[
 	return c.send.CallUnary(ctx, req)
 }
 
+// History calls ngicks.crabswarm.chat.v1.ChatAdminService.History.
+func (c *chatAdminServiceClient) History(ctx context.Context, req *connect.Request[v1.AdminHistoryRequest]) (*connect.Response[v1.AdminHistoryResponse], error) {
+	return c.history.CallUnary(ctx, req)
+}
+
 // ChatAdminServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatAdminService
 // service.
 type ChatAdminServiceHandler interface {
@@ -504,6 +527,14 @@ type ChatAdminServiceHandler interface {
 	// Send delivers a message into a named room, addressed to one member or to
 	// the whole room, without the caller attending that room.
 	Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error)
+	// History returns a named room's conversation, oldest first, without the
+	// caller attending that room. It reads the same shared record the members
+	// read, and consumes nothing.
+	//
+	// Unlike the member-facing counterpart it can be paged forward from a
+	// cursor, and every entry carries the id to advance that cursor with, so a
+	// reader following a live room asks only for what it has not seen.
+	History(context.Context, *connect.Request[v1.AdminHistoryRequest]) (*connect.Response[v1.AdminHistoryResponse], error)
 }
 
 // NewChatAdminServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -543,6 +574,12 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 		connect.WithSchema(chatAdminServiceMethods.ByName("Send")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatAdminServiceHistoryHandler := connect.NewUnaryHandler(
+		ChatAdminServiceHistoryProcedure,
+		svc.History,
+		connect.WithSchema(chatAdminServiceMethods.ByName("History")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ngicks.crabswarm.chat.v1.ChatAdminService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChatAdminServiceGetNonceProcedure:
@@ -555,6 +592,8 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 			chatAdminServiceRegisterMemberHandler.ServeHTTP(w, r)
 		case ChatAdminServiceSendProcedure:
 			chatAdminServiceSendHandler.ServeHTTP(w, r)
+		case ChatAdminServiceHistoryProcedure:
+			chatAdminServiceHistoryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -582,4 +621,8 @@ func (UnimplementedChatAdminServiceHandler) RegisterMember(context.Context, *con
 
 func (UnimplementedChatAdminServiceHandler) Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.Send is not implemented"))
+}
+
+func (UnimplementedChatAdminServiceHandler) History(context.Context, *connect.Request[v1.AdminHistoryRequest]) (*connect.Response[v1.AdminHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.History is not implemented"))
 }
