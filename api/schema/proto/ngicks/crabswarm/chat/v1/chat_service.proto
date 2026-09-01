@@ -147,6 +147,10 @@ message JoinRequest {
   // Reserved for self-reported native notify endpoints, which arrive with the
   // native notifier adapters.
   reserved 2, 3;
+  // Agent declares the caller is an agent harness whose terminal may be
+  // nudged by keystroke injection while idle. Without it the member is
+  // inbox-only and is never typed at.
+  bool agent = 4;
 }
 
 message JoinResponse {
