@@ -368,3 +368,36 @@ Follow-up: pin whichever of these bite first.
 (e.g. `agent_needs_input`, `agent_completed`).
 
 Follow-up: sync the list or reword to avoid enumerating.
+
+# A flagless chat member cannot upgrade to agent on the same token (2026-09-02)
+
+`Store.Join` is first-join-wins for the member kind: a member that
+joined without `--agent` stays `KindHuman` (inbox-only) until it leaves
+and re-joins. Harmless for the MCP bridge (it always declares agent on
+its first join), but a person who joins by hand and then starts a
+harness on the same token stays inbox-only, with no verb to flip the
+kind in place. Documented in `Service.Join`'s doc comment and pinned by
+the join-idempotency tests.
+
+Follow-up: decide whether a re-join (or an admin verb) may upgrade the
+kind before this bites a real workflow.
+
+# Flagless chat members are never reaped and hold their names forever (2026-09-02)
+
+`checkLiveness` (`crabswarm/chat/service.go`) is deliberately
+agent-only, so a `KindHuman` member is never reaped even when the
+provider forgets its token — it drops out of the cmdman status display
+but holds its name against colliding joiners indefinitely. Intended for
+admin-registered humans; an explicit `chat leave` is the current answer.
+
+Follow-up: revisit if plain-shell membership becomes common.
+
+# Unnamed flagless joiners land in the roster as agent-<token8> (2026-09-02)
+
+`defaultName` (`crabswarm/chat/service.go`) always derives
+`agent-<first 8 of token>` for an unnamed joiner, so a member that
+declared it is not an agent still carries an `agent-` name. Cosmetic,
+but the name lies about the kind. Changing it touches the e2e pin of
+`alpha/agent-tok-bare` in `e2e/crabswarm/chat_test.go`.
+
+Follow-up: derive a kind-neutral default (or a kind-matched prefix).
