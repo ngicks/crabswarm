@@ -589,6 +589,36 @@ func TestAdminService_HistoryPagesFromACursor(t *testing.T) {
 	assert.Equal(t, fresh[0].GetText(), "line 3")
 }
 
+// A window wider than the room is allowed to keep is answered with what the cap
+// allows, not refused: the operator asking for a screenful of a room that keeps
+// one line gets the one line.
+func TestAdminService_HistoryClampsToTheRetentionCap(t *testing.T) {
+	store, path := newTestStoreWithHistory(t, 0)
+	join(t, store, "tok-a", "/work", "alpha", "ana")
+	for i := range 3 {
+		_, err := store.Broadcast(t.Context(), "tok-a",
+			fmt.Sprintf("line %d", i), sentAt.Add(time.Duration(i)*time.Minute), true)
+		assert.NilError(t, err)
+	}
+	assert.NilError(t, store.Close())
+
+	// Pruning happens on insert, so a run under a tighter cap starts out holding
+	// more than the cap: three lines recorded, one of them keepable.
+	tight, err := NewStore(t.Context(), path, 1)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = tight.Close() })
+	assert.Equal(t, countRows(t, tight, `SELECT COUNT(*) FROM room_log`), 3)
+
+	svc, id, _ := newTestAdminServiceOn(t, tight,
+		&fakeProvider{infos: map[string]resolver.TeamInfo{}})
+	res, err := svc.History(adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.AdminHistoryRequest{Room: "/work"})
+	assert.NilError(t, err)
+	entries := res.GetEntries()
+	assert.Equal(t, len(entries), 1)
+	assert.Equal(t, entries[0].GetText(), "line 2")
+}
+
 // TestAdminService_RegisteredMemberChatsAsHuman is the point of RegisterMember:
 // the printed token is a working ChatService identity even though no team-info
 // provider has ever heard of it.

@@ -60,9 +60,21 @@ func newTestAdminServiceOver(
 	provider TeamInfoProvider,
 ) (*AdminService, *age.X25519Identity, *fakeNotifier) {
 	t.Helper()
+	store, _ := newTestStore(t)
+	return newTestAdminServiceOn(t, store, provider)
+}
+
+// newTestAdminServiceOn is [newTestAdminServiceOver] over a store the caller
+// opened, for the cases that pick the conversation cap or hand the service a
+// database an earlier run recorded into.
+func newTestAdminServiceOn(
+	t *testing.T,
+	store *Store,
+	provider TeamInfoProvider,
+) (*AdminService, *age.X25519Identity, *fakeNotifier) {
+	t.Helper()
 	id, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
-	store, _ := newTestStore(t)
 	ageAuth, err := auth.NewAgeNonce(id.Recipient().String())
 	assert.NilError(t, err)
 	notifier := &fakeNotifier{}
@@ -192,6 +204,11 @@ func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 
 	_, err = svc.Send(adminCtx(t, "anything"), &chatv1.AdminSendRequest{
 		Room: "/work", Target: "alpha/ana", Text: "hi",
+	})
+	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
+
+	_, err = svc.History(adminCtx(t, "anything"), &chatv1.AdminHistoryRequest{
+		Room: "/work",
 	})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 }
