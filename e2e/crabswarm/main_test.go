@@ -282,6 +282,29 @@ func TestHookExec_OutputTemplateMixedStaysJSON(t *testing.T) {
 	}
 }
 
+// An output template that records nothing is a plain allow: nothing on
+// stdout, exit 0. The command is a failing one on purpose — this is the
+// fire-and-forget idiom the shipped chat hooks use, where the template's job
+// is to keep a failed report from blocking the turn the built-in behavior
+// would have blocked.
+func TestHookExec_OutputTemplateRecordingNothingIsPlainAllow(t *testing.T) {
+	res := runHookExec(t.Context(), t, postToolUseEnvelope,
+		"false",
+		`{{/* records nothing, so a failed command never blocks */}}`,
+	)
+
+	if res.exitCode != 0 {
+		t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
+			res.exitCode, res.stdout, res.stderr)
+	}
+	if res.stdout != "" {
+		t.Errorf("stdout = %q, want empty: a plain allow emits no hook output", res.stdout)
+	}
+	if res.stderr != "" {
+		t.Errorf("stderr = %q, want empty", res.stderr)
+	}
+}
+
 // An event-scoped function called for the wrong event is a misconfiguration,
 // not a hook decision: the render fails and the CLI exits 1 with the mismatch
 // reported on stderr.
