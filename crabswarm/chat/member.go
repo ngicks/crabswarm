@@ -84,6 +84,14 @@ func (s *Store) Member(ctx context.Context, token string) (Member, error) {
 	return memberByToken(ctx, s.q, token)
 }
 
+// memberNamed returns the member of team in room carrying name, or
+// [ErrNotFound]. It stays unexported because its only caller is the collision
+// handling of this package's services: a name is addressed by whoever already
+// knows where it lives, and nothing outside needs to look one up that way.
+func (s *Store) memberNamed(ctx context.Context, room, team, name string) (Member, error) {
+	return memberByName(ctx, s.q, room, team, name)
+}
+
 // SetState records the harness state token last reported, as of reportedAt.
 // Reading both back is [Store.Member].
 func (s *Store) SetState(
