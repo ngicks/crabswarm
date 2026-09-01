@@ -251,7 +251,7 @@ func execChat(
 
 // execChatTokenEnv is execChat with the identity carried in the environment
 // instead of on the command line — how a registered human's shell holds the
-// token `chat register` printed.
+// token `chat admin register` printed.
 func execChatTokenEnv(
 	t *testing.T,
 	cfgPath, token string,
@@ -302,8 +302,8 @@ func newChatIdentityFile(t *testing.T) (path, recipient string) {
 // printed, which is the only time the daemon reveals it.
 func registerChatHuman(t *testing.T, cfgPath, identity, room, team, name string) string {
 	t.Helper()
-	out := runChat(t, cfgPath, "", "register",
-		"--room", room, "--team", team, "--name", name, "--identity", identity)
+	out := runChat(t, cfgPath, "", "admin", "register",
+		room, team, name, "--identity", identity)
 	want := fmt.Sprintf("registered %s/%s in room %s", team, name, room)
 	if !strings.Contains(out, want) {
 		t.Errorf("register = %q, want it to report %q", out, want)
@@ -677,7 +677,7 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 	}
 
 	// The human writes with the token in the environment, the way a shell that
-	// ran `chat register` holds it.
+	// ran `chat admin register` holds it.
 	stdout, stderr, err := execChatTokenEnv(t, cfg, token, "send", "ana", "from the host")
 	if err != nil {
 		t.Fatalf("send with $%s: %v\nstderr:\n%s", chatTokenEnvVar, err, stderr)
@@ -717,40 +717,40 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 // encrypts its challenge to, proven per call: the right file reads the whole
 // topology, another key reads nothing, and no file at all is refused before the
 // daemon is even dialed.
-func TestChat_AdminIdentityGatesTeamList(t *testing.T) {
+func TestChat_AdminIdentityGatesRoomList(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
 	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
 
-	got := runChat(t, cfg, "", "team", "list", "--identity", identity)
+	got := runChat(t, cfg, "", "admin", "list", "--identity", identity)
 	for _, want := range []string{"room: " + chatRoom, "team: alpha", "ana", "team: beta", "cid"} {
 		if !strings.Contains(got, want) {
-			t.Errorf("team list missing %q; got:\n%s", want, got)
+			t.Errorf("admin list missing %q; got:\n%s", want, got)
 		}
 	}
 
 	// A challenge is spent by the call that answers it, so the second listing
 	// runs a whole round of its own rather than reusing the first one's nonce.
-	if second := runChat(t, cfg, "", "team", "list", "--identity", identity); second != got {
-		t.Errorf("second team list = %q, want the same listing as the first %q", second, got)
+	if second := runChat(t, cfg, "", "admin", "list", "--identity", identity); second != got {
+		t.Errorf("second admin list = %q, want the same listing as the first %q", second, got)
 	}
 
 	// Another key cannot read the challenge, so it cannot answer it.
 	other, _ := newChatIdentityFile(t)
-	_, stderr, err := execChat(t, cfg, "", "team", "list", "--identity", other)
+	_, stderr, err := execChat(t, cfg, "", "admin", "list", "--identity", other)
 	if err == nil {
-		t.Fatal("team list with the wrong identity succeeded, want a failure")
+		t.Fatal("admin list with the wrong identity succeeded, want a failure")
 	}
 	if !strings.Contains(stderr, "decrypting the admin challenge") {
 		t.Errorf("stderr = %q, want it to name the failed decryption", stderr)
 	}
 
 	// With no identity configured or passed, the CLI says which one it wants.
-	_, stderr, err = execChat(t, cfg, "", "team", "list")
+	_, stderr, err = execChat(t, cfg, "", "admin", "list")
 	if err == nil {
-		t.Fatal("team list without an identity succeeded, want a failure")
+		t.Fatal("admin list without an identity succeeded, want a failure")
 	}
 	if !strings.Contains(stderr, "no admin age identity file") {
 		t.Errorf("stderr = %q, want it to ask for an identity file", stderr)
@@ -767,10 +767,10 @@ func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
 	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
 	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
 
-	got := runChat(t, cfg, "", "team", "move", chatRoom, "alpha/ana", "beta",
+	got := runChat(t, cfg, "", "admin", "move", chatRoom, "alpha/ana", "beta",
 		"--identity", identity)
 	if want := "moved beta/ana in room " + chatRoom + "\n"; got != want {
-		t.Errorf("team move = %q, want %q", got, want)
+		t.Errorf("admin move = %q, want %q", got, want)
 	}
 
 	members := lines(runChat(t, cfg, "tok-cid", "members"))
@@ -796,6 +796,101 @@ func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "member not found") {
 		t.Errorf("stderr = %q, want an unresolved address", stderr)
+	}
+}
+
+// The host speaks into a room it does not attend: the message lands in the
+// addressed inbox under the reserved "admin" identity, "*" reaches everyone
+// there, and none of it leaves a member behind for the room to talk back to.
+func TestChat_AdminSendsWithoutAttending(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+
+	// A named target is addressed the way `chat send` addresses one, and the
+	// count is echoed back so "*" and a name read alike.
+	got := runChat(t, cfg, "", "admin", "send", chatRoom, "alpha/ana",
+		"deploy is frozen", "--identity", identity)
+	if want := "sent to alpha/ana in room " + chatRoom + ": delivered to 1 member\n"; got != want {
+		t.Errorf("admin send = %q, want %q", got, want)
+	}
+
+	// The message names the host rather than a peer: the sender's team repeats
+	// the reserved name, so it renders as an address that no member could hold.
+	got = runChat(t, cfg, "tok-ana", "read")
+	if !strings.Contains(got, "admin/admin: deploy is frozen") {
+		t.Errorf("read = %q, want it attributed to the reserved admin identity", got)
+	}
+	if got := runChat(t, cfg, "tok-bob", "read"); got != "no pending messages\n" {
+		t.Errorf("bystander read = %q, want nothing: ana was addressed, not bob", got)
+	}
+
+	// Speaking into the room did not join it, under any spelling of the name.
+	members := lines(runChat(t, cfg, "tok-bob", "members"))
+	slices.Sort(members)
+	if want := []string{"alpha/ana", "alpha/bob", "beta/cid"}; !slices.Equal(members, want) {
+		t.Errorf("members after the admin send = %v, want %v", members, want)
+	}
+	for _, m := range members {
+		if strings.Contains(m, "admin") {
+			t.Errorf("members = %v, want no member row for the admin sender", members)
+		}
+	}
+
+	// "*" is the whole room, across teams — the admin attends none of it, so
+	// there is no sender to leave out the way a member broadcast leaves itself.
+	got = runChat(t, cfg, "", "admin", "send", chatRoom, "*",
+		"standup in five", "--identity", identity)
+	if want := "sent to * in room " + chatRoom + ": delivered to 3 members\n"; got != want {
+		t.Errorf("admin send to * = %q, want %q", got, want)
+	}
+	for _, token := range []string{"tok-ana", "tok-bob", "tok-cid"} {
+		if got := runChat(t, cfg, token, "read"); !strings.Contains(
+			got, "admin/admin: standup in five") {
+			t.Errorf("read as %s = %q, want the room-wide message", token, got)
+		}
+	}
+
+	// And send is gated by the identity file like every other admin verb: it is
+	// refused before the daemon is dialed, naming the file it wants.
+	_, stderr, err := execChat(t, cfg, "", "admin", "send", chatRoom, "alpha/ana", "unsigned")
+	if err == nil {
+		t.Fatal("admin send without an identity succeeded, want a failure")
+	}
+	if !strings.Contains(stderr, "no admin age identity file") {
+		t.Errorf("stderr = %q, want it to ask for an identity file", stderr)
+	}
+}
+
+// The verbs that moved under `admin` are gone from the chat parent, and saying
+// them there has to fail. A group parent that cannot run answers anything it
+// does not recognize with its own help and a success exit, which would let a
+// stale `chat register ...` in a script look like it worked; these two are the
+// spellings most likely to be typed from memory.
+func TestChat_RemovedSpellingsAreRejected(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"register moved under admin", []string{"chat", "register", chatRoom, "humans", "yuki"}},
+		{"team is gone entirely", []string{"chat", "team", "list"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stdout, stderr, err := execChatEnv(t, nil, tc.args...)
+			if err == nil {
+				t.Fatalf("crabswarm %s succeeded, want a failure", strings.Join(tc.args, " "))
+			}
+			want := fmt.Sprintf("unknown command %q for \"crabswarm chat\"", tc.args[1])
+			if !strings.Contains(stderr, want) {
+				t.Errorf("stderr = %q, want it to contain %q", stderr, want)
+			}
+			if stdout != "" {
+				t.Errorf("stdout = %q, want nothing: the help text is not an answer here", stdout)
+			}
+		})
 	}
 }
 

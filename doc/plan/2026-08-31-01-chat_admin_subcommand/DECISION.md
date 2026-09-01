@@ -54,3 +54,43 @@ Rationale: a stub that prints nothing is a worse failure experience
 than an absent verb; the boundary ledger keeps ownership visible.
 Rejected: implementing history storage inside this plan (duplicates
 plan 05's scope).
+
+## AD6: run executed unattended; idea gate treated as confirmed [automatic]
+
+The /goal directive "implement this plan" is taken as the idea-gate
+confirmation; the run proceeds in away mode, deciding unclear corners
+autonomously and tagging them [automatic]. The `History` RPC is NOT
+added to the proto in this run (step 6 skipped, blocked on the per-room
+message-history plan); only `Send` lands.
+
+## AD7: buf lint standard-name exemption for admin Send messages [automatic]
+
+buf's STANDARD lint demands `SendRequest`/`ChatAdminServiceSendRequest`
+naming, but the member service already owns `SendRequest`. Kept the
+planned `AdminSendRequest`/`AdminSendResponse` names and added
+`RPC_REQUEST_STANDARD_NAME`/`RPC_RESPONSE_STANDARD_NAME` exemptions in
+api/buf.yaml scoped to chat_service.proto. Inline `// buf:lint:ignore`
+was tried and rejected: buf leaks those lines verbatim into generated
+TS/Go docs.
+
+## AD8: admin send target grammar excludes bare `team` [automatic]
+
+AD4 listed `team/name | name | team | *`, but the member resolver
+(crabswarm/chat/member.go resolveFor) supports only `team/name` and bare
+`name`; bare-team fan-out does not exist on the member path. Adding it
+only to admin send would fork the grammar AD4 wants shared, and adding
+it to both paths needs a name-vs-team collision rule. Shipped
+`team/name | name | *`; bare-team fan-out deferred to HANDOFF.md.
+
+## AD9: chat group parents get cobra.NoArgs so removed spellings fail [automatic]
+
+`chat register`/`chat team ...` after the regroup hit cobra's legacy
+group-parent behavior: print help, exit 0. The plan's e2e wants an
+unknown-command failure. Fix scoped to the chat tree only (`chat` and
+`chat admin` parents get `Args: cobra.NoArgs`); making that a repo-wide
+convention for other group commands (git/preview) is left to the user.
+
+Amendment: `Args: cobra.NoArgs` alone is a no-op on a non-runnable
+parent (cobra returns help before ValidateArgs); the chat and chat
+admin parents therefore also gained a help-printing RunE, the same
+pattern the root command uses.

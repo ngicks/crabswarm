@@ -149,14 +149,17 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 		adminAuth = ageAuth
 	}
-	adminSvc := chat.NewAdminService(chatStore, adminAuth, s.logger)
+	// One notifier for both halves: a recipient is nudged the same way whether
+	// the message came from a peer or from the operator.
+	notifier := notify.NewSendKeys(s.chatCfg.CmdmanBin, s.logger)
+	adminSvc := chat.NewAdminService(chatStore, adminAuth, notifier, s.logger)
 
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()))
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})
 	chatv1.RegisterChatServiceServer(srv, chat.NewService(
 		chatStore,
 		resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin),
-		notify.NewSendKeys(s.chatCfg.CmdmanBin, s.logger),
+		notifier,
 		chat.NewCmdmanStatusMirror(s.chatCfg.CmdmanBin, s.logger),
 		s.logger,
 	))

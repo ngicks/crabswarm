@@ -14,8 +14,9 @@ import (
 
 // AdminService is the host-facing half of the chat broker: the ChatAdminService
 // gRPC implementation over the [Store]. It carries the operations a participant
-// must not be able to perform — reading every room, editing team formation, and
-// minting tokens for humans no provider vouches for.
+// must not be able to perform — reading every room, editing team formation,
+// minting tokens for humans no provider vouches for, and sending into any room
+// without attending it.
 //
 // Its caller is not identified by a token: an agent holds one of those. It is
 // identified per call by the credential its [AdminAuthenticator] accepts, which
@@ -28,9 +29,10 @@ import (
 type AdminService struct {
 	chatv1.UnimplementedChatAdminServiceServer
 
-	store  *Store
-	auth   AdminAuthenticator
-	logger *slog.Logger
+	store   *Store
+	auth    AdminAuthenticator
+	deliver deliverer
+	logger  *slog.Logger
 }
 
 // AdminChallenge is what [AdminAuthenticator.Challenge] hands a caller to
@@ -57,7 +59,12 @@ type AdminAuthenticator interface {
 var _ chatv1.ChatAdminServiceServer = (*AdminService)(nil)
 
 // NewAdminService returns the ChatAdminService implementation over store,
-// gated by authenticator. A nil logger discards logs.
+// gated by authenticator and reporting the deliveries of [AdminService.Send] to
+// notifier. A nil notifier means [NopNotifier]; a nil logger discards logs.
+//
+// The notifier is the same seam the member half is given, and normally the same
+// instance: a recipient is nudged for an operator's message the way it is for a
+// peer's, since from where it sits both are mail.
 //
 // A nil authenticator is not an error: it is a daemon that was never given a
 // way to recognise its operator, and it leaves every admin RPC failing with
@@ -65,12 +72,18 @@ var _ chatv1.ChatAdminServiceServer = (*AdminService)(nil)
 func NewAdminService(
 	store *Store,
 	authenticator AdminAuthenticator,
+	notifier Notifier,
 	logger *slog.Logger,
 ) *AdminService {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	return &AdminService{store: store, auth: authenticator, logger: logger}
+	return &AdminService{
+		store:   store,
+		auth:    authenticator,
+		deliver: newDeliverer(store, notifier, logger),
+		logger:  logger,
+	}
 }
 
 // GetNonce hands back whatever the configured authenticator wants the caller to

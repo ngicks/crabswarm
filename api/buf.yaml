@@ -11,3 +11,13 @@ lint:
   ignore_only:
     PACKAGE_VERSION_SUFFIX:
       - schema/proto/ngicks/crabswarm/sdktypes/v1/ext/codex
+    # Two services share the chat file, and both have an RPC named Send, so
+    # only one of them can own the standard SendRequest/SendResponse names.
+    # ChatService, which every participant calls, keeps them; the admin
+    # counterpart takes the Admin-prefixed names instead. Prefixing the whole
+    # admin surface that way also keeps its messages apart from the member
+    # ones at a glance, which is why the exemption is file-wide.
+    RPC_REQUEST_STANDARD_NAME:
+      - schema/proto/ngicks/crabswarm/chat/v1/chat_service.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - schema/proto/ngicks/crabswarm/chat/v1/chat_service.proto

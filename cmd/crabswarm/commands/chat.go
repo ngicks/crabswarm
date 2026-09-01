@@ -28,14 +28,21 @@ running under cmdman in one directory and the humans registered into it.
 Room and team are never chosen: they follow from the identity token every
 member verb carries, which is taken from --token, else $CRABSWARM_CHAT_TOKEN,
 else $CMDMAN_CMD_ID. An agent inherits the last one from cmdman and needs no
-setup; a human passes the token that ` + "`chat register`" + ` printed.
+setup; a human passes the token that ` + "`chat admin register`" + ` printed.
 
-The admin verbs (register, team) are host-only and prove it by decrypting a
-challenge with the age identity file named by --identity, rather than by
-carrying a token.`,
+The ` + "`admin`" + ` group is host-only and proves it by decrypting a challenge
+with the age identity file named by --identity, rather than by carrying a
+token. Attending no room, its verbs name the room they act on.`,
 		Example: `  crabswarm chat join --name reviewer
   crabswarm chat send backend/alice "PR is ready"
   crabswarm chat read`,
+		// Runnable with NoArgs rather than a bare group: cobra returns help for a
+		// command it cannot run before it ever validates the arguments, so a group
+		// parent left non-runnable answers `chat register ...` — a verb that has
+		// moved under `admin` — with help and a success exit instead of saying the
+		// spelling is gone.
+		Args: cobra.NoArgs,
+		RunE: runChat,
 	}
 
 	cmd.PersistentFlags().StringVar(&flagToken, "token", "",
@@ -57,8 +64,11 @@ carrying a token.`,
 	chatMembersCmd(cmd, flags)
 	chatLeaveCmd(cmd, flags)
 	chatReportStateCmd(cmd, flags)
-	chatRegisterCmd(cmd, flags)
-	chatTeamCmd(cmd, flags)
+	chatAdminCmd(cmd, flags)
 
 	parent.AddCommand(cmd)
+}
+
+func runChat(cmd *cobra.Command, _ []string) error {
+	return cmd.Help()
 }

@@ -34,8 +34,8 @@ func runChatCmd(t *testing.T, args ...string) (stdout, stderr string, err error)
 	return outBuf.String(), errBuf.String(), err
 }
 
-// The chat tree is wired: every member verb, the admin verbs, and team's own
-// two children.
+// The chat tree is wired: every member verb, and the admin group with its own
+// four children.
 func TestChatCmd_Subcommands(t *testing.T) {
 	root := rootCmd()
 	chat, _, err := root.Find([]string{"chat"})
@@ -48,20 +48,21 @@ func TestChatCmd_Subcommands(t *testing.T) {
 	}
 	for _, want := range []string{
 		"join", "send", "broadcast", "read", "members", "leave",
-		"report-state", "register", "team",
+		"report-state", "admin",
 	} {
 		assert.Assert(t, names[want], "chat has no %q subcommand", want)
 	}
 
-	team, _, err := root.Find([]string{"chat", "team"})
+	admin, _, err := root.Find([]string{"chat", "admin"})
 	assert.NilError(t, err)
-	assert.Equal(t, team.Name(), "team")
-	teamNames := map[string]bool{}
-	for _, c := range team.Commands() {
-		teamNames[c.Name()] = true
+	assert.Equal(t, admin.Name(), "admin")
+	adminNames := map[string]bool{}
+	for _, c := range admin.Commands() {
+		adminNames[c.Name()] = true
 	}
-	assert.Assert(t, teamNames["list"])
-	assert.Assert(t, teamNames["move"])
+	for _, want := range []string{"list", "register", "move", "send"} {
+		assert.Assert(t, adminNames[want], "chat admin has no %q subcommand", want)
+	}
 }
 
 // Without a token a member verb fails before it touches the network, and the
@@ -106,9 +107,10 @@ func TestChatCmd_TokenFlagOutranksEnv(t *testing.T) {
 // fail on a missing --identity even when a perfectly good token is exported.
 func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
 	for _, args := range [][]string{
-		{"team", "list"},
-		{"team", "move", "/work", "backend/alice", "frontend"},
-		{"register", "--room", "/work", "--team", "humans", "--name", "yuki"},
+		{"admin", "list"},
+		{"admin", "move", "/work", "backend/alice", "frontend"},
+		{"admin", "register", "/work", "humans", "yuki"},
+		{"admin", "send", "/work", "backend/alice", "hello"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			chatHermeticEnv(t)
@@ -124,12 +126,12 @@ func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
 
 // register's three coordinates are all required: a member registered into the
 // wrong room is invisible to the people meant to talk to it.
-func TestChatRegister_RequiresRoomTeamAndName(t *testing.T) {
+func TestChatAdminRegister_RequiresRoomTeamAndName(t *testing.T) {
 	chatHermeticEnv(t)
 
-	_, _, err := runChatCmd(t, "register", "--room", "/work", "--identity", "/dev/null")
+	_, _, err := runChatCmd(t, "admin", "register", "/work", "--identity", "/dev/null")
 	assert.Assert(t, err != nil)
-	assert.Assert(t, strings.Contains(err.Error(), "required"))
+	assert.Assert(t, strings.Contains(err.Error(), "accepts 3 arg"))
 }
 
 func TestChatCmd_ArgumentShapes(t *testing.T) {
@@ -141,7 +143,8 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		{"send takes no third argument", []string{"send", "alice", "hi", "extra"}},
 		{"broadcast needs a text", []string{"broadcast"}},
 		{"read takes no arguments", []string{"read", "extra"}},
-		{"team move needs three arguments", []string{"team", "move", "/work", "backend/alice"}},
+		{"admin move needs three arguments", []string{"admin", "move", "/work", "backend/alice"}},
+		{"admin send needs three arguments", []string{"admin", "send", "/work", "backend/alice"}},
 		{"report-state needs a state", []string{"report-state"}},
 		// An unknown state is rejected by the command itself, so a typo never
 		// reaches the daemon as a report.

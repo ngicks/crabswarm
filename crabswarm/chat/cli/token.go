@@ -6,7 +6,7 @@ import (
 )
 
 // TokenEnvVar carries the identity token a human presents to the chat broker —
-// the one `crabswarm chat register` printed. A human has no cmdman command to
+// the one `crabswarm chat admin register` printed. A human has no cmdman command to
 // be recognized by, so this is how the token reaches the CLI when it is not
 // passed as a flag.
 const TokenEnvVar = "CRABSWARM_CHAT_TOKEN"
@@ -41,6 +41,6 @@ func resolveToken(
 	}
 	return "", fmt.Errorf(
 		"no chat identity token: pass --token, or set $%s to the token "+
-			"`crabswarm chat register` printed; an agent under cmdman inherits $%s",
+			"`crabswarm chat admin register` printed; an agent under cmdman inherits $%s",
 		TokenEnvVar, CmdIDEnvVar)
 }

@@ -176,7 +176,8 @@ func (s *Store) tx(ctx context.Context, fn func(q *db.Queries) error) error {
 	return nil
 }
 
-// validateName rejects the "/" that separates team from name in an address.
+// validateName rejects the "/" that separates team from name in an address,
+// and the name the host operator sends under.
 func validateName(team, name string) error {
 	switch {
 	case name == "":
@@ -187,6 +188,15 @@ func validateName(team, name string) error {
 		return fmt.Errorf("name %q contains %q: %w", name, "/", ErrInvalidName)
 	case strings.Contains(team, "/"):
 		return fmt.Errorf("team %q contains %q: %w", team, "/", ErrInvalidName)
+	case name == adminName:
+		return fmt.Errorf("name %q is reserved for the host operator: %w",
+			name, ErrInvalidName)
+	case team == adminName:
+		// A team named admin would win bare-name resolution for admin sends
+		// (the resolver tries the sender's own team first) and render members
+		// as admin/<name>, next door to the reserved attribution.
+		return fmt.Errorf("team %q is reserved for the host operator: %w",
+			team, ErrInvalidName)
 	}
 	return nil
 }

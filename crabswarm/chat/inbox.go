@@ -26,20 +26,54 @@ func (s *Store) Send(
 		if err != nil {
 			return fmt.Errorf("sending message: %w", err)
 		}
-		to, err := resolveFor(ctx, q, from, addr)
-		if err != nil {
-			return err
-		}
-		if err := appendMessage(ctx, q, to.Token, senderOf(from), text, sentAt); err != nil {
-			return err
-		}
-		recipient = to
-		return nil
+		recipient, err = sendFrom(ctx, q, senderOf(from), addr, text, sentAt)
+		return err
 	})
 	if err != nil {
 		return Member{}, err
 	}
 	return recipient, nil
+}
+
+// sendAs is [Store.Send] for a sender that holds no member row — the host
+// operator, who addresses a room without attending it. from carries both the
+// perspective the address is resolved from and the attribution the message
+// keeps.
+func (s *Store) sendAs(
+	ctx context.Context,
+	from Sender,
+	addr, text string,
+	sentAt time.Time,
+) (Member, error) {
+	var recipient Member
+	err := s.tx(ctx, func(q *db.Queries) error {
+		var err error
+		recipient, err = sendFrom(ctx, q, from, addr, text, sentAt)
+		return err
+	})
+	if err != nil {
+		return Member{}, err
+	}
+	return recipient, nil
+}
+
+// sendFrom resolves addr and appends the message through the caller's queries
+// handle, which is what keeps the two halves of a delivery in one transaction.
+func sendFrom(
+	ctx context.Context,
+	q *db.Queries,
+	from Sender,
+	addr, text string,
+	sentAt time.Time,
+) (Member, error) {
+	to, err := resolveFor(ctx, q, from, addr)
+	if err != nil {
+		return Member{}, err
+	}
+	if err := appendMessage(ctx, q, to.Token, from, text, sentAt); err != nil {
+		return Member{}, err
+	}
+	return to, nil
 }
 
 // Broadcast appends text to the inbox of every member of the caller's room and
@@ -58,24 +92,70 @@ func (s *Store) Broadcast(
 		if err != nil {
 			return fmt.Errorf("broadcasting message: %w", err)
 		}
-		rows, err := q.ListRoomMembers(ctx, from.Room)
-		if err != nil {
-			return fmt.Errorf("broadcasting to room %q: %w", from.Room, err)
+		excluded := ""
+		if excludeSender {
+			excluded = from.Token
 		}
-		sender := senderOf(from)
-		for _, m := range membersOf(rows) {
-			if excludeSender && m.Token == from.Token {
-				continue
-			}
-			if err := appendMessage(ctx, q, m.Token, sender, text, sentAt); err != nil {
-				return err
-			}
-			recipients = append(recipients, m)
+		recipients, err = broadcastFrom(ctx, q, senderOf(from), excluded, text, sentAt)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return recipients, nil
+}
+
+// broadcastAs is [Store.Broadcast] for a sender that holds no member row — the
+// host operator addressing a whole room they do not attend. There is nobody to
+// leave out, and a room with no members at all is [ErrNotFound]: a room exists
+// because members are in it, so an empty one is a room that was misspelled.
+func (s *Store) broadcastAs(
+	ctx context.Context,
+	from Sender,
+	text string,
+	sentAt time.Time,
+) ([]Member, error) {
+	var recipients []Member
+	err := s.tx(ctx, func(q *db.Queries) error {
+		var err error
+		recipients, err = broadcastFrom(ctx, q, from, "", text, sentAt)
+		if err != nil {
+			return err
+		}
+		if len(recipients) == 0 {
+			return fmt.Errorf("broadcasting to room %q: %w", from.Room, ErrNotFound)
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	return recipients, nil
+}
+
+// broadcastFrom appends the message to every member of from's room inside the
+// caller's transaction, skipping the member holding excludeToken. An empty
+// excludeToken excludes nobody: no member holds one, [Store.Join] refuses it.
+func broadcastFrom(
+	ctx context.Context,
+	q *db.Queries,
+	from Sender,
+	excludeToken, text string,
+	sentAt time.Time,
+) ([]Member, error) {
+	rows, err := q.ListRoomMembers(ctx, from.Room)
+	if err != nil {
+		return nil, fmt.Errorf("broadcasting to room %q: %w", from.Room, err)
+	}
+	var recipients []Member
+	for _, m := range membersOf(rows) {
+		if m.Token == excludeToken {
+			continue
+		}
+		if err := appendMessage(ctx, q, m.Token, from, text, sentAt); err != nil {
+			return nil, err
+		}
+		recipients = append(recipients, m)
 	}
 	return recipients, nil
 }

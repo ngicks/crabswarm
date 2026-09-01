@@ -36,8 +36,9 @@ service ChatService {
 }
 
 // ChatAdminService carries the host-side operations that participants must not
-// be able to perform: inspecting every room, editing team formation, and
-// minting tokens for humans who have no provider entry.
+// be able to perform: inspecting every room, sending into any room without
+// attending it, editing team formation, and minting tokens for humans who have
+// no provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -61,6 +62,9 @@ service ChatAdminService {
   // RegisterMember registers a member that no provider can vouch for -- a
   // human on the host -- and returns the token they present to ChatService.
   rpc RegisterMember(RegisterMemberRequest) returns (RegisterMemberResponse);
+  // Send delivers a message into a named room, addressed to one member or to
+  // the whole room, without the caller attending that room.
+  rpc Send(AdminSendRequest) returns (AdminSendResponse);
 }
 
 // HarnessState is the state of the CLI harness a member runs under, as
@@ -222,4 +226,19 @@ message RegisterMemberResponse {
   // Token is the daemon-issued identity token the registered member presents
   // as "x-crabswarm-token" on ChatService RPCs. It is shown only here.
   string token = 2;
+}
+
+message AdminSendRequest {
+  // Room is the room to deliver into.
+  string room = 1;
+  // Target addresses one member of Room as "name" or "team/name", the same
+  // grammar SendRequest.to takes, or "*" to address every member of the room.
+  string target = 2;
+  // Text is the message body.
+  string text = 3;
+}
+
+message AdminSendResponse {
+  // Delivered is how many recipients the message was queued for.
+  int32 delivered = 1;
 }
