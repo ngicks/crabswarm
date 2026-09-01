@@ -3,13 +3,16 @@ package mcpserver
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
 // eventTimeout bounds how long a test waits on something the bridge does off
@@ -189,6 +192,60 @@ func TestServer_ServesTheRoster(t *testing.T) {
 	// Reading the roster attends the room first, the way a tool call does:
 	// listing a room from outside it would be asking for a refusal.
 	assert.Assert(t, fake.lastJoin() != nil)
+}
+
+// The transcript is handed over in the words `crabswarm chat history` prints,
+// down to the trailing newline — the same promise the tools make. It is pinned
+// against the renderer rather than against a transcript spelled out here: the
+// point is that the two never drift, not what today's wording happens to be.
+func TestServer_ServesTheTranscript(t *testing.T) {
+	entries := []*chatv1.HistoryEntry{{
+		From:   member("frontend", "bob", testRoom),
+		To:     member("backend", "alice", testRoom),
+		Text:   "rebased onto main",
+		SentAt: timestamppb.New(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)),
+	}, {
+		From:   member("backend", "alice", testRoom),
+		Text:   "pulling now",
+		SentAt: timestamppb.New(time.Date(2026, 8, 31, 12, 1, 0, 0, time.UTC)),
+	}}
+	fake := &fakeChatService{
+		self:    member("backend", "alice", testRoom),
+		entries: entries,
+	}
+	session := startSession(t, fake)
+
+	res, err := session.ReadResource(t.Context(),
+		&mcp.ReadResourceParams{URI: historyURI})
+	assert.NilError(t, err)
+	assert.Equal(t, len(res.Contents), 1)
+	assert.Equal(t, res.Contents[0].URI, historyURI)
+	assert.Equal(t, res.Contents[0].MIMEType, historyMIMEType)
+
+	var rendered strings.Builder
+	assert.NilError(t, cli.RenderHistory(&rendered, entries))
+	assert.Equal(t, res.Contents[0].Text, rendered.String())
+
+	// A read carries no window to ask for, so it asks for none and takes the
+	// one the daemon defaults to.
+	assert.Equal(t, fake.lastHistory().GetLimit(), int32(0))
+	assert.Assert(t, fake.lastJoin() != nil)
+}
+
+// A room nobody has spoken in answers in the CLI's words too. The resource is a
+// read like any other: content saying so beats content that is empty, which a
+// reader cannot tell from a read that never happened.
+func TestServer_ServesAnEmptyTranscript(t *testing.T) {
+	session := startSession(t, &fakeChatService{self: member("backend", "alice", testRoom)})
+
+	res, err := session.ReadResource(t.Context(),
+		&mcp.ReadResourceParams{URI: historyURI})
+	assert.NilError(t, err)
+	assert.Equal(t, len(res.Contents), 1)
+
+	var rendered strings.Builder
+	assert.NilError(t, cli.RenderHistory(&rendered, nil))
+	assert.Equal(t, res.Contents[0].Text, rendered.String())
 }
 
 // A subscribed harness is told to look again whenever the room's attendance or
