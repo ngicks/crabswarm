@@ -144,6 +144,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case rosterMsg:
 		m.applyRoster(msg)
 		return m, tickRoster()
+	case sentMsg:
+		m.applySent(msg)
+		return m, nil
 	case tea.KeyPressMsg:
 		return m.key(msg)
 	}
@@ -187,12 +190,17 @@ func (m *model) watchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// composeKey edits the line being written.
+// composeKey edits the line being written, and sends it.
 func (m *model) composeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if msg.String() == "esc" {
+	switch msg.String() {
+	case "esc":
 		m.input.Blur()
 		return m, nil
+	case "enter":
+		return m, m.submit()
 	}
+	// Typing answers whatever the bar last said, so the report goes with it.
+	m.notice = ""
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd

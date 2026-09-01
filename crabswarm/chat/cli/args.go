@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -49,6 +50,32 @@ func HarnessStateName(state chatv1.HarnessState) string {
 		}
 	}
 	return "unknown"
+}
+
+// ParseAddressedLine splits the "to: text" form a caller types when the
+// address and the message arrive as one line instead of as two arguments — a
+// screen with a single input line rather than a shell with a quoted argv.
+//
+// The address is whatever precedes the first colon: a bare name, a "team/name"
+// pair, or the "*" the admin verbs take for everyone in the room. It is handed
+// back untouched, the way `chat send` hands its argument on, because resolving
+// an address is the daemon's job and its refusal names the form to retry with.
+// Later colons belong to the message, which is where the ones in a URL or a
+// timestamp end up.
+func ParseAddressedLine(line string) (to, text string, err error) {
+	to, text, ok := strings.Cut(line, ":")
+	to, text = strings.TrimSpace(to), strings.TrimSpace(text)
+	switch {
+	case !ok:
+		return "", "", fmt.Errorf(
+			"%q names no addressee: write it as \"name: text\", \"team/name: text\" or \"*: text\"",
+			line)
+	case to == "":
+		return "", "", errors.New(`no addressee before the ":"`)
+	case text == "":
+		return "", "", fmt.Errorf("nothing to say to %s", to)
+	}
+	return to, text, nil
 }
 
 // ParseQualifiedName splits the "team/name" form the admin verbs address a
