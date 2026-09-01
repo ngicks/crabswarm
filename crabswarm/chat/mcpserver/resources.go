@@ -169,7 +169,8 @@ func (s *Server) subscribed(_ context.Context, req *mcp.SubscribeRequest) error 
 	return nil
 }
 
-// announceable reports whether the bridge can tell a harness that uri changed.
+// announceable returns nil when the bridge can tell a harness that uri changed,
+// and the refusal otherwise.
 //
 // A URI this bridge does not serve is refused rather than accepted quietly. The
 // SDK records a subscription for whatever URI it is handed, so accepting a typo
@@ -179,14 +180,18 @@ func (s *Server) subscribed(_ context.Context, req *mcp.SubscribeRequest) error 
 // room's feed carries members joining, leaving and changing state, and nothing
 // at all when a message is appended, so a subscription to it would be a promise
 // no event could keep. The refusal says so, since a harness that asked has to
-// decide what to do instead — and re-reading is the answer.
+// decide what to do instead — and re-reading is the answer. It says it without
+// naming an operation, because [Server.unsubscribed] refuses on these same
+// grounds and a withdrawal answered in the words of a subscription reads as an
+// answer to something else.
 func announceable(uri string) error {
 	switch uri {
 	case membersURI:
 		return nil
 	case historyURI:
 		return fmt.Errorf(
-			"%s is not announced as changed; read it again to catch up", historyURI)
+			"%s cannot be watched: nothing announces it as changed; read it again to catch up",
+			historyURI)
 	default:
 		return mcp.ResourceNotFoundError(uri)
 	}
