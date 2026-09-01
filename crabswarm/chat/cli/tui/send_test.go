@@ -131,6 +131,27 @@ func TestAFailedSendHandsTheLineBack(t *testing.T) {
 	assert.Equal(t, m.input.Value(), "ghost: are you there")
 }
 
+// A refused message is handed back into an empty line only: an operator already
+// writing the next one keeps what they are writing, and is told on the bar that
+// the last one did not go.
+func TestAFailedSendLeavesALineAlreadyBeingWrittenAlone(t *testing.T) {
+	sender := &fakeSender{err: errors.New(`no member "ghost" in room /work/proj`)}
+	m := fixtureModel(t, Deps{Sender: sender})
+	m = typeLine(t, m, "ghost: are you there")
+
+	// The send is in flight — the line cleared as it went — and the operator
+	// starts the next message before it comes back.
+	m, cmd := enterOn(t, m)
+	assert.Equal(t, m.input.Value(), "")
+	for _, r := range "alice: never mind" {
+		m = update(t, m, press(r, string(r)))
+	}
+
+	m = runCmd(t, m, cmd)
+	assert.Assert(t, strings.Contains(m.statusBar(), "not sent"))
+	assert.Equal(t, m.input.Value(), "alice: never mind")
+}
+
 // enterOn presses enter and hands back what the model asked for.
 func enterOn(t *testing.T, m *model) (*model, tea.Cmd) {
 	t.Helper()

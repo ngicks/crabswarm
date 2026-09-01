@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gotest.tools/v3/assert"
 
@@ -39,6 +40,24 @@ func fixtureRoster() []*chatv1.Member {
 			State: chatv1.HarnessState_HARNESS_STATE_DONE,
 		},
 	}
+}
+
+// fixtureCrowd is a room with more members than a terminal has lines: teams of
+// perTeam members each, which is what the sidebar has to fit into its share of
+// the screen.
+func fixtureCrowd(teams, perTeam int) []*chatv1.Member {
+	members := make([]*chatv1.Member, 0, teams*perTeam)
+	for team := range teams {
+		for member := range perTeam {
+			members = append(members, &chatv1.Member{
+				Team:  fmt.Sprintf("team%d", team),
+				Name:  fmt.Sprintf("member%02d", member),
+				Room:  fixtureRoom,
+				State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+			})
+		}
+	}
+	return members
 }
 
 // fixtureEntries builds n conversation entries, each carrying its own number so
@@ -104,6 +123,22 @@ func TestResizeDropsTheRosterBeforeTheConversation(t *testing.T) {
 	// chrome still leaves the conversation a line to show.
 	m = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 1})
 	assert.Equal(t, m.view.Height(), 1)
+
+	// Whatever the terminal's shape, the screen is drawn to it: a screen taller
+	// than the terminal is one whose last lines — the input line and the status
+	// bar — are never drawn at all.
+	for _, size := range []tea.WindowSizeMsg{
+		{Width: 100, Height: 3},
+		{Width: 100, Height: 5},
+		{Width: 100, Height: 10},
+		{Width: 100, Height: 24},
+		{Width: 100, Height: 30},
+		{Width: rosterMinWidth - 1, Height: 24},
+	} {
+		m = update(t, m, size)
+		assert.Equal(t, lipgloss.Height(m.View().Content), size.Height,
+			"the screen at %dx%d", size.Width, size.Height)
+	}
 }
 
 // A terminal that has not said how big it is — a program driven through a pipe
@@ -193,6 +228,101 @@ func TestRosterListsEveryMemberWithItsState(t *testing.T) {
 	for line := range strings.SplitSeq(pane, "\n") {
 		assert.Equal(t, len(line), rosterWidth, "roster line %q is not the pane's width", line)
 	}
+}
+
+// A room with more members than the sidebar has lines keeps the screen the
+// terminal's size: the input line and the status bar sit under the sidebar, and
+// a sidebar drawn past the bottom takes both off the screen with it.
+func TestACrowdedRosterDoesNotPushTheChromeOffTheScreen(t *testing.T) {
+	m := fixtureModel(t, Deps{})
+	m.roster = fixtureCrowd(4, 10)
+	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 24})
+
+	view := m.View().Content
+	assert.Equal(t, lipgloss.Height(view), 24)
+
+	// Both lines of chrome are on the screen, and last: the operator's line to
+	// type into, and the bar that says where they are.
+	lines := strings.Split(view, "\n")
+	assert.Assert(t, strings.Contains(lines[len(lines)-2], m.input.Prompt),
+		"the input line is not the last line but one:\n%s", view)
+	assert.Assert(t, strings.Contains(lines[len(lines)-1], "room "+fixtureRoom),
+		"the status bar is not the last line:\n%s", view)
+
+	// The sidebar says it is showing part of the room rather than looking like
+	// all of it: 22 of the 40 members are past the fold at this height.
+	assert.Assert(t, strings.Contains(view, "roster (40)"))
+	assert.Assert(t, strings.Contains(view, "… +22 more"),
+		"the cut members are not counted:\n%s", view)
+	for line := range strings.SplitSeq(m.rosterPane(m.view.Height()), "\n") {
+		assert.Equal(t, lipgloss.Width(line), rosterWidth,
+			"roster line %q is not the pane's width", line)
+	}
+
+	// However short the terminal, and whether or not the sidebar fits beside the
+	// conversation at all.
+	for _, size := range []tea.WindowSizeMsg{
+		{Width: 100, Height: 3},
+		{Width: 100, Height: 5},
+		{Width: 100, Height: 10},
+		{Width: 100, Height: 30},
+		{Width: 100, Height: 60},
+		{Width: rosterMinWidth - 1, Height: 24},
+	} {
+		m = update(t, m, size)
+		assert.Equal(t, lipgloss.Height(m.View().Content), size.Height,
+			"the screen at %dx%d", size.Width, size.Height)
+	}
+}
+
+// The keys that leave the screen leave it, and the one that leaves the input
+// line leaves only that: a half-written message is not a reason to be stuck on
+// the screen, nor esc a reason to lose it.
+func TestTheQuitKeysQuit(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		writing  bool
+		key      tea.KeyPressMsg
+		wantQuit bool
+	}{
+		{name: "q", key: press('q', "q"), wantQuit: true},
+		{name: "esc", key: press(tea.KeyEscape, ""), wantQuit: true},
+		{name: "ctrl+c", key: tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}, wantQuit: true},
+		{
+			name:     "ctrl+c while writing",
+			writing:  true,
+			key:      tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+			wantQuit: true,
+		},
+		{name: "esc while writing", writing: true, key: press(tea.KeyEscape, "")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := fixtureModel(t, Deps{})
+			if tc.writing {
+				m = typeLine(t, m, "alice: hold the deploy")
+			}
+			assert.Equal(t, m.input.Focused(), tc.writing)
+
+			m, cmd := enterKey(t, m, tc.key)
+			if !tc.wantQuit {
+				assert.Assert(t, cmd == nil, "%s asked for a command", tc.name)
+				assert.Assert(t, !m.input.Focused())
+				return
+			}
+			assert.Assert(t, cmd != nil, "%s asked for nothing", tc.name)
+			_, quits := cmd().(tea.QuitMsg)
+			assert.Assert(t, quits, "%s asked for %T, want a quit", tc.name, cmd())
+		})
+	}
+}
+
+// enterKey delivers one keypress and hands back what the model asked for.
+func enterKey(t *testing.T, m *model, key tea.KeyPressMsg) (*model, tea.Cmd) {
+	t.Helper()
+	next, cmd := m.Update(key)
+	updated, ok := next.(*model)
+	assert.Assert(t, ok, "update returned %T", next)
+	return updated, cmd
 }
 
 // The transcript reads the way the CLI's does — who said it, who to, and what —
