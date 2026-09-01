@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
@@ -195,6 +196,72 @@ func (a *AdminService) deliverAdminMessage(
 		return nil, err
 	}
 	return []Member{recipient}, nil
+}
+
+// History hands back a named room's conversation without the caller attending
+// it, and consumes nothing, so the same stretch can be read again.
+//
+// It answers in one of two ways. With no cursor it takes the tail, the newest
+// entries counted back by limit, which is what a reader opening a room wants.
+// With one it reads forward instead, handing back what was said after the entry
+// of that id, which is what a reader that already has the tail wants: it
+// advances its cursor by the id of the last entry it got and asks again.
+//
+// A room nobody has spoken in — including one that has never existed — answers
+// with no entries rather than NotFound, the same way the members' own read
+// does: a room is what was said in it.
+func (a *AdminService) History(
+	ctx context.Context,
+	req *chatv1.AdminHistoryRequest,
+) (*chatv1.AdminHistoryResponse, error) {
+	if err := a.authenticate(ctx); err != nil {
+		return nil, err
+	}
+	if req.GetRoom() == "" {
+		return nil, status.Error(codes.InvalidArgument, "empty room")
+	}
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = defaultHistoryWindow
+	}
+	// Asking for more than the room keeps is not an error: the answer to it is
+	// everything there is, which is what the retention cap left.
+	if kept := a.store.historyLimit; kept > 0 && limit > kept {
+		limit = kept
+	}
+	entries, err := a.readHistory(ctx, req.GetRoom(), req.GetSinceId(), limit)
+	if err != nil {
+		return nil, storeStatus(err)
+	}
+	out := make([]*chatv1.AdminHistoryEntry, len(entries))
+	for i, e := range entries {
+		entry := &chatv1.AdminHistoryEntry{
+			Id:     e.ID,
+			From:   senderProto(e.From),
+			Text:   e.Text,
+			SentAt: timestamppb.New(e.SentAt),
+		}
+		if e.To != nil {
+			entry.To = senderProto(*e.To)
+		}
+		out[i] = entry
+	}
+	return &chatv1.AdminHistoryResponse{Entries: out}, nil
+}
+
+// readHistory picks the store read the request asked for: the tail when there
+// is no cursor to read forward from. The error is the store's own, for
+// [AdminService.History] to map onto a status.
+func (a *AdminService) readHistory(
+	ctx context.Context,
+	room string,
+	sinceID int64,
+	limit int,
+) ([]HistoryEntry, error) {
+	if sinceID <= 0 {
+		return a.store.History(ctx, room, limit)
+	}
+	return a.store.HistorySince(ctx, room, sinceID, limit)
 }
 
 // adminSender is the identity an admin message carries into room. The name is
