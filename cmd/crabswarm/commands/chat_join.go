@@ -23,7 +23,8 @@ no-op.`,
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "",
-		"name to attend under, unique within the team (default derived from compose labels, else the token)")
+		"name to attend under, unique within the team "+
+			"(default derived from compose labels, else the token)")
 
 	parent.AddCommand(cmd)
 }
