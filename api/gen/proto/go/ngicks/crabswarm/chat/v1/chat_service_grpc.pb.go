@@ -494,6 +494,7 @@ const (
 	ChatAdminService_MoveMember_FullMethodName     = "/ngicks.crabswarm.chat.v1.ChatAdminService/MoveMember"
 	ChatAdminService_RegisterMember_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatAdminService/RegisterMember"
 	ChatAdminService_Send_FullMethodName           = "/ngicks.crabswarm.chat.v1.ChatAdminService/Send"
+	ChatAdminService_History_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatAdminService/History"
 )
 
 // ChatAdminServiceClient is the client API for ChatAdminService service.
@@ -530,6 +531,14 @@ type ChatAdminServiceClient interface {
 	// Send delivers a message into a named room, addressed to one member or to
 	// the whole room, without the caller attending that room.
 	Send(ctx context.Context, in *AdminSendRequest, opts ...grpc.CallOption) (*AdminSendResponse, error)
+	// History returns a named room's conversation, oldest first, without the
+	// caller attending that room. It reads the same shared record the members
+	// read, and consumes nothing.
+	//
+	// Unlike the member-facing counterpart it can be paged forward from a
+	// cursor, and every entry carries the id to advance that cursor with, so a
+	// reader following a live room asks only for what it has not seen.
+	History(ctx context.Context, in *AdminHistoryRequest, opts ...grpc.CallOption) (*AdminHistoryResponse, error)
 }
 
 type chatAdminServiceClient struct {
@@ -590,6 +599,16 @@ func (c *chatAdminServiceClient) Send(ctx context.Context, in *AdminSendRequest,
 	return out, nil
 }
 
+func (c *chatAdminServiceClient) History(ctx context.Context, in *AdminHistoryRequest, opts ...grpc.CallOption) (*AdminHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminHistoryResponse)
+	err := c.cc.Invoke(ctx, ChatAdminService_History_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatAdminServiceServer is the server API for ChatAdminService service.
 // All implementations must embed UnimplementedChatAdminServiceServer
 // for forward compatibility.
@@ -624,6 +643,14 @@ type ChatAdminServiceServer interface {
 	// Send delivers a message into a named room, addressed to one member or to
 	// the whole room, without the caller attending that room.
 	Send(context.Context, *AdminSendRequest) (*AdminSendResponse, error)
+	// History returns a named room's conversation, oldest first, without the
+	// caller attending that room. It reads the same shared record the members
+	// read, and consumes nothing.
+	//
+	// Unlike the member-facing counterpart it can be paged forward from a
+	// cursor, and every entry carries the id to advance that cursor with, so a
+	// reader following a live room asks only for what it has not seen.
+	History(context.Context, *AdminHistoryRequest) (*AdminHistoryResponse, error)
 	mustEmbedUnimplementedChatAdminServiceServer()
 }
 
@@ -648,6 +675,9 @@ func (UnimplementedChatAdminServiceServer) RegisterMember(context.Context, *Regi
 }
 func (UnimplementedChatAdminServiceServer) Send(context.Context, *AdminSendRequest) (*AdminSendResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Send not implemented")
+}
+func (UnimplementedChatAdminServiceServer) History(context.Context, *AdminHistoryRequest) (*AdminHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method History not implemented")
 }
 func (UnimplementedChatAdminServiceServer) mustEmbedUnimplementedChatAdminServiceServer() {}
 func (UnimplementedChatAdminServiceServer) testEmbeddedByValue()                          {}
@@ -760,6 +790,24 @@ func _ChatAdminService_Send_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatAdminService_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatAdminServiceServer).History(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatAdminService_History_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatAdminServiceServer).History(ctx, req.(*AdminHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatAdminService_ServiceDesc is the grpc.ServiceDesc for ChatAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -786,6 +834,10 @@ var ChatAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Send",
 			Handler:    _ChatAdminService_Send_Handler,
+		},
+		{
+			MethodName: "History",
+			Handler:    _ChatAdminService_History_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
