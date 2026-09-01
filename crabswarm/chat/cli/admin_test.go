@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"filippo.io/age"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -107,9 +109,11 @@ type fakeAdminService struct {
 	move       *chatv1.MoveMemberRequest
 	register   *chatv1.RegisterMemberRequest
 	send       *chatv1.AdminSendRequest
+	history    *chatv1.AdminHistoryRequest
 
 	rooms     []*chatv1.Room
 	delivered int32
+	entries   []*chatv1.AdminHistoryEntry
 }
 
 func (f *fakeAdminService) GetNonce(
@@ -164,6 +168,14 @@ func (f *fakeAdminService) Send(
 	f.bearer, _ = auth.BearerFromContext(ctx)
 	f.send = req
 	return &chatv1.AdminSendResponse{Delivered: f.delivered}, nil
+}
+
+func (f *fakeAdminService) History(
+	ctx context.Context, req *chatv1.AdminHistoryRequest,
+) (*chatv1.AdminHistoryResponse, error) {
+	f.bearer, _ = auth.BearerFromContext(ctx)
+	f.history = req
+	return &chatv1.AdminHistoryResponse{Entries: f.entries}, nil
 }
 
 func TestClient_ListRoomsDecryptsTheChallenge(t *testing.T) {
@@ -265,6 +277,34 @@ func TestClient_AdminSendWithWrongIdentity(t *testing.T) {
 	assert.Assert(t, strings.Contains(err.Error(), path))
 	assert.Assert(t, strings.Contains(err.Error(), "hint:"))
 	assert.Assert(t, fake.send == nil)
+}
+
+// The verb reads the tail: the room and the window it was given reach the
+// daemon, and the cursor stays at zero, since a command run once has nothing to
+// carry forward from a previous run.
+func TestClient_AdminLogPrintsTheTranscript(t *testing.T) {
+	path, recipient := newIdentityFile(t)
+	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
+	fake := &fakeAdminService{
+		recipient: recipient,
+		nonce:     "nonce-log",
+		entries: []*chatv1.AdminHistoryEntry{{
+			Id:     7,
+			From:   member("admin", "admin", "/work/proj"),
+			Text:   "deploy is frozen",
+			SentAt: timestamppb.New(sent),
+		}},
+	}
+	d := serveTestDaemon(t, nil, fake)
+
+	var out strings.Builder
+	assert.NilError(t, d.client.AdminLog(t.Context(), &out, path, "/work/proj", 20))
+	assert.Equal(t, fake.bearer, "nonce-log")
+	assert.Equal(t, fake.history.GetRoom(), "/work/proj")
+	assert.Equal(t, fake.history.GetLimit(), int32(20))
+	assert.Equal(t, fake.history.GetSinceId(), int64(0))
+	assert.Equal(t, out.String(),
+		"[2026-08-27T09:30:00Z] admin/admin → *: deploy is frozen\n")
 }
 
 // An identity the daemon does not encrypt to stops the command at the

@@ -1120,6 +1120,78 @@ func TestChat_AdminSendsWithoutAttending(t *testing.T) {
 	}
 }
 
+// The host reads a room it does not attend, and reads the whole of it: what the
+// members said to each other and what the host itself said into the room, still
+// there after every inbox has been drained.
+func TestChat_AdminReadsTheRoomLog(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+
+	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+
+	runChat(t, cfg, "", "admin", "send", chatRoom, "alpha/ana",
+		"deploy is frozen", "--identity", identity)
+	runChat(t, cfg, "tok-ana", "send", "bob", "understood")
+	runChat(t, cfg, "tok-bob", "broadcast", "back in five")
+
+	// Nothing is pending anywhere from here on; the transcript is not an inbox.
+	for _, token := range []string{"tok-ana", "tok-bob"} {
+		runChat(t, cfg, token, "read")
+	}
+
+	got := lines(runChat(t, cfg, "", "admin", "log", chatRoom, "--identity", identity))
+	if len(got) != 3 {
+		t.Fatalf("admin log = %v, want the three utterances of the room", got)
+	}
+	for i, want := range []string{
+		"admin/admin → alpha/ana: deploy is frozen",
+		"alpha/ana → alpha/bob: understood",
+		"alpha/bob → *: back in five",
+	} {
+		if !strings.Contains(got[i], want) {
+			t.Errorf("entry %d = %q, want it to carry %q", i, got[i], want)
+		}
+	}
+	if !strings.HasPrefix(got[0], "[") {
+		t.Errorf("first entry = %q, want it to open with a timestamp", got[0])
+	}
+
+	// It is the same transcript the members read, and reading it again changes
+	// nothing.
+	if again := lines(
+		runChat(t, cfg, "", "admin", "log", chatRoom, "--identity", identity),
+	); !slices.Equal(again, got) {
+		t.Errorf("second admin log = %v, want the same transcript as %v", again, got)
+	}
+	if members := lines(runChat(t, cfg, "tok-bob", "history")); !slices.Equal(members, got) {
+		t.Errorf("the members' history = %v, want the same transcript as %v", members, got)
+	}
+
+	// The window takes the newest entries, and a room nothing was said in
+	// reports itself rather than failing as an unknown one.
+	if last := lines(
+		runChat(t, cfg, "", "admin", "log", chatRoom, "--limit", "1", "--identity", identity),
+	); !slices.Equal(last, got[2:]) {
+		t.Errorf("admin log --limit 1 = %v, want the newest entry %v", last, got[2:])
+	}
+	if silent := runChat(
+		t, cfg, "", "admin", "log", "/work/nowhere", "--identity", identity,
+	); silent != "no messages yet\n" {
+		t.Errorf("admin log of a room nothing was said in = %q, want %q",
+			silent, "no messages yet\n")
+	}
+
+	// And it is gated by the identity file like every other admin verb.
+	_, stderr, err := execChat(t, cfg, "", "admin", "log", chatRoom)
+	if err == nil {
+		t.Fatal("admin log without an identity succeeded, want a failure")
+	}
+	if !strings.Contains(stderr, "no admin age identity file") {
+		t.Errorf("stderr = %q, want it to ask for an identity file", stderr)
+	}
+}
+
 // The verbs that moved under `admin` are gone from the chat parent, and saying
 // them there has to fail. A group parent that cannot run answers anything it
 // does not recognize with its own help and a success exit, which would let a

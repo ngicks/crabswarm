@@ -2,7 +2,9 @@ package chat
 
 import (
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -445,6 +447,146 @@ func TestAdminService_Send(t *testing.T) {
 	assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM members`), 3)
 	assert.Equal(t, countRows(t, svc.store,
 		`SELECT COUNT(*) FROM members WHERE name = ?`, "admin"), 0)
+}
+
+func TestAdminService_History(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
+	join(t, svc.store, "tok-b", "/work", "beta", "bob")
+	join(t, svc.store, "tok-c", "/other", "alpha", "cho")
+
+	_, err := svc.store.Send(t.Context(), "tok-a", "beta/bob", "just for you", sentAt)
+	assert.NilError(t, err)
+	_, err = svc.store.Broadcast(
+		t.Context(), "tok-a", "for everyone", sentAt.Add(time.Minute), true)
+	assert.NilError(t, err)
+
+	t.Run("a call carrying no credential is refused", func(t *testing.T) {
+		_, err := svc.History(t.Context(), &chatv1.AdminHistoryRequest{Room: "/work"})
+		assert.Equal(t, status.Code(err), codes.PermissionDenied)
+	})
+
+	t.Run("an empty room is InvalidArgument", func(t *testing.T) {
+		_, err := svc.History(adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.AdminHistoryRequest{})
+		assert.Equal(t, status.Code(err), codes.InvalidArgument)
+	})
+
+	t.Run("reads the whole room, oldest first", func(t *testing.T) {
+		res, err := svc.History(adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.AdminHistoryRequest{Room: "/work"})
+		assert.NilError(t, err)
+		entries := res.GetEntries()
+		assert.Equal(t, len(entries), 2)
+
+		// A directed send is in the transcript the operator never received,
+		// with the member it was addressed to spelled out.
+		assert.Equal(t, entries[0].GetText(), "just for you")
+		assert.Equal(t, entries[0].GetFrom().GetName(), "ana")
+		assert.Equal(t, entries[0].GetFrom().GetTeam(), "alpha")
+		assert.Equal(t, entries[0].GetFrom().GetRoom(), "/work")
+		assert.Equal(t, entries[0].GetTo().GetName(), "bob")
+		assert.Assert(t, entries[0].GetSentAt().AsTime().Equal(sentAt))
+
+		// A broadcast addressed the room rather than anyone in it.
+		assert.Equal(t, entries[1].GetText(), "for everyone")
+		assert.Assert(t, entries[1].GetTo() == nil)
+
+		// Every entry carries the cursor to ask for the next ones by, and they
+		// grow with the conversation.
+		assert.Assert(t, entries[0].GetId() > 0)
+		assert.Assert(t, entries[1].GetId() > entries[0].GetId())
+
+		// Reading consumed nothing: the addressee still has its message.
+		msgs, err := svc.store.Read(t.Context(), "tok-b")
+		assert.NilError(t, err)
+		assert.Equal(t, len(msgs), 2)
+	})
+
+	t.Run("a room nothing was said in is empty rather than NotFound", func(t *testing.T) {
+		// One room exists and has been silent, the other was never heard of at
+		// all; there is nothing to tell apart between them.
+		for _, room := range []string{"/other", "/nowhere"} {
+			res, err := svc.History(adminCtx(t, adminNonce(t, svc, id)),
+				&chatv1.AdminHistoryRequest{Room: room})
+			assert.NilError(t, err)
+			assert.Equal(t, len(res.GetEntries()), 0)
+		}
+	})
+}
+
+// The window is counted back from the newest entry, and a request that names no
+// window gets a screenful rather than the whole retained room.
+func TestAdminService_HistoryWindow(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
+	for i := range defaultHistoryWindow + 5 {
+		_, err := svc.store.Broadcast(t.Context(), "tok-a",
+			fmt.Sprintf("line %d", i), sentAt.Add(time.Duration(i)*time.Minute), true)
+		assert.NilError(t, err)
+	}
+
+	res, err := svc.History(adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.AdminHistoryRequest{Room: "/work"})
+	assert.NilError(t, err)
+	entries := res.GetEntries()
+	assert.Equal(t, len(entries), defaultHistoryWindow)
+	assert.Equal(t, entries[0].GetText(), "line 5")
+	assert.Equal(t, entries[len(entries)-1].GetText(),
+		fmt.Sprintf("line %d", defaultHistoryWindow+4))
+
+	res, err = svc.History(adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.AdminHistoryRequest{Room: "/work", Limit: 2})
+	assert.NilError(t, err)
+	entries = res.GetEntries()
+	assert.Equal(t, len(entries), 2)
+	assert.Equal(t, entries[0].GetText(), fmt.Sprintf("line %d", defaultHistoryWindow+3))
+	assert.Equal(t, entries[1].GetText(), fmt.Sprintf("line %d", defaultHistoryWindow+4))
+}
+
+// Following a room is asking for what came after the last entry seen, which is
+// what keeps a reader that polls from re-reading the window it already has.
+func TestAdminService_HistoryPagesFromACursor(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
+	say := func(text string) {
+		t.Helper()
+		_, err := svc.store.Broadcast(t.Context(), "tok-a", text, sentAt, true)
+		assert.NilError(t, err)
+	}
+	page := func(sinceID int64, limit int32) []*chatv1.AdminHistoryEntry {
+		t.Helper()
+		res, err := svc.History(adminCtx(t, adminNonce(t, svc, id)),
+			&chatv1.AdminHistoryRequest{Room: "/work", SinceId: sinceID, Limit: limit})
+		assert.NilError(t, err)
+		return res.GetEntries()
+	}
+	for i := range 3 {
+		say(fmt.Sprintf("line %d", i))
+	}
+
+	said := page(0, 0)
+	assert.Equal(t, len(said), 3)
+
+	// One step forward from the oldest is the next entry alone, carrying the id
+	// the step after it is asked for by.
+	next := page(said[0].GetId(), 1)
+	assert.Equal(t, len(next), 1)
+	assert.Equal(t, next[0].GetText(), "line 1")
+	assert.Equal(t, next[0].GetId(), said[1].GetId())
+
+	// The rest of the room follows from there, oldest first.
+	rest := page(next[0].GetId(), 0)
+	assert.Equal(t, len(rest), 1)
+	assert.Equal(t, rest[0].GetText(), "line 2")
+
+	// A reader that is up to date is handed nothing rather than the tail again,
+	// and hears the next utterance on its next ask.
+	assert.Equal(t, len(page(said[2].GetId(), 0)), 0)
+	say("line 3")
+	fresh := page(said[2].GetId(), 0)
+	assert.Equal(t, len(fresh), 1)
+	assert.Equal(t, fresh[0].GetText(), "line 3")
 }
 
 // TestAdminService_RegisteredMemberChatsAsHuman is the point of RegisterMember:
