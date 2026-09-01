@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,20 +13,30 @@ import (
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
-// The room's attendance is a resource rather than a fifth tool because it is
-// something the harness can keep in view: a tool result is read once, in the
-// turn that asked for it, while a subscribed resource is re-read whenever the
-// room changes underneath the agent. The chat_members tool stays for the turn
-// that just wants the list, and answers in the CLI's own words; this answers in
-// a structured form, since the reader here is the harness rather than the model.
+// The room's attendance and its transcript are resources rather than further
+// tools because they are what a harness keeps in view: a tool result is read
+// once, in the turn that asked for it, while a resource is there to be re-read
+// whenever the room has moved on underneath the agent. The chat_members tool
+// stays for the turn that just wants the list.
 
-// membersURI names the caller's room roster. The scheme is the daemon's rather
-// than a file or http one: nothing about this is fetchable by an address, and
-// naming it after the thing it holds keeps the door open for the room's history
-// to arrive beside it under the same scheme.
-const membersURI = "crabswarm://chat/members"
+// membersURI names the caller's room roster and historyURI its conversation.
+// The scheme is the daemon's rather than a file or http one: nothing about
+// either is fetchable by an address, and naming a resource after the thing it
+// holds is what lets the two sit beside each other under one scheme.
+const (
+	membersURI = "crabswarm://chat/members"
+	historyURI = "crabswarm://chat/history"
+)
 
-const membersMIMEType = "application/json"
+// The roster is answered as structured data because its reader is the harness
+// rather than the model, and because a member's state is not in the CLI's
+// listing at all. The transcript is answered in the CLI's own words: every line
+// of it already carries everything an entry holds, so a second spelling of the
+// same conversation would be one more thing to keep in step.
+const (
+	membersMIMEType = "application/json"
+	historyMIMEType = "text/plain"
+)
 
 // roster is the members resource. It carries the room once rather than on every
 // member: a caller only ever sees its own room, so repeating it per line would
@@ -45,13 +56,9 @@ type rosterMember struct {
 	State   string `json:"state"`
 }
 
-// addResources registers the members resource before the first session, so the
+// addResources registers the room's resources before the first session, so the
 // resources capability is advertised during the handshake rather than announced
 // as a change the harness has to notice.
-//
-// The room's history is deliberately absent: the daemon has no RPC to read it
-// with, and a resource that could only answer "not yet" would be worse than no
-// resource at all.
 func (s *Server) addResources() {
 	s.mcp.AddResource(&mcp.Resource{
 		Name:     "members",
@@ -64,6 +71,19 @@ func (s *Server) addResources() {
 			"unknown where the daemon reported none. Subscribe to be told " +
 			"when someone joins, leaves, or changes state.",
 	}, s.readMembers)
+	s.mcp.AddResource(&mcp.Resource{
+		Name:     "history",
+		Title:    "Room transcript",
+		URI:      historyURI,
+		MIMEType: historyMIMEType,
+		Description: "The recent conversation of your room, oldest first: " +
+			"when each message was sent, who sent it, and who it went to — " +
+			"\"*\" for one addressed to the whole room. It is what the room " +
+			"said rather than what was addressed to you, so reading it " +
+			"consumes nothing and shows messages chat_read has already " +
+			"handed over. Read it again to catch up; nothing announces it " +
+			"as changed.",
+	}, s.readHistory)
 }
 
 // readMembers answers with the room as it stands. Every read lists the room
@@ -93,6 +113,34 @@ func (s *Server) readMembers(
 	}, nil
 }
 
+// readHistory answers with the tail of the room's conversation as the CLI
+// prints it, rendered through [cli.Client] for the same reason a tool result is:
+// the transcript reads the same whether a member is wired to its room through
+// MCP or through a shell.
+//
+// The window is whichever one the daemon defaults to. A resource read carries
+// no arguments to ask for another with, and the default is already what a
+// member catching up is after: the recent conversation rather than everything
+// the room kept.
+func (s *Server) readHistory(
+	ctx context.Context, _ *mcp.ReadResourceRequest,
+) (*mcp.ReadResourceResult, error) {
+	if err := s.ensureJoined(ctx); err != nil {
+		return nil, err
+	}
+	var rendered bytes.Buffer
+	if err := s.client.History(ctx, &rendered, s.token, 0); err != nil {
+		return nil, s.forgetJoined(err)
+	}
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{{
+			URI:      historyURI,
+			MIMEType: historyMIMEType,
+			Text:     rendered.String(),
+		}},
+	}, nil
+}
+
 // rosterOf shapes what the daemon reported into what the resource says.
 func rosterOf(members []*chatv1.Member) roster {
 	out := roster{Members: make([]rosterMember, 0, len(members))}
@@ -113,16 +161,35 @@ func rosterOf(members []*chatv1.Member) roster {
 // subscribed starts watching the room the first time anything asks to be told
 // about it. Nothing is watched before that: a harness that lists the tools and
 // never subscribes should cost the daemon no stream at all.
-//
-// A URI this bridge does not serve is refused rather than accepted quietly. The
-// SDK records a subscription for whatever URI it is handed, so accepting a
-// typo would leave the harness waiting on news that could never come.
 func (s *Server) subscribed(_ context.Context, req *mcp.SubscribeRequest) error {
-	if req.Params.URI != membersURI {
-		return mcp.ResourceNotFoundError(req.Params.URI)
+	if err := announceable(req.Params.URI); err != nil {
+		return err
 	}
 	s.watchOnce.Do(func() { close(s.watchWanted) })
 	return nil
+}
+
+// announceable reports whether the bridge can tell a harness that uri changed.
+//
+// A URI this bridge does not serve is refused rather than accepted quietly. The
+// SDK records a subscription for whatever URI it is handed, so accepting a typo
+// would leave the harness waiting on news that could never come.
+//
+// The transcript is refused for the same reason even though it is served: the
+// room's feed carries members joining, leaving and changing state, and nothing
+// at all when a message is appended, so a subscription to it would be a promise
+// no event could keep. The refusal says so, since a harness that asked has to
+// decide what to do instead — and re-reading is the answer.
+func announceable(uri string) error {
+	switch uri {
+	case membersURI:
+		return nil
+	case historyURI:
+		return fmt.Errorf(
+			"%s is not announced as changed; read it again to catch up", historyURI)
+	default:
+		return mcp.ResourceNotFoundError(uri)
+	}
 }
 
 // unsubscribed acknowledges the withdrawal and leaves the feed running.
@@ -134,10 +201,7 @@ func (s *Server) subscribed(_ context.Context, req *mcp.SubscribeRequest) error 
 // subscribes to announces nothing. The SDK also requires this handler as soon
 // as [Server.subscribed] exists.
 func (s *Server) unsubscribed(_ context.Context, req *mcp.UnsubscribeRequest) error {
-	if req.Params.URI != membersURI {
-		return mcp.ResourceNotFoundError(req.Params.URI)
-	}
-	return nil
+	return announceable(req.Params.URI)
 }
 
 // How long the bridge waits before watching the room again after its feed
@@ -234,8 +298,9 @@ func (s *Server) membersChanged(ctx context.Context) {
 
 // rosterChanged reports whether ev changes who attends the room or what state
 // they are in. A message being appended does not: the same members are there in
-// the same states, and the message itself is read out of an inbox rather than
-// off a resource.
+// the same states. It changes the transcript, but nothing subscribes to that —
+// the daemon never publishes such an event today, so a subscription the bridge
+// accepted would be one it could not serve.
 func rosterChanged(ev *chatv1.RoomEvent) bool {
 	switch ev.GetEvent().(type) {
 	case *chatv1.RoomEvent_MemberStateChanged,

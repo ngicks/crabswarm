@@ -108,10 +108,36 @@ func noMoreUpdates(t *testing.T, updated <-chan string) {
 	}
 }
 
-// The roster is a resource rather than a fifth tool, and it is the only one.
-// The room's history is deliberately absent: the daemon has no RPC to read it
-// with, so a resource for it could only answer "not yet".
-func TestServer_ServesTheRosterAsTheOneResource(t *testing.T) {
+// resourcesByURI is what the harness was offered, keyed by the URI it would ask
+// for. Keyed rather than indexed: the order a listing comes back in is the
+// SDK's business, not something a harness may depend on.
+func resourcesByURI(t *testing.T, session *mcp.ClientSession) map[string]*mcp.Resource {
+	t.Helper()
+
+	listed, err := session.ListResources(t.Context(), nil)
+	assert.NilError(t, err)
+	byURI := map[string]*mcp.Resource{}
+	for _, r := range listed.Resources {
+		byURI[r.URI] = r
+	}
+	return byURI
+}
+
+// The harness is offered the room in two documents and no others: who is in it,
+// and what has been said in it.
+func TestServer_ServesTheRoomAsResources(t *testing.T) {
+	session := startSession(t, &fakeChatService{self: member("backend", "alice", testRoom)})
+
+	offered := resourcesByURI(t, session)
+	assert.Equal(t, len(offered), 2)
+	assert.Equal(t, offered[membersURI].MIMEType, membersMIMEType)
+	assert.Equal(t, offered[historyURI].MIMEType, historyMIMEType)
+}
+
+// The roster is a resource rather than a fifth tool, and answers as structured
+// data: its reader is the harness, and a member's state is not in the listing
+// the CLI prints at all.
+func TestServer_ServesTheRoster(t *testing.T) {
 	fake := &fakeChatService{
 		self: member("backend", "alice", testRoom),
 		members: []*chatv1.Member{
@@ -125,12 +151,6 @@ func TestServer_ServesTheRosterAsTheOneResource(t *testing.T) {
 		},
 	}
 	session := startSession(t, fake)
-
-	listed, err := session.ListResources(t.Context(), nil)
-	assert.NilError(t, err)
-	assert.Equal(t, len(listed.Resources), 1)
-	assert.Equal(t, listed.Resources[0].URI, membersURI)
-	assert.Equal(t, listed.Resources[0].MIMEType, membersMIMEType)
 
 	res, err := session.ReadResource(t.Context(),
 		&mcp.ReadResourceParams{URI: membersURI})
@@ -189,9 +209,10 @@ func TestServer_AnnouncesTheRosterWhenTheRoomChanges(t *testing.T) {
 		chatv1.HarnessState_HARNESS_STATE_WAITING))
 	assert.Equal(t, nextUpdate(t, updated), membersURI)
 
-	// A message being appended leaves the same members in the same states, and
-	// there is no history resource for it to stand for. The join behind it is
-	// what the harness hears about, and only once.
+	// A message being appended leaves the same members in the same states. It
+	// changes the transcript, but nothing may subscribe to that, so there is
+	// nobody to tell. The join behind it is what the harness hears about, and
+	// only once.
 	pushEvent(t, fake, messageAppendedEvent(
 		member("frontend", "bob", testRoom), "rebased onto main"))
 	pushEvent(t, fake, joinedEvent(member("ops", "carol", testRoom)))
@@ -221,27 +242,31 @@ func TestServer_WatchesNothingUntilSomethingSubscribes(t *testing.T) {
 	assert.Equal(t, fake.watchCount(), 1)
 }
 
-// A subscription to something this bridge does not serve is refused rather than
-// recorded: the SDK would otherwise leave the harness waiting on news that
-// could never come, and start a room feed for it.
+// Only the roster may be subscribed to. A URI the bridge does not serve is
+// refused because the SDK would otherwise leave the harness waiting on news
+// that could never come; the transcript is refused because the room's feed
+// carries nothing that would announce it, which is the same waiting arrived at
+// from the other side. Neither starts a feed.
 //
 // The handler is exercised directly because the protocol the SDK negotiates
 // here opens a subscription without waiting for the answer, so a refusal never
 // reaches the client as the error of a call.
-func TestServer_RefusesToWatchAnUnknownResource(t *testing.T) {
+func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
 	bridge, err := New(slog.New(slog.DiscardHandler),
 		serveTestDaemon(t, &fakeChatService{}), testToken)
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = bridge.client.Close() })
 
-	err = bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
-		Params: &mcp.SubscribeParams{URI: "crabswarm://chat/history"},
-	})
-	assert.Assert(t, err != nil)
-	select {
-	case <-bridge.watchWanted:
-		t.Fatal("a URI the bridge does not serve started the room feed")
-	default:
+	for _, uri := range []string{"crabswarm://chat/rooms", historyURI} {
+		err = bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
+			Params: &mcp.SubscribeParams{URI: uri},
+		})
+		assert.Assert(t, err != nil, "subscribing to %s was accepted", uri)
+		select {
+		case <-bridge.watchWanted:
+			t.Fatalf("subscribing to %s started the room feed", uri)
+		default:
+		}
 	}
 
 	assert.NilError(t, bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
