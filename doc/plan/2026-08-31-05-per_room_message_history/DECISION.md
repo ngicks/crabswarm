@@ -68,3 +68,30 @@ queryable live via `ListMembers`, and nothing in the stated use cases
 needs historical membership. Revisit if the admin TUI plan wants
 event annotations.
 **Rejected**: a polymorphic event log (kind column + nullable fields).
+
+## D-H7: Log at the delivery helpers, so host/admin sends are recorded (automatic decision)
+
+**Choice**: the room-log write lives in the store's shared delivery paths
+(`sendFrom`/`broadcastFrom` in `crabswarm/chat/inbox.go`), not only in the
+member-facing `Store.Send`/`Store.Broadcast` wrappers.
+**Rationale**: an admin/host send lands in member inboxes; a transcript
+that omitted it would misreport what the room received. Pinned by
+`TestStore_HistoryRecordsWhatTheHostSaid` (crabswarm/chat/history_test.go).
+**Rejected**: logging only member utterances (the plan's literal wording,
+which predates the admin send plane).
+
+## D-H8: The 0→1000 cap resolution happens in NewStore (automatic decision)
+
+**Choice**: `NewStore` resolves a zero cap to the default; the server
+wiring passes the config value through unresolved.
+**Rationale**: a literal 0 cap would prune every row it just wrote, and
+several existing call sites construct stores without going through server
+wiring — resolving at the single constructor keeps them all safe.
+**Rejected**: resolving at the server wiring (the plan's wording).
+
+## D-H9: Proto entries reuse `Member`, not a new `Sender` message (automatic decision)
+
+**Choice**: `HistoryEntry.from`/`to` are `Member`, matching how
+`Message.from` is already typed in the schema.
+**Rationale**: the plan's sketch named a `Sender` message that does not
+exist in the proto; inventing it would duplicate `Member` for no gain.
