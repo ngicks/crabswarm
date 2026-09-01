@@ -172,7 +172,7 @@ stays unambiguous.
 | `chat admin` group, list/register/move/send verbs | this plan |
 | Reserved `admin` sender identity + name rejection | this plan, step 3 |
 | Room history storage + `Store.History` room-keyed read | plan 2026-08-31-05-per_room_message_history |
-| `chat admin log` verb + `AdminService.History` RPC | this plan, step 6 (blocked on plan 05 step 3) |
+| `chat admin log` verb + `AdminService.History` RPC | this plan, step 6 (delivered 2026-09-02) |
 | Live watch / TUI over rooms | plan 2026-08-31-06-admin_tui |
 | MCP exposure of admin state/resources | plan 2026-08-31-02-chat_mcp_server |
 
