@@ -100,7 +100,9 @@ package tui // crabswarm/chat/cli/tui
 
 // Run draws the admin watch screen for one room and blocks until quit.
 // deps carries the already-authenticated admin client facade.
-func Run(ctx context.Context, deps Deps) error
+// opts is empty for every caller but a test driving the screen through
+// pipes (D8).
+func Run(ctx context.Context, deps Deps, opts ...tea.ProgramOption) error
 
 type Deps struct {
     Room    string
@@ -108,6 +110,14 @@ type Deps struct {
     Roster  RosterLister // existing admin room listing
     Sender  AdminSender  // admin send (owned by plan 01)
 }
+
+package cli // crabswarm/chat/cli — what implements the three interfaces
+
+func (c *Client) Admin(identityPath string) *AdminClient   // D9
+func (a *AdminClient) Rooms(ctx) ([]*chatv1.Room, error)
+func (a *AdminClient) RoomLog(ctx, room, sinceID, limit) ([]*chatv1.AdminHistoryEntry, error)
+func (a *AdminClient) Send(ctx, room, target, text) (delivered int32, err error)
+func ParseAddressedLine(line string) (to, text string, err error)  // D10
 ```
 
 Interface shapes (`LogReader` etc.) are consumer-side minimal
@@ -131,7 +141,7 @@ must be reconciled when the family is reviewed together.
 | Member roster + state listing | exists (`crabswarm/chat/admin_rooms.go`) |
 | TUI screen (viewport/roster/input/status) | this plan, steps 2–4 |
 | `chat admin tui` command wiring | this plan, step 5 |
-| Presentation preview/mock | this plan, step 1 (planned artifact, not yet created) |
+| Presentation preview/mock | this plan, step 1 (delivered: `mock/main.go`) |
 
 ## Implementation steps
 
