@@ -107,7 +107,8 @@ point).
 
 ```sql
 -- crabswarm/chat/internal/schema/ddl/room_log.sql (new file; sorts
--- after schema.sql, which it does not depend on)
+-- before schema.sql, which it does not depend on, so the order the
+-- files concatenate in does not matter)
 CREATE TABLE IF NOT EXISTS room_log (
 	id        INTEGER PRIMARY KEY AUTOINCREMENT,
 	room      TEXT NOT NULL,
