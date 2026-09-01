@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"testing"
@@ -299,6 +300,37 @@ func TestServer_WatchesNothingUntilSomethingSubscribes(t *testing.T) {
 	assert.Equal(t, fake.watchCount(), 1)
 }
 
+// unwatchable is a URI the bridge does not serve, spelled as one a harness
+// might plausibly have reached for.
+const unwatchable = "crabswarm://chat/rooms"
+
+// assertNotFound asserts uri was refused as the missing resource the SDK
+// spells. Pinned as that error rather than as any error at all: it is what
+// tells a harness the URI is not one this bridge has, which is a different
+// thing to say than the transcript's refusal and must not be said in its place.
+func assertNotFound(t *testing.T, uri string, err error) {
+	t.Helper()
+
+	assert.Assert(t, errors.Is(err, mcp.ResourceNotFoundError(uri)),
+		"%s was not refused as a missing resource: %v", uri, err)
+}
+
+// assertRefusedInWords asserts uri was refused with the reason rather than as a
+// missing resource. The transcript is served, so calling it missing would send
+// the harness looking elsewhere for a document it can read right now; the
+// refusal has to name it and say what to do instead.
+func assertRefusedInWords(t *testing.T, uri string, err error) {
+	t.Helper()
+
+	assert.Assert(t, err != nil, "%s was accepted", uri)
+	assert.Assert(t, !errors.Is(err, mcp.ResourceNotFoundError(uri)),
+		"%s was refused as a missing resource: %v", uri, err)
+	assert.Assert(t, strings.Contains(err.Error(), uri),
+		"the refusal of %s does not name it: %v", uri, err)
+	assert.Assert(t, strings.Contains(err.Error(), "read it again"),
+		"the refusal of %s does not say what to do instead: %v", uri, err)
+}
+
 // Only the roster may be subscribed to. A URI the bridge does not serve is
 // refused because the SDK would otherwise leave the harness waiting on news
 // that could never come; the transcript is refused because the room's feed
@@ -314,14 +346,20 @@ func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = bridge.client.Close() })
 
-	for _, uri := range []string{"crabswarm://chat/rooms", historyURI} {
+	for _, tc := range []struct {
+		uri     string
+		refused func(*testing.T, string, error)
+	}{
+		{uri: unwatchable, refused: assertNotFound},
+		{uri: historyURI, refused: assertRefusedInWords},
+	} {
 		err = bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
-			Params: &mcp.SubscribeParams{URI: uri},
+			Params: &mcp.SubscribeParams{URI: tc.uri},
 		})
-		assert.Assert(t, err != nil, "subscribing to %s was accepted", uri)
+		tc.refused(t, tc.uri, err)
 		select {
 		case <-bridge.watchWanted:
-			t.Fatalf("subscribing to %s started the room feed", uri)
+			t.Fatalf("subscribing to %s started the room feed", tc.uri)
 		default:
 		}
 	}
@@ -330,6 +368,37 @@ func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
 		Params: &mcp.SubscribeParams{URI: membersURI},
 	}))
 	<-bridge.watchWanted
+}
+
+// Withdrawing is answered by the same gate as asking, and in the same words: a
+// harness that was refused a subscription has none to withdraw, so telling it
+// the withdrawal succeeded would say it had had one. Only the roster's is
+// acknowledged, and acknowledging it starts nothing — the feed belongs to the
+// subscription side.
+//
+// Exercised directly for the reason the subscribe side is: the SDK does not
+// hand either refusal back as the error of a client call.
+func TestServer_RefusesToUnwatchWhatItCannotAnnounce(t *testing.T) {
+	bridge, err := New(slog.New(slog.DiscardHandler),
+		serveTestDaemon(t, &fakeChatService{}), testToken)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = bridge.client.Close() })
+
+	unsubscribe := func(uri string) error {
+		return bridge.unsubscribed(t.Context(), &mcp.UnsubscribeRequest{
+			Params: &mcp.UnsubscribeParams{URI: uri},
+		})
+	}
+
+	assert.NilError(t, unsubscribe(membersURI))
+	assertNotFound(t, unwatchable, unsubscribe(unwatchable))
+	assertRefusedInWords(t, historyURI, unsubscribe(historyURI))
+
+	select {
+	case <-bridge.watchWanted:
+		t.Fatal("unsubscribing started the room feed")
+	default:
+	}
 }
 
 // The daemon drops a watcher that falls behind, so the bridge watches again —
