@@ -57,8 +57,62 @@ func (q *Queries) PruneRoomLog(ctx context.Context, arg PruneRoomLogParams) erro
 	return err
 }
 
+const roomLogSince = `-- name: RoomLogSince :many
+SELECT id, from_name, from_team, to_name, to_team, text, sent_at FROM room_log
+WHERE room = ? AND id > ? ORDER BY id ASC LIMIT ?
+`
+
+type RoomLogSinceParams struct {
+	Room  string
+	ID    int64
+	Limit int64
+}
+
+type RoomLogSinceRow struct {
+	ID       int64
+	FromName string
+	FromTeam string
+	ToName   string
+	ToTeam   string
+	Text     string
+	SentAt   string
+}
+
+// Reading forward from a cursor needs no reversal: the rows wanted are the
+// oldest of what comes after it, which is the end the index already starts at.
+func (q *Queries) RoomLogSince(ctx context.Context, arg RoomLogSinceParams) ([]RoomLogSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, roomLogSince, arg.Room, arg.ID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RoomLogSinceRow
+	for rows.Next() {
+		var i RoomLogSinceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromName,
+			&i.FromTeam,
+			&i.ToName,
+			&i.ToTeam,
+			&i.Text,
+			&i.SentAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const roomLogTail = `-- name: RoomLogTail :many
-SELECT from_name, from_team, to_name, to_team, text, sent_at FROM room_log
+SELECT id, from_name, from_team, to_name, to_team, text, sent_at FROM room_log
 WHERE room = ? ORDER BY id DESC LIMIT ?
 `
 
@@ -68,6 +122,7 @@ type RoomLogTailParams struct {
 }
 
 type RoomLogTailRow struct {
+	ID       int64
 	FromName string
 	FromTeam string
 	ToName   string
@@ -88,6 +143,7 @@ func (q *Queries) RoomLogTail(ctx context.Context, arg RoomLogTailParams) ([]Roo
 	for rows.Next() {
 		var i RoomLogTailRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.FromName,
 			&i.FromTeam,
 			&i.ToName,

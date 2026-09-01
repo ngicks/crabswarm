@@ -12,6 +12,10 @@ import (
 // rather than as it was delivered: the identities are snapshots of send time,
 // so an entry still reads correctly after its author leaves or moves team.
 type HistoryEntry struct {
+	// ID orders the entry within its room and is the cursor [Store.HistorySince]
+	// reads forward from. It grows, but not by one per entry of the room: the
+	// log is pruned to its cap underneath it.
+	ID int64
 	// From is who said it.
 	From Sender
 	// To is the member a directed send was addressed to, nil for a broadcast,
@@ -38,31 +42,18 @@ type HistoryEntry struct {
 // there is no such thing as a room that does not exist yet, only one nothing
 // was said in.
 func (s *Store) History(ctx context.Context, room string, limit int) ([]HistoryEntry, error) {
-	if limit <= 0 {
-		// Clamped because the cap of a store that records nothing is negative,
-		// and SQLite reads a negative LIMIT as no limit at all.
-		limit = max(s.historyLimit, 0)
-	}
 	rows, err := s.q.RoomLogTail(ctx, db.RoomLogTailParams{
 		Room:  room,
-		Limit: int64(limit),
+		Limit: int64(s.readLimit(limit)),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading history of room %q: %w", room, err)
 	}
 	entries := make([]HistoryEntry, len(rows))
 	for i, row := range rows {
-		sentAt, err := time.Parse(time.RFC3339Nano, row.SentAt)
+		entry, err := historyEntry(room, logRow(row))
 		if err != nil {
-			return nil, fmt.Errorf("parsing message timestamp %q: %w", row.SentAt, err)
-		}
-		entry := HistoryEntry{
-			From:   Sender{Name: row.FromName, Team: row.FromTeam, Room: room},
-			Text:   row.Text,
-			SentAt: sentAt,
-		}
-		if row.ToName != "" {
-			entry.To = &Sender{Name: row.ToName, Team: row.ToTeam, Room: room}
+			return nil, err
 		}
 		// The query hands back the newest first, since that is the end the tail
 		// is cheap to take; the reader wants the conversation in the order it
@@ -70,6 +61,88 @@ func (s *Store) History(ctx context.Context, room string, limit int) ([]HistoryE
 		entries[len(rows)-1-i] = entry
 	}
 	return entries, nil
+}
+
+// HistorySince returns up to limit entries of room's conversation newer than
+// sinceID, oldest first, and consumes nothing the way [Store.History] does not.
+//
+// It is how a reader follows a room it has already read part of: it remembers
+// the [HistoryEntry.ID] it last saw and asks for what came after, so the answer
+// is what is new rather than a window it has to diff against the last one. A
+// sinceID of zero precedes every entry, which makes it the whole retained
+// conversation from the beginning; a sinceID at or past the newest entry yields
+// nothing, which is what a reader that is up to date is told.
+//
+// Entries the room has pruned away are simply gone, so a reader that was away
+// longer than the cap resumes at what is left rather than being told it missed
+// something. limit is clamped like [Store.History]'s.
+func (s *Store) HistorySince(
+	ctx context.Context,
+	room string,
+	sinceID int64,
+	limit int,
+) ([]HistoryEntry, error) {
+	rows, err := s.q.RoomLogSince(ctx, db.RoomLogSinceParams{
+		Room:  room,
+		ID:    sinceID,
+		Limit: int64(s.readLimit(limit)),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading history of room %q: %w", room, err)
+	}
+	entries := make([]HistoryEntry, len(rows))
+	for i, row := range rows {
+		entry, err := historyEntry(room, logRow(row))
+		if err != nil {
+			return nil, err
+		}
+		entries[i] = entry
+	}
+	return entries, nil
+}
+
+// readLimit settles how many rows a transcript read asks the log for. A
+// non-positive limit means the whole retained tail, which the per-room cap
+// already bounds — clamped at zero because the cap of a store that records
+// nothing is negative, and SQLite reads a negative LIMIT as no limit at all.
+func (s *Store) readLimit(limit int) int {
+	if limit > 0 {
+		return limit
+	}
+	return max(s.historyLimit, 0)
+}
+
+// logRow is one room_log row as both reads select it. The generated row types
+// differ only in the order their query returns them, so they convert to this
+// one shape and one reader turns it into an entry.
+type logRow struct {
+	ID       int64
+	FromName string
+	FromTeam string
+	ToName   string
+	ToTeam   string
+	Text     string
+	SentAt   string
+}
+
+// historyEntry reads one logged row back as it was said. The room comes from
+// the caller rather than the row: it is what the read asked for, and the log
+// stores it once per row instead of once per identity.
+func historyEntry(room string, row logRow) (HistoryEntry, error) {
+	sentAt, err := time.Parse(time.RFC3339Nano, row.SentAt)
+	if err != nil {
+		return HistoryEntry{}, fmt.Errorf("parsing message timestamp %q: %w", row.SentAt, err)
+	}
+	entry := HistoryEntry{
+		ID:     row.ID,
+		From:   Sender{Name: row.FromName, Team: row.FromTeam, Room: room},
+		Text:   row.Text,
+		SentAt: sentAt,
+	}
+	if row.ToName != "" {
+		entry.To = &Sender{Name: row.ToName, Team: row.ToTeam, Room: room}
+	}
+	return entry, nil
 }
 
 // logMessage records one utterance in the room's conversation log and prunes
