@@ -591,7 +591,7 @@ type OutputFuncDoc struct {
 	// Name is the bare function name as registered in outputFuncMap.
 	Name string
 	// Usage is the function name together with its argument placeholders,
-	// e.g. "block REASON".
+	// e.g. "blockDecision REASON".
 	Usage string
 	// Desc is a one-line human description, naming the events the function
 	// applies to when it is event-scoped.

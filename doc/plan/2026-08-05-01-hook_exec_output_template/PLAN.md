@@ -11,8 +11,10 @@ output field/variant.
 - The output template renders against the command's execution result and can
   produce any `types.SyncHookJSONOutput` shape via dedicated template
   functions (`blockDecision`, `context`, `permission`, `updatedToolOutput`, …).
-- Omitting the output template preserves today's behavior exactly
-  (block-on-nonzero-exit with captured output as reason).
+- Omitting the output template keeps today's decision unchanged
+  (block-on-nonzero-exit with captured output as reason). Only the wire form
+  differs: the block now rides on stdout as JSON with exit 0, like every other
+  hook output — see "Exit-code / output protocol" below.
 - The built-in behavior is expressible as an output template, proving the
   machinery is complete. Guarded by
   `TestRun_OutputTemplate_RestatesBuiltinBlockReason`
