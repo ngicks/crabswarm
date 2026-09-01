@@ -13,10 +13,13 @@
 // keeps a tool result and a CLI verb's output the same words: a room reads the
 // same whether a member is wired to it through MCP or through a shell.
 //
-// Beside the tools, the room's attendance is offered as a subscribable
-// resource, so a harness can hold a view of who is around and what each of them
-// is doing instead of spending a turn asking. That one is answered as
-// structured data rather than in the CLI's words: its reader is the harness.
+// Beside the tools, the room itself is offered as resources a harness can hold
+// open: its attendance, which is subscribable, so a view of who is around and
+// what each of them is doing costs no turn, and its transcript, for catching up
+// on what the room has been saying. The roster is answered as structured data
+// rather than in the CLI's words, since its reader is the harness; the
+// transcript is answered in them, since every line already carries everything
+// an entry holds.
 package mcpserver
 
 import (

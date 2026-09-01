@@ -34,6 +34,7 @@ type fakeChatService struct {
 	recipient *chatv1.Member
 	delivered int32
 	messages  []*chatv1.Message
+	entries   []*chatv1.HistoryEntry
 	members   []*chatv1.Member
 
 	// watchFailures is how many WatchRoom calls are refused before one is
@@ -55,6 +56,7 @@ type fakeChatService struct {
 	joins     int
 	send      *chatv1.SendRequest
 	broadcast *chatv1.BroadcastRequest
+	history   *chatv1.HistoryRequest
 	reads     int
 	watches   int
 }
@@ -140,6 +142,22 @@ func (f *fakeChatService) Read(
 	return &chatv1.ReadResponse{Messages: f.messages}, nil
 }
 
+// History answers with the canned transcript whatever window was asked for.
+// The daemon's own limit handling is [chat.Service]'s to get right; what the
+// bridge owes is the request it sends, which [fakeChatService.lastHistory]
+// keeps.
+func (f *fakeChatService) History(
+	_ context.Context, req *chatv1.HistoryRequest,
+) (*chatv1.HistoryResponse, error) {
+	f.mu.Lock()
+	f.history = req
+	f.mu.Unlock()
+	if err := f.failure(); err != nil {
+		return nil, err
+	}
+	return &chatv1.HistoryResponse{Entries: f.entries}, nil
+}
+
 func (f *fakeChatService) ListMembers(
 	_ context.Context, _ *chatv1.ListMembersRequest,
 ) (*chatv1.ListMembersResponse, error) {
@@ -182,6 +200,12 @@ func (f *fakeChatService) lastBroadcast() *chatv1.BroadcastRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.broadcast
+}
+
+func (f *fakeChatService) lastHistory() *chatv1.HistoryRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.history
 }
 
 func (f *fakeChatService) readCount() int {

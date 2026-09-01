@@ -42,3 +42,17 @@
 - README's "every other notification type" list enumerates three
   values; the official hooks docs list ~11 (e.g. `agent_needs_input`,
   `agent_completed`).
+- The `crabswarm://chat/history` resource is readable-only: the proto's
+  `MessageAppended` room-event kind exists
+  (api/schema/proto/ngicks/crabswarm/chat/v1/chat_service.proto:245) but
+  no code path publishes it — every publish site builds joined/left/
+  state-changed events only. Deciding whether `Service.Send`/`Broadcast`
+  (crabswarm/chat/service_inbox.go) should publish it is what stands
+  between the transcript resource and `resources/updated` support (then
+  add the URI to `announceable` and mirror the members-resource
+  announcement path in crabswarm/chat/mcpserver/resources.go).
+- The SKILL.md gap above now includes the `crabswarm://chat/history`
+  transcript resource alongside the tools and the members resource.
+- Neither MCP resource has an e2e (real-process) read test; a single
+  e2e that reads both `crabswarm://chat/members` and
+  `crabswarm://chat/history` over stdio would close the gap for both.
