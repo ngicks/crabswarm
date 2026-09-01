@@ -19,5 +19,6 @@ applyTo: "*.ts"
   seekable zstd). No separate shell scripts.
 - `web/dist.tar.zst` and `web/src/gen` are committed (go:embed needs them
   in the module zip); `web/dist` itself is git-ignored. Rebuild with
-  `pnpm build` after changing `web/src` or the proto schema. CI verifies
-  freshness via rebuild + `git diff --exit-code`.
+  `pnpm build` after changing `web/src` or the proto schema; verify
+  freshness with a rebuild + `git diff --exit-code` (there is no CI doing
+  it for you).
