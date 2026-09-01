@@ -8,6 +8,66 @@ import (
 	"github.com/ngicks/crabswarm/crabswarm/chat/internal/db"
 )
 
+// HistoryEntry is one utterance of a room's conversation, kept as it was said
+// rather than as it was delivered: the identities are snapshots of send time,
+// so an entry still reads correctly after its author leaves or moves team.
+type HistoryEntry struct {
+	// From is who said it.
+	From Sender
+	// To is the member a directed send was addressed to, nil for a broadcast,
+	// which was addressed to the room rather than to anyone in it.
+	To *Sender
+	// Text is the message body.
+	Text string
+	// SentAt is when the daemon accepted the message.
+	SentAt time.Time
+}
+
+// History returns the last limit entries of room's conversation, oldest first.
+// It reads and consumes nothing, so two callers — or the same one twice — see
+// the same transcript.
+//
+// It is keyed by the room rather than by a member's token because the
+// transcript belongs to the room: the host operator reads one without
+// attending it, and a member's own token only ever names one room anyway.
+//
+// A non-positive limit returns the whole retained tail, which the per-room cap
+// already bounds. A room nobody has spoken in yields no entries and no error:
+// there is no such thing as a room that does not exist yet, only one nothing
+// was said in.
+func (s *Store) History(ctx context.Context, room string, limit int) ([]HistoryEntry, error) {
+	if limit <= 0 {
+		limit = s.historyLimit
+	}
+	rows, err := s.q.RoomLogTail(ctx, db.RoomLogTailParams{
+		Room:  room,
+		Limit: int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading history of room %q: %w", room, err)
+	}
+	entries := make([]HistoryEntry, len(rows))
+	for i, row := range rows {
+		sentAt, err := time.Parse(time.RFC3339Nano, row.SentAt)
+		if err != nil {
+			return nil, fmt.Errorf("parsing message timestamp %q: %w", row.SentAt, err)
+		}
+		entry := HistoryEntry{
+			From:   Sender{Name: row.FromName, Team: row.FromTeam, Room: room},
+			Text:   row.Text,
+			SentAt: sentAt,
+		}
+		if row.ToName != "" {
+			entry.To = &Sender{Name: row.ToName, Team: row.ToTeam, Room: room}
+		}
+		// The query hands back the newest first, since that is the end the tail
+		// is cheap to take; the reader wants the conversation in the order it
+		// happened.
+		entries[len(rows)-1-i] = entry
+	}
+	return entries, nil
+}
+
 // logMessage records one utterance in the room's conversation log and prunes
 // the room back to its cap, both through the caller's queries handle so the
 // record shares the transaction that delivered the message: a message nobody
