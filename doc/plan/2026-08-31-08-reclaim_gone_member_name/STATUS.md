@@ -37,3 +37,6 @@ it.
 
 Next action: none — merge and, if wanted, the manual cmdman-compose
 recreate check from the plan's verification notes.
+
+HANDOFF.md folded into doc/plan/issue/issue.md 2026-09-02 (run of the
+implement-all-plans goal); entries there are the durable copies.

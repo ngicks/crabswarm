@@ -37,3 +37,6 @@ in particular, which are the surface this implementation added beyond
 what the plan stated. The upgrade path D2 names, swapping the tail poll
 for `ChatService.WatchRoom`, stays open and changes none of the `tui`
 package's interfaces.
+
+HANDOFF.md folded into doc/plan/issue/issue.md 2026-09-02 (run of the
+implement-all-plans goal); entries there are the durable copies.

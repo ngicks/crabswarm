@@ -30,3 +30,6 @@ Next action: user review.
   broadcast paths, the history resource cannot be subscribable, and the
   bridge refuses a subscription to it rather than accepting one it could
   never serve.
+
+HANDOFF.md folded into doc/plan/issue/issue.md 2026-09-02 (run of the
+implement-all-plans goal); entries there are the durable copies.

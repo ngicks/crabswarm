@@ -170,3 +170,201 @@ today a member literally named `*` is legal and addressed as `team/*`.
 Update the proto comments for `SendRequest.to` and
 `AdminSendRequest.target`, the deliverer fan-out, and e2e on both
 paths.
+
+# Drop the unused protoc plugin binaries from the dev environment (2026-09-02)
+
+The repo no longer invokes any PATH-installed protoc plugin:
+`api/buf.gen.yaml` runs the Go plugins through `go tool` (pinned by
+`go.mod` tool directives) and `protoc-gen-es` through
+`web/node_modules/.bin/protoc-gen-es` (pinned by `web/package.json`).
+The nix profile still provides `protoc-gen-go`, `protoc-gen-go-grpc`,
+`protoc-gen-connect-go`, and `protoc-gen-es` on PATH — and the PATH
+`protoc-gen-es` is 2.12.0 while the pinned one is 2.12.1, a real drift
+trap if anything falls back to PATH. The dev-environment definition
+lives outside this repository.
+
+Follow-up: remove the four plugin packages from the dev-environment
+definition.
+
+# RegisterMember still refuses a name a gone agent holds (2026-09-02)
+
+`AdminService.RegisterMember` hands the requested name to `Store.Join`
+and returns `AlreadyExists` on collision, even when the holder is a gone
+agent — the same ghost-holder situation now reclaimed on the
+`Service.Join` and `AdminService.MoveMember` collision paths (both go
+through the shared `checkLiveness` helper in
+`crabswarm/chat/service.go`).
+
+Follow-up: decide whether a human registration may evict a gone agent's
+name; if yes, route the register collision through the same
+holder-check-and-reap helper.
+
+# Modernize lint findings in crabswarm/hook tests (2026-09-02)
+
+A repo-wide `golangci-lint run` surfaces pre-existing `modernize`
+findings in untouched files: `crabswarm/hook/audit_test.go:90` and
+`:103` want `errors.As` replaced with `errors.AsType`.
+
+Follow-up: apply the two mechanical replacements.
+
+# Document the chat surface the crabswarm-chat apm package now ships (2026-09-02)
+
+`apm-package/crabswarm-chat/README.md` and
+`apm-package/crabswarm-chat/.apm/skills/crabswarm-chat/SKILL.md` teach
+only the member CLI verbs. They do not mention the non-destructive
+`crabswarm chat history [--limit N]` transcript verb, the bridge's four
+MCP tools, or the `crabswarm://chat/members` and
+`crabswarm://chat/history` resources the package now ships.
+
+Follow-up: bring both docs up to the shipped surface so agents wired
+through the package can discover it.
+
+# Publish MessageAppended so the history resource can announce updates (2026-09-02)
+
+The proto's `MessageAppended` room-event kind exists
+(`api/schema/proto/ngicks/crabswarm/chat/v1/chat_service.proto`) but no
+code path publishes it — every publish site builds joined/left/
+state-changed events only. Because of that the
+`crabswarm://chat/history` MCP resource is readable-only: its
+subscribe/unsubscribe are refused via `announceable` in
+`crabswarm/chat/mcpserver/resources.go`.
+
+Follow-up: decide whether `Service.Send`/`Broadcast`
+(`crabswarm/chat/service_inbox.go`, where the room-log write already
+happens) should publish it; then make the history resource subscribable
+by adding the URI to `announceable` and mirroring the members-resource
+announcement path.
+
+# e2e read test for the MCP resources (2026-09-02)
+
+Neither `crabswarm://chat/members` nor `crabswarm://chat/history` has a
+real-process read test; both are covered by in-process unit tests only
+(`crabswarm/chat/mcpserver/resources_test.go`).
+
+Follow-up: one e2e that starts `crabswarm chat mcp` over stdio against a
+live daemon and reads both resources would close the gap for both.
+
+# Confirm intent: hook path violations now ride the always-JSON output (2026-09-02)
+
+`crabswarm/hook/path/windows.go` calls `handler.Block`, so its violation
+report moved with the hook-exec output-template change from exit 2 +
+stderr to exit 0 + JSON on stdout, although that feature was scoped to
+`hook exec` only. No test, doc, or consumer depends on exit 2 and there
+is no deployed consumer, so nothing is broken — but the semantic shift
+for `hook path` was never explicitly decided, and the package has no
+process-level test at all.
+
+Follow-up: confirm the always-JSON wire form is wanted for `hook path`
+too, and pin it with a process-level test either way.
+
+# Admin TUI refuses a room that has history but no members (2026-09-02)
+
+`openRoom` (`crabswarm/chat/cli/tui/tui.go`) decides room existence from
+the roster listing, so once every member leaves,
+`chat admin tui --room R` errors while `chat admin log R` still serves
+the retained transcript.
+
+Follow-up: decide existence from the log as well — needs a read the
+admin History RPC does not offer today (an "any rows for this room?"
+probe or listing rooms present in `room_log`).
+
+# Admin verb spelling: tui takes --room, the others take a positional (2026-09-02)
+
+Every other room-scoped admin verb (`log`, `send`, ...) takes the room
+as its first positional argument; `chat admin tui` requires a `--room`
+flag because the plan fixed that spelling. The group is internally
+inconsistent.
+
+Follow-up: pick one convention and align the verbs.
+
+# Shell completion for the admin TUI's room argument (2026-09-02)
+
+The admin can already enumerate rooms and the completion precedent
+exists (`completeChatMembers`, `cmd/crabswarm/commands/zz_chat.go`), but
+`chat admin tui --room` completes nothing.
+
+Follow-up: wire room-name completion for the flag (and for the other
+admin verbs' room positional while at it).
+
+# Swap the hand-rolled TUI e2e scraping for teatest once it tags a release (2026-09-02)
+
+`charm.land/x/exp/teatest/v2` resolves as a module path but has no
+tagged version, so `e2e/crabswarm/chat_tui_test.go` strips ANSI from
+accumulated program output itself.
+
+Follow-up: adopt teatest when it tags a release.
+
+# WatchRoom upgrade path for the admin TUI tail poll (2026-09-02)
+
+The TUI tails the room log by cursor poll (~1s) against
+`ChatAdminService.History`. The daemon already serves server-streaming
+`ChatService.WatchRoom` on the member plane; once an admin-plane stream
+(or a message-appended event feeding one) exists, the poll can be
+replaced without changing the `tui` package's `LogReader` consumers.
+
+Follow-up: revisit after the MessageAppended producer decision above.
+
+# Admin TUI conversation re-render is whole-string per poll (2026-09-02)
+
+`layout()` (`crabswarm/chat/cli/tui/model.go`) re-renders the entire
+conversation string (bounded at 2000 entries) on every poll that brings
+entries. Fine at terminal scale.
+
+Follow-up: make it incremental only if the screen ever feels heavy.
+Related: `model.go` is ~395 LoC against the repo's 300-LoC preference;
+splitting it is a natural companion cleanup.
+
+# Stale claim: an apm bundle carries the same wiring as a source install (2026-09-02)
+
+`apm-package/crabswarm-chat`'s README claims a bundle install carries
+the same wiring as an install from source, but the MCP-server
+registration renders into `.mcp.json` / `.codex/config.toml` via
+apm.yml, and transitive installs need `--trust-transitive-mcp`; the
+claim looks stale (pre-existing, noted during the MCP-server run).
+
+Follow-up: re-verify a bundle install end to end and fix the README.
+
+# Codex runtime never verified to start the chat MCP bridge (2026-09-02)
+
+apm writes `[mcp_servers.crabswarm-chat]` into `.codex/config.toml`,
+but nobody has confirmed codex actually starts the bridge.
+
+Follow-up: verify once against a real codex runtime.
+
+# Release note: old dev chat DBs need recreating (2026-09-02)
+
+Existing dev chat databases lack the `members.state_reported_at` NOT
+NULL column (no migration by design; the repo has no deployment
+back-compat obligation). They must be deleted/recreated.
+
+Follow-up: a release-note line when anything ships.
+
+# godoc nit: [nudgeable] link in SendKeys doc points at an unexported func (2026-09-02)
+
+The `[nudgeable]` doc link in the exported `SendKeys` comment
+(`crabswarm/chat/notify`) points at an unexported func and renders as
+plain text.
+
+Follow-up: reword or export what the link needs.
+
+# Review-noted chat daemon test gaps (2026-09-02)
+
+Deferred, not defects, from the MCP-server run's review: nothing pins
+the magnitude of the 10-minute staleness threshold (fixtures are
+relative to the const); the daemon's `ChainStreamInterceptor` wiring in
+`crabswarm/server/server.go` is never exercised by a test; the bounded
+`GracefulStop` path has no test; no test asserts the timestamp
+`ReportState` writes (a zero-time regression would make every busy
+member instantly stale); the hook e2e exhaustiveness guard keys on
+event name only, so re-adding a matcher-less catch-all `Notification`
+group would fail nothing.
+
+Follow-up: pin whichever of these bite first.
+
+# README notification-type list is incomplete (2026-09-02)
+
+`apm-package/crabswarm-chat`'s README enumerates three values for
+"every other notification type"; the official hooks docs list ~11
+(e.g. `agent_needs_input`, `agent_completed`).
+
+Follow-up: sync the list or reword to avoid enumerating.
