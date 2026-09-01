@@ -1,9 +1,8 @@
-# Issue backlog
+Issue backlog: durable follow-ups that outlive their originating plan
+directories. One `#` heading per issue item. Append only; never rewrite
+or reorder existing entries.
 
-Durable follow-ups that outlive their originating plan directories.
-Append only; never rewrite or reorder existing entries.
-
-## Unify the two buf generate templates (2026-08-29)
+# Unify the two buf generate templates (2026-08-29)
 
 `api/buf.gen.yaml` (full: Go + TS plugins, run by `go generate` in
 `api/`) and `api/buf.gen.ts.yaml` (TS-only subset, run by the
@@ -18,7 +17,7 @@ plugins must then be present for the web build), or generate the TS
 solely from the Go-side `go generate` and drop the pnpm-side gen step.
 Decide which toolchain owns generation, then delete `buf.gen.ts.yaml`.
 
-## Add `crabswarm chat admin` subcommand (2026-08-31)
+# Add `crabswarm chat admin` subcommand (2026-08-31)
 
 Admin works fundamentally differently from members: it authenticates by
 age identity + nonce challenge (`crabswarm/chat/admin.go`,
@@ -35,7 +34,7 @@ Follow-up: group the admin plane under `crabswarm chat admin ...`
 age-authenticated and all taking an explicit room id. Do not add an
 `--admin` flag to `chat join`; admin never becomes a member.
 
-## Transform chat daemon into an MCP server, keeping the CLI (2026-08-31)
+# Transform chat daemon into an MCP server, keeping the CLI (2026-08-31)
 
 Native notification/hook methods vary between harnesses, so the chat
 side should become an MCP server while every existing CLI verb stays.
@@ -63,7 +62,7 @@ resources + `resources/updated` subscriptions for member state and room
 history), wire server-startup auto-join, and keep the CLI as the
 hook-facing entry.
 
-## Nudge opt-in kind for members (deferred) (2026-08-31)
+# Nudge opt-in kind for members (deferred) (2026-08-31)
 
 Every cmdman-resolved member is unconditionally `KindAgent`
 (`crabswarm/chat/service_member.go`), so a human joining chat from a
@@ -79,7 +78,7 @@ registration/join — e.g. an `--agent` flag meaning "notify by
 keystroke injection"; without it, the member is inbox-only and the
 notify path never types at its terminal.
 
-## Per-room message history (2026-08-31)
+# Per-room message history (2026-08-31)
 
 Chat history does not exist: the store is a pure inbox — per-recipient
 message rows drained with `DELETE FROM messages WHERE recipient = ?` on
@@ -93,7 +92,7 @@ a retention cap (row limit and/or age-based pruning), plus read access
 for both the admin plane and members (CLI verb now; an MCP resource
 once the server lands).
 
-## Admin TUI screen (2026-08-31)
+# Admin TUI screen (2026-08-31)
 
 The admin needs its own interactive surface: unlike members it always
 specifies a room id, and its job is watching over the agents'
@@ -108,7 +107,7 @@ view of the room's conversation via the per-room history plus a
 streaming or polling tail, send-as-admin input). Depends on the `chat
 admin` subcommand and per-room history entries above.
 
-## Reclaim a gone member's name on duplicate-name join (2026-08-31)
+# Reclaim a gone member's name on duplicate-name join (2026-08-31)
 
 A recreated compose replica cannot rejoin the chat room: the identity
 token is `$CMDMAN_CMD_ID`, the per-instance cmdman command ID
@@ -136,7 +135,7 @@ Regression test to add with the fix: `Service.Join` with a
 provider-derived name already taken in the same team by a token the
 provider no longer knows.
 
-## Untested guarantee: `/` in a provider-derived member name (2026-08-31)
+# Untested guarantee: `/` in a provider-derived member name (2026-08-31)
 
 The comment in `crabswarm/chat/resolver/cmdman.go` (label values used
 verbatim) leans on join-time rejection of `/` in names, but only
@@ -150,7 +149,7 @@ Follow-up: add a service test driving a `/`-carrying provider-derived
 name through `Service.Join` and asserting the `InvalidArgument`
 rejection.
 
-## Team fan-out target form `team/*` for chat send (2026-09-01)
+# Team fan-out target form `team/*` for chat send (2026-09-01)
 
 Target resolution for both member `chat send` and `chat admin send`
 goes through one resolver (`resolveFor` in `crabswarm/chat/member.go`),
