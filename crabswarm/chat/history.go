@@ -13,8 +13,8 @@ import (
 // so an entry still reads correctly after its author leaves or moves team.
 type HistoryEntry struct {
 	// ID orders the entry within its room and is the cursor [Store.HistorySince]
-	// reads forward from. It grows, but not by one per entry of the room: the
-	// log is pruned to its cap underneath it.
+	// reads forward from. It grows, but not by one per entry of the room: every
+	// room shares one log, so the ids in between went to what was said elsewhere.
 	ID int64
 	// From is who said it.
 	From Sender

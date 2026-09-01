@@ -1975,8 +1975,8 @@ func (x *AdminHistoryRequest) GetSinceId() int64 {
 type AdminHistoryEntry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id orders the entry within its room and is what the next request sends as
-	// SinceId. Ids grow, but not by one per entry: a room only ever keeps a
-	// bounded tail, so the log is pruned underneath them.
+	// SinceId. Ids grow, but not by one per entry of the room: every room shares
+	// one log, so the ids in between went to what was said elsewhere.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	// From is who said it, as resolved at send time.
 	From *Member `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`

@@ -883,8 +883,8 @@ export const AdminHistoryRequestSchema: GenMessage<AdminHistoryRequest> = /*@__P
 export type AdminHistoryEntry = Message$1<"ngicks.crabswarm.chat.v1.AdminHistoryEntry"> & {
   /**
    * Id orders the entry within its room and is what the next request sends as
-   * SinceId. Ids grow, but not by one per entry: a room only ever keeps a
-   * bounded tail, so the log is pruned underneath them.
+   * SinceId. Ids grow, but not by one per entry of the room: every room shares
+   * one log, so the ids in between went to what was said elsewhere.
    *
    * @generated from field: int64 id = 1;
    */

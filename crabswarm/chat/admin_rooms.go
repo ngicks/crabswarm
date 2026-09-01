@@ -225,7 +225,9 @@ func (a *AdminService) History(
 		limit = defaultHistoryWindow
 	}
 	// Asking for more than the room keeps is not an error: the answer to it is
-	// everything there is, which is what the retention cap left.
+	// everything there is, which is what the retention cap left. A store that
+	// records nothing has no cap to clamp against — it answers with whatever it
+	// held before it was switched off, and that is already a short list.
 	if kept := a.store.historyLimit; kept > 0 && limit > kept {
 		limit = kept
 	}
