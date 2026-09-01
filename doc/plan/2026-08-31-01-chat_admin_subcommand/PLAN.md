@@ -19,9 +19,10 @@ its history without ever being a member.
 
 - CLI tree under `cmd/crabswarm/commands/` and presentation in
   `crabswarm/chat/cli/`.
-- `AdminService` (proto + `crabswarm/chat/admin_rooms.go`): one new
-  `Send` RPC. `Log`/history read is surfaced here but its storage and
-  RPC are owned by sibling plan `2026-08-31-05-per_room_message_history`.
+- `AdminService` (proto + `crabswarm/chat/admin_rooms.go`): two new
+  RPCs, `Send` and `History`. The `Log` verb and its `History` RPC are
+  owned here; the per-room log they read over is owned by sibling plan
+  `2026-08-31-05-per_room_message_history`.
 
 ## Non-goals
 
@@ -74,7 +75,7 @@ crabswarm chat admin list                              # was: chat team list
 crabswarm chat admin register ROOM TEAM NAME           # was: chat register --room --team --name
 crabswarm chat admin move ROOM TEAM/NAME TO_TEAM       # was: chat team move
 crabswarm chat admin send ROOM TARGET TEXT             # new; TARGET: team/name | name | '*' (bare team deferred, see AD8)
-crabswarm chat admin log ROOM [--limit N]              # new; delivered by plan 05's storage
+crabswarm chat admin log ROOM [--limit N]              # new; reads plan 05's per-room log
 
 # removed
 crabswarm chat register
@@ -159,8 +160,10 @@ stays unambiguous.
    `chat_team*.go`; update `chat.go`'s long help text (its admin-verbs
    paragraph names register/team).
 6. **`admin log`**: implement `AdminService.History` (room-keyed, over
-   plan 05's `Store.History(ctx, room, limit)`) and register the verb —
-   blocked on plan 05 step 3; no stub before that.
+   plan 05's `Store.History(ctx, room, limit)` for the tail read and
+   `Store.HistorySince(ctx, room, sinceID, limit)` for the cursor read
+   this plan adds beside it) and register the verb — was blocked on
+   plan 05 step 3 with no stub before that; delivered 2026-09-02.
 7. **e2e**: extend `e2e/crabswarm/chat_test.go` — admin send reaches a
    member inbox with `admin` attribution and no new member row; removed
    spellings return unknown-command.

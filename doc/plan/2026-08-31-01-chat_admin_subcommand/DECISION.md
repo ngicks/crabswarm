@@ -63,6 +63,12 @@ autonomously and tagging them [automatic]. The `History` RPC is NOT
 added to the proto in this run (step 6 skipped, blocked on the per-room
 message-history plan); only `Send` lands.
 
+Amendment: step 6 followed on 2026-09-02, once the per-room
+message-history plan had delivered the log it reads.
+`ChatAdminService.History`, its messages, and the `admin log` verb are
+in the tree, carrying the since-id cursor and the entry ids AD10
+settles.
+
 ## AD7: buf lint standard-name exemption for admin Send messages [automatic]
 
 buf's STANDARD lint demands `SendRequest`/`ChatAdminServiceSendRequest`

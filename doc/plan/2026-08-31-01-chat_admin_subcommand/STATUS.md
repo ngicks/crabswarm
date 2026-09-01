@@ -3,8 +3,8 @@
 Current state: implemented (all steps). Steps 1-5 and 7 landed
 2026-08-31 unattended via /goal (see AD6-AD9) and were reviewed; step 6
 followed on 2026-09-02, once plan 05 had delivered the per-room log it
-reads, and is not reviewed yet. Awaiting user review; HANDOFF.md awaits
-triage.
+reads, and is not reviewed yet. Awaiting user review; HANDOFF.md is
+empty — nothing this plan deferred is still outstanding.
 
 ## Checklist
 
@@ -24,4 +24,4 @@ triage.
       spellings gone (plus AD9 NoArgs fix)
 
 Next action: user reviews the implementation and the automatic
-decisions (AD6-AD10), then triages HANDOFF.md.
+decisions (AD6-AD10).
