@@ -114,6 +114,93 @@ func TestService_JoinRejectsNameTakenInTeam(t *testing.T) {
 
 	_, err := svc.Join(callCtx(t, "tok-b"), &chatv1.JoinRequest{Name: "ana"})
 	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	// The provider still places the member carrying the name, so it keeps it:
+	// only a name nobody is left to answer for is handed over.
+	stored, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.Name, "ana")
+}
+
+// A recreated command derives the name its predecessor left behind. Nothing
+// else would ever free it, so the collision does: the predecessor is gone with
+// the token the provider stopped knowing, and the newcomer takes the name.
+func TestService_JoinReclaimsTheNameOfAGoneMember(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	// Seeded straight into the store: what the predecessor left behind is a
+	// member row, not a declaration this service witnessed.
+	join(t, svc.store, "tok-old", "/work", "alpha", "worker-1")
+	provider.vouchNamed("tok-new", "/work", "alpha", "worker-1")
+
+	res, err := svc.Join(callCtx(t, "tok-new"), &chatv1.JoinRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetSelf().GetName(), "worker-1")
+	assert.Equal(t, res.GetSelf().GetTeam(), "alpha")
+
+	// One member of that name, and it is the one that just joined.
+	_, err = svc.store.Member(t.Context(), "tok-old")
+	assert.ErrorIs(t, err, ErrNotFound)
+	members, err := svc.store.ListMembers(t.Context(), "/work")
+	assert.NilError(t, err)
+	assert.Equal(t, len(members), 1)
+	assert.Equal(t, members[0].Token, "tok-new")
+}
+
+// The holder was vouched for moments ago, by its own join, and that verdict is
+// cached for the TTL. The collision asks the provider again regardless: a
+// recreated replica arrives exactly while its predecessor's verdict is fresh.
+func TestService_JoinReclaimLooksPastTheCachedVerdict(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	provider.vouchNamed("tok-old", "/work", "alpha", "worker-1")
+	_, err := svc.Join(callCtx(t, "tok-old"), &chatv1.JoinRequest{})
+	assert.NilError(t, err)
+
+	provider.forget("tok-old")
+	provider.vouchNamed("tok-new", "/work", "alpha", "worker-1")
+
+	res, err := svc.Join(callCtx(t, "tok-new"), &chatv1.JoinRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetSelf().GetName(), "worker-1")
+	_, err = svc.store.Member(t.Context(), "tok-old")
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+// A human's token was minted by the daemon, so no provider can vouch for it and
+// none is asked: their name is theirs until an operator says otherwise.
+func TestService_JoinNeverReclaimsAHumanName(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	_, err := svc.store.Join(t.Context(), Member{
+		Token: "human-tok", Name: "hana", Team: "alpha", Room: "/work", Kind: KindHuman,
+	})
+	assert.NilError(t, err)
+	provider.vouch("tok-a", "/work", "alpha")
+
+	_, err = svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "hana"})
+	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	stored, err := svc.store.Member(t.Context(), "human-tok")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.Name, "hana")
+	// The only lookup was the joiner's own admission.
+	assert.Equal(t, provider.callCount(), 1)
+}
+
+// A cmdman that could not be asked says nothing about the holder, and nothing
+// is not enough to take a name away from it.
+func TestService_JoinKeepsAHolderTheProviderCouldNotJudge(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	join(t, svc.store, "tok-old", "/work", "alpha", "worker-1")
+	provider.vouchNamed("tok-new", "/work", "alpha", "worker-1")
+	provider.failLookup("tok-old", errors.New("cmdman: connection refused"))
+
+	_, err := svc.Join(callCtx(t, "tok-new"), &chatv1.JoinRequest{})
+	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	stored, err := svc.store.Member(t.Context(), "tok-old")
+	assert.NilError(t, err)
+	assert.Equal(t, stored.Name, "worker-1")
+	_, err = svc.store.Member(t.Context(), "tok-new")
+	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestService_JoinRejectsNameWithTeamSeparator(t *testing.T) {

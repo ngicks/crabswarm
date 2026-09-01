@@ -175,39 +175,108 @@ func (s *Service) caller(ctx context.Context) (Member, error) {
 //
 // Only an agent is checked, and only past [providerCheckTTL]: a human's token
 // was minted by the daemon, so no provider has ever heard of it. A lookup that
-// fails without a verdict keeps the member — a missing cmdman binary or a
-// locked cmdman store would otherwise empty every room at once, and a stale
-// member costs far less than that.
+// carried no verdict is not remembered either, so the next RPC asks again
+// instead of riding an answer nobody gave.
 func (s *Service) stillKnown(ctx context.Context, m Member) bool {
 	if m.Kind != KindAgent || s.recentlyVerified(m.Token) {
 		return true
 	}
-	_, err := s.provider.Resolve(ctx, m.Token)
+	switch checkLiveness(ctx, s.store, s.provider, s.logger, m) {
+	case memberVouchedFor:
+		s.recordVerified(m.Token)
+	case memberReaped:
+		s.forgetVerified(m.Token)
+		return false
+	}
+	return true
+}
+
+// livenessVerdict is what the team-info provider had to say about a member,
+// as [checkLiveness] reports it.
+type livenessVerdict int
+
+const (
+	// memberVouchedFor: the provider placed the token, so whoever holds it is
+	// still running.
+	memberVouchedFor livenessVerdict = iota
+	// memberUnjudged: the lookup itself failed, so nothing was learned about
+	// the token and its holder stays.
+	memberUnjudged
+	// memberReaped: the provider no longer knows the token, and its holder is
+	// gone from the store.
+	memberReaped
+)
+
+// checkLiveness asks the provider about m and drops m from the store when the
+// provider no longer knows its token. It is the one definition of a member
+// being gone, shared by the lazy reap the member half runs before every RPC and
+// by the name-collision paths of both halves: a flaky cmdman must not free
+// names any more than it may empty rooms.
+//
+// Only an agent is asked about: a human's token was minted by the daemon, so no
+// provider has ever heard of it. A lookup that fails without a verdict keeps
+// the member — a missing cmdman binary or a locked cmdman store would otherwise
+// empty every room at once, and a stale member costs far less than that.
+func checkLiveness(
+	ctx context.Context,
+	store *Store,
+	provider TeamInfoProvider,
+	logger *slog.Logger,
+	m Member,
+) livenessVerdict {
+	if m.Kind != KindAgent {
+		return memberVouchedFor
+	}
+	_, err := provider.Resolve(ctx, m.Token)
 	switch {
 	case err == nil:
-		s.recordVerified(m.Token)
-		return true
+		return memberVouchedFor
 	case !errors.Is(err, resolver.ErrUnknownToken):
-		s.logger.Warn("chat: team-info lookup failed, keeping member",
+		logger.Warn("chat: team-info lookup failed, keeping member",
 			"member", m.Team+"/"+m.Name, "err", err)
-		return true
+		return memberUnjudged
 	}
 	// No status is withdrawn here: the member is reaped because the provider
 	// no longer knows its token, which means the command that carried the
 	// display is already gone.
-	s.logger.Info("chat: reaping member the provider no longer knows",
+	logger.Info("chat: reaping member the provider no longer knows",
 		"member", m.Team+"/"+m.Name, "room", m.Room, "err", err)
-	if _, err := s.store.RemoveMember(ctx, m.Token); err != nil {
-		s.logger.Warn("chat: removing reaped member failed",
+	if _, err := store.RemoveMember(ctx, m.Token); err != nil {
+		logger.Warn("chat: removing reaped member failed",
 			"member", m.Team+"/"+m.Name, "err", err)
 	} else {
 		// Unlike the status display, the room hears about a reap: the watchers
 		// are the other members' sessions, which are still running and would
 		// otherwise keep a vanished member on their list forever.
-		s.store.events.publish(m.Room, memberLeftEvent(m))
+		store.events.publish(m.Room, memberLeftEvent(m))
 	}
-	s.forgetVerified(m.Token)
-	return false
+	return memberReaped
+}
+
+// reclaimName frees name within team of room when the member holding it has
+// vanished, and reports whether the name is there for the taking. It is what
+// tells the ghost of a command that no longer exists from a member that is
+// still in the room: a recreated compose replica derives the exact name its
+// predecessor left behind, and nothing else would ever free it.
+//
+// The provider is asked afresh rather than through the member half's cached
+// verdicts: a collision is rare enough to be worth a lookup, the answer decides
+// whether the caller gets in at all, and a verdict cached moments ago would
+// vouch for precisely the holder a recreated replica has just replaced.
+func reclaimName(
+	ctx context.Context,
+	store *Store,
+	provider TeamInfoProvider,
+	logger *slog.Logger,
+	room, team, name string,
+) bool {
+	holder, err := store.memberNamed(ctx, room, team, name)
+	if err != nil {
+		// Nobody holds the name any more: whoever did left between the refusal
+		// and this lookup. Any other failure leaves the refusal standing.
+		return errors.Is(err, ErrNotFound)
+	}
+	return checkLiveness(ctx, store, provider, logger, holder) == memberReaped
 }
 
 // mirrorState publishes m's state, logging what the mirror could not do. The
