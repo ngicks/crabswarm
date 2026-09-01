@@ -36,9 +36,10 @@ const ProviderUnavailableMessage = "looking up team information"
 // happened.
 //
 // Joining again with the same token returns the existing membership unchanged,
-// name and kind included, since the store keeps the first join. An admin-registered
-// human may call Join too: they are already a member, and their token is theirs
-// to present, so it is answered from the store without consulting the provider.
+// name and kind included, since the store keeps the first join. An
+// admin-registered human may call Join too: they are already a member, and
+// their token is theirs to present, so it is answered from the store without
+// consulting the provider.
 //
 // A name a teammate already carries is AlreadyExists, unless that teammate
 // turns out to be gone — an agent whose token the provider has stopped knowing
