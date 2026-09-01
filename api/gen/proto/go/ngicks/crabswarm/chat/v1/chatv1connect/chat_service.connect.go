@@ -43,6 +43,8 @@ const (
 	ChatServiceBroadcastProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Broadcast"
 	// ChatServiceReadProcedure is the fully-qualified name of the ChatService's Read RPC.
 	ChatServiceReadProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Read"
+	// ChatServiceHistoryProcedure is the fully-qualified name of the ChatService's History RPC.
+	ChatServiceHistoryProcedure = "/ngicks.crabswarm.chat.v1.ChatService/History"
 	// ChatServiceListMembersProcedure is the fully-qualified name of the ChatService's ListMembers RPC.
 	ChatServiceListMembersProcedure = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
 	// ChatServiceLeaveProcedure is the fully-qualified name of the ChatService's Leave RPC.
@@ -81,6 +83,11 @@ type ChatServiceClient interface {
 	// Read returns the caller's pending messages and consumes them, so a
 	// message is handed out exactly once.
 	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
+	// History returns the tail of the conversation of the caller's room, oldest
+	// first. It consumes nothing, and it shows the whole room: directed
+	// messages the caller never received included, since a room's transcript is
+	// a shared record of what was said rather than a second copy of an inbox.
+	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
 	// Leave withdraws the caller's attendance.
@@ -133,6 +140,12 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(chatServiceMethods.ByName("Read")),
 			connect.WithClientOptions(opts...),
 		),
+		history: connect.NewClient[v1.HistoryRequest, v1.HistoryResponse](
+			httpClient,
+			baseURL+ChatServiceHistoryProcedure,
+			connect.WithSchema(chatServiceMethods.ByName("History")),
+			connect.WithClientOptions(opts...),
+		),
 		listMembers: connect.NewClient[v1.ListMembersRequest, v1.ListMembersResponse](
 			httpClient,
 			baseURL+ChatServiceListMembersProcedure,
@@ -166,6 +179,7 @@ type chatServiceClient struct {
 	send        *connect.Client[v1.SendRequest, v1.SendResponse]
 	broadcast   *connect.Client[v1.BroadcastRequest, v1.BroadcastResponse]
 	read        *connect.Client[v1.ReadRequest, v1.ReadResponse]
+	history     *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
 	listMembers *connect.Client[v1.ListMembersRequest, v1.ListMembersResponse]
 	leave       *connect.Client[v1.LeaveRequest, v1.LeaveResponse]
 	reportState *connect.Client[v1.ReportStateRequest, v1.ReportStateResponse]
@@ -190,6 +204,11 @@ func (c *chatServiceClient) Broadcast(ctx context.Context, req *connect.Request[
 // Read calls ngicks.crabswarm.chat.v1.ChatService.Read.
 func (c *chatServiceClient) Read(ctx context.Context, req *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error) {
 	return c.read.CallUnary(ctx, req)
+}
+
+// History calls ngicks.crabswarm.chat.v1.ChatService.History.
+func (c *chatServiceClient) History(ctx context.Context, req *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error) {
+	return c.history.CallUnary(ctx, req)
 }
 
 // ListMembers calls ngicks.crabswarm.chat.v1.ChatService.ListMembers.
@@ -226,6 +245,11 @@ type ChatServiceHandler interface {
 	// Read returns the caller's pending messages and consumes them, so a
 	// message is handed out exactly once.
 	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
+	// History returns the tail of the conversation of the caller's room, oldest
+	// first. It consumes nothing, and it shows the whole room: directed
+	// messages the caller never received included, since a room's transcript is
+	// a shared record of what was said rather than a second copy of an inbox.
+	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
 	// Leave withdraws the caller's attendance.
@@ -274,6 +298,12 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(chatServiceMethods.ByName("Read")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatServiceHistoryHandler := connect.NewUnaryHandler(
+		ChatServiceHistoryProcedure,
+		svc.History,
+		connect.WithSchema(chatServiceMethods.ByName("History")),
+		connect.WithHandlerOptions(opts...),
+	)
 	chatServiceListMembersHandler := connect.NewUnaryHandler(
 		ChatServiceListMembersProcedure,
 		svc.ListMembers,
@@ -308,6 +338,8 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 			chatServiceBroadcastHandler.ServeHTTP(w, r)
 		case ChatServiceReadProcedure:
 			chatServiceReadHandler.ServeHTTP(w, r)
+		case ChatServiceHistoryProcedure:
+			chatServiceHistoryHandler.ServeHTTP(w, r)
 		case ChatServiceListMembersProcedure:
 			chatServiceListMembersHandler.ServeHTTP(w, r)
 		case ChatServiceLeaveProcedure:
@@ -339,6 +371,10 @@ func (UnimplementedChatServiceHandler) Broadcast(context.Context, *connect.Reque
 
 func (UnimplementedChatServiceHandler) Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Read is not implemented"))
+}
+
+func (UnimplementedChatServiceHandler) History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.History is not implemented"))
 }
 
 func (UnimplementedChatServiceHandler) ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error) {
