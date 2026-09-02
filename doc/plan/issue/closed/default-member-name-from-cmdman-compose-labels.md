@@ -1,3 +1,7 @@
+---
+tags: chat join cmdman naming
+---
+
 # Default member name from cmdman compose labels (2026-08-31)
 
 Member names must be aliased from cmdman-compose's command name, not
