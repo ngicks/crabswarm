@@ -20,6 +20,7 @@ require (
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/klauspost/compress v1.19.2
+	github.com/mattn/go-runewidth v0.0.27
 	github.com/mattn/go-shellwords v1.0.13
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/ngicks/go-common/contextkey v0.2.0
@@ -71,7 +72,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.27 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/ncruces/go-sqlite3 v0.32.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

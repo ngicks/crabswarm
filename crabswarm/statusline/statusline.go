@@ -201,6 +201,14 @@ type Worktree struct {
 	OriginalBranch string `json:"original_branch,omitzero"`
 }
 
+// TemplateFuncHelp returns the aligned help block for the helper functions a
+// status line template can call, the same set every crabswarm template
+// renderer exposes. Command help embeds it so the docs cannot drift from
+// [templateutil.FuncMap].
+func TemplateFuncHelp() string {
+	return templateutil.FuncHelp()
+}
+
 // Render reads a status line JSON payload from r, renders tmpl against the
 // parsed [Input], and writes the rendered output to w. The template is
 // rendered to a buffer first, so a template-execution error leaves nothing on

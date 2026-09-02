@@ -29,18 +29,34 @@ import (
 //	which NAME       → Which (resolve a command to its absolute path)
 //	commandArgs CMD  → CommandArgs (shellwords split of CMD into its words)
 //	commandName CMD  → CommandName (first shellwords word of CMD)
+//	padRuneLeft N S    → PadRuneLeft (prepend spaces until S is N cells wide)
+//	padRuneRight N S   → PadRuneRight (append spaces until S is N cells wide)
+//	truncRuneLeft N S  → TruncRuneLeft (drop leading chars so S fits N cells)
+//	truncRuneRight N S → TruncRuneRight (drop trailing chars so S fits N cells)
+//	columns            → Columns ($COLUMNS as an int, 0 when unset)
+//	splitPath PATH     → SplitPath (PATH split into its components)
+//	lastN N LIST       → LastN (the last N elements of LIST)
+//	join SEP LIST      → Join (elements of LIST concatenated with SEP)
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
-		"env":         os.Getenv,
-		"basename":    filepath.Base,
-		"dirname":     filepath.Dir,
-		"ext":         filepath.Ext,
-		"trim":        strings.TrimSpace,
-		"quote":       ShellQuote,
-		"quoteJoin":   QuoteJoin,
-		"which":       Which,
-		"commandArgs": CommandArgs,
-		"commandName": CommandName,
+		"env":            os.Getenv,
+		"basename":       filepath.Base,
+		"dirname":        filepath.Dir,
+		"ext":            filepath.Ext,
+		"trim":           strings.TrimSpace,
+		"quote":          ShellQuote,
+		"quoteJoin":      QuoteJoin,
+		"which":          Which,
+		"commandArgs":    CommandArgs,
+		"commandName":    CommandName,
+		"padRuneLeft":    PadRuneLeft,
+		"padRuneRight":   PadRuneRight,
+		"truncRuneLeft":  TruncRuneLeft,
+		"truncRuneRight": TruncRuneRight,
+		"columns":        Columns,
+		"splitPath":      SplitPath,
+		"lastN":          LastN,
+		"join":           Join,
 	}
 }
 
@@ -101,6 +117,46 @@ func FuncDocs() []FuncDoc {
 			Name:  "commandName",
 			Usage: "commandName CMD",
 			Desc:  "first shellwords word of CMD, i.e. the invoked command (empty when CMD is blank)",
+		},
+		{
+			Name:  "padRuneLeft",
+			Usage: "padRuneLeft N S",
+			Desc:  "S right-aligned in N terminal cells: spaces are prepended; wider S is unchanged",
+		},
+		{
+			Name:  "padRuneRight",
+			Usage: "padRuneRight N S",
+			Desc:  "S left-aligned in N terminal cells: spaces are appended; wider S is unchanged",
+		},
+		{
+			Name:  "truncRuneLeft",
+			Usage: "truncRuneLeft N S",
+			Desc:  "the rightmost N terminal cells of S (leading chars dropped); narrower S is unchanged",
+		},
+		{
+			Name:  "truncRuneRight",
+			Usage: "truncRuneRight N S",
+			Desc:  "the leftmost N terminal cells of S (trailing chars dropped); narrower S is unchanged",
+		},
+		{
+			Name:  "columns",
+			Usage: "columns",
+			Desc:  "terminal width from $COLUMNS as an integer (0 when unset or not a number)",
+		},
+		{
+			Name:  "splitPath",
+			Usage: "splitPath PATH",
+			Desc:  "components of the cleaned PATH (an absolute path starts with an empty component)",
+		},
+		{
+			Name:  "lastN",
+			Usage: "lastN N LIST",
+			Desc:  "the last N elements of the slice or array LIST (all when N exceeds its length)",
+		},
+		{
+			Name:  "join",
+			Usage: "join SEP LIST",
+			Desc:  "the elements of the slice or array LIST concatenated with SEP between them",
 		},
 	}
 }

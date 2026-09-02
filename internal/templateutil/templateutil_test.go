@@ -14,7 +14,8 @@ func TestFuncMap_ExposesExpectedFuncs(t *testing.T) {
 	fm := FuncMap()
 	names := []string{
 		"env", "basename", "dirname", "ext", "trim", "quote", "quoteJoin", "which",
-		"commandArgs", "commandName",
+		"commandArgs", "commandName", "padRuneLeft", "padRuneRight", "truncRuneLeft",
+		"truncRuneRight", "columns", "splitPath", "lastN", "join",
 	}
 	for _, name := range names {
 		if _, ok := fm[name]; !ok {
@@ -184,4 +185,23 @@ func TestWhich_NotFoundErrors(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	_, err := Which("crabswarm-no-such-command")
 	assert.Assert(t, err != nil)
+}
+
+func TestFuncMap_RendersStatuslineHelpers(t *testing.T) {
+	t.Setenv("COLUMNS", "40")
+	src := `[{{ padRuneRight 6 .Model }}]` +
+		`|{{ if columns }}{{ truncRuneLeft 8 .Dir }}{{ else }}` +
+		`{{ splitPath .Dir | lastN 2 | join "/" }}{{ end }}` +
+		`|{{ splitPath .Dir | lastN 3 | join "/" }}` +
+		`|{{ columns }}`
+	tmpl := template.Must(template.New("t").Funcs(FuncMap()).Parse(src))
+	data := map[string]any{"Model": "Opus", "Dir": "/home/me/src/project"}
+	var buf strings.Builder
+	assert.NilError(t, tmpl.Execute(&buf, data))
+	assert.Equal(t, buf.String(), `[Opus  ]|/project|me/src/project|40`)
+
+	t.Setenv("COLUMNS", "")
+	buf.Reset()
+	assert.NilError(t, tmpl.Execute(&buf, data))
+	assert.Equal(t, buf.String(), `[Opus  ]|src/project|me/src/project|0`)
 }

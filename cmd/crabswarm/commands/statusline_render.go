@@ -26,7 +26,16 @@ documented JSON keys, e.g. context_window.used_percentage becomes
 worktree, workspace.repo) are nil when absent, so guard them with {{ with }} or
 {{ if }}.
 
-Template functions: env, basename, dirname, ext, trim.
+Template functions:
+
+` + statusline.TemplateFuncHelp() + `
+Narrow terminals: when Claude Code exports $COLUMNS, {{ columns }} returns
+it as an integer (0 when unset), so a template can pick a shorter layout,
+e.g. keep the last runes of the directory with truncRuneLeft. When $COLUMNS
+is missing, fall back to the last few path components with
+{{ splitPath .Workspace.CurrentDir | lastN 3 | join "/" }}. The pad/trunc
+helpers measure terminal cells (a CJK character or emoji is two), so padded
+columns line up and truncated text fits the width it was given.
 
 Configure it in Claude Code settings.json, for example:
 
@@ -38,7 +47,11 @@ Configure it in Claude Code settings.json, for example:
   }
 `,
 		Example: `  # "model @ effort | context usage in percent | cwd"
-  crabswarm statusline render '{{.Model.DisplayName}}{{ with .Effort }} @ {{ .Level }}{{ end }} | {{.ContextWindow.UsedPercentage}}% used | {{.Workspace.CurrentDir}}'`,
+  crabswarm statusline render '{{.Model.DisplayName}}{{ with .Effort }} @ {{ .Level }}{{ end }} | {{.ContextWindow.UsedPercentage}}% used | {{.Workspace.CurrentDir}}'
+
+  # Fixed-width model column; cwd trimmed to fit a narrow terminal, or its
+  # last three components when $COLUMNS is not exported
+  crabswarm statusline render '{{ padRuneRight 8 .Model.DisplayName }}| {{ if and columns (lt columns 80) }}…{{ truncRuneLeft 24 .Workspace.CurrentDir }}{{ else if columns }}{{ .Workspace.CurrentDir }}{{ else }}{{ splitPath .Workspace.CurrentDir | lastN 3 | join "/" }}{{ end }}'`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE:              runStatuslineRender,

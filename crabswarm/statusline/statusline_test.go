@@ -139,6 +139,24 @@ func TestRender_EnvFunc(t *testing.T) {
 	assert.Equal(t, got, "xyz")
 }
 
+func TestRender_NarrowTerminalFallback(t *testing.T) {
+	// The documented narrow-terminal shape: trim the cwd by runes when
+	// $COLUMNS is known, otherwise keep its last three components.
+	const tmpl = `{{ padRuneRight 6 .Model.DisplayName }}|` +
+		`{{ if columns }}{{ truncRuneLeft 10 .Workspace.CurrentDir }}` +
+		`{{ else }}{{ splitPath .Workspace.CurrentDir | lastN 3 | join "/" }}{{ end }}`
+	in := Input{
+		Model:     Model{DisplayName: "Opus"},
+		Workspace: Workspace{CurrentDir: "/home/me/src/github.com/org/repo"},
+	}
+
+	t.Setenv("COLUMNS", "60")
+	assert.Equal(t, renderInput(t, tmpl, in), "Opus  |m/org/repo")
+
+	t.Setenv("COLUMNS", "")
+	assert.Equal(t, renderInput(t, tmpl, in), "Opus  |github.com/org/repo")
+}
+
 func TestRender_UnknownFieldsIgnored(t *testing.T) {
 	// Forward compatibility: a future Claude Code field must not break parsing.
 	got := render(
