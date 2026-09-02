@@ -405,3 +405,12 @@ is plain text.
 operator has typed more (or switched rooms and typed), the refused text
 goes back followed by a newline and the newer draft, instead of being
 dropped when the draft is not empty.
+
+## Exported surface beyond the delta: BroadcastTarget, String, env-var names [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: the workers exported four small
+symbols the surface delta did not list, all in `crabswarm/chat/cli`:
+`BroadcastTarget` (one declaration of `*` instead of two), `AdminTarget.String`
+(argv spelling, used by rendering and the TUI), and `VisualEnvVar` /
+`EditorEnvVar` (the names `EditorFromEnv` reads). The target type lives
+in `target.go`, not `admin.go`. Accepted and added to PLAN.md's delta.

@@ -224,7 +224,11 @@ rather than reused.
 ### Exported Go surface
 
 ```go
-// crabswarm/chat/cli/admin.go — the target is typed now, not a string.
+// crabswarm/chat/cli/target.go — the target is typed now, not a string
+// (landed in its own file, not admin.go, to keep that file under 300 lines).
+
+// BroadcastTarget is the "*" spelling of the whole-room target; declared once.
+const BroadcastTarget = "*"
 
 // AdminTarget is who an admin send is for: exactly one of the three.
 type AdminTarget struct {
@@ -236,6 +240,9 @@ type AdminTarget struct {
 // ParseAdminTarget maps the `chat admin send` argv grammar onto AdminTarget:
 // "*" → Everyone; "team/*" → Team; "team/name" → Team+Name; "name" → Name.
 func ParseAdminTarget(s string) (AdminTarget, error)
+
+// String spells the target back the way argv writes it: *, team/*, team/name, name.
+func (t AdminTarget) String() string
 
 func (a *AdminClient) Send(ctx context.Context, room string, target AdminTarget, text string) (delivered int32, err error)
 func (c *Client) AdminSend(ctx context.Context, w io.Writer, identityPath, room string, target AdminTarget, text string) error
@@ -262,6 +269,12 @@ type Deps struct {
 
 // crabswarm/chat/cli/editor.go — the one place $VISUAL / $EDITOR are read
 // (crabswarm/config.go's rule: no os.Getenv under ./cmd).
+
+// VisualEnvVar and EditorEnvVar name the variables EditorFromEnv reads.
+const (
+	VisualEnvVar = "VISUAL"
+	EditorEnvVar = "EDITOR"
+)
 
 // EditorFromEnv returns $VISUAL, else $EDITOR, else "".
 func EditorFromEnv() string
