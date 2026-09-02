@@ -103,6 +103,25 @@ func (d deliverer) broadcastAs(
 	return recipients, nil
 }
 
+// broadcastTeamAs is [deliverer.broadcastAs] narrowed to one team of the room.
+// Every member holding team hears it, and each is notified the way a whole-room
+// recipient is: a narrower address is still an announcement to those it reaches.
+func (d deliverer) broadcastTeamAs(
+	ctx context.Context,
+	from Sender,
+	team, text string,
+	sentAt time.Time,
+) ([]Member, error) {
+	recipients, err := d.store.broadcastTeamAs(ctx, from, team, text, sentAt)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range recipients {
+		d.notify(ctx, r, from, text)
+	}
+	return recipients, nil
+}
+
 // notify reports one delivery, logging what the notifier could not do. The
 // message is already stored, so a failed nudge costs the recipient a late read,
 // not the message.

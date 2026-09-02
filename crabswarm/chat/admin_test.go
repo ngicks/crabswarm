@@ -203,7 +203,7 @@ func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 
 	_, err = svc.Send(adminCtx(t, "anything"), &chatv1.AdminSendRequest{
-		Room: "/work", Target: "alpha/ana", Text: "hi",
+		Room: "/work", Target: memberTarget("alpha", "ana"), Text: "hi",
 	})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 

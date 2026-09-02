@@ -160,15 +160,34 @@ func (a *AdminClient) Send(
 		return 0, err
 	}
 	resp, err := a.client.admin.Send(auth.ContextWithBearer(ctx, nonce),
-		&chatv1.AdminSendRequest{
-			Room:   room,
-			Target: target,
-			Text:   text,
-		})
+		adminSendRequest(room, target, text))
 	if err != nil {
 		return 0, callError(err)
 	}
 	return resp.GetDelivered(), nil
+}
+
+// adminSendRequest builds the send request the written target means: "*" is the
+// whole room, "team/name" that member of that team, and a bare name the member
+// the daemon resolves it to across the room.
+//
+// The grammar stays a string here because the callers still pass one — a typed
+// target belongs to the surface that will offer a whole team, which this
+// mapping has no spelling for yet.
+func adminSendRequest(room, target, text string) *chatv1.AdminSendRequest {
+	req := &chatv1.AdminSendRequest{Room: room, Text: text}
+	if target == "*" {
+		req.Target = &chatv1.AdminSendRequest_Everyone{Everyone: &chatv1.Everyone{}}
+		return req
+	}
+	team, name, qualified := strings.Cut(target, "/")
+	if !qualified {
+		team, name = "", target
+	}
+	req.Target = &chatv1.AdminSendRequest_Member{
+		Member: &chatv1.MemberTarget{Team: team, Name: name},
+	}
+	return req
 }
 
 // ListRooms prints every room the daemon knows and who attends it.
@@ -233,10 +252,10 @@ func (c *Client) RegisterMember(
 // AdminSend delivers text into a room the operator does not attend, addressed
 // to one member as "name" or "team/name" or — as "*" — to everyone there.
 //
-// Unlike the member address [Client.MoveMember] takes, the target is passed
-// through untouched: the RPC carries it as one field, and resolving it is the
-// daemon's job, which is what keeps the grammar the same as the one `chat send`
-// takes.
+// Unlike the member address [Client.MoveMember] takes, the name half is left
+// for the daemon to resolve: [adminTarget] only picks which case of the request
+// the written target means, which is what keeps the grammar the same as the one
+// `chat send` takes.
 func (c *Client) AdminSend(
 	ctx context.Context,
 	w io.Writer,

@@ -22,6 +22,13 @@ DELETE FROM members WHERE token = ?;
 SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? ORDER BY team, name;
 
+-- Team-scoped delivery reads the team's members the same way a whole-room
+-- broadcast reads the room's: the recipients are whoever is in it at the
+-- moment the message is sent.
+-- name: ListTeamMembers :many
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
+WHERE room = ? AND team = ? ORDER BY name;
+
 -- name: ListAllMembers :many
 SELECT token, name, team, room, kind, state, state_reported_at FROM members
 ORDER BY room, team, name;

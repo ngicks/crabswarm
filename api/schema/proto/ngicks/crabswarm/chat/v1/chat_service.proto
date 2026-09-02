@@ -74,8 +74,8 @@ service ChatAdminService {
   // RegisterMember registers a member that no provider can vouch for -- a
   // human on the host -- and returns the token they present to ChatService.
   rpc RegisterMember(RegisterMemberRequest) returns (RegisterMemberResponse);
-  // Send delivers a message into a named room, addressed to one member or to
-  // the whole room, without the caller attending that room.
+  // Send delivers a message into a named room, addressed to one member, to one
+  // of its teams or to the whole room, without the caller attending that room.
   rpc Send(AdminSendRequest) returns (AdminSendResponse);
   // History returns a named room's conversation, oldest first, without the
   // caller attending that room. It reads the same shared record the members
@@ -322,11 +322,35 @@ message RegisterMemberResponse {
 message AdminSendRequest {
   // Room is the room to deliver into.
   string room = 1;
-  // Target addresses one member of Room as "name" or "team/name", the same
-  // grammar SendRequest.to takes, or "*" to address every member of the room.
-  string target = 2;
   // Text is the message body.
   string text = 3;
+  // Target says who in Room receives the message. Exactly one case is set.
+  oneof target {
+    // Everyone addresses every member of Room.
+    Everyone everyone = 4;
+    // Team addresses every member of one team of Room.
+    TeamTarget team = 5;
+    // Member addresses one member of Room.
+    MemberTarget member = 6;
+  }
+  reserved 2; // the former string target
+}
+
+// Everyone is the whole-room target; it carries nothing.
+message Everyone {}
+
+// TeamTarget is every current member of Team, counted at send time.
+message TeamTarget {
+  string team = 1;
+}
+
+// MemberTarget is one member. An empty Team resolves Name the way a bare
+// name does for a member send: in the sender's team first -- the admin has
+// none -- then uniquely across the room; a name carried by two teams is
+// rejected as ambiguous and the error names them.
+message MemberTarget {
+  string team = 1;
+  string name = 2;
 }
 
 message AdminSendResponse {

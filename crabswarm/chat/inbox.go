@@ -176,6 +176,74 @@ func (s *Store) broadcastFrom(
 	return recipients, nil
 }
 
+// broadcastTeamAs is [Store.broadcastAs] narrowed to one team of the room —
+// the host operator addressing a team they do not attend. A team nobody of the
+// room is in is [ErrNotFound], for the reason an empty room is: a team exists
+// because members carry it, so an empty one is a team that was misspelled.
+func (s *Store) broadcastTeamAs(
+	ctx context.Context,
+	from Sender,
+	team, text string,
+	sentAt time.Time,
+) ([]Member, error) {
+	var recipients []Member
+	err := s.tx(ctx, func(q *db.Queries) error {
+		var err error
+		recipients, err = s.broadcastTeamFrom(ctx, q, from, team, text, sentAt)
+		if err != nil {
+			return err
+		}
+		if len(recipients) == 0 {
+			return fmt.Errorf("broadcasting to team %q of room %q: %w",
+				team, from.Room, ErrNotFound)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return recipients, nil
+}
+
+// broadcastTeamFrom is [Store.broadcastFrom] narrowed to the members team
+// carries within from's room, inside the caller's transaction. Who is in the
+// team is counted here rather than by the caller, so the recipients are
+// whoever holds it at the moment the message is sent.
+//
+// The conversation records it the way the whole-room announcement is recorded,
+// addressed to nobody in particular: the transcript names a recipient only
+// where one member was addressed, and a team is not one member.
+func (s *Store) broadcastTeamFrom(
+	ctx context.Context,
+	q *db.Queries,
+	from Sender,
+	team, text string,
+	sentAt time.Time,
+) ([]Member, error) {
+	rows, err := q.ListTeamMembers(ctx, db.ListTeamMembersParams{
+		Room: from.Room,
+		Team: team,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("broadcasting to team %q of room %q: %w",
+			team, from.Room, err)
+	}
+	members, err := membersOf(rows)
+	if err != nil {
+		return nil, fmt.Errorf("broadcasting to team %q of room %q: %w",
+			team, from.Room, err)
+	}
+	for _, m := range members {
+		if err := appendMessage(ctx, q, m.Token, from, text, sentAt); err != nil {
+			return nil, err
+		}
+	}
+	if err := s.logMessage(ctx, q, from, nil, text, sentAt); err != nil {
+		return nil, err
+	}
+	return members, nil
+}
+
 // Read returns the pending messages of the member holding token, oldest first,
 // and drains the inbox in the same transaction: a message is delivered exactly
 // once, and a second Read returns nothing. An unknown token is [ErrNotFound].

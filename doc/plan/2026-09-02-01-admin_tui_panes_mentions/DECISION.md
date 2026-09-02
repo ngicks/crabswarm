@@ -336,3 +336,29 @@ reserves the name); `AdminHistoryEntry.to` is never the admin.
 **Rejected**: coloring only entries addressed *to* a member of the
 admin's choosing (no such target exists); coloring every entry that
 mentions anyone (noise — the operator cares about themselves).
+
+## Run mode: autonomous [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: the implementation run started
+from a `/goal` with the user away; the availability question was not
+asked. Every unclear corner below is decided by the orchestrator and
+tagged `[automatic]` for the user to skim on return.
+
+## `ParseAddressedLine` is removed in step 5, not step 2 [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: `cli.ParseAddressedLine` is the
+TUI's send parser until the `@` parser lands in step 5. Removing it in
+step 2, as PLAN.md words it, would leave `crabswarm/chat/cli/tui` without
+a send path for two steps. Step 2 keeps it (adapting it to the typed
+`AdminTarget`); step 5 deletes it with its tests when `address.go`
+replaces it. Step 1 makes the minimal client-side change needed so
+`go build ./...` stays green after the proto field is replaced.
+
+## A team send is logged as a whole-room entry [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: `broadcastTeamFrom` records the
+message with no recipient, so `admin history` and the conversation pane
+show a team send the way they show a `*` send. The history reader only
+reconstructs a recipient when a member name is present, and PLAN.md
+forbids a persistent-data change in this plan, so a team-only recipient
+row is not added. Logged to HANDOFF.md for a later decision.

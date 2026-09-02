@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -17,12 +18,6 @@ import (
 // may take it — [validateName] refuses it — so within a room the attribution
 // cannot be forged.
 const adminName = "admin"
-
-// adminEveryone is the [AdminService.Send] target that addresses every member
-// of the room instead of one. It shadows the bare name of a member that took
-// "*" as its own, which is reachable as "team/*" — a name nobody is expected to
-// pick, and not worth reserving for.
-const adminEveryone = "*"
 
 // ListRooms reports every room the daemon knows, with everyone attending it.
 func (a *AdminService) ListRooms(
@@ -149,8 +144,8 @@ func (a *AdminService) RegisterMember(
 }
 
 // Send delivers a message into a room the caller does not attend, addressed to
-// one member or — as "*" — to everyone there, and reports how many inboxes it
-// reached.
+// everyone there, to one of its teams or to one member, and reports how many
+// inboxes it reached.
 //
 // The message is attributed to the reserved [adminName] identity, and no member
 // is created for it: the operator speaks into the room without joining it, so
@@ -165,8 +160,11 @@ func (a *AdminService) Send(
 	switch {
 	case req.GetRoom() == "":
 		return nil, status.Error(codes.InvalidArgument, "empty room")
-	case req.GetTarget() == "":
-		return nil, status.Error(codes.InvalidArgument, "empty target")
+	// A oneof carries at most one case, so the only way to miss "exactly one"
+	// is to set none, which is a request that never said who it is for.
+	case req.GetTarget() == nil:
+		return nil, status.Error(codes.InvalidArgument,
+			"no target: address everyone, a team or a member")
 	case req.GetText() == "":
 		return nil, status.Error(codes.InvalidArgument, "empty message text")
 	}
@@ -175,7 +173,7 @@ func (a *AdminService) Send(
 		return nil, storeStatus(err)
 	}
 	a.logger.InfoContext(ctx, "chat: admin sent message",
-		"room", req.GetRoom(), "target", req.GetTarget(),
+		"room", req.GetRoom(), "target", adminTargetAddr(req),
 		"delivered", len(recipients))
 	return &chatv1.AdminSendResponse{Delivered: int32(len(recipients))}, nil
 }
@@ -183,19 +181,61 @@ func (a *AdminService) Send(
 // deliverAdminMessage puts the message in the addressed inboxes and returns who
 // received it. The error is the store's own, for [AdminService.Send] to map
 // onto a status.
+//
+// A member is addressed through the same resolution a member's own send goes
+// through, from the operator's perspective: the operator is in no team, so a
+// [chatv1.MemberTarget] carrying none resolves its name across the room and is
+// refused as ambiguous where two teams carry it.
 func (a *AdminService) deliverAdminMessage(
 	ctx context.Context,
 	req *chatv1.AdminSendRequest,
 ) ([]Member, error) {
 	from := adminSender(req.GetRoom())
-	if req.GetTarget() == adminEveryone {
+	switch t := req.GetTarget().(type) {
+	case *chatv1.AdminSendRequest_Everyone:
 		return a.deliver.broadcastAs(ctx, from, req.GetText(), time.Now())
+	case *chatv1.AdminSendRequest_Team:
+		return a.deliver.broadcastTeamAs(
+			ctx, from, t.Team.GetTeam(), req.GetText(), time.Now())
+	case *chatv1.AdminSendRequest_Member:
+		recipient, err := a.deliver.sendAs(
+			ctx, from, memberAddr(t.Member), req.GetText(), time.Now())
+		if err != nil {
+			return nil, err
+		}
+		return []Member{recipient}, nil
+	default:
+		// [AdminService.Send] turns down a request carrying no case, so reaching
+		// here takes a case added to the schema and not taught here — a defect of
+		// the daemon, which is what Internal is for.
+		return nil, fmt.Errorf("delivering an admin message: unhandled target %T", t)
 	}
-	recipient, err := a.deliver.sendAs(ctx, from, req.GetTarget(), req.GetText(), time.Now())
-	if err != nil {
-		return nil, err
+}
+
+// memberAddr renders a member target as the send address [resolveFor] takes: a
+// bare name where the target names no team, "team/name" where it does.
+func memberAddr(t *chatv1.MemberTarget) string {
+	if t.GetTeam() == "" {
+		return t.GetName()
 	}
-	return []Member{recipient}, nil
+	return t.GetTeam() + "/" + t.GetName()
+}
+
+// adminTargetAddr renders a send target for the log line, in the grammar an
+// operator writes one in: "*" for the room, "team/*" for a team, and the send
+// address for a member. A case nobody taught it renders as its own type, which
+// names the omission.
+func adminTargetAddr(req *chatv1.AdminSendRequest) string {
+	switch t := req.GetTarget().(type) {
+	case *chatv1.AdminSendRequest_Everyone:
+		return "*"
+	case *chatv1.AdminSendRequest_Team:
+		return t.Team.GetTeam() + "/*"
+	case *chatv1.AdminSendRequest_Member:
+		return memberAddr(t.Member)
+	default:
+		return fmt.Sprintf("%T", t)
+	}
 }
 
 // History hands back a named room's conversation without the caller attending

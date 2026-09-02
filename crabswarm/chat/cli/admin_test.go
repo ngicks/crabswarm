@@ -245,8 +245,9 @@ func TestClient_RegisterMemberPrintsTheToken(t *testing.T) {
 		"registered humans/yuki in room /work/proj\ntoken: tok-issued\n")
 }
 
-// The target reaches the daemon exactly as it was typed — "*" included — since
-// the admin RPC resolves it with the same grammar member send uses.
+// The written target picks the case of the request that carries it: "*" is the
+// whole room, and the name half is left for the daemon to resolve with the same
+// grammar member send uses.
 func TestClient_AdminSendReportsTheDeliveredCount(t *testing.T) {
 	path, recipient := newIdentityFile(t)
 	fake := &fakeAdminService{recipient: recipient, nonce: "nonce-send", delivered: 3}
@@ -257,10 +258,36 @@ func TestClient_AdminSendReportsTheDeliveredCount(t *testing.T) {
 		t.Context(), &out, path, "/work/proj", "*", "standup in five"))
 	assert.Equal(t, fake.bearer, "nonce-send")
 	assert.Equal(t, fake.send.GetRoom(), "/work/proj")
-	assert.Equal(t, fake.send.GetTarget(), "*")
+	assert.Assert(t, fake.send.GetEveryone() != nil)
 	assert.Equal(t, fake.send.GetText(), "standup in five")
 	assert.Equal(t, out.String(),
 		"sent to * in room /work/proj: delivered to 3 members\n")
+}
+
+// A qualified target names the team it means; a bare one leaves the team empty
+// rather than guessing, which is what makes the daemon resolve it across the
+// room the way it resolves a member's bare address.
+func TestClient_AdminSendMapsTheWrittenTarget(t *testing.T) {
+	for _, tc := range []struct {
+		target     string
+		team, name string
+	}{
+		{"backend/alice", "backend", "alice"},
+		{"alice", "", "alice"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			path, recipient := newIdentityFile(t)
+			fake := &fakeAdminService{
+				recipient: recipient, nonce: "nonce-send", delivered: 1,
+			}
+			d := serveTestDaemon(t, nil, fake)
+
+			assert.NilError(t, d.client.AdminSend(
+				t.Context(), &strings.Builder{}, path, "/work/proj", tc.target, "hi"))
+			assert.Equal(t, fake.send.GetMember().GetTeam(), tc.team)
+			assert.Equal(t, fake.send.GetMember().GetName(), tc.name)
+		})
+	}
 }
 
 // An identity the daemon does not encrypt to stops the send at the challenge,

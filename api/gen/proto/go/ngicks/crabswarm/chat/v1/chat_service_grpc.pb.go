@@ -528,8 +528,8 @@ type ChatAdminServiceClient interface {
 	// RegisterMember registers a member that no provider can vouch for -- a
 	// human on the host -- and returns the token they present to ChatService.
 	RegisterMember(ctx context.Context, in *RegisterMemberRequest, opts ...grpc.CallOption) (*RegisterMemberResponse, error)
-	// Send delivers a message into a named room, addressed to one member or to
-	// the whole room, without the caller attending that room.
+	// Send delivers a message into a named room, addressed to one member, to one
+	// of its teams or to the whole room, without the caller attending that room.
 	Send(ctx context.Context, in *AdminSendRequest, opts ...grpc.CallOption) (*AdminSendResponse, error)
 	// History returns a named room's conversation, oldest first, without the
 	// caller attending that room. It reads the same shared record the members
@@ -640,8 +640,8 @@ type ChatAdminServiceServer interface {
 	// RegisterMember registers a member that no provider can vouch for -- a
 	// human on the host -- and returns the token they present to ChatService.
 	RegisterMember(context.Context, *RegisterMemberRequest) (*RegisterMemberResponse, error)
-	// Send delivers a message into a named room, addressed to one member or to
-	// the whole room, without the caller attending that room.
+	// Send delivers a message into a named room, addressed to one member, to one
+	// of its teams or to the whole room, without the caller attending that room.
 	Send(context.Context, *AdminSendRequest) (*AdminSendResponse, error)
 	// History returns a named room's conversation, oldest first, without the
 	// caller attending that room. It reads the same shared record the members

@@ -153,6 +153,50 @@ func (q *Queries) ListRoomMembers(ctx context.Context, room string) ([]Member, e
 	return items, nil
 }
 
+const listTeamMembers = `-- name: ListTeamMembers :many
+SELECT token, name, team, room, kind, state, state_reported_at FROM members
+WHERE room = ? AND team = ? ORDER BY name
+`
+
+type ListTeamMembersParams struct {
+	Room string
+	Team string
+}
+
+// Team-scoped delivery reads the team's members the same way a whole-room
+// broadcast reads the room's: the recipients are whoever is in it at the
+// moment the message is sent.
+func (q *Queries) ListTeamMembers(ctx context.Context, arg ListTeamMembersParams) ([]Member, error) {
+	rows, err := q.db.QueryContext(ctx, listTeamMembers, arg.Room, arg.Team)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Member
+	for rows.Next() {
+		var i Member
+		if err := rows.Scan(
+			&i.Token,
+			&i.Name,
+			&i.Team,
+			&i.Room,
+			&i.Kind,
+			&i.State,
+			&i.StateReportedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const memberByName = `-- name: MemberByName :one
 SELECT token, name, team, room, kind, state, state_reported_at FROM members
 WHERE room = ? AND team = ? AND name = ?

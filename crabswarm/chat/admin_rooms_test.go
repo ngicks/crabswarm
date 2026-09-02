@@ -326,15 +326,36 @@ func TestAdminService_RegisterMember(t *testing.T) {
 	})
 }
 
+// everyoneTarget, teamTarget and memberTarget spell the request's target cases
+// as the address each means, so a case reads as who it reaches rather than as
+// the wrapper carrying it.
+func everyoneTarget() *chatv1.AdminSendRequest_Everyone {
+	return &chatv1.AdminSendRequest_Everyone{Everyone: &chatv1.Everyone{}}
+}
+
+func teamTarget(team string) *chatv1.AdminSendRequest_Team {
+	return &chatv1.AdminSendRequest_Team{Team: &chatv1.TeamTarget{Team: team}}
+}
+
+func memberTarget(team, name string) *chatv1.AdminSendRequest_Member {
+	return &chatv1.AdminSendRequest_Member{
+		Member: &chatv1.MemberTarget{Team: team, Name: name},
+	}
+}
+
 func TestAdminService_Send(t *testing.T) {
 	svc, id, notifier := newTestAdminServiceWithNotifier(t)
 	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
 	join(t, svc.store, "tok-b", "/work", "beta", "bob")
+	// dan is carried by both teams of the room, which is what makes the bare
+	// name ambiguous and the team-qualified one exact.
+	join(t, svc.store, "tok-d", "/work", "alpha", "dan")
+	join(t, svc.store, "tok-e", "/work", "beta", "dan")
 	join(t, svc.store, "tok-c", "/other", "alpha", "cho")
 
 	t.Run("a call carrying no credential is refused", func(t *testing.T) {
 		_, err := svc.Send(t.Context(), &chatv1.AdminSendRequest{
-			Room: "/work", Target: "alpha/ana", Text: "hi",
+			Room: "/work", Target: memberTarget("alpha", "ana"), Text: "hi",
 		})
 		assert.Equal(t, status.Code(err), codes.PermissionDenied)
 		assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM messages`), 0)
@@ -343,7 +364,7 @@ func TestAdminService_Send(t *testing.T) {
 	t.Run("delivers to the addressed member as the operator", func(t *testing.T) {
 		before := len(notifier.notified())
 		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
-			Room: "/work", Target: "alpha/ana", Text: "stand down",
+			Room: "/work", Target: memberTarget("alpha", "ana"), Text: "stand down",
 		})
 		assert.NilError(t, err)
 		assert.Equal(t, res.GetDelivered(), int32(1))
@@ -365,9 +386,9 @@ func TestAdminService_Send(t *testing.T) {
 		assert.Equal(t, got[0].from, Sender{Name: "admin", Team: "admin", Room: "/work"})
 	})
 
-	t.Run("a bare name resolves as it does for a member", func(t *testing.T) {
+	t.Run("a member target with no team resolves as a bare name does", func(t *testing.T) {
 		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
-			Room: "/work", Target: "bob", Text: "you too",
+			Room: "/work", Target: memberTarget("", "bob"), Text: "you too",
 		})
 		assert.NilError(t, err)
 		assert.Equal(t, res.GetDelivered(), int32(1))
@@ -377,23 +398,84 @@ func TestAdminService_Send(t *testing.T) {
 		assert.Equal(t, len(msgs), 1)
 	})
 
-	t.Run("* reaches everyone in the room and nobody outside it", func(t *testing.T) {
+	// The operator is in no team, so a name two teams carry has no home team to
+	// break the tie the way a member's own send would.
+	t.Run("an ambiguous bare name is InvalidArgument", func(t *testing.T) {
+		_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: memberTarget("", "dan"), Text: "which of you",
+		})
+		assert.Equal(t, status.Code(err), codes.InvalidArgument)
+		// The error names the teams, so the operator can retry qualified.
+		assert.ErrorContains(t, err, "alpha, beta")
+		assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM messages`), 0)
+
+		// Naming the team is what settles it, and it settles on that team only.
+		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: memberTarget("beta", "dan"), Text: "you, then",
+		})
+		assert.NilError(t, err)
+		assert.Equal(t, res.GetDelivered(), int32(1))
+		msgs, err := svc.store.Read(t.Context(), "tok-e")
+		assert.NilError(t, err)
+		assert.Equal(t, len(msgs), 1)
+		msgs, err = svc.store.Read(t.Context(), "tok-d")
+		assert.NilError(t, err)
+		assert.Equal(t, len(msgs), 0)
+	})
+
+	t.Run("a team reaches its members and nobody else", func(t *testing.T) {
 		before := len(notifier.notified())
 		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
-			Room: "/work", Target: "*", Text: "all hands",
+			Room: "/work", Target: teamTarget("alpha"), Text: "alpha only",
 		})
 		assert.NilError(t, err)
 		assert.Equal(t, res.GetDelivered(), int32(2))
+		// Each recipient is notified the way a whole-room recipient is.
 		assert.Equal(t, len(notifier.notified()[before:]), 2)
 
-		for _, token := range []string{"tok-a", "tok-b"} {
+		for _, token := range []string{"tok-a", "tok-d"} {
+			msgs, err := svc.store.Read(t.Context(), token)
+			assert.NilError(t, err)
+			assert.Equal(t, len(msgs), 1)
+			assert.Equal(t, msgs[0].Text, "alpha only")
+			assert.Equal(t, msgs[0].From.Name, "admin")
+		}
+		// The other team of the room hears nothing, and neither does the team of
+		// that name in another room.
+		for _, token := range []string{"tok-b", "tok-e", "tok-c"} {
+			msgs, err := svc.store.Read(t.Context(), token)
+			assert.NilError(t, err)
+			assert.Equal(t, len(msgs), 0)
+		}
+	})
+
+	t.Run("a team nobody is in is NotFound", func(t *testing.T) {
+		_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: teamTarget("gamma"), Text: "anyone there",
+		})
+		assert.Equal(t, status.Code(err), codes.NotFound)
+		// A team that reached nobody said nothing: the room's record is left as
+		// it was, along with every inbox.
+		assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM messages`), 0)
+	})
+
+	t.Run("everyone reaches the whole room and nobody outside it", func(t *testing.T) {
+		before := len(notifier.notified())
+		res, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/work", Target: everyoneTarget(), Text: "all hands",
+		})
+		assert.NilError(t, err)
+		assert.Equal(t, res.GetDelivered(), int32(4))
+		assert.Equal(t, len(notifier.notified()[before:]), 4)
+
+		for _, token := range []string{"tok-a", "tok-b", "tok-d", "tok-e"} {
 			msgs, err := svc.store.Read(t.Context(), token)
 			assert.NilError(t, err)
 			assert.Equal(t, len(msgs), 1)
 			assert.Equal(t, msgs[0].Text, "all hands")
 			assert.Equal(t, msgs[0].From.Name, "admin")
 		}
-		// The member of the other room shares a team name with one of them and
+		// The member of the other room shares a team name with two of them and
 		// still hears nothing: the room is the boundary.
 		msgs, err := svc.store.Read(t.Context(), "tok-c")
 		assert.NilError(t, err)
@@ -402,26 +484,32 @@ func TestAdminService_Send(t *testing.T) {
 
 	t.Run("an unknown room is NotFound", func(t *testing.T) {
 		_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
-			Room: "/nowhere", Target: "alpha/ana", Text: "hi",
+			Room: "/nowhere", Target: memberTarget("alpha", "ana"), Text: "hi",
 		})
 		assert.Equal(t, status.Code(err), codes.NotFound)
 
-		// Addressing the whole of a room nobody attends is the same mistake.
+		// Addressing the whole of a room nobody attends is the same mistake, and
+		// so is addressing a team of it.
 		_, err = svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
-			Room: "/nowhere", Target: "*", Text: "hi",
+			Room: "/nowhere", Target: everyoneTarget(), Text: "hi",
+		})
+		assert.Equal(t, status.Code(err), codes.NotFound)
+
+		_, err = svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
+			Room: "/nowhere", Target: teamTarget("alpha"), Text: "hi",
 		})
 		assert.Equal(t, status.Code(err), codes.NotFound)
 	})
 
 	t.Run("an unknown target is NotFound", func(t *testing.T) {
 		_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
-			Room: "/work", Target: "alpha/nobody", Text: "hi",
+			Room: "/work", Target: memberTarget("alpha", "nobody"), Text: "hi",
 		})
 		assert.Equal(t, status.Code(err), codes.NotFound)
 
 		// A member of another room is unknown here too.
 		_, err = svc.Send(adminCtx(t, adminNonce(t, svc, id)), &chatv1.AdminSendRequest{
-			Room: "/work", Target: "alpha/cho", Text: "hi",
+			Room: "/work", Target: memberTarget("alpha", "cho"), Text: "hi",
 		})
 		assert.Equal(t, status.Code(err), codes.NotFound)
 	})
@@ -431,9 +519,13 @@ func TestAdminService_Send(t *testing.T) {
 			name string
 			req  *chatv1.AdminSendRequest
 		}{
-			{"room", &chatv1.AdminSendRequest{Target: "alpha/ana", Text: "hi"}},
+			{"room", &chatv1.AdminSendRequest{
+				Target: memberTarget("alpha", "ana"), Text: "hi"}},
+			// A request that set no case never said who it is for, which is the
+			// one way a oneof can hold other than exactly one case.
 			{"target", &chatv1.AdminSendRequest{Room: "/work", Text: "hi"}},
-			{"text", &chatv1.AdminSendRequest{Room: "/work", Target: "alpha/ana"}},
+			{"text", &chatv1.AdminSendRequest{
+				Room: "/work", Target: memberTarget("alpha", "ana")}},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				_, err := svc.Send(adminCtx(t, adminNonce(t, svc, id)), tc.req)
@@ -444,7 +536,7 @@ func TestAdminService_Send(t *testing.T) {
 
 	// Speaking into a room never puts the operator in it: no member row, so
 	// nothing to address back, to nudge, or to reap.
-	assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM members`), 3)
+	assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM members`), 5)
 	assert.Equal(t, countRows(t, svc.store,
 		`SELECT COUNT(*) FROM members WHERE name = ?`, "admin"), 0)
 }

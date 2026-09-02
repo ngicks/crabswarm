@@ -1,6 +1,6 @@
 # Status — admin TUI panes, textarea, `@` addressing, editor
 
-Current state: **planned, not started**. IDEA.md gate confirmed
+Current state: **implementing** (autonomous run, 2026-09-03). IDEA.md gate confirmed
 2026-09-02; every open question resolved (D1–D22); PLAN.md carries the
 surface delta and seven steps. Awaiting the go-ahead to implement.
 
@@ -25,7 +25,7 @@ Steps are filled in after the idea gate. Until then:
 
 ## Implementation checklist
 
-- [ ] Step 1 — D10 "`oneof target` … `Everyone`, `TeamTarget{team}`,
+- [x] Step 1 — D10 "`oneof target` … `Everyone`, `TeamTarget{team}`,
       `MemberTarget{team, name}`", D20 "`team` and `name` as two fields;
       empty `team` means the bare-name rule"; D10 "delivers to every
       current member of that team, counted at send time"
