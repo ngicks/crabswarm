@@ -221,10 +221,10 @@ func TestAFailedSendHandsTheMessageBack(t *testing.T) {
 	assert.Equal(t, m.text.Column(), len("@ghost are you there"))
 }
 
-// A refused message is handed back into an empty pane only: an operator already
-// writing the next one keeps what they are writing, and is told on the system
-// line that the last one did not go.
-func TestAFailedSendLeavesAMessageAlreadyBeingWrittenAlone(t *testing.T) {
+// A refusal that lands while the next message is already being written keeps
+// both: the operator asked for neither to be dropped, and only the refused half
+// is unrecoverable — the daemon has no copy of it.
+func TestAFailedSendKeepsTheRefusedTextAndTheDraftBoth(t *testing.T) {
 	sender := &fakeSender{err: errors.New(`no member "ghost" in room /work/proj`)}
 	m := fixtureModel(t, Deps{Sender: sender})
 	m = typeLine(t, m, "@ghost are you there")
@@ -239,7 +239,10 @@ func TestAFailedSendLeavesAMessageAlreadyBeingWrittenAlone(t *testing.T) {
 
 	m = runCmd(t, m, cmd)
 	assert.Assert(t, strings.Contains(m.systemLine(80), "not sent"))
-	assert.Equal(t, m.text.Value(), "@alice never mind")
+	assert.Equal(t, m.text.Value(), "@ghost are you there\n@alice never mind")
+	// The cursor is at the end of the joined text, where the next word goes.
+	assert.Equal(t, m.text.Line(), 1)
+	assert.Equal(t, m.text.Column(), len("@alice never mind"))
 }
 
 // A refusal that comes back after the operator has moved to another room hands
@@ -261,4 +264,29 @@ func TestAFailedSendFollowsTheRoomItWasWrittenFor(t *testing.T) {
 
 	m.selectRoom(fixtureRoom)
 	assert.Equal(t, m.text.Value(), "@ghost are you there")
+}
+
+// The same in the room left behind: a draft started there before the operator
+// moved on keeps the refused line in front of it rather than being written over
+// by it.
+func TestAFailedSendJoinsTheDraftWaitingInTheRoomItWasWrittenFor(t *testing.T) {
+	sender := &fakeSender{err: errors.New(`no member "ghost" in room /work/proj`)}
+	m := fixtureModel(t, Deps{Sender: sender})
+	m.rooms = twoRooms()
+	m = typeLine(t, m, "@ghost are you there")
+
+	m, cmd := sendOn(t, m)
+	// The next message is started here and left behind by the room switch, so
+	// it is waiting as that room's draft when the refusal lands.
+	for _, r := range "@alice never mind" {
+		m = update(t, m, press(r, string(r)))
+	}
+	m.selectRoom(otherRoom)
+	m = runCmd(t, m, cmd)
+
+	assert.Equal(t, m.drafts[fixtureRoom],
+		"@ghost are you there\n@alice never mind")
+
+	m.selectRoom(fixtureRoom)
+	assert.Equal(t, m.text.Value(), "@ghost are you there\n@alice never mind")
 }

@@ -64,12 +64,16 @@ func TestCompletionsOfferTeamsAboveTheirMembers(t *testing.T) {
 }
 
 // Each row says who it is and what the roster says about them: a member's
-// harness state, and how many a whole team would reach.
+// harness state, and how many a whole team would reach — counted, so a team of
+// one is not offered as "1 members".
 func TestCompletionRowsCarryTheRosterState(t *testing.T) {
 	items := completions(fixtureRoster(), "backend")
 	assert.Equal(t, items[0], completionItem{address: "backend/*", state: "2 members"})
 	assert.Equal(t, items[1], completionItem{address: "backend/alice", state: "working"})
 	assert.Equal(t, items[2], completionItem{address: "backend/bob", state: "waiting"})
+
+	items = completions(fixtureRoster(), "frontend")
+	assert.Equal(t, items[0], completionItem{address: "frontend/*", state: "1 member"})
 }
 
 // One match is not a list — it is the answer — so the first tab applies it,

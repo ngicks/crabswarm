@@ -6,8 +6,8 @@ import (
 )
 
 // The screen is two columns of framed panes — rooms over members on the left,
-// the conversation over the message line on the right — with the system line
-// and the status bar running under both. Sizes below are in terminal cells and
+// the conversation over the message textarea on the right — with the system
+// line and the status bar running under both. Sizes below are in terminal cells and
 // none of them is added up by hand: the rectangles come from the constraint
 // solver, so a resize can neither overlap two panes nor push one off the
 // terminal.

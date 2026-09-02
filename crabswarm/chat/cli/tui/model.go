@@ -56,8 +56,8 @@ type model struct {
 	// to has its attendance before a poll of its own comes back.
 	rooms []*chatv1.Room
 	// drafts is the message left half-written in each room other than the one
-	// on screen, whose draft is in the input line. A draft belongs to the room
-	// it was addressed at and lives no longer than the screen.
+	// on screen, whose draft is in the message pane's textarea. A draft belongs
+	// to the room it was addressed at and lives no longer than the screen.
 	drafts map[string]string
 
 	// cursor is the id of the newest entry the screen holds, which is what the

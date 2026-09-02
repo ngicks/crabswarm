@@ -61,6 +61,18 @@ func TestParseAddressReadsTheFirstBareToken(t *testing.T) {
 			out:    "@alpha/ana",
 		},
 		{
+			name:   "an @ inside a word is text, so a mail address broadcasts",
+			text:   "send it to ops@corp.example",
+			target: cli.AdminTarget{Everyone: true},
+			out:    "send it to ops@corp.example",
+		},
+		{
+			name:   "a newline is whitespace, so a token after one addresses",
+			text:   "here is the plan\n@alpha/bob review it",
+			target: cli.AdminTarget{Team: "alpha", Name: "bob"},
+			out:    "here is the plan\n@alpha/bob review it",
+		},
+		{
 			name:   "the star addresses the room as it does on argv",
 			text:   "@* standup in five",
 			target: cli.AdminTarget{Everyone: true},
@@ -112,6 +124,7 @@ func TestMentionsAdmin(t *testing.T) {
 		{name: "backticked", text: "`@admin`"},
 		{name: "another member", text: "@alpha/ana hi"},
 		{name: "a longer name that starts the same", text: "@administrator hi"},
+		{name: "an @ inside a word", text: "x@admin"},
 		{name: "nobody", text: "standup in five"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

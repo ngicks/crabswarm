@@ -9,11 +9,6 @@ import (
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
-// broadcastTarget spells the addressee of an entry that went to the whole room.
-// It is the "*" the admin send verb takes, so the transcript names a target the
-// operator can type back into the message line.
-const broadcastTarget = "*"
-
 // entryTimeFormat stamps a line with the time of day alone. The conversation
 // pane is narrow and the reader is comparing messages minutes apart, so the
 // date the CLI transcript carries would cost width and say nothing. UTC for the
@@ -70,6 +65,10 @@ func (m *model) conversationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // deliberately — the pane spells the time of day where the transcript spells
 // the whole date, for the reason [entryTimeFormat] gives.
 //
+// An entry with no recipient is addressed to [cli.BroadcastTarget]. That "*"
+// spells a team-wide send as well as a room-wide one: the daemon records a team
+// send with no recipient for now, so the pane cannot tell the two apart.
+//
 // A message that names the admin is coloured, which the transcript does not do:
 // the screen is where the operator is watching for exactly that.
 func (m *model) conversation() string {
@@ -79,7 +78,7 @@ func (m *model) conversation() string {
 		if ts := e.GetSentAt(); ts != nil {
 			at = ts.AsTime().UTC().Format(entryTimeFormat)
 		}
-		to := broadcastTarget
+		to := cli.BroadcastTarget
 		if e.GetTo() != nil {
 			to = cli.Address(e.GetTo())
 		}

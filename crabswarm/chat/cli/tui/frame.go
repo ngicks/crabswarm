@@ -68,11 +68,11 @@ func box(title, content string, width, height int, focused bool) string {
 // Lines are cut and padded one at a time rather than by a style's Width, which
 // re-wraps what the viewport already wrapped and returns a taller block than it
 // was given. MaxWidth does the cutting because the blocks passed through here —
-// the viewport, the input line, the roster — carry styling that a rune-counting
-// cut would break in the middle of an escape sequence. The padding is what
-// keeps a pane whose last row is blank the size it was solved to: the canvas
-// trims trailing spaces on render, and a short block would otherwise let the
-// frame under it show through.
+// the viewport, the message textarea, the roster — carry styling that a
+// rune-counting cut would break in the middle of an escape sequence. The
+// padding is what keeps a pane whose last row is blank the size it was solved
+// to: the canvas trims trailing spaces on render, and a short block would
+// otherwise let the frame under it show through.
 func fit(s string, width, height int) string {
 	if width <= 0 || height <= 0 {
 		return ""

@@ -23,14 +23,16 @@ const (
 // parseAddress reads a written message the way the room will: left to right, a
 // backtick opening a span whose content is text, `\@` a literal `@` whose
 // backslash does not travel, and the first bare `@token` naming who the message
-// is for. A token ends at whitespace or at the end of the text, and later `@`s
-// are text — one message has one addressee.
+// is for. A token starts a word — the `@` at the start of the text or right
+// after whitespace — and ends at whitespace or at the end of the text; later
+// `@`s are text, since one message has one addressee.
 //
 // The text comes back whole, the target's token included: it doubles as the
 // mention that names who was asked, which is what the room reads.
 //
 // A message with no bare `@` in it is for everyone in the room, which is what
-// the operator writing to the room without naming anyone means. A bare `@` with
+// the operator writing to the room without naming anyone means — an `@` inside
+// a word, as in an email address, is one of those. A bare `@` with
 // nothing after it, or a token that is not an address, is refused here rather
 // than sent: the daemon would answer NotFound, which reads as "nobody by that
 // name" and sends the operator looking for a member instead of for the typo.
@@ -50,7 +52,7 @@ func parseAddress(text string) (cli.AdminTarget, string, error) {
 		case r == '\\' && i+1 < len(runes) && runes[i+1] == '@':
 			b.WriteRune('@')
 			i++
-		case r == '@' && !span && !found:
+		case r == '@' && !span && !found && wordStart(runes, i):
 			j := tokenEnd(runes, i+1)
 			written := string(runes[i+1 : j])
 			if written == "" {
@@ -79,7 +81,7 @@ func parseAddress(text string) (cli.AdminTarget, string, error) {
 // mentionsAdmin reports whether a message names the admin — a bare `@admin` or
 // `@admin/admin` token. Bare by [parseAddress]'s rules, since a mention is the
 // same `@` a message is addressed with: a backticked or `\@`-escaped occurrence
-// is text and names nobody.
+// is text and names nobody, and so is an `@` inside a word.
 func mentionsAdmin(text string) bool {
 	return len(adminMentions([]rune(text))) > 0
 }
@@ -96,7 +98,7 @@ func adminMentions(runes []rune) [][2]int {
 			span = !span
 		case r == '\\' && i+1 < len(runes) && runes[i+1] == '@':
 			i++
-		case r == '@' && !span:
+		case r == '@' && !span && wordStart(runes, i):
 			j := tokenEnd(runes, i+1)
 			if tok := string(runes[i+1 : j]); tok == adminName || tok == adminQualifiedName {
 				spans = append(spans, [2]int{i, j})
@@ -105,6 +107,15 @@ func adminMentions(runes []rune) [][2]int {
 		}
 	}
 	return spans
+}
+
+// wordStart reports whether the rune at i opens a word: it is the first of the
+// text, or whitespace is in front of it. This is the rule the completion reads
+// a token by — everything back to the last space on the line — so what the
+// screen offers to complete is what the grammar takes as an address, and
+// `ops@corp.example` is one word and one piece of text.
+func wordStart(runes []rune, i int) bool {
+	return i == 0 || unicode.IsSpace(runes[i-1])
 }
 
 // tokenEnd is where the token starting at from ends: at the first space, or at

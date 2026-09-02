@@ -148,12 +148,13 @@ a `oneof` (D10, D20); the store gains a team-scoped broadcast next to
 wants both on one screen); keeping the modal `i`/`esc` router beside the
 panes; a string `team/*` target (D10).
 
-Preview: `mock/main.go` (build tag `tuimock`), run from `main/` with
+Preview: `mock/main.go` (build tag `tuimock`) was run from `main/` with
 `go run -tags tuimock ./doc/plan/2026-09-02-01-admin_tui_panes_mentions/mock`.
-It demonstrates D1–D3, D9, D12–D18 with a fixture roster; its
-`# MOCK_LIMITS` header lists what it fakes, and `MOCK_LIMITS.md` maps
-each item onto the use cases and decisions it cannot validate.
-Disposable — delete the directory (and that file) once step 6 lands.
+It demonstrated D1–D3, D9, D12–D18 with a fixture roster; its
+`# MOCK_LIMITS` header listed what it faked, and `MOCK_LIMITS.md` mapped
+each item onto the use cases and decisions it could not validate. It was
+disposable: the directory and that file were deleted once the screen
+landed in step 6.
 
 ## Public surface delta
 
@@ -440,7 +441,8 @@ is the user's call at fold time.
 
 ## Risks
 
-Found by the preview mock (`mock/main.go`, 2026-09-02):
+Found by the preview mock (`mock/main.go`, 2026-09-02), which was deleted
+once the screen landed in step 6:
 
 - **`ctrl+h` costs Backspace on `^H` terminals**: bubbles binds
   `backspace` and `ctrl+h` together in `DeleteCharacterBackward` for that

@@ -35,18 +35,29 @@ heading — and moves focus there. Scrolling the conversation up holds the view
 still while the room talks on, and scrolling back to the bottom follows it
 again.
 
-In the message pane enter is a newline, always: ctrl+enter sends, and so does
-ctrl+x, which is the key for terminals that cannot report the first. Tab after
-an @ completes the token against the room's members. ctrl+g opens the draft in
+Below 60 columns the two columns no longer fit side by side. The screen then
+shows one of them at a time, and ctrl+h or ctrl+l brings the other on screen.
+
+In the message pane enter is a newline — the completion list described below is
+the one thing that takes it: ctrl+enter sends, and so does ctrl+x, which is the
+key for terminals that cannot report the first. ctrl+g opens the draft in
 $VISUAL, or $EDITOR when VISUAL is unset, and takes back whatever the editor
 leaves; nothing is sent by it. q leaves the screen from the three panes that are
 lists — in the message pane it is a letter — and ctrl+c leaves it from anywhere.
 
+Tab after an @ completes the token against the room's members. One match is
+applied outright; two or more open a list above the message, where tab and j
+move the highlight down, shift+tab and k move it up, enter accepts the row it is
+on, and esc closes the list and leaves the token as typed. Each team is offered
+as a ` + "`team/*`" + ` row above its own members, so a whole team is one completion away.
+
 The message is addressed with an @: the first bare @token in it — ` + "`@name`" + `,
 ` + "`@team/name`" + ` or ` + "`@team/*`" + ` — says who it is for, and a message with no @ at all
-goes to everyone in the room. Bare means outside a backtick span and not written
-as \@; both of those are text and address nobody. The text is sent whole, that
-token included, so the room reads who was asked.`,
+goes to everyone in the room. Bare means the @ starts a word — it is the first
+character of the message, or a space or a newline is in front of it — outside a
+backtick span and not written as \@. Anything else is text and addresses nobody,
+so ops@corp.example goes to the whole room. The text is sent whole, that token
+included, so the room reads who was asked.`,
 		Example: `  crabswarm chat admin tui
   crabswarm chat admin tui --room /work/proj \
     --identity ~/.config/crabswarm/chat_admin.key`,

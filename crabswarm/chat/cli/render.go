@@ -94,11 +94,6 @@ func RenderMessages(w io.Writer, messages []*chatv1.Message) error {
 	return err
 }
 
-// broadcastTarget spells the addressee of an entry that went to the whole room.
-// It is the "*" the admin send verb already takes for "everyone here", so the
-// transcript names a target the reader can type back.
-const broadcastTarget = "*"
-
 // RenderHistory prints the room's conversation as the member verbs read it.
 func RenderHistory(w io.Writer, entries []*chatv1.HistoryEntry) error {
 	return renderTranscript(w, entries)
@@ -124,7 +119,9 @@ type transcriptEntry interface {
 
 // renderTranscript prints a room's conversation, oldest first, one line each:
 // the instant, the team-qualified speaker, who it was said to, then the text. A
-// broadcast is addressed to [broadcastTarget] rather than to a member.
+// broadcast is addressed to [BroadcastTarget] rather than to a member, and so is
+// a team-wide send: the daemon records one with no recipient for now, so the
+// two read alike here.
 //
 // A room nobody has spoken in says so, the way an empty inbox does: the
 // transcript is a read, and a read that printed nothing at all would be
@@ -140,7 +137,7 @@ func renderTranscript[E transcriptEntry](w io.Writer, entries []E) error {
 		if ts := e.GetSentAt(); ts != nil {
 			sentAt = ts.AsTime().UTC().Format(messageTimeFormat)
 		}
-		to := broadcastTarget
+		to := BroadcastTarget
 		if e.GetTo() != nil {
 			to = qualify(e.GetTo())
 		}

@@ -8,7 +8,9 @@ import (
 
 // The message pane is a textarea rather than a line: a message to a harness is
 // often a paragraph, and enter is not a send key here — the operator asked for
-// it to be a newline, always.
+// it to be a newline, always. The one caveat is the `@` completion list: while
+// it is open, enter accepts the row the highlight is on (see completion.go),
+// and it is a newline again the moment the list closes.
 const (
 	// sendKey is what sends, and sendFallbackKey what sends where the terminal
 	// cannot report the first. ctrl+enter is only distinguishable from enter in

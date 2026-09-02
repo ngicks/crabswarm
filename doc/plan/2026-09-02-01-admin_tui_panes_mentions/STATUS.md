@@ -1,8 +1,9 @@
 # Status — admin TUI panes, textarea, `@` addressing, editor
 
-Current state: **implementing** (autonomous run, 2026-09-03). IDEA.md gate confirmed
-2026-09-02; every open question resolved (D1–D22); PLAN.md carries the
-surface delta and seven steps. Awaiting the go-ahead to implement.
+Current state: **implemented** on branch `admin-tui-panes-mentions`
+(2026-09-03), awaiting user review. IDEA.md gate confirmed 2026-09-02;
+every open question resolved (D1–D22); PLAN.md carries the surface delta
+and seven steps, all seven landed.
 
 ## Checklist
 
@@ -16,7 +17,7 @@ Steps are filled in after the idea gate. Until then:
 - [x] Open questions 17, 18 resolved → D15 (focus from layout), D16
       (per-room drafts)
 - [x] Preview mock written under `mock/` on the D13 layout;
-      `MOCK_LIMITS.md` emitted
+      `MOCK_LIMITS.md` emitted (deleted with the mock after step 6)
 - [x] IDEA.md gate confirmed by user (2026-09-02)
 - [x] Contract questions 8, 9, 11, 14, 15 resolved → D6, D7, D17, D10
 - [x] Contract questions 10, 12, 19, 20 resolved → D18, D8, D19, D20
@@ -87,5 +88,5 @@ change, stated.
 
 ## Next action
 
-User go-ahead, then step 1 (proto `oneof` + daemon), which every later
-step's send path depends on.
+The user's review of branch `admin-tui-panes-mentions`, then folding
+HANDOFF.md into the issue backlog under `doc/plan/issue/open/`.

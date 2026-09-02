@@ -165,6 +165,14 @@ func (a *AdminService) Send(
 	case req.GetTarget() == nil:
 		return nil, status.Error(codes.InvalidArgument,
 			"no target: address everyone, a team or a member")
+	// A case that is set but empty is the other half-written address: it names
+	// nobody, and delivering it would answer NotFound, which reads as "no such
+	// team" rather than "a word was left out". An empty MemberTarget team is
+	// not that — it is the bare-name rule, resolved across the room.
+	case req.GetTeam() != nil && req.GetTeam().GetTeam() == "":
+		return nil, status.Error(codes.InvalidArgument, "empty team")
+	case req.GetMember() != nil && req.GetMember().GetName() == "":
+		return nil, status.Error(codes.InvalidArgument, "empty member name")
 	case req.GetText() == "":
 		return nil, status.Error(codes.InvalidArgument, "empty message text")
 	}

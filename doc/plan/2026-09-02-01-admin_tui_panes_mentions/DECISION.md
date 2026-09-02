@@ -389,3 +389,19 @@ is never dropped because it carries poll errors. D18's "the room segment
 stays" holds down to about 28 columns, where only the connection segment
 fits; that is below the screen's own minimum width, so in practice the
 room is always shown.
+
+## A bare `@` must start a word [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: the review found `parseAddress`
+took any `@` outside a backtick span, so `ops@corp.example` addressed
+`corp.example`, while Tab completion only recognised an `@` at the start
+of a word. Both now use the word rule: the `@` is at the start of the
+text or right after whitespace (a newline counts). An `@` inside a word
+is plain text.
+
+## A refused send is kept next to the newer draft [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: when a send is refused after the
+operator has typed more (or switched rooms and typed), the refused text
+goes back followed by a newline and the newer draft, instead of being
+dropped when the draft is not empty.

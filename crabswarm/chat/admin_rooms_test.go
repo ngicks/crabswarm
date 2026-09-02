@@ -524,6 +524,13 @@ func TestAdminService_Send(t *testing.T) {
 			// A request that set no case never said who it is for, which is the
 			// one way a oneof can hold other than exactly one case.
 			{"target", &chatv1.AdminSendRequest{Room: "/work", Text: "hi"}},
+			// A case that is set but names nobody is the other half-written
+			// address. An empty MemberTarget team is not one of these: that is
+			// the bare-name rule, resolved across the room.
+			{"team", &chatv1.AdminSendRequest{
+				Room: "/work", Target: teamTarget(""), Text: "hi"}},
+			{"member name", &chatv1.AdminSendRequest{
+				Room: "/work", Target: memberTarget("alpha", ""), Text: "hi"}},
 			{"text", &chatv1.AdminSendRequest{
 				Room: "/work", Target: memberTarget("alpha", "ana")}},
 		} {

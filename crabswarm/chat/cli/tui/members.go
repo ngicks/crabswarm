@@ -22,12 +22,13 @@ type rosterRow struct {
 
 func (r rosterRow) heading() bool { return r.member == nil }
 
-// address is who enter on this row writes the message to.
+// address is who enter on this row writes the message to, spelled by the one
+// authority on the spelling so a row and a completion offer the same word.
 func (r rosterRow) address() string {
 	if r.heading() {
-		return r.team + "/*"
+		return cli.AdminTarget{Team: r.team}.String()
 	}
-	return r.team + "/" + r.member.GetName()
+	return cli.AdminTarget{Team: r.team, Name: r.member.GetName()}.String()
 }
 
 // text is what the row says: a team's name, or a member's beside the harness

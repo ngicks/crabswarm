@@ -151,11 +151,11 @@ func completions(roster []*chatv1.Member, prefix string) []completionItem {
 	for i, member := range roster {
 		if i == 0 || member.GetTeam() != team {
 			team = member.GetTeam()
-			addr := team + "/" + broadcastTarget
+			addr := cli.AdminTarget{Team: team}.String()
 			if strings.HasPrefix(addr, prefix) || strings.HasPrefix(team, prefix) {
 				items = append(items, completionItem{
 					address: addr,
-					state:   fmt.Sprintf("%d members", teamSize(roster, team)),
+					state:   teamSizeLabel(teamSize(roster, team)),
 				})
 			}
 		}
@@ -180,6 +180,16 @@ func teamSize(roster []*chatv1.Member, team string) int {
 		}
 	}
 	return n
+}
+
+// teamSizeLabel says how many members a `team/*` row would reach, counted so a
+// team of one reads as one: a row saying "1 members" is a row the operator has
+// to look past.
+func teamSizeLabel(n int) string {
+	if n == 1 {
+		return "1 member"
+	}
+	return fmt.Sprintf("%d members", n)
 }
 
 // dropdownLayer draws the completion list over whatever is above the message

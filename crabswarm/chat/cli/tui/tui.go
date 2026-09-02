@@ -68,7 +68,7 @@ type Deps struct {
 	Log LogReader
 	// Roster is where the attendance comes from.
 	Roster RosterLister
-	// Sender is where a typed line goes.
+	// Sender is where a written message goes.
 	Sender AdminSender
 	// Editor is the command run by ctrl+g, already resolved by the caller
 	// (cli.EditorFromEnv); empty means no VISUAL or EDITOR set.

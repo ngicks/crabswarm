@@ -32,8 +32,8 @@ type sentMsg struct {
 // The pane is cleared as it goes and nothing is added to the conversation: what
 // the room said is the log's to say, and the message appears in the pane when
 // the next read of the log brings it back, exactly as everyone else's does. A
-// send that fails puts the text back, since the operator's alternative is to
-// type it again from memory.
+// send that fails puts the text back — in front of whatever has been typed
+// since — because the operator's alternative is to type it again from memory.
 func (m *model) submit() tea.Cmd {
 	line := m.text.Value()
 	if strings.TrimSpace(line) == "" {
@@ -76,19 +76,25 @@ func (m *model) applySent(msg sentMsg) {
 			// The operator has moved on. The line goes back to the room it was
 			// written for, where it is waiting when they return, rather than
 			// into a message being written at another room.
-			if m.drafts[msg.room] == "" {
-				m.drafts[msg.room] = msg.line
-			}
+			m.drafts[msg.room] = rejoined(msg.line, m.drafts[msg.room])
 			return
 		}
-		// Only into an empty pane: an operator who has already started the next
-		// message keeps it.
-		if m.text.Value() == "" {
-			m.text.SetValue(msg.line)
-			m.text.MoveToEnd()
-			m.layout()
-		}
+		m.text.SetValue(rejoined(msg.line, m.text.Value()))
+		m.text.MoveToEnd()
+		m.layout()
 		return
 	}
 	m.notice = fmt.Sprintf("sent to %s (%d delivered)", msg.target, msg.delivered)
+}
+
+// rejoined puts a refused message back in front of whatever has been written
+// since, on a line of its own. Neither half is the screen's to drop: the
+// refused text exists only because the daemon would not take it, and the draft
+// is what the operator is writing now — one of them going missing is the one
+// outcome that cannot be undone by typing.
+func rejoined(refused, draft string) string {
+	if draft == "" {
+		return refused
+	}
+	return refused + "\n" + draft
 }
