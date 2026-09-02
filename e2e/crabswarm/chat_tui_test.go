@@ -133,21 +133,24 @@ func TestChatTUI_WatchesARoomAndSendsIntoIt(t *testing.T) {
 	runChat(t, cfg, "tok-bob", "broadcast", "the branch is green")
 	waitScreen(t, drawn, "alpha/bob → *: the branch is green")
 
-	// The operator steps in, addressing a member the way `chat send` does. The
-	// screen opens on the conversation, so reaching the message pane is a focus
-	// move down into it — ctrl+j, which a terminal sends as a bare line feed.
+	// The operator steps in, naming the member with an @. The screen opens on
+	// the conversation, so reaching the message pane is a focus move down into
+	// it — ctrl+j, which a terminal sends as a bare line feed. enter is a
+	// newline there, so the message is sent with ctrl+x, which is byte 0x18.
 	typeOnScreen(t, typing, "\x0a")
-	typeOnScreen(t, typing, "alpha/ana: hold the deploy\r")
+	typeOnScreen(t, typing, "@alpha/ana hold the deploy\x18")
 
 	// It is in the room's log, attributed to the host, and it reaches the pane
-	// from there rather than from the screen echoing itself.
-	waitScreen(t, drawn, "admin/admin → alpha/ana: hold the deploy")
+	// from there rather than from the screen echoing itself. The token that
+	// addressed it travels with the text: it is also the mention that names who
+	// was asked.
+	waitScreen(t, drawn, "admin/admin → alpha/ana: @alpha/ana hold the deploy")
 	logged := runChat(t, cfg, "", "admin", "log", chatRoom, "--identity", identity)
-	if !strings.Contains(logged, "admin/admin → alpha/ana: hold the deploy") {
+	if !strings.Contains(logged, "admin/admin → alpha/ana: @alpha/ana hold the deploy") {
 		t.Errorf("the room log = %q, want the admin's message in it", logged)
 	}
 	if got := runChat(t, cfg, "tok-ana", "read"); !strings.Contains(
-		got, "admin/admin: hold the deploy") {
+		got, "admin/admin: @alpha/ana hold the deploy") {
 		t.Errorf("ana's inbox = %q, want the admin's message delivered", got)
 	}
 

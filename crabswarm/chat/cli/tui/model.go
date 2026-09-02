@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -27,8 +27,8 @@ type model struct {
 	width  int
 	height int
 
-	view  viewport.Model
-	input textinput.Model
+	view viewport.Model
+	text textarea.Model
 
 	// focus is the pane the keys reach. It is the screen's only mode: there is
 	// no watching and no writing, only which of the four panes is being talked
@@ -86,20 +86,16 @@ type model struct {
 	// not the conversation — a rejected message, mostly. It is the system
 	// line's text.
 	notice string
+
+	// completion is the `@` dropdown, open only while the message pane has
+	// focus and the cursor sits at the end of the token it was opened on.
+	completion completionState
 }
 
 // newModel is the screen as it stands the moment the room lookup answered:
 // holding the listing it will draw its left column from, opened on the room
 // that lookup chose — which is no room at all when the daemon knew none.
 func newModel(ctx context.Context, deps Deps, room string, rooms []*chatv1.Room) *model {
-	input := textinput.New()
-	input.Prompt = "> "
-	input.Placeholder = `team/name: text`
-	styles := input.Styles()
-	styles.Focused.Prompt = promptStyle
-	styles.Blurred.Prompt = promptStyle
-	input.SetStyles(styles)
-
 	view := viewport.New()
 	// A conversation is read, not scrolled sideways: a long message wraps
 	// rather than running off the edge of the pane.
@@ -112,7 +108,7 @@ func newModel(ctx context.Context, deps Deps, room string, rooms []*chatv1.Room)
 		width:  defaultWidth,
 		height: defaultHeight,
 		view:   view,
-		input:  input,
+		text:   newTextarea(),
 		// The listing the room was chosen out of is the one the rooms pane
 		// draws, so both left panes are filled from the first frame rather than
 		// from the first poll.
@@ -187,19 +183,6 @@ func (m *model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// messageKey edits the line being written, and sends it.
-func (m *model) messageKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if msg.String() == "enter" {
-		return m, m.submit()
-	}
-	// Typing answers whatever the system line last said, so the report goes
-	// with it.
-	m.notice = ""
-	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
-	return m, cmd
-}
-
 // systemLine is the screen's last word to the operator that is not the
 // conversation: a send result, a rejected message.
 func (m *model) systemLine(width int) string {
@@ -236,7 +219,7 @@ func (m *model) statusBar(width int) string {
 		statusStyle.Render(mode),
 		statusStyle.Render(clip(m.connection(), width)),
 		keyStyle.Render("^hjkl") + statusStyle.Render(" panes"),
-		keyStyle.Render("enter") + statusStyle.Render(" sends"),
+		keyStyle.Render("^enter/^x") + statusStyle.Render(" sends"),
 		keyStyle.Render("q") + statusStyle.Render(" quits"),
 	}
 	// The bar is coloured before it is cut, so the cut is the one that counts
@@ -290,9 +273,12 @@ func (m *model) View() tea.View {
 		layers = append(layers,
 			paneLayer("conversation", m.view.View(), r.conversation,
 				m.focus == focusConversation),
-			paneLayer("message", m.input.View(), r.message,
+			paneLayer("message", m.text.View(), r.message,
 				m.focus == focusMessage),
 		)
+	}
+	if m.completion.open {
+		layers = append(layers, m.dropdownLayer(r, width))
 	}
 
 	canvas := lipgloss.NewCanvas(width, height)
@@ -308,5 +294,14 @@ func (m *model) View() tea.View {
 	// The screen is a place the operator stays, not output scrolling past, so
 	// it takes the alternate buffer and gives the shell back untouched on exit.
 	v.AltScreen = true
+	// Key disambiguation is what lets a terminal that can report ctrl+enter do
+	// so, and tell ctrl+h from the Backspace that shares its code — which is
+	// what makes ctrl+h a focus key rather than a delete. The zero value is
+	// that ask and the whole of it: bubbletea v2.0.9 always requests kitty
+	// flag 1 for a view, and every field on this struct is an enhancement
+	// beyond it that this screen has no use for. A terminal that cannot answer
+	// answers nothing at all rather than saying so, which is what
+	// [sendFallbackKey] is for.
+	v.KeyboardEnhancements = tea.KeyboardEnhancements{}
 	return v
 }

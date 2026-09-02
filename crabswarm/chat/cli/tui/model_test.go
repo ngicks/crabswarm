@@ -140,7 +140,7 @@ func TestANarrowTerminalShowsOneColumnAtATime(t *testing.T) {
 	r := m.rects()
 	assert.Assert(t, r.leftShown && r.rightShown)
 	assert.Equal(t, m.view.Width(), 100-leftWidth-2)
-	assert.Equal(t, m.view.Height(), 30-2-(messageRows+2)-2)
+	assert.Equal(t, m.view.Height(), 30-2-(messageMinRows+2)-2)
 	assert.Assert(t, strings.Contains(m.View().Content, "alice"))
 
 	m = update(t, m, tea.WindowSizeMsg{Width: leftMinWidth - 1, Height: 30})
@@ -177,7 +177,7 @@ func TestUnreportedTerminalSizeFallsBackToATerminalShape(t *testing.T) {
 	r := m.rects()
 	assert.Assert(t, r.leftShown && r.rightShown)
 	assert.Equal(t, m.view.Width(), defaultWidth-leftWidth-2)
-	assert.Equal(t, m.view.Height(), defaultHeight-2-(messageRows+2)-2)
+	assert.Equal(t, m.view.Height(), defaultHeight-2-(messageMinRows+2)-2)
 }
 
 // Scrolling up leaves the tail behind and the view stays where it was put while
@@ -231,28 +231,28 @@ func TestLettersAreTextOnlyInTheFocusedMessagePane(t *testing.T) {
 	m.layout()
 
 	assert.Equal(t, m.focus, focusConversation)
-	assert.Assert(t, !m.input.Focused())
+	assert.Assert(t, !m.text.Focused())
 
 	m = update(t, m, ctrlPress('j'))
 	assert.Equal(t, m.focus, focusMessage)
-	assert.Assert(t, m.input.Focused())
-	assert.Equal(t, m.input.Value(), "")
+	assert.Assert(t, m.text.Focused())
+	assert.Equal(t, m.text.Value(), "")
 
 	for _, r := range "q: hi" {
 		m = update(t, m, press(r, string(r)))
 	}
-	assert.Equal(t, m.input.Value(), "q: hi")
+	assert.Equal(t, m.text.Value(), "q: hi")
 
 	m = update(t, m, ctrlPress('k'))
 	assert.Equal(t, m.focus, focusConversation)
-	assert.Assert(t, !m.input.Focused())
+	assert.Assert(t, !m.text.Focused())
 	// The line survives leaving it: a half-written message is not thrown away
 	// by a glance at the scrollback.
-	assert.Equal(t, m.input.Value(), "q: hi")
+	assert.Equal(t, m.text.Value(), "q: hi")
 
 	// And the same letters navigate again rather than being typed into it.
 	m = update(t, m, press('k', "k"))
-	assert.Equal(t, m.input.Value(), "q: hi")
+	assert.Equal(t, m.text.Value(), "q: hi")
 	assert.Assert(t, !m.following)
 }
 
@@ -299,7 +299,7 @@ func TestACrowdedMembersPaneDoesNotPushTheChromeOffTheScreen(t *testing.T) {
 	lines := strings.Split(view, "\n")
 	assert.Assert(t, strings.Contains(lines[len(lines)-1], "room "+fixtureRoom),
 		"the status bar is not the last line:\n%s", view)
-	assert.Assert(t, strings.Contains(view, m.input.Prompt),
+	assert.Assert(t, strings.Contains(view, m.text.Prompt),
 		"the line to type into is not on the screen:\n%s", view)
 
 	// The pane holds the first of the four teams and the start of the second at
@@ -413,4 +413,27 @@ func TestConversationSpellsSenderAddressee(t *testing.T) {
 	assert.Equal(t, m.conversation(),
 		"09:30:15 admin/admin → backend/alice: ship it\n"+
 			"09:30:20 backend/alice → *: on it\n")
+}
+
+// A message that names the admin is drawn in the mention colour with the token
+// that names them bold: the operator is at the screen watching for exactly
+// that, and the admin holds no member row for it to be said any other way.
+// Named the way a message is addressed, so a backticked one names nobody.
+func TestAMessageThatNamesTheAdminIsColoured(t *testing.T) {
+	m := fixtureModel(t, Deps{})
+	from := &chatv1.Member{Team: "backend", Name: "alice", Room: fixtureRoom}
+	m.entries = []*chatv1.AdminHistoryEntry{
+		{Id: 1, From: from, Text: "@admin can you look"},
+		{Id: 2, From: from, Text: "write `@admin` to ask"},
+	}
+
+	lines := strings.Split(strings.TrimSuffix(m.conversation(), "\n"), "\n")
+	assert.Assert(t, strings.Contains(lines[0], mentionTokenStyle.Render("@admin")),
+		"the token is not picked out:\n%q", lines[0])
+	assert.Assert(t, strings.Contains(lines[0], mentionStyle.Render(" can you look")),
+		"the rest of the message is not coloured:\n%q", lines[0])
+	// The time and the sender are not the message, and nothing was said there.
+	assert.Assert(t, strings.HasPrefix(lines[0], "--:--:-- backend/alice → *: "))
+
+	assert.Equal(t, lines[1], "--:--:-- backend/alice → *: write `@admin` to ask")
 }

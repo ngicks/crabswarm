@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -100,10 +99,11 @@ func (m *model) membersKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // In front of it rather than over it: what was already written is the message,
 // and the cursor lands between the two, where the next word goes.
 func (m *model) mention(row rosterRow) tea.Cmd {
-	prefix := "@" + row.address() + " "
-	m.input.SetValue(prefix + m.input.Value())
-	m.input.SetCursor(utf8.RuneCountInString(prefix))
+	m.text.MoveToBegin()
+	m.text.InsertString("@" + row.address() + " ")
 	cmd := m.setFocus(focusMessage)
+	// setFocus lays the screen out, but only where the focus moved: an operator
+	// who was already writing gets the same pre-fill and the same re-solve.
 	m.layout()
 	return cmd
 }

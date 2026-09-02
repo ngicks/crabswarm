@@ -105,19 +105,21 @@ func TestEachRoomKeepsItsOwnDraft(t *testing.T) {
 	m.rooms = twoRooms()
 
 	m = typeLine(t, m, "hold the deploy")
-	assert.Equal(t, m.input.Value(), "hold the deploy")
+	assert.Equal(t, m.text.Value(), "hold the deploy")
 
 	m.selectRoom(otherRoom)
-	assert.Equal(t, m.input.Value(), "", "the other room's line is not empty")
+	assert.Equal(t, m.text.Value(), "", "the other room's line is not empty")
 	m = typeLine(t, m, "ship it")
 
 	m.selectRoom(fixtureRoom)
-	assert.Equal(t, m.input.Value(), "hold the deploy")
-	assert.Equal(t, m.input.Position(), len("hold the deploy"))
+	assert.Equal(t, m.text.Value(), "hold the deploy")
+	assert.Equal(t, m.text.Line(), 0)
+	assert.Equal(t, m.text.Column(), len("hold the deploy"))
 
 	m.selectRoom(otherRoom)
-	assert.Equal(t, m.input.Value(), "ship it")
-	assert.Equal(t, m.input.Position(), len("ship it"))
+	assert.Equal(t, m.text.Value(), "ship it")
+	assert.Equal(t, m.text.Line(), 0)
+	assert.Equal(t, m.text.Column(), len("ship it"))
 }
 
 // The rooms cursor moves the way every list on the screen moves, and enter on

@@ -3,14 +3,15 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
-// sentMsg is how an attempted delivery came back. The line is carried along so
-// a send that failed can be handed back to the operator instead of vanishing
+// sentMsg is how an attempted delivery came back. The message is carried along
+// so a send that failed can be handed back to the operator instead of vanishing
 // with the error.
 type sentMsg struct {
 	// room is where the line was addressed, which is not necessarily the room
@@ -22,34 +23,40 @@ type sentMsg struct {
 	err       error
 }
 
-// submit sends what is on the input line.
+// submit sends what is written in the message pane.
 //
-// The line is cleared as it goes and nothing is added to the conversation:
-// what the room said is the log's to say, and the message appears in the pane
-// when the next read of the log brings it back, exactly as everyone else's
-// does. A send that fails puts the line back, since the operator's alternative
-// is to type it again from memory.
+// Who it is for is read out of the message itself — the first bare `@token`,
+// or the whole room where there is none — and the text goes whole, that token
+// included, so the room reads who was asked.
+//
+// The pane is cleared as it goes and nothing is added to the conversation: what
+// the room said is the log's to say, and the message appears in the pane when
+// the next read of the log brings it back, exactly as everyone else's does. A
+// send that fails puts the text back, since the operator's alternative is to
+// type it again from memory.
 func (m *model) submit() tea.Cmd {
-	line := m.input.Value()
-	to, text, err := cli.ParseAddressedLine(line)
-	if err != nil {
-		m.notice = err.Error()
+	line := m.text.Value()
+	if strings.TrimSpace(line) == "" {
+		m.notice = "nothing to send"
 		return nil
 	}
-	// The address is checked here rather than left to the daemon: a half-written
+	// The address is read here rather than left to the daemon: a half-written
 	// one comes back as NotFound, which reads as "nobody by that name" and sends
 	// the operator looking for a member instead of for the missing word.
-	target, err := cli.ParseAdminTarget(to)
+	target, text, err := parseAddress(line)
 	if err != nil {
 		m.notice = err.Error()
 		return nil
 	}
-	m.input.Reset()
+	m.text.Reset()
+	m.closeCompletion()
 	m.notice = "sending to " + target.String()
 	// Sending is asking to be read: whatever the operator had scrolled back to,
 	// their own message and the answer to it are at the bottom.
 	m.following = true
 	m.view.GotoBottom()
+	// The pane has just shrunk back to one row, which the conversation takes.
+	m.layout()
 
 	ctx, sender, room := m.ctx, m.deps.Sender, m.room
 	return func() tea.Msg {
@@ -74,10 +81,12 @@ func (m *model) applySent(msg sentMsg) {
 			}
 			return
 		}
-		// Only into an empty line: an operator who has already started the next
+		// Only into an empty pane: an operator who has already started the next
 		// message keeps it.
-		if m.input.Value() == "" {
-			m.input.SetValue(msg.line)
+		if m.text.Value() == "" {
+			m.text.SetValue(msg.line)
+			m.text.MoveToEnd()
+			m.layout()
 		}
 		return
 	}

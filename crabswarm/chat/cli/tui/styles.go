@@ -15,7 +15,8 @@ var (
 	purple = lipgloss.Color("62")
 	// violet heads a team in the members pane.
 	violet = lipgloss.Color("99")
-	// pink is a selection: the row a cursor is on and the marked room.
+	// pink is a selection: the row a cursor is on, the marked room, and a line
+	// that names the admin.
 	pink = lipgloss.Color("205")
 	// dim, muted and faint are the three greys: a blurred frame, a blurred
 	// title beside the system line, and the status bar.
@@ -52,4 +53,19 @@ var (
 	teamStyle = lipgloss.NewStyle().Foreground(violet)
 	// promptStyle is the "> " the message pane writes in front of the line.
 	promptStyle = lipgloss.NewStyle().Foreground(purple)
+	// placeholderStyle is the hint the message pane shows while nothing has
+	// been written into it.
+	placeholderStyle = lipgloss.NewStyle().Foreground(dim)
+	// caretColor is the block the message pane draws where the next character
+	// goes, which is a cursor like the ones the two list panes move.
+	caretColor = pink
+	// plainStyle is what the message pane wears everywhere the palette has
+	// nothing to say: the textarea's own defaults carry colours of their own,
+	// and this is how they are taken off.
+	plainStyle = lipgloss.NewStyle()
+	// mentionStyle draws a conversation line that names the admin, and
+	// mentionTokenStyle the `@admin` in it, so the line is found at a glance
+	// and then read.
+	mentionStyle      = lipgloss.NewStyle().Foreground(pink)
+	mentionTokenStyle = lipgloss.NewStyle().Foreground(pink).Bold(true)
 )

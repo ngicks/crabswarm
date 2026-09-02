@@ -32,10 +32,11 @@ func TestMembersPaneEnterAddressesTheRowUnderTheCursor(t *testing.T) {
 			}
 
 			m = update(t, m, press(tea.KeyEnter, ""))
-			assert.Equal(t, m.input.Value(), tc.want)
-			assert.Equal(t, m.input.Position(), len([]rune(tc.want)))
+			assert.Equal(t, m.text.Value(), tc.want)
+			assert.Equal(t, m.text.Line(), 0)
+			assert.Equal(t, m.text.Column(), len([]rune(tc.want)))
 			assert.Equal(t, m.focus, focusMessage)
-			assert.Assert(t, m.input.Focused())
+			assert.Assert(t, m.text.Focused())
 		})
 	}
 }
@@ -50,8 +51,9 @@ func TestAddressingKeepsWhatWasAlreadyWritten(t *testing.T) {
 	m = update(t, m, press('j', "j"))
 	m = update(t, m, press(tea.KeyEnter, ""))
 
-	assert.Equal(t, m.input.Value(), "@backend/alice hold the deploy")
-	assert.Equal(t, m.input.Position(), len("@backend/alice "))
+	assert.Equal(t, m.text.Value(), "@backend/alice hold the deploy")
+	assert.Equal(t, m.text.Line(), 0)
+	assert.Equal(t, m.text.Column(), len("@backend/alice "))
 }
 
 // The members cursor moves the way every list on the screen moves, and stops at
@@ -84,7 +86,7 @@ func TestTheMembersCursorMoves(t *testing.T) {
 	m.layout()
 	assert.Equal(t, m.membersCursor, 0)
 	m = update(t, m, press(tea.KeyEnter, ""))
-	assert.Equal(t, m.input.Value(), "")
+	assert.Equal(t, m.text.Value(), "")
 }
 
 // The row the cursor is on is picked out, and a team heading keeps the team

@@ -47,40 +47,46 @@ func TestPanesTileTheTerminalExactlyOnce(t *testing.T) {
 		{80, 24}, {60, 10}, {59, 24}, {120, 40}, {40, 8},
 	} {
 		for _, showLeft := range []bool{false, true} {
-			t.Run(
-				fmt.Sprintf("%dx%d/left=%t", size.width, size.height, showLeft),
-				func(t *testing.T) {
-					r := rects(size.width, size.height, 4, messageRows, showLeft)
-					regions := []uv.Rectangle{r.system, r.status}
-					if r.leftShown {
-						regions = append(regions, r.rooms, r.members)
-					}
-					if r.rightShown {
-						regions = append(regions, r.conversation, r.message)
-					}
-					assert.Assert(t, r.leftShown || r.rightShown, "no column is drawn")
-					if size.width >= leftMinWidth {
-						assert.Assert(t, r.leftShown && r.rightShown,
-							"a terminal at or above the gate shows both columns")
-					}
+			// The message pane is as tall as what is written in it, so the
+			// tiling has to hold at either end of what it grows between.
+			for _, textRows := range []int{messageMinRows, messageMaxRows} {
+				t.Run(
+					fmt.Sprintf("%dx%d/left=%t/rows=%d",
+						size.width, size.height, showLeft, textRows),
+					func(t *testing.T) {
+						r := rects(size.width, size.height, 4, textRows, showLeft)
+						regions := []uv.Rectangle{r.system, r.status}
+						if r.leftShown {
+							regions = append(regions, r.rooms, r.members)
+						}
+						if r.rightShown {
+							regions = append(regions, r.conversation, r.message)
+						}
+						assert.Assert(t, r.leftShown || r.rightShown,
+							"no column is drawn")
+						if size.width >= leftMinWidth {
+							assert.Assert(t, r.leftShown && r.rightShown,
+								"a terminal at or above the gate shows both columns")
+						}
 
-					covered := make([]int, size.width*size.height)
-					for _, region := range regions {
-						for y := region.Min.Y; y < region.Max.Y; y++ {
-							for x := region.Min.X; x < region.Max.X; x++ {
-								covered[y*size.width+x]++
+						covered := make([]int, size.width*size.height)
+						for _, region := range regions {
+							for y := region.Min.Y; y < region.Max.Y; y++ {
+								for x := region.Min.X; x < region.Max.X; x++ {
+									covered[y*size.width+x]++
+								}
 							}
 						}
-					}
-					for y := range size.height {
-						for x := range size.width {
-							assert.Equal(t, covered[y*size.width+x], 1,
-								"cell %d,%d is in %d regions, want exactly one",
-								x, y, covered[y*size.width+x])
+						for y := range size.height {
+							for x := range size.width {
+								assert.Equal(t, covered[y*size.width+x], 1,
+									"cell %d,%d is in %d regions, want exactly one",
+									x, y, covered[y*size.width+x])
+							}
 						}
-					}
-				},
-			)
+					},
+				)
+			}
 		}
 	}
 }

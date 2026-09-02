@@ -362,3 +362,20 @@ show a team send the way they show a `*` send. The history reader only
 reconstructs a recipient when a member name is present, and PLAN.md
 forbids a persistent-data change in this plan, so a team-only recipient
 row is not added. Logged to HANDOFF.md for a later decision.
+
+## Key disambiguation is bubbletea's default; nothing extra is requested [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: bubbletea v2.0.9 has no
+`DisambiguateEscapeCodes` option; its renderer always pushes kitty flag 1
+(disambiguate escape codes) for every view, which is exactly what D7
+asks for. `View()` sets the zero `KeyboardEnhancements` with a comment
+saying so. `ReportAllKeysAsEscapeCodes` (the mock's choice) was not
+substituted: it changes how every text key is delivered and the
+pipe-driven tests could not catch a regression.
+
+## Tab walks the completion list; Tab on the last row accepts [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: PLAN.md's "`Tab`/`j`/`k` move,
+`enter`/second `Tab` accept" cannot both hold literally. The mock the
+user saw at the gate has `Tab` move down the list and accept when on the
+last row, `enter` accept anywhere; that rule is kept.

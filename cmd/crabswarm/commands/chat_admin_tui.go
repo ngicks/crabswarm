@@ -14,18 +14,24 @@ func chatAdminTUICmd(parent *cobra.Command, flags *chatFlags) {
 		Short: "Watch a room's conversation on a live screen (admin)",
 		Long: `tui opens a screen on one room and keeps it current in four framed panes:
 the rooms the daemon knows and the room's members on the left, the conversation
-as the members have it and a line to send into the room from on the right.
+as the members have it and the message to send into the room on the right.
 
 Watching needs no keypresses. ctrl+h, ctrl+j, ctrl+k and ctrl+l move between the
 panes, and every other key goes to the pane that has focus: j/k, gg/G and
 ctrl+d/ctrl+u scroll the conversation and move a cursor in the rooms and members
 panes, where enter switches to the room under it or writes the member under it
-in front of the message. The message line takes the addressing
-` + "`chat admin send`" + ` takes — "name: text", "team/name: text", or "*: text"
-for everyone — with enter sending it. q leaves the screen from the three panes
-that are lists, and ctrl-c leaves it from anywhere, the message line included.
-Scrolling up holds the view still while the room talks on, and scrolling back to
-the bottom follows it again.
+in front of the message.
+
+The message is addressed with an @: the first ` + "`@name`" + `, ` + "`@team/name`" + ` or
+` + "`@team/*`" + ` in it says who it is for, and a message with no @ at all goes to
+everyone in the room. The text is sent whole, that token included, so the room
+reads who was asked; a backticked ` + "`@`" + ` and a \@ are text and address nobody.
+tab after an @ completes it against the room's members. enter is always a
+newline — ctrl+enter sends, and so does ctrl+x, which is the key for terminals
+that cannot report the first. q leaves the screen from the three panes that are
+lists, and ctrl-c leaves it from anywhere, the message included. Scrolling up
+holds the view still while the room talks on, and scrolling back to the bottom
+follows it again.
 
 --room says which room the screen opens on; without it the screen opens on the
 first room the daemon lists and the rooms pane switches between them. A room

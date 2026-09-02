@@ -1,5 +1,6 @@
 // Package tui draws the admin's watch screen: one room's conversation as it
-// happens, who is attending it and in what state, and a line to speak into it.
+// happens, who is attending it and in what state, and the message to send into
+// it — addressed with an `@` the room reads as a mention.
 //
 // It is the screen alone. What it needs from the daemon arrives through the
 // three interfaces below, which the admin half of

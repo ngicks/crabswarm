@@ -69,6 +69,9 @@ func (m *model) conversationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // an operator reading both reads one text. The stamp is where the two part, and
 // deliberately — the pane spells the time of day where the transcript spells
 // the whole date, for the reason [entryTimeFormat] gives.
+//
+// A message that names the admin is coloured, which the transcript does not do:
+// the screen is where the operator is watching for exactly that.
 func (m *model) conversation() string {
 	var b strings.Builder
 	for _, e := range m.entries {
@@ -80,7 +83,39 @@ func (m *model) conversation() string {
 		if e.GetTo() != nil {
 			to = cli.Address(e.GetTo())
 		}
-		fmt.Fprintf(&b, "%s %s → %s: %s\n", at, cli.Address(e.GetFrom()), to, e.GetText())
+		fmt.Fprintf(&b, "%s %s → %s: %s\n",
+			at, cli.Address(e.GetFrom()), to, mentioned(e.GetText()))
 	}
+	return b.String()
+}
+
+// mentioned colours a message that names the admin: the text in the mention
+// colour with the tokens that name them bold on top of it. The admin holds no
+// member row — they are the one at the screen — so being named is textual,
+// which is also why the colour is on the message and not on the time and the
+// sender in front of it, where nothing was said.
+//
+// The runs are rendered one at a time rather than the bold token being drawn
+// inside an already-coloured line: the reset that ends the bold would end the
+// colour with it. A message that names nobody comes back untouched.
+func mentioned(text string) string {
+	runes := []rune(text)
+	spans := adminMentions(runes)
+	if len(spans) == 0 {
+		return text
+	}
+	var b strings.Builder
+	plain := func(rs []rune) {
+		if len(rs) > 0 {
+			b.WriteString(mentionStyle.Render(string(rs)))
+		}
+	}
+	prev := 0
+	for _, span := range spans {
+		plain(runes[prev:span[0]])
+		b.WriteString(mentionTokenStyle.Render(string(runes[span[0]:span[1]])))
+		prev = span[1]
+	}
+	plain(runes[prev:])
 	return b.String()
 }

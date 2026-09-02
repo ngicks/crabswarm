@@ -37,40 +37,6 @@ func TestParseQualifiedName(t *testing.T) {
 	}
 }
 
-func TestParseAddressedLine(t *testing.T) {
-	for _, tc := range []struct {
-		in       string
-		to, text string
-		wantErr  bool
-	}{
-		{in: "alice: rebased onto main", to: "alice", text: "rebased onto main"},
-		{in: "backend/alice: rebased", to: "backend/alice", text: "rebased"},
-		// The star the admin verbs take for everyone in the room is an address
-		// like any other here: whom it reaches is the daemon's business.
-		{in: "*: standup in five", to: "*", text: "standup in five"},
-		{in: "  alice  :  spaced out  ", to: "alice", text: "spaced out"},
-		// Only the first colon separates, so the message keeps its own.
-		{in: "alice: see http://host/x: broken", to: "alice", text: "see http://host/x: broken"},
-		{in: "alice:no space needed", to: "alice", text: "no space needed"},
-		{in: "no colon at all", wantErr: true},
-		{in: ": nobody addressed", wantErr: true},
-		{in: "alice:", wantErr: true},
-		{in: "alice:   ", wantErr: true},
-		{in: "", wantErr: true},
-	} {
-		t.Run(tc.in, func(t *testing.T) {
-			to, text, err := ParseAddressedLine(tc.in)
-			if tc.wantErr {
-				assert.Assert(t, err != nil)
-				return
-			}
-			assert.NilError(t, err)
-			assert.Equal(t, to, tc.to)
-			assert.Equal(t, text, tc.text)
-		})
-	}
-}
-
 func TestParseHarnessState(t *testing.T) {
 	for _, tc := range []struct {
 		in   string

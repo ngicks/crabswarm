@@ -40,7 +40,7 @@ Steps are filled in after the idea gate. Until then:
       "same reply now fills both left panes … resets the log cursor";
       D16 "one draft per room"; D1 "`enter` on a member pre-fills
       `@team/name `; `enter` on a team pre-fills … `@team/* `"
-- [ ] Step 5 — D22 "bare `@admin` or `@admin/admin` … drawn in the
+- [x] Step 5 — D22 "bare `@admin` or `@admin/admin` … drawn in the
       mention color"; D2 "`ctrl+enter` sends. `enter` is always a newline";
       D11 `ctrl+x` fallback; D3 "first `@token` outside backticks and
       not escaped as `\@` names the target; the message text is sent

@@ -51,10 +51,13 @@ func (m *model) selectRoom(name string) {
 	if name == m.room {
 		return
 	}
-	m.drafts[m.room] = m.input.Value()
+	m.drafts[m.room] = m.text.Value()
 	m.room = name
-	m.input.SetValue(m.drafts[name])
-	m.input.CursorEnd()
+	m.text.SetValue(m.drafts[name])
+	m.text.MoveToEnd()
+	// The dropdown was offering this room's attendance, which is not the
+	// attendance of the room being opened.
+	m.closeCompletion()
 	m.roster = membersOf(m.rooms, name)
 	m.membersCursor = 0
 	m.entries = nil
