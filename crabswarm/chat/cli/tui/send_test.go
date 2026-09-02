@@ -10,11 +10,12 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
 type sendCall struct {
 	room   string
-	target string
+	target cli.AdminTarget
 	text   string
 }
 
@@ -26,7 +27,9 @@ type fakeSender struct {
 
 func (f *fakeSender) Send(
 	_ context.Context,
-	room, target, text string,
+	room string,
+	target cli.AdminTarget,
+	text string,
 ) (int32, error) {
 	f.calls = append(f.calls, sendCall{room: room, target: target, text: text})
 	return f.delivered, f.err
@@ -43,8 +46,10 @@ func typeLine(t *testing.T, m *model, line string) *model {
 	return m
 }
 
-// The input line takes the addressing `chat send` takes, star included, and
-// the message is whatever follows the first colon.
+// The input line takes the addressing `chat admin send` takes — a whole team
+// and the star included — and the message is whatever follows the first colon.
+// The address reaches the sender as the case it means, not as the word it was
+// written as.
 func TestSendingTakesTheSameAddressingAsChatSend(t *testing.T) {
 	for _, tc := range []struct {
 		line   string
@@ -53,10 +58,14 @@ func TestSendingTakesTheSameAddressingAsChatSend(t *testing.T) {
 	}{
 		{"backend/alice: rebase onto main", "backend/alice", "rebase onto main"},
 		{"alice: rebase onto main", "alice", "rebase onto main"},
+		{"backend/*: rebase onto main", "backend/*", "rebase onto main"},
 		{"*: standup in five", "*", "standup in five"},
 		{"alice: see http://host/x: it fails", "alice", "see http://host/x: it fails"},
 	} {
 		t.Run(tc.line, func(t *testing.T) {
+			target, err := cli.ParseAdminTarget(tc.target)
+			assert.NilError(t, err)
+
 			sender := &fakeSender{delivered: 1}
 			m := fixtureModel(t, Deps{Sender: sender})
 			m = typeLine(t, m, tc.line)
@@ -66,7 +75,7 @@ func TestSendingTakesTheSameAddressingAsChatSend(t *testing.T) {
 
 			assert.Equal(t, len(sender.calls), 1)
 			assert.Equal(t, sender.calls[0],
-				sendCall{room: fixtureRoom, target: tc.target, text: tc.text})
+				sendCall{room: fixtureRoom, target: target, text: tc.text})
 			assert.Equal(t, m.input.Value(), "")
 			assert.Assert(t, strings.Contains(m.statusBar(), "sent to "+tc.target))
 		})
@@ -98,10 +107,16 @@ func TestASentMessageAppearsOnlyWhenTheLogSaysSo(t *testing.T) {
 	assert.Assert(t, strings.Contains(m.conversation(), "standup in five"))
 }
 
-// A line that addresses nobody is refused before anything is dialled, and is
-// left on the screen to be fixed.
+// A line that addresses nobody — or addresses half of somebody — is refused
+// before anything is dialled, and is left on the screen to be fixed.
 func TestALineThatAddressesNobodyIsNotSent(t *testing.T) {
-	for _, line := range []string{"no colon at all", ": text without an addressee", "alice:"} {
+	for _, line := range []string{
+		"no colon at all",
+		": text without an addressee",
+		"alice:",
+		"backend/: hi",
+		"/alice: hi",
+	} {
 		t.Run(line, func(t *testing.T) {
 			sender := &fakeSender{}
 			m := fixtureModel(t, Deps{Sender: sender})

@@ -219,12 +219,23 @@ func TestRenderMovedAndRegistered(t *testing.T) {
 
 func TestRenderAdminSent(t *testing.T) {
 	got := render(t, func(b *strings.Builder) error {
-		return RenderAdminSent(b, "/work/proj", "backend/alice", 1)
+		return RenderAdminSent(
+			b, "/work/proj", AdminTarget{Team: "backend", Name: "alice"}, 1)
 	})
 	assert.Equal(t, got, "sent to backend/alice in room /work/proj: delivered to 1 member\n")
 
 	got = render(t, func(b *strings.Builder) error {
-		return RenderAdminSent(b, "/work/proj", "*", 3)
+		return RenderAdminSent(b, "/work/proj", AdminTarget{Team: "backend"}, 2)
+	})
+	assert.Equal(t, got, "sent to backend/* in room /work/proj: delivered to 2 members\n")
+
+	got = render(t, func(b *strings.Builder) error {
+		return RenderAdminSent(b, "/work/proj", AdminTarget{Name: "alice"}, 1)
+	})
+	assert.Equal(t, got, "sent to alice in room /work/proj: delivered to 1 member\n")
+
+	got = render(t, func(b *strings.Builder) error {
+		return RenderAdminSent(b, "/work/proj", AdminTarget{Everyone: true}, 3)
 	})
 	assert.Equal(t, got, "sent to * in room /work/proj: delivered to 3 members\n")
 }

@@ -29,7 +29,7 @@ Steps are filled in after the idea gate. Until then:
       `MemberTarget{team, name}`", D20 "`team` and `name` as two fields;
       empty `team` means the bare-name rule"; D10 "delivers to every
       current member of that team, counted at send time"
-- [ ] Step 2 — D10 "`chat admin send` maps its argv grammar … onto the
+- [x] Step 2 — D10 "`chat admin send` maps its argv grammar … onto the
       cases client-side"; D3 "`cli.ParseAddressedLine` … is removed"
 - [ ] Step 3 — D21 palette "one palette block in `tui/styles.go`"; D5
       "rectangles come from `ultraviolet/layout`"; D13

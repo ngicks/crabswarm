@@ -149,11 +149,73 @@ func (a *AdminClient) RoomLog(
 	return resp.GetEntries(), nil
 }
 
+// AdminTarget is who an admin send is for: exactly one of the three cases the
+// request carries. It is a struct rather than an interface because the CLI
+// builds one from a written word and hands it straight on — [ParseAdminTarget]
+// is the only thing that decides which case a spelling means.
+//
+// Everyone is the whole room. Otherwise a Name names a member, with Team
+// narrowing it — an empty Team leaves the name for the daemon to resolve across
+// the room, exactly as a member's own bare address is resolved. A Team with no
+// Name is the team itself, everyone attending it when the send is counted.
+type AdminTarget struct {
+	Everyone bool
+	Team     string // TeamTarget when set and Name is empty
+	Name     string // MemberTarget with Team (may be empty) when set
+}
+
+// ParseAdminTarget maps the grammar `chat admin send` takes onto the case it
+// means: "*" is everyone in the room, "team/*" that whole team, "team/name"
+// that member of that team, and a bare name the member the daemon resolves it
+// to across the room.
+//
+// A half-written address is refused here rather than sent: an empty team or
+// name reaches the daemon as an address nothing answers to, and NotFound is a
+// poor way to be told that a word was left out.
+func ParseAdminTarget(s string) (AdminTarget, error) {
+	switch s {
+	case "":
+		return AdminTarget{}, errors.New(
+			`no target: write "*", "team/*", "team/name" or "name"`)
+	case broadcastTarget:
+		return AdminTarget{Everyone: true}, nil
+	}
+	team, name, qualified := strings.Cut(s, "/")
+	if !qualified {
+		return AdminTarget{Name: s}, nil
+	}
+	if team == "" || name == "" || strings.Contains(name, "/") {
+		return AdminTarget{}, fmt.Errorf(
+			`target %q is not in "team/name" or "team/*" form`, s)
+	}
+	if name == broadcastTarget {
+		return AdminTarget{Team: team}, nil
+	}
+	return AdminTarget{Team: team, Name: name}, nil
+}
+
+// String spells the target the way [ParseAdminTarget] takes it, so a rendered
+// line and a log entry name a target the reader can type back.
+func (t AdminTarget) String() string {
+	switch {
+	case t.Everyone:
+		return broadcastTarget
+	case t.Name == "":
+		return t.Team + "/" + broadcastTarget
+	case t.Team == "":
+		return t.Name
+	default:
+		return t.Team + "/" + t.Name
+	}
+}
+
 // Send delivers text into room addressed to target and reports how many
-// inboxes it reached. The target is the grammar [Client.AdminSend] takes.
+// inboxes it reached.
 func (a *AdminClient) Send(
 	ctx context.Context,
-	room, target, text string,
+	room string,
+	target AdminTarget,
+	text string,
 ) (delivered int32, err error) {
 	nonce, err := a.client.nonce(ctx, a.identity)
 	if err != nil {
@@ -167,25 +229,22 @@ func (a *AdminClient) Send(
 	return resp.GetDelivered(), nil
 }
 
-// adminSendRequest builds the send request the written target means: "*" is the
-// whole room, "team/name" that member of that team, and a bare name the member
-// the daemon resolves it to across the room.
-//
-// The grammar stays a string here because the callers still pass one — a typed
-// target belongs to the surface that will offer a whole team, which this
-// mapping has no spelling for yet.
-func adminSendRequest(room, target, text string) *chatv1.AdminSendRequest {
+// adminSendRequest puts the target in the case of the request that carries it.
+// The zero target has no case of its own: it arrives as a team target naming no
+// team, which the daemon refuses rather than guessing at.
+func adminSendRequest(room string, target AdminTarget, text string) *chatv1.AdminSendRequest {
 	req := &chatv1.AdminSendRequest{Room: room, Text: text}
-	if target == "*" {
+	switch {
+	case target.Everyone:
 		req.Target = &chatv1.AdminSendRequest_Everyone{Everyone: &chatv1.Everyone{}}
-		return req
-	}
-	team, name, qualified := strings.Cut(target, "/")
-	if !qualified {
-		team, name = "", target
-	}
-	req.Target = &chatv1.AdminSendRequest_Member{
-		Member: &chatv1.MemberTarget{Team: team, Name: name},
+	case target.Name == "":
+		req.Target = &chatv1.AdminSendRequest_Team{
+			Team: &chatv1.TeamTarget{Team: target.Team},
+		}
+	default:
+		req.Target = &chatv1.AdminSendRequest_Member{
+			Member: &chatv1.MemberTarget{Team: target.Team, Name: target.Name},
+		}
 	}
 	return req
 }
@@ -250,16 +309,18 @@ func (c *Client) RegisterMember(
 }
 
 // AdminSend delivers text into a room the operator does not attend, addressed
-// to one member as "name" or "team/name" or — as "*" — to everyone there.
+// to whoever target names — [ParseAdminTarget] turns the written form into one.
 //
 // Unlike the member address [Client.MoveMember] takes, the name half is left
-// for the daemon to resolve: [adminTarget] only picks which case of the request
-// the written target means, which is what keeps the grammar the same as the one
-// `chat send` takes.
+// for the daemon to resolve: the target only says which case of the request the
+// operator meant, which is what keeps the grammar the same as the one `chat
+// send` takes.
 func (c *Client) AdminSend(
 	ctx context.Context,
 	w io.Writer,
-	identityPath, room, target, text string,
+	identityPath, room string,
+	target AdminTarget,
+	text string,
 ) error {
 	delivered, err := c.Admin(identityPath).Send(ctx, room, target, text)
 	if err != nil {

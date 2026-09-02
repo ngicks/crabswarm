@@ -21,6 +21,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
 // LogReader reads a room's conversation. sinceID is the id of the last entry
@@ -45,9 +46,15 @@ type RosterLister interface {
 }
 
 // AdminSender delivers a message into the room without attending it, addressed
-// to one member or — as "*" — to everyone there.
+// to one member, to a whole team, or to everyone there — whichever case the
+// target carries.
 type AdminSender interface {
-	Send(ctx context.Context, room, target, text string) (delivered int32, err error)
+	Send(
+		ctx context.Context,
+		room string,
+		target cli.AdminTarget,
+		text string,
+	) (delivered int32, err error)
 }
 
 // Deps is everything the screen needs from outside itself: the room it watches

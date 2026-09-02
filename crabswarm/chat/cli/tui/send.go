@@ -13,7 +13,7 @@ import (
 // a send that failed can be handed back to the operator instead of vanishing
 // with the error.
 type sentMsg struct {
-	target    string
+	target    cli.AdminTarget
 	line      string
 	delivered int32
 	err       error
@@ -28,13 +28,21 @@ type sentMsg struct {
 // is to type it again from memory.
 func (m *model) submit() tea.Cmd {
 	line := m.input.Value()
-	target, text, err := cli.ParseAddressedLine(line)
+	to, text, err := cli.ParseAddressedLine(line)
+	if err != nil {
+		m.notice = err.Error()
+		return nil
+	}
+	// The address is checked here rather than left to the daemon: a half-written
+	// one comes back as NotFound, which reads as "nobody by that name" and sends
+	// the operator looking for a member instead of for the missing word.
+	target, err := cli.ParseAdminTarget(to)
 	if err != nil {
 		m.notice = err.Error()
 		return nil
 	}
 	m.input.Reset()
-	m.notice = "sending to " + target
+	m.notice = "sending to " + target.String()
 	// Sending is asking to be read: whatever the operator had scrolled back to,
 	// their own message and the answer to it are at the bottom.
 	m.following = true

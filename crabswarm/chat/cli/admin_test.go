@@ -245,7 +245,38 @@ func TestClient_RegisterMemberPrintsTheToken(t *testing.T) {
 		"registered humans/yuki in room /work/proj\ntoken: tok-issued\n")
 }
 
-// The written target picks the case of the request that carries it: "*" is the
+// The four written forms name the four things an operator can address, and each
+// is refused rather than sent where a half of it is missing: the daemon answers
+// an address nothing holds with NotFound, which reads as "no such member".
+func TestParseAdminTarget(t *testing.T) {
+	for _, tc := range []struct {
+		target string
+		want   AdminTarget
+	}{
+		{"*", AdminTarget{Everyone: true}},
+		{"backend/*", AdminTarget{Team: "backend"}},
+		{"backend/alice", AdminTarget{Team: "backend", Name: "alice"}},
+		{"alice", AdminTarget{Name: "alice"}},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			got, err := ParseAdminTarget(tc.target)
+			assert.NilError(t, err)
+			assert.DeepEqual(t, got, tc.want)
+			// Every parsed target spells itself back as what was written, which is
+			// what lets a rendered line be typed back in.
+			assert.Equal(t, got.String(), tc.target)
+		})
+	}
+
+	for _, target := range []string{"", "/alice", "backend/", "/", "a/b/c", "backend/*/x"} {
+		t.Run("rejects "+target, func(t *testing.T) {
+			_, err := ParseAdminTarget(target)
+			assert.Assert(t, err != nil)
+		})
+	}
+}
+
+// The target picks the case of the request that carries it: everyone is the
 // whole room, and the name half is left for the daemon to resolve with the same
 // grammar member send uses.
 func TestClient_AdminSendReportsTheDeliveredCount(t *testing.T) {
@@ -255,7 +286,8 @@ func TestClient_AdminSendReportsTheDeliveredCount(t *testing.T) {
 
 	var out strings.Builder
 	assert.NilError(t, d.client.AdminSend(
-		t.Context(), &out, path, "/work/proj", "*", "standup in five"))
+		t.Context(), &out, path, "/work/proj",
+		AdminTarget{Everyone: true}, "standup in five"))
 	assert.Equal(t, fake.bearer, "nonce-send")
 	assert.Equal(t, fake.send.GetRoom(), "/work/proj")
 	assert.Assert(t, fake.send.GetEveryone() != nil)
@@ -264,14 +296,16 @@ func TestClient_AdminSendReportsTheDeliveredCount(t *testing.T) {
 		"sent to * in room /work/proj: delivered to 3 members\n")
 }
 
-// A qualified target names the team it means; a bare one leaves the team empty
-// rather than guessing, which is what makes the daemon resolve it across the
-// room the way it resolves a member's bare address.
-func TestClient_AdminSendMapsTheWrittenTarget(t *testing.T) {
+// A team target carries the team alone; a qualified member target names the
+// team it means, and a bare one leaves the team empty rather than guessing,
+// which is what makes the daemon resolve it across the room the way it resolves
+// a member's bare address.
+func TestClient_AdminSendMapsTheTargetOntoItsCase(t *testing.T) {
 	for _, tc := range []struct {
 		target     string
 		team, name string
 	}{
+		{"backend/*", "backend", ""},
 		{"backend/alice", "backend", "alice"},
 		{"alice", "", "alice"},
 	} {
@@ -282,10 +316,20 @@ func TestClient_AdminSendMapsTheWrittenTarget(t *testing.T) {
 			}
 			d := serveTestDaemon(t, nil, fake)
 
+			target, err := ParseAdminTarget(tc.target)
+			assert.NilError(t, err)
+			var out strings.Builder
 			assert.NilError(t, d.client.AdminSend(
-				t.Context(), &strings.Builder{}, path, "/work/proj", tc.target, "hi"))
-			assert.Equal(t, fake.send.GetMember().GetTeam(), tc.team)
-			assert.Equal(t, fake.send.GetMember().GetName(), tc.name)
+				t.Context(), &out, path, "/work/proj", target, "hi"))
+			if tc.name == "" {
+				assert.Equal(t, fake.send.GetTeam().GetTeam(), tc.team)
+				assert.Assert(t, fake.send.GetMember() == nil)
+			} else {
+				assert.Equal(t, fake.send.GetMember().GetTeam(), tc.team)
+				assert.Equal(t, fake.send.GetMember().GetName(), tc.name)
+			}
+			// The rendered line names the target the way it was written.
+			assert.Assert(t, strings.HasPrefix(out.String(), "sent to "+tc.target+" "))
 		})
 	}
 }
@@ -299,7 +343,8 @@ func TestClient_AdminSendWithWrongIdentity(t *testing.T) {
 	d := serveTestDaemon(t, nil, fake)
 
 	err := d.client.AdminSend(
-		t.Context(), &strings.Builder{}, path, "/work/proj", "backend/alice", "hi")
+		t.Context(), &strings.Builder{}, path, "/work/proj",
+		AdminTarget{Team: "backend", Name: "alice"}, "hi")
 	assert.Assert(t, err != nil)
 	assert.Assert(t, strings.Contains(err.Error(), path))
 	assert.Assert(t, strings.Contains(err.Error(), "hint:"))

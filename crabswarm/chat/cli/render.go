@@ -225,7 +225,7 @@ func RenderMoved(w io.Writer, member *chatv1.Member) error {
 // was addressed to. Both come back from the request rather than from the daemon,
 // which answers with a count alone — and an address that resolves to nobody
 // fails the call instead of reporting zero, so a rendered count is at least 1.
-func RenderAdminSent(w io.Writer, room, target string, delivered int32) error {
+func RenderAdminSent(w io.Writer, room string, target AdminTarget, delivered int32) error {
 	_, err := fmt.Fprintf(w, "sent to %s in room %s: delivered to %d %s\n",
 		target, room, delivered, memberNoun(delivered))
 	return err

@@ -1083,8 +1083,9 @@ func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
 }
 
 // The host speaks into a room it does not attend: the message lands in the
-// addressed inbox under the reserved "admin" identity, "*" reaches everyone
-// there, and none of it leaves a member behind for the room to talk back to.
+// addressed inbox under the reserved "admin" identity, "team/*" reaches that
+// team and nobody else, "*" reaches everyone there, and none of it leaves a
+// member behind for the room to talk back to.
 func TestChat_AdminSendsWithoutAttending(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
@@ -1135,6 +1136,23 @@ func TestChat_AdminSendsWithoutAttending(t *testing.T) {
 			got, "admin/admin: standup in five") {
 			t.Errorf("read as %s = %q, want the room-wide message", token, got)
 		}
+	}
+
+	// "team/*" is that team and nothing wider: alpha holds ana and bob, so the
+	// count is the team's attendance and cid, in beta, is left out of it.
+	got = runChat(t, cfg, "", "admin", "send", chatRoom, "alpha/*",
+		"alpha owns the rebase", "--identity", identity)
+	if want := "sent to alpha/* in room " + chatRoom + ": delivered to 2 members\n"; got != want {
+		t.Errorf("admin send to a team = %q, want %q", got, want)
+	}
+	for _, token := range []string{"tok-ana", "tok-bob"} {
+		if got := runChat(t, cfg, token, "read"); !strings.Contains(
+			got, "admin/admin: alpha owns the rebase") {
+			t.Errorf("read as %s = %q, want the team message", token, got)
+		}
+	}
+	if got := runChat(t, cfg, "tok-cid", "read"); got != "no pending messages\n" {
+		t.Errorf("read as tok-cid = %q, want nothing: cid is in beta, not alpha", got)
 	}
 
 	// And send is gated by the identity file like every other admin verb: it is
