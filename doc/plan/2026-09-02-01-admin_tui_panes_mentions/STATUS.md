@@ -46,7 +46,7 @@ Steps are filled in after the idea gate. Until then:
       not escaped as `\@` names the target; the message text is sent
       whole"; D6 parser tui-internal; D7 disambiguation requested; D17
       "one row up to six"
-- [ ] Step 6 — D8 "`ctrl+g` runs `$VISUAL`; when that is unset,
+- [x] Step 6 — D8 "`ctrl+g` runs `$VISUAL`; when that is unset,
       `$EDITOR`"; D4 "every notice … moves to a one-line system line";
       D12 log focusable with vim keys
 - [ ] Step 7 — goal 6 e2e for UC1b, UC3, UC3b, UC4, UC7, UC8, `--room`

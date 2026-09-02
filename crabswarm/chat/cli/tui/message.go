@@ -17,9 +17,9 @@ const (
 	// hint.
 	sendKey         = "ctrl+enter"
 	sendFallbackKey = "ctrl+x"
-	// editorKey opens the message in $VISUAL/$EDITOR. The hand-off itself is
-	// not written yet; the key is claimed here so the textarea's select-all
-	// cannot take it in the meantime.
+	// editorKey opens the message in $VISUAL/$EDITOR (see editor.go). It is
+	// intercepted ahead of the textarea, whose select-all would otherwise take
+	// it.
 	editorKey = "ctrl+g"
 	// messageMaxContentRows is how many visual rows a message may grow to.
 	// [textarea.Model.MaxHeight] alone doubles as the content guard, which
@@ -99,7 +99,10 @@ func (m *model) messageKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.layout()
 		return m, nil
 	case editorKey:
-		return m, nil
+		// Nothing on screen moves here: the pane is the size of a draft the
+		// editor has not changed yet, and what comes back is laid out when the
+		// [editedMsg] arrives.
+		return m, m.openEditor()
 	}
 	// Typing answers whatever the system line last said, so the report goes
 	// with it.

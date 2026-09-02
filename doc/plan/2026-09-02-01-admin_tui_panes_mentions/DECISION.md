@@ -379,3 +379,13 @@ pipe-driven tests could not catch a regression.
 `enter`/second `Tab` accept" cannot both hold literally. The mock the
 user saw at the gate has `Tab` move down the list and accept when on the
 last row, `enter` accept anywhere; that rule is kept.
+
+## Status bar drop order: hints, mode, room; the connection segment never drops [automatic]
+
+**Decision (orchestrator, 2026-09-03)**: at narrow widths the status bar
+drops the key hints first (quit, editor, panes, send), then the
+tailing/scrolled segment, then the room segment; the connection segment
+is never dropped because it carries poll errors. D18's "the room segment
+stays" holds down to about 28 columns, where only the connection segment
+fits; that is below the screen's own minimum width, so in practice the
+room is always shown.

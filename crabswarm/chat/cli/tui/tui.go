@@ -70,6 +70,9 @@ type Deps struct {
 	Roster RosterLister
 	// Sender is where a typed line goes.
 	Sender AdminSender
+	// Editor is the command run by ctrl+g, already resolved by the caller
+	// (cli.EditorFromEnv); empty means no VISUAL or EDITOR set.
+	Editor string
 }
 
 // Run draws the watch screen and blocks until the operator quits. The room it

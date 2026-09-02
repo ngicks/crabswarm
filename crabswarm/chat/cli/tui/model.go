@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
@@ -83,8 +82,8 @@ type model struct {
 	following bool
 
 	// notice is the last thing the screen has to say to the operator that is
-	// not the conversation — a rejected message, mostly. It is the system
-	// line's text.
+	// not the conversation: how a send went, an editor that would not run, a
+	// message addressed to nobody. It is the system line's text.
 	notice string
 
 	// completion is the `@` dropdown, open only while the message pane has
@@ -154,6 +153,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sentMsg:
 		m.applySent(msg)
 		return m, nil
+	case editedMsg:
+		m.applyEdited(msg)
+		// What came back out of the editor is a message of its own height,
+		// which is rows the conversation gives up or takes back.
+		m.layout()
+		return m, nil
 	case tea.KeyPressMsg:
 		return m.key(msg)
 	}
@@ -180,66 +185,6 @@ func (m *model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.conversationKey(msg)
 	default:
 		return m.messageKey(msg)
-	}
-}
-
-// systemLine is the screen's last word to the operator that is not the
-// conversation: a send result, a rejected message.
-func (m *model) systemLine(width int) string {
-	if m.notice == "" {
-		return ""
-	}
-	return systemStyle.Render(clip(" "+m.notice, width))
-}
-
-// statusBar says where the operator is — which room, whether the view still
-// follows it, how the daemon is answering — and names the keys the screen
-// cannot show.
-func (m *model) statusBar(width int) string {
-	// MaxWidth below reads a zero as no limit, where a bar with no room is
-	// nothing at all.
-	if width <= 0 {
-		return ""
-	}
-	mode := "scrolled back"
-	if m.following {
-		mode = "tailing"
-	}
-	room := m.room
-	if room == "" {
-		// The screen opened on a daemon that knew no rooms at all; the rooms
-		// pane fills on a later poll and the operator picks one there.
-		room = "(none)"
-	}
-	// The daemon's errors carry a second line of hint, and the bar is one line:
-	// the whole screen would shift down otherwise, so what goes on it is folded
-	// before it is coloured.
-	parts := []string{
-		statusStyle.Render(clip("room "+room, width)),
-		statusStyle.Render(mode),
-		statusStyle.Render(clip(m.connection(), width)),
-		keyStyle.Render("^hjkl") + statusStyle.Render(" panes"),
-		keyStyle.Render("^enter/^x") + statusStyle.Render(" sends"),
-		keyStyle.Render("q") + statusStyle.Render(" quits"),
-	}
-	// The bar is coloured before it is cut, so the cut is the one that counts
-	// escape sequences as the nothing they are wide.
-	return lipgloss.NewStyle().MaxWidth(width).
-		Render(" " + strings.Join(parts, statusStyle.Render(" · ")))
-}
-
-// connection says how the daemon is answering. The conversation is what the
-// operator is here for, so a log that stopped coming is reported ahead of a
-// roster that did — and a screen still being fed says so, since silence in a
-// quiet room otherwise looks exactly like silence from a dead socket.
-func (m *model) connection() string {
-	switch {
-	case m.tailErr != nil:
-		return "log unread: " + m.tailErr.Error()
-	case m.rosterErr != nil:
-		return "roster unread: " + m.rosterErr.Error()
-	default:
-		return "connected"
 	}
 }
 
