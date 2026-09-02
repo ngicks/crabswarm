@@ -49,7 +49,7 @@ Steps are filled in after the idea gate. Until then:
 - [x] Step 6 — D8 "`ctrl+g` runs `$VISUAL`; when that is unset,
       `$EDITOR`"; D4 "every notice … moves to a one-line system line";
       D12 log focusable with vim keys
-- [ ] Step 7 — goal 6 e2e for UC1b, UC3, UC3b, UC4, UC7, UC8, `--room`
+- [x] Step 7 — goal 6 e2e for UC1b, UC3, UC3b, UC4, UC7, UC8, `--room`
       omitted
 
 ## Traceability
