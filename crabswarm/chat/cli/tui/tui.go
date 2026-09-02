@@ -14,7 +14,6 @@ package tui
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -60,8 +59,9 @@ type AdminSender interface {
 // Deps is everything the screen needs from outside itself: the room it watches
 // and the three reads and writes it makes against the daemon.
 type Deps struct {
-	// Room is the room being watched. The admin attends none, so this is
-	// always named explicitly rather than derived from a credential.
+	// Room is the room selected when the screen opens. Empty selects the first
+	// room the daemon lists; a non-empty room the daemon does not know is
+	// refused before the terminal is taken over.
 	Room string
 	// Log is where the conversation comes from.
 	Log LogReader
@@ -71,51 +71,60 @@ type Deps struct {
 	Sender AdminSender
 }
 
-// Run draws the watch screen for the room deps names and blocks until the
-// operator quits.
+// Run draws the watch screen and blocks until the operator quits. The room it
+// opens on is the one deps names, or the first the daemon lists when it names
+// none.
 //
-// It looks the room up before taking the terminal over, so an unreachable
-// daemon, an identity the daemon will not accept and a room that does not
-// exist are all reported as plain errors on the way in rather than as a screen
-// that opens onto nothing.
+// It reads the listing before taking the terminal over, so an unreachable
+// daemon, an identity the daemon will not accept and a named room that does
+// not exist are all reported as plain errors on the way in rather than as a
+// screen that opens onto nothing.
 //
 // opts are passed to the bubbletea program after the ones Run sets, so a
 // caller driving the screen without a terminal — a test, mostly — can hand it
 // its own input and output.
 func Run(ctx context.Context, deps Deps, opts ...tea.ProgramOption) error {
-	roster, err := openRoom(ctx, deps)
+	room, rooms, err := openRoom(ctx, deps)
 	if err != nil {
 		return err
 	}
 	program := tea.NewProgram(
-		newModel(ctx, deps, roster),
+		newModel(ctx, deps, room, rooms),
 		append([]tea.ProgramOption{tea.WithContext(ctx)}, opts...)...,
 	)
 	_, err = program.Run()
 	return err
 }
 
-// openRoom reports who attends the room the screen is about to watch, and
-// refuses a room the daemon does not know — naming the ones it does, since the
-// admin can enumerate them anyway and a typo is the likely reason to be here.
-func openRoom(ctx context.Context, deps Deps) ([]*chatv1.Member, error) {
-	if deps.Room == "" {
-		return nil, errors.New("no room to watch")
-	}
+// openRoom reads the listing the screen opens with and says which of its rooms
+// it opens on: the one named, or the first listed when none is.
+//
+// A named room the daemon does not know is refused — naming the ones it does,
+// since the admin can enumerate them anyway and a typo is the likely reason to
+// be here. A daemon that knows no rooms at all refuses nothing: the screen
+// opens on no room, and its rooms pane fills on a later poll.
+func openRoom(ctx context.Context, deps Deps) (string, []*chatv1.Room, error) {
 	rooms, err := deps.Roster.Rooms(ctx)
 	if err != nil {
-		return nil, err
+		return "", nil, err
+	}
+	if deps.Room == "" {
+		if len(rooms) == 0 {
+			return "", nil, nil
+		}
+		return rooms[0].GetName(), rooms, nil
 	}
 	known := make([]string, 0, len(rooms))
 	for _, r := range rooms {
 		if r.GetName() == deps.Room {
-			return r.GetMembers(), nil
+			return deps.Room, rooms, nil
 		}
 		known = append(known, r.GetName())
 	}
 	if len(known) == 0 {
-		return nil, fmt.Errorf("no room %q: the daemon knows no rooms yet", deps.Room)
+		return "", nil, fmt.Errorf(
+			"no room %q: the daemon knows no rooms yet", deps.Room)
 	}
-	return nil, fmt.Errorf("no room %q: the daemon knows %s",
+	return "", nil, fmt.Errorf("no room %q: the daemon knows %s",
 		deps.Room, strings.Join(known, ", "))
 }

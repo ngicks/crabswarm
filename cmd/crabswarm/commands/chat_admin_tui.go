@@ -10,7 +10,7 @@ func chatAdminTUICmd(parent *cobra.Command, flags *chatFlags) {
 	var flagRoom string
 
 	cmd := &cobra.Command{
-		Use:   "tui --room <room>",
+		Use:   "tui [--room <room>]",
 		Short: "Watch a room's conversation on a live screen (admin)",
 		Long: `tui opens a screen on one room and keeps it current in four framed panes:
 the rooms the daemon knows and the room's members on the left, the conversation
@@ -18,16 +18,20 @@ as the members have it and a line to send into the room from on the right.
 
 Watching needs no keypresses. ctrl+h, ctrl+j, ctrl+k and ctrl+l move between the
 panes, and every other key goes to the pane that has focus: j/k, gg/G and
-ctrl+d/ctrl+u scroll the conversation, and the message line takes the addressing
+ctrl+d/ctrl+u scroll the conversation and move a cursor in the rooms and members
+panes, where enter switches to the room under it or writes the member under it
+in front of the message. The message line takes the addressing
 ` + "`chat admin send`" + ` takes — "name: text", "team/name: text", or "*: text"
 for everyone — with enter sending it. q leaves the screen from the three panes
 that are lists, and ctrl-c leaves it from anywhere, the message line included.
 Scrolling up holds the view still while the room talks on, and scrolling back to
 the bottom follows it again.
 
-The room is named explicitly and has no default: the admin attends none, and a
-name the daemon does not know is refused before the screen opens.`,
-		Example: `  crabswarm chat admin tui --room /work/proj \
+--room says which room the screen opens on; without it the screen opens on the
+first room the daemon lists and the rooms pane switches between them. A room
+that is named but not known is refused before the screen opens.`,
+		Example: `  crabswarm chat admin tui
+  crabswarm chat admin tui --room /work/proj \
     --identity ~/.config/crabswarm/chat_admin.key`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -36,8 +40,8 @@ name the daemon does not know is refused before the screen opens.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&flagRoom, "room", "", "the room to watch")
-	_ = cmd.MarkFlagRequired("room")
+	cmd.Flags().StringVar(&flagRoom, "room", "",
+		"the room to watch; the first room listed when unset")
 
 	parent.AddCommand(cmd)
 }

@@ -36,7 +36,7 @@ Steps are filled in after the idea gate. Until then:
       two-column layout; D15 "target is the pane adjacent … whose rows
       overlap … the most (tie: the upper one)"; D18 "a focus move toward
       the hidden column … brings the left column on screen"
-- [ ] Step 4 — D14 "`--room` … optional … opens on that room"; D19
+- [x] Step 4 — D14 "`--room` … optional … opens on that room"; D19
       "same reply now fills both left panes … resets the log cursor";
       D16 "one draft per room"; D1 "`enter` on a member pre-fills
       `@team/name `; `enter` on a team pre-fills … `@team/* `"

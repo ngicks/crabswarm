@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -40,18 +41,35 @@ type model struct {
 	// pendingG is the first g of a gg, which is the one key on the screen that
 	// means nothing until the next one arrives.
 	pendingG bool
+	// roomsCursor and membersCursor are the rows the two left panes are pointed
+	// at, which is what enter acts on there. They are kept on a row that exists
+	// by [model.layout], since both lists change under them.
+	roomsCursor   int
+	membersCursor int
 
 	// entries is the conversation, oldest first, exactly as the log handed it
 	// over — the log is the only source of what the room said.
 	entries []*chatv1.AdminHistoryEntry
 	roster  []*chatv1.Member
-	// rooms is every room the daemon last said it knew, which is what the rooms
-	// pane lists. It rides the roster poll: one reply fills both left panes.
-	rooms []string
+	// rooms is the listing as the daemon last gave it: every room it knows and
+	// who attends it. It rides the roster poll — one reply fills both left
+	// panes — and it is held whole rather than as names, so the room switched
+	// to has its attendance before a poll of its own comes back.
+	rooms []*chatv1.Room
+	// drafts is the message left half-written in each room other than the one
+	// on screen, whose draft is in the input line. A draft belongs to the room
+	// it was addressed at and lives no longer than the screen.
+	drafts map[string]string
 
 	// cursor is the id of the newest entry the screen holds, which is what the
 	// next read of the log asks to be told about.
 	cursor int64
+	// tailGen counts the rooms this screen has watched, and every read of the
+	// log is stamped with it. A read is in flight when the operator switches
+	// rooms; what comes back is the other room's conversation, and the stamp is
+	// what says so — a name would not, since switching away and back inside one
+	// interval would let a stale reply pass for this room's.
+	tailGen int
 
 	// tailErr and rosterErr are how the last read of each kind went, so the
 	// status bar can say the daemon stopped answering instead of the screen
@@ -70,7 +88,10 @@ type model struct {
 	notice string
 }
 
-func newModel(ctx context.Context, deps Deps, roster []*chatv1.Member) *model {
+// newModel is the screen as it stands the moment the room lookup answered:
+// holding the listing it will draw its left column from, opened on the room
+// that lookup chose — which is no room at all when the daemon knew none.
+func newModel(ctx context.Context, deps Deps, room string, rooms []*chatv1.Room) *model {
 	input := textinput.New()
 	input.Prompt = "> "
 	input.Placeholder = `team/name: text`
@@ -87,19 +108,26 @@ func newModel(ctx context.Context, deps Deps, roster []*chatv1.Member) *model {
 	m := &model{
 		ctx:    ctx,
 		deps:   deps,
-		room:   deps.Room,
+		room:   room,
 		width:  defaultWidth,
 		height: defaultHeight,
 		view:   view,
 		input:  input,
-		roster: roster,
-		// The room being watched is a room the daemon knows, so the pane names
-		// it from the first frame rather than from the first poll.
-		rooms:     []string{deps.Room},
+		// The listing the room was chosen out of is the one the rooms pane
+		// draws, so both left panes are filled from the first frame rather than
+		// from the first poll.
+		rooms:     rooms,
+		roster:    membersOf(rooms, room),
+		drafts:    map[string]string{},
 		following: true,
 		// The conversation is what the operator opened the screen to read.
 		focus: focusConversation,
 	}
+	// The rooms cursor opens on the room being watched, so an enter that moved
+	// nothing selects the room already on screen rather than the first listed.
+	m.roomsCursor = max(slices.IndexFunc(rooms, func(r *chatv1.Room) bool {
+		return r.GetName() == room
+	}), 0)
 	m.layout()
 	return m
 }
@@ -194,11 +222,17 @@ func (m *model) statusBar(width int) string {
 	if m.following {
 		mode = "tailing"
 	}
+	room := m.room
+	if room == "" {
+		// The screen opened on a daemon that knew no rooms at all; the rooms
+		// pane fills on a later poll and the operator picks one there.
+		room = "(none)"
+	}
 	// The daemon's errors carry a second line of hint, and the bar is one line:
 	// the whole screen would shift down otherwise, so what goes on it is folded
 	// before it is coloured.
 	parts := []string{
-		statusStyle.Render(clip("room "+m.room, width)),
+		statusStyle.Render(clip("room "+room, width)),
 		statusStyle.Render(mode),
 		statusStyle.Render(clip(m.connection(), width)),
 		keyStyle.Render("^hjkl") + statusStyle.Render(" panes"),

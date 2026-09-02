@@ -141,7 +141,8 @@ func (m *model) size() (width, height int) {
 }
 
 // layout re-sizes the regions to the terminal and refills the conversation,
-// keeping the view on the newest entry while it is following the room.
+// keeping the view on the newest entry while it is following the room and both
+// list cursors on a row that is there.
 func (m *model) layout() {
 	m.showColumnWithFocus()
 	r := m.rects()
@@ -155,6 +156,11 @@ func (m *model) layout() {
 	if m.following {
 		m.view.GotoBottom()
 	}
+	// Both lists change under their cursor: a member leaves, the daemon stops
+	// listing a room. Clamping here catches every way that happens, since
+	// nothing changes either list without the screen being laid out again.
+	m.roomsCursor = clampCursor(m.roomsCursor, len(m.rooms))
+	m.membersCursor = clampCursor(m.membersCursor, len(rosterRows(m.roster)))
 }
 
 // showColumnWithFocus keeps the focused pane on screen. Below the gate the body

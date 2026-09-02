@@ -46,23 +46,33 @@ type (
 )
 
 type tailMsg struct {
+	// gen stamps the read with the room it was started for, counted rather than
+	// named: see [model.tailGen].
+	gen     int
 	entries []*chatv1.AdminHistoryEntry
 	err     error
 }
 
 type rosterMsg struct {
-	members []*chatv1.Member
-	// rooms is every room the reply named. The listing the roster comes from
-	// already carries them, so one read fills both left panes rather than a
-	// second loop asking for what the first one was told.
-	rooms []string
+	// rooms is the listing whole: every room the daemon knows and who attends
+	// it. One read fills both left panes rather than a second loop asking for
+	// what the first was told, and which room the members come from is decided
+	// where the reply lands rather than where it was asked for — a reply that
+	// arrives after a room switch is still the truth about both rooms.
+	rooms []*chatv1.Room
 	err   error
 }
 
 // tail reads what the room said after the cursor — or, with no cursor yet, the
 // stretch of it the screen opens on.
 func (m *model) tail() tea.Cmd {
-	ctx, log, room, since := m.ctx, m.deps.Log, m.room, m.cursor
+	// A screen opened on a daemon that knew no rooms has nothing to read. The
+	// clock is started anyway, so the first room picked in the rooms pane is
+	// read an interval later rather than never.
+	if m.room == "" {
+		return tickTail()
+	}
+	ctx, log, room, since, gen := m.ctx, m.deps.Log, m.room, m.cursor, m.tailGen
 	limit := int32(tailLimit)
 	if since == 0 {
 		limit = backfill
@@ -71,31 +81,19 @@ func (m *model) tail() tea.Cmd {
 		ctx, cancel := context.WithTimeout(ctx, callTimeout)
 		defer cancel()
 		entries, err := log.RoomLog(ctx, room, since, limit)
-		return tailMsg{entries: entries, err: err}
+		return tailMsg{gen: gen, entries: entries, err: err}
 	}
 }
 
-// pollRoster re-reads who is attending and in what state.
+// pollRoster re-reads what rooms there are, who is attending them and in what
+// state — one listing, which both left panes are drawn from.
 func (m *model) pollRoster() tea.Cmd {
-	ctx, roster, room := m.ctx, m.deps.Roster, m.room
+	ctx, roster := m.ctx, m.deps.Roster
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, callTimeout)
 		defer cancel()
 		rooms, err := roster.Rooms(ctx)
-		if err != nil {
-			return rosterMsg{err: err}
-		}
-		msg := rosterMsg{rooms: make([]string, 0, len(rooms))}
-		for _, r := range rooms {
-			msg.rooms = append(msg.rooms, r.GetName())
-			if r.GetName() == room {
-				msg.members = r.GetMembers()
-			}
-		}
-		// The room emptying out is not a failure: what was said in it is still
-		// there to read, and somebody may yet join. Nor is the room being gone
-		// from the listing: the rooms pane says so, and the conversation stays.
-		return msg
+		return rosterMsg{rooms: rooms, err: err}
 	}
 }
 
@@ -110,8 +108,13 @@ func tickRoster() tea.Cmd {
 	return tea.Tick(rosterInterval, func(time.Time) tea.Msg { return rosterTickMsg{} })
 }
 
-// applyTail takes in what the room said since the last read.
+// applyTail takes in what the room said since the last read. A read that was in
+// flight when the operator switched rooms is dropped: what it brought back is
+// the other room's conversation, and its cursor is not this room's.
 func (m *model) applyTail(msg tailMsg) {
+	if msg.gen != m.tailGen {
+		return
+	}
 	m.tailErr = msg.err
 	if msg.err != nil {
 		return
@@ -129,15 +132,19 @@ func (m *model) applyTail(msg tailMsg) {
 	}
 }
 
-// applyRoster takes in the attendance as of the last read.
+// applyRoster takes in the listing as of the last read: what rooms there are,
+// and who is in the one on screen.
 func (m *model) applyRoster(msg rosterMsg) {
 	m.rosterErr = msg.err
 	if msg.err != nil {
 		return
 	}
-	m.roster = msg.members
 	m.rooms = msg.rooms
+	// The room emptying out is not a failure: what was said in it is still
+	// there to read, and somebody may yet join. Nor is the room being gone from
+	// the listing: the rooms pane says so, and the conversation stays.
+	m.roster = membersOf(msg.rooms, m.room)
 	// The rooms pane asks for its own rows, so a longer or shorter list moves
-	// every rectangle under it.
+	// every rectangle under it — and may have moved out from under a cursor.
 	m.layout()
 }

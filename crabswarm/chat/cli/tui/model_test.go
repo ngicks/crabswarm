@@ -76,12 +76,33 @@ func fixtureEntries(n int) []*chatv1.AdminHistoryEntry {
 	return entries
 }
 
+// fixtureListing is what the daemon says it knows: one room, attended by the
+// fixture roster. It is what the screen opens on and what the rooms pane draws.
+func fixtureListing() []*chatv1.Room {
+	return []*chatv1.Room{{Name: fixtureRoom, Members: fixtureRoster()}}
+}
+
+// otherRoom is a second room to switch to, so a test can tell the room it left
+// from the room it arrived at.
+const otherRoom = "/work/other"
+
+// fixtureOtherRoom is that second room, attended by nobody the fixture roster
+// carries, so a switched pane is unmistakably the other room's.
+func fixtureOtherRoom() *chatv1.Room {
+	return &chatv1.Room{Name: otherRoom, Members: []*chatv1.Member{{
+		Team:  "ops",
+		Name:  "dee",
+		Room:  otherRoom,
+		State: chatv1.HarnessState_HARNESS_STATE_WAITING,
+	}}}
+}
+
 // fixtureModel is the screen as it stands the moment the room lookup answered:
-// told who attends and nothing yet of what was said.
+// told what rooms there are and who attends the one it opened on, and nothing
+// yet of what was said.
 func fixtureModel(t *testing.T, deps Deps) *model {
 	t.Helper()
-	deps.Room = fixtureRoom
-	return newModel(t.Context(), deps, fixtureRoster())
+	return newModel(t.Context(), deps, fixtureRoom, fixtureListing())
 }
 
 // press builds the keypress a terminal would have delivered.
@@ -263,8 +284,8 @@ func TestMembersPaneListsEveryMemberWithItsState(t *testing.T) {
 }
 
 // A room with more members than the pane has lines keeps the screen the
-// terminal's size, and says it is showing part of the room rather than looking
-// like all of it.
+// terminal's size, says on its frame how many there are, and scrolls to
+// whichever of them the cursor is on rather than cutting the rest off for good.
 func TestACrowdedMembersPaneDoesNotPushTheChromeOffTheScreen(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 	m.roster = fixtureCrowd(4, 10)
@@ -281,10 +302,23 @@ func TestACrowdedMembersPaneDoesNotPushTheChromeOffTheScreen(t *testing.T) {
 	assert.Assert(t, strings.Contains(view, m.input.Prompt),
 		"the line to type into is not on the screen:\n%s", view)
 
-	// 14 of the 40 members fit the pane at this height; the rest are counted.
+	// The pane holds the first of the four teams and the start of the second at
+	// this height; how many members there are in all is on the frame.
 	assert.Assert(t, strings.Contains(view, "members (40)"))
-	assert.Assert(t, strings.Contains(view, "… +26 more"),
-		"the cut members are not counted:\n%s", view)
+	assert.Assert(t, strings.Contains(view, "team0"))
+	assert.Assert(t, !strings.Contains(view, "team3"),
+		"the whole room fits after all:\n%s", view)
+
+	// G in the members pane goes to the last row, and the window follows it:
+	// the end of the room is reachable, and the screen is still its own size.
+	m.setFocus(focusMembers)
+	m = update(t, m, press('G', "G"))
+	view = m.View().Content
+	assert.Equal(t, lipgloss.Height(view), 24)
+	assert.Assert(t, strings.Contains(view, "team3"),
+		"the cursor left the window behind:\n%s", view)
+	assert.Assert(t, !strings.Contains(view, "team0"),
+		"the window did not scroll:\n%s", view)
 
 	for _, size := range []tea.WindowSizeMsg{
 		{Width: 100, Height: 3},

@@ -13,6 +13,9 @@ import (
 // a send that failed can be handed back to the operator instead of vanishing
 // with the error.
 type sentMsg struct {
+	// room is where the line was addressed, which is not necessarily the room
+	// on screen by the time the answer arrives.
+	room      string
 	target    cli.AdminTarget
 	line      string
 	delivered int32
@@ -53,7 +56,8 @@ func (m *model) submit() tea.Cmd {
 		ctx, cancel := context.WithTimeout(ctx, callTimeout)
 		defer cancel()
 		delivered, err := sender.Send(ctx, room, target, text)
-		return sentMsg{target: target, line: line, delivered: delivered, err: err}
+		return sentMsg{
+			room: room, target: target, line: line, delivered: delivered, err: err}
 	}
 }
 
@@ -61,6 +65,15 @@ func (m *model) submit() tea.Cmd {
 func (m *model) applySent(msg sentMsg) {
 	if msg.err != nil {
 		m.notice = "not sent: " + msg.err.Error()
+		if msg.room != m.room {
+			// The operator has moved on. The line goes back to the room it was
+			// written for, where it is waiting when they return, rather than
+			// into a message being written at another room.
+			if m.drafts[msg.room] == "" {
+				m.drafts[msg.room] = msg.line
+			}
+			return
+		}
 		// Only into an empty line: an operator who has already started the next
 		// message keeps it.
 		if m.input.Value() == "" {

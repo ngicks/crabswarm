@@ -183,3 +183,24 @@ func runCmd(t *testing.T, m *model, cmd tea.Cmd) *model {
 	m, _ = step(t, m, cmd)
 	return m
 }
+
+// A refusal that comes back after the operator has moved to another room hands
+// the line to the room it was written for rather than into the message being
+// written here: the address in it is that room's.
+func TestAFailedSendFollowsTheRoomItWasWrittenFor(t *testing.T) {
+	sender := &fakeSender{err: errors.New(`no member "ghost" in room /work/proj`)}
+	m := fixtureModel(t, Deps{Sender: sender})
+	m.rooms = twoRooms()
+	m = typeLine(t, m, "ghost: are you there")
+
+	m, cmd := enterOn(t, m)
+	m.selectRoom(otherRoom)
+	m = runCmd(t, m, cmd)
+
+	assert.Assert(t, strings.Contains(m.systemLine(80), "not sent"))
+	assert.Equal(t, m.input.Value(), "")
+	assert.Equal(t, m.drafts[fixtureRoom], "ghost: are you there")
+
+	m.selectRoom(fixtureRoom)
+	assert.Equal(t, m.input.Value(), "ghost: are you there")
+}

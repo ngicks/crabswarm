@@ -104,7 +104,7 @@ func clip(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	s = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(s)
+	s = oneLine(s)
 	if lipgloss.Width(s) <= width {
 		return s
 	}
@@ -119,4 +119,39 @@ func clip(s string, width int) string {
 		w += rw
 	}
 	return b.String()
+}
+
+// clipHead is [clip] from the other end: what does not fit is taken off the
+// front and marked with an ellipsis, so the end of the line is what survives.
+// The rooms pane cuts this way — rooms under one tree differ at the end of the
+// path, which is exactly what a cut from the tail would take.
+func clipHead(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	s = oneLine(s)
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	const ellipsis = "…"
+	runes := []rune(s)
+	kept := width - lipgloss.Width(ellipsis)
+	var w int
+	i := len(runes)
+	for i > 0 {
+		rw := lipgloss.Width(string(runes[i-1]))
+		if w+rw > kept {
+			break
+		}
+		w += rw
+		i--
+	}
+	return ellipsis + string(runes[i:])
+}
+
+// oneLine folds every line break into a space. What goes through the two clips
+// is a region of a fixed size, and a second line would move whatever is drawn
+// under it.
+func oneLine(s string) string {
+	return strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(s)
 }

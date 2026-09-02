@@ -179,11 +179,6 @@ func TestChatTUI_FailuresExitBeforeTheScreen(t *testing.T) {
 		want string
 	}{
 		{
-			name: "no room named",
-			args: []string{"admin", "tui", "--identity", identity},
-			want: `"room" not set`,
-		},
-		{
 			name: "a room the daemon does not know, which names the ones it does",
 			args: []string{"admin", "tui", "--room", "/work/nowhere", "--identity", identity},
 			want: `no room "/work/nowhere": the daemon knows ` + chatRoom,

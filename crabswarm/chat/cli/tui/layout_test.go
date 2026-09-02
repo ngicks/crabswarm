@@ -9,19 +9,22 @@ import (
 	"charm.land/lipgloss/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"gotest.tools/v3/assert"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-// fixtureRooms is a room list of n paths, the first of them the room the
-// screen is watching. The rooms pane asks for its own rows, so how many there
-// are moves the boundary every horizontal focus move is measured against.
-func fixtureRooms(n int) []string {
-	rooms := make([]string, 0, n)
+// fixtureRooms is a listing of n rooms, the first of them the room the screen
+// is watching. The rooms pane asks for its own rows, so how many there are
+// moves the boundary every horizontal focus move is measured against.
+func fixtureRooms(n int) []*chatv1.Room {
+	rooms := make([]*chatv1.Room, 0, n)
 	for i := range n {
 		if i == 0 {
-			rooms = append(rooms, fixtureRoom)
+			rooms = append(rooms, &chatv1.Room{
+				Name: fixtureRoom, Members: fixtureRoster()})
 			continue
 		}
-		rooms = append(rooms, fmt.Sprintf("/work/proj%d", i))
+		rooms = append(rooms, &chatv1.Room{Name: fmt.Sprintf("/work/proj%d", i)})
 	}
 	return rooms
 }

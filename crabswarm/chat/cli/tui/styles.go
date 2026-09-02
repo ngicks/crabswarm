@@ -15,8 +15,7 @@ var (
 	purple = lipgloss.Color("62")
 	// violet heads a team in the members pane.
 	violet = lipgloss.Color("99")
-	// pink is a selection: the marked room, and — once the rooms and members
-	// panes carry one — the row a cursor is on, bold.
+	// pink is a selection: the row a cursor is on and the marked room.
 	pink = lipgloss.Color("205")
 	// dim, muted and faint are the three greys: a blurred frame, a blurred
 	// title beside the system line, and the status bar.
@@ -41,6 +40,10 @@ var (
 	// keyStyle lifts the key out of the hint it heads, so the bar reads as
 	// keys with words after them rather than one grey sentence.
 	keyStyle = lipgloss.NewStyle().Foreground(purple)
+	// pickedStyle is the row a cursor is on, in the rooms and members panes.
+	// Bold as well as coloured, so the row is picked out where a terminal's
+	// palette makes pink and violet neighbours.
+	pickedStyle = lipgloss.NewStyle().Foreground(pink).Bold(true)
 	// markStyle colours the ▸ of the selected room while the cursor is
 	// somewhere else, so the mark alone carries the colour and the path stays
 	// the room's name.
