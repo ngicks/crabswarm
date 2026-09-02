@@ -31,17 +31,36 @@ The value passed to --format has this shape (Go field name -> JSON key):
         .Ext         map[string]string         // ext -> name   (ext)
         .Filename    map[string]string         // name -> name  (filename)
         .RootMarkers map[string][]MarkerGroup  // root markers  (root_markers)
+    .Preview                          // preview server config    (preview)
+      .Addr       string  // preview HTTP listen address          (addr)
+      .DaemonName string  // cmdman command name of the previewer (daemon_name)
+    .Chat                             // chat broker config       (chat)
+      .Db                string    // sqlite database path        (db)
+      .CmdmanBin         string    // cmdman binary; "" = on PATH (cmdman_bin)
+      .AdminRecipients   []string  // age public keys for admin   (admin_recipients)
+      .AdminIdentityFile string    // age identity file (client)  (admin_identity_file)
+      .HistoryLimit      int       // per-room history cap; 0 = default, <0 = none (history_limit)
   }
 
-Use the Go field names in --format (e.g. {{.Sock}}); the default JSON output
-uses the lower-case keys shown in parentheses. The template also sees the
-shared helper functions:
+Use the Go field names in --format (e.g. {{.Chat.Db}}); the default JSON output
+uses the lower-case keys shown in parentheses.
+
+Layers, lowest to highest: built-in defaults, the config file (--config, else
+$CRABSWARM_CONF, else $XDG_CONFIG_HOME/crabswarm/config.json), then the
+environment. Environment variables are the JSON keys upper-cased under the
+CRABSWARM_ prefix, nested keys joined with "_" (CRABSWARM_SOCK,
+CRABSWARM_CHAT_DB, CRABSWARM_PREVIEW_ADDR, ...); list-valued keys take a
+comma-separated value. hook_exec is file-only. project_dir is read from
+$CLAUDE_PROJECT_DIR instead (an external contract, no CRABSWARM_ prefix).
+
+The template also sees the shared helper functions:
 
 %s`
 
 const configExample = `  crabswarm config
   crabswarm config --format '{{.Sock}}'
-  crabswarm config --format '{{.GitRepoBaseDir}} {{.ProjectDir}}'`
+  crabswarm config --format '{{.GitRepoBaseDir}} {{.ProjectDir}}'
+  crabswarm config --format '{{.Chat.Db}}'`
 
 func configCmd(parent *cobra.Command, flagConfig *string) {
 	var flagFormat string
