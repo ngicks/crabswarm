@@ -43,8 +43,8 @@ func fixtureRoster() []*chatv1.Member {
 }
 
 // fixtureCrowd is a room with more members than a terminal has lines: teams of
-// perTeam members each, which is what the sidebar has to fit into its share of
-// the screen.
+// perTeam members each, which is what the members pane has to fit into its
+// share of the screen.
 func fixtureCrowd(teams, perTeam int) []*chatv1.Member {
 	members := make([]*chatv1.Member, 0, teams*perTeam)
 	for team := range teams {
@@ -89,6 +89,12 @@ func press(code rune, text string) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: code, Text: text}
 }
 
+// ctrlPress builds one of the four movement keys, which a terminal delivers as
+// a control code rather than as text.
+func ctrlPress(code rune) tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: code, Mod: tea.ModCtrl}
+}
+
 // update runs one message through the model, which mutates in place and hands
 // itself back.
 func update(t *testing.T, m *model, msg tea.Msg) *model {
@@ -99,45 +105,45 @@ func update(t *testing.T, m *model, msg tea.Msg) *model {
 	return updated
 }
 
-// A terminal too narrow for both panes loses the roster, not the conversation:
-// the conversation is what the operator is watching, and the roster is a
-// second, slower question.
-func TestResizeDropsTheRosterBeforeTheConversation(t *testing.T) {
+// A terminal too narrow for both columns shows one of them, and the one it
+// opens on is the right: watching the conversation is what the screen is for.
+// Whatever its shape, the screen drawn is exactly the terminal's size — a
+// screen larger than the terminal is one whose last lines the alternate buffer
+// never shows.
+func TestANarrowTerminalShowsOneColumnAtATime(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 	m.entries = fixtureEntries(3)
 	m.layout()
 
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	assert.Assert(t, m.rosterShown())
-	assert.Equal(t, m.view.Width(), 100-rosterWidth-rosterGap)
-	assert.Equal(t, m.view.Height(), 30-chromeHeight)
+	r := m.rects()
+	assert.Assert(t, r.leftShown && r.rightShown)
+	assert.Equal(t, m.view.Width(), 100-leftWidth-2)
+	assert.Equal(t, m.view.Height(), 30-2-(messageRows+2)-2)
 	assert.Assert(t, strings.Contains(m.View().Content, "alice"))
 
-	m = update(t, m, tea.WindowSizeMsg{Width: rosterMinWidth - 1, Height: 30})
-	assert.Assert(t, !m.rosterShown())
-	assert.Equal(t, m.view.Width(), rosterMinWidth-1)
-	assert.Assert(t, !strings.Contains(m.View().Content, "roster ("))
+	m = update(t, m, tea.WindowSizeMsg{Width: leftMinWidth - 1, Height: 30})
+	r = m.rects()
+	assert.Assert(t, !r.leftShown && r.rightShown)
+	assert.Equal(t, m.view.Width(), leftMinWidth-1-2)
+	assert.Assert(t, !strings.Contains(m.View().Content, "members ("))
 	assert.Assert(t, strings.Contains(m.View().Content, "line 3"))
 
-	// The chrome is two lines whatever happens, so a terminal shorter than the
-	// chrome still leaves the conversation a line to show.
-	m = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 1})
-	assert.Equal(t, m.view.Height(), 1)
-
-	// Whatever the terminal's shape, the screen is drawn to it: a screen taller
-	// than the terminal is one whose last lines — the input line and the status
-	// bar — are never drawn at all.
 	for _, size := range []tea.WindowSizeMsg{
 		{Width: 100, Height: 3},
 		{Width: 100, Height: 5},
 		{Width: 100, Height: 10},
 		{Width: 100, Height: 24},
 		{Width: 100, Height: 30},
-		{Width: rosterMinWidth - 1, Height: 24},
+		{Width: leftMinWidth - 1, Height: 24},
+		{Width: 20, Height: 24},
 	} {
 		m = update(t, m, size)
 		assert.Equal(t, lipgloss.Height(m.View().Content), size.Height,
 			"the screen at %dx%d", size.Width, size.Height)
+		assert.Assert(t, lipgloss.Width(m.View().Content) <= size.Width,
+			"the screen at %dx%d is %d cells wide",
+			size.Width, size.Height, lipgloss.Width(m.View().Content))
 	}
 }
 
@@ -147,25 +153,26 @@ func TestUnreportedTerminalSizeFallsBackToATerminalShape(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 
 	m = update(t, m, tea.WindowSizeMsg{Width: 0, Height: 0})
-	assert.Assert(t, m.rosterShown())
-	assert.Equal(t, m.view.Width(), defaultWidth-rosterWidth-rosterGap)
-	assert.Equal(t, m.view.Height(), defaultHeight-chromeHeight)
+	r := m.rects()
+	assert.Assert(t, r.leftShown && r.rightShown)
+	assert.Equal(t, m.view.Width(), defaultWidth-leftWidth-2)
+	assert.Equal(t, m.view.Height(), defaultHeight-2-(messageRows+2)-2)
 }
 
 // Scrolling up leaves the tail behind and the view stays where it was put while
 // the room talks on; scrolling back to the bottom picks the tail up again.
 func TestScrollingAwayAndBackReattachesTheTail(t *testing.T) {
 	m := fixtureModel(t, Deps{})
-	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 12})
+	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 20})
 	m.entries = fixtureEntries(60)
 	m.layout()
 
 	assert.Assert(t, m.following)
 	assert.Assert(t, strings.Contains(m.View().Content, "line 60"))
 
-	m = update(t, m, press(tea.KeyUp, ""))
+	m = update(t, m, press('k', "k"))
 	assert.Assert(t, !m.following)
-	assert.Assert(t, strings.Contains(m.statusBar(), "scrolled back"))
+	assert.Assert(t, strings.Contains(m.statusBar(100), "scrolled back"))
 	parked := m.view.YOffset()
 
 	// The room says more while the operator is reading older lines. What is on
@@ -175,28 +182,38 @@ func TestScrollingAwayAndBackReattachesTheTail(t *testing.T) {
 	assert.Equal(t, m.view.YOffset(), parked)
 	assert.Assert(t, !m.following)
 
-	m = update(t, m, press(tea.KeyEnd, ""))
+	m = update(t, m, press('G', "G"))
 	assert.Assert(t, m.following)
-	assert.Assert(t, strings.Contains(m.statusBar(), "tailing"))
+	assert.Assert(t, strings.Contains(m.statusBar(100), "tailing"))
 	assert.Assert(t, strings.Contains(m.View().Content, "line 61"))
 
 	// Following, the newest entry is on screen the moment it arrives.
 	m.entries = append(m.entries, fixtureEntries(62)[61])
 	m.layout()
 	assert.Assert(t, strings.Contains(m.View().Content, "line 62"))
+
+	// gg is the top of the log and G the bottom of it, as they are in a pager.
+	m = update(t, m, press('g', "g"))
+	m = update(t, m, press('g', "g"))
+	assert.Equal(t, m.view.YOffset(), 0)
+	assert.Assert(t, !m.following)
 }
 
-// The input line is out of the way until it is asked for: the letters navigate
-// while the screen is being watched and are text once it is focused.
-func TestFocusSwitchesLettersBetweenNavigationAndText(t *testing.T) {
+// There is no watch mode and no insert mode: there is only the pane the keys
+// reach. The letters navigate the conversation because that is what the
+// conversation does with them, and are text in the message pane because that is
+// what it does with them.
+func TestLettersAreTextOnlyInTheFocusedMessagePane(t *testing.T) {
 	m := fixtureModel(t, Deps{})
-	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 12})
+	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 20})
 	m.entries = fixtureEntries(60)
 	m.layout()
 
+	assert.Equal(t, m.focus, focusConversation)
 	assert.Assert(t, !m.input.Focused())
 
-	m = update(t, m, press('i', "i"))
+	m = update(t, m, ctrlPress('j'))
+	assert.Equal(t, m.focus, focusMessage)
 	assert.Assert(t, m.input.Focused())
 	assert.Equal(t, m.input.Value(), "")
 
@@ -205,35 +222,50 @@ func TestFocusSwitchesLettersBetweenNavigationAndText(t *testing.T) {
 	}
 	assert.Equal(t, m.input.Value(), "q: hi")
 
-	m = update(t, m, press(tea.KeyEscape, ""))
+	m = update(t, m, ctrlPress('k'))
+	assert.Equal(t, m.focus, focusConversation)
 	assert.Assert(t, !m.input.Focused())
 	// The line survives leaving it: a half-written message is not thrown away
 	// by a glance at the scrollback.
 	assert.Equal(t, m.input.Value(), "q: hi")
+
+	// And the same letters navigate again rather than being typed into it.
+	m = update(t, m, press('k', "k"))
+	assert.Equal(t, m.input.Value(), "q: hi")
+	assert.Assert(t, !m.following)
 }
 
-// Every member is on the sidebar with the state that says whether it can be
-// interrupted, grouped under the team it belongs to.
-func TestRosterListsEveryMemberWithItsState(t *testing.T) {
+// Every member is in the members pane with the state that says whether it can
+// be interrupted, grouped under the team it belongs to; the count is on the
+// frame the pane is drawn in.
+func TestMembersPaneListsEveryMemberWithItsState(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 20})
 
-	pane := m.rosterPane(m.view.Height())
+	r := m.rects()
+	pane := m.membersPane(r.members.Dx()-2, r.members.Dy()-2)
 	for _, want := range []string{
-		"roster (3)", "backend", "alice", "working", "bob", "waiting",
-		"frontend", "cid", "done",
+		"backend", "alice", "working", "bob", "waiting", "frontend", "cid", "done",
 	} {
-		assert.Assert(t, strings.Contains(pane, want), "roster pane missing %q:\n%s", want, pane)
+		assert.Assert(t, strings.Contains(pane, want),
+			"members pane missing %q:\n%s", want, pane)
 	}
-	for line := range strings.SplitSeq(pane, "\n") {
-		assert.Equal(t, len(line), rosterWidth, "roster line %q is not the pane's width", line)
-	}
+	assert.Assert(t, strings.Contains(m.View().Content, "members (3)"))
+	assert.Assert(t, strings.Contains(m.View().Content, "rooms (1)"))
+	// The room being watched is marked in the rooms pane rather than only named
+	// on the status bar. The mark carries the colour, so it and the path are
+	// two runs of the line rather than one.
+	rooms := m.roomsPane(r.rooms.Dx()-2, r.rooms.Dy()-2)
+	assert.Assert(t, strings.Contains(rooms, selectedMark),
+		"the watched room is not marked:\n%s", rooms)
+	assert.Assert(t, strings.Contains(rooms, fixtureRoom),
+		"the watched room is not listed:\n%s", rooms)
 }
 
-// A room with more members than the sidebar has lines keeps the screen the
-// terminal's size: the input line and the status bar sit under the sidebar, and
-// a sidebar drawn past the bottom takes both off the screen with it.
-func TestACrowdedRosterDoesNotPushTheChromeOffTheScreen(t *testing.T) {
+// A room with more members than the pane has lines keeps the screen the
+// terminal's size, and says it is showing part of the room rather than looking
+// like all of it.
+func TestACrowdedMembersPaneDoesNotPushTheChromeOffTheScreen(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 	m.roster = fixtureCrowd(4, 10)
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 24})
@@ -241,33 +273,26 @@ func TestACrowdedRosterDoesNotPushTheChromeOffTheScreen(t *testing.T) {
 	view := m.View().Content
 	assert.Equal(t, lipgloss.Height(view), 24)
 
-	// Both lines of chrome are on the screen, and last: the operator's line to
-	// type into, and the bar that says where they are.
+	// The status bar is the last line, the system line the one above it, and
+	// the message pane's line sits inside its frame above both.
 	lines := strings.Split(view, "\n")
-	assert.Assert(t, strings.Contains(lines[len(lines)-2], m.input.Prompt),
-		"the input line is not the last line but one:\n%s", view)
 	assert.Assert(t, strings.Contains(lines[len(lines)-1], "room "+fixtureRoom),
 		"the status bar is not the last line:\n%s", view)
+	assert.Assert(t, strings.Contains(view, m.input.Prompt),
+		"the line to type into is not on the screen:\n%s", view)
 
-	// The sidebar says it is showing part of the room rather than looking like
-	// all of it: 22 of the 40 members are past the fold at this height.
-	assert.Assert(t, strings.Contains(view, "roster (40)"))
-	assert.Assert(t, strings.Contains(view, "… +22 more"),
+	// 14 of the 40 members fit the pane at this height; the rest are counted.
+	assert.Assert(t, strings.Contains(view, "members (40)"))
+	assert.Assert(t, strings.Contains(view, "… +26 more"),
 		"the cut members are not counted:\n%s", view)
-	for line := range strings.SplitSeq(m.rosterPane(m.view.Height()), "\n") {
-		assert.Equal(t, lipgloss.Width(line), rosterWidth,
-			"roster line %q is not the pane's width", line)
-	}
 
-	// However short the terminal, and whether or not the sidebar fits beside the
-	// conversation at all.
 	for _, size := range []tea.WindowSizeMsg{
 		{Width: 100, Height: 3},
 		{Width: 100, Height: 5},
 		{Width: 100, Height: 10},
 		{Width: 100, Height: 30},
 		{Width: 100, Height: 60},
-		{Width: rosterMinWidth - 1, Height: 24},
+		{Width: leftMinWidth - 1, Height: 24},
 	} {
 		m = update(t, m, size)
 		assert.Equal(t, lipgloss.Height(m.View().Content), size.Height,
@@ -275,38 +300,44 @@ func TestACrowdedRosterDoesNotPushTheChromeOffTheScreen(t *testing.T) {
 	}
 }
 
-// The keys that leave the screen leave it, and the one that leaves the input
-// line leaves only that: a half-written message is not a reason to be stuck on
-// the screen, nor esc a reason to lose it.
+// ctrl+c leaves from anywhere, including from the line being written; q leaves
+// from the three panes that are lists, where it is not text.
 func TestTheQuitKeysQuit(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
-		writing  bool
+		focus    paneFocus
 		key      tea.KeyPressMsg
 		wantQuit bool
 	}{
-		{name: "q", key: press('q', "q"), wantQuit: true},
-		{name: "esc", key: press(tea.KeyEscape, ""), wantQuit: true},
-		{name: "ctrl+c", key: tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}, wantQuit: true},
-		{
-			name:     "ctrl+c while writing",
-			writing:  true,
-			key:      tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
-			wantQuit: true,
-		},
-		{name: "esc while writing", writing: true, key: press(tea.KeyEscape, "")},
+		{name: "q in the conversation", focus: focusConversation,
+			key: press('q', "q"), wantQuit: true},
+		{name: "q in the rooms pane", focus: focusRooms,
+			key: press('q', "q"), wantQuit: true},
+		{name: "q in the members pane", focus: focusMembers,
+			key: press('q', "q"), wantQuit: true},
+		{name: "ctrl+c in the conversation", focus: focusConversation,
+			key: ctrlPress('c'), wantQuit: true},
+		{name: "ctrl+c while writing", focus: focusMessage,
+			key: ctrlPress('c'), wantQuit: true},
+		// q is a letter where letters are text, and esc is no longer a mode to
+		// leave: there is no mode.
+		{name: "q while writing", focus: focusMessage, key: press('q', "q")},
+		{name: "esc in the conversation", focus: focusConversation,
+			key: press(tea.KeyEscape, "")},
+		{name: "esc while writing", focus: focusMessage, key: press(tea.KeyEscape, "")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := fixtureModel(t, Deps{})
-			if tc.writing {
-				m = typeLine(t, m, "alice: hold the deploy")
-			}
-			assert.Equal(t, m.input.Focused(), tc.writing)
+			m.setFocus(tc.focus)
 
 			m, cmd := enterKey(t, m, tc.key)
 			if !tc.wantQuit {
-				assert.Assert(t, cmd == nil, "%s asked for a command", tc.name)
-				assert.Assert(t, !m.input.Focused())
+				assert.Equal(t, m.focus, tc.focus, "%s moved the focus", tc.name)
+				if cmd == nil {
+					return
+				}
+				_, quits := cmd().(tea.QuitMsg)
+				assert.Assert(t, !quits, "%s asked to quit", tc.name)
 				return
 			}
 			assert.Assert(t, cmd != nil, "%s asked for nothing", tc.name)

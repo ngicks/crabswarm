@@ -57,7 +57,7 @@ func (m *model) submit() tea.Cmd {
 	}
 }
 
-// applySent reports how the delivery went on the status bar.
+// applySent reports how the delivery went on the system line.
 func (m *model) applySent(msg sentMsg) {
 	if msg.err != nil {
 		m.notice = "not sent: " + msg.err.Error()

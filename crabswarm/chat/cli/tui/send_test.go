@@ -35,11 +35,11 @@ func (f *fakeSender) Send(
 	return f.delivered, f.err
 }
 
-// typeLine focuses the input and types line into it, one key at a time, the way
-// the operator does.
+// typeLine moves the focus down into the message pane and types line into it,
+// one key at a time, the way the operator does.
 func typeLine(t *testing.T, m *model, line string) *model {
 	t.Helper()
-	m = update(t, m, press('i', "i"))
+	m = update(t, m, ctrlPress('j'))
 	for _, r := range line {
 		m = update(t, m, press(r, string(r)))
 	}
@@ -77,7 +77,7 @@ func TestSendingTakesTheSameAddressingAsChatSend(t *testing.T) {
 			assert.Equal(t, sender.calls[0],
 				sendCall{room: fixtureRoom, target: target, text: tc.text})
 			assert.Equal(t, m.input.Value(), "")
-			assert.Assert(t, strings.Contains(m.statusBar(), "sent to "+tc.target))
+			assert.Assert(t, strings.Contains(m.systemLine(80), "sent to "+tc.target))
 		})
 	}
 }
@@ -126,7 +126,8 @@ func TestALineThatAddressesNobodyIsNotSent(t *testing.T) {
 			assert.Assert(t, cmd == nil)
 			assert.Equal(t, len(sender.calls), 0)
 			assert.Equal(t, m.input.Value(), line)
-			assert.Assert(t, m.notice != "", "the bar says nothing about a refused line")
+			assert.Assert(t, m.notice != "",
+				"the system line says nothing about a refused line")
 		})
 	}
 }
@@ -141,8 +142,8 @@ func TestAFailedSendHandsTheLineBack(t *testing.T) {
 	m, cmd := enterOn(t, m)
 	m = runCmd(t, m, cmd)
 
-	assert.Assert(t, strings.Contains(m.statusBar(), "not sent"))
-	assert.Assert(t, strings.Contains(m.statusBar(), "ghost"))
+	assert.Assert(t, strings.Contains(m.systemLine(80), "not sent"))
+	assert.Assert(t, strings.Contains(m.systemLine(80), "ghost"))
 	assert.Equal(t, m.input.Value(), "ghost: are you there")
 }
 
@@ -163,7 +164,7 @@ func TestAFailedSendLeavesALineAlreadyBeingWrittenAlone(t *testing.T) {
 	}
 
 	m = runCmd(t, m, cmd)
-	assert.Assert(t, strings.Contains(m.statusBar(), "not sent"))
+	assert.Assert(t, strings.Contains(m.systemLine(80), "not sent"))
 	assert.Equal(t, m.input.Value(), "alice: never mind")
 }
 

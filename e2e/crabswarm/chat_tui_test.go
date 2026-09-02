@@ -125,14 +125,18 @@ func TestChatTUI_WatchesARoomAndSendsIntoIt(t *testing.T) {
 	// What the room said before the screen existed is on it, and so is who is
 	// attending — neither cost a keypress.
 	waitScreen(t, drawn, "alpha/ana → *: rebasing onto main")
-	waitScreen(t, drawn, "roster (2)")
+	// The panes are framed and titled, and the members pane's title carries the
+	// attendance the sidebar used to head itself with.
+	waitScreen(t, drawn, "members (2)")
 
 	// A message sent while the screen is open arrives on its own.
 	runChat(t, cfg, "tok-bob", "broadcast", "the branch is green")
 	waitScreen(t, drawn, "alpha/bob → *: the branch is green")
 
-	// The operator steps in, addressing a member the way `chat send` does.
-	typeOnScreen(t, typing, "i")
+	// The operator steps in, addressing a member the way `chat send` does. The
+	// screen opens on the conversation, so reaching the message pane is a focus
+	// move down into it — ctrl+j, which a terminal sends as a bare line feed.
+	typeOnScreen(t, typing, "\x0a")
 	typeOnScreen(t, typing, "alpha/ana: hold the deploy\r")
 
 	// It is in the room's log, attributed to the host, and it reaches the pane

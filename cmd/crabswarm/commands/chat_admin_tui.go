@@ -12,17 +12,18 @@ func chatAdminTUICmd(parent *cobra.Command, flags *chatFlags) {
 	cmd := &cobra.Command{
 		Use:   "tui --room <room>",
 		Short: "Watch a room's conversation on a live screen (admin)",
-		Long: `tui opens a screen on one room and keeps it current: the conversation as the
-members have it, a sidebar naming everyone attending and the harness state each
-last reported, and a line to send into the room from.
+		Long: `tui opens a screen on one room and keeps it current in four framed panes:
+the rooms the daemon knows and the room's members on the left, the conversation
+as the members have it and a line to send into the room from on the right.
 
-Watching needs no keypresses. i or enter moves to the input line, which takes
-the addressing ` + "`chat admin send`" + ` takes — "name: text", "team/name: text",
-or "*: text" for everyone — and enter sends it; esc leaves the line with what is
-written on it still there. q or esc leaves the screen while watching, and ctrl-c
-leaves it from anywhere, the input line included. Scrolling up holds the view
-still while the room talks on, and scrolling back to the bottom follows it
-again.
+Watching needs no keypresses. ctrl+h, ctrl+j, ctrl+k and ctrl+l move between the
+panes, and every other key goes to the pane that has focus: j/k, gg/G and
+ctrl+d/ctrl+u scroll the conversation, and the message line takes the addressing
+` + "`chat admin send`" + ` takes — "name: text", "team/name: text", or "*: text"
+for everyone — with enter sending it. q leaves the screen from the three panes
+that are lists, and ctrl-c leaves it from anywhere, the message line included.
+Scrolling up holds the view still while the room talks on, and scrolling back to
+the bottom follows it again.
 
 The room is named explicitly and has no default: the admin attends none, and a
 name the daemon does not know is refused before the screen opens.`,

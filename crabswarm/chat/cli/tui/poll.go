@@ -52,7 +52,11 @@ type tailMsg struct {
 
 type rosterMsg struct {
 	members []*chatv1.Member
-	err     error
+	// rooms is every room the reply named. The listing the roster comes from
+	// already carries them, so one read fills both left panes rather than a
+	// second loop asking for what the first one was told.
+	rooms []string
+	err   error
 }
 
 // tail reads what the room said after the cursor — or, with no cursor yet, the
@@ -81,14 +85,17 @@ func (m *model) pollRoster() tea.Cmd {
 		if err != nil {
 			return rosterMsg{err: err}
 		}
+		msg := rosterMsg{rooms: make([]string, 0, len(rooms))}
 		for _, r := range rooms {
+			msg.rooms = append(msg.rooms, r.GetName())
 			if r.GetName() == room {
-				return rosterMsg{members: r.GetMembers()}
+				msg.members = r.GetMembers()
 			}
 		}
 		// The room emptying out is not a failure: what was said in it is still
-		// there to read, and somebody may yet join.
-		return rosterMsg{}
+		// there to read, and somebody may yet join. Nor is the room being gone
+		// from the listing: the rooms pane says so, and the conversation stays.
+		return msg
 	}
 }
 
@@ -125,7 +132,12 @@ func (m *model) applyTail(msg tailMsg) {
 // applyRoster takes in the attendance as of the last read.
 func (m *model) applyRoster(msg rosterMsg) {
 	m.rosterErr = msg.err
-	if msg.err == nil {
-		m.roster = msg.members
+	if msg.err != nil {
+		return
 	}
+	m.roster = msg.members
+	m.rooms = msg.rooms
+	// The rooms pane asks for its own rows, so a longer or shorter list moves
+	// every rectangle under it.
+	m.layout()
 }

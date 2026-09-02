@@ -31,7 +31,7 @@ Steps are filled in after the idea gate. Until then:
       current member of that team, counted at send time"
 - [x] Step 2 — D10 "`chat admin send` maps its argv grammar … onto the
       cases client-side"; D3 "`cli.ParseAddressedLine` … is removed"
-- [ ] Step 3 — D21 palette "one palette block in `tui/styles.go`"; D5
+- [x] Step 3 — D21 palette "one palette block in `tui/styles.go`"; D5
       "rectangles come from `ultraviolet/layout`"; D13
       two-column layout; D15 "target is the pane adjacent … whose rows
       overlap … the most (tie: the upper one)"; D18 "a focus move toward

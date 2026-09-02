@@ -133,7 +133,8 @@ func TestRosterPollTracksAttendanceAndState(t *testing.T) {
 	_, cmd := m.Update(rosterTickMsg{})
 	m, _ = step(t, m, cmd)
 	assert.Equal(t, len(m.roster), 1)
-	assert.Assert(t, strings.Contains(m.rosterPane(4), "done"))
+	r := m.rects()
+	assert.Assert(t, strings.Contains(m.membersPane(r.members.Dx()-2, r.members.Dy()-2), "done"))
 
 	// A room everyone has left is still a room being watched: what was said in
 	// it is there to read, so an empty roster is not an error.
@@ -141,7 +142,7 @@ func TestRosterPollTracksAttendanceAndState(t *testing.T) {
 	_, cmd = m.Update(rosterTickMsg{})
 	m, _ = step(t, m, cmd)
 	assert.Equal(t, len(m.roster), 0)
-	assert.Assert(t, strings.Contains(m.statusBar(), "connected"))
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "connected"))
 }
 
 // A daemon that stopped answering says so on the status bar — a quiet room and
@@ -156,14 +157,14 @@ func TestAFailedReadIsReportedAndRetried(t *testing.T) {
 	m := fixtureModel(t, Deps{Log: log, Roster: roster})
 
 	m, next := step(t, m, m.tail())
-	assert.Assert(t, strings.Contains(m.statusBar(), "log unread"))
-	assert.Assert(t, strings.Contains(m.statusBar(), failure.Error()))
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "log unread"))
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), failure.Error()))
 	assert.Assert(t, next != nil)
 
 	m, next = step(t, m, m.pollRoster())
 	// The conversation is the point of the screen, so its failure is the one
 	// reported while both are failing.
-	assert.Assert(t, strings.Contains(m.statusBar(), "log unread"))
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "log unread"))
 	assert.Assert(t, next != nil)
 
 	log.reply = func(logCall) ([]*chatv1.AdminHistoryEntry, error) {
@@ -172,11 +173,11 @@ func TestAFailedReadIsReportedAndRetried(t *testing.T) {
 	m, _ = step(t, m, m.tail())
 	// The log is being read again, so what was behind it is what the bar has
 	// left to report.
-	assert.Assert(t, strings.Contains(m.statusBar(), "roster unread"))
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "roster unread"))
 
 	roster.err = nil
 	m, _ = step(t, m, m.pollRoster())
-	assert.Assert(t, strings.Contains(m.statusBar(), "connected"))
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "connected"))
 }
 
 // The daemon's errors carry a second line of hint, and the status bar is one
@@ -192,8 +193,9 @@ func TestAMultiLineErrorStaysOnOneLine(t *testing.T) {
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 12})
 	m, _ = step(t, m, m.tail())
 
-	assert.Assert(t, strings.Contains(m.statusBar(), "chat daemon unreachable"))
-	assert.Assert(t, !strings.Contains(m.statusBar(), "\n"), "status bar = %q", m.statusBar())
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "chat daemon unreachable"))
+	bar := m.statusBar(defaultWidth)
+	assert.Assert(t, !strings.Contains(bar, "\n"), "status bar = %q", bar)
 	assert.Equal(t, len(strings.Split(m.View().Content, "\n")), 12)
 }
 

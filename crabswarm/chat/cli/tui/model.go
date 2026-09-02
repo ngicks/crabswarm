@@ -11,49 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
-	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
-
-// The screen is three regions: the conversation, the roster beside it, and two
-// lines of chrome under both — the line the operator types into and the status
-// bar. Sizes below are in terminal cells.
-const (
-	// rosterWidth is the sidebar's column count. Fixed rather than
-	// proportional: it holds a name and a state word, and neither gets more
-	// readable for being given half the screen.
-	rosterWidth = 22
-	// rosterGap separates the two panes, since neither is boxed.
-	rosterGap = 1
-	// rosterMinWidth is the terminal width below which the sidebar is dropped
-	// entirely. Watching the conversation is what the screen is for, so the
-	// roster is what a narrow terminal loses.
-	rosterMinWidth = 60
-	// chromeHeight is the input line plus the status bar.
-	chromeHeight = 2
-	// nameColumn is how much of a member's name the sidebar spells before the
-	// state word.
-	nameColumn = 12
-)
-
-// A terminal that never reported its size — a program driven through a pipe,
-// which is how the tests drive it — is drawn at the size a terminal is
-// conventionally assumed to have rather than at nothing.
-const (
-	defaultWidth  = 80
-	defaultHeight = 24
-)
-
-// broadcastTarget spells the addressee of an entry that went to the whole room.
-// It is the "*" the admin send verb takes, so the transcript names a target the
-// operator can type back into the input line.
-const broadcastTarget = "*"
-
-// entryTimeFormat stamps a line with the time of day alone. The conversation
-// pane is narrow and the reader is comparing messages minutes apart, so the
-// date the CLI transcript carries would cost width and say nothing. UTC for the
-// reason the CLI renders UTC: a room spans containers that need not agree on a
-// time zone.
-const entryTimeFormat = "15:04:05"
 
 // model is the whole screen. It owns no connection: everything it shows was
 // handed to it, and everything it does to the room goes out through [Deps].
@@ -71,10 +29,25 @@ type model struct {
 	view  viewport.Model
 	input textinput.Model
 
+	// focus is the pane the keys reach. It is the screen's only mode: there is
+	// no watching and no writing, only which of the four panes is being talked
+	// to.
+	focus paneFocus
+	// showLeft says which column the body holds where it can hold only one,
+	// which is every terminal narrower than [leftMinWidth]. Above that width it
+	// is not read: both columns are on screen.
+	showLeft bool
+	// pendingG is the first g of a gg, which is the one key on the screen that
+	// means nothing until the next one arrives.
+	pendingG bool
+
 	// entries is the conversation, oldest first, exactly as the log handed it
 	// over — the log is the only source of what the room said.
 	entries []*chatv1.AdminHistoryEntry
 	roster  []*chatv1.Member
+	// rooms is every room the daemon last said it knew, which is what the rooms
+	// pane lists. It rides the roster poll: one reply fills both left panes.
+	rooms []string
 
 	// cursor is the id of the newest entry the screen holds, which is what the
 	// next read of the log asks to be told about.
@@ -92,7 +65,8 @@ type model struct {
 	following bool
 
 	// notice is the last thing the screen has to say to the operator that is
-	// not the conversation — a rejected input line, mostly.
+	// not the conversation — a rejected message, mostly. It is the system
+	// line's text.
 	notice string
 }
 
@@ -100,6 +74,10 @@ func newModel(ctx context.Context, deps Deps, roster []*chatv1.Member) *model {
 	input := textinput.New()
 	input.Prompt = "> "
 	input.Placeholder = `team/name: text`
+	styles := input.Styles()
+	styles.Focused.Prompt = promptStyle
+	styles.Blurred.Prompt = promptStyle
+	input.SetStyles(styles)
 
 	view := viewport.New()
 	// A conversation is read, not scrolled sideways: a long message wraps
@@ -107,15 +85,20 @@ func newModel(ctx context.Context, deps Deps, roster []*chatv1.Member) *model {
 	view.SoftWrap = true
 
 	m := &model{
-		ctx:       ctx,
-		deps:      deps,
-		room:      deps.Room,
-		width:     defaultWidth,
-		height:    defaultHeight,
-		view:      view,
-		input:     input,
-		roster:    roster,
+		ctx:    ctx,
+		deps:   deps,
+		room:   deps.Room,
+		width:  defaultWidth,
+		height: defaultHeight,
+		view:   view,
+		input:  input,
+		roster: roster,
+		// The room being watched is a room the daemon knows, so the pane names
+		// it from the first frame rather than from the first poll.
+		rooms:     []string{deps.Room},
 		following: true,
+		// The conversation is what the operator opened the screen to read.
+		focus: focusConversation,
 	}
 	m.layout()
 	return m
@@ -153,178 +136,79 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// key routes a keypress by mode. An unfocused screen is being watched, which is
-// what the operator is here for, so the letters navigate; a focused one is
-// being typed into, where the same letters are text.
+// key is the whole router: leaving the screen and moving between panes are the
+// screen's own, and everything else is the focused pane's. A pane never sees a
+// movement key, and no key means one thing in one pane and another in the next
+// unless that pane says so.
 func (m *model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if msg.String() == "ctrl+c" {
+	switch s := msg.String(); s {
+	case "ctrl+c":
 		return m, tea.Quit
+	case "ctrl+h", "ctrl+j", "ctrl+k", "ctrl+l":
+		return m, m.moveFocus(s)
 	}
-	if m.input.Focused() {
-		return m.composeKey(msg)
-	}
-	return m.watchKey(msg)
-}
-
-// watchKey navigates the conversation.
-func (m *model) watchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "esc":
-		return m, tea.Quit
-	case "i", "enter":
-		return m, m.input.Focus()
-	case "end", "G":
-		m.view.GotoBottom()
-	case "home", "g":
-		m.view.GotoTop()
+	switch m.focus {
+	case focusRooms:
+		return m.roomsKey(msg)
+	case focusMembers:
+		return m.membersKey(msg)
+	case focusConversation:
+		return m.conversationKey(msg)
 	default:
-		var cmd tea.Cmd
-		m.view, cmd = m.view.Update(msg)
-		m.following = m.view.AtBottom()
-		return m, cmd
+		return m.messageKey(msg)
 	}
-	// Whether the view still follows the room is not a mode the operator sets
-	// but where the scroll left it, so it is read back off the viewport after
-	// every movement rather than tracked alongside it.
-	m.following = m.view.AtBottom()
-	return m, nil
 }
 
-// composeKey edits the line being written, and sends it.
-func (m *model) composeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		m.input.Blur()
-		return m, nil
-	case "enter":
+// messageKey edits the line being written, and sends it.
+func (m *model) messageKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if msg.String() == "enter" {
 		return m, m.submit()
 	}
-	// Typing answers whatever the bar last said, so the report goes with it.
+	// Typing answers whatever the system line last said, so the report goes
+	// with it.
 	m.notice = ""
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
 }
 
-// layout re-sizes the regions to the terminal and refills the conversation,
-// keeping the view on the newest entry while it is following the room.
-func (m *model) layout() {
-	width, height := m.size()
-	conversation := width
-	if m.rosterShown() {
-		conversation = width - rosterWidth - rosterGap
+// systemLine is the screen's last word to the operator that is not the
+// conversation: a send result, a rejected message.
+func (m *model) systemLine(width int) string {
+	if m.notice == "" {
+		return ""
 	}
-	m.view.SetWidth(conversation)
-	m.view.SetHeight(max(height-chromeHeight, 1))
-	// One cell under the prompt is the caret's, which the input line draws past
-	// its width: asking for the whole remainder makes the line a cell wider than
-	// the terminal and the caret the cell that falls off the right edge.
-	m.input.SetWidth(max(width-lipgloss.Width(m.input.Prompt)-1, 1))
-	m.view.SetContent(m.conversation())
-	if m.following {
-		m.view.GotoBottom()
-	}
+	return systemStyle.Render(clip(" "+m.notice, width))
 }
 
-// size is the terminal's, or the assumed one until it says.
-func (m *model) size() (width, height int) {
-	width, height = m.width, m.height
+// statusBar says where the operator is — which room, whether the view still
+// follows it, how the daemon is answering — and names the keys the screen
+// cannot show.
+func (m *model) statusBar(width int) string {
+	// MaxWidth below reads a zero as no limit, where a bar with no room is
+	// nothing at all.
 	if width <= 0 {
-		width = defaultWidth
+		return ""
 	}
-	if height <= 0 {
-		height = defaultHeight
-	}
-	return width, height
-}
-
-// rosterShown reports whether the sidebar fits beside the conversation.
-func (m *model) rosterShown() bool {
-	width, _ := m.size()
-	return width >= rosterMinWidth
-}
-
-// conversation renders the room's log as the pane's content: one entry per
-// line, naming who said it and who to the way the CLI transcript names them, so
-// an operator reading both reads one text. The stamp is where the two part, and
-// deliberately — the pane spells the time of day where the transcript spells
-// the whole date, for the reason [entryTimeFormat] gives.
-func (m *model) conversation() string {
-	var b strings.Builder
-	for _, e := range m.entries {
-		at := "--:--:--"
-		if ts := e.GetSentAt(); ts != nil {
-			at = ts.AsTime().UTC().Format(entryTimeFormat)
-		}
-		to := broadcastTarget
-		if e.GetTo() != nil {
-			to = cli.Address(e.GetTo())
-		}
-		fmt.Fprintf(&b, "%s %s → %s: %s\n", at, cli.Address(e.GetFrom()), to, e.GetText())
-	}
-	return b.String()
-}
-
-// rosterPane renders the sidebar: the room's attendance grouped by team, each
-// member with the harness state that says whether it can be interrupted.
-//
-// A room with more members than the pane has lines is cut to fit rather than
-// run past the bottom of it — lipgloss pads a short block to a height but does
-// not cut a long one, and a taller sidebar pushes the input line and the status
-// bar off the terminal, where the alternate buffer simply never draws them.
-// What was cut is counted on the last line, so the sidebar says it is showing
-// part of the room rather than looking like all of it.
-func (m *model) rosterPane(height int) string {
-	lines := []string{fmt.Sprintf("roster (%d)", len(m.roster))}
-	// memberRow[i] is the line member i sits on, which is what says how many
-	// members a cut at a given line takes off the pane.
-	memberRow := make([]int, 0, len(m.roster))
-	team := ""
-	for _, member := range m.roster {
-		if member.GetTeam() != team {
-			team = member.GetTeam()
-			lines = append(lines, clip(team, rosterWidth))
-		}
-		memberRow = append(memberRow, len(lines))
-		lines = append(lines, clip(fmt.Sprintf(" %-*s %s",
-			nameColumn, member.GetName(), cli.HarnessStateName(member.GetState())),
-			rosterWidth))
-	}
-	if height > 0 && len(lines) > height {
-		// The last line the pane has goes to the count, so the cut is one line
-		// above it.
-		kept := height - 1
-		shown := 0
-		for _, row := range memberRow {
-			if row < kept {
-				shown++
-			}
-		}
-		lines = append(lines[:kept],
-			clip(fmt.Sprintf("… +%d more", len(m.roster)-shown), rosterWidth))
-	}
-	return lipgloss.NewStyle().
-		Width(rosterWidth).
-		Height(height).
-		Render(strings.Join(lines, "\n"))
-}
-
-// statusBar says where the operator is: which room, whether the view still
-// follows it, and whatever the screen last had to report.
-func (m *model) statusBar() string {
-	width, _ := m.size()
-	parts := []string{"room " + m.room}
+	mode := "scrolled back"
 	if m.following {
-		parts = append(parts, "tailing")
-	} else {
-		parts = append(parts, "scrolled back")
+		mode = "tailing"
 	}
-	parts = append(parts, m.connection())
-	if m.notice != "" {
-		parts = append(parts, m.notice)
+	// The daemon's errors carry a second line of hint, and the bar is one line:
+	// the whole screen would shift down otherwise, so what goes on it is folded
+	// before it is coloured.
+	parts := []string{
+		statusStyle.Render(clip("room "+m.room, width)),
+		statusStyle.Render(mode),
+		statusStyle.Render(clip(m.connection(), width)),
+		keyStyle.Render("^hjkl") + statusStyle.Render(" panes"),
+		keyStyle.Render("enter") + statusStyle.Render(" sends"),
+		keyStyle.Render("q") + statusStyle.Render(" quits"),
 	}
-	parts = append(parts, m.keyHint())
-	return clip(strings.Join(parts, " · "), width)
+	// The bar is coloured before it is cut, so the cut is the one that counts
+	// escape sequences as the nothing they are wide.
+	return lipgloss.NewStyle().MaxWidth(width).
+		Render(" " + strings.Join(parts, statusStyle.Render(" · ")))
 }
 
 // connection says how the daemon is answering. The conversation is what the
@@ -342,50 +226,53 @@ func (m *model) connection() string {
 	}
 }
 
-// keyHint names the two keys that are not guessable from the screen: how to
-// leave, and how to reach the input line.
-func (m *model) keyHint() string {
-	if m.input.Focused() {
-		return "enter sends · esc leaves the line"
-	}
-	return "q quits · i writes"
-}
-
 func (m *model) View() tea.View {
-	body := m.view.View()
-	if m.rosterShown() {
-		body = lipgloss.JoinHorizontal(lipgloss.Top,
-			body, strings.Repeat(" ", rosterGap), m.rosterPane(m.view.Height()))
+	width, height := m.size()
+	r := m.rects()
+
+	layers := []*lipgloss.Layer{
+		lipgloss.NewLayer(m.systemLine(r.system.Dx())).
+			X(r.system.Min.X).Y(r.system.Min.Y),
+		lipgloss.NewLayer(m.statusBar(r.status.Dx())).
+			X(r.status.Min.X).Y(r.status.Min.Y),
 	}
-	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left,
-		body, m.input.View(), m.statusBar()))
+	if r.leftShown {
+		layers = append(layers,
+			paneLayer(
+				fmt.Sprintf("rooms (%d)", len(m.rooms)),
+				m.roomsPane(r.rooms.Dx()-2, r.rooms.Dy()-2),
+				r.rooms,
+				m.focus == focusRooms,
+			),
+			paneLayer(
+				fmt.Sprintf("members (%d)", len(m.roster)),
+				m.membersPane(r.members.Dx()-2, r.members.Dy()-2),
+				r.members,
+				m.focus == focusMembers,
+			),
+		)
+	}
+	if r.rightShown {
+		layers = append(layers,
+			paneLayer("conversation", m.view.View(), r.conversation,
+				m.focus == focusConversation),
+			paneLayer("message", m.input.View(), r.message,
+				m.focus == focusMessage),
+		)
+	}
+
+	canvas := lipgloss.NewCanvas(width, height)
+	canvas.Compose(lipgloss.NewCompositor(layers...))
+	content := canvas.Render()
+	// A terminal below the floor the panes are solved at is shown the part of
+	// the screen it has room for rather than a screen larger than itself.
+	if tw, th := m.termSize(); tw < width || th < height {
+		content = fit(content, tw, th)
+	}
+
+	v := tea.NewView(content)
 	// The screen is a place the operator stays, not output scrolling past, so
 	// it takes the alternate buffer and gives the shell back untouched on exit.
 	v.AltScreen = true
 	return v
-}
-
-// clip makes s one line of at most width cells, so nothing it is put beside or
-// under moves. Lines are folded into spaces rather than kept: what goes through
-// here is a region of a fixed size, and the daemon's errors — which the status
-// bar shows — carry a second line of hint.
-func clip(s string, width int) string {
-	if width <= 0 {
-		return ""
-	}
-	s = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(s)
-	if lipgloss.Width(s) <= width {
-		return s
-	}
-	var b strings.Builder
-	var w int
-	for _, r := range s {
-		rw := lipgloss.Width(string(r))
-		if w+rw > width {
-			break
-		}
-		b.WriteRune(r)
-		w += rw
-	}
-	return b.String()
 }
