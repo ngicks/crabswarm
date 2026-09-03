@@ -23,3 +23,13 @@ today a member literally named `*` is legal and addressed as `team/*`.
 Update the proto comments for `SendRequest.to` and
 `AdminSendRequest.target`, the deliverer fan-out, and e2e on both
 paths.
+
+## Conclusion
+
+Closed 2026-09-03. The admin path got the team target: `AdminSendRequest.target`
+is a `oneof` of everyone / team / member, so `chat admin send ROOM 'team/*' TEXT`
+and the TUI's `@team/*` deliver to every current member of that team, counted at
+send time, with no string grammar on the wire and no name reserved (a member
+literally named `*` stays legal). The member-plane `chat send` still resolves
+only `team/name` and bare names; if a member-side team target is wanted, open a
+new item for it against `crabswarm/chat/member.go`'s `resolveFor`.
