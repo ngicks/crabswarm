@@ -700,7 +700,11 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    (D8); mermaid renders through the same path `DocView` uses; heading
    anchors namespaced per field (`description--<id>`) as the mock does;
    affordances per D14 (epic progress from `child_closed_count`, comment
-   prefix badges, metadata chips). Verify: `pnpm test`, Playwright e2e in
+   prefix badges, metadata chips). Interactive widgets — the tab strip,
+   the label multi-select and status toggle group in `IssueFilters` — are
+   Ark UI components (`@ark-ui/react/tabs`, `/combobox`, `/toggle-group`)
+   skinned with daisyUI, per the preact preference rule; static chrome
+   stays plain daisyUI. Verify: `pnpm test`, Playwright e2e in
    `web/e2e/` updated for `/roots/…` and covering list and detail against
    a daemon backed by the fake `bd`.
 7. **Board view.** `IssueBoard` at `?view=board`: status columns, optional
