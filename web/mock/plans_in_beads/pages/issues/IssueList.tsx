@@ -1,16 +1,9 @@
-import { useState } from "preact/hooks";
-import { drawerOpen } from "../../../src/signals/ui.js";
-import {
-  ALL_STATUSES,
-  type IssueFilter,
-  type IssueStatus,
-  emptyFilter,
-  issueHref,
-  labelsOf,
-  listIssues,
-  statusBadgeClass,
-  statusLabel,
-} from "../data.js";
+import { drawerOpen } from "../../../../src/signals/ui.js";
+import type { IssueStatus } from "../../api/client.js";
+import { ALL_STATUSES, emptyFilter } from "../../api/issues.js";
+import { statusBadgeClass, statusLabel } from "../../lib/format.js";
+import { issueHref } from "../../lib/paths.js";
+import { useIssueList } from "./useIssues.js";
 
 // Left-pane issue list: the filters ListIssuesRequest carries (statuses,
 // labels) plus two client-side conveniences — "plans only" (D1's plan
@@ -23,9 +16,7 @@ const ROW_IDLE = ROW + " hover:bg-base-300/70";
 const ROW_SELECTED = ROW + " bg-primary text-primary-content font-medium hover:bg-primary/85";
 
 export function IssueList({ sourceId, activeIssueId }: { sourceId: string; activeIssueId: string }) {
-  const [filter, setFilter] = useState<IssueFilter>(emptyFilter);
-  const rows = listIssues(sourceId, filter);
-  const labels = labelsOf(sourceId);
+  const { filter, setFilter, rows, labels } = useIssueList(sourceId);
 
   const toggleStatus = (s: IssueStatus) =>
     setFilter((f) => ({

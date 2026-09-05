@@ -10,8 +10,8 @@ a prototype of the implementation and shares no code with it.
 
 - **No daemon, no API.** There is no `IssuesService`, no Connect client, no
   HTTP call of any kind. `ListSources`, `AddSource`, `RemoveSource`,
-  `ListIssues` and `GetIssue` do not exist here; `data.ts` imports one
-  `fixtures.json` and filters it in the browser.
+  `ListIssues` and `GetIssue` do not exist here; `api/client.ts` parses one
+  `api/fixtures.json` and `api/issues.ts` filters it in the browser.
 - **No `bd`.** Nothing shells out. The issue data is a frozen
   `bd export --all` of the crabswarm backlog taken 2026-09-04
   (`doc/plan/2026-09-04-plans_in_beads/mock/issues-export.jsonl`, with the
@@ -36,7 +36,7 @@ a prototype of the implementation and shares no code with it.
   title and `updated_at` in memory. It is labelled *simulated* on purpose.
 - **No Roots tab.** The file browser is not re-mocked; `/roots` shows a
   placeholder saying so, and no `/roots/{rootId}/{path...}` document resolves.
-- **Routing is mock-local.** `App.tsx` has its own `preact-iso` router with the
+- **Routing is mock-local.** `app.tsx` has its own `preact-iso` router with the
   planned URL shapes. `web/src/routes.tsx` is untouched, and the app still
   serves the file browser at `/r/{rootId}/…`.
 - **Rendering support files are served locally.** The alert and chroma
@@ -50,7 +50,7 @@ a prototype of the implementation and shares no code with it.
 
 ## Shape deviations from PLAN.md's proto sketch
 
-`fixtures.json` is protobuf-JSON spelling of `ngicks.crabswarm.issues.v1`
+`api/fixtures.json` is protobuf-JSON spelling of `ngicks.crabswarm.issues.v1`
 (camelCase fields, `ISSUE_STATUS_*` enum names, RFC 3339 timestamps), with
 these differences — each worth a decision when step 4 writes the real proto:
 

@@ -34,21 +34,34 @@ pnpm exec vite build --config mock/plans_in_beads/vite.config.ts   # output: moc
 
 ## What is here
 
+The tree is the page-based layout PLAN.md fixes for `web/src` ("Repository
+layout"), rooted here: pages own their own components, `api/` stands in for the
+wire, `signals/` is client state, `lib/` is helpers.
+
 | File | Role |
 |---|---|
-| `index.html`, `main.tsx` | mount point; imports the app's stylesheet and theme effect |
-| `mock.css` | imports `../../src/index.css` and declares this directory as a tailwind source |
-| `App.tsx` | shell and routes (`/`, `/roots…`, `/issues/{sourceId}[/{issueId}]`) |
-| `data.ts` | fixture types (the proto messages), filters, and the simulated push |
-| `components/TabHeader.tsx` | Roots \| Issues tabs, "simulate change", theme toggle |
-| `components/SourceSwitcher.tsx` | registered issue sources (D13) |
-| `components/IssueList.tsx` | status chips, label multi-select, plans-only toggle, search |
-| `components/IssueView.tsx` | header, rendered fields, children, dependencies, comments, TOC |
-| `components/MarkdownField.tsx` | one `.markdown-body` card, with the client-side mermaid pass |
-| `fixtures.json` | generated; do not edit by hand |
+| `index.html`, `main.tsx` | mount point; installs the providers, the stylesheet and the theme effect |
+| `index.css` | imports `../../src/index.css` and declares this directory as a tailwind source |
+| `app.tsx` | routes (`/`, `/roots…`, `/issues/{sourceId}[/{issueId}]`) inside the shell |
+| `components/Layout.tsx` | the shell: tab header above the routed page |
+| `components/Header.tsx` | Roots \| Issues tabs, "simulate change", theme toggle |
+| `pages/issues/index.tsx` | the issues screen — sources and list on the left, detail on the right — plus the `/` source picker |
+| `pages/issues/SourceSwitcher.tsx` | registered issue sources (D13) |
+| `pages/issues/IssueList.tsx` | status chips, label multi-select, plans-only toggle, search |
+| `pages/issues/IssueView.tsx` | header, rendered fields, children, dependencies, comments, TOC |
+| `pages/issues/MarkdownField.tsx` | one `.markdown-body` card, with the client-side mermaid pass |
+| `pages/issues/useIssues.ts` | the page's state over the api layer: filters, and the open issue |
+| `pages/roots/index.tsx` | `/roots`: a placeholder for the unchanged file browser |
+| `pages/not-found.tsx` | fallback route |
+| `api/fixtures.json` | generated; do not edit by hand |
+| `api/client.ts` | fixture types (the proto messages) and the stand-in service (`listSources`, `listIssues`, `getIssue`) |
+| `api/issues.ts` | the request's filters and the decodes the views need, over that service |
+| `api/events.ts` | the simulated `WatchIssues` push |
+| `signals/issues.ts` | client state: which issue the reader has open |
+| `lib/paths.ts`, `lib/format.ts` | `/issues/…` URLs; timestamp and status spelling |
 | `public/assets/css/` | generated; alert + chroma stylesheets the rendered HTML expects |
 
 Nothing under `web/src` is modified: the mock imports `src/index.css`,
 `src/signals/ui.ts` and `src/components/ThemeToggle.tsx`, and copies the
-patterns it needs from `Layout.tsx`, `RootSwitcher.tsx`, `FileTree.tsx` and
-`DocView.tsx`.
+patterns it needs from the app's `Layout.tsx`, `RootSwitcher.tsx`,
+`FileTree.tsx` and `DocView.tsx`.

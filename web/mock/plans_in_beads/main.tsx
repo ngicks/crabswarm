@@ -10,9 +10,9 @@
 // Run:  cd web && pnpm exec vite --config mock/plans_in_beads/vite.config.ts
 import { render } from "preact";
 import { LocationProvider } from "preact-iso";
-import "./mock.css";
+import "./index.css";
 import "../../src/signals/ui.js"; // side effect: theme <-> <html data-theme> + markdown css
-import { App } from "./App.js";
+import { App } from "./app.js";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("missing #app mount point");

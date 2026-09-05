@@ -1,4 +1,5 @@
-import { sourceHref, sources } from "../data.js";
+import { listSources } from "../../api/client.js";
+import { sourceHref } from "../../lib/paths.js";
 
 // Issue sources at the top of the left drawer, the issues-tab counterpart of
 // RootSwitcher. A source is a beads database keyed by its .beads path, so one
@@ -8,7 +9,7 @@ export function SourceSwitcher({ activeSourceId }: { activeSourceId: string }) {
     <div class="border-b border-base-300 p-2">
       <div class="px-2 pb-1 text-xs font-semibold uppercase tracking-wide opacity-60">Issue sources</div>
       <ul class="menu menu-sm w-full p-0">
-        {sources.map((s) => (
+        {listSources().map((s) => (
           <li key={s.id}>
             <a
               href={sourceHref(s.id)}

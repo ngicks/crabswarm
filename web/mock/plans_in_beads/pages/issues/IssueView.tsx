@@ -1,18 +1,9 @@
-import { useEffect } from "preact/hooks";
-import {
-  type Issue,
-  type IssueComment,
-  type RenderedField,
-  commentKind,
-  findIssue,
-  issueHref,
-  metadataPairs,
-  openIssueId,
-  shortTime,
-  statusBadgeClass,
-  statusLabel,
-} from "../data.js";
+import type { Issue, IssueComment, RenderedField } from "../../api/client.js";
+import { commentKind, metadataPairs } from "../../api/issues.js";
+import { shortTime, statusBadgeClass, statusLabel } from "../../lib/format.js";
+import { issueHref } from "../../lib/paths.js";
 import { MarkdownField, fieldAnchor } from "./MarkdownField.js";
+import { useOpenIssue } from "./useIssues.js";
 
 // Issue detail (GetIssue): the bead the way bd models it — summary, the four
 // text fields rendered as markdown with mermaid, metadata, close reason,
@@ -21,14 +12,7 @@ import { MarkdownField, fieldAnchor } from "./MarkdownField.js";
 // the `idea_gate` metadata chip and the Decision/Discussion comment badges).
 
 export function IssueView({ sourceId, issueId }: { sourceId: string; issueId: string }) {
-  const issue = findIssue(sourceId, issueId);
-
-  useEffect(() => {
-    openIssueId.value = issueId;
-    return () => {
-      openIssueId.value = "";
-    };
-  }, [issueId]);
+  const issue = useOpenIssue(sourceId, issueId);
 
   if (!issue) {
     return <div class="p-6 text-sm opacity-60">No issue {issueId} in this source.</div>;

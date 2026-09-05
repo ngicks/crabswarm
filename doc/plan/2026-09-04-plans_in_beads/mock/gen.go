@@ -15,7 +15,7 @@
 // every markdown field through the previewer's own renderer
 // (crabswarm/preview/render) and writes:
 //
-//	web/mock/plans_in_beads/fixtures.json                    the mock's data
+//	web/mock/plans_in_beads/api/fixtures.json                the mock's data
 //	web/mock/plans_in_beads/public/assets/css/alert.css      served at the
 //	web/mock/plans_in_beads/public/assets/css/chroma-*.css   paths signals/ui.ts links
 //
@@ -196,14 +196,14 @@ func main() {
 	issues = append(issues, agentsIssues(r, agents.ID)...)
 
 	out := fixtures{Sources: []source{crabswarm, agents}, Issues: issues}
-	if err := writeFixtures(filepath.Join(dirs.web, "fixtures.json"), out); err != nil {
+	if err := writeFixtures(filepath.Join(dirs.web, "api", "fixtures.json"), out); err != nil {
 		log.Fatalf("write fixtures: %v", err)
 	}
 	if err := writeRenderCSS(filepath.Join(dirs.web, "public", "assets", "css")); err != nil {
 		log.Fatalf("write render css: %v", err)
 	}
 	log.Printf("wrote %d issues from %d sources to %s",
-		len(out.Issues), len(out.Sources), filepath.Join(dirs.web, "fixtures.json"))
+		len(out.Issues), len(out.Sources), filepath.Join(dirs.web, "api", "fixtures.json"))
 }
 
 // --- paths ------------------------------------------------------------------

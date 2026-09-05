@@ -1,5 +1,9 @@
 import { ThemeToggle } from "../../../src/components/ThemeToggle.js";
-import { lastSimulated, openIssueId, shortTime, simulateChange, sourceHref, sources } from "../data.js";
+import { listSources } from "../api/client.js";
+import { lastSimulated, simulateChange } from "../api/events.js";
+import { shortTime } from "../lib/format.js";
+import { sourceHref } from "../lib/paths.js";
+import { openIssueId } from "../signals/issues.js";
 
 // Top-of-page tab header (D6): the previewer grows a second surface beside the
 // file browser, and the URL scheme moves with it — /roots/{rootId}/… for files,
@@ -7,8 +11,8 @@ import { lastSimulated, openIssueId, shortTime, simulateChange, sourceHref, sour
 //
 // The "simulate change" button stands in for D8's WatchIssues stream; it is
 // labelled as simulated because nothing here is pushed by a daemon.
-export function TabHeader({ tab, sourceId }: { tab: "roots" | "issues"; sourceId: string }) {
-  const target = sourceId || sources[0]?.id || "";
+export function Header({ tab, sourceId }: { tab: "roots" | "issues"; sourceId: string }) {
+  const target = sourceId || listSources()[0]?.id || "";
   const last = lastSimulated.value;
 
   return (

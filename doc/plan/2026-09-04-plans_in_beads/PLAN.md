@@ -632,14 +632,39 @@ cmd/crabswarm/commands/preview_list.go, preview_remove.go   cover sources (chang
 api/schema/proto/ngicks/crabswarm/issues/v1/issues_service.proto (new)
 crabswarm/preview/httpapi/handler.go   mounts IssuesService beside PreviewService (changed)
 hooks/issues-mermaid-lint/hooks/hook.json   Stop hook package (new, D11)
-web/src/components/TabHeader.tsx    Roots | Issues (new)
-web/src/components/SourceSwitcher.tsx (new)
-web/src/components/IssueList.tsx    (new)
-web/src/components/IssueBoard.tsx   (new, D14)
-web/src/components/IssueGraph.tsx   (new, D14, D15: mermaid flowchart from edges)
-web/src/components/IssueView.tsx    (new)
-web/src/components/IssueFilters.tsx (new: shared filter bar incl. the Plans saved filter)
 ```
+
+`web/src` is reorganised in step 6 into the page-based layout the user
+fixed (the mock under `web/mock/plans_in_beads/` already follows it):
+
+```text
+web/src/
+├── main.tsx                  mount the app, install providers
+├── app.tsx                   app shell and routing (was routes.tsx)
+├── index.css                 global styles, tailwind/daisyUI
+├── pages/                    route-level screens
+│   ├── preview/              /roots/…: index.tsx, FileTree.tsx, DocumentView.tsx (was DocView), Toc.tsx, ImageView.tsx, usePreview.ts
+│   ├── issues/               /issues/…: index.tsx, IssueFilters.tsx, IssueList.tsx, IssueBoard.tsx (D14), IssueGraph.tsx (D14, D15), IssueView.tsx, MarkdownField.tsx, SourceSwitcher.tsx, useIssues.ts
+│   └── not-found.tsx
+├── components/               UI shared across pages
+│   ├── Layout.tsx            drawer shell
+│   ├── Header.tsx            Roots | Issues tabs (Ark Tabs, daisyUI lifted skin), theme toggle
+│   └── ui/                   reusable primitives (Dialog wraps Ark; OpenRawDialog moves here)
+├── api/
+│   ├── gen/                  generated protobuf code (was src/gen)
+│   ├── client.ts             Connect transport, PreviewService + IssuesService clients
+│   ├── preview.ts            query options for roots / tree / document (was queries.ts)
+│   ├── issues.ts             query options for sources / issues / dependencies
+│   └── events.ts             WatchEvents + WatchIssues subscriptions
+├── signals/                  shared client-side state (ui.ts → preferences.ts + drawer/toc signals)
+├── hooks/                    cross-page hooks, only if any appear
+├── lib/                      focused non-UI helpers: paths.ts (+ paths.test.ts), format.ts, mermaid.ts (the shared run/enrich pass)
+└── assets/                   imported images, icons, fonts
+```
+
+The move of existing files (`DocView` → `pages/preview/DocumentView.tsx`,
+`src/gen` → `src/api/gen`, `routes.tsx` → `app.tsx`) is part of step 6
+and changes `api/buf.gen.yaml`'s output path for `protoc-gen-es`.
 
 ### Persistent data format
 
@@ -692,8 +717,11 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    `preview list` and `preview remove` cover sources. Verify: command
    tests in `cmd/crabswarm/commands/preview_test.go`; e2e registering a
    directory with and without a beads database.
-6. **SPA: tabs, route move, list and detail.** `TabHeader`, routes moved
-   to `/roots/…`, `SourceSwitcher`, `IssueFilters` (status, labels, text,
+6. **SPA: layout, tabs, route move, list and detail.** Reorganise
+   `web/src` into the page-based layout above (including the
+   `src/gen` → `src/api/gen` move and its `buf.gen.yaml` output path);
+   `Header`, routes moved to `/roots/…`, `SourceSwitcher`, `IssueFilters`
+   (status, labels, text,
    the **Plans** saved filter), `IssueList` and `IssueView` under
    `/issues/…`, queries in `web/src/api/queries.ts`, a `WatchIssues`
    subscription in `web/src/api/events.ts` invalidating issue queries
