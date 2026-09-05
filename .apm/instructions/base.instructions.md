@@ -60,7 +60,7 @@ Tools to swarm claude(, codex and others!)
 │   └── cli         Presentation helpers shared by ./cmd (config render, template funcs).
 ├── doc
 │   ├── rules       Some rule guidance sits here.
-│   └── plan        ngplan plan directories (<date>-<NN>-<slug>/) and the issue backlog under doc/plan/issue/ (see ngplan skill).
+│   └── plan        ngplan plan directories (<date>-<NN>-<slug>/); the issue backlog lives in beads, not here (see ngplan skill).
 ├── e2e
 │   └── crabswarm   Process-level tests: TestMain builds the binary once; chat_*.go cover daemon + CLI + hooks + MCP + TUI end to end.
 ├── internal        internal helper packages (libver, loggerfactory, templateutil, stdiopipe, cmdsignals, versioninfo).
@@ -77,7 +77,7 @@ Tools to swarm claude(, codex and others!)
 - Runtime state on a dev host: daemon socket `$XDG_RUNTIME_DIR/crabswarm/default.sock`; chat DB `~/.local/state/crabswarm/chat.db` (`crabswarm config` prints the resolved paths). The daemon applies the DDL itself on open — check `crabswarm/chat/store.go` before assuming a migration step exists.
 - The chat member identity is the token: `--token`, else `$CRABSWARM_CHAT_TOKEN`, else `$CMDMAN_CMD_ID` (`crabswarm/chat/cli/token.go`). Anything running outside a cmdman-tracked command — a bare shell, an MCP server launched by a harness that strips env — has no token and cannot join.
 - `AGENTS.md` / `CLAUDE.md` are generated (git-ignored) from `.apm/instructions/*.md`: edit the source, never the generated files. Never run `apm` (compile, install, ...) inside a worktree such as `main/`; the user regenerates them.
-- Backlog / plans: one open item per file under `doc/plan/issue/open/<slug>.md` (YAML `tags:` frontmatter; `catalog.md` is a derived index, `open/` wins), closed ones move to `doc/plan/issue/closed/`; search frontmatter with the ngplan skill's `scripts/issue-search.sh`. Each `doc/plan/<date>-<NN>-<slug>/` holds IDEA/PLAN/STATUS/DECISION (+ HANDOFF) for one feature.
+- Backlog / plans: the issue backlog is the beads database (`bd`) under the repo root's `.beads/`, shared by every worktree — one `task` bead per item, labels as tags, `Discussion:`/`Decision:` comments, close reason as conclusion (`bd list`, `bd search <text> --status all`, `bd show <id>`; see the ngplan skill's `reference/beads.md`). Never `bd dolt push` or `bd hooks install`. Each `doc/plan/<date>-<NN>-<slug>/` holds IDEA/PLAN/STATUS/DECISION (+ HANDOFF) for one feature.
 
 ## Implementing functionality
 
