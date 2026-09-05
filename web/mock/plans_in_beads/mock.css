@@ -1,0 +1,9 @@
+/* The mock reuses the app's stylesheet: tailwind, the daisyUI themes and the
+   .markdown-body tweaks the rendered HTML depends on.
+
+   Why not import ../../src/index.css from main.tsx directly: tailwind v4
+   detects source files relative to the CSS entry that imports it (web/src), so
+   every utility class used only under web/mock would be dropped from the
+   build. Declaring this directory as a source keeps the mock's classes. */
+@import "../../src/index.css";
+@source "./";
