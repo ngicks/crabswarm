@@ -2,30 +2,41 @@
 
 This directory is a **presentation mock** of the Issues tab planned in
 `doc/plan/2026-09-04-plans_in_beads/PLAN.md` (sections "Preview integration",
-"SPA routes", "Proto"; decisions D1, D6, D7, D8, D12, D13). It exists to make
-the reading experience judgeable before step 4 and step 6 are built. It is not
-a prototype of the implementation and shares no code with it.
+"SPA routes", "Views", "Proto"; decisions D1, D6, D7, D8, D12, D13, D14, D15).
+It exists to make the reading experience judgeable before steps 4 and 6–8 are
+built. It is not a prototype of the implementation and shares no code with it.
 
 ## What is faked
 
 - **No daemon, no API.** There is no `IssuesService`, no Connect client, no
   HTTP call of any kind. `ListSources`, `AddSource`, `RemoveSource`,
-  `ListIssues` and `GetIssue` do not exist here; `api/client.ts` parses one
-  `api/fixtures.json` and `api/issues.ts` filters it in the browser.
+  `ListIssues`, `GetIssue` and `ListDependencies` do not exist here;
+  `api/client.ts` parses one `api/fixtures.json` and `api/issues.ts` filters
+  it in the browser.
 - **No `bd`.** Nothing shells out. The issue data is a frozen
   `bd export --all` of the crabswarm backlog taken 2026-09-04
   (`doc/plan/2026-09-04-plans_in_beads/mock/issues-export.jsonl`, with the
   throwaway `sample-title` probe dropped).
-- **The plan issue does not exist in beads.** `crabswarm-plan1` and its eight
+- **The plan issue does not exist in beads.** `crabswarm-plan1` and its ten
   `crabswarm-plan1.N` step children are synthesized by `gen.go` out of this
   plan directory's markdown, following D1's field convention (idea →
   description, plan → design, criteria → acceptance, status → notes,
   DECISION.md entries → `Decision:` comments, steps → child tasks ordered by
-  `blocks`). Step 8 of the plan — writing them for real — has not happened.
-- **The second source is invented.** `agents-package` and its three issues are
-  made up so the source switcher has somewhere to switch. No `bd where` ever
-  ran: `gen.go` computes both source ids as a sha256 prefix of the `.beads`
-  path, imitating what the daemon's registry would key on (D13).
+  `blocks`). Step 10 of the plan — writing them for real — has not happened.
+- **The edges are invented.** The real database has no dependencies yet.
+  `gen.go` writes the plan's own edges (parent-child to each step, `blocks`
+  between consecutive steps, `discovered-from` for two backlog items the plan
+  text names) and four backlog edges that follow what the issue texts say:
+  the admin TUI screen depends on the admin subcommand and the per-room
+  history (`blocks`), its close reason spawned the WatchRoom follow-up
+  (`discovered-from`), and the two completion items concern one widget
+  (`related`). Every edge kind bd defines is therefore drawn once.
+- **The second source is invented.** `agents-package` and its four issues —
+  a plan epic with two open children, one closed task — are made up so the
+  source switcher has somewhere to switch and the board has a second epic
+  lane. No `bd where` ever ran: `gen.go` computes both source ids as a
+  sha256 prefix of the `.beads` path, imitating what the daemon's registry
+  would key on (D13).
 - **Markdown is rendered ahead of time.** `gen.go` calls the previewer's own
   renderer (`crabswarm/preview/render`) once per field at generation time, so
   the HTML in the fixture is exactly what `GetIssue` would return — but there
@@ -54,25 +65,51 @@ a prototype of the implementation and shares no code with it.
 (camelCase fields, `ISSUE_STATUS_*` enum names, RFC 3339 timestamps), with
 these differences — each worth a decision when step 4 writes the real proto:
 
-- **`Issue.sourceId` added.** The fixture is one flat list across both sources;
-  in the RPC the source comes from `ListIssuesRequest` / `GetIssueRequest`.
+- **`Issue.sourceId` and `edges[].sourceId` added.** The fixture is one flat
+  list across both sources; in the RPC the source comes from the request.
+- **`edges` is a top-level list.** It stands in for `ListDependencies` over
+  the whole source; `api/client.ts` narrows it to a set of issue ids the way
+  the RPC's `issue_ids` would.
 - **`close_reason` is rendered.** The sketch has `string close_reason`, but
   every close reason in the real backlog is markdown (paragraphs, inline code),
   so the mock renders it to a `RenderedField` and shows it as a card. Either
   the proto carries a `RenderedField` here too, or the SPA renders it itself.
+- **`IssueDependency.outgoing` is pinned to the edge's `from`.** `outgoing`
+  is true when this issue is the dependent, the child or the discoverer; the
+  detail page words each row from that ("depends on" / "blocks", "child of" /
+  "parent of", "discovered from" / "discovered"). The proto comment ("this
+  bead -> other") should say the same, or the graph's arrows and the table
+  will disagree.
+- **Parent-child edges are not repeated in `Issue.dependencies`.** The
+  children list and the `parent_id` link already show them; the graph reads
+  them from `ListDependencies`.
 - **Heading anchors are namespaced per field** (`description--<id>`) by
   `MarkdownField`, because description and design are two whole markdown
   documents on one page and goldmark's `AutoHeadingID` can produce the same id
   in both. The wire `RenderedField.toc` ids are unprefixed, as the proto says;
   the namespacing is a client concern the real view will also have.
-- **Counts are only as good as the generator.** `commentCount` comes from bd's
-  export; `childCount` is set on the plan issue only. The real `ListIssues`
-  would fill both for every issue.
+- **Counts are derived by the generator.** `childCount` and
+  `childClosedCount` come from the parent-child edges `gen.go` links;
+  `commentCount` from bd's export. The real `ListIssues` fills all three.
+
+## Findings from the views
+
+- **The board's closed column follows the status filter.** An empty status
+  filter is bd's default without closed issues, so a board with a closed
+  column would show it empty on every visit. The mock draws only the columns
+  the filter lists; the real board needs the same rule or its own default.
+- **A graph of a backlog is mostly unconnected issues.** mermaid stacks them
+  in one column, and 40 of 51 open issues have no edge, so the graph view
+  hides unconnected issues by default (`?isolated=show` draws them) and says
+  how many it hid. The neighbourhood on the detail page needs no such rule.
+- **Titles reach mermaid as label text.** Backticks are fine; a literal `\n`
+  in a title is a line break to mermaid unless escaped (`lib/graph.ts` does).
 
 ## What this mock therefore cannot validate
 
 - `bd` latency (~1.5 s per invocation) — whether opening an issue, listing a
-  source, or switching sources feels acceptable when every read is a subprocess.
+  source, switching sources or refreshing the graph feels acceptable when
+  every read is a subprocess.
 - The cost and correctness of D8's poll: one `bd list` per source per 10 s,
   diffing ids and `updated_at`, and what a push does to a view being read
   (the button only shows the intended effect on one issue).
@@ -87,5 +124,10 @@ these differences — each worth a decision when step 4 writes the real proto:
   reorder does under the reader's cursor.
 - Decoding real `bd` JSON, where empty fields are omitted, and statuses or
   types this export happens not to contain.
+- The shape of `bd dep list --json` records, which the real `ListDependencies`
+  decodes; the edges here are written by hand.
+- The graph's size cap (D15, 150 nodes): the fixture has 60 issues, so the
+  warning never shows here, and mermaid's layout time past a few hundred
+  nodes is not measured.
 - Anything about the shipped artifact: `web/dist`, `dist.tar.zst`, `embed.go`.
   The mock builds to its own git-ignored `dist/` and is never embedded.

@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "preact/hooks";
 import { theme } from "#src/signals/ui.js";
 import type { RenderedField } from "@/api/client.js";
+import { runMermaid } from "@/lib/mermaid.js";
 
 // One rendered text field (description, design, acceptance, notes, close
 // reason, comment) as the `.markdown-body` card the file browser uses for
-// documents, with the same client-side mermaid pass as DocView: the server
-// renders ```mermaid fences to <pre class="mermaid"> (render.go, RenderModeClient)
-// and the SPA draws them with its own bundled mermaid — no CDN.
+// documents, with the same client-side mermaid pass as DocView (lib/mermaid.ts):
+// the server renders ```mermaid fences to <pre class="mermaid"> (render.go,
+// RenderModeClient) and the SPA draws them with its own bundled mermaid — no CDN.
 //
 // Unlike DocView this does not typeset MathJax (the mock has no /vendor/mathjax)
 // and does not rewrite image sources (no /raw endpoint without a daemon).
@@ -50,21 +51,6 @@ function namespaceAnchors(el: HTMLElement, prefix: string): void {
     const href = a.getAttribute("href") ?? "";
     a.setAttribute("href", `#${fieldAnchor(prefix, href.slice(1))}`);
   });
-}
-
-let mermaidMod: Promise<typeof import("mermaid")> | null = null;
-
-async function runMermaid(el: HTMLElement, dark: boolean): Promise<void> {
-  const nodes = el.querySelectorAll<HTMLElement>("pre.mermaid, .mermaid");
-  if (nodes.length === 0) return;
-  mermaidMod ??= import("mermaid");
-  try {
-    const mermaid = (await mermaidMod).default;
-    mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default", securityLevel: "strict" });
-    await mermaid.run({ nodes: Array.from(nodes) });
-  } catch {
-    // leave the raw diagram source visible on failure
-  }
 }
 
 function onArticleClick(e: MouseEvent): void {

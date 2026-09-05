@@ -1,13 +1,15 @@
 // URLs of the issues surface, following PLAN.md "SPA routes":
-// /issues/{sourceId}[/{issueId}], with both ids percent-encoded. The app's
-// counterpart is docHref / parseDocLocation in web/src/routes.tsx.
+// /issues/{sourceId}[/{issueId}][?query], with both ids percent-encoded. The
+// query string (view, filters) is carried from the list onto the detail URL
+// and back, so returning from an issue lands on the same view and filters.
+// The app's counterpart is docHref / parseDocLocation in web/src/routes.tsx.
 
-export function issueHref(sourceId: string, issueId: string): string {
-  return `/issues/${encodeURIComponent(sourceId)}/${encodeURIComponent(issueId)}`;
+export function issueHref(sourceId: string, issueId: string, query = ""): string {
+  return `/issues/${encodeURIComponent(sourceId)}/${encodeURIComponent(issueId)}${query}`;
 }
 
-export function sourceHref(sourceId: string): string {
-  return `/issues/${encodeURIComponent(sourceId)}`;
+export function sourceHref(sourceId: string, query = ""): string {
+  return `/issues/${encodeURIComponent(sourceId)}${query}`;
 }
 
 /** decodeURIComponent that keeps a malformed segment rather than throwing. */
@@ -25,4 +27,10 @@ export function sourceIdOf(pathname: string): string {
   const m = /^\/issues\/([^/]+)/.exec(pathname);
   if (!m) return "";
   return safeDecode(m[1]);
+}
+
+/** The query string of a preact-iso location url ("" or "?..."). */
+export function queryOf(url: string): string {
+  const i = url.indexOf("?");
+  return i < 0 ? "" : url.slice(i);
 }

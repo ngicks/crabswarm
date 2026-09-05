@@ -3,7 +3,8 @@
 A runnable mock of the **Issues** tab planned in
 `doc/plan/2026-09-04-plans_in_beads/PLAN.md`. It renders the real crabswarm
 backlog plus the plan itself, as the plan would be stored in beads (D1), so the
-reading experience can be judged before steps 4 and 6 are implemented.
+reading experience — list, board, graph and detail (D14, D15) — can be judged
+before steps 4 and 6–8 are implemented.
 
 Read `MOCK_LIMITS.md` first: no daemon, no `bd`, no `IssuesService`, no
 `WatchIssues` — and the list of plan requirements this mock cannot validate.
@@ -21,7 +22,11 @@ cd web && pnpm exec vite --config mock/plans_in_beads/vite.config.ts
 Then open the printed URL. Useful entry points:
 
 - `/` — source picker
-- `/issues/{sourceId}` — issue list for a source
+- `/issues/{sourceId}` — list view for a source
+- `/issues/{sourceId}?view=board` — board; `?view=graph` — dependency graph
+- `/issues/{sourceId}?filter=plans` — the Plans saved filter (`label=plan`)
+- `/issues/{sourceId}?status=open,closed&label=chat,tui&q=admin` — filters
+  are the query string, carried between views and onto the detail page
 - `/issues/{sourceId}/{issueId}` — issue detail
 - `/roots` — placeholder for the unchanged file browser
 
@@ -45,20 +50,25 @@ wire, `signals/` is client state, `lib/` is helpers.
 | `app.tsx` | routes (`/`, `/roots…`, `/issues/{sourceId}[/{issueId}]`) inside the shell |
 | `components/Layout.tsx` | the shell: tab header above the routed page |
 | `components/Header.tsx` | Roots \| Issues tabs, "simulate change", theme toggle |
-| `pages/issues/index.tsx` | the issues screen — sources and list on the left, detail on the right — plus the `/` source picker |
+| `pages/issues/index.tsx` | the issues screen — sources and filters on the left, the view strip and the active view or the open issue on the right — plus the `/` source picker |
 | `pages/issues/SourceSwitcher.tsx` | registered issue sources (D13) |
-| `pages/issues/IssueList.tsx` | status chips, label multi-select, plans-only toggle, search |
-| `pages/issues/IssueView.tsx` | header, rendered fields, children, dependencies, comments, TOC |
+| `pages/issues/IssueFilters.tsx` | search, status toggle group (Ark), the Plans saved filter, label combobox (Ark); writes the query string |
+| `pages/issues/ViewTabs.tsx` | List \| Board \| Graph strip (Ark tabs), `?view=` |
+| `pages/issues/IssueList.tsx` | list view: table rows with labels, metadata chips and the epic progress bar |
+| `pages/issues/IssueBoard.tsx` | board view: status columns, swimlanes by parent epic with progress |
+| `pages/issues/IssueGraph.tsx` | graph view and the detail page's neighbourhood: mermaid flowchart from edges, click-through, size cap |
+| `pages/issues/IssueView.tsx` | detail: header with progress, rendered fields, children, dependencies, neighbourhood, comments, TOC |
 | `pages/issues/MarkdownField.tsx` | one `.markdown-body` card, with the client-side mermaid pass |
-| `pages/issues/useIssues.ts` | the page's state over the api layer: filters, and the open issue |
+| `pages/issues/useIssues.ts` | the page's state over the api layer: the query-string filters, the rows, the open issue |
 | `pages/roots/index.tsx` | `/roots`: a placeholder for the unchanged file browser |
 | `pages/not-found.tsx` | fallback route |
 | `api/fixtures.json` | generated; do not edit by hand |
-| `api/client.ts` | fixture types (the proto messages) and the stand-in service (`listSources`, `listIssues`, `getIssue`) |
-| `api/issues.ts` | the request's filters and the decodes the views need, over that service |
+| `api/client.ts` | fixture types (the proto messages) and the stand-in service (`listSources`, `listIssues`, `getIssue`, `listDependencies`) |
+| `api/issues.ts` | the request's filters, their query-string spelling, and the decodes the views need, over that service |
 | `api/events.ts` | the simulated `WatchIssues` push |
 | `signals/issues.ts` | client state: which issue the reader has open |
 | `lib/paths.ts`, `lib/format.ts` | `/issues/…` URLs; timestamp and status spelling |
+| `lib/graph.ts`, `lib/mermaid.ts` | edges → mermaid flowchart text; the shared mermaid run |
 | `public/assets/css/` | generated; alert + chroma stylesheets the rendered HTML expects |
 
 Nothing under `web/src` is modified: the mock imports `src/index.css`,
@@ -71,3 +81,11 @@ Import aliases follow the web preference rule: `@/…` is this directory
 kept in sync), and `#src/…` is the app's source through the `imports` field
 in `web/package.json` (`"#*": "./*"`), which TypeScript and Vite both read.
 Sibling files import with `./`.
+
+## Driving it headless
+
+The nix chromium needs a fontconfig file, or it aborts in Skia's font code the
+moment an Ark combobox renders (`SkFontMgr_FontConfigInterface.cpp: Not
+implemented`, SIGTRAP). Point `FONTCONFIG_FILE` at a `fonts.conf` whose
+`<dir>` names a font directory from the nix store before launching a browser
+against the mock.

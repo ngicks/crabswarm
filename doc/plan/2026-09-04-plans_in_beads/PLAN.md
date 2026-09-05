@@ -199,8 +199,8 @@ detail page:
 | View | Shows | Data |
 |---|---|---|
 | list (default) | filterable table: status chips, labels, type, priority, text search, saved filter **Plans** (`label=plan`) | `ListIssues` |
-| board | kanban columns open / in_progress / blocked / closed; optional swimlanes by parent epic; cards show id, title, priority, label chips | `ListIssues` |
-| graph | dependency graph of the filtered set, nodes colored by status, edges by type (`blocks`, `parent-child`, `discovered-from`, `related`), click → detail | `ListIssues` + `ListDependencies` |
+| board | kanban columns for the statuses the filter lists (bd's default has no closed, so no empty closed column); optional swimlanes by parent epic; cards show id, title, priority, label chips | `ListIssues` |
+| graph | dependency graph of the filtered set, nodes colored by status, edges by type (`blocks`, `parent-child`, `discovered-from`, `related`), click → detail; issues no edge touches are hidden unless `isolated=show` | `ListIssues` + `ListDependencies` |
 | detail | header, rendered fields, children with progress, dependencies, comments; a local graph of the issue's neighbourhood | `GetIssue` |
 
 Convention-aware affordances, applied to every issue that has the data:
@@ -251,16 +251,27 @@ cd web && pnpm exec vite --config mock/plans_in_beads/vite.config.ts
 It demonstrates D1 (a plan read as an ordinary issue: fields, `idea_gate`
 chip, `Decision:` comments, step children with `blocks` order,
 `discovered-from` items), D6 (tab header, `/issues/{sourceId}[/{issueId}]`),
-D7, D12 and D13 (source switcher). It predates D14: it has the list and
-detail views only, no board and no graph, and its "plans only" toggle is
-what D14 turns into the **Plans** saved filter. It fakes the daemon,
-`bd`, the stream and the Roots tab; the limits file lists what it therefore cannot
-validate (latency, poll cost, discovery, the lint guard, the `/roots`
-move). Disposable: nothing in it graduates to `web/src`; step 6 rewrites
-the views against the real client. Two findings from building it are
-folded in below: `close_reason` is markdown and is rendered like the
-other fields, and heading anchors must be namespaced per field because
-description and design are two documents on one page.
+D7, D12, D13 (source switcher), D14 (list, board and graph views behind
+`?view=`, the **Plans** saved filter, epic progress bars, comment badges,
+metadata chips, filters in the query string) and D15 (the graph and the
+detail page's neighbourhood drawn by the bundled mermaid, click-through
+via SVG node ids). The status strip, label picker and view strip are Ark
+UI parts skinned with daisyUI, as step 6 plans them. It fakes the daemon,
+`bd`, the stream, the edges (the real database has none yet) and the
+Roots tab; the limits file lists what it therefore cannot validate
+(latency, poll cost, discovery, the lint guard, the `/roots` move, the
+`bd dep list` record shape, the graph's size cap). Disposable: nothing
+in it graduates to `web/src`; steps 6–8 rewrite the views against the
+real client. Findings from building it are folded in below:
+`close_reason` is markdown and is rendered like the other fields; heading
+anchors must be namespaced per field because description and design are
+two documents on one page; `IssueDependency.outgoing` must be pinned to
+the edge's `from` side so the table's wording and the graph's arrows
+agree; the board's columns follow the status filter, since bd's default
+listing has no closed issues and a permanent closed column would sit
+empty; and the graph view hides issues no edge touches by default (a
+backlog is mostly unconnected, and mermaid stacks them in one column), an
+`isolated=show` query flag drawing them.
 
 Freshness (D8): the daemon polls each registered source — one
 `bd list --json --status all` every 10 s — diffs IDs and
@@ -470,7 +481,10 @@ message IssueDependency {
   string id = 1;                  // the other issue
   string title = 2;
   string type = 3;                // blocks, parent-child, discovered-from, related
-  bool outgoing = 4;              // true: this bead -> other; false: other -> this bead
+  // outgoing is true when this issue is the edge's from side (IssueEdge.from_id):
+  // it depends on, is a child of, or was discovered from the other issue.
+  // parent-child rows are omitted here; children and parent_id carry them.
+  bool outgoing = 4;
 }
 
 message Issue {
@@ -550,7 +564,9 @@ message WatchIssuesResponse {
 /                              tab header: Roots | Issues; root picker or source picker for the active tab
 /roots/{rootId}/{path...}      file browser (was /r/{rootId}/{path...}; old URLs 404)
 /issues/{sourceId}             list (default); ?view=board | graph switch the view; filters in the
-                               query string (status, label, q, filter=plans)
+                               query string (status=open,closed  label=a,b  q=text  filter=plans),
+                               view options too (lanes=none for the board, isolated=show for the graph);
+                               the query string is carried onto the detail URL and back
 /issues/{sourceId}/{issueId}   issue detail: fields, comments, children, dependencies, local graph
 ```
 

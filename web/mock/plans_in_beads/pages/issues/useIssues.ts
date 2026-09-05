@@ -2,29 +2,47 @@
 // reader is on them. In the real feature these wrap the query options of
 // api/issues.ts; here they wrap the fixture accessors, which read the `issues`
 // signal, so a simulated push re-renders every caller.
-import { type Dispatch, type StateUpdater, useEffect, useState } from "preact/hooks";
+import { useEffect } from "preact/hooks";
+import { useLocation } from "preact-iso";
 import { type Issue, getIssue } from "@/api/client.js";
-import { type IssueFilter, emptyFilter, filterIssues, labelsOf } from "@/api/issues.js";
+import { type IssueQuery, encodeIssueQuery, filterIssues, labelsOf, parseIssueQuery } from "@/api/issues.js";
+import { queryOf } from "@/lib/paths.js";
 import { openIssueId } from "@/signals/issues.js";
 
+export interface IssueQueryState {
+  query: IssueQuery;
+  /** The query string as it stands ("" or "?..."), to carry onto links. */
+  search: string;
+  /** Rewrites the URL's query string, keeping the path (list or detail). */
+  update(patch: Partial<IssueQuery>): void;
+  reset(): void;
+}
+
+/** The view and filters live in the URL (PLAN.md "SPA routes"), not in
+ *  component state: a filtered board is a link, and opening an issue then
+ *  coming back keeps the filters. */
+export function useIssueQuery(): IssueQueryState {
+  const loc = useLocation();
+  const query = parseIssueQuery(queryOf(loc.url));
+  const go = (next: IssueQuery) => loc.route(loc.path + encodeIssueQuery(next), true);
+  return {
+    query,
+    search: encodeIssueQuery(query),
+    update: (patch) => go({ ...query, ...patch }),
+    reset: () => go({ ...query, statuses: [], labels: [], search: "", savedFilter: "" }),
+  };
+}
+
 export interface IssueListState {
-  filter: IssueFilter;
-  setFilter: Dispatch<StateUpdater<IssueFilter>>;
   /** Matching issues, newest updated first. */
   rows: Issue[];
-  /** Distinct labels of the source, for the label multi-select. */
+  /** Distinct labels of the source, for the label combobox. */
   labels: string[];
 }
 
-/** Filter state of one source's list, plus what it selects. The caller keys
- *  this per source: the labels are a source's own, so a label selection must
- *  not carry across a switch. */
-export function useIssueList(sourceId: string): IssueListState {
-  const [filter, setFilter] = useState<IssueFilter>(emptyFilter);
+export function useIssueList(sourceId: string, query: IssueQuery): IssueListState {
   return {
-    filter,
-    setFilter,
-    rows: filterIssues(sourceId, filter),
+    rows: filterIssues(sourceId, query),
     labels: labelsOf(sourceId),
   };
 }

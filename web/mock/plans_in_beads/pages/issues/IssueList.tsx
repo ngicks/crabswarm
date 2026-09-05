@@ -1,137 +1,92 @@
-import { drawerOpen } from "#src/signals/ui.js";
-import type { IssueStatus } from "@/api/client.js";
-import { ALL_STATUSES, emptyFilter } from "@/api/issues.js";
-import { statusBadgeClass, statusLabel } from "@/lib/format.js";
+import type { Issue, IssueSummary } from "@/api/client.js";
+import { metadataPairs, progressOf } from "@/api/issues.js";
+import { shortTime, statusBadgeClass, statusLabel } from "@/lib/format.js";
 import { issueHref } from "@/lib/paths.js";
-import { useIssueList } from "./useIssues.js";
 
-// Left-pane issue list: the filters ListIssuesRequest carries (statuses,
-// labels) plus two client-side conveniences — "plans only" (D1's plan
-// convention: issue_type epic + the `plan` label) and a title/id search.
-// Row shape follows FileTree's: one clickable row per item, the active one
-// painted with the primary pair.
+// The list view (D14): one table row per matching issue, newest updated
+// first, with the affordances every issue gets when it has the data — an epic
+// progress bar from child status, metadata chips (so `idea_gate` shows). A
+// plan looks like any other epic here; only the Plans saved filter knows the
+// label.
 
-const ROW = "flex w-full min-w-0 flex-col gap-0.5 px-2 py-1.5 text-left text-sm cursor-pointer";
-const ROW_IDLE = ROW + " hover:bg-base-300/70";
-const ROW_SELECTED = ROW + " bg-primary text-primary-content font-medium hover:bg-primary/85";
-
-export function IssueList({ sourceId, activeIssueId }: { sourceId: string; activeIssueId: string }) {
-  const { filter, setFilter, rows, labels } = useIssueList(sourceId);
-
-  const toggleStatus = (s: IssueStatus) =>
-    setFilter((f) => ({
-      ...f,
-      statuses: f.statuses.includes(s) ? f.statuses.filter((x) => x !== s) : [...f.statuses, s],
-    }));
-
+export function IssueList({ sourceId, rows, search }: { sourceId: string; rows: Issue[]; search: string }) {
+  if (rows.length === 0) {
+    return <div class="p-3 text-sm opacity-60">No issue matches the filters.</div>;
+  }
   return (
-    <div class="flex min-h-0 flex-1 flex-col">
-      <div class="space-y-2 border-b border-base-300 p-2">
-        <input
-          type="search"
-          class="input input-sm w-full"
-          placeholder="Search title or id"
-          value={filter.search}
-          onInput={(e) => {
-            const v = (e.currentTarget as HTMLInputElement).value;
-            setFilter((f) => ({ ...f, search: v }));
-          }}
-        />
-
-        <div class="flex flex-wrap gap-1">
-          {ALL_STATUSES.map((s) => {
-            const on = filter.statuses.includes(s);
-            return (
-              <button
-                key={s}
-                class={`btn btn-xs ${on ? "btn-primary" : "btn-outline"}`}
-                onClick={() => toggleStatus(s)}
-                title={s}
-              >
-                {statusLabel(s)}
-              </button>
-            );
-          })}
-        </div>
-
-        <label class="flex cursor-pointer items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            class="toggle toggle-xs"
-            checked={filter.plansOnly}
-            onChange={(e) => {
-              const v = (e.currentTarget as HTMLInputElement).checked;
-              setFilter((f) => ({ ...f, plansOnly: v }));
-            }}
-          />
-          <span>plans only (epic + label plan)</span>
-        </label>
-
-        <select
-          multiple
-          size={4}
-          class="select select-sm h-auto w-full"
-          aria-label="Filter by label"
-          onChange={(e) => {
-            const picked = Array.from((e.currentTarget as HTMLSelectElement).selectedOptions).map((o) => o.value);
-            setFilter((f) => ({ ...f, labels: picked }));
-          }}
-        >
-          {labels.map((l) => (
-            <option key={l} value={l} selected={filter.labels.includes(l)}>
-              {l}
-            </option>
+    <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="issue-list">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th class="w-40">id</th>
+            <th class="w-20">type</th>
+            <th class="w-28">status</th>
+            <th class="w-10">P</th>
+            <th>title</th>
+            <th class="w-36">updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((i) => (
+            <Row key={i.summary.id} sourceId={sourceId} s={i.summary} search={search} />
           ))}
-        </select>
-
-        <div class="flex items-center justify-between text-[11px] opacity-60">
-          <span>
-            {rows.length} issue{rows.length === 1 ? "" : "s"}, newest updated first
-          </span>
-          <button class="btn btn-ghost btn-xs" onClick={() => setFilter(emptyFilter)}>
-            reset
-          </button>
-        </div>
-      </div>
-
-      <div data-testid="issue-list" class="min-h-0 flex-1 overflow-auto py-1">
-        {rows.length === 0 && <div class="p-3 text-xs opacity-50">No issue matches the filters.</div>}
-        {rows.map((i) => {
-          const s = i.summary;
-          return (
-            <a
-              key={s.id}
-              href={issueHref(sourceId, s.id)}
-              class={s.id === activeIssueId ? ROW_SELECTED : ROW_IDLE}
-              onClick={() => {
-                drawerOpen.value = false;
-              }}
-            >
-              <span class="flex flex-wrap items-center gap-1 text-[11px]">
-                <span class="font-mono opacity-70">{s.id}</span>
-                <span class="badge badge-outline badge-xs">{s.issueType}</span>
-                <span class={`badge badge-xs ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
-                <span class="opacity-60">P{s.priority}</span>
-                {s.commentCount > 0 && (
-                  <span class="flex items-center gap-0.5 opacity-60">
-                    <CommentIcon />
-                    {s.commentCount}
-                  </span>
-                )}
-              </span>
-              <span class="truncate">{s.title}</span>
-            </a>
-          );
-        })}
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function CommentIcon() {
+function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; search: string }) {
+  const href = issueHref(sourceId, s.id, search);
+  const progress = progressOf(s);
+  const metadata = metadataPairs(s.metadataJson);
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
+    <tr class="hover">
+      <td class="font-mono text-xs">
+        <a class="link" href={href}>
+          {s.id}
+        </a>
+      </td>
+      <td>
+        <span class="badge badge-outline badge-xs">{s.issueType}</span>
+      </td>
+      <td>
+        <span class={`badge badge-xs ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
+      </td>
+      <td class="text-xs opacity-70">P{s.priority}</td>
+      <td class="min-w-64">
+        <a class="link link-hover" href={href}>
+          {s.title}
+        </a>
+        <div class="mt-0.5 flex flex-wrap items-center gap-1 text-[11px]">
+          {s.labels.map((l) => (
+            <span key={l} class="badge badge-ghost badge-xs">
+              {l}
+            </span>
+          ))}
+          {metadata.map(([k, v]) => (
+            <span key={k} class="badge badge-outline badge-xs font-mono">
+              {k}={v}
+            </span>
+          ))}
+          {s.commentCount > 0 && <span class="opacity-60">{s.commentCount} comments</span>}
+        </div>
+        {progress && <Progress closed={progress.closed} total={progress.total} />}
+      </td>
+      <td class="text-xs opacity-70">{shortTime(s.updatedAt)}</td>
+    </tr>
+  );
+}
+
+/** Epic progress: closed children over all children (D14). Shared by the
+ *  list rows, the board's cards and lanes, and the detail header. */
+export function Progress({ closed, total }: { closed: number; total: number }) {
+  return (
+    <div class="mt-1 flex items-center gap-2 text-[11px] opacity-80" data-testid="progress">
+      <progress class="progress progress-success h-1.5 w-32" value={closed} max={total} />
+      <span>
+        {closed}/{total} closed
+      </span>
+    </div>
   );
 }

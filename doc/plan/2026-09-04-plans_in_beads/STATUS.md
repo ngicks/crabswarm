@@ -3,10 +3,11 @@
 Current state: **planned** — idea gate confirmed 2026-09-04; 15
 decisions recorded (D14 generic viewer with board and graph, D15 graph via
 bundled mermaid, added 2026-09-05); contracts, ten steps and the
-traceability table are in PLAN.md; a presentation mock of the list and
-detail views exists at `web/mock/plans_in_beads/` (see PLAN.md
-"Presentation preview"; it predates D14). Ready to implement, starting at
-step 1.
+traceability table are in PLAN.md; the presentation mock at
+`web/mock/plans_in_beads/` covers list, board, graph and detail with the
+Plans saved filter and query-string filters (D14, D15; brought up to date
+2026-09-06, see PLAN.md "Presentation preview" for the findings it folded
+in). Ready to implement, starting at step 1.
 
 This is intended to be the last file-authored plan. Once the field
 convention (D1) is decided, re-authoring this plan as the first plan bead is

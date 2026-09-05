@@ -11,8 +11,9 @@
 // a copy of `bd export --all` taken 2026-09-04), synthesizes the plan issue
 // this plan directory would become once D1's convention is applied (idea in
 // description, plan in design, success criteria in acceptance, status in
-// notes, decisions as comments, implementation steps as child tasks), renders
-// every markdown field through the previewer's own renderer
+// notes, decisions as comments, implementation steps as child tasks), adds
+// the dependency edges the graph view draws (D14, D15), renders every
+// markdown field through the previewer's own renderer
 // (crabswarm/preview/render) and writes:
 //
 //	web/mock/plans_in_beads/api/fixtures.json                the mock's data
@@ -21,7 +22,7 @@
 //
 // fixtures.json is shaped like the messages of PLAN.md's proto sketch
 // (ngicks.crabswarm.issues.v1: Source, IssueSummary, RenderedField,
-// IssueComment, IssueDependency, Issue) in protobuf-JSON spelling: camelCase
+// IssueComment, IssueDependency, Issue, IssueEdge) in protobuf-JSON spelling: camelCase
 // field names, ISSUE_STATUS_* enum names, RFC 3339 timestamps. Deviations from
 // that sketch are listed in web/mock/plans_in_beads/MOCK_LIMITS.md.
 //
@@ -44,11 +45,15 @@ import (
 	"github.com/ngicks/crabswarm/crabswarm/preview/render/alert"
 )
 
-// planID is the ID the dogfood plan issue (PLAN.md step 8) would get.
+// planID is the ID the dogfood plan issue (PLAN.md step 10) would get.
 const planID = "crabswarm-plan1"
 
 // ideaGate is D7's metadata value: the date the idea gate was confirmed.
 const ideaGate = "2026-09-04"
+
+// agentsPlanID is the plan issue invented for the second source, so that
+// source has an epic lane on the board too.
+const agentsPlanID = "agents-package-p1"
 
 // discoveredFrom are two real backlog issues presented as born from this plan
 // (D1 / UC4). Both are referenced by the plan text itself.
@@ -59,6 +64,18 @@ var discoveredFrom = []string{"crabswarm-d2j", "crabswarm-aki"}
 type fixtures struct {
 	Sources []source `json:"sources"`
 	Issues  []issue  `json:"issues"`
+	// Edges is what ListDependencies would return per source, flattened
+	// across sources the way Issues is.
+	Edges []edge `json:"edges"`
+}
+
+// edge mirrors issues.v1.IssueEdge, plus sourceId. From is the dependent,
+// the child or the discoverer; To is the blocker, the parent or the origin.
+type edge struct {
+	SourceID string `json:"sourceId"`
+	FromID   string `json:"fromId"`
+	ToID     string `json:"toId"`
+	Type     string `json:"type"`
 }
 
 // source mirrors issues.v1.Source.
@@ -95,6 +112,10 @@ type summary struct {
 	ChildCount   int      `json:"childCount"`
 	CreatedAt    string   `json:"createdAt"`
 	UpdatedAt    string   `json:"updatedAt"`
+	// ChildClosedCount feeds the epic progress affordance (D14).
+	ChildClosedCount int `json:"childClosedCount"`
+	// MetadataJSON on the summary lets the list and board show chips.
+	MetadataJSON string `json:"metadataJson"`
 }
 
 // comment mirrors issues.v1.IssueComment.
@@ -105,7 +126,9 @@ type comment struct {
 	CreatedAt string        `json:"createdAt"`
 }
 
-// dependency mirrors issues.v1.IssueDependency.
+// dependency mirrors issues.v1.IssueDependency. Outgoing is true when this
+// issue is the edge's From: it depends on, is a child of, or was discovered
+// from the other issue.
 type dependency struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -183,11 +206,10 @@ func main() {
 	agents.ID = sourceID(agents.BeadsPath)
 
 	backlog := backlogIssues(r, crabswarm.ID, records)
-	plan, steps, err := planIssues(r, crabswarm.ID, dirs.plan, backlog)
+	plan, steps, err := planIssues(r, crabswarm.ID, dirs.plan)
 	if err != nil {
 		log.Fatalf("build plan issue: %v", err)
 	}
-	linkDiscoveredFrom(backlog, plan.Summary)
 
 	issues := make([]issue, 0, len(backlog)+len(steps)+4)
 	issues = append(issues, plan)
@@ -195,7 +217,15 @@ func main() {
 	issues = append(issues, backlog...)
 	issues = append(issues, agentsIssues(r, agents.ID)...)
 
-	out := fixtures{Sources: []source{crabswarm, agents}, Issues: issues}
+	edges := make([]edge, 0, 32)
+	edges = append(edges, planEdges(crabswarm.ID, len(steps))...)
+	edges = append(edges, backlogEdges(crabswarm.ID)...)
+	edges = append(edges, agentsEdges(agents.ID)...)
+	if err := link(issues, edges); err != nil {
+		log.Fatalf("link issues: %v", err)
+	}
+
+	out := fixtures{Sources: []source{crabswarm, agents}, Issues: issues, Edges: edges}
 	if err := writeFixtures(filepath.Join(dirs.web, "api", "fixtures.json"), out); err != nil {
 		log.Fatalf("write fixtures: %v", err)
 	}
@@ -315,6 +345,7 @@ func backlogIssues(r *fieldRenderer, srcID string, records []exportRecord) []iss
 				CommentCount: rec.CommentCount,
 				CreatedAt:    rec.CreatedAt,
 				UpdatedAt:    rec.UpdatedAt,
+				MetadataJSON: "{}",
 			},
 			Description:        r.field(rec.Description),
 			Design:             r.field(rec.Design),
@@ -323,36 +354,108 @@ func backlogIssues(r *fieldRenderer, srcID string, records []exportRecord) []iss
 			MetadataJSON:       "{}",
 			CloseReason:        r.field(rec.CloseReason),
 			Comments:           comments,
-			Children:           []summary{},
-			Depends:            []dependency{},
 		})
 	}
 	return out
 }
 
-// linkDiscoveredFrom marks the two chosen backlog issues as discovered from
-// the plan (UC4: a handoff item is born linked to its origin).
-func linkDiscoveredFrom(backlog []issue, plan summary) {
-	for _, id := range discoveredFrom {
-		for i := range backlog {
-			if backlog[i].Summary.ID != id {
-				continue
-			}
-			backlog[i].Depends = append(backlog[i].Depends, dependency{
-				ID:       plan.ID,
-				Title:    plan.Title,
-				Type:     "discovered-from",
-				Outgoing: true,
-			})
+// --- edges ------------------------------------------------------------------
+
+// planEdges are the plan issue's own graph: every step is a child of the plan,
+// each step blocks the next (D1 / UC7), and the two discovered-from items
+// point back at the plan (UC4).
+func planEdges(srcID string, steps int) []edge {
+	out := make([]edge, 0, 2*steps+len(discoveredFrom))
+	for n := 1; n <= steps; n++ {
+		id := fmt.Sprintf("%s.%d", planID, n)
+		out = append(out, edge{SourceID: srcID, FromID: id, ToID: planID, Type: "parent-child"})
+		if n > 1 {
+			prev := fmt.Sprintf("%s.%d", planID, n-1)
+			out = append(out, edge{SourceID: srcID, FromID: id, ToID: prev, Type: "blocks"})
 		}
 	}
+	for _, id := range discoveredFrom {
+		out = append(out, edge{SourceID: srcID, FromID: id, ToID: planID, Type: "discovered-from"})
+	}
+	return out
+}
+
+// backlogEdges are invented for the mock: the real database has no edges yet.
+// They follow what the issue texts say — the admin TUI screen "depends on"
+// the admin subcommand and the per-room history, its close reason spawned the
+// WatchRoom follow-up, and the two completion items concern the same widget —
+// so the graph has a `related` edge and a `blocks` chain outside the plan.
+func backlogEdges(srcID string) []edge {
+	mk := func(from, to, typ string) edge {
+		return edge{SourceID: srcID, FromID: from, ToID: to, Type: typ}
+	}
+	return []edge{
+		mk("crabswarm-125", "crabswarm-60t", "blocks"),
+		mk("crabswarm-125", "crabswarm-hlt", "blocks"),
+		mk("crabswarm-jp7", "crabswarm-125", "discovered-from"),
+		mk("crabswarm-d46", "crabswarm-d7k", "related"),
+	}
+}
+
+// agentsEdges hang the two open agents-package tasks under that source's
+// invented plan issue, so the second source also has an epic lane.
+func agentsEdges(srcID string) []edge {
+	return []edge{
+		{SourceID: srcID, FromID: "agents-package-k1x", ToID: agentsPlanID, Type: "parent-child"},
+		{SourceID: srcID, FromID: "agents-package-m4d", ToID: agentsPlanID, Type: "parent-child"},
+	}
+}
+
+// link derives from the edge list everything an issue carries about its
+// relations — parentId, children with the counts behind the epic progress
+// bar, and the dependencies table — so the fixture cannot contradict itself.
+// parent-child edges are left out of the dependencies table: the children
+// section and the parent link in the header already show them.
+func link(issues []issue, edges []edge) error {
+	byID := make(map[string]*issue, len(issues))
+	for i := range issues {
+		byID[issues[i].Summary.ID] = &issues[i]
+		issues[i].Children = []summary{}
+		issues[i].Depends = []dependency{}
+	}
+	for _, e := range edges {
+		from, ok := byID[e.FromID]
+		if !ok {
+			return fmt.Errorf("edge %s -> %s: unknown issue %s", e.FromID, e.ToID, e.FromID)
+		}
+		to, ok := byID[e.ToID]
+		if !ok {
+			return fmt.Errorf("edge %s -> %s: unknown issue %s", e.FromID, e.ToID, e.ToID)
+		}
+		if e.Type == "parent-child" {
+			from.Summary.ParentID = to.Summary.ID
+			continue
+		}
+		from.Depends = append(from.Depends, dependency{ID: to.Summary.ID, Title: to.Summary.Title, Type: e.Type, Outgoing: true})
+		to.Depends = append(to.Depends, dependency{ID: from.Summary.ID, Title: from.Summary.Title, Type: e.Type, Outgoing: false})
+	}
+	// Children in a second pass, once every ParentID is final.
+	for i := range issues {
+		p := issues[i].Summary.ParentID
+		if p == "" {
+			continue
+		}
+		parent := byID[p]
+		parent.Children = append(parent.Children, issues[i].Summary)
+		parent.Summary.ChildCount++
+		if issues[i].Summary.Status == "ISSUE_STATUS_CLOSED" {
+			parent.Summary.ChildClosedCount++
+		}
+	}
+	return nil
 }
 
 // --- the plan issue ---------------------------------------------------------
 
-// planIssues synthesizes the plan issue and its eight step children out of the
-// plan directory's markdown, following D1's field convention.
-func planIssues(r *fieldRenderer, srcID, planDir string, backlog []issue) (issue, []issue, error) {
+// planIssues synthesizes the plan issue and its step children out of the plan
+// directory's markdown, following D1's field convention. Relations (children,
+// dependencies, counts) are filled in by link.
+func planIssues(r *fieldRenderer, srcID, planDir string) (issue, []issue, error) {
 	idea, err := os.ReadFile(filepath.Join(planDir, "IDEA.md"))
 	if err != nil {
 		return issue{}, nil, err
@@ -373,25 +476,7 @@ func planIssues(r *fieldRenderer, srcID, planDir string, backlog []issue) (issue
 	acceptance := successCriteria(string(planMD))
 	steps := stepIssues(r, srcID, string(planMD))
 	comments := planComments(r, string(decisions))
-
-	children := make([]summary, 0, len(steps))
-	for _, s := range steps {
-		children = append(children, s.Summary)
-	}
-
-	deps := make([]dependency, 0, len(discoveredFrom))
-	for _, id := range discoveredFrom {
-		title := id
-		for _, b := range backlog {
-			if b.Summary.ID == id {
-				title = b.Summary.Title
-			}
-		}
-		deps = append(
-			deps,
-			dependency{ID: id, Title: title, Type: "discovered-from", Outgoing: false},
-		)
-	}
+	metadata := fmt.Sprintf("{%q:%q}", "idea_gate", ideaGate)
 
 	plan := issue{
 		SourceID: srcID,
@@ -403,19 +488,17 @@ func planIssues(r *fieldRenderer, srcID, planDir string, backlog []issue) (issue
 			Priority:     1,
 			Labels:       []string{"plan", "preview", "proto"},
 			CommentCount: len(comments),
-			ChildCount:   len(children),
 			CreatedAt:    "2026-09-04T09:12:00Z",
 			UpdatedAt:    "2026-09-04T14:41:00Z",
+			MetadataJSON: metadata,
 		},
 		Description:        r.field(string(idea)),
 		Design:             r.field(string(planMD)),
 		AcceptanceCriteria: r.field(acceptance),
 		Notes:              r.field(string(status)),
-		MetadataJSON:       fmt.Sprintf("{%q:%q}", "idea_gate", ideaGate),
+		MetadataJSON:       metadata,
 		CloseReason:        renderedField{TOC: []heading{}},
 		Comments:           comments,
-		Children:           children,
-		Depends:            deps,
 	}
 	return plan, steps, nil
 }
@@ -531,7 +614,7 @@ var stepItem = regexp.MustCompile(`^(\d+)\. (.*)$`)
 var stepTitle = regexp.MustCompile(`^\*\*(.+?)\*\*`)
 
 // stepIssues turns PLAN.md's numbered implementation steps into child task
-// issues, ordered by `blocks` dependencies (D1 / UC7).
+// issues; planEdges orders them by `blocks` dependencies (D1 / UC7).
 func stepIssues(r *fieldRenderer, srcID, planMD string) []issue {
 	type step struct {
 		title string
@@ -554,8 +637,9 @@ func stepIssues(r *fieldRenderer, srcID, planMD string) []issue {
 		cur.body = append(cur.body, strings.TrimPrefix(line, "   "))
 	}
 
-	// Statuses per the mock's brief: 1-2 done, 3 running, the rest queued.
-	statuses := []string{"closed", "closed", "in_progress", "open", "open", "open", "open", "open"}
+	// Statuses per the mock's brief: 1-2 done, 3 running, the rest queued
+	// (steps past the slice stay open).
+	statuses := []string{"closed", "closed", "in_progress"}
 	closeReasons := map[int]string{
 		1: "Closed 2026-09-04. `Where` decodes bd's JSON envelope, `List` and `Get` decode\n" +
 			"omitted fields as empty, and the fake-`bd` tests cover the `no_beads_directory`\n" +
@@ -573,36 +657,19 @@ func stepIssues(r *fieldRenderer, srcID, planMD string) []issue {
 		if i < len(statuses) {
 			status = statuses[i]
 		}
-		deps := make([]dependency, 0, 2)
-		if n > 1 {
-			deps = append(deps, dependency{
-				ID:       fmt.Sprintf("%s.%d", planID, n-1),
-				Title:    fmt.Sprintf("Step %d — %s", n-1, steps[i-1].title),
-				Type:     "blocks",
-				Outgoing: false,
-			})
-		}
-		if n < len(steps) {
-			deps = append(deps, dependency{
-				ID:       fmt.Sprintf("%s.%d", planID, n+1),
-				Title:    fmt.Sprintf("Step %d — %s", n+1, steps[i+1].title),
-				Type:     "blocks",
-				Outgoing: true,
-			})
-		}
 		updated := fmt.Sprintf("2026-09-04T%02d:00:00Z", 10+n)
 		out = append(out, issue{
 			SourceID: srcID,
 			Summary: summary{
-				ID:        id,
-				Title:     fmt.Sprintf("Step %d — %s", n, s.title),
-				IssueType: "task",
-				Status:    protoStatus(status),
-				Priority:  priorityForStep(n),
-				Labels:    []string{"step"},
-				ParentID:  planID,
-				CreatedAt: "2026-09-04T09:30:00Z",
-				UpdatedAt: updated,
+				ID:           id,
+				Title:        fmt.Sprintf("Step %d — %s", n, s.title),
+				IssueType:    "task",
+				Status:       protoStatus(status),
+				Priority:     priorityForStep(n),
+				Labels:       []string{"step"},
+				CreatedAt:    "2026-09-04T09:30:00Z",
+				UpdatedAt:    updated,
+				MetadataJSON: "{}",
 			},
 			Description: r.field(strings.TrimSpace(strings.Join(s.body, "\n")) + "\n"),
 			Design:      renderedField{TOC: []heading{}},
@@ -614,8 +681,6 @@ func stepIssues(r *fieldRenderer, srcID, planMD string) []issue {
 			MetadataJSON: "{}",
 			CloseReason:  r.field(closeReasons[n]),
 			Comments:     []comment{},
-			Children:     []summary{},
-			Depends:      deps,
 		})
 	}
 	return out
@@ -630,9 +695,9 @@ func priorityForStep(n int) int {
 
 // --- the second, made-up source --------------------------------------------
 
-// agentsIssues are three invented issues for a second registered source, so
+// agentsIssues are four invented issues for a second registered source, so
 // the source switcher has somewhere to switch to (D13: one source per
-// repository).
+// repository): a plan issue with two open tasks under it, and one closed task.
 func agentsIssues(r *fieldRenderer, srcID string) []issue {
 	mk := func(id, title, typ, status string, priority int, labels []string, created, updated string) issue {
 		return issue{
@@ -640,16 +705,42 @@ func agentsIssues(r *fieldRenderer, srcID string) []issue {
 			Summary: summary{
 				ID: id, Title: title, IssueType: typ, Status: protoStatus(status),
 				Priority: priority, Labels: labels, CreatedAt: created, UpdatedAt: updated,
+				MetadataJSON: "{}",
 			},
 			Design:       renderedField{TOC: []heading{}},
 			Notes:        renderedField{TOC: []heading{}},
 			MetadataJSON: "{}",
 			CloseReason:  renderedField{TOC: []heading{}},
 			Comments:     []comment{},
-			Children:     []summary{},
-			Depends:      []dependency{},
 		}
 	}
+
+	plan := mk(
+		agentsPlanID,
+		"ngplan authors plans in beads",
+		"epic",
+		"open",
+		1,
+		[]string{"plan", "ngplan"},
+		"2026-09-04T15:00:00Z",
+		"2026-09-04T15:41:00Z",
+	)
+	plan.Description = r.field(`# ngplan authors plans in beads — how it should be
+
+Gate: not confirmed
+
+The skill should create a plan issue with one ` + "`bd create`" + ` and keep the
+gate, the decisions and the steps on that issue, following the convention
+crabswarm's "plans in beads" plan fixes.
+
+## Use cases
+
+### UC1 — a fresh session resumes a plan from its issue
+
+The agent reads the gate from ` + "`idea_gate`" + ` metadata, the decisions from the
+comment thread and the next step from ` + "`bd ready`" + `.
+`)
+	plan.AcceptanceCriteria = r.field("- The skill never writes `doc/plan/` files.\n- Every plan it makes renders in crabswarm preview.\n")
 
 	skill := mk(
 		"agents-package-k1x",
@@ -709,7 +800,7 @@ Blocked until crabswarm's convention is proven against its own GUI (D4).
 			"`--dep discovered-from:<step id>` and no fold moment.\n",
 	)
 
-	return []issue{skill, hook, docs}
+	return []issue{plan, skill, hook, docs}
 }
 
 // --- output -----------------------------------------------------------------

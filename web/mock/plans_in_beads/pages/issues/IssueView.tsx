@@ -1,17 +1,22 @@
 import type { Issue, IssueComment, RenderedField } from "@/api/client.js";
-import { commentKind, metadataPairs } from "@/api/issues.js";
+import { getIssue, listDependencies } from "@/api/client.js";
+import { commentKind, dependencyWording, metadataPairs, progressOf } from "@/api/issues.js";
+import type { GraphNode } from "@/lib/graph.js";
 import { shortTime, statusBadgeClass, statusLabel } from "@/lib/format.js";
 import { issueHref } from "@/lib/paths.js";
+import { IssueGraph } from "./IssueGraph.js";
+import { Progress } from "./IssueList.js";
 import { MarkdownField, fieldAnchor } from "./MarkdownField.js";
 import { useOpenIssue } from "./useIssues.js";
 
 // Issue detail (GetIssue): the bead the way bd models it — summary, the four
 // text fields rendered as markdown with mermaid, metadata, close reason,
-// children, dependencies and the comment thread (D4: generic over beads, not a
-// plan-specific view; the plan convention only shows through the `plan` label,
-// the `idea_gate` metadata chip and the Decision/Discussion comment badges).
+// children with progress, dependencies, a local graph of the issue's
+// neighbourhood (D15) and the comment thread (D4: generic over beads, not a
+// plan-specific view; the plan convention only shows through the `plan`
+// label, the `idea_gate` metadata chip and the Decision/Discussion badges).
 
-export function IssueView({ sourceId, issueId }: { sourceId: string; issueId: string }) {
+export function IssueView({ sourceId, issueId, search }: { sourceId: string; issueId: string; search: string }) {
   const issue = useOpenIssue(sourceId, issueId);
 
   if (!issue) {
@@ -28,15 +33,16 @@ export function IssueView({ sourceId, issueId }: { sourceId: string; issueId: st
   return (
     <div class="flex min-w-0 gap-4">
       <div class="min-w-0 flex-1 space-y-4">
-        <Header issue={issue} sourceId={sourceId} />
+        <Header issue={issue} sourceId={sourceId} search={search} />
         {sections.map((s) => (
           <section key={s.key}>
             <h2 class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide opacity-60">{s.title}</h2>
             <MarkdownField field={s.field} prefix={s.key} />
           </section>
         ))}
-        <Children issue={issue} sourceId={sourceId} />
-        <Dependencies issue={issue} sourceId={sourceId} />
+        <Children issue={issue} sourceId={sourceId} search={search} />
+        <Dependencies issue={issue} sourceId={sourceId} search={search} />
+        <Neighbourhood issue={issue} sourceId={sourceId} search={search} />
         <Comments issue={issue} />
       </div>
       <Toc issue={issue} />
@@ -44,10 +50,11 @@ export function IssueView({ sourceId, issueId }: { sourceId: string; issueId: st
   );
 }
 
-function Header({ issue, sourceId }: { issue: Issue; sourceId: string }) {
+function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   const s = issue.summary;
   const metadata = metadataPairs(issue.metadataJson);
   const closed = s.status === "ISSUE_STATUS_CLOSED";
+  const progress = progressOf(s);
 
   return (
     <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow-sm">
@@ -69,7 +76,7 @@ function Header({ issue, sourceId }: { issue: Issue; sourceId: string }) {
         {s.parentId && (
           <span>
             parent{" "}
-            <a class="link font-mono" href={issueHref(sourceId, s.parentId)}>
+            <a class="link font-mono" href={issueHref(sourceId, s.parentId, search)}>
               {s.parentId}
             </a>
           </span>
@@ -79,6 +86,8 @@ function Header({ issue, sourceId }: { issue: Issue; sourceId: string }) {
         {s.childCount > 0 && <span>{s.childCount} children</span>}
         {s.commentCount > 0 && <span>{s.commentCount} comments</span>}
       </div>
+
+      {progress && <Progress closed={progress.closed} total={progress.total} />}
 
       {metadata.length > 0 && (
         <div class="mt-2 flex flex-wrap gap-1" data-testid="metadata">
@@ -100,7 +109,7 @@ function Header({ issue, sourceId }: { issue: Issue; sourceId: string }) {
   );
 }
 
-function Children({ issue, sourceId }: { issue: Issue; sourceId: string }) {
+function Children({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   if (issue.children.length === 0) return null;
   return (
     <section>
@@ -120,7 +129,7 @@ function Children({ issue, sourceId }: { issue: Issue; sourceId: string }) {
             {issue.children.map((c) => (
               <tr key={c.id} class="hover">
                 <td class="font-mono text-xs">
-                  <a class="link" href={issueHref(sourceId, c.id)}>
+                  <a class="link" href={issueHref(sourceId, c.id, search)}>
                     {c.id}
                   </a>
                 </td>
@@ -128,7 +137,7 @@ function Children({ issue, sourceId }: { issue: Issue; sourceId: string }) {
                   <span class={`badge badge-xs ${statusBadgeClass(c.status)}`}>{statusLabel(c.status)}</span>
                 </td>
                 <td>
-                  <a class="link link-hover" href={issueHref(sourceId, c.id)}>
+                  <a class="link link-hover" href={issueHref(sourceId, c.id, search)}>
                     {c.title}
                   </a>
                 </td>
@@ -141,7 +150,7 @@ function Children({ issue, sourceId }: { issue: Issue; sourceId: string }) {
   );
 }
 
-function Dependencies({ issue, sourceId }: { issue: Issue; sourceId: string }) {
+function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   if (issue.dependencies.length === 0) return null;
   return (
     <section>
@@ -152,8 +161,8 @@ function Dependencies({ issue, sourceId }: { issue: Issue; sourceId: string }) {
         <table class="table table-sm">
           <thead>
             <tr>
+              <th class="w-36">relation</th>
               <th class="w-36">type</th>
-              <th class="w-40">direction</th>
               <th class="w-40">id</th>
               <th>title</th>
             </tr>
@@ -161,12 +170,12 @@ function Dependencies({ issue, sourceId }: { issue: Issue; sourceId: string }) {
           <tbody>
             {issue.dependencies.map((d) => (
               <tr key={`${d.type}-${d.id}-${String(d.outgoing)}`} class="hover">
+                <td class="text-xs">{dependencyWording(d)}</td>
                 <td>
                   <span class="badge badge-outline badge-xs">{d.type}</span>
                 </td>
-                <td class="text-xs opacity-70">{d.outgoing ? "this -> other" : "other -> this"}</td>
                 <td class="font-mono text-xs">
-                  <a class="link" href={issueHref(sourceId, d.id)}>
+                  <a class="link" href={issueHref(sourceId, d.id, search)}>
                     {d.id}
                   </a>
                 </td>
@@ -176,6 +185,33 @@ function Dependencies({ issue, sourceId }: { issue: Issue; sourceId: string }) {
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+// The issue with everything one edge away: parent, children, dependencies.
+// Edges among the neighbours themselves are drawn too when the source has
+// them, since ListDependencies returns every edge inside the given set.
+function Neighbourhood({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
+  const s = issue.summary;
+  const ids = new Set<string>([s.id]);
+  if (s.parentId !== "") ids.add(s.parentId);
+  for (const c of issue.children) ids.add(c.id);
+  for (const d of issue.dependencies) ids.add(d.id);
+  if (ids.size === 1) return null;
+
+  const nodes: GraphNode[] = [];
+  for (const id of ids) {
+    const n = id === s.id ? s : getIssue(sourceId, id)?.summary;
+    if (!n) continue;
+    nodes.push({ id: n.id, title: n.title, status: n.status, current: n.id === s.id });
+  }
+  const edges = listDependencies(sourceId, [...ids]);
+
+  return (
+    <section>
+      <h2 class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide opacity-60">Neighbourhood</h2>
+      <IssueGraph sourceId={sourceId} nodes={nodes} edges={edges} search={search} testId="local-graph" />
     </section>
   );
 }
