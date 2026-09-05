@@ -5,5 +5,5 @@
    detects source files relative to the CSS entry that imports it (web/src), so
    every utility class used only under web/mock would be dropped from the
    build. Declaring this directory as a source keeps the mock's classes. */
-@import "../../src/index.css";
+@import "#src/index.css";
 @source "./";

@@ -1,5 +1,5 @@
 // How wire values are spelled on screen: timestamps and the status enum.
-import type { IssueStatus } from "../api/client.js";
+import type { IssueStatus } from "@/api/client.js";
 
 /** Short "2026-09-04 14:41" stamp; the fixture carries RFC 3339. */
 export function shortTime(iso: string): string {

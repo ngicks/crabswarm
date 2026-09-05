@@ -6,6 +6,7 @@ import base from "../../vite.config";
 // versions, same daisyUI themes) and only moves three things:
 //
 //   root      this directory, so index.html here is served at /
+//   resolve   `@` alias to this directory (tsconfig paths mirror it)
 //   build     input is this index.html, output is a git-ignored dist/ here
 //   cacheDir  likewise a git-ignored .vite/ here, not node_modules/.vite
 //
@@ -23,6 +24,10 @@ const here = decodeURIComponent(new URL(".", import.meta.url).pathname);
 export default defineConfig({
   ...base,
   root: here,
+  // `@` → this directory, the mock's analogue of the app's `@` → src/; kept in
+  // sync with tsconfig.json `paths`. `#` → web/ needs nothing here: Vite reads
+  // package.json `imports` itself.
+  resolve: { alias: { "@": here.replace(/\/$/, "") } },
   cacheDir: `${here}.vite`, // git-ignored (web/.gitignore: /mock/*/.vite)
   // The base config proxies /assets, /raw, /healthz and the PreviewService to a
   // running preview daemon. There is no daemon behind the mock, and the proxy

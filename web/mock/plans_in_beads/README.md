@@ -65,3 +65,9 @@ Nothing under `web/src` is modified: the mock imports `src/index.css`,
 `src/signals/ui.ts` and `src/components/ThemeToggle.tsx`, and copies the
 patterns it needs from the app's `Layout.tsx`, `RootSwitcher.tsx`,
 `FileTree.tsx` and `DocView.tsx`.
+
+Import aliases follow the web preference rule: `@/…` is this directory
+(declared in `tsconfig.json` `paths` and `vite.config.ts` `resolve.alias`,
+kept in sync), and `#src/…` is the app's source through the `imports` field
+in `web/package.json` (`"#*": "./*"`), which TypeScript and Vite both read.
+Sibling files import with `./`.

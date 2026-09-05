@@ -1,8 +1,8 @@
-import { drawerOpen } from "../../../../src/signals/ui.js";
-import type { IssueStatus } from "../../api/client.js";
-import { ALL_STATUSES, emptyFilter } from "../../api/issues.js";
-import { statusBadgeClass, statusLabel } from "../../lib/format.js";
-import { issueHref } from "../../lib/paths.js";
+import { drawerOpen } from "#src/signals/ui.js";
+import type { IssueStatus } from "@/api/client.js";
+import { ALL_STATUSES, emptyFilter } from "@/api/issues.js";
+import { statusBadgeClass, statusLabel } from "@/lib/format.js";
+import { issueHref } from "@/lib/paths.js";
 import { useIssueList } from "./useIssues.js";
 
 // Left-pane issue list: the filters ListIssuesRequest carries (statuses,

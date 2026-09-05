@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "preact/hooks";
-import { theme } from "../../../../src/signals/ui.js";
-import type { RenderedField } from "../../api/client.js";
+import { theme } from "#src/signals/ui.js";
+import type { RenderedField } from "@/api/client.js";
 
 // One rendered text field (description, design, acceptance, notes, close
 // reason, comment) as the `.markdown-body` card the file browser uses for

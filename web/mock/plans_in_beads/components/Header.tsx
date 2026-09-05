@@ -1,9 +1,9 @@
-import { ThemeToggle } from "../../../src/components/ThemeToggle.js";
-import { listSources } from "../api/client.js";
-import { lastSimulated, simulateChange } from "../api/events.js";
-import { shortTime } from "../lib/format.js";
-import { sourceHref } from "../lib/paths.js";
-import { openIssueId } from "../signals/issues.js";
+import { ThemeToggle } from "#src/components/ThemeToggle.js";
+import { listSources } from "@/api/client.js";
+import { lastSimulated, simulateChange } from "@/api/events.js";
+import { shortTime } from "@/lib/format.js";
+import { sourceHref } from "@/lib/paths.js";
+import { openIssueId } from "@/signals/issues.js";
 
 // Top-of-page tab header (D6): the previewer grows a second surface beside the
 // file browser, and the URL scheme moves with it — /roots/{rootId}/… for files,

@@ -3,9 +3,9 @@
 // api/issues.ts; here they wrap the fixture accessors, which read the `issues`
 // signal, so a simulated push re-renders every caller.
 import { type Dispatch, type StateUpdater, useEffect, useState } from "preact/hooks";
-import { type Issue, getIssue } from "../../api/client.js";
-import { type IssueFilter, emptyFilter, filterIssues, labelsOf } from "../../api/issues.js";
-import { openIssueId } from "../../signals/issues.js";
+import { type Issue, getIssue } from "@/api/client.js";
+import { type IssueFilter, emptyFilter, filterIssues, labelsOf } from "@/api/issues.js";
+import { openIssueId } from "@/signals/issues.js";
 
 export interface IssueListState {
   filter: IssueFilter;

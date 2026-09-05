@@ -11,7 +11,7 @@
 import { render } from "preact";
 import { LocationProvider } from "preact-iso";
 import "./index.css";
-import "../../src/signals/ui.js"; // side effect: theme <-> <html data-theme> + markdown css
+import "#src/signals/ui.js"; // side effect: theme <-> <html data-theme> + markdown css
 import { App } from "./app.js";
 
 const root = document.getElementById("app");

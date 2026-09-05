@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "imports": {
+    "#*": "./*"
+  },
   "description": "Preact SPA frontend for `crabswarm preview` (markdown previewer).",
   "scripts": {
     "vendor": "node scripts/copy-mathjax.mjs",

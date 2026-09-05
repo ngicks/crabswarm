@@ -1,7 +1,7 @@
-import type { Issue, IssueComment, RenderedField } from "../../api/client.js";
-import { commentKind, metadataPairs } from "../../api/issues.js";
-import { shortTime, statusBadgeClass, statusLabel } from "../../lib/format.js";
-import { issueHref } from "../../lib/paths.js";
+import type { Issue, IssueComment, RenderedField } from "@/api/client.js";
+import { commentKind, metadataPairs } from "@/api/issues.js";
+import { shortTime, statusBadgeClass, statusLabel } from "@/lib/format.js";
+import { issueHref } from "@/lib/paths.js";
 import { MarkdownField, fieldAnchor } from "./MarkdownField.js";
 import { useOpenIssue } from "./useIssues.js";
 

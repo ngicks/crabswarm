@@ -1,5 +1,5 @@
-import { listSources } from "../../api/client.js";
-import { sourceHref } from "../../lib/paths.js";
+import { listSources } from "@/api/client.js";
+import { sourceHref } from "@/lib/paths.js";
 
 // Placeholder for the file browser at /roots[/{rootId}/{path...}]. The mock
 // does not re-render the first surface; see MOCK_LIMITS.md "No Roots tab".

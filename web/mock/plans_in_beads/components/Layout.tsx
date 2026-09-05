@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useLocation } from "preact-iso";
-import { sourceIdOf } from "../lib/paths.js";
+import { sourceIdOf } from "@/lib/paths.js";
 import { Header } from "./Header.js";
 
 // The frame every page renders inside: the tab header, then the routed page

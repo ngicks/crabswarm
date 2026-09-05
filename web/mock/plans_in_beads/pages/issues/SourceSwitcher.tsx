@@ -1,5 +1,5 @@
-import { listSources } from "../../api/client.js";
-import { sourceHref } from "../../lib/paths.js";
+import { listSources } from "@/api/client.js";
+import { sourceHref } from "@/lib/paths.js";
 
 // Issue sources at the top of the left drawer, the issues-tab counterpart of
 // RootSwitcher. A source is a beads database keyed by its .beads path, so one

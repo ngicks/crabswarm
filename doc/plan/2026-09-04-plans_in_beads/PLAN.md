@@ -664,7 +664,11 @@ web/src/
 
 The move of existing files (`DocView` → `pages/preview/DocumentView.tsx`,
 `src/gen` → `src/api/gen`, `routes.tsx` → `app.tsx`) is part of step 6
-and changes `api/buf.gen.yaml`'s output path for `protoc-gen-es`.
+and changes `api/buf.gen.yaml`'s output path for `protoc-gen-es`. Imports
+use the aliases the web preference rule fixes: `@/…` → `src/` (tsconfig
+`paths` plus vite `resolve.alias`, kept in sync) and `#…` → `web/` via
+`package.json` `imports` (`"#*": "./*"`, already added for the mock);
+sibling files import with `./`.
 
 ### Persistent data format
 

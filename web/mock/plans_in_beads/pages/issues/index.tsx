@@ -1,7 +1,7 @@
-import { drawerOpen } from "../../../../src/signals/ui.js";
-import { listSources } from "../../api/client.js";
-import { sourceById } from "../../api/issues.js";
-import { safeDecode, sourceHref } from "../../lib/paths.js";
+import { drawerOpen } from "#src/signals/ui.js";
+import { listSources } from "@/api/client.js";
+import { sourceById } from "@/api/issues.js";
+import { safeDecode, sourceHref } from "@/lib/paths.js";
 import { IssueList } from "./IssueList.js";
 import { IssueView } from "./IssueView.js";
 import { SourceSwitcher } from "./SourceSwitcher.js";
