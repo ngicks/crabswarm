@@ -31,6 +31,8 @@ a dogfood step; until then it stays here.
 - [x] D8 "daemon poll → WatchIssues; bd events --follow later" decided
 - [x] D14 "generic viewer: list, board, graph, detail; plans = saved filter" decided
 - [x] D15 "graph via bundled mermaid, size cap" decided (agent default, overturnable)
+- [x] D16 "board columns follow the filter; unconnected hidden; query string travels; `outgoing` = from side" decided in the mock (agent default, overturnable)
+- [x] D17 "mock pass stayed inline" recorded; HANDOFF.md opened for the Playwright / nix browser mismatch
 - [x] Contracts finalized (surface delta reflects D5–D15)
 - [x] Traceability gate passed (PLAN.md "Traceability")
 - [ ] Step 1 `crabswarm/issues` client + `Where` (D5, D13)

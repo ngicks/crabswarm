@@ -181,3 +181,34 @@ backlog of this size. Rejected: elkjs / dagre / cytoscape / react-flow
 footprint; revisit only if the cap bites in practice — that becomes the
 fallback). The user asked for the graph, not for the engine; overturn
 this entry if an interactive graph is wanted from the start.
+
+## D16 — View behaviours settled in the mock (decided 2026-09-06, agent default, overturnable) [automatic]
+
+Choice, validated in `web/mock/plans_in_beads` (see its MOCK_LIMITS.md):
+the board draws a column per status the filter lists, so bd's default
+listing (no closed issues) shows no empty closed column; the graph view
+hides issues no edge touches unless the URL says `isolated=show`, and
+says how many it hid; view options travel in the query string beside the
+filters (`lanes=none`, `isolated=show`), and the query string is carried
+onto the detail URL and back so a view survives opening an issue;
+`IssueDependency.outgoing` is true when the issue is the edge's `from`
+side (dependent, child, discoverer), parent-child rows are left out of
+the dependencies table, and the graph draws every arrow from the side
+that comes first (blocker, parent, origin).
+Rationale: a permanent four-column board sat empty on the right on every
+visit; 40 of 51 open issues have no edge and mermaid stacks them in one
+tall column that buries the graph; the wording in the dependencies table
+and the arrows in the graph must read the same edge the same way.
+Rejected: a fixed set of columns; drawing every filtered node; keeping
+`outgoing` as "this bead -> other" without saying which end that is.
+
+## D17 — Mock passes stay inline for this plan (decided 2026-09-06, agent default) [automatic]
+
+Choice: the mock's D14/D15 pass was written inline rather than delegated
+to a subagent as the ngplan visuals reference asks; the result was
+reviewed, type-checked, built and driven headless, so it is not redone.
+The next mock pass, if any, is delegated.
+Rationale: the guidance exists to keep bulk output out of the planning
+context, and that cost was already paid when the user pointed it out.
+Rejected: regenerating the same views through a subagent for the sake of
+the rule.
