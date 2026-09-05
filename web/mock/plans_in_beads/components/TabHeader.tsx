@@ -12,10 +12,13 @@ export function TabHeader({ tab, sourceId }: { tab: "roots" | "issues"; sourceId
   const last = lastSimulated.value;
 
   return (
-    <header class="navbar sticky top-0 z-30 min-h-12 gap-2 border-b border-base-300 bg-base-100 px-2">
+    // Lifted tabs sit on the header's bottom border: the active tab is painted
+    // in the content's base-200 and overlaps the border by 1px (-mb-px), so it
+    // reads as attached to the page below rather than as a toggle in the bar.
+    <header class="sticky top-0 z-30 flex min-h-12 items-end gap-2 border-b border-base-300 bg-base-100 px-2">
       <label
         for="crab-left-drawer"
-        class="btn btn-square btn-ghost btn-sm lg:hidden"
+        class="btn btn-square btn-ghost btn-sm mb-1.5 self-center lg:hidden"
         aria-label="Open the issue list"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -23,13 +26,24 @@ export function TabHeader({ tab, sourceId }: { tab: "roots" | "issues"; sourceId
         </svg>
       </label>
 
-      <span class="hidden px-2 text-sm font-semibold opacity-70 sm:inline">crabswarm preview</span>
+      <span class="hidden self-center px-2 pb-1 text-sm font-semibold opacity-70 sm:inline">
+        crabswarm preview
+      </span>
 
-      <div role="tablist" class="tabs tabs-box tabs-sm">
-        <a role="tab" href="/roots" class={`tab ${tab === "roots" ? "tab-active" : ""}`}>
+      <div
+        role="tablist"
+        class="tabs tabs-lift -mb-px [--tab-bg:var(--color-base-200)] [--tab-border-color:var(--color-base-300)]"
+      >
+        <a role="tab" href="/roots" class={`tab gap-1.5 ${tab === "roots" ? "tab-active font-medium" : ""}`}>
+          <FolderIcon />
           Roots
         </a>
-        <a role="tab" href={sourceHref(target)} class={`tab ${tab === "issues" ? "tab-active" : ""}`}>
+        <a
+          role="tab"
+          href={sourceHref(target)}
+          class={`tab gap-1.5 ${tab === "issues" ? "tab-active font-medium" : ""}`}
+        >
+          <IssueIcon />
           Issues
         </a>
       </div>
@@ -37,12 +51,12 @@ export function TabHeader({ tab, sourceId }: { tab: "roots" | "issues"; sourceId
       <div class="flex-1" />
 
       {last && (
-        <span class="hidden text-xs opacity-60 md:inline" data-testid="last-simulated">
+        <span class="hidden self-center pb-1 text-xs opacity-60 md:inline" data-testid="last-simulated">
           pushed {last.id} at {shortTime(last.at)}
         </span>
       )}
       <button
-        class="btn btn-outline btn-xs gap-1"
+        class="btn btn-outline btn-xs mb-2 gap-1 self-center"
         title="Bump one issue's title and updated_at in memory — no daemon, no WatchIssues stream (D8)"
         onClick={() => simulateChange(target, openIssueId.value)}
         disabled={tab !== "issues"}
@@ -50,7 +64,26 @@ export function TabHeader({ tab, sourceId }: { tab: "roots" | "issues"; sourceId
         <span class="badge badge-ghost badge-xs">simulated</span>
         simulate change
       </button>
-      <ThemeToggle />
+      <span class="mb-1 self-center">
+        <ThemeToggle />
+      </span>
     </header>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  );
+}
+
+function IssueIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }
