@@ -33,7 +33,12 @@ export default defineConfig({
   // running preview daemon. There is no daemon behind the mock, and the proxy
   // would swallow its own public/assets/css/*.css (the alert and chroma
   // stylesheets gen.go writes, which signals/ui.ts links) — so drop it.
-  server: {},
+  //
+  // The mock is read from other machines (phone, another host), so it listens
+  // on every interface, and Vite's DNS-rebinding guard must know the hostname
+  // it is reached by: `watage` is the dev host's magic-DNS name. Add more names
+  // here, or set `allowedHosts: true` to drop the guard for this mock only.
+  server: { host: true, allowedHosts: ["watage"] },
   build: {
     rollupOptions: { input: `${here}index.html` },
     outDir: `${here}dist`, // git-ignored (web/.gitignore: /mock/*/dist), never web/dist
