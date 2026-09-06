@@ -24,7 +24,8 @@ stream intact either way.
 
 The identity token is resolved exactly as in every other member verb, so a
 bridge configured with no token at all still inherits the one cmdman gave the
-agent.`,
+agent. A bridge that resolves none still serves, and every tool answers with
+what is missing.`,
 		Example: `  crabswarm chat mcp
   crabswarm chat mcp --sock /run/user/1000/crabswarm/daemon.sock`,
 		Args:              cobra.NoArgs,
@@ -45,9 +46,10 @@ func runChatMCP(cmd *cobra.Command, _ []string, flags *chatFlags) error {
 		return err
 	}
 
-	// The token goes through raw: New resolves it through the same
-	// cli.ResolveToken every member verb uses, and resolving it here first would
-	// only move the "no identity token" error earlier for no gain.
+	// The token goes through raw: the bridge resolves it through the same
+	// cli.ResolveToken every member verb uses, where it uses it. Resolving it
+	// here would end the process before the harness got its handshake, which is
+	// the one outcome nobody can read a reason out of.
 	srv, err := mcpserver.New(commandLogger(cmd), sock, *flags.token)
 	if err != nil {
 		return err

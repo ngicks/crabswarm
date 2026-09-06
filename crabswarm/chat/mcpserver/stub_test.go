@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -37,23 +35,27 @@ type fakeChatService struct {
 	entries   []*chatv1.HistoryEntry
 	members   []*chatv1.Member
 
-	// watchFailures is how many WatchRoom calls are refused before one is
-	// served, which is how a test plays the daemon dropping a watcher that fell
-	// behind. It is set before the bridge starts and never written again.
-	watchFailures int
 	// events is the room feed a served WatchRoom forwards. Unbuffered on
 	// purpose: a test that handed over an event knows the stub took it, which
 	// is the only synchronisation either side needs.
 	events chan *chatv1.RoomEvent
+	// drops carries the error a served WatchRoom ends with, which is how a test
+	// plays a feed the daemon cut while the bridge was reading it. Unbuffered
+	// for the reason events is.
+	drops chan error
 
 	mu sync.Mutex
 	// err, when set, fails every unary RPC — the daemon rejecting what the
 	// caller asked for rather than being unreachable. It is guarded because a
 	// test may flip it mid-session with [fakeChatService.setErr], which is how
 	// a daemon that forgot a member it had admitted is played.
-	err       error
-	join      *chatv1.JoinRequest
-	joins     int
+	err   error
+	join  *chatv1.JoinRequest
+	joins int
+	// attended is how many of those joins the stub admitted, which is what a
+	// test asking whether the bridge is a member counts. joins alone counts the
+	// asking, refusals included.
+	attended  int
 	send      *chatv1.SendRequest
 	broadcast *chatv1.BroadcastRequest
 	history   *chatv1.HistoryRequest
@@ -75,16 +77,14 @@ func (f *fakeChatService) WatchRoom(
 ) error {
 	f.mu.Lock()
 	f.watches++
-	refuse := f.watches <= f.watchFailures
 	f.mu.Unlock()
-	if refuse {
-		return status.Error(codes.ResourceExhausted, "watcher fell behind")
-	}
 	ctx := stream.Context()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case err := <-f.drops:
+			return err
 		case ev := <-f.events:
 			if err := stream.Send(ev); err != nil {
 				return err
@@ -99,8 +99,12 @@ func (f *fakeChatService) Join(
 	f.mu.Lock()
 	f.join = req
 	f.joins++
+	err := f.err
+	if err == nil {
+		f.attended++
+	}
 	f.mu.Unlock()
-	if err := f.failure(); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return &chatv1.JoinResponse{Self: f.self}, nil
@@ -188,6 +192,14 @@ func (f *fakeChatService) joinCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.joins
+}
+
+// attendCount is how many of those declarations were admitted, which is what
+// pins the bridge being a member rather than trying to become one.
+func (f *fakeChatService) attendCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.attended
 }
 
 func (f *fakeChatService) lastSend() *chatv1.SendRequest {

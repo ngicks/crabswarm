@@ -26,8 +26,7 @@ import (
 // screen against a live room. The failure paths, which never reach the screen,
 // are asserted through the binary further down.
 
-// chatSock is the socket the daemon config written by startChatDaemonKeeping
-// names.
+// chatSock is the socket the daemon config written by writeChatConfig names.
 func chatSock(cfgPath string) string {
 	return filepath.Join(filepath.Dir(cfgPath), "chat.sock")
 }

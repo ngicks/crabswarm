@@ -14,8 +14,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -35,6 +37,10 @@ type Client struct {
 	admin chatv1.ChatAdminServiceClient
 }
 
+// reconnectMaxDelay caps how long a client connection waits between attempts
+// to reach a daemon that went away.
+const reconnectMaxDelay = 2 * time.Second
+
 // Dial returns a client for the daemon listening on the Unix socket sockPath.
 // It does not connect: grpc.NewClient is lazy, so an unreachable daemon
 // surfaces on the first RPC as [ErrDaemonUnreachable] rather than here.
@@ -42,9 +48,21 @@ func Dial(sockPath string) (*Client, error) {
 	if sockPath == "" {
 		return nil, errors.New("no crabswarm socket path configured")
 	}
+	// grpc-go's default reconnect backoff climbs to two minutes, which is how
+	// long a channel left in TRANSIENT_FAILURE by a daemon outage would wait
+	// before trying the socket again. The bridge re-attends on its own after a
+	// daemon restart, and its own retry cadence is a couple of seconds, so the
+	// channel must not hold it back longer than that. A Unix socket makes a
+	// retry every two seconds cheap.
+	connectBackoff := backoff.DefaultConfig
+	connectBackoff.MaxDelay = reconnectMaxDelay
 	conn, err := grpc.NewClient(
 		"unix://"+sockPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff:           connectBackoff,
+			MinConnectTimeout: reconnectMaxDelay,
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to the crabswarm daemon at %q: %w", sockPath, err)

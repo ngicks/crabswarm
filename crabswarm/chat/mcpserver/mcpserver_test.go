@@ -44,8 +44,33 @@ func startSessionWith(
 ) *mcp.ClientSession {
 	t.Helper()
 
+	return serveBridge(t, newTestBridge(t, svc), opts)
+}
+
+// heldPace is the attend loop's wait for a case that is not about the loop: the
+// first attempt happens as it does in production and the next is due long after
+// the case has finished, so what the stub recorded is what the case itself
+// asked for. The cases about the loop set their own pace.
+const heldPace = time.Hour
+
+// newTestBridge builds a bridge onto the stub with its attend loop held at
+// [heldPace].
+func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
+	t.Helper()
+
 	bridge, err := New(slog.New(slog.DiscardHandler), serveTestDaemon(t, svc), testToken)
 	assert.NilError(t, err)
+	bridge.joinBackoffBase = heldPace
+	bridge.joinBackoffMax = heldPace
+	return bridge
+}
+
+// serveBridge runs bridge over an in-memory pipe and returns the session a
+// harness would hold.
+func serveBridge(
+	t *testing.T, bridge *Server, opts *mcp.ClientOptions,
+) *mcp.ClientSession {
+	t.Helper()
 
 	serverSide, clientSide := mcp.NewInMemoryTransports()
 	ctx, cancel := context.WithCancel(t.Context())
@@ -56,14 +81,30 @@ func startSessionWith(
 	session, err := client.Connect(t.Context(), clientSide, nil)
 	assert.NilError(t, err)
 
-	// Waiting for serve to return keeps the startup goroutine from outliving
-	// the test that owns the stub it is calling.
+	// Waiting for serve to return keeps the bridge's own goroutines from
+	// outliving the test that owns the stub they are calling.
 	t.Cleanup(func() {
 		_ = session.Close()
 		cancel()
 		_ = served.Wait()
 	})
 	return session
+}
+
+// waitFor blocks until want reports true, failing with why when it never does.
+// The wait is what a case spends on something the bridge does off its own
+// goroutines; the poll is short because everything here is local.
+func waitFor(t *testing.T, why string, want func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(eventTimeout)
+	for time.Now().Before(deadline) {
+		if want() {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("%s within %s", why, eventTimeout)
 }
 
 // textOf unwraps the one text block a chat tool answers with.
@@ -273,15 +314,104 @@ func TestServer_AttendsAgainAfterTheDaemonForgetsTheMember(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, res.IsError)
 	assert.Assert(t, strings.Contains(textOf(t, res), refusal), "got %q", textOf(t, res))
-	// The read was refused, not a join: the bridge still counted itself a
-	// member when it went out, which is the state the refusal has to undo.
-	assert.Equal(t, fake.joinCount(), 1)
+	// The read went out and came back refused: the bridge still counted itself
+	// a member, which is the state the refusal has to undo.
+	assert.Equal(t, fake.readCount(), 2)
 
 	fake.setErr(nil)
 	res, err = session.CallTool(t.Context(), read)
 	assert.NilError(t, err)
 	assert.Assert(t, !res.IsError, "tool failed: %s", textOf(t, res))
-	assert.Equal(t, fake.joinCount(), 2)
+	assert.Assert(t, fake.joinCount() > 1, "the bridge never attended again")
+}
+
+// A bridge whose daemon refuses it keeps asking, past any handful of attempts.
+// A harness starts its MCP subprocesses before the services they talk to, so
+// the daemon regularly arrives late; a bridge that stopped asking would leave
+// the room a member short until the agent happened to call a tool.
+func TestServer_KeepsAttendingUntilTheDaemonAdmitsIt(t *testing.T) {
+	fake := &fakeChatService{
+		self: member("backend", "alice", testRoom),
+		err:  status.Error(codes.Unauthenticated, "unknown identity token"),
+	}
+	bridge := newTestBridge(t, fake)
+	bridge.joinBackoffBase = 10 * time.Millisecond
+	bridge.joinBackoffMax = 20 * time.Millisecond
+	serveBridge(t, bridge, nil)
+
+	// More attempts than a bounded retry would have made. Both the attend loop
+	// and the room's feed declare attendance, so this counts what the bridge
+	// asked for rather than which goroutine asked.
+	waitFor(t, "the bridge stopped asking to attend", func() bool {
+		return fake.joinCount() > 5
+	})
+
+	fake.setErr(nil)
+	waitFor(t, "the bridge never attended once the daemon admitted it", func() bool {
+		return fake.attendCount() == 1
+	})
+}
+
+// A daemon that forgets this member mid-session — it came back on a fresh
+// database, or reaped a command its provider stopped knowing — is answered by
+// attending again, with nothing asking the bridge to. That matters because the
+// agent is not the one who noticed: its hooks report state through the CLI, and
+// they fail as Unauthenticated for as long as the room is missing the member.
+func TestServer_AttendsAgainWithoutBeingAsked(t *testing.T) {
+	fake := &fakeChatService{
+		self:   member("backend", "alice", testRoom),
+		events: make(chan *chatv1.RoomEvent),
+		drops:  make(chan error),
+	}
+	bridge := newTestBridge(t, fake)
+	bridge.joinBackoffBase = 10 * time.Millisecond
+	bridge.joinBackoffMax = 20 * time.Millisecond
+	serveBridge(t, bridge, nil)
+
+	waitFor(t, "the bridge never attended", func() bool {
+		return fake.attendCount() == 1
+	})
+
+	// The feed is what carries the news: the daemon refuses the watcher as a
+	// caller it does not count as a member.
+	dropFeed(t, fake, status.Error(codes.Unauthenticated,
+		"token is not attending any room; join first"))
+
+	waitFor(t, "the bridge never attended again", func() bool {
+		return fake.attendCount() == 2
+	})
+	assert.Equal(t, fake.readCount(), 0, "no tool call was made")
+}
+
+// A bridge whose harness handed it no identity at all — no --token, and an
+// environment stripped of both variables one could arrive in — still serves.
+// The alternative is a subprocess that exits before the handshake, which the
+// harness reports as a closed connection and nobody can read a reason out of.
+func TestServer_WithoutATokenServesToolsThatSayWhatIsMissing(t *testing.T) {
+	// This test binary may itself run under cmdman, whose variable an empty
+	// token would resolve through.
+	t.Setenv("CRABSWARM_CHAT_TOKEN", "")
+	t.Setenv("CMDMAN_CMD_ID", "")
+
+	fake := &fakeChatService{self: member("backend", "alice", testRoom)}
+	bridge, err := New(slog.New(slog.DiscardHandler), serveTestDaemon(t, fake), "")
+	assert.NilError(t, err)
+	session := serveBridge(t, bridge, nil)
+
+	res, err := session.CallTool(t.Context(), &mcp.CallToolParams{Name: "chat_members"})
+	assert.NilError(t, err)
+	assert.Assert(t, res.IsError)
+	// The words every member verb answers a missing identity with, naming what
+	// to pass and what to set.
+	text := textOf(t, res)
+	for _, want := range []string{
+		"no chat identity token", "--token", "CRABSWARM_CHAT_TOKEN", "CMDMAN_CMD_ID",
+	} {
+		assert.Assert(t, strings.Contains(text, want), "%q is missing from %q", want, text)
+	}
+
+	// Nothing was asked of the daemon on behalf of nobody.
+	assert.Equal(t, fake.joinCount(), 0)
 }
 
 func TestNew_RejectsEmptySocketPath(t *testing.T) {

@@ -236,6 +236,23 @@ func startChatDaemonKeeping(
 	adminRecipients ...string,
 ) string {
 	t.Helper()
+
+	cfgPath := writeChatConfig(t, historyLimit, commands, adminRecipients...)
+	startChatServe(t, cfgPath)
+	return cfgPath
+}
+
+// writeChatConfig writes the config a daemon and everything talking to it
+// share — the socket, the database, the stub cmdman and the admin recipients —
+// and returns its path. It starts nothing, so a case can hand the config to a
+// client that has to cope with a daemon that is not there yet.
+func writeChatConfig(
+	t *testing.T,
+	historyLimit int,
+	commands []stubCommand,
+	adminRecipients ...string,
+) string {
+	t.Helper()
 	dir := t.TempDir()
 
 	stub := filepath.Join(dir, "cmdman")
@@ -249,11 +266,18 @@ func startChatDaemonKeeping(
 		t.Fatalf("marshal admin recipients: %v", err)
 	}
 
-	sock := filepath.Join(dir, "chat.sock")
 	cfgPath := filepath.Join(dir, "config.json")
 	writeFile(t, cfgPath, fmt.Sprintf(
 		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipients":%s,"history_limit":%d}}`,
-		sock, filepath.Join(dir, "chat.db"), stub, recipients, historyLimit))
+		chatSock(cfgPath), filepath.Join(dir, "chat.db"), stub, recipients, historyLimit))
+	return cfgPath
+}
+
+// startChatServe starts `crabswarm serve` on cfgPath and returns once its
+// socket answers. The process is returned so a case can end it and start
+// another on the same config, which is what a daemon restart is.
+func startChatServe(t *testing.T, cfgPath string) *exec.Cmd {
+	t.Helper()
 
 	serve := exec.Command(crabswarmBin, "serve", "--config", cfgPath)
 	serve.Env = chatEnviron()
@@ -264,8 +288,8 @@ func startChatDaemonKeeping(
 	}
 	t.Cleanup(func() { stopProcess(t, serve) })
 
-	waitSocket(t, sock, 30*time.Second)
-	return cfgPath
+	waitSocket(t, chatSock(cfgPath), 30*time.Second)
+	return serve
 }
 
 // rewriteStubRoster replaces what the running daemon's stub cmdman knows with
@@ -431,9 +455,22 @@ const (
 // case below runs `chat join` for a token it hands to one.
 func startChatBridge(t *testing.T, cfgPath, token string) *mcp.ClientSession {
 	t.Helper()
-	cmd := exec.CommandContext(t.Context(), crabswarmBin,
-		"chat", "mcp", "--config", cfgPath, "--token", token)
-	cmd.Env = chatEnviron()
+	return startChatBridgeIn(t, cfgPath, token, chatEnviron())
+}
+
+// startChatBridgeIn is [startChatBridge] with the environment the harness hands
+// the bridge, for the cases about what a bridge can and cannot resolve out of
+// it. An empty token passes no --token at all.
+func startChatBridgeIn(
+	t *testing.T, cfgPath, token string, env []string,
+) *mcp.ClientSession {
+	t.Helper()
+	args := []string{"chat", "mcp", "--config", cfgPath}
+	if token != "" {
+		args = append(args, "--token", token)
+	}
+	cmd := exec.CommandContext(t.Context(), crabswarmBin, args...)
+	cmd.Env = env
 	// Everything the bridge says goes to stderr by design, since stdout carries
 	// the protocol; forwarding it is what makes a failing case readable.
 	cmd.Stderr = os.Stderr
@@ -441,7 +478,7 @@ func startChatBridge(t *testing.T, cfgPath, token string) *mcp.ClientSession {
 	client := mcp.NewClient(&mcp.Implementation{Name: "crabswarm-e2e", Version: "v0"}, nil)
 	session, err := client.Connect(t.Context(), &mcp.CommandTransport{Command: cmd}, nil)
 	if err != nil {
-		t.Fatalf("connect to the chat bridge for %s: %v", token, err)
+		t.Fatalf("connect to the chat bridge for %q: %v", token, err)
 	}
 	// Closing the session shuts the subprocess down the way the stdio transport
 	// is meant to: stdin first, then a wait for the process to go.
@@ -504,6 +541,42 @@ func waitChatAttendance(t *testing.T, cfgPath, token string, timeout time.Durati
 	}
 	t.Fatalf("the bridge for %s did not attend within %s; last refusal:\n%s",
 		token, timeout, refusal)
+}
+
+// waitChatRosterHas blocks until the member holding observer lists address in
+// its room, which is how one member watches another arrive.
+func waitChatRosterHas(
+	t *testing.T, cfgPath, observer, address string, timeout time.Duration,
+) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	var listed []string
+	for time.Now().Before(deadline) {
+		listed = memberAddresses(runChat(t, cfgPath, observer, "members"))
+		if slices.Contains(listed, address) {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("%s did not appear in the room within %s; the room held %v",
+		address, timeout, listed)
+}
+
+// removeChatDatabase deletes the chat store the config names, sidecars and all.
+// SQLite runs in WAL mode here, so part of what the daemon knows lives beside
+// the database file, and a daemon brought back on half of one would not be the
+// fresh start a case is playing.
+func removeChatDatabase(t *testing.T, cfgPath string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(cfgPath), "chat.db*"))
+	if err != nil {
+		t.Fatalf("look for the chat database: %v", err)
+	}
+	for _, path := range matches {
+		if err := os.Remove(path); err != nil {
+			t.Fatalf("remove %s: %v", path, err)
+		}
+	}
 }
 
 // chatMessageBody strips the stamp off a rendered message and returns the rest.
@@ -1600,5 +1673,95 @@ func TestChat_BridgeToolsCarryTheRoom(t *testing.T) {
 	slices.Sort(roster)
 	if want := []string{chatBridgeAna, chatBridgeBob}; !slices.Equal(roster, want) {
 		t.Errorf("members = %v, want %v", roster, want)
+	}
+}
+
+// A harness starts its MCP subprocesses before the services they talk to, so a
+// bridge regularly comes up against a socket nothing is listening on. It keeps
+// asking, and the room holds the member shortly after the daemon is there —
+// with no tool call to prompt it, since the agent has no reason to make one and
+// its hooks are refused until it does.
+func TestChat_BridgeAttendsOnceTheDaemonComesUp(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+
+	// The handshake is answered by a bridge with no daemon to attend.
+	bridge := startChatBridge(t, cfg, "tok-ana")
+	if got := bridge.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	}
+
+	startChatServe(t, cfg)
+
+	// Watched from another member rather than through the bridge: every tool
+	// declares attendance on its way to answering, so calling one would prove
+	// nothing about the join the bridge makes on its own.
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 5*time.Second)
+}
+
+// A daemon can go away and come back under a live bridge — restarted by its
+// operator, and back on a database that has forgotten every member. The bridge
+// attends again on its own, which is what the agent's hooks need: they report
+// harness state through the CLI, and every report is refused for as long as the
+// room is missing the member.
+func TestChat_BridgeReattendsAfterTheDaemonRestarts(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+	serve := startChatServe(t, cfg)
+	startChatBridge(t, cfg, "tok-ana")
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	stopProcess(t, serve)
+	removeChatDatabase(t, cfg)
+	startChatServe(t, cfg)
+
+	// Attendance read through a member verb, which the daemon answers for
+	// members alone. Nothing has called a tool on the bridge.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	// The hook path is what this is for: a state report reaches cmdman's status
+	// display again, on the member the bridge attended for a second time.
+	runChat(t, cfg, "tok-ana", "report-state", "working")
+	published := stubStatus(t, cfg)
+	want := "set working tok-ana --detail crabswarm chat"
+	if !slices.Contains(published, want) {
+		t.Errorf("cmdman status invocations = %q, want one of them to be %q", published, want)
+	}
+}
+
+// A harness that strips the environment leaves the bridge with no identity to
+// resolve: no --token, no $CRABSWARM_CHAT_TOKEN and no $CMDMAN_CMD_ID. It
+// answers the handshake all the same — a subprocess that exits during startup
+// reaches the user as a closed connection with no reason attached — and its
+// tools report what is missing in the words every member verb uses.
+func TestChat_BridgeWithoutAnIdentityStillServes(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+	startChatServe(t, cfg)
+
+	// What a stripped harness leaves behind: enough to find a home directory
+	// and a binary, and nothing that names a member. No $XDG_RUNTIME_DIR
+	// either, which is why the daemon socket comes from --config.
+	session := startChatBridgeIn(t, cfg, "", []string{
+		"HOME=" + os.Getenv("HOME"),
+		"PATH=" + os.Getenv("PATH"),
+	})
+	if got := session.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	}
+
+	res, err := session.CallTool(t.Context(),
+		&mcp.CallToolParams{Name: "chat_members"})
+	if err != nil {
+		t.Fatalf("call chat_members: %v", err)
+	}
+	text := chatToolText(t, res)
+	if !res.IsError {
+		t.Fatalf("chat_members answered %q, want it to report the missing identity", text)
+	}
+	for _, want := range []string{
+		"no chat identity token", "--token", chatTokenEnvVar, "CMDMAN_CMD_ID",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("chat_members = %q, want it to name %q", text, want)
+		}
 	}
 }
