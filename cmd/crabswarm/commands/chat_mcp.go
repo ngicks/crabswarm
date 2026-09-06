@@ -18,8 +18,9 @@ to type. It attends the room as it starts, so a member has an inbox before its
 first turn rather than from whenever it first says something.
 
 It is configured, not typed: the harness spawns it and speaks MCP to it, so
-stdout carries the protocol and nothing else. Logging is opt-in and goes to
-stderr, which leaves the stream intact whether or not --log is given.
+stdout carries the protocol and nothing else. Logging goes to stderr, warnings
+and above by default and whatever --log asks for otherwise, which leaves the
+stream intact either way.
 
 The identity token is resolved exactly as in every other member verb, so a
 bridge configured with no token at all still inherits the one cmdman gave the

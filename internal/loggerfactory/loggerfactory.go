@@ -1,10 +1,11 @@
-// Package loggerfactory builds an opt-in slog.Logger configured by two
+// Package loggerfactory builds a slog.Logger configured by two
 // pflag.BoolFunc flags ("--log" and "--log-level") and registers those flags
 // on a Cobra command's persistent flag set.
 //
-// Logging is opt-in: when neither flag is given (and no env-var override
-// enables it), BuildLogger returns a logger backed by slog.DiscardHandler.
-// The presence of either flag (or either env-var override) enables logging.
+// Configuring logging is opt-in, logging itself is not: when neither flag is
+// given (and no env-var override configures it), BuildLogger returns a text
+// logger at warn level. The presence of either flag (or either env-var
+// override) replaces that default with the configured format and level.
 package loggerfactory
 
 import (
@@ -34,6 +35,7 @@ type Config struct {
 //
 // The defaults applied when a flag is given without a value are "json" for
 // --log and "info" for --log-level. Both flag values are case-insensitive.
+// Either flag replaces the warn-level text default BuildLogger falls back to.
 func RegisterFlags(cmd *cobra.Command) *Config {
 	config := &Config{
 		Format: "json",
@@ -43,7 +45,8 @@ func RegisterFlags(cmd *cobra.Command) *Config {
 
 	f.BoolFunc(
 		"log",
-		`enable logging; format "text" or "json" (case-insensitive; default "json")`,
+		`log format "text" or "json" (case-insensitive; default "json");`+
+			` without it, warnings and above are logged as text`,
 		func(s string) error {
 			config.Enabled = true
 			switch v := strings.ToLower(s); v {
@@ -61,8 +64,8 @@ func RegisterFlags(cmd *cobra.Command) *Config {
 
 	f.BoolFunc(
 		"log-level",
-		`enable logging; level "trace" | "debug" | "info" | "warn" | "error" | "fatal"`+
-			` (case-insensitive; default "info")`,
+		`lowest level logged: "trace" | "debug" | "info" | "warn" | "error" | "fatal"`+
+			` (case-insensitive; default "info", "warn" without either flag)`,
 		func(s string) error {
 			config.Enabled = true
 			switch strings.ToLower(s) {
@@ -178,7 +181,7 @@ func parseLevel(s string) (slog.Level, error) {
 }
 
 // BuildLogger constructs the slog.Logger described by config. When
-// config.Enabled is false the logger discards all records.
+// config.Enabled is false the logger writes warnings and above as text.
 //
 // Output is written to os.Stderr. Pass BuildLoggerTo to redirect.
 func BuildLogger(config *Config) *slog.Logger {
@@ -188,7 +191,16 @@ func BuildLogger(config *Config) *slog.Logger {
 // BuildLoggerTo is BuildLogger with an explicit io.Writer destination.
 func BuildLoggerTo(config *Config, w io.Writer) *slog.Logger {
 	if !config.Enabled {
-		return slog.New(slog.DiscardHandler)
+		// A command nobody configured logging for still says when something went
+		// wrong: a bridge that gave up attending, a member state that never
+		// reached the display, a nudge nobody sent. Discarding those made
+		// "nothing happened" the only symptom, and nobody turns on logging for a
+		// failure they have not noticed yet.
+		//
+		// Text without the source position: this is read by whoever ran the
+		// command rather than parsed, and the message carries the whole story.
+		// Anything narrower or louder than warn is what the flags are for.
+		return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	}
 	opts := &slog.HandlerOptions{
 		AddSource: true,

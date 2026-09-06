@@ -102,7 +102,9 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 	// harness is typed at — anything else reads its inbox when it chooses to,
 	// and a line typed into it would land wherever its shell happens to be.
 	if member.Kind != chat.KindAgent {
-		t.logger.Debug("chat: not typing into a member that runs no harness",
+		// Warn, not Debug: this member will never be nudged, and without the
+		// line the operator sees only a message that sits in an inbox.
+		t.logger.Warn("chat: not typing into a member that runs no harness",
 			"member", who, "kind", member.Kind)
 		return fmt.Errorf("member runs no harness: %w", ErrDeclined)
 	}
