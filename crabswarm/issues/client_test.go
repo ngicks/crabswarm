@@ -1,12 +1,15 @@
 package issues
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"golang.org/x/sync/errgroup"
 	"gotest.tools/v3/assert"
 )
 
@@ -222,6 +225,127 @@ func TestClientGetFlagLikeID(t *testing.T) {
 	inv := invocations()
 	assert.Equal(t, len(inv), 1)
 	assert.Equal(t, inv[0].args, "show --id=-C --json --include-comments")
+}
+
+func TestClientRunSharesOneRun(t *testing.T) {
+	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
+
+	// Released together, so every caller asks while the first run is still
+	// in flight.
+	start := make(chan struct{})
+	results := make([][]Summary, 8)
+	var g errgroup.Group
+	for i := range results {
+		g.Go(func() error {
+			<-start
+			got, err := client.List(t.Context(), ListFilter{})
+			results[i] = got
+			return err
+		})
+	}
+	close(start)
+	assert.NilError(t, g.Wait())
+
+	// One bd read the database; every caller decoded that one output.
+	inv := invocations()
+	assert.Equal(t, len(inv), 1)
+	assert.Equal(t, inv[0].args, "list --json --limit 0")
+	for _, got := range results {
+		assert.Equal(t, len(got), 81)
+		assert.Equal(t, got[0].ID, results[0][0].ID)
+	}
+}
+
+func TestClientRunQueuesDifferentArguments(t *testing.T) {
+	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
+
+	var g errgroup.Group
+	g.Go(func() error {
+		_, err := client.List(t.Context(), ListFilter{})
+		return err
+	})
+	g.Go(func() error {
+		_, err := client.Get(t.Context(), "scratch-uoj")
+		return err
+	})
+	// Two different argument lists share no run, so they can only both
+	// succeed by taking the slot one after the other: the fake refuses a bd
+	// started beside another one.
+	assert.NilError(t, g.Wait())
+
+	assert.Equal(t, len(invocations()), 2)
+}
+
+func TestClientRunCancelWhileQueued(t *testing.T) {
+	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
+
+	running := make(chan error, 1)
+	go func() {
+		_, err := client.List(t.Context(), ListFilter{})
+		running <- err
+	}()
+	// The fake records itself before it sleeps, so the slot is taken by the
+	// time the invocation shows up.
+	waitInvocations(t, invocations, 1)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	queued := make(chan error, 1)
+	go func() {
+		_, err := client.Get(ctx, "scratch-uoj")
+		queued <- err
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	assert.ErrorIs(t, <-queued, context.Canceled)
+
+	select {
+	case <-running:
+		t.Fatal("the cancelled caller waited for the running bd to finish")
+	default:
+	}
+	assert.NilError(t, <-running)
+
+	// Nobody was left wanting the queued run, so it never spawned a bd.
+	inv := invocations()
+	assert.Equal(t, len(inv), 1)
+	assert.Equal(t, inv[0].args, "list --json --limit 0")
+}
+
+func TestClientRunOutlivesOneCallerLeaving(t *testing.T) {
+	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
+
+	var got []Summary
+	staying := make(chan error, 1)
+	go func() {
+		var err error
+		got, err = client.List(t.Context(), ListFilter{})
+		staying <- err
+	}()
+	waitInvocations(t, invocations, 1)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	leaving := make(chan error, 1)
+	go func() {
+		_, err := client.List(ctx, ListFilter{})
+		leaving <- err
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	assert.ErrorIs(t, <-leaving, context.Canceled)
+
+	// The run belongs to neither caller: the one that stayed still reads
+	// the output of the single bd both had joined.
+	assert.NilError(t, <-staying)
+	assert.Equal(t, len(got), 81)
+	assert.Equal(t, len(invocations()), 1)
 }
 
 func TestClientWithEnvAndBinary(t *testing.T) {

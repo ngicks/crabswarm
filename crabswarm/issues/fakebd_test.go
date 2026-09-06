@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
 )
@@ -27,6 +28,16 @@ import (
 //     call, so a poll past the end of the sequence reports no change.
 //   - show --id=<id> -> show.json for the one recorded issue, else
 //     show_not_found.json with exit 1.
+//
+// FAKE_BD_EXCLUSIVE names a lock directory that turns the fake into a stand-in
+// for the real bd's one-process-per-database rule: the invocation creates the
+// directory, fails when it already exists, sleeps long enough for an
+// overlapping invocation to reach that check, and removes it on the way out. A
+// test that sets it therefore fails on an overlap instead of assuming there was
+// none. The invocation is recorded before the check, so a run that should never
+// have started still shows up in the log. A killed invocation leaves the
+// directory behind and every later one then fails, which is also what a
+// database lock does when the process holding it dies.
 const fakeBdScript = `#!/bin/sh
 sub="$1"
 shift
@@ -44,6 +55,15 @@ done
   for a in "$@"; do printf ' %s' "$a"; done
   printf '\n'
 } >> "$FAKE_BD_LOG"
+
+if [ -n "$FAKE_BD_EXCLUSIVE" ]; then
+  if ! mkdir "$FAKE_BD_EXCLUSIVE" 2>/dev/null; then
+    echo "fake bd: another bd is already running on this database" >&2
+    exit 3
+  fi
+  trap 'rmdir "$FAKE_BD_EXCLUSIVE"' EXIT
+  sleep 0.3
+fi
 
 case "$sub" in
 where)
@@ -96,6 +116,34 @@ type invocation struct {
 	args     string // subcommand and flags, space-joined
 }
 
+// requireExclusiveFakeBd makes every following fake bd refuse to run beside
+// another one, the way the real bd refuses a database a second process holds.
+// It must be called after [installFakeBd], whose leak guard clears the
+// variable.
+func requireExclusiveFakeBd(t *testing.T) {
+	t.Helper()
+	// The fake creates the directory itself, so name one under a directory
+	// that exists and nothing else uses.
+	t.Setenv("FAKE_BD_EXCLUSIVE", filepath.Join(t.TempDir(), "database.lock"))
+}
+
+// waitInvocations blocks until n invocations have been recorded. It is how a
+// test lands a second caller inside the window of a bd that is already
+// running: the fake records itself before it sleeps.
+func waitInvocations(t *testing.T, invocations func() []invocation, n int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if got := len(invocations()); got >= n {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("waited for %d invocations, saw %d", n, len(invocations()))
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 // installFakeBd writes the fake bd onto a fresh dir prepended to PATH and
 // returns a function reading back the invocations recorded so far. It uses
 // t.Setenv, so the test cannot be parallel.
@@ -117,6 +165,7 @@ func installFakeBd(t *testing.T) (invocations func() []invocation) {
 	t.Setenv("FAKE_BD_NO_BEADS", "")
 	t.Setenv("FAKE_BD_LIST_SEQUENCE", "")
 	t.Setenv("FAKE_BD_EXTRA", "")
+	t.Setenv("FAKE_BD_EXCLUSIVE", "")
 	t.Setenv("BD_JSON_ENVELOPE", "")
 
 	return func() []invocation {
@@ -126,8 +175,18 @@ func installFakeBd(t *testing.T) (invocations func() []invocation) {
 			return nil
 		}
 		assert.NilError(t, err)
+		// A test reads the log while a fake bd may still be writing to it,
+		// and the fake writes its line in several pieces. Everything up to
+		// the last newline is a whole line; a tail without one is half of
+		// the line the next read reports.
+		recorded := string(b)
+		if i := strings.LastIndexByte(recorded, '\n'); i >= 0 {
+			recorded = recorded[:i]
+		} else {
+			recorded = ""
+		}
 		var out []invocation
-		for line := range strings.SplitSeq(strings.TrimSuffix(string(b), "\n"), "\n") {
+		for line := range strings.SplitSeq(recorded, "\n") {
 			if line == "" {
 				continue
 			}
