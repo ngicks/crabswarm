@@ -19,9 +19,10 @@ import (
 )
 
 // allStatuses names every status bd stores. bd's own listing hides closed
-// issues, so anything that has to see one — the poll diff, the child tally
-// behind the epic progress affordance, an epic's closed children — asks for
-// all of them explicitly.
+// issues, so the shared listing behind every read asks for all of them
+// explicitly: a closed issue still has to reach the poll diff, an epic's
+// children and a dependency graph. Narrowing to what a request asked for
+// happens afterwards, in [filterSummaries].
 var allStatuses = []Status{
 	StatusOpen,
 	StatusInProgress,
@@ -37,20 +38,26 @@ type Renderer interface {
 	Render(src []byte) (render.Document, error)
 }
 
-// issueReader is the part of [Client] the service reads a source through.
+// issueReader is the part of [Client] a source is read through: the listing
+// its [Poller] runs, and the `bd show` behind GetIssue.
 type issueReader interface {
 	IssueLister
 	Get(ctx context.Context, id string) (*Issue, error)
 }
 
 // Service implements [issuesv1connect.IssuesServiceHandler] over a
-// [SourceStore], one bd reader per registered source, and a [Renderer] for
-// every markdown field an issue carries. It runs one [Poller] per source and
-// fans the diffs out to WatchIssues subscribers.
+// [SourceStore], one bd reader and [Poller] per registered source, and a
+// [Renderer] for every markdown field an issue carries.
 //
-// Pollers start when a source is added and stop when it is removed, all
-// under the errgroup created by [Service.Run]. Adding or removing a source
-// also publishes a SourcesChanged event.
+// A source's poller owns the one listing every read of that source derives
+// from, so a board, an issue's children and a dependency graph share a single
+// `bd list`. It exists as soon as the source is first read, whether or not
+// [Service.Run] is running; Run only adds the ticker that polls it on a
+// schedule and fans the diffs out to WatchIssues subscribers.
+//
+// Tickers start when a source is added and stop when it is removed, all under
+// the errgroup created by Run. Adding or removing a source also publishes a
+// SourcesChanged event.
 type Service struct {
 	logger   *slog.Logger
 	renderer Renderer
@@ -64,15 +71,23 @@ type Service struct {
 	newClient func(dir string) issueReader
 
 	mu      sync.Mutex
-	clients map[string]issueReader // sourceID -> reader
-	group   *errgroup.Group        // poller supervisor; set while Run runs
-	runCtx  context.Context        // parent of every poller context; nil until Run
-	pollers map[string]*pollHandle // sourceID -> running poller
+	states  map[string]*sourceState // sourceID -> reader and poller
+	group   *errgroup.Group         // ticker supervisor; set while Run runs
+	runCtx  context.Context         // parent of every ticker context; nil until Run
+	pollers map[string]*pollHandle  // sourceID -> running ticker
 }
 
-// pollHandle is the per-source poller registration. The pointer identity
-// lets a poller goroutine deregister only its own entry, so a
-// remove-then-re-add race never drops the newer poller.
+// sourceState is what a source is read through: the bd reader and the poller
+// holding that source's one shared listing. Both are built on the first read
+// of the source and dropped together when it is removed.
+type sourceState struct {
+	reader issueReader
+	poller *Poller
+}
+
+// pollHandle is the per-source ticker registration. The pointer identity
+// lets a ticker goroutine deregister only its own entry, so a
+// remove-then-re-add race never drops the newer ticker.
 type pollHandle struct {
 	cancel context.CancelFunc
 }
@@ -118,7 +133,7 @@ func NewService(
 		store:    store,
 		interval: defaultPollInterval,
 		hub:      newEventHub(),
-		clients:  make(map[string]issueReader),
+		states:   make(map[string]*sourceState),
 		pollers:  make(map[string]*pollHandle),
 	}
 	s.newClient = func(dir string) issueReader {
@@ -130,9 +145,11 @@ func NewService(
 	return s
 }
 
-// Run supervises one [Poller] per registered source until ctx is cancelled.
-// It blocks for its whole lifetime and returns nil on a clean shutdown, so
-// it composes as an errgroup.Group.Go body next to an HTTP server.
+// Run polls every registered source on the service's interval until ctx is
+// cancelled. It blocks for its whole lifetime and returns nil on a clean
+// shutdown, so it composes as an errgroup.Group.Go body next to an HTTP
+// server. Reads do not wait for it: a source is read through its [Poller]
+// whether or not Run ever started the ticker driving that poller.
 func (s *Service) Run(ctx context.Context) error {
 	g, gctx := errgroup.WithContext(ctx)
 
@@ -156,16 +173,18 @@ func (s *Service) Run(ctx context.Context) error {
 	return g.Wait()
 }
 
-// startPoller locks s.mu and starts a poller for src.
+// startPoller locks s.mu and starts src's poll ticker.
 func (s *Service) startPoller(src Source) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.startPollerLocked(src)
 }
 
-// startPollerLocked launches a poller for src under the Run errgroup unless
-// one is already running or the service is not running. The caller holds
-// s.mu.
+// startPollerLocked runs src's poller on its interval under the Run errgroup,
+// unless the ticker is already running or the service is not. It does not
+// create the poller: a source has one from its first read, so an RPC arriving
+// before Run — or with no Run at all — still reads through it. The caller
+// holds s.mu.
 func (s *Service) startPollerLocked(src Source) {
 	if s.group == nil || s.runCtx == nil || s.runCtx.Err() != nil {
 		return
@@ -173,19 +192,7 @@ func (s *Service) startPollerLocked(src Source) {
 	if _, ok := s.pollers[src.ID]; ok {
 		return
 	}
-	poller := NewPoller(
-		s.logger,
-		src.ID,
-		s.clientLocked(src),
-		s.interval,
-		func(sourceID string, issueIDs []string) {
-			s.hub.Publish(event{
-				kind:     issuesChanged,
-				sourceID: sourceID,
-				issueIDs: issueIDs,
-			})
-		},
-	)
+	poller := s.stateLocked(src).poller
 
 	pctx, cancel := context.WithCancel(s.runCtx)
 	handle := &pollHandle{cancel: cancel}
@@ -201,28 +208,50 @@ func (s *Service) startPollerLocked(src Source) {
 	})
 }
 
-// clientLocked returns the bd reader for src, building it on first use. The
-// caller holds s.mu.
-func (s *Service) clientLocked(src Source) issueReader {
-	if c, ok := s.clients[src.ID]; ok {
-		return c
+// stateLocked returns the reader and poller of src, building both on first
+// use. The caller holds s.mu.
+func (s *Service) stateLocked(src Source) *sourceState {
+	if st, ok := s.states[src.ID]; ok {
+		return st
 	}
-	c := s.newClient(src.Dir)
-	s.clients[src.ID] = c
-	return c
+	reader := s.newClient(src.Dir)
+	st := &sourceState{
+		reader: reader,
+		poller: NewPoller(
+			s.logger,
+			src.ID,
+			reader,
+			s.interval,
+			func(sourceID string, issueIDs []string) {
+				s.hub.Publish(event{
+					kind:     issuesChanged,
+					sourceID: sourceID,
+					issueIDs: issueIDs,
+				})
+			},
+		),
+	}
+	s.states[src.ID] = st
+	return st
 }
 
-// source resolves a request's source id to its registration and bd reader,
+// state resolves a request's source id to what the source is read through,
 // reporting a connect NotFound when nothing is registered under that id.
-func (s *Service) source(id string) (Source, issueReader, error) {
-	src, ok := s.store.Get(id)
-	if !ok {
-		return Source{}, nil, connect.NewError(connect.CodeNotFound,
-			fmt.Errorf("source %q not found", id))
-	}
+//
+// The registry is read under s.mu, the same lock RemoveSource drops a source
+// and its state under, so a removal landing beside a request either happens
+// first — nothing is built — or after, and takes the state built here with
+// it. Reading the registry outside the lock would leave a rebuilt reader and
+// poller behind for a source nobody can reach.
+func (s *Service) state(id string) (*sourceState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return src, s.clientLocked(src), nil
+	src, ok := s.store.Get(id)
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("source %q not found", id))
+	}
+	return s.stateLocked(src), nil
 }
 
 // --- issuesv1connect.IssuesServiceHandler ---
@@ -266,11 +295,11 @@ func (s *Service) AddSource(
 		// A RemoveSource of the same (deterministic) source ID can land
 		// between the registration above and this lock, so the registry is
 		// read again under s.mu rather than trusted. RemoveSource drops the
-		// source and cancels its poller in one section under the same lock,
-		// which leaves two orderings and no third: it ran first, the source is
-		// gone and no poller starts; it runs after, and it cancels the poller
-		// started here. Either way a registered source is polled and an
-		// unregistered one is not.
+		// source, its reader and its poller, and cancels its ticker in one
+		// section under the same lock, which leaves two orderings and no
+		// third: it ran first, the source is gone and no ticker starts; it
+		// runs after, and it takes the ticker started here with it. Either
+		// way a registered source is polled and an unregistered one is not.
 		s.mu.Lock()
 		if _, stillRegistered := s.store.Get(src.ID); stillRegistered {
 			s.startPollerLocked(src)
@@ -284,7 +313,8 @@ func (s *Service) AddSource(
 	}), nil
 }
 
-// RemoveSource drops a registered source and stops its poller.
+// RemoveSource drops a registered source, stops its poll ticker and forgets
+// the reader and poller it was read through, so re-adding it starts fresh.
 func (s *Service) RemoveSource(
 	_ context.Context,
 	req *connect.Request[issuesv1.RemoveSourceRequest],
@@ -302,68 +332,45 @@ func (s *Service) RemoveSource(
 		h.cancel()
 		delete(s.pollers, src.ID)
 	}
-	delete(s.clients, src.ID)
+	delete(s.states, src.ID)
 	s.mu.Unlock()
 
 	s.hub.Publish(event{kind: sourcesChanged})
 	return connect.NewResponse(&issuesv1.RemoveSourceResponse{}), nil
 }
 
-// ListIssues lists a source's issues newest-updated first.
+// ListIssues lists a source's issues newest-updated first. The request's
+// filter is applied to the source's shared listing rather than handed to bd,
+// so a board costs the one listing every other read of the source shares.
 func (s *Service) ListIssues(
 	ctx context.Context,
 	req *connect.Request[issuesv1.ListIssuesRequest],
 ) (*connect.Response[issuesv1.ListIssuesResponse], error) {
-	_, client, err := s.source(req.Msg.GetSourceId())
+	st, err := s.state(req.Msg.GetSourceId())
 	if err != nil {
 		return nil, err
 	}
 
-	listed, err := client.List(ctx, ListFilter{
+	listed, err := st.poller.Refresh(ctx)
+	if err != nil {
+		return nil, s.bdError("listing issues", err)
+	}
+
+	// The tally reads the whole listing, not the filtered result: a child
+	// hidden by the request's own filter still counts towards its parent.
+	counts := childCounts(listed)
+	matched := filterSummaries(listed, ListFilter{
 		Statuses:      statusesFromProto(req.Msg.GetStatuses()),
 		Labels:        req.Msg.GetLabels(),
 		ParentID:      req.Msg.GetParentId(),
 		SortByUpdated: true,
 	})
-	if err != nil {
-		return nil, s.bdError("listing issues", err)
-	}
-	counts, err := s.childCounts(ctx, client)
-	if err != nil {
-		return nil, s.bdError("tallying children", err)
-	}
 
-	out := make([]*issuesv1.IssueSummary, len(listed))
-	for i, sum := range listed {
+	out := make([]*issuesv1.IssueSummary, len(matched))
+	for i, sum := range matched {
 		out[i] = summaryToProto(sum, counts[sum.ID])
 	}
 	return connect.NewResponse(&issuesv1.ListIssuesResponse{Issues: out}), nil
-}
-
-// childCounts tallies every issue's children by parent. bd's listing carries
-// no child count, so one extra all-status listing pays for both the total
-// and the closed count the epic progress affordance needs.
-func (s *Service) childCounts(
-	ctx context.Context,
-	client IssueLister,
-) (map[string]childCount, error) {
-	all, err := client.List(ctx, ListFilter{Statuses: allStatuses})
-	if err != nil {
-		return nil, err
-	}
-	counts := make(map[string]childCount)
-	for _, sum := range all {
-		if sum.ParentID == "" {
-			continue
-		}
-		c := counts[sum.ParentID]
-		c.total++
-		if sum.Status == StatusClosed {
-			c.closed++
-		}
-		counts[sum.ParentID] = c
-	}
-	return counts, nil
 }
 
 // GetIssue returns one issue with every markdown field rendered to HTML, its
@@ -372,13 +379,24 @@ func (s *Service) GetIssue(
 	ctx context.Context,
 	req *connect.Request[issuesv1.GetIssueRequest],
 ) (*connect.Response[issuesv1.GetIssueResponse], error) {
-	_, client, err := s.source(req.Msg.GetSourceId())
+	st, err := s.state(req.Msg.GetSourceId())
 	if err != nil {
 		return nil, err
 	}
 	id := req.Msg.GetIssueId()
 
-	issue, err := client.Get(ctx, id)
+	// The listing is asked for before `bd show`, not after it: opening a
+	// detail page fires this call beside ListIssues and ListDependencies, and
+	// joining the listing first is what collapses all three onto one. Reading
+	// the issue first would let the show finish and then start a second
+	// listing of its own. Nothing is lost by the order — one bd runs at a
+	// time per source either way.
+	listed, err := st.poller.Refresh(ctx)
+	if err != nil {
+		return nil, s.bdError("listing issues", err)
+	}
+
+	issue, err := st.reader.Get(ctx, id)
 	if err != nil {
 		// bd reports a missing id and a broken invocation the same way, a
 		// non-zero exit with a message, so the id the caller asked for is
@@ -388,19 +406,10 @@ func (s *Service) GetIssue(
 			fmt.Errorf("issue %q not found", id))
 	}
 
-	// Children are listed with every status so a closed child still shows in
-	// an epic's progress. Their own child counts stay zero: tallying those
-	// costs a listing per child, and the UI asks for a child when it opens
-	// one.
-	children, err := client.List(ctx, ListFilter{
-		ParentID: id,
-		Statuses: allStatuses,
-	})
-	if err != nil {
-		return nil, s.bdError("listing children", err)
-	}
-
-	pbIssue, err := s.issueToProto(issue, children)
+	// Children come from the listing with every status, so a closed child
+	// still shows in an epic's progress. Their own child counts stay zero:
+	// the UI asks for a child when it opens one.
+	pbIssue, err := s.issueToProto(issue, childrenOf(listed, id))
 	if err != nil {
 		return nil, err
 	}
@@ -503,14 +512,14 @@ func (s *Service) renderField(src string) (*issuesv1.RenderedField, error) {
 }
 
 // ListDependencies returns the edges running between the request's issues,
-// or every edge of the source when issue_ids is empty. A listing already
-// carries each issue's outgoing edges, so a graph costs one bd call however
-// many nodes it draws.
+// or every edge of the source when issue_ids is empty. The shared listing
+// already carries each issue's outgoing edges, so a graph costs no bd call of
+// its own however many nodes it draws.
 func (s *Service) ListDependencies(
 	ctx context.Context,
 	req *connect.Request[issuesv1.ListDependenciesRequest],
 ) (*connect.Response[issuesv1.ListDependenciesResponse], error) {
-	_, client, err := s.source(req.Msg.GetSourceId())
+	st, err := s.state(req.Msg.GetSourceId())
 	if err != nil {
 		return nil, err
 	}
@@ -525,30 +534,15 @@ func (s *Service) ListDependencies(
 		}
 	}
 
-	// Every status is asked for: bd's default listing hides closed issues,
-	// and an epic's finished children are part of its graph.
-	listed, err := client.List(ctx, ListFilter{Statuses: allStatuses})
+	listed, err := st.poller.Refresh(ctx)
 	if err != nil {
 		return nil, s.bdError("listing issues", err)
 	}
 
-	out := make([]*issuesv1.IssueEdge, 0, len(listed))
-	for _, sum := range listed {
-		for _, e := range sum.Dependencies {
-			// A listing reports every outgoing edge of every issue in it, so
-			// an edge can leave the requested set. Those are dropped: a client
-			// asking for a set of issues is drawing that set, and an edge to a
-			// node it does not hold is one it cannot place.
-			if keep != nil {
-				if _, ok := keep[e.FromID]; !ok {
-					continue
-				}
-				if _, ok := keep[e.ToID]; !ok {
-					continue
-				}
-			}
-			out = append(out, edgeToProto(e))
-		}
+	edges := listingEdges(listed, keep)
+	out := make([]*issuesv1.IssueEdge, len(edges))
+	for i, e := range edges {
+		out[i] = edgeToProto(e)
 	}
 	return connect.NewResponse(&issuesv1.ListDependenciesResponse{Edges: out}), nil
 }

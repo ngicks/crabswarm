@@ -115,6 +115,65 @@ func TestWatchIssuesStreamsPolledChanges(t *testing.T) {
 	}
 }
 
+// TestWatchIssuesReportsChangeARequestFound drives the change feed with no
+// poll behind it: [Service.Run] never runs, so the two ListIssues calls are
+// the only listings this source ever gets. The second one is where the
+// backlog moves, and a subscriber hears about it from that request rather
+// than from a tick that has not happened.
+func TestWatchIssuesReportsChangeARequestFound(t *testing.T) {
+	installFakeBd(t)
+	// The first listing is the baseline and the second differs from it in one
+	// issue, crabswarm-jp7, whose update time moved.
+	t.Setenv("FAKE_BD_LIST_SEQUENCE", "list.json:list_changed.json")
+
+	svc := newTestService(t)
+
+	mux := http.NewServeMux()
+	mux.Handle(issuesv1connect.NewIssuesServiceHandler(svc))
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	client := issuesv1connect.NewIssuesServiceClient(srv.Client(), srv.URL)
+
+	streamCtx, cancelStream := context.WithCancel(t.Context())
+	defer cancelStream()
+	events := make(chan *issuesv1.WatchIssuesResponse, subBuffer)
+	streamErr := make(chan error, 1)
+	go func() {
+		stream, err := client.WatchIssues(streamCtx,
+			connect.NewRequest(&issuesv1.WatchIssuesRequest{}))
+		if err != nil {
+			streamErr <- err
+			return
+		}
+		defer func() { _ = stream.Close() }()
+		for stream.Receive() {
+			events <- stream.Msg()
+		}
+		streamErr <- stream.Err()
+	}()
+	waitSubscribed(t, svc.hub)
+
+	added, err := client.AddSource(t.Context(),
+		connect.NewRequest(&issuesv1.AddSourceRequest{Dir: t.TempDir()}))
+	assert.NilError(t, err)
+	assert.Assert(t, nextEvent(t, events, streamErr).GetSourcesChanged() != nil)
+
+	sourceID := added.Msg.GetSource().GetId()
+	list := connect.NewRequest(&issuesv1.ListIssuesRequest{SourceId: sourceID})
+	// A source read before any Run still has its poller, so this listing
+	// records the baseline.
+	_, err = client.ListIssues(t.Context(), list)
+	assert.NilError(t, err)
+
+	_, err = client.ListIssues(t.Context(), list)
+	assert.NilError(t, err)
+
+	changed := nextEvent(t, events, streamErr).GetIssuesChanged()
+	assert.Assert(t, changed != nil)
+	assert.Equal(t, changed.GetSourceId(), sourceID)
+	assert.DeepEqual(t, changed.GetIssueIds(), []string{"crabswarm-jp7"})
+}
+
 // nextEvent takes the next stream message, failing the test rather than
 // hanging when none arrives or the stream ends first.
 func nextEvent(
