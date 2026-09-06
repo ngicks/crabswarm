@@ -1,7 +1,8 @@
 # Status
 
-Current state: **implementing** (started 2026-09-06, on `main`, one
-commit per step, D26) — idea gate confirmed 2026-09-04; 27
+Current state: **implemented** (2026-09-06, on `main`, one commit per
+step, D26; the plan is now beads issue `crabswarm-lpq` and this
+directory is history) — idea gate confirmed 2026-09-04; 32
 decisions recorded (D14 generic viewer and D15 mermaid neighbourhood
 2026-09-05; D16–D24 from the mock 2026-09-06, D20 dropping the board and
 graph views for GitHub's Open / Closed / Plans buttons, D21 zoom and pan
@@ -63,8 +64,12 @@ a dogfood step; until then it stays here.
 - [x] Step 6b sources, search bar, state buttons, labels page, list + detail, WatchIssues, neighbourhood graph in the app; mock removed (D8, D14, D15, D18, D20, D21, D23, D24, D31, D32) — 27 Playwright checks against a fake bd; commit fe28adc
 - [x] Step 7 neighbourhood graph end to end (D15, D21) — delivered by a35cbec (data) and fe28adc (view)
 - [x] Step 8a `.apm/instructions/base.instructions.md` updated (the user regenerates AGENTS.md / CLAUDE.md with apm)
-- [ ] Step 8b agents-package boundary issue + bd events follow-up issue, `discovered-from` the plan issue (after step 9)
-- [ ] Step 9 dogfood: this plan as the first plan issue (D1, D7)
+- [x] Step 8b boundary issues `crabswarm-bs3` (ngplan skill authors beads) and `crabswarm-bkb` (poller → `bd events --follow`), both `discovered-from` the plan issue
+- [x] Step 9 dogfood: this plan is beads issue `crabswarm-lpq` (epic, `plan` label, `idea_gate_passed=2026-09-04`, nine closed `step` children chained by `blocks`, D1–D32 as `Decision:` comments, Q14 / Q16 as `Discussion:` comments); `crabswarm issues lint` passes on it (D1, D7)
 
-Next action: the user reviews the plan (D15 in particular); implementation
-starts with step 1 (`crabswarm/issues` client) in a fresh worktree.
+Next action: the user reviews the implementation (17 commits from
+dd6de5b to 50701bd on `main`), runs `apm install` at the checkout root
+to deploy the Stop hook and regenerate AGENTS.md, and triages
+`HANDOFF.md`, whose entries were not folded into beads because the run
+was unattended. Note for reading the plan issue back: `bd list --parent
+crabswarm-lpq` hides closed children without `--status all`.
