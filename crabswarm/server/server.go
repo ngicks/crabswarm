@@ -113,6 +113,16 @@ func expandHome(path string) (string, error) {
 }
 
 func (s *Server) Serve(ctx context.Context) error {
+	if s.sockPath == "" {
+		return fmt.Errorf("server listen target not specified")
+	}
+	// The lock file sits beside the socket, so its directory has to exist
+	// before the lock is taken; on a fresh boot the runtime directory holds
+	// no crabswarm/ yet and the first daemon creates it.
+	if err := os.MkdirAll(filepath.Dir(s.sockPath), 0o700); err != nil {
+		return fmt.Errorf("creating the socket directory: %w", err)
+	}
+
 	// Acquire exclusive lock on <sockPath>.lock to prevent duplicate servers.
 	lockPath := s.sockPath + ".lock"
 	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
