@@ -1,6 +1,7 @@
 # Status
 
-Current state: **planned** — idea gate confirmed 2026-09-04; 25
+Current state: **implementing** (started 2026-09-06, on `main`, one
+commit per step, D26) — idea gate confirmed 2026-09-04; 27
 decisions recorded (D14 generic viewer and D15 mermaid neighbourhood
 2026-09-05; D16–D24 from the mock 2026-09-06, D20 dropping the board and
 graph views for GitHub's Open / Closed / Plans buttons, D21 zoom and pan
@@ -51,10 +52,11 @@ a dogfood step; until then it stays here.
 - [ ] Q14 "where the query is evaluated" open for step 4
 - [x] Contracts finalized (surface delta reflects D5–D15)
 - [x] Traceability gate passed (PLAN.md "Traceability")
-- [ ] Step 1 `crabswarm/issues` client + `Where` (D5, D13)
-- [ ] Step 2 `mermaidlint` over `mermaid-lint` (D9)
+- [x] Step 1 `crabswarm/issues` client + `Where` (D5, D13, D27) — `Where`, `Client.List/Children/Get`, fake-bd tests; commit d7dcc71
+- [x] Step 4a `issues/v1` proto and generated bindings — commit dd6de5b
+- [x] Step 2 `mermaidlint` over `mermaid-lint` (D9, D28) — one run over temp files, findings mapped back, real-binary test; commit d6176c1
 - [ ] Step 3 `crabswarm issues lint` + Stop hook + apm wiring (D3, D10, D11, D12)
-- [ ] Step 4 `issues/v1` proto, `SourceStore`, `IssuesService` (D6, D13)
+- [x] Step 4 `issues/v1` proto, `SourceStore`, `IssuesService`, `Poller` → `WatchIssues` (D6, D8, D13, D29) — mounted beside PreviewService; `ListDependencies` still Unimplemented (step 7); commit 4f09d5f
 - [ ] Step 5 `crabswarm preview --root / --issue`, list, remove (D13)
 - [ ] Step 6 SPA tabs, `/roots` move, sources, search bar, state buttons, labels page, list + detail (D4, D6, D8, D14, D18, D19, D20, D23, D24)
 - [ ] Step 7 `ListDependencies` + neighbourhood graph with zoom and pan (D15, D21)

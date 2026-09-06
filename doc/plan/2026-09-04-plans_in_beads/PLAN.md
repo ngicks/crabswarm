@@ -640,19 +640,33 @@ type Status string // open, in_progress, blocked, deferred, closed
 // dependency as the other issue's record plus the edge kind. Omitted
 // JSON fields decode as empty.
 
-// SourceStore mirrors preview.RootStore: in-memory, keyed by the ID
-// derived from Location.BeadsPath, deduplicated by name (Prefix).
+// SourceStore mirrors preview.RootStore: in-memory, keyed by a hash of
+// Location.BeadsPath, so every worktree of one repository is one source.
+type Source struct{ ID, BeadsPath, Prefix, Dir string }
 type SourceStore struct{ /* ... */ }
+func NewSourceStore() *SourceStore
+func (s *SourceStore) Add(ctx context.Context, dir string) (Source, bool, error) // bool: newly added
+func (s *SourceStore) Get(id string) (Source, bool)
+func (s *SourceStore) List() []Source
+func (s *SourceStore) Remove(id string) bool
 
 // Service implements issuesv1connect.IssuesServiceHandler over a
-// SourceStore, one Client per source, and render.Render for every text
-// field. It runs one Poller per source for WatchIssues.
+// SourceStore, one Client per source, and the previewer's renderer for
+// every text field. Run supervises one Poller per source for WatchIssues.
+type Renderer interface{ Render(src []byte) (render.Document, error) }
 type Service struct{ /* ... */ }
-func NewService(logger *slog.Logger, renderer Renderer, opts ...ServiceOption) *Service
+func NewService(logger *slog.Logger, renderer Renderer, store *SourceStore, opts ...ServiceOption) *Service
 func WithPollInterval(d time.Duration) ServiceOption // default 10s
+func (s *Service) Run(ctx context.Context) error
 
-// Poller lists a source on an interval and emits IssuesChanged diffs.
+// Poller lists a source on an interval and emits IssuesChanged diffs
+// (new, updated and vanished ids; the first poll only primes the baseline).
+type IssueLister interface{ List(ctx context.Context, f ListFilter) ([]Summary, error) }
 type Poller struct{ /* ... */ }
+func NewPoller(logger *slog.Logger, sourceID string, lister IssueLister, interval time.Duration, emit func(sourceID string, issueIDs []string)) *Poller
+func (p *Poller) Run(ctx context.Context) error
+
+// crabswarm/preview/httpapi: Config.Issues issuesv1connect.IssuesServiceHandler — nil leaves /issues unmounted.
 
 // crabswarm/issues/mermaidlint — runs mermaid-lint over issue text.
 package mermaidlint
@@ -666,11 +680,18 @@ type Finding struct {
     Type    string // diagram type as mermaid-lint reports it
     Message string // parser message
 }
-// Lint writes each non-empty text field and comment of every issue to a
-// temp file, runs `mermaid-lint --format json --quiet` once over them and
-// maps the JSON back to findings. Issues with no ```mermaid fence are
-// skipped before any file is written.
-func Lint(ctx context.Context, issues []issues.Issue) ([]Finding, error)
+// Lint writes each text field and comment that holds a ```mermaid fence
+// to a temp file, runs `mermaid-lint --format json --quiet` once over
+// them and maps the JSON back to findings; a set with no fence runs no
+// binary. A parse failure and a rule warning of severity "error" both
+// become a Finding (the file hook exits 1 on both).
+func Lint(ctx context.Context, issues []issues.Issue, opts ...Option) ([]Finding, error)
+type Option func(*linter)
+func WithBinary(path string) Option   // default "mermaid-lint" on PATH
+func WithDir(dir string) Option       // run in the source's directory so its mermaid-lint config applies
+func HasFence(text string) bool       // loose pre-filter for a listing
+var ErrBinaryNotFound error           // errors.Is target when the binary is missing
+const FieldDescription, FieldDesign, FieldAcceptanceCriteria, FieldNotes, FieldComment = "description", ...
 ```
 
 ### Repository layout

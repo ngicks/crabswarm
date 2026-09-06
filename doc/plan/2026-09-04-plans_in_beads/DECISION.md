@@ -423,3 +423,44 @@ functions are how the runner is injected without environment reads.
 Rejected: a lean `Summary` with the text fields on `Issue` only (one
 `bd show` per issue for the lint sweep, ~1.5 s each); the `Id`
 spelling a review skill prefers, against eleven existing `ID` uses.
+
+## D28 — mermaidlint's surface and parity with the file hook (decided 2026-09-06) [automatic]
+
+Choice: `Lint` takes options (`WithBinary`, `WithDir`), exports
+`HasFence` for pre-filtering a listing, `ErrBinaryNotFound` as the
+`errors.Is` target for a missing tool, and `Field*` constants for the
+field names. Parity with the file hook: a rule warning that
+`mermaid-lint` reports with severity "error" (it exits 1 on those)
+becomes a Finding with the rule name as its type, not only a parse
+failure; and the run happens in the source's directory when the caller
+passes it, so a repository's `mermaid-lint` configuration judges issue
+text as it judges files. Close reasons are not linted.
+Rationale: the hook's promise is "what the file hook refuses, the issue
+hook refuses"; a temp-dir run with defaults and parse errors only would
+let a diagram the file hook rejects pass through beads.
+Rejected: a `Finding` without a rule id (nowhere to say why a warning
+blocked); linting close reasons (closed issues are swept only with
+`--all`, and a close reason is prose).
+
+## D29 — The service's constructor takes the store; the poller and renderer are named interfaces (decided 2026-09-06) [automatic]
+
+Choice: `NewService(logger, renderer, store, opts...)` takes the
+`SourceStore` it serves; `SourceStore.Add` returns whether the source
+was new, which is what starts a poller and publishes `SourcesChanged`;
+`NewPoller(logger, sourceID, lister, interval, emit)` consumes an
+`IssueLister` interface and `Service` a `Renderer` interface, both
+declared beside their use; `Service.Run(ctx)` supervises the pollers on
+the previewer's errgroup; the HTTP layer mounts the issues handler only
+when the previewer hands one over. Two follow-ups are decided for the
+cleanup pass before the final review: `Summary` gains `Metadata` and
+`Labels` as `bd list` returns them, replacing the interim
+`Client.ListFull`; and the proto enum gains `ISSUE_STATUS_DEFERRED`,
+since bd has a fifth status that today maps to unspecified and cannot
+be filtered for.
+Rationale: the plan's three-argument sketch hid where the store came
+from; passing it keeps the service free of package state. The interim
+`ListFull` exists only because the store worker could not edit the
+types file while the lint worker owned it.
+Rejected: the service creating its own store; a poller per
+`WatchIssues` subscriber (the poll must run with no viewer so the diff
+baseline exists when one connects).
