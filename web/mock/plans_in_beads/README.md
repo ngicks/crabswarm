@@ -4,8 +4,8 @@ A runnable mock of the **Issues** tab planned in
 `doc/plan/2026-09-04-plans_in_beads/PLAN.md`. It renders the real crabswarm
 backlog plus the plan itself, as the plan would be stored in beads (D1), so the
 reading experience — a GitHub-style list and the detail page with its
-neighbourhood (D14, D15, D18, D20) — can be judged before steps 4, 6 and
-7 are implemented.
+neighbourhood (D14, D15, D18, D20, D21) — can be judged before steps 4,
+6 and 7 are implemented.
 
 Read `MOCK_LIMITS.md` first: no daemon, no `bd`, no `IssuesService`, no
 `WatchIssues` — and the list of plan requirements this mock cannot validate.
@@ -59,7 +59,7 @@ wire, `signals/` is client state, `lib/` is helpers.
 | `pages/issues/StateButtons.tsx` | Open N \| Closed N \| Plans N above the rows, GitHub's way: spellings of `is:open`, `is:closed`, `is:plan` with the counts the rest of the query would match |
 | `pages/issues/IssueFilters.tsx` | the label combobox (Ark) that adds and removes `label:` tokens in the bar's query |
 | `pages/issues/IssueList.tsx` | the table: rows with labels, metadata chips and the epic progress bar, the state buttons in its header |
-| `pages/issues/IssueGraph.tsx` | the detail page's neighbourhood: mermaid flowchart from edges at natural size, click-through |
+| `pages/issues/IssueGraph.tsx` | the detail page's neighbourhood: mermaid flowchart from edges in a zoom / pan viewport (wheel, drag, −/+/1:1/Fit, resizable), click-through |
 | `pages/issues/IssueView.tsx` | detail: header with progress, rendered fields, children, dependencies, neighbourhood, comments, TOC |
 | `pages/issues/MarkdownField.tsx` | one `.markdown-body` card, with the client-side mermaid pass |
 | `pages/issues/useIssues.ts` | the page's state over the api layer: the query-string filters, the rows, the open issue |

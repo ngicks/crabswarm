@@ -113,7 +113,17 @@ these differences — each worth a decision when step 4 writes the real proto:
 - **A generated graph must be drawn at natural size.** mermaid's default
   fits the SVG to the container's width, which shrinks a ten-node
   neighbourhood until its labels are unreadable; the mock turns
-  `useMaxWidth` off and scrolls instead.
+  `useMaxWidth` off and puts the drawing in a zoom / pan viewport.
+- **Fit is not a good opening view for a wide neighbourhood (D21).** The
+  plan epic with nine steps fits its box at a quarter size, where no
+  label reads. The viewport opens fitted only when the fit scale stays
+  at or above 0.6; below that it opens at 1:1 centred on the current
+  issue, and Fit is one click away. Fit itself is never floored, so the
+  whole drawing is always reachable.
+- **A drag must not be a click.** Node click-through and drag panning
+  share the SVG; a press that moves under 4px is a click, and pointer
+  capture is taken only once a drag is certain, or the click retargets to
+  the viewport and the node is lost.
 - **Titles reach mermaid as label text.** Backticks are fine; a literal `\n`
   in a title is a line break to mermaid unless escaped (`lib/graph.ts` does).
 - **A board and a whole-source graph were drawn and dropped (D20).** The
@@ -143,6 +153,7 @@ these differences — each worth a decision when step 4 writes the real proto:
 - The shape of `bd dep list --json` records, which the real `ListDependencies`
   decodes; the edges here are written by hand.
 - How a neighbourhood reads for an epic with dozens of children: the plan
-  here has ten steps and already scrolls sideways.
+  here has nine steps and already opens on its own node rather than
+  fitted (D21).
 - Anything about the shipped artifact: `web/dist`, `dist.tar.zst`, `embed.go`.
   The mock builds to its own git-ignored `dist/` and is never embedded.

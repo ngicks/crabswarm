@@ -1,9 +1,10 @@
 # Status
 
-Current state: **planned** — idea gate confirmed 2026-09-04; 20
+Current state: **planned** — idea gate confirmed 2026-09-04; 21
 decisions recorded (D14 generic viewer and D15 mermaid neighbourhood
-2026-09-05; D16–D20 from the mock 2026-09-06, D20 dropping the board and
-graph views for GitHub's Open / Closed / Plans buttons); contracts, nine
+2026-09-05; D16–D21 from the mock 2026-09-06, D20 dropping the board and
+graph views for GitHub's Open / Closed / Plans buttons, D21 zoom and pan
+on the neighbourhood); contracts, nine
 steps and the traceability table are in PLAN.md; the presentation mock at
 `web/mock/plans_in_beads/` covers the GitHub-style list (search bar
 parsed by liqe, state buttons with counts) and the detail page with its
@@ -39,6 +40,7 @@ a dogfood step; until then it stays here.
 - [x] D18 "GitHub-style search bar, liqe, widgets edit the query" decided in the mock
 - [x] D19 "type scale moves into web/src/index.css in step 6" decided
 - [x] D20 "board and graph views dropped; Open / Closed / Plans buttons; neighbourhood stays" decided (closes Q15)
+- [x] D21 "neighbourhood zoom and pan, hand-rolled, legible opening view" decided in the mock
 - [ ] Q14 "where the query is evaluated" open for step 4
 - [x] Contracts finalized (surface delta reflects D5–D15)
 - [x] Traceability gate passed (PLAN.md "Traceability")
@@ -48,7 +50,7 @@ a dogfood step; until then it stays here.
 - [ ] Step 4 `issues/v1` proto, `SourceStore`, `IssuesService` (D6, D13)
 - [ ] Step 5 `crabswarm preview --root / --issue`, list, remove (D13)
 - [ ] Step 6 SPA tabs, `/roots` move, sources, search bar, state buttons, list + detail (D4, D6, D8, D14, D18, D19, D20)
-- [ ] Step 7 `ListDependencies` + neighbourhood graph (D15)
+- [ ] Step 7 `ListDependencies` + neighbourhood graph with zoom and pan (D15, D21)
 - [ ] Step 8 instructions + agents-package boundary issue + bd events follow-up
 - [ ] Step 9 dogfood: this plan as the first plan issue (D1, D7)
 

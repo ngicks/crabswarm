@@ -286,3 +286,26 @@ written inline. From here on every change to the mock is delegated to a
 subagent one model class down, as the ngplan visuals reference asks; the
 planning agent reviews the result, keeps `MOCK_LIMITS.md` current and
 records the decisions. This is not an agent default any more.
+
+## D21 — The neighbourhood zooms and pans (decided 2026-09-06, from the mock)
+
+Choice: the detail page's neighbourhood graph sits in a viewport of
+fixed, user-resizable height. The wheel zooms about the cursor between
+a quarter size (or the fit scale, whichever is smaller) and four times;
+a drag pans; a toolbar offers −, +, 1:1 and Fit with the current
+percentage; double-click on empty space toggles Fit and 1:1. A
+neighbourhood whose fit scale is at least 0.6 opens fitted; a wider one
+opens at 1:1 centred on the current issue, so a wide epic is readable at
+once and the overview is one Fit away. A node click still opens the
+issue; a press that moves under 4px counts as a click, more counts as a
+drag and never navigates. The transform is written by hand in
+`IssueGraph.tsx`, about forty lines, and adds no dependency.
+Rationale: the user asked for zoom on the neighbourhood, and the mock
+showed that the plan epic fits its box only at a quarter size, where
+no label reads, so a fitted opening view defeats the graph's purpose.
+Rejected: `d3-zoom`, which mermaid bundles, because importing it means
+declaring `d3-zoom` and `d3-selection` as dependencies of the SPA and
+the mock, more contract than the arithmetic is worth; `svg-pan-zoom`,
+a further dependency; a scrolling box without zoom, the previous
+state, which the user judged poor; opening every neighbourhood fitted,
+unreadable for a wide one.

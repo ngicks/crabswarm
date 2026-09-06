@@ -217,11 +217,17 @@ the mock and set aside for a later plan.
 The neighbourhood is drawn with the `mermaid` already bundled in the
 SPA: the client emits a `flowchart LR` from the issue's edges — parent,
 children, dependencies — and renders it with the same `mermaid.run`
-path `DocView` uses, at natural size in a scrolling box with the current
-issue in the primary colour, so no layout library is added (D15).
-Click-through uses the rendered SVG's node ids, not mermaid's `click`
-directive, keeping `securityLevel: "strict"`. A neighbourhood is one
-issue plus what one edge reaches, so mermaid's static layout is enough.
+path `DocView` uses, with the current issue in the primary colour, so no
+layout library is added (D15). The drawing sits in a zoom and pan
+viewport (D21): wheel zooms about the cursor, drag pans, a toolbar
+offers −, +, 1:1 and Fit, and the box is resizable. A neighbourhood
+that fits legibly opens fitted; a wide one opens at 1:1 centred on the
+current issue, the overview one Fit away. The transform is hand-rolled
+in the component, no zoom library. Click-through uses the rendered
+SVG's node ids, not mermaid's `click` directive, keeping
+`securityLevel: "strict"`, and a drag never counts as a click. A
+neighbourhood is one issue plus what one edge reaches, so mermaid's
+static layout is enough.
 
 ```mermaid
 flowchart LR
@@ -768,8 +774,9 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    (`bd dep list` batched per source) and `IssueGraph` as the detail
    page's neighbourhood section: emit a mermaid flowchart from the
    issue's edges (D15), colour by status with the current issue in the
-   primary pair, edge style and label by type, natural size in a
-   scrolling box, node click → detail via the rendered SVG ids. Verify:
+   primary pair, edge style and label by type, inside the zoom and pan
+   viewport (D21: wheel, drag, −/+/1:1/Fit, resizable, legible opening
+   view), node click → detail via the rendered SVG ids. Verify:
    service test with a fake `bd dep list`; Playwright e2e — a step in a
    `blocks` chain shows its parent, predecessor and successor, and a
    click navigates.
@@ -814,8 +821,8 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
   `bd events --follow`.
 - A mermaid-drawn graph is static; a neighbourhood stays small (one
   issue and its direct relations), and an epic with many children draws
-  wide and scrolls. D15 names the fallback (a layout library) if a
-  whole-source graph returns.
+  wide; the viewport opens on the current issue and pans (D21). D15
+  names the fallback (a layout library) if a whole-source graph returns.
 - The `bd dep list --json` record shape is unverified on a database with
   edges; step 7 pins it with a fixture from a real dependency.
 - The Stop hook runs on every turn, including turns that never touched
@@ -837,7 +844,7 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
 Resolved 2026-09-04: Q1 → D1, Q2 → D2, Q3 → D3, Q4 → D4, Q5 → D5,
 Q6 → D6, Q7 → D7, Q8 → D8, Q9 → D9, Q10 → D10, Q11 → D11, Q12 → D12,
 Q13 → D13. 2026-09-05: D14 and D15 added from the user's generic-viewer
-direction. 2026-09-06: D16–D20 from the mock; Q15 closed by D20 (the
+direction. 2026-09-06: D16–D21 from the mock; Q15 closed by D20 (the
 board and graph views left the plan).
 
 14. **Where is the search query evaluated?** The mock parses the bar's
@@ -883,6 +890,7 @@ step 8 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 | D18 search bar with a GitHub-style query, liqe, widgets edit the query | step 6; evaluation site is Q14 (step 4) |
 | D19 type scale (15px body, 13px metadata, daisyUI md tier follows) into `web/src/index.css` | step 6 |
 | D20 board and graph views dropped; Open / Closed / Plans buttons with counts; neighbourhood stays | step 6 (buttons), step 7 (neighbourhood); non-goal for the views |
+| D21 neighbourhood zoom and pan: wheel, drag, toolbar, resizable box, legible opening view, no zoom library | step 7 |
 | UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 9 |
 | UC2 review in the browser with mermaid | steps 4, 6, 7 |
 | UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 8 documents |
