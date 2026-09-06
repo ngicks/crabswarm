@@ -18,7 +18,7 @@ import (
 type Root struct {
 	// ID is a stable, short, URL-safe hash of the absolute path. The same
 	// path always yields the same ID, so re-adding a root is idempotent and
-	// the ID is safe to embed in URLs (e.g. "/r/{id}/...").
+	// the ID is safe to embed in URLs (e.g. "/roots/{id}/...").
 	ID string
 	// Path is the absolute, cleaned filesystem path of the root directory.
 	Path string

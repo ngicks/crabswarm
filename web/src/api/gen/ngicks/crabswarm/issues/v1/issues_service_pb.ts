@@ -411,7 +411,8 @@ export type ListIssuesRequest = Message<"ngicks.crabswarm.issues.v1.ListIssuesRe
   sourceId: string;
 
   /**
-   * Status filter; empty means open, in-progress and blocked (bd's default).
+   * Status filter; empty leaves bd's default listing, which reports open,
+   * in_progress, blocked and deferred issues and hides closed ones.
    *
    * @generated from field: repeated ngicks.crabswarm.issues.v1.IssueStatus statuses = 2;
    */
@@ -752,8 +753,10 @@ export const IssuesService: GenService<{
     output: typeof GetIssueResponseSchema;
   },
   /**
-   * ListDependencies returns every dependency edge among the given issues
-   * (all issues of the source when issue_ids is empty), in one bd call.
+   * ListDependencies returns every dependency edge among the given issues in
+   * one `bd dep list` call. An empty issue_ids means every issue of the
+   * source: bd has no whole-source edge listing, so the daemon lists the
+   * source once to gather the ids and then makes that same single dep call.
    *
    * @generated from rpc ngicks.crabswarm.issues.v1.IssuesService.ListDependencies
    */

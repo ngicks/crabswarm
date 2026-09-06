@@ -20,8 +20,11 @@ import (
 //   - where          -> where.json, or where_no_beads.json with exit 1 when
 //     FAKE_BD_NO_BEADS is set, matching bd's behavior of printing the error
 //     envelope on stdout.
-//   - list           -> list_children.json when --parent is present, else
-//     list.json.
+//   - list           -> list_children.json when --parent is present; else the
+//     next fixture of the colon-separated FAKE_BD_LIST_SEQUENCE, counted in
+//     FAKE_BD_LIST_COUNTER, so successive polls read a changing backlog; else
+//     list.json. The last fixture of the sequence replays for every further
+//     call, so a poll past the end of the sequence reports no change.
 //   - show --id=<id> -> show.json for the one recorded issue, else
 //     show_not_found.json with exit 1.
 //   - dep list <ids> -> dep_list.json, the flat batch of edges real bd prints
@@ -57,6 +60,16 @@ where)
 list)
   if [ -n "$parent" ]; then
     cat "$FAKE_BD_TESTDATA/list_children.json"
+  elif [ -n "$FAKE_BD_LIST_SEQUENCE" ]; then
+    n=0
+    if [ -f "$FAKE_BD_LIST_COUNTER" ]; then n=$(cat "$FAKE_BD_LIST_COUNTER"); fi
+    echo "$((n + 1))" > "$FAKE_BD_LIST_COUNTER"
+    IFS=:
+    set -- $FAKE_BD_LIST_SEQUENCE
+    unset IFS
+    if [ "$n" -ge "$#" ]; then n=$(($# - 1)); fi
+    shift "$n"
+    cat "$FAKE_BD_TESTDATA/$1"
   else
     cat "$FAKE_BD_TESTDATA/list.json"
   fi
@@ -131,9 +144,11 @@ func installFakeBd(t *testing.T) (invocations func() []invocation) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("FAKE_BD_LOG", logPath)
 	t.Setenv("FAKE_BD_TESTDATA", testdata)
+	t.Setenv("FAKE_BD_LIST_COUNTER", filepath.Join(dir, "list.counter"))
 	// Inherited values must not leak into a run that does not set them.
 	t.Setenv("FAKE_BD_NO_BEADS", "")
 	t.Setenv("FAKE_BD_DEP_SINGLE", "")
+	t.Setenv("FAKE_BD_LIST_SEQUENCE", "")
 	t.Setenv("FAKE_BD_EXTRA", "")
 	t.Setenv("BD_JSON_ENVELOPE", "")
 

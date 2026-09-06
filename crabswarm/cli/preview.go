@@ -8,8 +8,8 @@ import (
 	"connectrpc.com/connect"
 )
 
-// PreviewURL builds the browser URL that opens the root rootID: the previewer
-// serves each root under /r/<rootID>/. addr is the server's TCP *listen*
+// PreviewURL builds the browser URL that opens the root rootID: the SPA routes
+// the file browser at /roots/<rootID>/<path>. addr is the server's TCP *listen*
 // address; when its host is a wildcard ("", "0.0.0.0" or "::") the server binds
 // every interface but that host is not a routable destination, so the URL uses
 // this machine's hostname (falling back to "localhost") — a name a phone or
@@ -19,13 +19,13 @@ func PreviewURL(addr, rootID string) string {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		// addr is not host:port shaped; use it verbatim rather than guessing.
-		return fmt.Sprintf("http://%s/r/%s/", addr, rootID)
+		return fmt.Sprintf("http://%s/roots/%s/", addr, rootID)
 	}
 	switch host {
 	case "", "0.0.0.0", "::":
 		host = displayHost()
 	}
-	return fmt.Sprintf("http://%s/r/%s/", net.JoinHostPort(host, port), rootID)
+	return fmt.Sprintf("http://%s/roots/%s/", net.JoinHostPort(host, port), rootID)
 }
 
 // displayHost returns this machine's hostname for a user-facing preview URL,

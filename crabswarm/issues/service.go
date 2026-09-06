@@ -249,13 +249,11 @@ func (s *Service) AddSource(
 	ctx context.Context,
 	req *connect.Request[issuesv1.AddSourceRequest],
 ) (*connect.Response[issuesv1.AddSourceResponse], error) {
-	// The store mutation and the poller start are one critical section so a
-	// concurrent RemoveSource of the same (deterministic) source ID cannot
-	// interleave between them and leave a registered source unpolled.
-	s.mu.Lock()
+	// Registering runs `bd where` in a subprocess, so it stays outside s.mu:
+	// holding the service lock across it would stall every other RPC for as
+	// long as bd takes.
 	src, added, err := s.store.Add(ctx, req.Msg.GetDir())
 	if err != nil {
-		s.mu.Unlock()
 		if errors.Is(err, ErrNoBeads) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
@@ -264,12 +262,22 @@ func (s *Service) AddSource(
 		return nil, connect.NewError(connect.CodeInternal,
 			fmt.Errorf("adding source %q", req.Msg.GetDir()))
 	}
-	if added {
-		s.startPollerLocked(src)
-	}
-	s.mu.Unlock()
 
 	if added {
+		// A RemoveSource of the same (deterministic) source ID can land
+		// between the registration above and this lock, so the registry is
+		// read again under s.mu rather than trusted. RemoveSource drops the
+		// source and cancels its poller in one section under the same lock,
+		// which leaves two orderings and no third: it ran first, the source is
+		// gone and no poller starts; it runs after, and it cancels the poller
+		// started here. Either way a registered source is polled and an
+		// unregistered one is not.
+		s.mu.Lock()
+		if _, stillRegistered := s.store.Get(src.ID); stillRegistered {
+			s.startPollerLocked(src)
+		}
+		s.mu.Unlock()
+
 		s.hub.Publish(event{kind: sourcesChanged})
 	}
 	return connect.NewResponse(&issuesv1.AddSourceResponse{

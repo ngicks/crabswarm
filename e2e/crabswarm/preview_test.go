@@ -173,7 +173,7 @@ func TestPreviewCmdmanPath(t *testing.T) {
 	// `crabswarm preview ROOT --config <cfg>`: EnsureDaemon (cmdman run) +
 	// healthz poll + AddRoot, then prints the URL.
 	out := runCrabswarm(ctx, t, "preview", root, "--config", cfgPath)
-	if !strings.Contains(out, "/r/") {
+	if !strings.Contains(out, "/roots/") {
 		t.Errorf("preview did not print a root URL; got:\n%s", out)
 	}
 
@@ -292,7 +292,7 @@ func TestPreviewIssueSources(t *testing.T) {
 
 	// A directory with a beads database registers on both sides.
 	out := preview(withBeads)
-	if !strings.Contains(out, "/r/") {
+	if !strings.Contains(out, "/roots/") {
 		t.Errorf("preview did not print a root URL; got:\n%s", out)
 	}
 	if !strings.Contains(out, "issue source e2e") {
@@ -313,7 +313,7 @@ func TestPreviewIssueSources(t *testing.T) {
 		t.Fatalf("preview on a directory without a beads database failed: %v\n"+
 			"stdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
-	if !strings.Contains(stdout, "/r/") {
+	if !strings.Contains(stdout, "/roots/") {
 		t.Errorf("preview did not print a root URL; got:\n%s", stdout)
 	}
 	if strings.Contains(stdout, "issue source") {
@@ -376,7 +376,7 @@ func TestPreviewWithoutBd(t *testing.T) {
 		t.Fatalf("preview failed although only the issues source could not be registered: %v\n"+
 			"stdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
-	if !strings.Contains(stdout, "/r/") {
+	if !strings.Contains(stdout, "/roots/") {
 		t.Errorf("preview did not print a root URL; got:\n%s", stdout)
 	}
 	if !strings.Contains(stderr, "no issues source registered") {

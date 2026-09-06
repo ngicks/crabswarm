@@ -853,7 +853,8 @@ func (x *Issue) GetDependencies() []*IssueDependency {
 type ListIssuesRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	SourceId string                 `protobuf:"bytes,1,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
-	// Status filter; empty means open, in-progress and blocked (bd's default).
+	// Status filter; empty leaves bd's default listing, which reports open,
+	// in_progress, blocked and deferred issues and hides closed ones.
 	Statuses []IssueStatus `protobuf:"varint,2,rep,packed,name=statuses,proto3,enum=ngicks.crabswarm.issues.v1.IssueStatus" json:"statuses,omitempty"`
 	// Label filter (all must match).
 	Labels []string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`

@@ -12,30 +12,30 @@ import (
 )
 
 // A concrete host (name or IP) is kept verbatim in the printed URL, with the
-// root mounted under /r/<id>/.
+// root routed at /roots/<id>/.
 func TestPreviewURL_ConcreteHost(t *testing.T) {
-	assert.Equal(t, cli.PreviewURL("192.168.1.5:6419", "abc"), "http://192.168.1.5:6419/r/abc/")
+	assert.Equal(t, cli.PreviewURL("192.168.1.5:6419", "abc"), "http://192.168.1.5:6419/roots/abc/")
 	assert.Equal(t,
 		cli.PreviewURL("host.tailnet.ts.net:6419", "r1"),
-		"http://host.tailnet.ts.net:6419/r/r1/",
+		"http://host.tailnet.ts.net:6419/roots/r1/",
 	)
 }
 
 // A wildcard bind is rewritten to a routable host (this machine's hostname or
 // localhost) so the URL is openable from another device; it never prints the
-// wildcard, and keeps the port and /r/<id>/ path.
+// wildcard, and keeps the port and /roots/<id>/ path.
 func TestPreviewURL_WildcardRewritten(t *testing.T) {
 	for _, addr := range []string{"0.0.0.0:6419", ":6419", "[::]:6419"} {
 		got := cli.PreviewURL(addr, "x")
 		assert.Assert(t, strings.HasPrefix(got, "http://"), "addr=%q got=%q", addr, got)
-		assert.Assert(t, strings.HasSuffix(got, ":6419/r/x/"), "addr=%q got=%q", addr, got)
+		assert.Assert(t, strings.HasSuffix(got, ":6419/roots/x/"), "addr=%q got=%q", addr, got)
 		assert.Assert(t, !strings.Contains(got, "0.0.0.0"), "addr=%q got=%q", addr, got)
 	}
 }
 
 // An address without a host:port shape is used verbatim rather than guessed.
 func TestPreviewURL_Unparsable(t *testing.T) {
-	assert.Equal(t, cli.PreviewURL("garbage", "y"), "http://garbage/r/y/")
+	assert.Equal(t, cli.PreviewURL("garbage", "y"), "http://garbage/roots/y/")
 }
 
 // A refused connection surfaces as connect CodeUnavailable; PreviewDaemonError

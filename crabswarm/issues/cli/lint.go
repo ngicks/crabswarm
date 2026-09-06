@@ -1,5 +1,3 @@
-// Package cli renders what the issue commands report, so that the shape of
-// their output is decided in one place and testable without a terminal.
 package cli
 
 import (

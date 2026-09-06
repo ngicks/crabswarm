@@ -1,0 +1,41 @@
+[
+  {
+    "id": "crabswarm-no2",
+    "title": "sample-title",
+    "description": "woo\n\n## Context\nwhoooaaa",
+    "design": "realy nice",
+    "acceptance_criteria": "weeee",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "assignee": "me",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-04T12:20:33Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-04T12:20:33Z",
+    "dependency_count": 0,
+    "dependent_count": 0,
+    "comment_count": 1
+  },
+  {
+    "id": "crabswarm-jp7",
+    "title": "WatchRoom upgrade path for the admin TUI tail poll",
+    "description": "Recorded 2026-09-02.\n",
+    "status": "in_progress",
+    "priority": 2,
+    "issue_type": "task",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-03T18:21:58Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-05T09:04:11Z",
+    "labels": [
+      "admin",
+      "chat",
+      "proto",
+      "tui"
+    ],
+    "dependency_count": 0,
+    "dependent_count": 0,
+    "comment_count": 0
+  }
+]

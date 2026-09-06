@@ -1,5 +1,8 @@
-// Package cli renders what the issues commands print and resolves what the
-// user typed to the thing it names.
+// Package cli renders the output of the issues commands. It formats the
+// mermaid lint findings, and the roots and issue sources `preview list`
+// prints and `preview remove` resolves its argument against. The command
+// wiring hands it values and writes what it returns, so the shape of the
+// output is decided in one place and testable without a terminal.
 package cli
 
 import (

@@ -80,10 +80,12 @@ func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-// ListFilter narrows [Client.List]. The zero value lists every open issue.
+// ListFilter narrows [Client.List]. The zero value leaves bd's own default
+// listing, described on Statuses below.
 type ListFilter struct {
 	// Statuses keeps only issues in one of these statuses. Empty leaves
-	// bd's own default, which hides closed issues.
+	// bd's own default, which reports open, in_progress, blocked and
+	// deferred issues and hides closed ones.
 	Statuses []Status
 	// Labels keeps only issues carrying all of these labels.
 	Labels []string

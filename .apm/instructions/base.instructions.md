@@ -54,7 +54,7 @@ Tools to swarm claude(, codex and others!)
 ├── bin             git-ignore'd bin dir.
 ├── cmd
 │   └── crabswarm
-│       └── commands  One file per cobra subcommand, named by path: chat_admin_tui.go = `crabswarm chat admin tui`. zz_*.go hold shell completions. Wiring only — logic lives under crabswarm/.
+│       └── commands  One file per cobra subcommand, named by path: chat_admin_tui.go = `crabswarm chat admin tui`. zz_*.go hold a command family's shared helpers (config resolution, dialers, shell completions); every other name is reserved for a subcommand. Wiring only — logic lives under crabswarm/.
 ├── crabswarm       crabswarm implementation (package per top-level subcommand).
 │   ├── config.go   Layered config: DefaultConfig < file < env; Config / PartialConfig; sub-configs are chat.Config, preview.Config, exec.Config.
 │   ├── server      The daemon behind `crabswarm serve`: one gRPC server on Config.Sock hosting hook audit + chat services.
@@ -93,7 +93,7 @@ Tools to swarm claude(, codex and others!)
     └── src
         ├── app.tsx        The shell and the routes: /roots/{rootId}/{path...} is the file browser, /issues/{sourceId} the Issues tab.
         ├── pages          preview/ = the file browser and its own components; issues/ = the Issues tab; not-found.tsx.
-        ├── api            client.ts (Connect transport), events.ts (one WatchEvents stream), preview.ts (query options), gen/ (buf output).
+        ├── api            client.ts (Connect transport), events.ts (startWatchEvents and startWatchIssues, one stream each), preview.ts + issues.ts (query options and hooks), query.ts (the search bar's query language), gen/ (buf output).
         ├── components     Shared chrome (Layout, Header, Lightbox, ThemeToggle) and ui/ primitives.
         ├── signals        Client state (navigation, preferences).
         └── lib            Focused non-UI helpers (paths.ts).
