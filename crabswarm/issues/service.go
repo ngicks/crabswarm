@@ -41,7 +41,6 @@ type Renderer interface {
 type issueReader interface {
 	IssueLister
 	Get(ctx context.Context, id string) (*Issue, error)
-	Dependencies(ctx context.Context, ids []string) ([]Edge, error)
 }
 
 // Service implements [issuesv1connect.IssuesServiceHandler] over a
@@ -504,9 +503,9 @@ func (s *Service) renderField(src string) (*issuesv1.RenderedField, error) {
 }
 
 // ListDependencies returns the edges running between the request's issues,
-// or every edge of the source when issue_ids is empty. bd reports the edges
-// of many issues at once, so a graph costs one bd call however many nodes it
-// draws.
+// or every edge of the source when issue_ids is empty. A listing already
+// carries each issue's outgoing edges, so a graph costs one bd call however
+// many nodes it draws.
 func (s *Service) ListDependencies(
 	ctx context.Context,
 	req *connect.Request[issuesv1.ListDependenciesRequest],
@@ -516,49 +515,40 @@ func (s *Service) ListDependencies(
 		return nil, err
 	}
 
-	ids := req.Msg.GetIssueIds()
 	// keep stays nil for the whole-source request: every id is in the set by
 	// construction, so nothing needs filtering.
 	var keep map[string]struct{}
-	if len(ids) > 0 {
+	if ids := req.Msg.GetIssueIds(); len(ids) > 0 {
 		keep = make(map[string]struct{}, len(ids))
 		for _, id := range ids {
 			keep[id] = struct{}{}
 		}
-	} else {
-		// bd has no "every edge" listing, so the source's ids are gathered
-		// first. Every status is asked for: bd's default listing hides closed
-		// issues, and an epic's finished children are part of its graph.
-		listed, err := client.List(ctx, ListFilter{Statuses: allStatuses})
-		if err != nil {
-			return nil, s.bdError("listing issues", err)
-		}
-		ids = make([]string, len(listed))
-		for i, sum := range listed {
-			ids[i] = sum.ID
-		}
 	}
 
-	edges, err := client.Dependencies(ctx, ids)
+	// Every status is asked for: bd's default listing hides closed issues,
+	// and an epic's finished children are part of its graph.
+	listed, err := client.List(ctx, ListFilter{Statuses: allStatuses})
 	if err != nil {
-		return nil, s.bdError("listing dependencies", err)
+		return nil, s.bdError("listing issues", err)
 	}
 
-	out := make([]*issuesv1.IssueEdge, 0, len(edges))
-	for _, e := range edges {
-		// bd reports every outgoing edge of the issues it was asked about, so
-		// an edge can leave the requested set. Those are dropped: a client
-		// asking for a set of issues is drawing that set, and an edge to a
-		// node it does not hold is one it cannot place.
-		if keep != nil {
-			if _, ok := keep[e.FromID]; !ok {
-				continue
+	out := make([]*issuesv1.IssueEdge, 0, len(listed))
+	for _, sum := range listed {
+		for _, e := range sum.Dependencies {
+			// A listing reports every outgoing edge of every issue in it, so
+			// an edge can leave the requested set. Those are dropped: a client
+			// asking for a set of issues is drawing that set, and an edge to a
+			// node it does not hold is one it cannot place.
+			if keep != nil {
+				if _, ok := keep[e.FromID]; !ok {
+					continue
+				}
+				if _, ok := keep[e.ToID]; !ok {
+					continue
+				}
 			}
-			if _, ok := keep[e.ToID]; !ok {
-				continue
-			}
+			out = append(out, edgeToProto(e))
 		}
-		out = append(out, edgeToProto(e))
 	}
 	return connect.NewResponse(&issuesv1.ListDependenciesResponse{Edges: out}), nil
 }

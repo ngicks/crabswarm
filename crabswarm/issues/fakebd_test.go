@@ -27,10 +27,6 @@ import (
 //     call, so a poll past the end of the sequence reports no change.
 //   - show --id=<id> -> show.json for the one recorded issue, else
 //     show_not_found.json with exit 1.
-//   - dep list <ids> -> dep_list.json, the flat batch of edges real bd prints
-//     for two or more ids; dep_list_single.json, the per-issue shape it falls
-//     back to, for one id or when FAKE_BD_DEP_SINGLE is set;
-//     dep_not_found.json with exit 1 when the one id is unknown.
 const fakeBdScript = `#!/bin/sh
 sub="$1"
 shift
@@ -72,34 +68,6 @@ list)
     cat "$FAKE_BD_TESTDATA/$1"
   else
     cat "$FAKE_BD_TESTDATA/list.json"
-  fi
-  ;;
-dep)
-  verb="$1"
-  shift
-  if [ "$verb" != list ]; then
-    echo "fake bd: unknown dep verb $verb" >&2
-    exit 2
-  fi
-  ids=0
-  last=
-  for a in "$@"; do
-    case "$a" in
-    -*) ;;
-    *)
-      ids=$((ids + 1))
-      last=$a
-      ;;
-    esac
-  done
-  if [ "$ids" -eq 1 ] && [ "$last" = "scratch-nope" ]; then
-    cat "$FAKE_BD_TESTDATA/dep_not_found.json"
-    exit 1
-  fi
-  if [ "$ids" -le 1 ] || [ -n "$FAKE_BD_DEP_SINGLE" ]; then
-    cat "$FAKE_BD_TESTDATA/dep_list_single.json"
-  else
-    cat "$FAKE_BD_TESTDATA/dep_list.json"
   fi
   ;;
 show)
@@ -147,7 +115,6 @@ func installFakeBd(t *testing.T) (invocations func() []invocation) {
 	t.Setenv("FAKE_BD_LIST_COUNTER", filepath.Join(dir, "list.counter"))
 	// Inherited values must not leak into a run that does not set them.
 	t.Setenv("FAKE_BD_NO_BEADS", "")
-	t.Setenv("FAKE_BD_DEP_SINGLE", "")
 	t.Setenv("FAKE_BD_LIST_SEQUENCE", "")
 	t.Setenv("FAKE_BD_EXTRA", "")
 	t.Setenv("BD_JSON_ENVELOPE", "")

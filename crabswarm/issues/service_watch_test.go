@@ -23,8 +23,8 @@ import (
 func TestWatchIssuesStreamsPolledChanges(t *testing.T) {
 	invocations := installFakeBd(t)
 	// The first listing is the poller's baseline and the second differs from
-	// it: crabswarm-jp7 was updated and crabswarm-125 left the backlog. Every
-	// further poll replays the second listing, so the diff happens once.
+	// it in one issue, crabswarm-jp7, whose update time moved. Every further
+	// poll replays the second listing, so the diff happens once.
 	t.Setenv("FAKE_BD_LIST_SEQUENCE", "list.json:list_changed.json")
 
 	svc := newTestService(t, WithPollInterval(20*time.Millisecond))
@@ -78,7 +78,7 @@ func TestWatchIssuesStreamsPolledChanges(t *testing.T) {
 	changed := nextEvent(t, events, streamErr).GetIssuesChanged()
 	assert.Assert(t, changed != nil)
 	assert.Assert(t, changed.GetSourceId() != "")
-	assert.DeepEqual(t, changed.GetIssueIds(), []string{"crabswarm-125", "crabswarm-jp7"})
+	assert.DeepEqual(t, changed.GetIssueIds(), []string{"crabswarm-jp7"})
 
 	// The polls keep running against an unchanged listing. None of them
 	// reports a change, so the diff above was the only one.

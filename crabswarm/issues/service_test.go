@@ -96,6 +96,23 @@ func receive(t *testing.T, sub <-chan event) event {
 	}
 }
 
+// findProtoIssue returns the listed issue with the given id, failing the test
+// when the recording does not carry it.
+func findProtoIssue(
+	t *testing.T,
+	listed []*issuesv1.IssueSummary,
+	id string,
+) *issuesv1.IssueSummary {
+	t.Helper()
+	for _, issue := range listed {
+		if issue.GetId() == id {
+			return issue
+		}
+	}
+	t.Fatalf("no issue %q in the listing", id)
+	return nil
+}
+
 func TestServiceListIssuesFromBd(t *testing.T) {
 	invocations := installFakeBd(t)
 	svc := newTestService(t)
@@ -106,17 +123,20 @@ func TestServiceListIssuesFromBd(t *testing.T) {
 	assert.NilError(t, err)
 
 	got := res.Msg.GetIssues()
-	assert.Equal(t, len(got), 3)
-	assert.Equal(t, got[0].GetId(), "crabswarm-no2")
-	assert.Equal(t, got[0].GetTitle(), "sample-title")
+	assert.Equal(t, len(got), 81)
+	assert.Equal(t, got[0].GetId(), "crabswarm-lpq.9")
+	assert.Equal(t, got[0].GetTitle(), "Step 9 — Dogfood")
 	assert.Equal(t, got[0].GetIssueType(), "task")
-	assert.Equal(t, got[0].GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_OPEN)
-	assert.Equal(t, got[0].GetCommentCount(), int32(1))
+	assert.Equal(t, got[0].GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_CLOSED)
+	assert.Equal(t, got[0].GetCommentCount(), int32(0))
 	assert.Assert(t, got[0].GetCreatedAt() != nil)
 	// An issue recording no metadata still carries a parsable object.
 	assert.Equal(t, got[0].GetMetadataJson(), "{}")
-	assert.DeepEqual(t, got[1].GetLabels(), []string{"admin", "chat", "proto", "tui"})
-	assert.Equal(t, got[2].GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_CLOSED)
+	assert.DeepEqual(t, got[0].GetLabels(), []string{"step"})
+
+	open := findProtoIssue(t, got, "crabswarm-jp7")
+	assert.Equal(t, open.GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_OPEN)
+	assert.DeepEqual(t, open.GetLabels(), []string{"admin", "chat", "proto", "tui"})
 
 	// The listing is asked for newest-updated first; the child tally is the
 	// second call, which needs the statuses bd's default listing hides.
@@ -207,34 +227,38 @@ func TestServiceListDependenciesWholeSource(t *testing.T) {
 		connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: id}))
 	assert.NilError(t, err)
 
-	// bd has no "every edge" listing, so the source's ids are gathered first
-	// and handed to one dep listing.
+	// The listing already carries every issue's outgoing edges, so the whole
+	// graph costs one bd call.
 	inv := invocations()
-	assert.Equal(t, len(inv), 3) // where + list + dep list
+	assert.Equal(t, len(inv), 2) // where + list
 	assert.Equal(t, inv[1].args,
 		"list --json --status open,in_progress,blocked,deferred,closed --limit 0")
-	assert.Equal(t, inv[2].args,
-		"dep list crabswarm-no2 crabswarm-jp7 crabswarm-125 --json")
 
 	got := res.Msg.GetEdges()
-	assert.Equal(t, len(got), 3)
-	assert.Equal(t, got[0].GetFromId(), "crabswarm-no2")
-	assert.Equal(t, got[0].GetToId(), "crabswarm-jp7")
-	assert.Equal(t, got[0].GetType(), "blocks")
+	assert.Equal(t, len(got), 54)
+	assert.Equal(t, got[0].GetFromId(), "crabswarm-lpq.9")
+	assert.Equal(t, got[0].GetToId(), "crabswarm-lpq")
 	// The parent link is an edge here, unlike in GetIssue's dependencies.
-	assert.Equal(t, got[2].GetType(), "parent-child")
+	assert.Equal(t, got[0].GetType(), "parent-child")
+	assert.Equal(t, got[1].GetFromId(), "crabswarm-lpq.9")
+	assert.Equal(t, got[1].GetToId(), "crabswarm-lpq.8")
+	assert.Equal(t, got[1].GetType(), "blocks")
 }
 
 func TestServiceListDependenciesWithinRequestedIssues(t *testing.T) {
 	svc, id := withStub(t, &stubReader{
 		issues: []Issue{
 			{Summary: Summary{ID: "epic", Status: StatusOpen}},
-			{Summary: Summary{ID: "c1", ParentID: "epic", Status: StatusOpen}},
+			{Summary: Summary{
+				ID:       "c1",
+				ParentID: "epic",
+				Status:   StatusOpen,
+				Dependencies: []Edge{
+					{FromID: "c1", ToID: "epic", Type: "parent-child"},
+					{FromID: "c1", ToID: "outside", Type: "blocks"},
+				},
+			}},
 			{Summary: Summary{ID: "outside", Status: StatusOpen}},
-		},
-		edges: []Edge{
-			{FromID: "c1", ToID: "epic", Type: "parent-child"},
-			{FromID: "c1", ToID: "outside", Type: "blocks"},
 		},
 	})
 
@@ -258,7 +282,6 @@ func TestServiceListDependenciesWithinRequestedIssues(t *testing.T) {
 // running bd, so a test can pin the exact records a source reports.
 type stubReader struct {
 	issues []Issue
-	edges  []Edge
 }
 
 func (r *stubReader) matching(f ListFilter) []Issue {
@@ -277,22 +300,6 @@ func (r *stubReader) List(_ context.Context, f ListFilter) ([]Summary, error) {
 	out := make([]Summary, len(matched))
 	for i, issue := range matched {
 		out[i] = issue.Summary
-	}
-	return out, nil
-}
-
-// Dependencies answers the way bd does: every outgoing edge of the issues it
-// was asked about, wherever the other end sits.
-func (r *stubReader) Dependencies(_ context.Context, ids []string) ([]Edge, error) {
-	asked := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		asked[id] = struct{}{}
-	}
-	var out []Edge
-	for _, e := range r.edges {
-		if _, ok := asked[e.FromID]; ok {
-			out = append(out, e)
-		}
 	}
 	return out, nil
 }
