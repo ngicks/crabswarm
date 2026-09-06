@@ -1,8 +1,8 @@
 #!/bin/sh
 # A stand-in for the beads CLI, so the issues e2e runs against the real daemon
-# without a beads database. It answers the four subcommands crabswarm/issues
-# builds — `where`, `list`, `show`, `dep list` — from the JSON under
-# FAKE_BD_TESTDATA, which is recorded output of the real bd.
+# without a beads database. It answers the three subcommands crabswarm/issues
+# builds — `where`, `list`, `show` — from the JSON under FAKE_BD_TESTDATA,
+# which is recorded output of the real bd.
 #
 # Put this directory first on the daemon's PATH and point FAKE_BD_TESTDATA at
 # web/e2e/fixtures/bd-data (playwright.config.ts does both).
@@ -21,14 +21,9 @@ where)
   cat "$FAKE_BD_TESTDATA/where.json"
   ;;
 list)
-  # `--parent` narrows to one issue's children; nothing in this fixture has a
-  # parent, so those listings are empty.
-  for a in "$@"; do
-    if [ "$a" = "--parent" ]; then
-      echo '[]'
-      exit 0
-    fi
-  done
+  # One recording answers every listing. The daemon asks for the whole source
+  # once and derives the edges, the children and the child counts from those
+  # records, so it never narrows a listing with `--parent`.
   cat "$FAKE_BD_TESTDATA/list.json"
   ;;
 show)
@@ -46,16 +41,6 @@ show)
     echo "Error fetching $id: no issue found matching \"$id\"" >&2
     exit 1
   fi
-  ;;
-dep)
-  verb="$1"
-  if [ "$verb" != list ]; then
-    echo "fake bd: unknown dep verb $verb" >&2
-    exit 2
-  fi
-  # The flat batch shape real bd prints for two or more ids; the daemon
-  # narrows the edges to the ids it asked about, so printing them all is safe.
-  cat "$FAKE_BD_TESTDATA/dep_list.json"
   ;;
 *)
   echo "fake bd: unknown subcommand $sub" >&2
