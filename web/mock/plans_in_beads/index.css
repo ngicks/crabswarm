@@ -21,3 +21,17 @@
   --text-sm: 0.9375rem;
   --text-sm--line-height: calc(1.5 / 0.9375);
 }
+
+/* daisyUI sizes its controls per tier (sm 12px, md 14px, lg 18px) and its
+   --size-field variable scales heights only, so there is no 15px tier to
+   pick. The md tier is this surface's body tier: it follows text-sm. These
+   rules are unlayered, so they win over daisyUI's @layer rules. */
+.tabs-md > .tab,
+.input-md,
+.select-md {
+  font-size: var(--text-sm);
+}
+.btn-md,
+.btn:not(.btn-xs, .btn-sm, .btn-lg, .btn-xl) {
+  --fontsize: var(--text-sm);
+}
