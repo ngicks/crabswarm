@@ -13,10 +13,6 @@ dependencies:
       path: hooks/agents-simple-automation
     - git: github.com/ngicks/agents-package
       path: hooks/markdown-mermaid-lint
-    # This repository consuming its own published package: the Stop hook
-    # running `crabswarm issues lint`.
-    - git: github.com/ngicks/crabswarm
-      path: apm-package/issues-mermaid-lint
     - git: github.com/ngicks/agents-package
       path: hooks/go-golangci-lint
     - git: github.com/ngicks/agents-package
@@ -43,5 +39,7 @@ dependencies:
       path: skills/ngcommit
     - git: github.com/ngicks/agents-package
       path: skills/ngplan
+    - git: github.com/ngicks/crabswarm
+      path: apm-package/crabswarm-issues-lint
   mcp: []
 scripts: {}
