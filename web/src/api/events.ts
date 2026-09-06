@@ -116,14 +116,17 @@ function subscribe<T>(
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const t = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(t);
-        resolve();
-      },
-      { once: true },
-    );
+    // The signal lives as long as the app while a sleep lasts one backoff, so
+    // the listener goes when the timer fires — a daemon that stays down means
+    // one sleep per reconnect, and they must not pile up on the signal.
+    const onAbort = () => {
+      clearTimeout(t);
+      resolve();
+    };
+    const t = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }

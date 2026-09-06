@@ -6,7 +6,7 @@ import { parseDocLocation } from "@/lib/paths.js";
 
 // ImageView renders an image file inline (like GitHub's file view) instead of
 // routing it through the confirm-then-open-raw dialog. It needs no server call:
-// the routed path is an image (decided by extension in routes.isImagePath), so
+// the routed path is an image (isImagePath in lib/paths.ts decides by extension), so
 // it points an <img> straight at the existing /raw endpoint (rawUrl).
 export function ImageView() {
   const loc = useLocation();

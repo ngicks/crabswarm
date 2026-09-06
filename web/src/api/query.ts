@@ -193,7 +193,11 @@ export interface Token {
  *  widgets' `field:value` edits; liqe does the real parsing. */
 export function tokensOf(text: string): Token[] {
   const out: Token[] = [];
-  const re = /"[^"]*"?|'[^']*'?|\S+/g;
+  // A quoted run is one token even behind `-` and a `field:`, which is how
+  // tagToken spells a value carrying whitespace; the widgets have to read
+  // back what it wrote. The closing quote is optional so a value still being
+  // typed stays one token too. Anything else is a run of non-space.
+  const re = /-?(?:[A-Za-z_][\w.-]*:)?(?:"(?:\\.|[^"\\])*"?|'(?:\\.|[^'\\])*'?)|\S+/g;
   for (const m of text.matchAll(re)) {
     out.push({ text: m[0], start: m.index, end: m.index + m[0].length });
   }

@@ -82,6 +82,38 @@ test("a label: query narrows the list", async ({ page }) => {
   await expect(page.getByTestId("query-status")).toContainText("1 issue");
 });
 
+test("a label whose name has a space stays one token through the bar", async ({ page }) => {
+  // The labels page writes the token the bar reads back: a value with
+  // whitespace is quoted, and `q` is form-encoded, so the quotes are %22.
+  await page.goto(`/issues/${encodeURIComponent(sourceId)}/labels`);
+  await page.getByTestId("labels-search").fill("needs");
+  const quoted = listUrl("?q=is:open+label:%22needs+review%22");
+  await expect(page.getByTestId("label-name")).toHaveAttribute("href", quoted);
+
+  await page.goto(quoted);
+  const rows = page.getByTestId("issue-list").locator("tbody tr");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("crabswarm-jp7");
+  await expect(page.getByTestId("query-input")).toHaveValue('is:open label:"needs review"');
+
+  // The state buttons rewrite the query token by token, so the quoted value
+  // has to come back whole rather than split at its space.
+  await page.getByTestId("state-closed").click();
+  await expect(page.getByTestId("query-input")).toHaveValue('label:"needs review" is:closed');
+  await expect(page.getByTestId("issue-list")).toContainText("No issue matches the query.");
+});
+
+test("a half-typed quoted value is the token the suggestions answer for", async ({ page }) => {
+  await page.goto(listUrl());
+  // The space inside an open quote belongs to the `label:` token, so the bar
+  // answers for that value — no label matches, and none of the qualifier
+  // names it would offer for a token that had just begun show up either.
+  await page.getByTestId("query-input").fill('is:open label:"needs ');
+
+  await expect(page.getByText("No suggestion for this token")).toBeAttached();
+  await expect(page.getByTestId("query-suggestion")).toHaveCount(0);
+});
+
 test("an unknown qualifier is named under the bar and matches nothing", async ({ page }) => {
   await page.goto(listUrl("?q=milestone:v1"));
 
@@ -94,11 +126,11 @@ test("the labels page splits active from archived", async ({ page }) => {
   await page.getByTestId("labels-link").click();
   await expect(page).toHaveURL(`${E2E_BASE_URL}/issues/${encodeURIComponent(sourceId)}/labels`);
 
-  // Five labels are carried by an open issue; `retired` only by the closed one.
-  await expect(page.getByTestId("labels-active")).toContainText("Active 5");
+  // Six labels are carried by an open issue; `retired` only by the closed one.
+  await expect(page.getByTestId("labels-active")).toContainText("Active 6");
   await expect(page.getByTestId("labels-archived")).toContainText("Archived 1");
   const names = page.getByTestId("label-name");
-  await expect(names).toHaveCount(5);
+  await expect(names).toHaveCount(6);
   await expect(page.getByTestId("labels-table")).not.toContainText("retired");
 
   await page.getByTestId("labels-archived").click();
