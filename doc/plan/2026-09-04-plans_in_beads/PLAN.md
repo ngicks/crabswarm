@@ -847,7 +847,8 @@ Resolved 2026-09-04: Q1 → D1, Q2 → D2, Q3 → D3, Q4 → D4, Q5 → D5,
 Q6 → D6, Q7 → D7, Q8 → D8, Q9 → D9, Q10 → D10, Q11 → D11, Q12 → D12,
 Q13 → D13. 2026-09-05: D14 and D15 added from the user's generic-viewer
 direction. 2026-09-06: D16–D21 from the mock; Q15 closed by D20 (the
-board and graph views left the plan); D22 keeps the GUI read-only.
+board and graph views left the plan); D22 keeps the GUI read-only; D23
+fixes the detail page's layout.
 
 14. **Where is the search query evaluated?** The mock parses the bar's
     query with liqe in the browser and evaluates it over the source's
@@ -894,6 +895,7 @@ step 8 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 | D20 board and graph views dropped; Open / Closed / Plans buttons with counts; neighbourhood stays | step 6 (buttons), step 7 (neighbourhood); non-goal for the views |
 | D21 neighbourhood zoom and pan: wheel, drag, toolbar, resizable box, legible opening view, no zoom library | step 7 |
 | D22 GUI stays read-only; comments, edits and an edit log are a later writable-board plan | non-goal; no step |
+| D23 detail page: title first, metadata under it, one card per section with a header strip | step 6 (detail view), step 7 (neighbourhood strip) |
 | UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 9 |
 | UC2 review in the browser with mermaid | steps 4, 6, 7 |
 | UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 8 documents |

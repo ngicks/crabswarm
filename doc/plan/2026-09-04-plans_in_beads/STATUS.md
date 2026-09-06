@@ -1,10 +1,11 @@
 # Status
 
-Current state: **planned** — idea gate confirmed 2026-09-04; 22
+Current state: **planned** — idea gate confirmed 2026-09-04; 23
 decisions recorded (D14 generic viewer and D15 mermaid neighbourhood
-2026-09-05; D16–D22 from the mock 2026-09-06, D20 dropping the board and
+2026-09-05; D16–D23 from the mock 2026-09-06, D20 dropping the board and
 graph views for GitHub's Open / Closed / Plans buttons, D21 zoom and pan
-on the neighbourhood, D22 keeping the GUI read-only); contracts, nine
+on the neighbourhood, D22 keeping the GUI read-only, D23 the detail
+page's layout); contracts, nine
 steps and the traceability table are in PLAN.md; the presentation mock at
 `web/mock/plans_in_beads/` covers the GitHub-style list (search bar
 parsed by liqe, state buttons with counts) and the detail page with its
@@ -42,6 +43,7 @@ a dogfood step; until then it stays here.
 - [x] D20 "board and graph views dropped; Open / Closed / Plans buttons; neighbourhood stays" decided (closes Q15)
 - [x] D21 "neighbourhood zoom and pan, hand-rolled, legible opening view" decided in the mock
 - [x] D22 "GUI stays read-only; writable board is a later plan" decided
+- [x] D23 "detail page: title first, section cards with header strips" decided in the mock
 - [ ] Q14 "where the query is evaluated" open for step 4
 - [x] Contracts finalized (surface delta reflects D5–D15)
 - [x] Traceability gate passed (PLAN.md "Traceability")

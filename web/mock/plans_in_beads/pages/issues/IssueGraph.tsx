@@ -5,6 +5,7 @@ import type { IssueEdge } from "@/api/client.js";
 import { type GraphNode, flowchart } from "@/lib/graph.js";
 import { runMermaid } from "@/lib/mermaid.js";
 import { issueHref } from "@/lib/paths.js";
+import { Section } from "./Section.js";
 
 // The dependency neighbourhood on the detail page (D15): a mermaid flowchart
 // built from ListDependencies edges and drawn by the same bundled mermaid
@@ -42,12 +43,14 @@ export function IssueGraph({
   nodes,
   edges,
   search,
+  title = "Neighbourhood",
   testId = "local-graph",
 }: {
   sourceId: string;
   nodes: GraphNode[];
   edges: IssueEdge[];
   search: string;
+  title?: string;
   testId?: string;
 }) {
   const loc = useLocation();
@@ -243,9 +246,28 @@ export function IssueGraph({
     else reset();
   };
 
-  return (
-    <div class="rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-base-300 px-4 py-2 text-xs opacity-70">
+  // The toolbar rides on the title's line; the legend takes the whole next one
+  // (`basis-full` inside the strip's flex-wrap), which reads better than
+  // letting a wide legend push the buttons onto a third line.
+  const strip = (
+    <>
+      <span class="ml-auto flex items-center gap-1 text-xs opacity-70">
+        {/* Written through the ref on every transform, so it carries no JSX children. */}
+        <span ref={level} class="w-10 text-right tabular-nums" data-testid="graph-zoom-level" />
+        <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-out" title="zoom out" onClick={() => zoomBy(1 / 1.3)}>
+          −
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-in" title="zoom in" onClick={() => zoomBy(1.3)}>
+          +
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-reset" title="actual size" onClick={reset}>
+          1:1
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-fit" title="fit to the box" onClick={fit}>
+          Fit
+        </button>
+      </span>
+      <div class="flex basis-full flex-wrap items-center gap-x-4 gap-y-1 text-xs opacity-70">
         <span>
           {nodes.length} issue{nodes.length === 1 ? "" : "s"}, {edges.length} edge{edges.length === 1 ? "" : "s"}
         </span>
@@ -258,23 +280,12 @@ export function IssueGraph({
         <span class="flex items-center gap-1">
           <span class="inline-block h-0 w-5 border-t border-current" /> related
         </span>
-        <span class="ml-auto flex items-center gap-1">
-          {/* Written through the ref on every transform, so it carries no JSX children. */}
-          <span ref={level} class="w-10 text-right tabular-nums" data-testid="graph-zoom-level" />
-          <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-out" title="zoom out" onClick={() => zoomBy(1 / 1.3)}>
-            −
-          </button>
-          <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-in" title="zoom in" onClick={() => zoomBy(1.3)}>
-            +
-          </button>
-          <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-reset" title="actual size" onClick={reset}>
-            1:1
-          </button>
-          <button type="button" class="btn btn-ghost btn-sm" data-testid="graph-zoom-fit" title="fit to the box" onClick={fit}>
-            Fit
-          </button>
-        </span>
       </div>
+    </>
+  );
+
+  return (
+    <Section title={title} extra={strip} testId={testId}>
       <div
         ref={viewport}
         class="relative h-[22rem] min-h-40 cursor-grab touch-none select-none resize-y overflow-hidden [&_g.node]:cursor-pointer [&_pre.mermaid]:m-0 [&_pre.mermaid]:bg-transparent"
@@ -288,6 +299,6 @@ export function IssueGraph({
       >
         <div ref={ref} class="w-max origin-top-left" data-testid="graph-canvas" />
       </div>
-    </div>
+    </Section>
   );
 }

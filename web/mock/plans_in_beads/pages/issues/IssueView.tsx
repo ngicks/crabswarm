@@ -7,6 +7,7 @@ import { issueHref } from "@/lib/paths.js";
 import { IssueGraph } from "./IssueGraph.js";
 import { Progress } from "./IssueList.js";
 import { MarkdownField, fieldAnchor } from "./MarkdownField.js";
+import { Section } from "./Section.js";
 import { useOpenIssue } from "./useIssues.js";
 
 // Issue detail (GetIssue): the bead the way bd models it — summary, the four
@@ -34,11 +35,11 @@ export function IssueView({ sourceId, issueId, search }: { sourceId: string; iss
     <div class="flex min-w-0 gap-4">
       <div class="min-w-0 flex-1 space-y-4">
         <Header issue={issue} sourceId={sourceId} search={search} />
+        <CloseReason issue={issue} />
         {sections.map((s) => (
-          <section key={s.key}>
-            <h2 class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide opacity-60">{s.title}</h2>
+          <Section key={s.key} title={s.title}>
             <MarkdownField field={s.field} prefix={s.key} />
-          </section>
+          </Section>
         ))}
         <Children issue={issue} sourceId={sourceId} search={search} />
         <Dependencies issue={issue} sourceId={sourceId} search={search} />
@@ -53,15 +54,16 @@ export function IssueView({ sourceId, issueId, search }: { sourceId: string; iss
 function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   const s = issue.summary;
   const metadata = metadataPairs(issue.metadataJson);
-  const closed = s.status === "ISSUE_STATUS_CLOSED";
   const progress = progressOf(s);
 
   return (
     <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow-sm">
-      <div class="mb-1 flex flex-wrap items-center gap-2 text-xs">
+      <h1 class="text-3xl font-semibold leading-tight">{s.title}</h1>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <span class={`badge ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
         <span class="font-mono opacity-70">{s.id}</span>
         <span class="badge badge-outline whitespace-nowrap">{s.issueType}</span>
-        <span class={`badge ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
         <span class="opacity-60">priority {s.priority}</span>
         {s.labels.map((l) => (
           <span key={l} class="badge badge-ghost whitespace-nowrap">
@@ -69,8 +71,6 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
           </span>
         ))}
       </div>
-
-      <h1 class="text-xl font-bold">{s.title}</h1>
 
       <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs opacity-70">
         {s.parentId && (
@@ -87,8 +87,6 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
         {s.commentCount > 0 && <span>{s.commentCount} comments</span>}
       </div>
 
-      {progress && <Progress closed={progress.closed} total={progress.total} />}
-
       {metadata.length > 0 && (
         <div class="mt-2 flex flex-wrap gap-1" data-testid="metadata">
           {metadata.map(([k, v]) => (
@@ -99,24 +97,25 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
         </div>
       )}
 
-      {closed && issue.closeReason.html !== "" && (
-        <div class="mt-3">
-          <h2 class="mb-1 text-xs font-semibold uppercase tracking-wide opacity-60">Close reason</h2>
-          <MarkdownField field={issue.closeReason} prefix="close" />
-        </div>
-      )}
+      {progress && <Progress closed={progress.closed} total={progress.total} />}
     </div>
+  );
+}
+
+function CloseReason({ issue }: { issue: Issue }) {
+  if (issue.summary.status !== "ISSUE_STATUS_CLOSED" || issue.closeReason.html === "") return null;
+  return (
+    <Section title="Close reason">
+      <MarkdownField field={issue.closeReason} prefix="close" />
+    </Section>
   );
 }
 
 function Children({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   if (issue.children.length === 0) return null;
   return (
-    <section>
-      <h2 class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide opacity-60">
-        Children ({issue.children.length})
-      </h2>
-      <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm">
+    <Section title={`Children (${issue.children.length})`}>
+      <div class="overflow-x-auto">
         <table class="table text-sm">
           <thead>
             <tr>
@@ -146,18 +145,15 @@ function Children({ issue, sourceId, search }: { issue: Issue; sourceId: string;
           </tbody>
         </table>
       </div>
-    </section>
+    </Section>
   );
 }
 
 function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   if (issue.dependencies.length === 0) return null;
   return (
-    <section>
-      <h2 class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide opacity-60">
-        Dependencies ({issue.dependencies.length})
-      </h2>
-      <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm">
+    <Section title={`Dependencies (${issue.dependencies.length})`}>
+      <div class="overflow-x-auto">
         <table class="table text-sm">
           <thead>
             <tr>
@@ -185,7 +181,7 @@ function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: str
           </tbody>
         </table>
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -208,27 +204,21 @@ function Neighbourhood({ issue, sourceId, search }: { issue: Issue; sourceId: st
   }
   const edges = listDependencies(sourceId, [...ids]);
 
-  return (
-    <section>
-      <h2 class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide opacity-60">Neighbourhood</h2>
-      <IssueGraph sourceId={sourceId} nodes={nodes} edges={edges} search={search} testId="local-graph" />
-    </section>
-  );
+  // IssueGraph draws its own section card: the legend and the zoom toolbar
+  // belong in the header strip beside the title.
+  return <IssueGraph sourceId={sourceId} nodes={nodes} edges={edges} search={search} testId="local-graph" />;
 }
 
 function Comments({ issue }: { issue: Issue }) {
   if (issue.comments.length === 0) return null;
   return (
-    <section>
-      <h2 class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide opacity-60">
-        Comments ({issue.comments.length})
-      </h2>
-      <div class="space-y-3" data-testid="comments">
+    <Section title={`Comments (${issue.comments.length})`}>
+      <div class="divide-y divide-base-300" data-testid="comments">
         {issue.comments.map((c, n) => (
           <CommentEntry key={c.id} comment={c} index={n} />
         ))}
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -236,14 +226,14 @@ function CommentEntry({ comment, index }: { comment: IssueComment; index: number
   const kind = commentKind(comment);
   return (
     <div>
-      <div class="mb-1 flex flex-wrap items-center gap-2 px-1 text-xs opacity-70">
+      <div class="flex flex-wrap items-center gap-2 bg-base-200/50 px-5 py-2 text-xs opacity-70">
+        <span class="font-medium">{comment.author}</span>
         {kind !== "" && (
           <span class={`badge ${kind === "Decision" ? "badge-primary" : "badge-secondary"}`}>{kind}</span>
         )}
-        <span class="font-medium">{comment.author}</span>
         <span>{shortTime(comment.createdAt)}</span>
       </div>
-      <MarkdownField field={comment.text} prefix={`comment-${index}`} />
+      <MarkdownField field={comment.text} prefix={`comment-${index}`} class="px-5 py-4" />
     </div>
   );
 }

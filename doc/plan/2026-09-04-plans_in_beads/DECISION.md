@@ -323,3 +323,22 @@ how an edit is logged, what bd offers for history).
 Rejected for now: a comment box writing through the daemon to `bd`;
 an edit history taken from bd's version history; logging edits as
 `Edit:` comments by convention. All three are candidates for that plan.
+
+## D23 — Detail page: title first, one card per section with a header strip (decided 2026-09-06, from the mock)
+
+Choice: the detail page opens with the title, large, and the metadata
+under it: status, id, type, priority and labels on one row; parent,
+created, updated and counts on the next; then the metadata chips and
+the epic progress bar. Every section after it is a card with a header
+strip in the stronger base colour carrying the section name at heading
+size: close reason, each rendered field, children, dependencies, the
+neighbourhood (its legend and zoom toolbar ride in the strip) and the
+comments, where each comment has its own smaller strip with author,
+kind and time. The rendered fields stay separate cards, because each
+is its own markdown document rendered by the server.
+Rationale: the user wanted to skim section borders at a glance, and
+the title where GitHub puts it; the small uppercase labels outside the
+cards did not mark sections strongly enough.
+Rejected: merging every section into one bordered box with markdown
+style headings (the user withdrew it once the per-field rendering was
+clear); keeping the labels outside the cards at a larger size.

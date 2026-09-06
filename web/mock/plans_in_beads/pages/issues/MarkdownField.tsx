@@ -4,8 +4,9 @@ import type { RenderedField } from "@/api/client.js";
 import { runMermaid } from "@/lib/mermaid.js";
 
 // One rendered text field (description, design, acceptance, notes, close
-// reason, comment) as the `.markdown-body` card the file browser uses for
-// documents, with the same client-side mermaid pass as DocView (lib/mermaid.ts):
+// reason, comment) as the `.markdown-body` article the file browser uses for
+// documents — the card around it belongs to the enclosing Section —
+// with the same client-side mermaid pass as DocView (lib/mermaid.ts):
 // the server renders ```mermaid fences to <pre class="mermaid"> (render.go,
 // RenderModeClient) and the SPA draws them with its own bundled mermaid — no CDN.
 //
@@ -19,7 +20,16 @@ export function fieldAnchor(prefix: string, id: string): string {
   return `${prefix}--${id}`;
 }
 
-export function MarkdownField({ field, prefix }: { field: RenderedField; prefix: string }) {
+export function MarkdownField({
+  field,
+  prefix,
+  class: className = "p-5 sm:p-6",
+}: {
+  field: RenderedField;
+  prefix: string;
+  /** Padding of the body inside its card. Comments sit tighter than a field. */
+  class?: string;
+}) {
   const ref = useRef<HTMLElement>(null);
   // Read during render so this component subscribes to the theme signal:
   // mermaid bakes the theme into the SVG, so a toggle must re-run it.
@@ -36,11 +46,7 @@ export function MarkdownField({ field, prefix }: { field: RenderedField; prefix:
     void runMermaid(el, dark);
   }, [field.html, prefix, dark]);
 
-  return (
-    <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow-sm sm:p-6">
-      <article ref={ref} class="markdown-body" onClick={onArticleClick} />
-    </div>
-  );
+  return <article ref={ref} class={`markdown-body ${className}`} onClick={onArticleClick} />;
 }
 
 function namespaceAnchors(el: HTMLElement, prefix: string): void {
