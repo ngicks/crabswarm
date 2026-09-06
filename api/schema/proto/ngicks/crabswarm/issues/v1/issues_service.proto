@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package ngicks.crabswarm.issues.v1;
+
+import "google/protobuf/timestamp.proto";
+import "ngicks/crabswarm/preview/v1/preview_service.proto"; // Heading
+
+option go_package = "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/issues/v1;issuesv1";
+
+// IssuesService exposes registered beads databases ("issue sources").
+service IssuesService {
+  // ListSources returns the registered issue sources.
+  rpc ListSources(ListSourcesRequest) returns (ListSourcesResponse);
+  // AddSource resolves DIR's beads database with `bd where` and registers it.
+  // Re-adding a directory of the same repository is idempotent. Fails with
+  // NotFound when DIR has no beads database.
+  rpc AddSource(AddSourceRequest) returns (AddSourceResponse);
+  // RemoveSource drops a registered source.
+  rpc RemoveSource(RemoveSourceRequest) returns (RemoveSourceResponse);
+  // ListIssues lists a source's issues newest-updated first.
+  rpc ListIssues(ListIssuesRequest) returns (ListIssuesResponse);
+  // GetIssue returns one issue with every text field rendered to HTML, its
+  // comments, children and dependencies.
+  rpc GetIssue(GetIssueRequest) returns (GetIssueResponse);
+  // ListDependencies returns every dependency edge among the given issues
+  // (all issues of the source when issue_ids is empty), in one bd call.
+  rpc ListDependencies(ListDependenciesRequest) returns (ListDependenciesResponse);
+  // WatchIssues streams change notifications produced by the daemon's
+  // per-source poll.
+  rpc WatchIssues(WatchIssuesRequest) returns (stream WatchIssuesResponse);
+}
+
+// Source is a registered beads database.
+message Source {
+  // ID is a stable identifier derived from the absolute .beads path.
+  string id = 1;
+  // BeadsPath is the absolute .beads directory (bd where: data.path).
+  string beads_path = 2;
+  // Prefix is the issue-ID prefix (bd where: data.prefix), used as the name.
+  string prefix = 3;
+  // Dir is the directory the source was registered from; bd runs there.
+  string dir = 4;
+}
+
+message ListSourcesRequest {}
+
+message ListSourcesResponse {
+  repeated Source sources = 1;
+}
+
+message AddSourceRequest {
+  // Dir is a directory inside the repository; may be relative.
+  string dir = 1;
+}
+
+message AddSourceResponse {
+  Source source = 1;
+}
+
+message RemoveSourceRequest {
+  string source_id = 1;
+}
+
+message RemoveSourceResponse {}
+
+enum IssueStatus {
+  ISSUE_STATUS_UNSPECIFIED = 0;
+  ISSUE_STATUS_OPEN = 1;
+  ISSUE_STATUS_IN_PROGRESS = 2;
+  ISSUE_STATUS_BLOCKED = 3;
+  ISSUE_STATUS_CLOSED = 4;
+}
+
+message IssueSummary {
+  string id = 1;
+  string title = 2;
+  string issue_type = 3; // bd's type string: task, epic, bug, ...
+  IssueStatus status = 4;
+  int32 priority = 5;
+  repeated string labels = 6;
+  string parent_id = 7; // "" for top-level
+  int32 comment_count = 8;
+  int32 child_count = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  int32 child_closed_count = 12; // for the epic progress affordance
+  string metadata_json = 13; // verbatim JSON object; "{}" when unset — chips in list and board
+}
+
+message RenderedField {
+  string html = 1; // rendered markdown fragment; "" when the field is empty
+  repeated ngicks.crabswarm.preview.v1.Heading toc = 2;
+}
+
+message IssueComment {
+  string id = 1;
+  string author = 2;
+  RenderedField text = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message IssueDependency {
+  string id = 1; // the other issue
+  string title = 2;
+  string type = 3; // blocks, parent-child, discovered-from, related
+  // outgoing is true when this issue is the edge's from side (IssueEdge.from_id):
+  // it depends on, is a child of, or was discovered from the other issue.
+  // parent-child rows are omitted here; children and parent_id carry them.
+  bool outgoing = 4;
+}
+
+message Issue {
+  IssueSummary summary = 1;
+  RenderedField description = 2;
+  RenderedField design = 3;
+  RenderedField acceptance_criteria = 4;
+  RenderedField notes = 5;
+  string metadata_json = 6; // bd metadata, verbatim JSON object; "{}" when unset
+  RenderedField close_reason = 7; // close reasons are markdown too
+  repeated IssueComment comments = 8;
+  repeated IssueSummary children = 9;
+  repeated IssueDependency dependencies = 10;
+}
+
+message ListIssuesRequest {
+  string source_id = 1;
+  // Status filter; empty means open, in-progress and blocked (bd's default).
+  repeated IssueStatus statuses = 2;
+  // Label filter (all must match).
+  repeated string labels = 3;
+  // Only children of this issue.
+  string parent_id = 4;
+}
+
+message ListIssuesResponse {
+  repeated IssueSummary issues = 1;
+}
+
+message GetIssueRequest {
+  string source_id = 1;
+  string issue_id = 2;
+}
+
+message GetIssueResponse {
+  Issue issue = 1;
+}
+
+message IssueEdge {
+  string from_id = 1; // the dependent / child / discoverer
+  string to_id = 2; // what it depends on / parent / origin
+  string type = 3; // blocks, parent-child, discovered-from, related
+}
+
+message ListDependenciesRequest {
+  string source_id = 1;
+  repeated string issue_ids = 2; // empty: every issue of the source
+}
+
+message ListDependenciesResponse {
+  repeated IssueEdge edges = 1;
+}
+
+message WatchIssuesRequest {}
+
+// IssuesChanged signals that issues of a source were created, updated or
+// closed since the previous poll; an empty issue_ids means "refetch all".
+message IssuesChanged {
+  string source_id = 1;
+  repeated string issue_ids = 2;
+}
+
+// SourcesChanged signals that the source registry changed.
+message SourcesChanged {}
+
+message WatchIssuesResponse {
+  oneof event {
+    IssuesChanged issues_changed = 1;
+    SourcesChanged sources_changed = 2;
+  }
+}
