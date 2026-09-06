@@ -19,6 +19,7 @@ import (
 
 	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
 	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1/previewv1connect"
+	"github.com/ngicks/crabswarm/crabswarm/issues"
 	"github.com/ngicks/crabswarm/crabswarm/preview/httpapi"
 	"github.com/ngicks/crabswarm/crabswarm/preview/render"
 )
@@ -28,10 +29,11 @@ import (
 const shutdownTimeout = 5 * time.Second
 
 // Service is the running previewer: it composes the in-memory [RootStore], a
-// shared broadcast [Hub], the markdown [render.Renderer] and one [Watcher] per
-// registered root, and serves them over HTTP (connect API + /healthz + /raw +
-// SPA static). It implements [previewv1connect.PreviewServiceHandler] so the
-// HTTP layer mounts it directly, and [httpapi.RawResolver] for /raw path safety.
+// shared broadcast [Hub], the markdown [render.Renderer], one [Watcher] per
+// registered root and the [issues.Service] serving the registered beads
+// databases, and serves them over HTTP (connect API + /healthz + /raw + SPA
+// static). It implements [previewv1connect.PreviewServiceHandler] so the HTTP
+// layer mounts it directly, and [httpapi.RawResolver] for /raw path safety.
 //
 // Watchers are started when a root is added and stopped when it is removed, all
 // under the errgroup created by [Service.Serve] (per the repo's concurrency
@@ -43,6 +45,7 @@ type Service struct {
 	store    *RootStore
 	hub      *Hub
 	renderer *render.Renderer
+	issues   *issues.Service
 
 	mu       sync.Mutex
 	static   fs.FS                   // injected SPA file system (see SetStaticFS)
@@ -69,12 +72,17 @@ func New(logger *slog.Logger, cfg Config) (*Service, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
+	renderer := render.New(render.Options{})
 	return &Service{
 		logger:   logger,
 		cfg:      cfg,
 		store:    NewRootStore(),
 		hub:      NewHub(),
-		renderer: render.New(render.Options{}),
+		renderer: renderer,
+		// The issue sources are their own registry with their own polls, but
+		// they render through the same markdown pipeline the documents use
+		// and ride the same HTTP server, so the previewer owns the service.
+		issues:   issues.NewService(logger, renderer, issues.NewSourceStore()),
 		watchers: make(map[string]*watchHandle),
 	}, nil
 }
@@ -99,6 +107,7 @@ func (s *Service) Handler() http.Handler {
 	return httpapi.New(httpapi.Config{
 		Logger:  s.logger,
 		Connect: s,
+		Issues:  s.issues,
 		Raw:     s,
 		Static:  static,
 	})
@@ -146,6 +155,9 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 		return nil
 	})
+	// The issue sources poll bd on their own schedule; running them on this
+	// group ties their lifetime to the server's.
+	g.Go(func() error { return s.issues.Run(gctx) })
 
 	return g.Wait()
 }

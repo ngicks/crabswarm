@@ -1,11 +1,11 @@
 // Package httpapi composes the previewer's HTTP surface: the connect-go
-// PreviewService handler, a /healthz probe, raw file serving under /raw, the
-// render stylesheets under /assets/css, and the single-page-app static files
-// with an index.html fallback.
+// PreviewService and IssuesService handlers, a /healthz probe, raw file serving
+// under /raw, the render stylesheets under /assets/css, and the single-page-app
+// static files with an index.html fallback.
 //
 // It deliberately does not import the parent preview package. The preview
 // service owns the domain logic (root registry, watchers, renderer) and passes
-// what this layer needs in through the connect handler interface and the narrow
+// what this layer needs in through the connect handler interfaces and the narrow
 // [RawResolver] interface, so preview -> httpapi is a one-way dependency with no
 // import cycle.
 package httpapi
@@ -18,6 +18,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/issues/v1/issuesv1connect"
 	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1/previewv1connect"
 	"github.com/ngicks/crabswarm/crabswarm/preview/render"
 	"github.com/ngicks/crabswarm/crabswarm/preview/render/alert"
@@ -41,8 +42,12 @@ type Config struct {
 	// stylesheets). A nil Logger falls back to [slog.Default].
 	Logger *slog.Logger
 	// Connect is the PreviewService implementation mounted at the connect
-	// route. It is the only inbound RPC surface.
+	// route.
 	Connect previewv1connect.PreviewServiceHandler
+	// Issues is the IssuesService implementation, mounted at its own connect
+	// route beside Connect. A nil Issues leaves the route unmounted, which is
+	// what a previewer built without an issue registry wants.
+	Issues issuesv1connect.IssuesServiceHandler
 	// Raw resolves /raw requests to absolute filesystem paths with path-escape
 	// rejection.
 	Raw RawResolver
@@ -67,6 +72,13 @@ func New(cfg Config) http.Handler {
 		cfg.Connect,
 		cfg.ConnectOpts...)
 	mux.Handle(connectPath, connectHandler)
+
+	if cfg.Issues != nil {
+		issuesPath, issuesHandler := issuesv1connect.NewIssuesServiceHandler(
+			cfg.Issues,
+			cfg.ConnectOpts...)
+		mux.Handle(issuesPath, issuesHandler)
+	}
 
 	mux.HandleFunc("GET /healthz", healthz)
 
