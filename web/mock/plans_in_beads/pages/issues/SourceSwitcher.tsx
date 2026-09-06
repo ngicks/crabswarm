@@ -17,12 +17,12 @@ export function SourceSwitcher({ activeSourceId }: { activeSourceId: string }) {
               title={s.beadsPath}
             >
               <span class="truncate">{s.prefix}</span>
-              <span class="ml-auto font-mono text-[10px] opacity-60">{s.id.slice(0, 6)}</span>
+              <span class="ml-auto font-mono text-xs opacity-60">{s.id.slice(0, 6)}</span>
             </a>
           </li>
         ))}
       </ul>
-      <div class="px-2 pt-1 text-[11px] opacity-50">
+      <div class="px-2 pt-1 text-xs opacity-50">
         Registered by <code class="font-mono">crabswarm preview --issue DIR</code>
       </div>
     </div>

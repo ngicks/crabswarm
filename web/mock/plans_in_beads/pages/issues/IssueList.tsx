@@ -15,15 +15,15 @@ export function IssueList({ sourceId, rows, search }: { sourceId: string; rows: 
   }
   return (
     <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="issue-list">
-      <table class="table table-sm">
+      <table class="table text-sm">
         <thead>
           <tr>
-            <th class="w-40">id</th>
+            <th class="w-44">id</th>
             <th class="w-20">type</th>
             <th class="w-28">status</th>
             <th class="w-10">P</th>
             <th>title</th>
-            <th class="w-36">updated</th>
+            <th class="w-40">updated</th>
           </tr>
         </thead>
         <tbody>
@@ -42,7 +42,7 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
   const metadata = metadataPairs(s.metadataJson);
   return (
     <tr class="hover">
-      <td class="font-mono text-xs">
+      <td class="whitespace-nowrap font-mono text-xs">
         <a class="link" href={href}>
           {s.id}
         </a>
@@ -58,7 +58,7 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
         <a class="link link-hover" href={href}>
           {s.title}
         </a>
-        <div class="mt-0.5 flex flex-wrap items-center gap-1 text-[11px]">
+        <div class="mt-0.5 flex flex-wrap items-center gap-1 text-xs">
           {s.labels.map((l) => (
             <span key={l} class="badge badge-ghost badge-xs">
               {l}
@@ -73,7 +73,7 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
         </div>
         {progress && <Progress closed={progress.closed} total={progress.total} />}
       </td>
-      <td class="text-xs opacity-70">{shortTime(s.updatedAt)}</td>
+      <td class="whitespace-nowrap text-xs opacity-70">{shortTime(s.updatedAt)}</td>
     </tr>
   );
 }
@@ -82,7 +82,7 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
  *  list rows, the board's cards and lanes, and the detail header. */
 export function Progress({ closed, total }: { closed: number; total: number }) {
   return (
-    <div class="mt-1 flex items-center gap-2 text-[11px] opacity-80" data-testid="progress">
+    <div class="mt-1 flex items-center gap-2 text-xs opacity-80" data-testid="progress">
       <progress class="progress progress-success h-1.5 w-32" value={closed} max={total} />
       <span>
         {closed}/{total} closed

@@ -75,7 +75,7 @@ export function IssueGraph({
           {nodes.length} issues match; drawing the first {cap}. Narrow the filters to see the rest.
         </div>
       )}
-      <div class="flex flex-wrap items-center gap-3 text-[11px] opacity-70">
+      <div class="flex flex-wrap items-center gap-3 text-xs opacity-70">
         {toolbar}
         <span>
           {shown.length} node{shown.length === 1 ? "" : "s"}, {edges.length} edge{edges.length === 1 ? "" : "s"}

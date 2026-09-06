@@ -92,7 +92,7 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
       {metadata.length > 0 && (
         <div class="mt-2 flex flex-wrap gap-1" data-testid="metadata">
           {metadata.map(([k, v]) => (
-            <span key={k} class="badge badge-outline badge-sm font-mono text-[11px]">
+            <span key={k} class="badge badge-outline badge-sm font-mono text-xs">
               {k}={v}
             </span>
           ))}
@@ -117,7 +117,7 @@ function Children({ issue, sourceId, search }: { issue: Issue; sourceId: string;
         Children ({issue.children.length})
       </h2>
       <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm">
-        <table class="table table-sm">
+        <table class="table text-sm">
           <thead>
             <tr>
               <th class="w-40">id</th>
@@ -158,7 +158,7 @@ function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: str
         Dependencies ({issue.dependencies.length})
       </h2>
       <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm">
-        <table class="table table-sm">
+        <table class="table text-sm">
           <thead>
             <tr>
               <th class="w-36">relation</th>

@@ -7,3 +7,17 @@
    build. Declaring this directory as a source keeps the mock's classes. */
 @import "#src/index.css";
 @source "./";
+
+/* Type scale for the issues surface, in rem so the browser's root size still
+   applies: body text 15px (`text-sm`, the size social feeds settle on for
+   posts), metadata 13px (`text-xs`). Tailwind's own steps are 14 and 12, which
+   read small in a table of titles. Scoped to this CSS entry, so the file
+   browser keeps the app's scale until the real Issues tab decides. daisyUI
+   components size themselves (`table`, `tabs-md`, `input-md`); the xs / sm
+   tiers are kept for chips and badges only. */
+@theme {
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: calc(1.25 / 0.8125);
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: calc(1.5 / 0.9375);
+}

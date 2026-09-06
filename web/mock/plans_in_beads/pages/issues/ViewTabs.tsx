@@ -40,7 +40,7 @@ export function ViewTabs({
       className="space-y-4"
     >
       <div class="flex flex-wrap items-center gap-3">
-        <Tabs.List className="tabs tabs-box tabs-sm" aria-label="View">
+        <Tabs.List className="tabs tabs-box tabs-md" aria-label="View">
           {ALL_VIEWS.map((v) => (
             <Tabs.Trigger key={v} value={v} className={`tab ${!onIssue && v === query.view ? "tab-active" : ""}`}>
               {VIEW_TITLES[v]}

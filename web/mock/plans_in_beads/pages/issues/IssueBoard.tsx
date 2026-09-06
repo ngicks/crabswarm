@@ -127,7 +127,7 @@ function LaneHeader({
           {l}
         </span>
       ))}
-      <span class="text-[11px] opacity-60">{count} shown</span>
+      <span class="text-xs opacity-60">{count} shown</span>
       {progress && <Progress closed={progress.closed} total={progress.total} />}
     </div>
   );
@@ -159,14 +159,14 @@ function Card({ sourceId, s, search }: { sourceId: string; s: IssueSummary; sear
       class="block rounded-box border border-base-300 bg-base-100 p-2 text-sm shadow-sm hover:border-primary"
       data-testid="card"
     >
-      <div class="flex flex-wrap items-center gap-1 text-[11px]">
+      <div class="flex flex-wrap items-center gap-1 text-xs">
         <span class="font-mono opacity-70">{s.id}</span>
         <span class="badge badge-outline badge-xs">{s.issueType}</span>
         <span class="opacity-60">P{s.priority}</span>
       </div>
       <div class="mt-0.5 leading-snug">{s.title}</div>
       {(s.labels.length > 0 || metadata.length > 0) && (
-        <div class="mt-1 flex flex-wrap gap-1 text-[11px]">
+        <div class="mt-1 flex flex-wrap gap-1 text-xs">
           {s.labels.map((l) => (
             <span key={l} class="badge badge-ghost badge-xs">
               {l}

@@ -98,7 +98,7 @@ export function QueryBar({
       >
         {/* One daisyUI input box holds the text, the clear mark and the
             Search button, so a single border and focus ring enclose all. */}
-        <Combobox.Control className="input input-sm w-full gap-1 pr-1">
+        <Combobox.Control className="input input-md w-full gap-1 pr-1">
           <Combobox.Input
             ref={inputRef}
             className="grow bg-transparent font-mono outline-none"
@@ -152,7 +152,7 @@ export function QueryBar({
         </Portal>
       </Combobox.Root>
 
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] opacity-70" data-testid="query-status">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs opacity-70" data-testid="query-status">
         {parsed.error !== "" ? (
           <span class="text-error" data-testid="query-error">
             {parsed.error}

@@ -51,14 +51,14 @@ export function IssueFilters({ query, labels, matches, update, reset }: Props) {
           <ToggleGroup.Item
             key={s}
             value={s}
-            className={`btn btn-xs ${statuses.includes(s) ? "btn-primary" : "btn-outline"}`}
+            className={`btn btn-sm ${statuses.includes(s) ? "btn-primary" : "btn-outline"}`}
             title={`status:${statusLabel(s)}`}
           >
             {statusLabel(s)}
           </ToggleGroup.Item>
         ))}
       </ToggleGroup.Root>
-      <div class="px-0.5 text-[11px] opacity-50">
+      <div class="px-0.5 text-xs opacity-50">
         {statuses.length > 0
           ? `status:${statuses.map(statusLabel).join(" status:")}`
           : isTags.includes("open")
@@ -71,7 +71,7 @@ export function IssueFilters({ query, labels, matches, update, reset }: Props) {
       <div class="flex flex-wrap items-center gap-1 text-xs">
         <span class="opacity-60">saved</span>
         <button
-          class={`btn btn-xs ${hasTag(q, "is", "plan") ? "btn-secondary" : "btn-outline"}`}
+          class={`btn btn-sm ${hasTag(q, "is", "plan") ? "btn-secondary" : "btn-outline"}`}
           title="is:plan"
           onClick={() => setQ(toggleTag(q, "is", "plan"))}
           data-testid="saved-plans"
@@ -82,11 +82,11 @@ export function IssueFilters({ query, labels, matches, update, reset }: Props) {
 
       <LabelPicker labels={labels} selected={tagValues(q, "label")} onToggle={(l) => setQ(toggleTag(q, "label", l))} />
 
-      <div class="flex items-center justify-between text-[11px] opacity-60">
+      <div class="flex items-center justify-between text-xs opacity-60">
         <span>
           {matches} issue{matches === 1 ? "" : "s"}, newest updated first
         </span>
-        <button class="btn btn-ghost btn-xs" onClick={reset}>
+        <button class="btn btn-ghost btn-sm" onClick={reset}>
           reset
         </button>
       </div>
@@ -144,8 +144,8 @@ function LabelPicker({
         </div>
       )}
       <Combobox.Control className="join w-full">
-        <Combobox.Input className="input input-sm join-item w-full" placeholder="Filter by label" />
-        <Combobox.Trigger className="btn btn-sm join-item" aria-label="Open the label list">
+        <Combobox.Input className="input input-md join-item w-full" placeholder="Filter by label" />
+        <Combobox.Trigger className="btn btn-md join-item" aria-label="Open the label list">
           ▾
         </Combobox.Trigger>
       </Combobox.Control>
