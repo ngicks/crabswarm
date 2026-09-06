@@ -341,13 +341,19 @@ func (s *Service) forgetVerified(token string) {
 	delete(s.verified, token)
 }
 
-// defaultName names a joiner after its token, the last thing left to name it by
-// once neither the join request nor the team-info provider supplied a name.
-func defaultName(token string) string {
+// defaultName names a joiner after its kind and its token, the last things left
+// to name it by once neither the join request nor the team-info provider
+// supplied a name.
+//
+// The kind leads because the name is what everyone else in the room reads: a
+// member that declared itself a human and answers from an inbox must not be
+// addressed as an agent whose terminal is typed into. The stored kind is the
+// word itself, so the prefix is spelled from it rather than mapped again.
+func defaultName(token string, kind MemberKind) string {
 	if len(token) > tokenNamePrefixLen {
 		token = token[:tokenNamePrefixLen]
 	}
-	return "agent-" + token
+	return string(kind) + "-" + token
 }
 
 // memberState maps the reported harness state onto the stored one. The

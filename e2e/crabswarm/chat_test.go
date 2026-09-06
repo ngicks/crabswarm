@@ -814,10 +814,11 @@ func TestChat_JoinWithoutNameTakesComposeLabels(t *testing.T) {
 		{token: "tok-worker", dir: chatRoom, project: "alpha",
 			command: "worker", scaleIndex: "2"},
 		{token: "tok-solo", dir: chatRoom, project: "alpha", command: "solo"},
-		// Exactly eight characters, which is as much of a token as a
-		// token-derived name carries, so the fallback below is spelled out
+		// Exactly eight characters each, which is as much of a token as a
+		// token-derived name carries, so the fallbacks below are spelled out
 		// whole.
 		{token: "tok-bare", dir: chatRoom, project: "alpha"},
+		{token: "tok-anon", dir: chatRoom, project: "alpha"},
 	})
 
 	got := runChat(t, cfg, "tok-worker", "join", "--kind", "human")
@@ -833,16 +834,25 @@ func TestChat_JoinWithoutNameTakesComposeLabels(t *testing.T) {
 	}
 
 	// Nothing in the labels names this one, so the daemon falls back to the
-	// token, as it did before the labels were read at all.
+	// token, as it did before the labels were read at all — prefixed by the kind
+	// the joiner declared, so the fallback name does not say the member is
+	// something it is not.
 	got = runChat(t, cfg, "tok-bare", "join", "--kind", "human")
-	if want := "joined " + chatRoom + " as alpha/agent-tok-bare\n"; got != want {
+	if want := "joined " + chatRoom + " as alpha/human-tok-bare\n"; got != want {
 		t.Errorf("join without naming labels = %q, want %q", got, want)
+	}
+
+	got = runChat(t, cfg, "tok-anon", "join", "--kind", "agent")
+	if want := "joined " + chatRoom + " as alpha/agent-tok-anon\n"; got != want {
+		t.Errorf("join of an unnamed agent = %q, want %q", got, want)
 	}
 
 	// The derived names are the ones a teammate sees and addresses.
 	members := memberAddresses(runChat(t, cfg, "tok-worker", "members"))
 	slices.Sort(members)
-	want := []string{"alpha/agent-tok-bare", "alpha/solo", "alpha/worker-2"}
+	want := []string{
+		"alpha/agent-tok-anon", "alpha/human-tok-bare", "alpha/solo", "alpha/worker-2",
+	}
 	if !slices.Equal(members, want) {
 		t.Errorf("members = %v, want %v", members, want)
 	}

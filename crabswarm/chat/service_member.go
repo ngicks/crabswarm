@@ -92,7 +92,7 @@ func (s *Service) Join(
 		name = info.Name
 	}
 	if name == "" {
-		name = defaultName(token)
+		name = defaultName(token, kind)
 	}
 	joiner := Member{
 		Token: token,

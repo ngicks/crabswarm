@@ -326,6 +326,50 @@ func TestAdminService_RegisterMember(t *testing.T) {
 	})
 }
 
+// An operator registering a person meets the same rule a joiner does: the name
+// an agent the provider no longer places is still carrying is not in the way,
+// and the ghost goes with the registration.
+func TestAdminService_RegisterMemberReclaimsTheNameOfAGoneAgent(t *testing.T) {
+	svc, id, _, provider := newTestAdminServiceWith(t)
+	// The provider is never told about this token, so the agent holding the name
+	// reads as a command that no longer exists.
+	join(t, svc.store, "tok-old", "/work", "hosts", "hana")
+
+	res, err := svc.RegisterMember(
+		adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.RegisterMemberRequest{Room: "/work", Team: "hosts", Name: "hana"},
+	)
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetMember().GetTeam()+"/"+res.GetMember().GetName(), "hosts/hana")
+
+	_, err = svc.store.Member(t.Context(), "tok-old")
+	assert.ErrorIs(t, err, ErrNotFound)
+	registered, err := svc.store.Member(t.Context(), res.GetToken())
+	assert.NilError(t, err)
+	assert.Equal(t, registered.Team+"/"+registered.Name, "hosts/hana")
+	assert.Equal(t, registered.Kind, KindHuman)
+	// The holder was let go because the provider said so, not because the store
+	// had already lost it.
+	assert.Assert(t, provider.callCount() > 0)
+}
+
+// A daemon with no team-info provider has nothing that could show the holder
+// gone, so every collision an operator's registration runs into stays a refusal.
+func TestAdminService_RegisterMemberWithoutAProviderRefusesTheCollision(t *testing.T) {
+	svc, id, _ := newTestAdminServiceOver(t, nil)
+	join(t, svc.store, "tok-old", "/work", "hosts", "hana")
+
+	_, err := svc.RegisterMember(
+		adminCtx(t, adminNonce(t, svc, id)),
+		&chatv1.RegisterMemberRequest{Room: "/work", Team: "hosts", Name: "hana"},
+	)
+	assert.Equal(t, status.Code(err), codes.AlreadyExists)
+
+	held, err := svc.store.Member(t.Context(), "tok-old")
+	assert.NilError(t, err)
+	assert.Equal(t, held.Team+"/"+held.Name, "hosts/hana")
+}
+
 // everyoneTarget, teamTarget and memberTarget spell the request's target cases
 // as the address each means, so a case reads as who it reaches rather than as
 // the wrapper carrying it.

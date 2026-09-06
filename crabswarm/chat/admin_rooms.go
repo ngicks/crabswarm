@@ -108,6 +108,13 @@ func (a *AdminService) moveMember(
 // the operator said so, and the lazy reaper leaves a human alone for the same
 // reason. Like the nonce it is [rand.Text], since the human retypes it into an
 // env var.
+//
+// A name the target team already carries is AlreadyExists, unless whoever
+// carries it is a gone agent — an operator registering a person meets the same
+// rule a joiner and a move meet, so the ghost of a command nobody runs any more
+// does not hold a name against the person taking its place. Only that agent is
+// ever reaped here; the human this registers stays a member until an operator
+// says otherwise.
 func (a *AdminService) RegisterMember(
 	ctx context.Context,
 	req *chatv1.RegisterMemberRequest,
@@ -121,7 +128,7 @@ func (a *AdminService) RegisterMember(
 		return nil, status.Error(codes.InvalidArgument, "empty room")
 	}
 	token := rand.Text()
-	registered, err := a.store.Join(ctx, Member{
+	registered, err := a.registerMember(ctx, Member{
 		Token: token,
 		Name:  req.GetName(),
 		Team:  req.GetTeam(),
@@ -141,6 +148,26 @@ func (a *AdminService) RegisterMember(
 		Member: memberProto(registered),
 		Token:  token,
 	}, nil
+}
+
+// registerMember records the membership itself, freeing a colliding name in the
+// target team first when the member holding it has vanished. The error is the
+// store's own, for [AdminService.RegisterMember] to map onto a status.
+//
+// Retried once and no further: a name taken again in between is somebody else
+// winning the race, which is a refusal to report rather than a reason to keep
+// trying.
+func (a *AdminService) registerMember(ctx context.Context, m Member) (Member, error) {
+	registered, err := a.store.Join(ctx, m)
+	if !errors.Is(err, ErrNameTaken) || a.provider == nil {
+		return registered, err
+	}
+	// Nothing to forget on a reap: no verdict is cached on this half, which
+	// asks the provider afresh every time it asks at all.
+	if !reclaimName(ctx, a.store, a.provider, a.logger, nil, m.Room, m.Team, m.Name) {
+		return registered, err
+	}
+	return a.store.Join(ctx, m)
 }
 
 // Send delivers a message into a room the caller does not attend, addressed to

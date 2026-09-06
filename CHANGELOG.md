@@ -16,6 +16,10 @@
   missing token instead of the process exiting during startup.
 - The daemon reaps a member whose cmdman command has exited and frees the name
   that member held.
+- An unnamed joiner defaults to `agent-<token prefix>` or
+  `human-<token prefix>`, matching the kind it declared.
+- `crabswarm chat admin register` takes over a name held by an agent whose
+  cmdman command is gone.
 - The `crabswarm-chat` package forwards `CMDMAN_CMD_ID`, `CRABSWARM_CHAT_TOKEN`
   and `XDG_RUNTIME_DIR` to the bridge, so Codex spawns it with an identity token
   and the runtime dir the socket path comes from.

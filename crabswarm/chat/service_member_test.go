@@ -150,14 +150,23 @@ func TestService_JoinIsIdempotent(t *testing.T) {
 	assert.Equal(t, stored.Kind, KindHuman)
 }
 
-func TestService_JoinDefaultsNameToTokenPrefix(t *testing.T) {
+// The name the daemon falls back to says what the member is, so a roster reader
+// addressing it is not told it is typing into a terminal that has no harness
+// behind it.
+func TestService_JoinDefaultsNameToKindAndTokenPrefix(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.vouch("0123456789abcdef", "/work", "alpha")
+	provider.vouch("fedcba9876543210", "/work", "alpha")
 
 	res, err := svc.Join(callCtx(t, "0123456789abcdef"),
 		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
 	assert.NilError(t, err)
 	assert.Equal(t, res.GetSelf().GetName(), "agent-01234567")
+
+	res, err = svc.Join(callCtx(t, "fedcba9876543210"),
+		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetSelf().GetName(), "human-fedcba98")
 }
 
 // A joiner that reported no name is better named by whatever the provider knows
