@@ -52,7 +52,7 @@ wire, `signals/` is client state, `lib/` is helpers.
 | File | Role |
 |---|---|
 | `index.html`, `main.tsx` | mount point; installs the providers, the stylesheet and the theme effect |
-| `index.css` | imports `../../src/index.css` and declares this directory as a tailwind source |
+| `index.css` | imports `../../src/index.css` and declares this directory and `src/` as tailwind sources (the app components the mock imports need their utilities emitted here) |
 | `app.tsx` | routes (`/`, `/roots…`, `/issues/{sourceId}[/labels\|/{issueId}]`) inside the shell |
 | `components/Layout.tsx` | the shell: tab header above the routed page |
 | `components/Header.tsx` | Roots \| Issues tabs, "simulate change", theme toggle |
@@ -65,7 +65,7 @@ wire, `signals/` is client state, `lib/` is helpers.
 | `pages/issues/IssueGraph.tsx` | the detail page's neighbourhood: mermaid flowchart from edges in a zoom / pan viewport (wheel, drag, −/+/1:1/Fit, resizable), click-through |
 | `pages/issues/IssueView.tsx` | detail: a title-first header with progress, then rendered fields, children, dependencies, neighbourhood, comments, TOC |
 | `pages/issues/Section.tsx` | one detail-page section: a card whose header strip carries the section name; every section, table, the graph and the comments use it |
-| `pages/issues/MarkdownField.tsx` | one `.markdown-body` article (the card is the section's), with the client-side mermaid pass |
+| `pages/issues/MarkdownField.tsx` | one `.markdown-body` article (the card is the section's), with the client-side mermaid pass; a rendered diagram or image opens the app's lightbox |
 | `pages/issues/useIssues.ts` | the page's state over the api layer: the query-string filters, the rows, the open issue |
 | `pages/roots/index.tsx` | `/roots`: a placeholder for the unchanged file browser |
 | `pages/not-found.tsx` | fallback route |
@@ -87,9 +87,11 @@ Lucene. An unknown qualifier matches nothing and is named under the bar; a
 query that does not parse shows the parser's message and lists nothing.
 
 Nothing under `web/src` is modified: the mock imports `src/index.css`,
-`src/signals/ui.ts` and `src/components/ThemeToggle.tsx`, and copies the
-patterns it needs from the app's `Layout.tsx`, `RootSwitcher.tsx`,
-`FileTree.tsx` and `DocView.tsx`.
+`src/signals/ui.ts`, `src/components/ThemeToggle.tsx` and
+`src/components/Lightbox.tsx` (rendered diagrams and images in an issue
+open in the app's own pan / zoom lightbox), and copies the patterns it
+needs from the app's `Layout.tsx`, `RootSwitcher.tsx`, `FileTree.tsx`
+and `DocView.tsx`.
 
 Import aliases follow the web preference rule: `@/…` is this directory
 (declared in `tsconfig.json` `paths` and `vite.config.ts` `resolve.alias`,

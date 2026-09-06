@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "preact/hooks";
+import { openLightbox, openSvgLightbox } from "#src/components/Lightbox.js";
 import { theme } from "#src/signals/ui.js";
 import type { RenderedField } from "@/api/client.js";
 import { runMermaid } from "@/lib/mermaid.js";
@@ -60,6 +61,24 @@ function namespaceAnchors(el: HTMLElement, prefix: string): void {
 }
 
 function onArticleClick(e: MouseEvent): void {
+  // Same branches as DocView's handler, so a diagram or an image inside an
+  // issue field behaves the way it does in the file browser.
+  //
+  // A failed render leaves raw text (no <svg>) and falls through.
+  const diagram = (e.target as HTMLElement).closest<HTMLElement>("pre.mermaid, .mermaid");
+  const svg = diagram?.querySelector<SVGSVGElement>("svg");
+  if (svg) {
+    e.preventDefault();
+    openSvgLightbox(svg);
+    return;
+  }
+  // A linked image falls through so the anchor wins.
+  const img = (e.target as HTMLElement).closest<HTMLImageElement>("img");
+  if (img && !img.closest("a")) {
+    e.preventDefault();
+    openLightbox(img.src);
+    return;
+  }
   const a = (e.target as HTMLElement).closest("a");
   if (!a) return;
   const href = a.getAttribute("href") ?? "";

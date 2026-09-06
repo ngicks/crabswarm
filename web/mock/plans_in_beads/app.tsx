@@ -1,4 +1,5 @@
 import { Route, Router } from "preact-iso";
+import { Lightbox } from "#src/components/Lightbox.js";
 import { Layout } from "./components/Layout.js";
 import { NotFound } from "./pages/not-found.js";
 import { LabelsPage } from "./pages/issues/LabelsPage.js";
@@ -30,6 +31,10 @@ export function App() {
         <Route path="/issues/:sourceId/:issueId" component={IssuesPage} />
         <Route default component={NotFound} />
       </Router>
+      {/* One instance for the whole app, as routes.tsx mounts it: the overlay
+          is driven by a module signal, so any rendered diagram or image can
+          open it. */}
+      <Lightbox />
     </Layout>
   );
 }

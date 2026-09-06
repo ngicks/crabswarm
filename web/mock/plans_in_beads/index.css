@@ -7,6 +7,11 @@
    build. Declaring this directory as a source keeps the mock's classes. */
 @import "#src/index.css";
 @source "./";
+/* The mock also renders app components (components/Lightbox.tsx). Vite roots
+   tailwind's automatic detection at the vite root, this directory, so their
+   utilities need the app's source tree declared too — without it the lightbox
+   overlay loses its backdrop and stacking classes. */
+@source "../../src/";
 
 /* Type scale for the issues surface, in rem so the browser's root size still
    applies: body text 15px (`text-sm`, the size social feeds settle on for
