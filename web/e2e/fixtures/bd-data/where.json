@@ -1,0 +1,8 @@
+{
+  "data": {
+    "path": "/fake/crabswarm/.beads",
+    "prefix": "crabswarm",
+    "database_path": "/fake/crabswarm/.beads/embeddeddolt"
+  },
+  "schema_version": 1
+}

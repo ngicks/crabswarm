@@ -22,6 +22,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/ngicks.crabswarm.preview.v1.PreviewService": { target: backend, changeOrigin: true },
+      "/ngicks.crabswarm.issues.v1.IssuesService": { target: backend, changeOrigin: true },
       "/raw": { target: backend, changeOrigin: true },
       "/assets": { target: backend, changeOrigin: true },
       "/healthz": { target: backend, changeOrigin: true },

@@ -14,7 +14,3 @@
 # Playwright run output (pnpm e2e)
 /test-results
 /playwright-report
-
-# Presentation mocks under mock/<name>/ build and cache locally only
-/mock/*/dist
-/mock/*/.vite

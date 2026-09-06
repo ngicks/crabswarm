@@ -1,0 +1,25 @@
+[
+  {
+    "id": "crabswarm-125",
+    "title": "Admin TUI screen",
+    "description": "Recorded 2026-08-31.\n\nThe admin needs its own interactive surface.\n",
+    "status": "closed",
+    "priority": 2,
+    "issue_type": "task",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-03T18:21:59Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-03T18:22:01Z",
+    "closed_at": "2026-09-03T18:22:01Z",
+    "close_reason": "Resolved 2026-09-03. `crabswarm chat admin tui` exists under\n`crabswarm/chat/cli/tui/`.\n",
+    "labels": [
+      "admin",
+      "retired"
+    ],
+    "dependencies": [],
+    "comments": [],
+    "dependent_count": 2,
+    "dependency_count": 0,
+    "comment_count": 0
+  }
+]

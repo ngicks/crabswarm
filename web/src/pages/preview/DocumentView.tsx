@@ -3,6 +3,7 @@ import { useEffect, useRef } from "preact/hooks";
 import { useDocument } from "@/api/preview.js";
 import { rawUrl } from "@/api/client.js";
 import { openLightbox, openSvgLightbox } from "@/components/Lightbox.js";
+import { runMermaid } from "@/lib/mermaid.js";
 import { parseDocLocation } from "@/lib/paths.js";
 import { theme } from "@/signals/preferences.js";
 
@@ -78,21 +79,6 @@ function Placeholder({ text }: { text: string }) {
 
 async function enrich(el: HTMLElement, dark: boolean): Promise<void> {
   await Promise.all([runMermaid(el, dark), typesetMath(el)]);
-}
-
-let mermaidMod: Promise<typeof import("mermaid")> | null = null;
-
-async function runMermaid(el: HTMLElement, dark: boolean): Promise<void> {
-  const nodes = el.querySelectorAll<HTMLElement>("pre.mermaid, .mermaid");
-  if (nodes.length === 0) return;
-  mermaidMod ??= import("mermaid");
-  try {
-    const mermaid = (await mermaidMod).default;
-    mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default", securityLevel: "strict" });
-    await mermaid.run({ nodes: Array.from(nodes) });
-  } catch {
-    // leave the raw diagram source visible on failure
-  }
 }
 
 // MathJax is loaded once from our own origin (copied out of the `mathjax` npm

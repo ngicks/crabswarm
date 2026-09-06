@@ -1,0 +1,62 @@
+[
+  {
+    "id": "crabswarm-no2",
+    "title": "Plans in beads",
+    "description": "The plan itself, stored as a bead.\n\n## Shape\n\nOne epic per plan, one child task per step.\n\n```mermaid\nflowchart LR\n  idea --> plan\n  plan --> steps\n  steps --> done\n```\n\n## Reading\n\nThe detail page renders every field.\n",
+    "design": "## Fields\n\nidea becomes description, plan becomes design, criteria become acceptance.\n",
+    "acceptance_criteria": "The list, the labels page and the detail page all read from bd.\n",
+    "notes": "The Notes field is rendered as its own section.\n",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "epic",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-04T12:20:33Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-06T12:20:33Z",
+    "metadata": {
+      "idea_gate_passed": "yes"
+    },
+    "labels": [
+      "chat",
+      "plan"
+    ],
+    "dependencies": [
+      {
+        "id": "crabswarm-jp7",
+        "title": "WatchRoom upgrade path for the admin TUI tail poll",
+        "status": "open",
+        "priority": 2,
+        "issue_type": "task",
+        "owner": "yknt.bsl@gmail.com",
+        "created_at": "2026-09-03T18:21:58Z",
+        "created_by": "ngicks",
+        "updated_at": "2026-09-05T18:21:58Z",
+        "dependency_type": "blocks"
+      },
+      {
+        "id": "crabswarm-125",
+        "title": "Admin TUI screen",
+        "status": "closed",
+        "priority": 2,
+        "issue_type": "task",
+        "owner": "yknt.bsl@gmail.com",
+        "created_at": "2026-09-03T18:21:59Z",
+        "created_by": "ngicks",
+        "updated_at": "2026-09-03T18:22:01Z",
+        "dependency_type": "discovered-from"
+      }
+    ],
+    "comments": [
+      {
+        "id": "01a07676-9aa3-77c8-9373-5aa3789f358d",
+        "issue_id": "crabswarm-no2",
+        "author": "ngicks",
+        "text": "Decision: the plan lives in beads, not in a markdown file.",
+        "created_at": "2026-09-06T11:24:39Z"
+      }
+    ],
+    "dependent_count": 0,
+    "dependency_count": 2,
+    "comment_count": 1
+  }
+]

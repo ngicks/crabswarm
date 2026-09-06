@@ -54,3 +54,28 @@ export function isImagePath(path: string): boolean {
   if (dot < 0) return false;
   return IMAGE_EXTENSIONS.has(path.slice(dot + 1).toLowerCase());
 }
+
+// URLs of the issues surface: /issues/{sourceId}[/{issueId}][?query], with
+// both ids percent-encoded. The query string carries the search query from the
+// list onto the detail URL and back, so returning from an issue lands on the
+// same filters.
+
+export function sourceHref(sourceId: string, query = ""): string {
+  return `/issues/${encodeURIComponent(sourceId)}${query}`;
+}
+
+export function issueHref(sourceId: string, issueId: string, query = ""): string {
+  return `/issues/${encodeURIComponent(sourceId)}/${encodeURIComponent(issueId)}${query}`;
+}
+
+/** The labels page of one source. `labels` is not a bd id, so the route can
+ *  sit beside /issues/{sourceId}/{issueId} without ever shadowing an issue. */
+export function labelsHref(sourceId: string, query = ""): string {
+  return `/issues/${encodeURIComponent(sourceId)}/labels${query}`;
+}
+
+/** The query string of a preact-iso location url ("" or "?..."). */
+export function queryOf(url: string): string {
+  const i = url.indexOf("?");
+  return i < 0 ? "" : url.slice(i);
+}
