@@ -10,6 +10,8 @@ dependencies:
     - git: github.com/ngicks/agents-package
       path: apm-package/cc-workers
     - git: github.com/ngicks/agents-package
+      path: hooks/agents-simple-automation
+    - git: github.com/ngicks/agents-package
       path: hooks/go-golangci-lint
     - git: github.com/ngicks/agents-package
       path: hooks/go-vet-ngcheckers
