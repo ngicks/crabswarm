@@ -390,3 +390,36 @@ afterwards.
 Rejected: printing from the command files (the earlier plan text let
 the lint command render its own lines); a package-level `bd` path read
 from the environment inside the client.
+
+## D26 — Implementation runs in the `main` worktree, one commit per step (decided 2026-09-06) [automatic]
+
+Choice: the steps are implemented on the `main` branch in the existing
+`main/` worktree, not in a fresh worktree, with one commit per finished
+step in the repository's commit convention. The user was away when the
+run started.
+Rationale: every mock and plan commit of this plan already went to
+`main` directly; the `web/` dependencies are installed only in `main/`,
+and steps 4 and 6 need them for code generation and the build; the
+user's dev server watches `main/`. A fresh worktree would add a
+`pnpm install` and a branch merge for no isolation the user asked for.
+Rejected: a `plans-in-beads` branch in a sibling worktree, the plan's
+earlier wording; squashing the steps into one commit.
+
+## D27 — The bd client's surface follows bd's JSON, not the sketch (decided 2026-09-06) [automatic]
+
+Choice: the client exposes what the fence sketched plus what bd
+actually returns: constructor options `WithBinary`, `WithEnv`,
+`WithLogger`; a `Status` string type with the five bd statuses
+including `deferred`; `Summary` carrying every `bd list` field, the
+text fields included, so a lint sweep can find mermaid fences without a
+`bd show` per issue; `Dependency` embedding the other issue's `Summary`
+with the edge kind, as `bd show` reports it. `List` always passes
+`--limit`, spelling 0 as unlimited, because bd's own default of 50
+would silently truncate a source. Identifiers keep the repository's
+`ID` spelling. `Where` takes only a context and a directory.
+Rationale: the fence was a sketch written before the JSON was decoded;
+mirroring bd's record avoids a second decode later, and the option
+functions are how the runner is injected without environment reads.
+Rejected: a lean `Summary` with the text fields on `Issue` only (one
+`bd show` per issue for the lint sweep, ~1.5 s each); the `Id`
+spelling a review skill prefers, against eleven existing `ID` uses.

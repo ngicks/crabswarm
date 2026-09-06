@@ -81,8 +81,13 @@ Derived from IDEA.md.
     `design`, `acceptance_criteria`, `notes`, `metadata`, `labels`,
     `comments[]` (`author`, `text`, `created_at`), status, type, counts.
     Empty fields are omitted from the JSON.
-  - `bd list --json` returns the same text fields minus comments, labels
-    and metadata; `--parent <id>` filters children.
+  - `bd list --json` returns the same text fields, labels and metadata,
+    minus comments; `--parent <id>` filters children; `--limit` defaults
+    to 50 (pass 0 for all). Corrected 2026-09-06 while implementing:
+    `bd show --json` returns an array even for one id; `show` reports
+    dependencies as issue records with `dependency_type`, `list` as edge
+    records (`issue_id`, `depends_on_id`, `type`); a missing id is a
+    prose `{"error": …}` on stdout with exit 1, not a stable code.
   - `bd export --all` streams every bead as JSONL with comments; ~1.1 s.
   - `bd sql` is **not supported in embedded mode**.
   - One `bd` invocation costs ~1.5 s (embedded Dolt startup). Three
@@ -602,25 +607,38 @@ package issues
 func Where(ctx context.Context, dir string) (Location, error)
 type Location struct{ BeadsPath, DatabasePath, Prefix string }
 
-type Client struct{ /* bd binary, dir, logger */ }
+type Client struct{ /* bd binary, dir, env, logger */ }
+type Option func(*Client)
+func WithBinary(path string) Option      // default "bd" on PATH
+func WithEnv(env ...string) Option       // appended to the subprocess environment
+func WithLogger(l *slog.Logger) Option
 func NewClient(dir string, opts ...Option) *Client
-func (c *Client) List(ctx context.Context, f ListFilter) ([]Summary, error)        // bd list --json
-func (c *Client) Children(ctx context.Context, id string) ([]Summary, error)      // bd list --json --parent <id>
-func (c *Client) Get(ctx context.Context, id string) (*Issue, error)              // bd show --json --include-comments
-func (c *Client) Dependencies(ctx context.Context, ids []string) ([]Edge, error)  // bd dep list <ids...> --json, one call
+func (c *Client) List(ctx context.Context, f ListFilter) ([]Summary, error)        // bd list --json --limit N (0 = unlimited; bd's own default of 50 would truncate)
+func (c *Client) Children(ctx context.Context, id string) ([]Summary, error)      // List with ParentID
+func (c *Client) Get(ctx context.Context, id string) (*Issue, error)              // bd show --id=<id> --json --include-comments (array of one)
+func (c *Client) Dependencies(ctx context.Context, ids []string) ([]Edge, error)  // bd dep list <ids...> --json, one call (step 7)
 
 type ListFilter struct {
-    Statuses      []Status
-    Labels        []string
+    Statuses      []Status   // one comma-joined --status
+    Labels        []string   // repeated --label
     ParentID      string
     Limit         int
     SortByUpdated bool
 }
 
-// Issue mirrors bd's JSON: Summary plus Description, Design,
-// AcceptanceCriteria, Notes, Metadata (json.RawMessage), CloseReason,
-// Comments []Comment, Dependencies []Dependency. Omitted JSON fields
-// decode as empty.
+type Status string // open, in_progress, blocked, deferred, closed
+
+// Summary mirrors one bd list record: ID, Title, Status, Priority, Type
+// (bd's issue_type), Assignee, Owner, ParentID, Labels, CreatedAt,
+// UpdatedAt, ClosedAt, CreatedBy, DependencyCount, DependentCount,
+// CommentCount, and — because bd list returns them — the text fields
+// Description, Design, AcceptanceCriteria, Notes, so a lint sweep needs
+// bd show only for comments.
+// Issue is Summary plus Metadata (json.RawMessage), CloseReason,
+// Comments []Comment{ID, IssueID, Author, Text, CreatedAt} and
+// Dependencies []Dependency{Summary; DependencyType} — bd show reports a
+// dependency as the other issue's record plus the edge kind. Omitted
+// JSON fields decode as empty.
 
 // SourceStore mirrors preview.RootStore: in-memory, keyed by the ID
 // derived from Location.BeadsPath, deduplicated by name (Prefix).
