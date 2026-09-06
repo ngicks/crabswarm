@@ -205,7 +205,7 @@ the detail page.
 |---|---|---|
 | list (`/issues/{sourceId}`) | the search bar — one GitHub-style query (`is:` `status:` `label:` `type:` `parent:` `priority:` and free text, negation, AND / OR, quotes) with suggestions for the token under the caret (D18) — over the table; a row of **Open N**, **Closed N** and **Plans N** buttons above the rows, GitHub's way, each a spelling of the query (`is:open` / `is:closed` pick one state, `is:plan` narrows) with the count the rest of the query would match; a **Labels N** button in the sidebar, under the sources, opens the labels page | `ListIssues` |
 | labels (`/issues/{sourceId}/labels`) | GitHub's labels page: a title, a name filter (`q`), **Active N** and **Archived N** buttons (`state`), and a table of every label with its open and closed counts (each a link into the list with `label:`) and last update; active = an open issue carries it, archived = only closed ones do (D24, Q16) | `ListIssues`, aggregated client-side |
-| detail (`/issues/{sourceId}/{issueId}`) | title first, metadata under it, then one card per section with a header strip (D23): rendered fields, children with progress, dependencies table, the issue's dependency neighbourhood as a graph, comments | `GetIssue` + `ListDependencies` |
+| detail (`/issues/{sourceId}/{issueId}`) | a sticky bar with the back link, id, title and a **Jump to** menu over the sections (Ark navigation menu); title first, metadata under it, then one card per section with a header strip (D23): rendered fields, children with progress, dependencies table, the issue's dependency neighbourhood as a graph, comments; a TOC on the right outlining every section and the fields' headings | `GetIssue` + `ListDependencies` |
 
 Convention-aware affordances, applied to every issue that has the data:
 an epic progress bar from child status (any epic, not only plans); a
@@ -658,16 +658,28 @@ func Lint(ctx context.Context, issues []issues.Issue) ([]Finding, error)
 ### Repository layout
 
 ```text
-crabswarm/issues/                   bd client, Where, SourceStore, IssuesService (new)
+crabswarm/issues/                   bd client, Where, SourceStore, IssuesService (new); ctx first, the bd runner injected
 crabswarm/issues/mermaidlint/       mermaid-lint runner over issue text (new)
-cmd/crabswarm/commands/issues.go    `crabswarm issues` group (new)
+crabswarm/issues/cli/               presentation for the issues commands: lint findings as lines, the
+                                    source table for `preview list` (new; no printing under ./cmd)
+cmd/crabswarm/commands/issues.go    `crabswarm issues` group (new) — flags and hand-off only
 cmd/crabswarm/commands/issues_lint.go
 cmd/crabswarm/commands/preview.go   --root / --issue flags; registers both by default (changed)
-cmd/crabswarm/commands/preview_list.go, preview_remove.go   cover sources (changed)
+cmd/crabswarm/commands/preview_list.go, preview_remove.go   cover sources (changed); render through crabswarm/issues/cli
 api/schema/proto/ngicks/crabswarm/issues/v1/issues_service.proto (new)
 crabswarm/preview/httpapi/handler.go   mounts IssuesService beside PreviewService (changed)
 hooks/issues-mermaid-lint/hooks/hook.json   Stop hook package (new, D11)
 ```
+
+The Go packages follow the design preference rule as updated on
+2026-09-06 (D25): files under `./cmd` parse flags and hand off; every
+print, table or exit decision lives in `crabswarm/issues/cli` as
+`crabswarm/chat/cli` does for chat; `Run` functions return errors and
+never call `os.Exit`; long-running or cancellable work takes `ctx`
+first; the `bd` runner, the working directory and the registry are
+injected through constructors rather than read from package state;
+interfaces are declared where they are consumed (the service names the
+two or three client methods it needs); tests sit beside their package.
 
 `web/src` is reorganised in step 6 into the page-based layout the user
 fixed (the mock under `web/mock/plans_in_beads/` already follows it):
@@ -679,21 +691,23 @@ web/src/
 ├── index.css                 global styles, tailwind/daisyUI
 ├── pages/                    route-level screens
 │   ├── preview/              /roots/…: index.tsx, FileTree.tsx, DocumentView.tsx (was DocView), Toc.tsx, ImageView.tsx, usePreview.ts
-│   ├── issues/               /issues/…: index.tsx, QueryBar.tsx (D18), StateButtons.tsx (D20), LabelsPage.tsx (D24), IssueList.tsx, IssueGraph.tsx (D15, the neighbourhood), IssueView.tsx, Section.tsx (D23), MarkdownField.tsx, SourceSwitcher.tsx, useIssues.ts
+│   ├── issues/               /issues/…: index.tsx (the two-column shell, list), QueryBar.tsx (D18), StateButtons.tsx (D20), LabelsPage.tsx (D24), IssueList.tsx, IssueGraph.tsx (D15, D21, the neighbourhood), IssueView.tsx (D23), Section.tsx, MarkdownField.tsx, SourceSwitcher.tsx, useIssues.ts
 │   └── not-found.tsx
 ├── components/               UI shared across pages
 │   ├── Layout.tsx            drawer shell
 │   ├── Header.tsx            Roots | Issues tabs (Ark Tabs, daisyUI lifted skin), theme toggle
+│   ├── Lightbox.tsx          pan / zoom overlay for images and rendered diagrams (stays; the issue fields reuse it)
 │   └── ui/                   reusable primitives (Dialog wraps Ark; OpenRawDialog moves here)
 ├── api/
 │   ├── gen/                  generated protobuf code (was src/gen)
 │   ├── client.ts             Connect transport, PreviewService + IssuesService clients
 │   ├── preview.ts            query options for roots / tree / document (was queries.ts)
-│   ├── issues.ts             query options for sources / issues / dependencies
+│   ├── issues.ts             query options for sources / issues / dependencies; the URL's q spelling; label aggregation (D24)
+│   ├── query.ts              the search query language over liqe: qualifiers, evaluation, token edits, suggestions (D18)
 │   └── events.ts             WatchEvents + WatchIssues subscriptions
-├── signals/                  shared client-side state (ui.ts → preferences.ts + drawer/toc signals)
+├── signals/                  shared client-side state (ui.ts → preferences.ts + drawer/toc signals; issues.ts: the open issue)
 ├── hooks/                    cross-page hooks, only if any appear
-├── lib/                      focused non-UI helpers: paths.ts (+ paths.test.ts), format.ts, mermaid.ts (the shared run/enrich pass)
+├── lib/                      focused non-UI helpers: paths.ts (+ paths.test.ts), format.ts, mermaid.ts (the shared run/enrich pass, explicit font family), graph.ts (edges → flowchart text, D15)
 └── assets/                   imported images, icons, fonts
 ```
 
@@ -725,9 +739,12 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
 1. **`crabswarm/issues` client.** `Where` over
    `BD_JSON_ENVELOPE=1 bd where --json` (envelope errors → `ErrNoBeads`),
    `bd list --json` (with `--parent`), `bd show --json --include-comments`,
-   all with a working directory and a context; decode into `Summary` /
-   `Issue`, omitted fields as empty. Test against a fake `bd` script on
-   PATH replaying recorded JSON (fixtures from the probes above). Verify:
+   all with a working directory and a context first; decode into
+   `Summary` / `Issue`, omitted fields as empty. The client is built with
+   a constructor that takes the `bd` runner (binary path, extra env) so
+   tests inject a fake and nothing reads the environment inside the
+   package (D25). Test against a fake `bd` script on PATH replaying
+   recorded JSON (fixtures from the probes above). Verify:
    `go test ./crabswarm/issues/...`.
 2. **`mermaidlint` over `mermaid-lint`.** Temp-file layout, one
    `mermaid-lint --format json --quiet` run, JSON decode, mapping back to
@@ -735,7 +752,9 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    real `mermaid-lint` when on PATH (skip otherwise) plus a fake for the
    mapping. Verify: `go test ./crabswarm/issues/mermaidlint/...`.
 3. **`crabswarm issues lint`, hook package, apm wiring.** Command per the
-   CLI delta, exit 1 with one line per finding; `hooks/issues-mermaid-lint`
+   CLI delta: the command file parses flags and calls `issues.Lint`; the
+   one-line-per-finding rendering lives in `crabswarm/issues/cli`, and
+   the exit status comes from the returned error (D25); `hooks/issues-mermaid-lint`
    package; `apm.yml` gains it and `hooks/markdown-mermaid-lint`. Verify:
    e2e in `e2e/crabswarm/` runs the built binary against a fake `bd`
    emitting one good and one broken fence and asserts exit code and line
@@ -748,14 +767,19 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    open backlog item on fresh worktrees); `SourceStore` and `Service` in
    `crabswarm/issues`, mounted in `crabswarm/preview/httpapi/handler.go`
    beside `PreviewService`; `Poller` per source feeding `WatchIssues`
-   (D8). Verify: service tests with the fake `bd`; `AddSource` on a
+   (D8). The service declares the small client interface it consumes
+   and takes the store, the client and the poll interval through its
+   constructor (D25). Verify: service tests with the fake `bd`; `AddSource` on a
    directory without beads returns NotFound; two worktrees of one
    repository yield one source; a fake `bd` whose listing changes between
    polls produces one `IssuesChanged` with the changed IDs.
 5. **`crabswarm preview` flags.** `--root` / `--issue`, default both;
-   `preview list` and `preview remove` cover sources. Verify: command
-   tests in `cmd/crabswarm/commands/preview_test.go`; e2e registering a
-   directory with and without a beads database.
+   `preview list` and `preview remove` cover sources; the source table
+   is rendered by `crabswarm/issues/cli`, the command files only wire
+   flags to the client (D25). Verify: command tests in
+   `cmd/crabswarm/commands/preview_test.go`, rendering tests beside
+   `crabswarm/issues/cli`; e2e registering a directory with and without
+   a beads database.
 6. **SPA: layout, tabs, route move, list and detail.** Reorganise
    `web/src` into the page-based layout above (including the
    `src/gen` → `src/api/gen` move and its `buf.gen.yaml` output path);
@@ -769,11 +793,12 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    (D8); mermaid renders through the same path `DocView` uses; heading
    anchors namespaced per field (`description--<id>`) as the mock does;
    affordances per D14 (epic progress from `child_closed_count`, comment
-   prefix badges, metadata chips). Interactive widgets — the search bar
-   and the label multi-select — are Ark UI comboboxes
-   (`@ark-ui/react/combobox`) skinned with daisyUI, per the preact
-   preference rule; static chrome, the state buttons included, stays
-   plain daisyUI. The type scale moves from the mock's `index.css`
+   prefix badges, metadata chips). Interactive widgets — the search bar,
+   an Ark UI combobox (`@ark-ui/react/combobox`), and the detail page's
+   Jump to menu, an Ark UI navigation menu
+   (`@ark-ui/react/navigation-menu`) — are skinned with daisyUI, per the
+   preact preference rule; static chrome, the state buttons included,
+   stays plain daisyUI. The type scale moves from the mock's `index.css`
    into `web/src/index.css` (D19): the `@theme` text tokens and the
    daisyUI md-tier override, app-wide. Verify: `pnpm test`, Playwright e2e in
    `web/e2e/` updated for `/roots/…` and covering list and detail against
@@ -912,6 +937,7 @@ step 8 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 | D22 GUI stays read-only; comments, edits and an edit log are a later writable-board plan | non-goal; no step |
 | D23 detail page: title first, metadata under it, one card per section with a header strip | step 6 (detail view), step 7 (neighbourhood strip) |
 | D24 labels page at `/issues/{sourceId}/labels`, Labels button in the sidebar, Active / Archived, counts link into the list | step 6; the archived definition is Q16 |
+| D25 Go layout per the updated design preference: thin `./cmd`, `crabswarm/issues/cli` for presentation, ctx first, injected runner, consumer-side interfaces, tests beside packages | steps 1, 3, 4, 5 |
 | UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 9 |
 | UC2 review in the browser with mermaid | steps 4, 6, 7 |
 | UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 8 documents |

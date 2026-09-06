@@ -1,11 +1,12 @@
 # Status
 
-Current state: **planned** — idea gate confirmed 2026-09-04; 24
+Current state: **planned** — idea gate confirmed 2026-09-04; 25
 decisions recorded (D14 generic viewer and D15 mermaid neighbourhood
 2026-09-05; D16–D24 from the mock 2026-09-06, D20 dropping the board and
 graph views for GitHub's Open / Closed / Plans buttons, D21 zoom and pan
 on the neighbourhood, D22 keeping the GUI read-only, D23 the detail
-page's layout, D24 the labels page); contracts, nine
+page's layout, D24 the labels page; D25 the Go layout per the updated
+design preference); contracts, nine
 steps and the traceability table are in PLAN.md; the presentation mock at
 `web/mock/plans_in_beads/` covers the GitHub-style list (search bar
 parsed by liqe, state buttons with counts) and the detail page with its
@@ -45,6 +46,7 @@ a dogfood step; until then it stays here.
 - [x] D22 "GUI stays read-only; writable board is a later plan" decided
 - [x] D23 "detail page: title first, section cards with header strips" decided in the mock
 - [x] D24 "labels page with Active / Archived, Labels button in the sidebar" decided
+- [x] D25 "Go layout per the updated design preference: thin cmd, issues/cli, ctx first, injection" decided
 - [ ] Q16 "what makes a label archived" open for step 6 (default: only closed issues carry it)
 - [ ] Q14 "where the query is evaluated" open for step 4
 - [x] Contracts finalized (surface delta reflects D5–D15)

@@ -343,6 +343,13 @@ Rejected: merging every section into one bordered box with markdown
 style headings (the user withdrew it once the per-field rendering was
 clear); keeping the labels outside the cards at a larger size.
 
+Amended 2026-09-06: the TOC outlines every section in page order, with
+each rendered field's own headings under it, instead of the description
+and design headings alone, which left acceptance criteria and everything
+below unreachable. A bar sticks to the top of the detail column with
+the back link, the id, the title and a Jump to menu, an Ark UI
+navigation menu, whose items scroll to the sections.
+
 ## D24 — A labels page, GitHub's way, instead of a sidebar picker (decided 2026-09-06)
 
 Choice: the sidebar holds the source switcher and, under it, a
@@ -364,3 +371,22 @@ Rejected: keeping the picker beside the page; a labels tab in the
 header (labels belong to one source, the header tabs do not); the
 button beside the search bar, GitHub's spot, which the user moved into
 the sidebar so the drawer stays the place for a source's navigation.
+
+## D25 — Go packages follow the design preference rule as updated 2026-09-06 (decided 2026-09-06)
+
+Choice: the plan's Go layout adopts the repository's design preference
+rule in the form it took on 2026-09-06. Files under `./cmd` parse flags
+and hand off; printing, tables and exit decisions for the issues
+commands live in a new `crabswarm/issues/cli` package, as
+`crabswarm/chat/cli` already does for chat; `Run` functions return
+errors; cancellable work takes a context first; the `bd` runner, the
+working directory and the source registry are injected through
+constructors; the service declares the client interface it consumes;
+tests sit beside their package.
+Rationale: the user asked for the layout convention change to be folded
+into the plan before implementation starts, so that steps 1, 3, 4 and 5
+are written against the current rule and not reviewed against it
+afterwards.
+Rejected: printing from the command files (the earlier plan text let
+the lint command render its own lines); a package-level `bd` path read
+from the environment inside the client.
