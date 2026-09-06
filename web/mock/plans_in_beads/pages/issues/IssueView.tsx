@@ -14,7 +14,7 @@ import { useOpenIssue } from "./useIssues.js";
 // children with progress, dependencies, a local graph of the issue's
 // neighbourhood (D15) and the comment thread (D4: generic over beads, not a
 // plan-specific view; the plan convention only shows through the `plan`
-// label, the `idea_gate` metadata chip and the Decision/Discussion badges).
+// label, the `idea_gate_passed` metadata chip and the Decision/Discussion badges).
 
 export function IssueView({ sourceId, issueId, search }: { sourceId: string; issueId: string; search: string }) {
   const issue = useOpenIssue(sourceId, issueId);

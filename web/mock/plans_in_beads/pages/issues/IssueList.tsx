@@ -6,7 +6,7 @@ import { issueHref } from "@/lib/paths.js";
 
 // The list (D14, D20): one table row per matching issue, newest updated
 // first, with the affordances every issue gets when it has the data — an epic
-// progress bar from child status, metadata chips (so `idea_gate` shows). A
+// progress bar from child status, metadata chips (so `idea_gate_passed` shows). A
 // plan looks like any other epic here; only the Plans button knows the label.
 
 export function IssueList({

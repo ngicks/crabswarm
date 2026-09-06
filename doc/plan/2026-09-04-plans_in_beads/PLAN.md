@@ -128,7 +128,7 @@ Derived from IDEA.md.
 |---|---|---|
 | Plan | type `epic`, label `plan` | title = plan name |
 | IDEA.md | `description` | idea statement, use cases, usability |
-| `Gate:` line | metadata `idea_gate` = `YYYY-MM-DD`; absent = not confirmed | Q7 |
+| `Gate:` line | metadata `idea_gate_passed` = `YYYY-MM-DD`; absent = not confirmed | Q7 |
 | PLAN.md | `design` | goal, scope, context, approach, surface delta, testing, risks |
 | Success criteria | `acceptance_criteria` | |
 | STATUS narrative | `notes`, via `--append-notes` | progress itself is child status |
@@ -207,7 +207,7 @@ the detail page.
 Convention-aware affordances, applied to every issue that has the data:
 an epic progress bar from child status (any epic, not only plans); a
 `Decision` / `Discussion` badge on comments by text prefix; metadata as
-chips, so `idea_gate` shows without special code; `discovered-from`
+chips, so `idea_gate_passed` shows without special code; `discovered-from`
 edges labelled as such. Nothing checks for the `plan` label except the
 Plans button. Rejected in D14: a separate plan view (it would only
 re-derive these from generic data and drift from the generic page).
@@ -247,7 +247,7 @@ go run doc/plan/2026-09-04-plans_in_beads/mock/gen.go
 cd web && pnpm exec vite --config mock/plans_in_beads/vite.config.ts
 ```
 
-It demonstrates D1 (a plan read as an ordinary issue: fields, `idea_gate`
+It demonstrates D1 (a plan read as an ordinary issue: fields, `idea_gate_passed`
 chip, `Decision:` comments, step children with `blocks` order,
 `discovered-from` items), D6 (tab header, `/issues/{sourceId}[/{issueId}]`),
 D7, D12, D13 (source switcher), D14 (epic progress bars, comment badges,
@@ -698,12 +698,12 @@ No new store. One durable convention on bead metadata, a JSON object bd
 already persists per bead:
 
 ```json
-{ "idea_gate": "2026-09-04" }
+{ "idea_gate_passed": "2026-09-04" }
 ```
 
-`idea_gate` present = confirmed on that date; absent = not confirmed.
-Set with `bd update <id> --set-metadata idea_gate=<date>`, reset with
-`--unset-metadata idea_gate` (D7).
+`idea_gate_passed` present = confirmed on that date; absent = not confirmed.
+Set with `bd update <id> --set-metadata idea_gate_passed=<date>`, reset with
+`--unset-metadata idea_gate_passed` (D7).
 
 RPC schema: see Proto above. Config keys, environment variables: no change.
 
@@ -781,7 +781,7 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    text review.
 9. **Dogfood.** Re-author this plan as the first plan issue per D1: epic +
    `plan` label, description = IDEA.md, design = this file, acceptance =
-   success criteria, `idea_gate` metadata (D7), steps 1–8 as child tasks
+   success criteria, `idea_gate_passed` metadata (D7), steps 1–8 as child tasks
    in their finished state, decisions as comments. Verify: it renders in
    the list (under Plans, with progress) and in detail with its
    neighbourhood, and `crabswarm issues lint` passes on it.
@@ -869,7 +869,7 @@ step 8 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 | D4 feedback to agents-package afterwards | step 8 (boundary issue) |
 | D5 `bd` CLI is the only data path | step 1 |
 | D6 tab header, `/roots` move, `/issues`, `IssuesService` | steps 4, 6 |
-| D7 `idea_gate` metadata set/unset | step 9 (set on the dogfood plan), step 8 (instructions), boundary; shown by step 6 (`metadata_json`) |
+| D7 `idea_gate_passed` metadata set/unset | step 9 (set on the dogfood plan), step 8 (instructions), boundary; shown by step 6 (`metadata_json`) |
 | D8 daemon poll → `WatchIssues`; memo for `bd events --follow` | step 4 (poller), step 6 (subscription), step 8 (follow-up issue) |
 | D9 reuse `mermaid-lint` | step 2 |
 | D10 open issues by default, `--limit`, `--all` | step 3 |

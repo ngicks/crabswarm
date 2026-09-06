@@ -73,7 +73,7 @@ export function filterIssues(sourceId: string, q: string): Issue[] {
     .sort((a, b) => b.summary.updatedAt.localeCompare(a.summary.updatedAt));
 }
 
-/** bd metadata as key=value pairs; D7's `idea_gate` is one of them. */
+/** bd metadata as key=value pairs; D7's `idea_gate_passed` is one of them. */
 export function metadataPairs(metadataJson: string): [string, string][] {
   try {
     const obj = JSON.parse(metadataJson || "{}") as Record<string, unknown>;

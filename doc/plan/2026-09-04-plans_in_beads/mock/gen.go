@@ -476,7 +476,7 @@ func planIssues(r *fieldRenderer, srcID, planDir string) (issue, []issue, error)
 	acceptance := successCriteria(string(planMD))
 	steps := stepIssues(r, srcID, string(planMD))
 	comments := planComments(r, string(decisions))
-	metadata := fmt.Sprintf("{%q:%q}", "idea_gate", ideaGate)
+	metadata := fmt.Sprintf("{%q:%q}", "idea_gate_passed", ideaGate)
 
 	plan := issue{
 		SourceID: srcID,
@@ -737,7 +737,7 @@ crabswarm's "plans in beads" plan fixes.
 
 ### UC1 — a fresh session resumes a plan from its issue
 
-The agent reads the gate from ` + "`idea_gate`" + ` metadata, the decisions from the
+The agent reads the gate from ` + "`idea_gate_passed`" + ` metadata, the decisions from the
 comment thread and the next step from ` + "`bd ready`" + `.
 `)
 	plan.AcceptanceCriteria = r.field("- The skill never writes `doc/plan/` files.\n- Every plan it makes renders in crabswarm preview.\n")
@@ -770,7 +770,7 @@ Blocked until crabswarm's convention is proven against its own GUI (D4).
 `)
 	skill.AcceptanceCriteria = r.field(
 		"- One `bd create` produces a plan issue a fresh session can read.\n" +
-			"- The gate is written as `idea_gate` metadata, not chat memory.\n",
+			"- The gate is written as `idea_gate_passed` metadata, not chat memory.\n",
 	)
 
 	hook := mk("agents-package-m4d", "Package the issues mermaid Stop hook", "task", "open", 2,

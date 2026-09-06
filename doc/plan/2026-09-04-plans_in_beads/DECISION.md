@@ -70,14 +70,18 @@ matching URL scheme, rather than beads squeezed into the file browser.
 Rejected: RPCs on `PreviewService`; a synthetic root over
 `GetTree`/`GetDocument`.
 
-## D7 — Gate is metadata `idea_gate` = date (decided 2026-09-04)
+## D7 — Gate is metadata `idea_gate_passed` = date (decided 2026-09-04)
 
-Choice: `bd update <id> --set-metadata idea_gate=<YYYY-MM-DD>` on
-confirmation; absent means not confirmed; `--unset-metadata idea_gate`
+Choice: `bd update <id> --set-metadata idea_gate_passed=<YYYY-MM-DD>` on
+confirmation; absent means not confirmed; `--unset-metadata idea_gate_passed`
 resets it after a substantive idea edit.
 Rationale: one flat key, visible in `bd show --json` and the GUI, set and
 cleared with existing flags. Rejected: a nested `ngplan` object (needs
 full-JSON `--metadata` on every change); a `gated` label (no date).
+
+Amended by the user, 2026-09-06: the key was `idea_gate` and is now
+`idea_gate_passed`. The semantics are unchanged; the old name did not
+say at a glance that presence means the gate has passed.
 
 ## D8 — Daemon-side poll feeding `WatchIssues`, for now (decided 2026-09-04)
 
@@ -157,7 +161,7 @@ swimlanes, dependency graph, and the detail page. Plans get no view of
 their own: a **Plans** saved filter (`label=plan`) plus affordances that
 apply to any issue with the data — an epic progress bar from child
 status, `Decision:` / `Discussion:` badges on comments by prefix,
-metadata chips (so `idea_gate` shows), `discovered-from` edges labelled
+metadata chips (so `idea_gate_passed` shows), `discovered-from` edges labelled
 in the graph. No new dependency type; bd's four kinds are drawn.
 Rationale: under D1 a plan is ordinary bead data, so everything a plan
 view would show is derivable from generic data; a second view would

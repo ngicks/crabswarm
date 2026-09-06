@@ -27,7 +27,7 @@ a dogfood step; until then it stays here.
 - [x] D6 "issues surface beside roots, /roots and /issues" decided
 - [x] D9 "reuse mermaid-lint" decided
 - [x] D11 "Stop hook from this repo's apm project" decided
-- [x] D7 "idea_gate metadata" decided
+- [x] D7 "idea_gate_passed metadata" decided
 - [x] D10 "sweep all open issues" decided
 - [x] D12 "issues everywhere" decided
 - [x] D13 "sources via bd where, --root/--issue" decided
