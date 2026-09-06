@@ -29,7 +29,10 @@ Then open the printed URL. Useful entry points:
   `?q=is:open is:plan` what Plans adds
 - `/issues/{sourceId}?q=is:open label:chat -label:tui type:task priority:<2 admin`
   — the search bar's query, GitHub style, parsed by liqe; `q` is carried
-  onto the detail page and back, and the buttons and the label picker edit it
+  onto the detail page and back, and the state buttons edit it
+- `/issues/{sourceId}/labels` — the labels page reached from the Labels
+  button in the sidebar; `?q=` filters by name, `?state=archived` shows the
+  labels only closed issues carry
 - `/issues/{sourceId}/{issueId}` — issue detail with the neighbourhood graph
 - `/roots` — placeholder for the unchanged file browser
 
@@ -50,18 +53,19 @@ wire, `signals/` is client state, `lib/` is helpers.
 |---|---|
 | `index.html`, `main.tsx` | mount point; installs the providers, the stylesheet and the theme effect |
 | `index.css` | imports `../../src/index.css` and declares this directory as a tailwind source |
-| `app.tsx` | routes (`/`, `/roots…`, `/issues/{sourceId}[/{issueId}]`) inside the shell |
+| `app.tsx` | routes (`/`, `/roots…`, `/issues/{sourceId}[/labels\|/{issueId}]`) inside the shell |
 | `components/Layout.tsx` | the shell: tab header above the routed page |
 | `components/Header.tsx` | Roots \| Issues tabs, "simulate change", theme toggle |
-| `pages/issues/index.tsx` | the issues screen — sources and the label picker on the left; the search bar over the table, or the open issue, on the right — plus the `/` source picker |
+| `pages/issues/index.tsx` | the issues screen — the source switcher and the Labels button on the left; the search bar over the table, or the open issue, on the right — plus the shared two-column shell and the `/` source picker |
 | `pages/issues/SourceSwitcher.tsx` | registered issue sources (D13) |
 | `pages/issues/QueryBar.tsx` | the search bar: one query text, suggestions for the token under the caret (Ark combobox), clear and Search inside the box, Enter applies |
 | `pages/issues/StateButtons.tsx` | Open N \| Closed N \| Plans N above the rows, GitHub's way: spellings of `is:open`, `is:closed`, `is:plan` with the counts the rest of the query would match |
-| `pages/issues/IssueFilters.tsx` | the label combobox (Ark) that adds and removes `label:` tokens in the bar's query |
+| `pages/issues/LabelsPage.tsx` | `/issues/{sourceId}/labels`: every label with its open and closed counts, a name filter and Active \| Archived; a label is active while an open issue carries it |
 | `pages/issues/IssueList.tsx` | the table: rows with labels, metadata chips and the epic progress bar, the state buttons in its header |
 | `pages/issues/IssueGraph.tsx` | the detail page's neighbourhood: mermaid flowchart from edges in a zoom / pan viewport (wheel, drag, −/+/1:1/Fit, resizable), click-through |
-| `pages/issues/IssueView.tsx` | detail: header with progress, rendered fields, children, dependencies, neighbourhood, comments, TOC |
-| `pages/issues/MarkdownField.tsx` | one `.markdown-body` card, with the client-side mermaid pass |
+| `pages/issues/IssueView.tsx` | detail: a title-first header with progress, then rendered fields, children, dependencies, neighbourhood, comments, TOC |
+| `pages/issues/Section.tsx` | one detail-page section: a card whose header strip carries the section name; every section, table, the graph and the comments use it |
+| `pages/issues/MarkdownField.tsx` | one `.markdown-body` article (the card is the section's), with the client-side mermaid pass |
 | `pages/issues/useIssues.ts` | the page's state over the api layer: the query-string filters, the rows, the open issue |
 | `pages/roots/index.tsx` | `/roots`: a placeholder for the unchanged file browser |
 | `pages/not-found.tsx` | fallback route |

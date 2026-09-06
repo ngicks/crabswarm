@@ -1,9 +1,10 @@
+import type { ComponentChildren } from "preact";
 import { useMemo } from "preact/hooks";
+import { useLocation } from "preact-iso";
 import { drawerOpen } from "#src/signals/ui.js";
 import { listIssues, listSources } from "@/api/client.js";
-import { sourceById } from "@/api/issues.js";
-import { safeDecode, sourceHref } from "@/lib/paths.js";
-import { IssueFilters } from "./IssueFilters.js";
+import { labelsOf, sourceById } from "@/api/issues.js";
+import { labelsHref, safeDecode, sourceHref } from "@/lib/paths.js";
 import { IssueList } from "./IssueList.js";
 import { IssueView } from "./IssueView.js";
 import { QueryBar } from "./QueryBar.js";
@@ -13,12 +14,13 @@ import { useIssueList, useIssueQuery } from "./useIssues.js";
 
 // The issues screen (PLAN.md "SPA routes"): /issues/{sourceId} lists a
 // source the way GitHub's issues page does — the search bar, then Open /
-// Closed / Plans over the table — and /issues/{sourceId}/{issueId} opens one
-// issue in the same frame; / picks a source before either exists.
+// Closed / Plans over the table — /issues/{sourceId}/{issueId} opens one
+// issue in the same frame, /issues/{sourceId}/labels the labels page, and /
+// picks a source before any of them exists.
 //
 // The left column (bg-base-200, as the file browser's) holds the source
-// switcher and the label picker. The query lives in the URL's `q`, so the
-// bar, the buttons, the picker and the detail page share it.
+// switcher and the way into the labels page. The query lives in the URL's `q`,
+// so the bar, the buttons and the detail page share it.
 
 export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string; issueId?: string }) {
   const id = safeDecode(sourceId);
@@ -28,16 +30,58 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
   const { rows, labels } = useIssueList(id, query);
   const suggestCtx = useMemo(() => ({ labels, ids: listIssues(id).map((i) => i.summary.id) }), [labels, id]);
 
-  const side = !source ? (
+  return (
+    <IssuesShell sourceId={id}>
+      {!source ? (
+        <Placeholder text={`No source ${id} is registered.`} />
+      ) : openId !== "" ? (
+        <div class="space-y-4">
+          <a class="link link-hover text-sm opacity-70" href={sourceHref(id, search)}>
+            ← back to the list
+          </a>
+          <IssueView sourceId={id} issueId={openId} search={search} />
+        </div>
+      ) : (
+        <div class="space-y-3">
+          <QueryBar query={query} matches={rows.length} ctx={suggestCtx} update={update} reset={reset} />
+          <IssueList
+            sourceId={id}
+            rows={rows}
+            search={search}
+            header={<StateButtons sourceId={id} q={query.q} setQ={(q) => update({ q })} />}
+          />
+        </div>
+      )}
+    </IssuesShell>
+  );
+}
+
+/** The two columns every issues route draws: the source switcher and the
+ *  Labels entry on the left (also as the small-screen drawer), the routed
+ *  content on the right. */
+export function IssuesShell({ sourceId, children }: { sourceId: string; children: ComponentChildren }) {
+  const loc = useLocation();
+  const onLabels = loc.path === labelsHref(sourceId);
+  const side = !sourceById(sourceId) ? (
     <div class="p-3 text-xs opacity-50">Pick a source to list its issues.</div>
-  ) : openId === "" ? (
-    <IssueFilters query={query} labels={labels} matches={rows.length} update={update} reset={reset} />
-  ) : null;
+  ) : (
+    <div class="border-b border-base-300 p-2">
+      <div class="px-2 pb-1 text-xs font-semibold uppercase tracking-wide opacity-60">Labels</div>
+      <a
+        class={`btn btn-ghost w-full justify-start gap-1.5 ${onLabels ? "btn-active" : ""}`}
+        href={labelsHref(sourceId)}
+        data-testid="labels-link"
+      >
+        <TagIcon />
+        Labels {labelsOf(sourceId).length}
+      </a>
+    </div>
+  );
 
   return (
     <div class="flex min-h-0 flex-1">
       <aside class="hidden w-[320px] shrink-0 flex-col border-r border-base-300 bg-base-200 text-base-content lg:flex">
-        <SourceSwitcher activeSourceId={id} />
+        <SourceSwitcher activeSourceId={sourceId} />
         {side}
       </aside>
 
@@ -50,35 +94,23 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
             }}
           />
           <aside class="absolute left-0 top-0 flex h-full w-[85%] max-w-[340px] flex-col bg-base-200 shadow-xl">
-            <SourceSwitcher activeSourceId={id} />
+            <SourceSwitcher activeSourceId={sourceId} />
             {side}
           </aside>
         </div>
       )}
 
-      <main class="min-w-0 flex-1 overflow-auto bg-base-200 p-4 sm:p-6">
-        {!source ? (
-          <Placeholder text={`No source ${id} is registered.`} />
-        ) : openId !== "" ? (
-          <div class="space-y-4">
-            <a class="link link-hover text-sm opacity-70" href={sourceHref(id, search)}>
-              ← back to the list
-            </a>
-            <IssueView sourceId={id} issueId={openId} search={search} />
-          </div>
-        ) : (
-          <div class="space-y-3">
-            <QueryBar query={query} matches={rows.length} ctx={suggestCtx} update={update} reset={reset} />
-            <IssueList
-              sourceId={id}
-              rows={rows}
-              search={search}
-              header={<StateButtons sourceId={id} q={query.q} setQ={(q) => update({ q })} />}
-            />
-          </div>
-        )}
-      </main>
+      <main class="min-w-0 flex-1 overflow-auto bg-base-200 p-4 sm:p-6">{children}</main>
     </div>
+  );
+}
+
+function TagIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
+    </svg>
   );
 }
 

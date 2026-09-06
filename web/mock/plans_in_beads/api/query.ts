@@ -5,8 +5,8 @@
 // qualifiers their meaning over IssueSummary and offers the suggestions the
 // bar shows for the token under the caret.
 //
-// The query is the filter: the URL's `q` carries it, and the sidebar widgets
-// add and remove tokens in it rather than keeping a state of their own.
+// The query is the filter: the URL's `q` carries it, and the widgets around
+// the bar add and remove tokens in it rather than keeping a state of their own.
 import { type LiqeQuery, type ParserAst, SyntaxError as LiqeSyntaxError, parse } from "liqe";
 import type { IssueStatus, IssueSummary } from "./client.js";
 
@@ -177,7 +177,7 @@ function inRange(n: number, r: { min: number; max: number; minInclusive: boolean
   return lo && hi;
 }
 
-// --- tokens: the sidebar widgets and the suggestions edit the text ---------
+// --- tokens: the state buttons and the suggestions edit the text -----------
 
 export interface Token {
   text: string;
@@ -209,7 +209,10 @@ export function replaceToken(text: string, token: Token, replacement: string): s
   return text.slice(0, token.start) + replacement + text.slice(token.end);
 }
 
-function tagToken(field: string, value: string): string {
+/** `field:value`, quoted when the value carries whitespace or a quote. Every
+ *  writer of a query token goes through it so the list, the buttons and the
+ *  labels page all spell a token the same way. */
+export function tagToken(field: string, value: string): string {
   return /[\s"']/.test(value) ? `${field}:"${value.replace(/"/g, '\\"')}"` : `${field}:${value}`;
 }
 

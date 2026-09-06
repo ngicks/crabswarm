@@ -1,6 +1,7 @@
 import { Route, Router } from "preact-iso";
 import { Layout } from "./components/Layout.js";
 import { NotFound } from "./pages/not-found.js";
+import { LabelsPage } from "./pages/issues/LabelsPage.js";
 import { IssuesPage, SourcePicker } from "./pages/issues/index.js";
 import { RootsPage } from "./pages/roots/index.js";
 
@@ -9,6 +10,7 @@ import { RootsPage } from "./pages/roots/index.js";
 //   /                              tab header + picker for the active tab
 //   /roots/{rootId}/{path...}      file browser (unchanged; a placeholder here)
 //   /issues/{sourceId}             issue list for one source
+//   /issues/{sourceId}/labels      the source's labels
 //   /issues/{sourceId}/{issueId}   issue detail
 //
 // The frame around every route — the tab header over a full-width column — is
@@ -22,6 +24,9 @@ export function App() {
         <Route path="/roots" component={RootsPage} />
         <Route path="/roots/:rootId/*" component={RootsPage} />
         <Route path="/issues/:sourceId" component={IssuesPage} />
+        {/* Before the issue route: a bd id is never `labels`, so the literal
+            segment can claim it. */}
+        <Route path="/issues/:sourceId/labels" component={LabelsPage} />
         <Route path="/issues/:sourceId/:issueId" component={IssuesPage} />
         <Route default component={NotFound} />
       </Router>

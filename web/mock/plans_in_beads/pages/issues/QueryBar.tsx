@@ -20,7 +20,7 @@ import {
 //
 // The draft is local until Enter (or a suggestion pick, which keeps editing)
 // so a half-typed qualifier does not empty the list under the reader. The
-// URL's `q` is the applied query; the sidebar widgets edit that same text.
+// URL's `q` is the applied query; the state buttons edit that same text.
 //
 // Ark's combobox supplies the listbox behaviour (keyboard, ARIA); the text is
 // controlled from here so the suggestion replaces one token, not the input.
@@ -42,7 +42,7 @@ export function QueryBar({
   const [caret, setCaret] = useState(query.q.length);
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  // An outside change (sidebar widget, back button) replaces the draft.
+  // An outside change (a state button, the back button) replaces the draft.
   useEffect(() => {
     setDraft(query.q);
     setCaret(query.q.length);

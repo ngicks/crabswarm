@@ -120,6 +120,11 @@ these differences — each worth a decision when step 4 writes the real proto:
   at or above 0.6; below that it opens at 1:1 centred on the current
   issue, and Fit is one click away. Fit itself is never floored, so the
   whole drawing is always reachable.
+- **Labels are not entities in bd (D24).** A label exists as long as an
+  issue carries it, so the labels page is an aggregation over the
+  listing: counts per label, and "archived" defined as carried only by
+  closed issues. Whether that definition holds, or a label should be
+  retirable on its own, is open (PLAN.md Q16).
 - **A drag must not be a click.** Node click-through and drag panning
   share the SVG; a press that moves under 4px is a click, and pointer
   capture is taken only once a drag is certain, or the click retargets to

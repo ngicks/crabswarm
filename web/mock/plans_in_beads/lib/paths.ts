@@ -12,6 +12,12 @@ export function sourceHref(sourceId: string, query = ""): string {
   return `/issues/${encodeURIComponent(sourceId)}${query}`;
 }
 
+/** The labels page of one source. `labels` is not a bd id, so the route can
+ *  sit beside /issues/{sourceId}/{issueId} without ever shadowing an issue. */
+export function labelsHref(sourceId: string, query = ""): string {
+  return `/issues/${encodeURIComponent(sourceId)}/labels${query}`;
+}
+
 /** decodeURIComponent that keeps a malformed segment rather than throwing. */
 export function safeDecode(s: string): string {
   try {

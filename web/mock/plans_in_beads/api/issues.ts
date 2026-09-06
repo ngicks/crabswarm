@@ -52,13 +52,45 @@ export function encodeIssueQuery(q: IssueQuery): string {
   return `?${p.toString().replace(/%3A/g, ":").replace(/%2C/g, ",")}`;
 }
 
-/** Distinct labels of a source, for the label picker and the suggestions. */
+/** Distinct labels of a source, for the Labels button's count and the search
+ *  bar's suggestions. */
 export function labelsOf(sourceId: string): string[] {
   const seen = new Set<string>();
   for (const i of listIssues(sourceId)) {
     for (const l of i.summary.labels) seen.add(l);
   }
   return [...seen].sort();
+}
+
+/** One row of the labels page. `open` counts the issues that `is:open`
+ *  matches — every status but closed — so the number equals what the list
+ *  shows for `is:open label:<name>`. */
+export interface LabelStat {
+  name: string;
+  open: number;
+  closed: number;
+  /** Latest updatedAt among the issues carrying the label. */
+  updatedAt: string;
+}
+
+/** Every label of a source with its issue counts, sorted by name. bd has no
+ *  label entity, so a label exists exactly as long as an issue carries it. */
+export function labelStats(sourceId: string): LabelStat[] {
+  const byName = new Map<string, LabelStat>();
+  for (const i of listIssues(sourceId)) {
+    const s = i.summary;
+    for (const l of s.labels) {
+      let stat = byName.get(l);
+      if (!stat) {
+        stat = { name: l, open: 0, closed: 0, updatedAt: "" };
+        byName.set(l, stat);
+      }
+      if (s.status === "ISSUE_STATUS_CLOSED") stat.closed++;
+      else stat.open++;
+      if (s.updatedAt > stat.updatedAt) stat.updatedAt = s.updatedAt;
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** ListIssues' contract: newest-updated first, filtered by the query text. A

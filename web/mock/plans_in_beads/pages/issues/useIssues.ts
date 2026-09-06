@@ -38,7 +38,7 @@ export function useIssueQuery(): IssueQueryState {
 export interface IssueListState {
   /** Matching issues, newest updated first. */
   rows: Issue[];
-  /** Distinct labels of the source, for the label picker and suggestions. */
+  /** Distinct labels of the source, for the Labels button and suggestions. */
   labels: string[];
 }
 

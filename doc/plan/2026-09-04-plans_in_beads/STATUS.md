@@ -1,11 +1,11 @@
 # Status
 
-Current state: **planned** — idea gate confirmed 2026-09-04; 23
+Current state: **planned** — idea gate confirmed 2026-09-04; 24
 decisions recorded (D14 generic viewer and D15 mermaid neighbourhood
-2026-09-05; D16–D23 from the mock 2026-09-06, D20 dropping the board and
+2026-09-05; D16–D24 from the mock 2026-09-06, D20 dropping the board and
 graph views for GitHub's Open / Closed / Plans buttons, D21 zoom and pan
 on the neighbourhood, D22 keeping the GUI read-only, D23 the detail
-page's layout); contracts, nine
+page's layout, D24 the labels page); contracts, nine
 steps and the traceability table are in PLAN.md; the presentation mock at
 `web/mock/plans_in_beads/` covers the GitHub-style list (search bar
 parsed by liqe, state buttons with counts) and the detail page with its
@@ -44,6 +44,8 @@ a dogfood step; until then it stays here.
 - [x] D21 "neighbourhood zoom and pan, hand-rolled, legible opening view" decided in the mock
 - [x] D22 "GUI stays read-only; writable board is a later plan" decided
 - [x] D23 "detail page: title first, section cards with header strips" decided in the mock
+- [x] D24 "labels page with Active / Archived, Labels button in the sidebar" decided
+- [ ] Q16 "what makes a label archived" open for step 6 (default: only closed issues carry it)
 - [ ] Q14 "where the query is evaluated" open for step 4
 - [x] Contracts finalized (surface delta reflects D5–D15)
 - [x] Traceability gate passed (PLAN.md "Traceability")
@@ -52,7 +54,7 @@ a dogfood step; until then it stays here.
 - [ ] Step 3 `crabswarm issues lint` + Stop hook + apm wiring (D3, D10, D11, D12)
 - [ ] Step 4 `issues/v1` proto, `SourceStore`, `IssuesService` (D6, D13)
 - [ ] Step 5 `crabswarm preview --root / --issue`, list, remove (D13)
-- [ ] Step 6 SPA tabs, `/roots` move, sources, search bar, state buttons, list + detail (D4, D6, D8, D14, D18, D19, D20)
+- [ ] Step 6 SPA tabs, `/roots` move, sources, search bar, state buttons, labels page, list + detail (D4, D6, D8, D14, D18, D19, D20, D23, D24)
 - [ ] Step 7 `ListDependencies` + neighbourhood graph with zoom and pan (D15, D21)
 - [ ] Step 8 instructions + agents-package boundary issue + bd events follow-up
 - [ ] Step 9 dogfood: this plan as the first plan issue (D1, D7)

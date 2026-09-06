@@ -203,8 +203,9 @@ the detail page.
 
 | Screen | Shows | Data |
 |---|---|---|
-| list (`/issues/{sourceId}`) | the search bar — one GitHub-style query (`is:` `status:` `label:` `type:` `parent:` `priority:` and free text, negation, AND / OR, quotes) with suggestions for the token under the caret (D18) — over the table; a row of **Open N**, **Closed N** and **Plans N** buttons above the rows, GitHub's way, each a spelling of the query (`is:open` / `is:closed` pick one state, `is:plan` narrows) with the count the rest of the query would match; the sidebar's label picker edits `label:` tokens of the same query | `ListIssues` |
-| detail (`/issues/{sourceId}/{issueId}`) | header with progress, rendered fields, children with progress, dependencies table, the issue's dependency neighbourhood as a graph, comments | `GetIssue` + `ListDependencies` |
+| list (`/issues/{sourceId}`) | the search bar — one GitHub-style query (`is:` `status:` `label:` `type:` `parent:` `priority:` and free text, negation, AND / OR, quotes) with suggestions for the token under the caret (D18) — over the table; a row of **Open N**, **Closed N** and **Plans N** buttons above the rows, GitHub's way, each a spelling of the query (`is:open` / `is:closed` pick one state, `is:plan` narrows) with the count the rest of the query would match; a **Labels N** button in the sidebar, under the sources, opens the labels page | `ListIssues` |
+| labels (`/issues/{sourceId}/labels`) | GitHub's labels page: a title, a name filter (`q`), **Active N** and **Archived N** buttons (`state`), and a table of every label with its open and closed counts (each a link into the list with `label:`) and last update; active = an open issue carries it, archived = only closed ones do (D24, Q16) | `ListIssues`, aggregated client-side |
+| detail (`/issues/{sourceId}/{issueId}`) | title first, metadata under it, then one card per section with a header strip (D23): rendered fields, children with progress, dependencies table, the issue's dependency neighbourhood as a graph, comments | `GetIssue` + `ListDependencies` |
 
 Convention-aware affordances, applied to every issue that has the data:
 an epic progress bar from child status (any epic, not only plans); a
@@ -236,7 +237,8 @@ flowchart LR
     src[source] --> list[list /issues/:sourceId?q=…]
     bar[search bar q] -.-> list
     state[Open / Closed / Plans] -.edit q.-> list
-    labels[label picker] -.edit q.-> list
+    list -->|Labels button| labels[labels /issues/:sourceId/labels?q=…&state=…]
+    labels -->|a label's count| list
     list --> detail[detail /issues/:sourceId/:issueId?q=…]
     detail -->|neighbourhood node| detail
 ```
@@ -262,8 +264,9 @@ D7, D12, D13 (source switcher), D14 (epic progress bars, comment badges,
 metadata chips), D18 (the search bar with liqe, suggestions, the query
 in the URL), D20 (Open / Closed / Plans buttons over the table) and D15
 (the detail page's neighbourhood drawn by the bundled mermaid,
-click-through via SVG node ids). The search bar and the label picker are
-Ark UI comboboxes skinned with daisyUI, as step 6 plans them. It fakes
+click-through via SVG node ids), D23 (the detail page's layout) and D24
+(the labels page). The search bar is an Ark UI combobox skinned with
+daisyUI, as step 6 plans it. It fakes
 the daemon, `bd`, the stream, the edges (the real database has none yet)
 and the Roots tab; the limits file lists what it therefore cannot
 validate (latency, poll cost, discovery, the lint guard, the `/roots`
@@ -581,6 +584,8 @@ message WatchIssuesResponse {
                                -label:tui type:epic priority:<2 free text; absent = is:open; the
                                Open / Closed / Plans buttons write is:open, is:closed, is:plan);
                                the query string is carried onto the detail URL and back
+/issues/{sourceId}/labels      labels page: name filter in q, state=archived for labels only closed
+                               issues carry (absent = active); matched before {issueId}
 /issues/{sourceId}/{issueId}   issue detail: fields, comments, children, dependencies, neighbourhood graph
 ```
 
@@ -674,7 +679,7 @@ web/src/
 ├── index.css                 global styles, tailwind/daisyUI
 ├── pages/                    route-level screens
 │   ├── preview/              /roots/…: index.tsx, FileTree.tsx, DocumentView.tsx (was DocView), Toc.tsx, ImageView.tsx, usePreview.ts
-│   ├── issues/               /issues/…: index.tsx, QueryBar.tsx (D18), StateButtons.tsx (D20), IssueFilters.tsx, IssueList.tsx, IssueGraph.tsx (D15, the neighbourhood), IssueView.tsx, MarkdownField.tsx, SourceSwitcher.tsx, useIssues.ts
+│   ├── issues/               /issues/…: index.tsx, QueryBar.tsx (D18), StateButtons.tsx (D20), LabelsPage.tsx (D24), IssueList.tsx, IssueGraph.tsx (D15, the neighbourhood), IssueView.tsx, Section.tsx (D23), MarkdownField.tsx, SourceSwitcher.tsx, useIssues.ts
 │   └── not-found.tsx
 ├── components/               UI shared across pages
 │   ├── Layout.tsx            drawer shell
@@ -756,8 +761,9 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    `src/gen` → `src/api/gen` move and its `buf.gen.yaml` output path);
    `Header`, routes moved to `/roots/…`, `SourceSwitcher`, `QueryBar`
    (the liqe query with suggestions, D18), `StateButtons` (Open / Closed /
-   Plans with counts, D20) and `IssueFilters` (the label picker editing
-   that query), `IssueList` and `IssueView` under
+   Plans with counts, D20), `LabelsPage` (the labels page with its Active
+   / Archived buttons, D24), `IssueList`, `IssueView` and `Section` (the
+   title-first detail page, D23) under
    `/issues/…`, queries in `web/src/api/queries.ts`, a `WatchIssues`
    subscription in `web/src/api/events.ts` invalidating issue queries
    (D8); mermaid renders through the same path `DocView` uses; heading
@@ -861,6 +867,15 @@ fixes the detail page's layout.
     CLI; (c) both, the daemon accepting `query` and the SPA keeping liqe
     for suggestions and instant feedback. Tentative default: (a) now, (b)
     when a CLI consumer appears.
+15. (closed by D20)
+16. **What makes a label archived?** bd has no label entity and no
+    archive flag; a label exists while an issue carries it. The labels
+    page (D24) defines *archived* as carried only by closed issues and
+    *active* as carried by at least one open issue. Options: (a) keep
+    that derived definition, nothing to store; (b) a per-source list of
+    retired labels kept by the daemon, so a label can be archived while
+    open issues still carry it; (c) drop the Active / Archived split and
+    show one table with counts. Tentative default: (a).
 
 ## Traceability
 
@@ -896,6 +911,7 @@ step 8 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 | D21 neighbourhood zoom and pan: wheel, drag, toolbar, resizable box, legible opening view, no zoom library | step 7 |
 | D22 GUI stays read-only; comments, edits and an edit log are a later writable-board plan | non-goal; no step |
 | D23 detail page: title first, metadata under it, one card per section with a header strip | step 6 (detail view), step 7 (neighbourhood strip) |
+| D24 labels page at `/issues/{sourceId}/labels`, Labels button in the sidebar, Active / Archived, counts link into the list | step 6; the archived definition is Q16 |
 | UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 9 |
 | UC2 review in the browser with mermaid | steps 4, 6, 7 |
 | UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 8 documents |

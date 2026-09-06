@@ -342,3 +342,25 @@ cards did not mark sections strongly enough.
 Rejected: merging every section into one bordered box with markdown
 style headings (the user withdrew it once the per-field rendering was
 clear); keeping the labels outside the cards at a larger size.
+
+## D24 — A labels page, GitHub's way, instead of a sidebar picker (decided 2026-09-06)
+
+Choice: the sidebar holds the source switcher and, under it, a
+**Labels N** button that opens `/issues/{sourceId}/labels`: a
+title, a name filter kept in `q`, **Active N** and **Archived N**
+buttons kept in `state`, and a table of every label of the source with
+its open and closed counts, each a link into the list with the matching
+`label:` query, and its last update. The route is matched before
+`{issueId}`; no bd id is `labels`. The counts are aggregated from the
+listing in the client, as the state buttons are (Q14 decides whether
+that moves).
+Rationale: the user asked for GitHub's shape; the picker in the
+sidebar was carried over from the earlier filter sidebar, not decided,
+and a page with counts answers "which labels exist and how used" where
+a combobox only completes a name.
+Open: bd has no label entity and no archive flag, so "archived" is
+defined here as carried only by closed issues (Q16).
+Rejected: keeping the picker beside the page; a labels tab in the
+header (labels belong to one source, the header tabs do not); the
+button beside the search bar, GitHub's spot, which the user moved into
+the sidebar so the drawer stays the place for a source's navigation.
