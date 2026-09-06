@@ -67,8 +67,15 @@ a dogfood step; until then it stays here.
 - [x] Step 8b boundary issues `crabswarm-bs3` (ngplan skill authors beads) and `crabswarm-bkb` (poller → `bd events --follow`), both `discovered-from` the plan issue
 - [x] Step 9 dogfood: this plan is beads issue `crabswarm-lpq` (epic, `plan` label, `idea_gate_passed=2026-09-04`, nine closed `step` children chained by `blocks`, D1–D32 as `Decision:` comments, Q14 / Q16 as `Discussion:` comments); `crabswarm issues lint` passes on it (D1, D7)
 
-Next action: the user reviews the implementation (17 commits from
-dd6de5b to 50701bd on `main`), runs `apm install` at the checkout root
+Verification: the multi-focus review of the change set asked for two
+changes — the CLI printed the file browser's old `/r/` URL, and the
+`WatchIssues` stream had no end-to-end test — both fixed in ad50b68
+(with the web minors in 07a1ec8); `go test ./...`, the race run, both
+typechecks, the build and 30 Playwright checks pass, and the committed
+`web/dist.tar.zst` is fresh.
+
+Next action: the user reviews the implementation (the commits from
+dd6de5b to ad50b68 on `main`), runs `apm install` at the checkout root
 to deploy the Stop hook and regenerate AGENTS.md, and triages
 `HANDOFF.md`, whose entries were not folded into beads because the run
 was unattended. Note for reading the plan issue back: `bd list --parent

@@ -33,6 +33,10 @@ these never surfaced. Found 2026-09-06.
 
 Follow-up: either fix them or exclude the generated `types.go` from
 `lll` in the lint config, so the whole-module run is a usable gate.
+Related: `crabswarm/preview/daemon_test.go:69` uses `os.IsNotExist`,
+which the edit-time `ngcheckers` vet rejects but plain `go vet` and
+golangci-lint accept; it surfaces whenever a file in that package is
+edited.
 
 ## Out-of-scope discovery — the Stop hook ignores `stop_hook_active`
 
