@@ -19,7 +19,7 @@ export function RootsPage() {
           This mock renders nothing here on purpose: it exists to show the second surface, not to re-mock the first
           one. The point of the tab header is that the two surfaces are visibly separate and share only the shell.
         </p>
-        <a class="btn btn-primary btn-sm" href={sourceHref(listSources()[0]?.id ?? "")}>
+        <a class="btn btn-primary" href={sourceHref(listSources()[0]?.id ?? "")}>
           Back to Issues
         </a>
       </div>

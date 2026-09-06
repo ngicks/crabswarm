@@ -60,10 +60,10 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
         </a>
       </td>
       <td>
-        <span class="badge badge-outline badge-xs">{s.issueType}</span>
+        <span class="badge badge-outline badge-sm">{s.issueType}</span>
       </td>
       <td>
-        <span class={`badge badge-xs ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
+        <span class={`badge badge-sm ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
       </td>
       <td class="text-xs opacity-70">P{s.priority}</td>
       <td class="min-w-64">
@@ -72,12 +72,12 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
         </a>
         <div class="mt-0.5 flex flex-wrap items-center gap-1 text-xs">
           {s.labels.map((l) => (
-            <span key={l} class="badge badge-ghost badge-xs">
+            <span key={l} class="badge badge-ghost badge-sm">
               {l}
             </span>
           ))}
           {metadata.map(([k, v]) => (
-            <span key={k} class="badge badge-outline badge-xs font-mono">
+            <span key={k} class="badge badge-outline badge-sm font-mono">
               {k}={v}
             </span>
           ))}

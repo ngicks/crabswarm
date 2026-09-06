@@ -29,12 +29,12 @@ export function StateButtons({ sourceId, q, setQ }: { sourceId: string; q: strin
 
   return (
     <div class="flex flex-wrap items-center gap-1 text-sm" data-testid="state-buttons">
-      <button class={`btn btn-ghost btn-sm ${open ? "font-semibold" : "opacity-70"}`} onClick={() => pick("open")} data-testid="state-open">
+      <button class={`btn btn-ghost ${open ? "font-semibold" : "opacity-70"}`} onClick={() => pick("open")} data-testid="state-open">
         <OpenIcon />
         {openCount} Open
       </button>
       <button
-        class={`btn btn-ghost btn-sm ${closed ? "font-semibold" : "opacity-70"}`}
+        class={`btn btn-ghost ${closed ? "font-semibold" : "opacity-70"}`}
         onClick={() => pick("closed")}
         data-testid="state-closed"
       >
@@ -43,7 +43,7 @@ export function StateButtons({ sourceId, q, setQ }: { sourceId: string; q: strin
       </button>
       <span class="mx-1 opacity-30">|</span>
       <button
-        class={`btn btn-sm ${plans ? "btn-secondary" : "btn-ghost opacity-70"}`}
+        class={`btn ${plans ? "btn-secondary" : "btn-ghost opacity-70"}`}
         onClick={() => setQ(toggleTag(q, "is", "plan"))}
         title="is:plan"
         data-testid="state-plans"

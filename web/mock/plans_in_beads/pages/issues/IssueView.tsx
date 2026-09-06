@@ -60,11 +60,11 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
     <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow-sm">
       <div class="mb-1 flex flex-wrap items-center gap-2 text-xs">
         <span class="font-mono opacity-70">{s.id}</span>
-        <span class="badge badge-outline badge-sm">{s.issueType}</span>
-        <span class={`badge badge-sm ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
+        <span class="badge badge-outline">{s.issueType}</span>
+        <span class={`badge ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
         <span class="opacity-60">priority {s.priority}</span>
         {s.labels.map((l) => (
-          <span key={l} class="badge badge-ghost badge-sm">
+          <span key={l} class="badge badge-ghost">
             {l}
           </span>
         ))}
@@ -92,7 +92,7 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
       {metadata.length > 0 && (
         <div class="mt-2 flex flex-wrap gap-1" data-testid="metadata">
           {metadata.map(([k, v]) => (
-            <span key={k} class="badge badge-outline badge-sm font-mono text-xs">
+            <span key={k} class="badge badge-outline font-mono">
               {k}={v}
             </span>
           ))}
@@ -134,7 +134,7 @@ function Children({ issue, sourceId, search }: { issue: Issue; sourceId: string;
                   </a>
                 </td>
                 <td>
-                  <span class={`badge badge-xs ${statusBadgeClass(c.status)}`}>{statusLabel(c.status)}</span>
+                  <span class={`badge badge-sm ${statusBadgeClass(c.status)}`}>{statusLabel(c.status)}</span>
                 </td>
                 <td>
                   <a class="link link-hover" href={issueHref(sourceId, c.id, search)}>
@@ -172,7 +172,7 @@ function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: str
               <tr key={`${d.type}-${d.id}-${String(d.outgoing)}`} class="hover">
                 <td class="text-xs">{dependencyWording(d)}</td>
                 <td>
-                  <span class="badge badge-outline badge-xs">{d.type}</span>
+                  <span class="badge badge-outline badge-sm">{d.type}</span>
                 </td>
                 <td class="font-mono text-xs">
                   <a class="link" href={issueHref(sourceId, d.id, search)}>
@@ -238,7 +238,7 @@ function CommentEntry({ comment, index }: { comment: IssueComment; index: number
     <div>
       <div class="mb-1 flex flex-wrap items-center gap-2 px-1 text-xs opacity-70">
         {kind !== "" && (
-          <span class={`badge badge-sm ${kind === "Decision" ? "badge-primary" : "badge-secondary"}`}>{kind}</span>
+          <span class={`badge ${kind === "Decision" ? "badge-primary" : "badge-secondary"}`}>{kind}</span>
         )}
         <span class="font-medium">{comment.author}</span>
         <span>{shortTime(comment.createdAt)}</span>

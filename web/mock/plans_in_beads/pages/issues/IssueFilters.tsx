@@ -31,7 +31,7 @@ export function IssueFilters({ query, labels, matches, update, reset }: Props) {
         <span>
           {matches} issue{matches === 1 ? "" : "s"}, newest updated first
         </span>
-        <button class="btn btn-ghost btn-sm" onClick={reset}>
+        <button class="btn btn-ghost" onClick={reset}>
           reset
         </button>
       </div>
@@ -81,7 +81,7 @@ function LabelPicker({
       {selected.length > 0 && (
         <div class="flex flex-wrap gap-1" data-testid="label-chips">
           {selected.map((l) => (
-            <button key={l} class="badge badge-ghost badge-sm gap-1" onClick={() => onToggle(l)} title={`remove label:${l}`}>
+            <button key={l} class="badge badge-ghost gap-1" onClick={() => onToggle(l)} title={`remove label:${l}`}>
               {l}
               <span aria-hidden="true">×</span>
             </button>

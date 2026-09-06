@@ -22,7 +22,7 @@ export function Header({ tab, sourceId }: { tab: "roots" | "issues"; sourceId: s
     <header class="sticky top-0 z-30 flex min-h-12 items-end gap-2 border-b border-base-300 bg-base-100 px-2">
       <label
         for="crab-left-drawer"
-        class="btn btn-square btn-ghost btn-sm mb-1.5 self-center lg:hidden"
+        class="btn btn-square btn-ghost mb-1.5 self-center lg:hidden"
         aria-label="Open the issue list"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -60,12 +60,12 @@ export function Header({ tab, sourceId }: { tab: "roots" | "issues"; sourceId: s
         </span>
       )}
       <button
-        class="btn btn-outline btn-xs mb-2 gap-1 self-center"
+        class="btn btn-outline btn-sm mb-2 gap-1 self-center"
         title="Bump one issue's title and updated_at in memory — no daemon, no WatchIssues stream (D8)"
         onClick={() => simulateChange(target, openIssueId.value)}
         disabled={tab !== "issues"}
       >
-        <span class="badge badge-ghost badge-xs">simulated</span>
+        <span class="badge badge-ghost badge-sm">simulated</span>
         simulate change
       </button>
       <span class="mb-1 self-center">

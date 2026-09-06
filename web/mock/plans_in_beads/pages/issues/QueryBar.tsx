@@ -117,7 +117,7 @@ export function QueryBar({
             }}
           />
           <button
-            class="btn btn-ghost btn-xs btn-circle"
+            class="btn btn-ghost btn-sm btn-circle"
             onClick={reset}
             title={`clear, back to ${DEFAULT_QUERY}`}
             aria-label="Clear the query"
@@ -125,7 +125,7 @@ export function QueryBar({
           >
             ×
           </button>
-          <button class={`btn btn-xs ${dirty ? "btn-primary" : "btn-ghost"}`} onClick={apply} data-testid="query-apply">
+          <button class={`btn btn-sm ${dirty ? "btn-primary" : "btn-ghost"}`} onClick={apply} data-testid="query-apply">
             Search
           </button>
         </Combobox.Control>
