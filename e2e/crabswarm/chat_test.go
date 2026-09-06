@@ -44,12 +44,26 @@ const chatTokenEnvVar = "CRABSWARM_CHAT_TOKEN"
 // the command under and the replica index that tells one instance of a scaled
 // command from another. Either may be empty, which is a command whose labels do
 // not say.
+//
+// state is what cmdman reports the command's process to be doing. An empty one
+// is a command that is running, which is what almost every case wants; a case
+// that ends a session sets it to "exited", the state cmdman keeps answering
+// with until the command is removed altogether.
 type stubCommand struct {
 	token      string
 	dir        string
 	project    string
 	command    string
 	scaleIndex string
+	state      string
+}
+
+// stubState is the state the stub cmdman reports for c, defaulting to running.
+func stubState(c stubCommand) string {
+	if c.state == "" {
+		return "running"
+	}
+	return c.state
 }
 
 // defaultStubCommands is the roster the plain member cases run against: two
@@ -63,12 +77,16 @@ func defaultStubCommands() []stubCommand {
 }
 
 // stubCmdmanScript renders a stub cmdman answering the surfaces the chat broker
-// uses: `inspect <ID> --format '{{json .Config}}'` for placement, `status
-// set|delete` for the state display, and `capture-screen` / `send-keys` for the
-// terminal nudge. Each token in commands reports its own directory and compose
-// project; an unknown ID fails the way cmdman fails on one, since the daemon
-// reads that exact wording as "this token names nothing" rather than "the
-// lookup broke".
+// uses: `inspect <ID> --format '{{.State}} {{json .Config}}'` for placement,
+// `status set|delete` for the state display, and `capture-screen` / `send-keys`
+// for the terminal nudge. Each token in commands reports its own process state,
+// directory and compose project; an unknown ID fails the way cmdman fails on
+// one, since the daemon reads that exact wording as "this token names nothing"
+// rather than "the lookup broke".
+//
+// A command whose state is not running is still answered for, the way cmdman
+// answers about a command whose process has ended until it is removed. The
+// daemon is what draws the line between the two.
 //
 // Status and send-keys invocations are recorded beside the stub rather than
 // answered, so a test can read back what the daemon published and what it typed.
@@ -103,14 +121,15 @@ fi
 case "$2" in
 `)
 	for _, c := range commands {
-		fmt.Fprintf(&b, "\t%s) dir=%s; labels='%s' ;;\n", c.token, c.dir, stubLabels(c))
+		fmt.Fprintf(&b, "\t%s) state=%s; dir=%s; labels='%s' ;;\n",
+			c.token, stubState(c), c.dir, stubLabels(c))
 	}
 	b.WriteString(`	*)
 		echo "error: resolve command: no command found matching \"$2\"" >&2
 		exit 1
 		;;
 esac
-printf '{"dir":"%s","labels":%s}\n' "$dir" "$labels"
+printf '%s {"dir":"%s","labels":%s}\n' "$state" "$dir" "$labels"
 `)
 	return b.String()
 }
@@ -703,6 +722,63 @@ func TestChat_RecreatedReplicaRejoinsUnderTheSameName(t *testing.T) {
 	members := lines(runChat(t, cfg, "tok-second", "members"))
 	if want := []string{"alpha/worker-1"}; !slices.Equal(members, want) {
 		t.Errorf("members = %v, want %v", members, want)
+	}
+}
+
+// cmdman answers about a command whose process has ended until the command is
+// removed, so an agent whose session is over still has a token cmdman resolves.
+// The daemon reads the reported state and treats an exited command as a token
+// nobody holds: the member is dropped and the name it carried is free for the
+// replica that replaces it.
+//
+// The replacement's join is what triggers the check here. The daemon vouches
+// for a token it looked up moments ago without asking cmdman again, and the one
+// path that always asks afresh is a joiner colliding with a name — which is
+// exactly what a recreated replica does.
+func TestChat_ExitedReplicaIsReplacedByItsRecreation(t *testing.T) {
+	replica := func(token, state string) stubCommand {
+		return stubCommand{token: token, dir: chatRoom, project: "alpha",
+			command: "worker", scaleIndex: "1", state: state}
+	}
+	watcher := stubCommand{token: "tok-watcher", dir: chatRoom, project: "alpha"}
+	cfg := startChatDaemonWith(t, []stubCommand{replica("tok-first", "running"), watcher})
+
+	runChat(t, cfg, "tok-watcher", "join", "--name", "watcher")
+	got := runChat(t, cfg, "tok-first", "join", "--agent")
+	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
+		t.Errorf("join = %q, want %q", got, want)
+	}
+
+	// The replica's process ends and cmdman keeps the command, labels and all,
+	// reporting it exited. The replacement comes up beside it under a new ID
+	// carrying the same compose labels.
+	rewriteStubRoster(t, cfg, []stubCommand{
+		replica("tok-first", "exited"),
+		replica("tok-second", "running"),
+		watcher,
+	})
+
+	got = runChat(t, cfg, "tok-second", "join", "--agent")
+	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
+		t.Errorf("join after the replica exited = %q, want %q", got, want)
+	}
+
+	// One worker, held by the replacement: the room a teammate sees carries no
+	// ghost of the session that ended.
+	members := lines(runChat(t, cfg, "tok-watcher", "members"))
+	slices.Sort(members)
+	if want := []string{"alpha/watcher", "alpha/worker-1"}; !slices.Equal(members, want) {
+		t.Errorf("members = %v, want %v", members, want)
+	}
+
+	// The exited replica attends nothing any more: it was dropped when its
+	// successor took the name, not merely hidden behind it.
+	_, stderr, err := execChat(t, cfg, "tok-first", "read")
+	if err == nil {
+		t.Fatal("reading as the exited replica succeeded, want a refusal")
+	}
+	if !strings.Contains(stderr, "join first") {
+		t.Errorf("stderr = %q, want it to say the token attends no room", stderr)
 	}
 }
 

@@ -11,8 +11,8 @@ import (
 )
 
 // ErrUnknownToken reports that a resolver cannot place the token it was given:
-// either it names nothing the resolver knows about, or what it names carries
-// no team coordination information.
+// it names nothing the resolver knows about, it names something that is no
+// longer running, or what it names carries no team coordination information.
 //
 // It is deliberately distinct from a lookup that merely failed. A caller may
 // reject the join and reap the member behind an unknown token, but must keep
