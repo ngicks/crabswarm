@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "2.12.1",
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.62.1",
     "@preact/preset-vite": "2.10.5",
     "@tailwindcss/vite": "4.3.2",
     "@types/node": "^24.13.3",
