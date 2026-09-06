@@ -4,6 +4,8 @@ Work found while planning that this plan does not cover.
 
 ## Out-of-scope discovery — Playwright and the nix browsers disagree on the revision
 
+Folded into beads as crabswarm-1to on 2026-09-07.
+
 `web/package.json` pins `@playwright/test` 1.61.0 and `web/playwright.config.ts`
 documents that it expects chromium-1228, but `PLAYWRIGHT_BROWSERS_PATH` now
 holds `chromium-1234` and `chromium_headless_shell-1234`. Playwright refuses
@@ -23,6 +25,8 @@ need is a second thing to settle when the pin is aligned.
 
 ## Out-of-scope discovery — `golangci-lint run ./...` fails on files this plan never touched
 
+Folded into beads as crabswarm-6d3 on 2026-09-07.
+
 The final gate ran `golangci-lint run ./...` and got 49 findings, all in
 files untouched since the run began: `lll` (lines over 100 characters)
 and `modernize` in `pkg/claudehook/types/types.go` and its round-trip
@@ -40,6 +44,8 @@ edited.
 
 ## Out-of-scope discovery — the Stop hook ignores `stop_hook_active`
 
+Folded into beads as crabswarm-4qu on 2026-09-07.
+
 `hooks/issues-mermaid-lint/hooks/hook.json` runs `crabswarm hook exec
 'crabswarm issues lint'` on every Stop. A blocking Stop hook fires again on
 the agent's next turn, and the harness marks that turn with
@@ -53,6 +59,8 @@ cannot express it, add a flag to `crabswarm hook exec` rather than a
 shell wrapper, per the repository's hook rule.
 
 ## Out-of-scope discovery — `strict: true` in a mermaid-lint config
+
+Folded into beads as crabswarm-617 on 2026-09-07.
 
 `mermaid-lint --format json` reports each rule's `severity` as `error` or
 `warn` regardless of `strict`, while its exit status under a repository
