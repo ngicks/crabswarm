@@ -21,11 +21,15 @@ export function Section({
   children: ComponentChildren;
 }) {
   return (
-    <section class="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
-      {/* The strip is base-300, and so is the card border, so its bottom edge
-          gets its own colour: in light theme base-300 alone sits too close to
-          the base-100 body to mark the boundary at a glance. */}
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b-2 border-base-content/15 bg-base-300 px-5 py-3">
+    <section
+      class="overflow-hidden rounded-box border border-base-content/25 bg-base-100 shadow-sm"
+      data-testid={testId}
+    >
+      {/* Borders and the strip fill are drawn from the foreground colour rather
+          than base-300: a translucent base-content reads as a dark edge on the
+          light theme and a light one on the dark theme, where base-300 sits too
+          close to the card body to mark the boundary at a glance. */}
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b-2 border-base-content/25 bg-base-content/8 px-5 py-3">
         <h2 class="text-lg font-semibold">{title}</h2>
         {extra}
       </div>

@@ -88,7 +88,7 @@ export function LabelsPage({ sourceId = "" }: { sourceId?: string }) {
             </button>
           </div>
 
-          <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="labels-table">
+          <div class="overflow-x-auto rounded-box border border-base-content/25 bg-base-100 shadow-sm" data-testid="labels-table">
             <div class="border-b border-base-300 bg-base-200/60 px-2 py-1.5">
               <div class="flex flex-wrap items-center gap-1 text-sm">
                 <button

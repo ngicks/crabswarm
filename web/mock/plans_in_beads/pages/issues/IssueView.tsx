@@ -57,7 +57,7 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
   const progress = progressOf(s);
 
   return (
-    <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow-sm">
+    <div class="rounded-box border border-base-content/25 bg-base-100 p-5 shadow-sm">
       <h1 class="text-3xl font-semibold leading-tight">{s.title}</h1>
 
       <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">

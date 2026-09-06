@@ -22,7 +22,7 @@ export function IssueList({
   header?: ComponentChildren;
 }) {
   return (
-    <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="issue-list">
+    <div class="overflow-x-auto rounded-box border border-base-content/25 bg-base-100 shadow-sm" data-testid="issue-list">
       {header !== undefined && <div class="border-b border-base-300 bg-base-200/60 px-2 py-1.5">{header}</div>}
       {rows.length === 0 && <div class="p-4 text-sm opacity-60">No issue matches the query.</div>}
       {rows.length > 0 && (
