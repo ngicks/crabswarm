@@ -1,5 +1,8 @@
 # STATUS — native notify spike (Claude Channels / Codex app-server)
 
+Folded into beads as crabswarm-18i on 2026-09-07; the beads epic is the
+live copy, this directory is history.
+
 **Current state:** not started — scaffold emitted by the chat-plan
 session (2026-08-27); idea gate NOT passed. Intended to be picked up by
 another session.
