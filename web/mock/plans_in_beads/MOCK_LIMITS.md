@@ -112,6 +112,12 @@ these differences — each worth a decision when step 4 writes the real proto:
   column would show it empty on every visit. The mock draws a column per
   status present in the matching issues; the real board needs the same
   rule or its own default.
+- **The search bar scopes the list only.** The board and the graph are
+  read differently (a board wants its columns, a graph its edges), so the
+  bar and the quick filters live in the list tab, and the other two tabs
+  show the default `is:open` set with their own toggles. How they are
+  scoped is left open (PLAN.md Q15); `q` stays in the URL across tabs so
+  the list comes back as it was.
 - **A graph of a backlog is mostly unconnected issues.** mermaid stacks them
   in one column, and 40 of 51 open issues have no edge, so the graph view
   hides unconnected issues by default (`?isolated=show` draws them) and says

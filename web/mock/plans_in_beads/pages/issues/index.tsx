@@ -1,7 +1,8 @@
 import { useMemo } from "preact/hooks";
 import { drawerOpen } from "#src/signals/ui.js";
 import { type Issue, listDependencies, listIssues, listSources } from "@/api/client.js";
-import { type IssueQuery, sourceById } from "@/api/issues.js";
+import { type IssueQuery, filterIssues, sourceById } from "@/api/issues.js";
+import { DEFAULT_QUERY } from "@/api/query.js";
 import { safeDecode, sourceHref } from "@/lib/paths.js";
 import { IssueBoard } from "./IssueBoard.js";
 import { IssueFilters } from "./IssueFilters.js";
@@ -18,10 +19,11 @@ import { useIssueList, useIssueQuery } from "./useIssues.js";
 // one issue in the same frame, and / picks a source before either exists.
 //
 // The left column (bg-base-200, as the file browser's) holds the source
-// switcher and the quick filters; the main column holds the search bar, the
-// view strip and, under them, the view or the open issue. The query lives in
-// the URL's `q`, so the bar, the widgets, the views and the detail page share
-// it.
+// switcher and, on the list view, the quick filters. The main column is the
+// view tabs; the list tab holds the search bar over the table. The search
+// query lives in the URL's `q` and scopes the list only: the board and the
+// graph show the default `is:open` set with their own controls, until their
+// own way of scoping is decided.
 
 export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string; issueId?: string }) {
   const id = safeDecode(sourceId);
@@ -29,16 +31,14 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
   const source = sourceById(id);
   const { query, search, update, reset } = useIssueQuery();
   const { rows, labels } = useIssueList(id, query);
-  const suggestCtx = useMemo(
-    () => ({ labels, ids: listIssues(id).map((i) => i.summary.id) }),
-    [labels, id],
-  );
+  const suggestCtx = useMemo(() => ({ labels, ids: listIssues(id).map((i) => i.summary.id) }), [labels, id]);
+  const defaultRows = useMemo(() => filterIssues(id, { ...query, q: DEFAULT_QUERY }), [id, query]);
 
-  const side = source ? (
-    <IssueFilters query={query} labels={labels} matches={rows.length} update={update} reset={reset} />
-  ) : (
+  const side = !source ? (
     <div class="p-3 text-xs opacity-50">Pick a source to list its issues.</div>
-  );
+  ) : query.view === "list" && openId === "" ? (
+    <IssueFilters query={query} labels={labels} matches={rows.length} update={update} reset={reset} />
+  ) : null;
 
   return (
     <div class="flex min-h-0 flex-1">
@@ -66,40 +66,30 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
         {!source ? (
           <Placeholder text={`No source ${id} is registered.`} />
         ) : (
-          <div class="space-y-4">
-            <QueryBar query={query} matches={rows.length} ctx={suggestCtx} update={update} reset={reset} />
-            <div class="flex flex-wrap items-center gap-3">
-              <ViewTabs sourceId={id} query={query} onIssue={openId !== ""} />
-              {openId !== "" && (
-                <span class="text-xs opacity-60">
-                  viewing <span class="font-mono">{openId}</span>; pick a view to go back
-                </span>
-              )}
-            </div>
-            {
-              (() => {
-                switch (true) {
-                  case openId !== "":
-                    return <IssueView sourceId={id} issueId={openId} search={search} />
-                  case query.view === "board":
-                    return <IssueBoard sourceId={id} rows={rows} query={query} search={search} update={update} />
-                  case query.view === "graph":
-                    return <GraphView sourceId={id} rows={rows} query={query} search={search} update={update} />
-                  default:
-                    return <IssueList sourceId={id} rows={rows} search={search} />
-                }
-              })()
-            }
-          </div>
+          <ViewTabs
+            sourceId={id}
+            query={query}
+            detail={openId !== "" ? <IssueView sourceId={id} issueId={openId} search={search} /> : undefined}
+            views={{
+              list: (
+                <>
+                  <QueryBar query={query} matches={rows.length} ctx={suggestCtx} update={update} reset={reset} />
+                  <IssueList sourceId={id} rows={rows} search={search} />
+                </>
+              ),
+              board: <IssueBoard sourceId={id} rows={defaultRows} query={query} search={search} update={update} />,
+              graph: <GraphView sourceId={id} rows={defaultRows} query={query} search={search} update={update} />,
+            }}
+          />
         )}
       </main>
     </div>
   );
 }
 
-// The graph view over the filtered set (D14, D15). Issues no edge touches are
-// left out unless asked for: mermaid stacks them in one tall column and most
-// of a backlog is unconnected, so drawing them buries the graph.
+// The graph view (D14, D15). Issues no edge touches are left out unless
+// asked for: mermaid stacks them in one tall column and most of a backlog is
+// unconnected, so drawing them buries the graph.
 function GraphView({
   sourceId,
   rows,

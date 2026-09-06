@@ -94,12 +94,14 @@ export function QueryBar({
         selectionBehavior="preserve"
         allowCustomValue
         openOnClick
-        className="join w-full"
+        className="w-full"
       >
-        <Combobox.Control className="join-item flex-1">
+        {/* One daisyUI input box holds the text, the clear mark and the
+            Search button, so a single border and focus ring enclose all. */}
+        <Combobox.Control className="input input-sm w-full gap-1 pr-1">
           <Combobox.Input
             ref={inputRef}
-            className="input input-sm w-full font-mono"
+            className="grow bg-transparent font-mono outline-none"
             placeholder="is:open label:chat -label:tui type:epic priority:<2 free text"
             aria-label="Search issues"
             data-testid="query-input"
@@ -114,13 +116,19 @@ export function QueryBar({
               }
             }}
           />
+          <button
+            class="btn btn-ghost btn-xs btn-circle"
+            onClick={reset}
+            title={`clear, back to ${DEFAULT_QUERY}`}
+            aria-label="Clear the query"
+            data-testid="query-clear"
+          >
+            ×
+          </button>
+          <button class={`btn btn-xs ${dirty ? "btn-primary" : "btn-ghost"}`} onClick={apply} data-testid="query-apply">
+            Search
+          </button>
         </Combobox.Control>
-        <button class={`btn btn-sm join-item ${dirty ? "btn-primary" : ""}`} onClick={apply} data-testid="query-apply">
-          Search
-        </button>
-        <button class="btn btn-sm join-item" onClick={reset} title={`back to ${DEFAULT_QUERY}`}>
-          ×
-        </button>
         <Portal>
           <Combobox.Positioner>
             <Combobox.Content className="z-50 max-h-72 w-80 overflow-auto rounded-box border border-base-300 bg-base-100 p-1 text-sm shadow-lg">

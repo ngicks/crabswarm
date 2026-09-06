@@ -7,8 +7,9 @@ traceability table are in PLAN.md; the presentation mock at
 `web/mock/plans_in_beads/` covers list, board, graph and detail with the
 Plans saved filter and a GitHub-style search bar parsed by liqe (D14,
 D15, D18; brought up to date 2026-09-06, see PLAN.md "Presentation
-preview" for the findings it folded in). One open question, Q14, on where
-the query is evaluated; it decides step 4's `ListIssuesRequest`. Ready to
+preview" for the findings it folded in). Two open questions: Q14, where
+the query is evaluated (decides step 4's `ListIssuesRequest`), and Q15,
+how the board and the graph are scoped (before step 7). Ready to
 implement, starting at step 1.
 
 This is intended to be the last file-authored plan. Once the field
@@ -37,6 +38,7 @@ a dogfood step; until then it stays here.
 - [x] D17 "mock pass stayed inline" recorded; HANDOFF.md opened for the Playwright / nix browser mismatch
 - [x] D18 "GitHub-style search bar, liqe, widgets edit the query" decided in the mock
 - [ ] Q14 "where the query is evaluated" open for step 4
+- [ ] Q15 "how the board and the graph are scoped" open for step 7
 - [x] Contracts finalized (surface delta reflects D5–D15)
 - [x] Traceability gate passed (PLAN.md "Traceability")
 - [ ] Step 1 `crabswarm/issues` client + `Where` (D5, D13)

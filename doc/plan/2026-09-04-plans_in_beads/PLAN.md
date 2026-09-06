@@ -199,8 +199,8 @@ detail page:
 | View | Shows | Data |
 |---|---|---|
 | list (default) | table under the search bar: one GitHub-style query (`is:` `status:` `label:` `type:` `parent:` `priority:` and free text, negation, AND / OR, quotes) with suggestions for the token under the caret; the sidebar's status strip, **Plans** chip (`is:plan`) and label picker edit tokens of that query (D18) | `ListIssues` |
-| board | kanban columns for the statuses the filter lists (bd's default has no closed, so no empty closed column); optional swimlanes by parent epic; cards show id, title, priority, label chips | `ListIssues` |
-| graph | dependency graph of the filtered set, nodes colored by status, edges by type (`blocks`, `parent-child`, `discovered-from`, `related`), click → detail; issues no edge touches are hidden unless `isolated=show` | `ListIssues` + `ListDependencies` |
+| board | kanban columns for the statuses the result has (bd's default has no closed, so no empty closed column); optional swimlanes by parent epic; cards show id, title, priority, label chips; scoped by its own means, not the search bar (Q15) | `ListIssues` |
+| graph | dependency graph, nodes colored by status, edges by type (`blocks`, `parent-child`, `discovered-from`, `related`), click → detail; issues no edge touches are hidden unless `isolated=show`; scoped by its own means, not the search bar (Q15) | `ListIssues` + `ListDependencies` |
 | detail | header, rendered fields, children with progress, dependencies, comments; a local graph of the issue's neighbourhood | `GetIssue` |
 
 Convention-aware affordances, applied to every issue that has the data:
@@ -853,6 +853,14 @@ direction. 2026-09-06: D16–D18 from the mock.
     CLI; (c) both, the daemon accepting `query` and the SPA keeping liqe
     for suggestions and instant feedback. Tentative default: (a) now, (b)
     when a CLI consumer appears.
+15. **How are the board and the graph scoped?** The search bar belongs to
+    the list tab; the user wants the board and the graph read by other
+    means. The mock shows both over the default `is:open` set with their
+    own toggles (swimlanes; unconnected issues). Options: (a) their own
+    small controls — a status set and an epic picker for the board, a
+    root issue and a depth for the graph; (b) the same query text, shown
+    read-only above them; (c) nothing beyond the defaults until a need
+    shows. Tentative default: (c) for the mock, decided before step 7.
 
 ## Traceability
 

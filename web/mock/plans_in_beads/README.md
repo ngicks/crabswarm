@@ -23,7 +23,9 @@ Then open the printed URL. Useful entry points:
 
 - `/` — source picker
 - `/issues/{sourceId}` — list view for a source, query `is:open`
-- `/issues/{sourceId}?view=board` — board; `?view=graph` — dependency graph
+- `/issues/{sourceId}?view=board` — board; `?view=graph` — dependency graph;
+  both show the default `is:open` set with their own toggles, the search
+  bar scopes the list tab only
 - `/issues/{sourceId}?q=is:plan` — the Plans saved filter
 - `/issues/{sourceId}?q=is:open label:chat -label:tui type:task priority:<2 admin`
   — the search bar's query, GitHub style, parsed by liqe; `q` is carried
@@ -51,11 +53,11 @@ wire, `signals/` is client state, `lib/` is helpers.
 | `app.tsx` | routes (`/`, `/roots…`, `/issues/{sourceId}[/{issueId}]`) inside the shell |
 | `components/Layout.tsx` | the shell: tab header above the routed page |
 | `components/Header.tsx` | Roots \| Issues tabs, "simulate change", theme toggle |
-| `pages/issues/index.tsx` | the issues screen — sources and filters on the left, the view strip and the active view or the open issue on the right — plus the `/` source picker |
+| `pages/issues/index.tsx` | the issues screen — sources and, on the list tab, the quick filters on the left; the view tabs on the right — plus the `/` source picker |
 | `pages/issues/SourceSwitcher.tsx` | registered issue sources (D13) |
-| `pages/issues/QueryBar.tsx` | the search bar: one query text, suggestions for the token under the caret (Ark combobox), Enter applies |
+| `pages/issues/QueryBar.tsx` | the list tab's search bar: one query text, suggestions for the token under the caret (Ark combobox), clear and Search inside the box, Enter applies |
 | `pages/issues/IssueFilters.tsx` | quick filters — status toggle group (Ark), the Plans chip, label combobox (Ark) — that add and remove tokens in the bar's query |
-| `pages/issues/ViewTabs.tsx` | List \| Board \| Graph strip (Ark tabs), `?view=` |
+| `pages/issues/ViewTabs.tsx` | List \| Board \| Graph (Ark tabs owning the strip and the bodies), `?view=`; the open issue replaces the bodies |
 | `pages/issues/IssueList.tsx` | list view: table rows with labels, metadata chips and the epic progress bar |
 | `pages/issues/IssueBoard.tsx` | board view: status columns, swimlanes by parent epic with progress |
 | `pages/issues/IssueGraph.tsx` | graph view and the detail page's neighbourhood: mermaid flowchart from edges, click-through, size cap |
