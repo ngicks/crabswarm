@@ -60,11 +60,11 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
     <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow-sm">
       <div class="mb-1 flex flex-wrap items-center gap-2 text-xs">
         <span class="font-mono opacity-70">{s.id}</span>
-        <span class="badge badge-outline">{s.issueType}</span>
+        <span class="badge badge-outline whitespace-nowrap">{s.issueType}</span>
         <span class={`badge ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
         <span class="opacity-60">priority {s.priority}</span>
         {s.labels.map((l) => (
-          <span key={l} class="badge badge-ghost">
+          <span key={l} class="badge badge-ghost whitespace-nowrap">
             {l}
           </span>
         ))}
@@ -92,7 +92,7 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
       {metadata.length > 0 && (
         <div class="mt-2 flex flex-wrap gap-1" data-testid="metadata">
           {metadata.map(([k, v]) => (
-            <span key={k} class="badge badge-outline font-mono">
+            <span key={k} class="badge badge-outline whitespace-nowrap font-mono">
               {k}={v}
             </span>
           ))}
@@ -172,7 +172,7 @@ function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: str
               <tr key={`${d.type}-${d.id}-${String(d.outgoing)}`} class="hover">
                 <td class="text-xs">{dependencyWording(d)}</td>
                 <td>
-                  <span class="badge badge-outline badge-sm">{d.type}</span>
+                  <span class="badge badge-outline badge-sm whitespace-nowrap">{d.type}</span>
                 </td>
                 <td class="font-mono text-xs">
                   <a class="link" href={issueHref(sourceId, d.id, search)}>

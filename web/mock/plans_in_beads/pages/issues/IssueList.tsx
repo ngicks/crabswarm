@@ -60,7 +60,7 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
         </a>
       </td>
       <td>
-        <span class="badge badge-outline badge-sm">{s.issueType}</span>
+        <span class="badge badge-outline badge-sm whitespace-nowrap">{s.issueType}</span>
       </td>
       <td>
         <span class={`badge badge-sm ${statusBadgeClass(s.status)}`}>{statusLabel(s.status)}</span>
@@ -72,12 +72,12 @@ function Row({ sourceId, s, search }: { sourceId: string; s: IssueSummary; searc
         </a>
         <div class="mt-0.5 flex flex-wrap items-center gap-1 text-xs">
           {s.labels.map((l) => (
-            <span key={l} class="badge badge-ghost badge-sm">
+            <span key={l} class="badge badge-ghost badge-sm whitespace-nowrap">
               {l}
             </span>
           ))}
           {metadata.map(([k, v]) => (
-            <span key={k} class="badge badge-outline badge-sm font-mono">
+            <span key={k} class="badge badge-outline badge-sm whitespace-nowrap font-mono">
               {k}={v}
             </span>
           ))}
