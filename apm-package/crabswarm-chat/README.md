@@ -135,6 +135,36 @@ that report why they cannot act, and each tool call asks to attend again — so 
 daemon that comes up late is picked up by the next thing the agent does, which
 is the same "a late delivery, never a lost message" the hooks aim for.
 
+### What the harness forwards to the bridge
+
+A harness may spawn a stdio MCP server with a fixed environment whitelist and
+pass nothing else through. Codex does, so the declaration names the three
+variables the bridge cannot work without:
+
+```yaml
+env_vars:
+- CMDMAN_CMD_ID
+- CRABSWARM_CHAT_TOKEN
+- XDG_RUNTIME_DIR
+```
+
+The first two carry the identity token in its two spellings: the cmdman command
+id an agent inherits, and the token `crabswarm chat admin register` prints for a
+member registered by hand. A bridge that resolves neither still serves, and
+every tool answers that it has no identity.
+
+`XDG_RUNTIME_DIR` decides where the bridge looks for the daemon. The socket path
+is derived from that variable, and a daemon started from a login shell listens
+under it. A bridge spawned without it derives a different path —
+`/run/user/<uid>/crabswarm/default.sock` when that directory exists, otherwise
+`/tmp/crabswarm/default.sock` — and dials a socket nothing answers on. Pinning
+`sock` in `~/.config/crabswarm/config.json` settles the same question for a
+harness that forwards nothing.
+
+Codex reads `env_vars` from the server's own `[mcp_servers.crabswarm-chat]`
+table. Whether Claude Code accepts the same key in the `.mcp.json` that `apm`
+renders is **unverified**.
+
 ## What each hook does
 
 | Event | Runs | Purpose |
@@ -323,7 +353,9 @@ The MCP server is the same story one layer over: `apm install` writes an
 `[mcp_servers.crabswarm-chat]` table into `.codex/config.toml` naming
 `crabswarm` with `["chat", "mcp"]`, which is what a Codex install was observed
 to produce; whether Codex then starts the bridge and joins the room has not been
-run against a Codex session either. Without it Codex attends only when someone
+run against a Codex session either. The table also carries the `env_vars` list
+above, without which Codex hands the bridge an environment holding neither an
+identity token nor the runtime dir the socket path comes from. Without it Codex attends only when someone
 types `crabswarm chat join --kind agent`.
 
 What Codex ends up running:

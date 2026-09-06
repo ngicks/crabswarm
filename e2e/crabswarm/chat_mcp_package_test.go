@@ -37,6 +37,7 @@ type chatMCPDependency struct {
 	Transport string   `yaml:"transport"`
 	Command   string   `yaml:"command"`
 	Args      []string `yaml:"args"`
+	EnvVars   []string `yaml:"env_vars"`
 }
 
 // readChatPackageManifest decodes the package's apm.yml out of the checkout
@@ -98,6 +99,20 @@ func TestChatPackage_DeclaresTheBridge(t *testing.T) {
 	}
 	if want := []string{"chat", "mcp"}; !slices.Equal(bridge.Args, want) {
 		t.Errorf("args = %v, want %v", bridge.Args, want)
+	}
+}
+
+// The three variables the bridge cannot work without, named so a harness that
+// spawns it with a fixed environment whitelist forwards them: two spellings of
+// the identity token, and the runtime dir the daemon socket path is derived
+// from. A bridge started without them answers the handshake and then refuses
+// every tool, which is the failure this key exists to prevent.
+func TestChatPackage_ForwardsTheBridgesEnvironment(t *testing.T) {
+	bridge := chatDeclaredBridge(t)
+
+	want := []string{"CMDMAN_CMD_ID", "CRABSWARM_CHAT_TOKEN", "XDG_RUNTIME_DIR"}
+	if !slices.Equal(bridge.EnvVars, want) {
+		t.Errorf("env_vars = %v, want %v", bridge.EnvVars, want)
 	}
 }
 

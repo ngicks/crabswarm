@@ -254,6 +254,21 @@ func writeChatConfig(
 ) string {
 	t.Helper()
 	dir := t.TempDir()
+	return writeChatConfigOn(t, dir, chatSock(filepath.Join(dir, "config.json")),
+		historyLimit, commands, adminRecipients...)
+}
+
+// writeChatConfigOn is writeChatConfig with the directory it works in and the
+// socket it names given by the caller, for the case that has the bridge derive
+// the socket path from its environment instead of reading it out of a config.
+func writeChatConfigOn(
+	t *testing.T,
+	dir, sock string,
+	historyLimit int,
+	commands []stubCommand,
+	adminRecipients ...string,
+) string {
+	t.Helper()
 
 	stub := filepath.Join(dir, "cmdman")
 	writeFile(t, stub, stubCmdmanScript(commands))
@@ -269,7 +284,7 @@ func writeChatConfig(
 	cfgPath := filepath.Join(dir, "config.json")
 	writeFile(t, cfgPath, fmt.Sprintf(
 		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipients":%s,"history_limit":%d}}`,
-		chatSock(cfgPath), filepath.Join(dir, "chat.db"), stub, recipients, historyLimit))
+		sock, filepath.Join(dir, "chat.db"), stub, recipients, historyLimit))
 	return cfgPath
 }
 
@@ -277,6 +292,13 @@ func writeChatConfig(
 // socket answers. The process is returned so a case can end it and start
 // another on the same config, which is what a daemon restart is.
 func startChatServe(t *testing.T, cfgPath string) *exec.Cmd {
+	t.Helper()
+	return startChatServeOn(t, cfgPath, chatSock(cfgPath))
+}
+
+// startChatServeOn is startChatServe for a config naming a socket somewhere
+// other than beside it, which is the path the daemon then has to be waited on.
+func startChatServeOn(t *testing.T, cfgPath, sock string) *exec.Cmd {
 	t.Helper()
 
 	serve := exec.Command(crabswarmBin, "serve", "--config", cfgPath)
@@ -288,7 +310,7 @@ func startChatServe(t *testing.T, cfgPath string) *exec.Cmd {
 	}
 	t.Cleanup(func() { stopProcess(t, serve) })
 
-	waitSocket(t, chatSock(cfgPath), 30*time.Second)
+	waitSocket(t, sock, 30*time.Second)
 	return serve
 }
 
@@ -460,12 +482,16 @@ func startChatBridge(t *testing.T, cfgPath, token string) *mcp.ClientSession {
 
 // startChatBridgeIn is [startChatBridge] with the environment the harness hands
 // the bridge, for the cases about what a bridge can and cannot resolve out of
-// it. An empty token passes no --token at all.
+// it. An empty token passes no --token at all, and an empty config path no
+// --config — a bridge left to resolve the daemon socket for itself.
 func startChatBridgeIn(
 	t *testing.T, cfgPath, token string, env []string,
 ) *mcp.ClientSession {
 	t.Helper()
-	args := []string{"chat", "mcp", "--config", cfgPath}
+	args := []string{"chat", "mcp"}
+	if cfgPath != "" {
+		args = append(args, "--config", cfgPath)
+	}
 	if token != "" {
 		args = append(args, "--token", token)
 	}
@@ -1763,5 +1789,54 @@ func TestChat_BridgeWithoutAnIdentityStillServes(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Errorf("chat_members = %q, want it to name %q", text, want)
 		}
+	}
+}
+
+// A harness that spawns the bridge with a fixed environment whitelist forwards
+// only the variables its own MCP configuration names, which is what the apm
+// package's env_vars list is for. Handed those three and nothing else, the
+// bridge resolves both halves of what it needs by itself: an identity token,
+// and — with no --config and no --sock — the daemon socket under
+// $XDG_RUNTIME_DIR. So it attends and its tools answer for the room.
+func TestChat_BridgeFindsTheDaemonThroughTheRuntimeDir(t *testing.T) {
+	// The runtime dir is made short on purpose: a Unix socket path is bounded
+	// at a little over a hundred bytes, and a t.TempDir() spends much of that
+	// on the test's own name before the derived crabswarm/default.sock is
+	// appended.
+	runtimeDir, err := os.MkdirTemp("", "crabswarm-rt")
+	if err != nil {
+		t.Fatalf("make a runtime dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(runtimeDir) })
+
+	// Where the bridge derives the socket from $XDG_RUNTIME_DIR, and therefore
+	// where the daemon has to listen for the derivation to be worth anything.
+	// Its crabswarm/ directory is left for the daemon to create, as on a fresh
+	// boot.
+	sock := filepath.Join(runtimeDir, "crabswarm", "default.sock")
+	cfg := writeChatConfigOn(t, t.TempDir(), sock, 0, defaultStubCommands())
+	startChatServeOn(t, cfg, sock)
+
+	// A home of the test's own rather than the suite's: the bridge reads a
+	// config file out of $HOME when one is there, and a developer's host may
+	// hold one naming a socket of its own — which would answer the question
+	// this case is asking. Everything else is what the harness forwards, with
+	// the token in the spelling an agent under cmdman inherits.
+	session := startChatBridgeIn(t, "", "", []string{
+		"HOME=" + t.TempDir(),
+		"PATH=" + os.Getenv("PATH"),
+		"XDG_RUNTIME_DIR=" + runtimeDir,
+		"CMDMAN_CMD_ID=tok-ana",
+		chatTokenEnvVar + "=",
+	})
+
+	// Attendance is read through a member verb, not a tool: every tool declares
+	// attendance on its way to answering, so calling one would prove nothing
+	// about the join the bridge made out of what the environment told it.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	members := memberAddresses(callChatTool(t, session, "chat_members", nil))
+	if want := []string{chatBridgeAna}; !slices.Equal(members, want) {
+		t.Errorf("chat_members = %v, want %v", members, want)
 	}
 }

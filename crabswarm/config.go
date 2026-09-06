@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/caarlos0/env/v11"
 
@@ -58,10 +59,11 @@ type Config struct {
 // socket, the home dir for the repo base) so they are correct per host; file,
 // env, and flag layers override them in turn.
 //
-// These env reads (XDG_RUNTIME_DIR, XDG_STATE_HOME, the user home dir) are
-// DEFAULT DERIVATION, not crabswarm config overrides: they compute a per-host
-// default rather than reading a crabswarm-owned variable, so they live here in
-// DefaultConfig and are not routed through PartialConfig / caarlos0/env.
+// These env reads (XDG_RUNTIME_DIR, XDG_STATE_HOME, the user home dir), and the
+// filesystem probe the socket default falls back to, are DEFAULT DERIVATION,
+// not crabswarm config overrides: they compute a per-host default rather than
+// reading a crabswarm-owned variable, so they live here in DefaultConfig and are
+// not routed through PartialConfig / caarlos0/env.
 func DefaultConfig() Config {
 	return Config{
 		Sock:           defaultSockPath(),
@@ -266,15 +268,41 @@ func configPath(flagPath string) (string, error) {
 	return filepath.Join(dir, "crabswarm", "config.json"), nil
 }
 
-// defaultSockPath derives the default socket path from $XDG_RUNTIME_DIR, falling
-// back to /tmp when it is unset. This is default derivation (see DefaultConfig),
-// not a config override.
+// defaultSockPath derives the default socket path from the host's runtime
+// directory. This is default derivation (see DefaultConfig), not a config
+// override.
 func defaultSockPath() string {
-	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
-	if runtimeDir == "" {
-		runtimeDir = "/tmp"
+	dir := runtimeDir(os.Getenv("XDG_RUNTIME_DIR"), os.Getuid(), isDir)
+	return filepath.Join(dir, "crabswarm", "default.sock")
+}
+
+// runtimeDir picks the directory the socket lives under: $XDG_RUNTIME_DIR when
+// the environment names one, else the conventional per-user runtime directory
+// /run/user/<uid> when that directory is there, else /tmp.
+//
+// The middle branch exists because a harness can spawn a subprocess with a fixed
+// environment that drops XDG_RUNTIME_DIR while the daemon, started from a login
+// shell that had it, listens under it. Both sides then derive different paths
+// and the subprocess dials a socket nobody is on. Probing the directory a login
+// session would have been given recovers the same path; /tmp remains the answer
+// on a host with no per-user runtime directory at all.
+//
+// The environment value and the directory check are parameters so every branch
+// is testable without touching the process environment or the filesystem.
+func runtimeDir(xdgRuntimeDir string, uid int, isDir func(string) bool) string {
+	if xdgRuntimeDir != "" {
+		return xdgRuntimeDir
 	}
-	return filepath.Join(runtimeDir, "crabswarm", "default.sock")
+	if perUser := filepath.Join("/run", "user", strconv.Itoa(uid)); isDir(perUser) {
+		return perUser
+	}
+	return "/tmp"
+}
+
+// isDir reports whether path names an existing directory.
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // defaultChatDbPath derives the chat database path from $XDG_STATE_HOME,

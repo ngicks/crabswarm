@@ -14,6 +14,14 @@ dependencies:
     args:
     - chat
     - mcp
+    # Codex spawns a stdio MCP server with a fixed environment whitelist and
+    # forwards nothing else unless the server's own table names it. Without
+    # these three the bridge has no identity to attend with and derives a
+    # different socket path than the daemon listens on.
+    env_vars:
+    - CMDMAN_CMD_ID
+    - CRABSWARM_CHAT_TOKEN
+    - XDG_RUNTIME_DIR
 targets:
 - claude
 - codex
