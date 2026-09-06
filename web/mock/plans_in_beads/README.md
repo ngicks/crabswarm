@@ -3,8 +3,9 @@
 A runnable mock of the **Issues** tab planned in
 `doc/plan/2026-09-04-plans_in_beads/PLAN.md`. It renders the real crabswarm
 backlog plus the plan itself, as the plan would be stored in beads (D1), so the
-reading experience — list, board, graph and detail (D14, D15) — can be judged
-before steps 4 and 6–8 are implemented.
+reading experience — a GitHub-style list and the detail page with its
+neighbourhood (D14, D15, D18, D20) — can be judged before steps 4, 6 and
+7 are implemented.
 
 Read `MOCK_LIMITS.md` first: no daemon, no `bd`, no `IssuesService`, no
 `WatchIssues` — and the list of plan requirements this mock cannot validate.
@@ -22,15 +23,14 @@ cd web && pnpm exec vite --config mock/plans_in_beads/vite.config.ts
 Then open the printed URL. Useful entry points:
 
 - `/` — source picker
-- `/issues/{sourceId}` — list view for a source, query `is:open`
-- `/issues/{sourceId}?view=board` — board; `?view=graph` — dependency graph;
-  both show the default `is:open` set with their own toggles, the search
-  bar scopes the list tab only
-- `/issues/{sourceId}?q=is:plan` — the Plans saved filter
+- `/issues/{sourceId}` — the list, query `is:open`; Open / Closed / Plans
+  buttons with counts above the rows, as GitHub draws them
+- `/issues/{sourceId}?q=is:closed` — what the Closed button writes;
+  `?q=is:open is:plan` what Plans adds
 - `/issues/{sourceId}?q=is:open label:chat -label:tui type:task priority:<2 admin`
   — the search bar's query, GitHub style, parsed by liqe; `q` is carried
-  between views and onto the detail page, and the sidebar widgets edit it
-- `/issues/{sourceId}/{issueId}` — issue detail
+  onto the detail page and back, and the buttons and the label picker edit it
+- `/issues/{sourceId}/{issueId}` — issue detail with the neighbourhood graph
 - `/roots` — placeholder for the unchanged file browser
 
 Type-check and build (from `web/`):
@@ -53,14 +53,13 @@ wire, `signals/` is client state, `lib/` is helpers.
 | `app.tsx` | routes (`/`, `/roots…`, `/issues/{sourceId}[/{issueId}]`) inside the shell |
 | `components/Layout.tsx` | the shell: tab header above the routed page |
 | `components/Header.tsx` | Roots \| Issues tabs, "simulate change", theme toggle |
-| `pages/issues/index.tsx` | the issues screen — sources and, on the list tab, the quick filters on the left; the view tabs on the right — plus the `/` source picker |
+| `pages/issues/index.tsx` | the issues screen — sources and the label picker on the left; the search bar over the table, or the open issue, on the right — plus the `/` source picker |
 | `pages/issues/SourceSwitcher.tsx` | registered issue sources (D13) |
-| `pages/issues/QueryBar.tsx` | the list tab's search bar: one query text, suggestions for the token under the caret (Ark combobox), clear and Search inside the box, Enter applies |
-| `pages/issues/IssueFilters.tsx` | quick filters — status toggle group (Ark), the Plans chip, label combobox (Ark) — that add and remove tokens in the bar's query |
-| `pages/issues/ViewTabs.tsx` | List \| Board \| Graph (Ark tabs owning the strip and the bodies), `?view=`; the open issue replaces the bodies |
-| `pages/issues/IssueList.tsx` | list view: table rows with labels, metadata chips and the epic progress bar |
-| `pages/issues/IssueBoard.tsx` | board view: status columns, swimlanes by parent epic with progress |
-| `pages/issues/IssueGraph.tsx` | graph view and the detail page's neighbourhood: mermaid flowchart from edges, click-through, size cap |
+| `pages/issues/QueryBar.tsx` | the search bar: one query text, suggestions for the token under the caret (Ark combobox), clear and Search inside the box, Enter applies |
+| `pages/issues/StateButtons.tsx` | Open N \| Closed N \| Plans N above the rows, GitHub's way: spellings of `is:open`, `is:closed`, `is:plan` with the counts the rest of the query would match |
+| `pages/issues/IssueFilters.tsx` | the label combobox (Ark) that adds and removes `label:` tokens in the bar's query |
+| `pages/issues/IssueList.tsx` | the table: rows with labels, metadata chips and the epic progress bar, the state buttons in its header |
+| `pages/issues/IssueGraph.tsx` | the detail page's neighbourhood: mermaid flowchart from edges at natural size, click-through |
 | `pages/issues/IssueView.tsx` | detail: header with progress, rendered fields, children, dependencies, neighbourhood, comments, TOC |
 | `pages/issues/MarkdownField.tsx` | one `.markdown-body` card, with the client-side mermaid pass |
 | `pages/issues/useIssues.ts` | the page's state over the api layer: the query-string filters, the rows, the open issue |
@@ -69,7 +68,7 @@ wire, `signals/` is client state, `lib/` is helpers.
 | `api/fixtures.json` | generated; do not edit by hand |
 | `api/client.ts` | fixture types (the proto messages) and the stand-in service (`listSources`, `listIssues`, `getIssue`, `listDependencies`) |
 | `api/query.ts` | the query language: liqe parses, this gives `is:` `status:` `label:` `type:` `parent:` `priority:` and free text their meaning, plus token edits and suggestions |
-| `api/issues.ts` | the URL's `q` / `view` spelling and the decodes the views need, over that service |
+| `api/issues.ts` | the URL's `q` spelling and the decodes the views need, over that service |
 | `api/events.ts` | the simulated `WatchIssues` push |
 | `signals/issues.ts` | client state: which issue the reader has open |
 | `lib/paths.ts`, `lib/format.ts` | `/issues/…` URLs; timestamp and status spelling |

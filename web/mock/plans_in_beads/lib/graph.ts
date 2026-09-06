@@ -26,7 +26,8 @@ export interface Flowchart {
 const TITLE_MAX = 40;
 
 // Fill and stroke per status, close to the daisyUI badge colours the list
-// uses (info, warning, error, success); readable on both themes.
+// uses (info, warning, error, success); readable on both themes. The
+// current node gets the primary pair on top of its status stroke.
 const STATUS_CLASS: Record<IssueStatus, string> = {
   ISSUE_STATUS_UNSPECIFIED: "st_unknown",
   ISSUE_STATUS_OPEN: "st_open",
@@ -36,12 +37,14 @@ const STATUS_CLASS: Record<IssueStatus, string> = {
 };
 
 const CLASS_DEFS = [
-  "classDef st_unknown fill:#e5e7eb,stroke:#6b7280,color:#111827",
-  "classDef st_open fill:#dbeafe,stroke:#2563eb,color:#111827",
-  "classDef st_in_progress fill:#fef3c7,stroke:#d97706,color:#111827",
-  "classDef st_blocked fill:#fee2e2,stroke:#dc2626,color:#111827",
-  "classDef st_closed fill:#dcfce7,stroke:#16a34a,color:#111827",
+  "classDef st_unknown fill:#e5e7eb,stroke:#6b7280,stroke-width:1.5px,color:#111827",
+  "classDef st_open fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#111827",
+  "classDef st_in_progress fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#111827",
+  "classDef st_blocked fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#111827",
+  "classDef st_closed fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#111827",
 ];
+
+const CURRENT_STYLE = "fill:#c7d2fe,stroke:#4338ca,stroke-width:3px,color:#111827";
 
 /** Escapes text for a quoted mermaid label; mermaid's own entity codes keep
  *  the label out of the parser's way. */
@@ -84,8 +87,10 @@ export function flowchart(nodes: GraphNode[], edges: IssueEdge[]): Flowchart {
   nodes.forEach((n, i) => {
     const id = `n${i}`;
     index.set(n.id, id);
-    lines.push(`  ${id}["${label(n.id)}<br/>${label(shorten(n.title))}"]:::${STATUS_CLASS[n.status]}`);
-    if (n.current) lines.push(`  style ${id} stroke-width:4px`);
+    // Rounded node, bold title over the id. Under securityLevel strict the
+    // label is sanitized, and <b> / <br/> / <small> survive.
+    lines.push(`  ${id}("<b>${label(shorten(n.title))}</b><br/><small>${label(n.id)}</small>"):::${STATUS_CLASS[n.status]}`);
+    if (n.current) lines.push(`  style ${id} ${CURRENT_STYLE}`);
   });
   for (const e of edges) {
     const from = index.get(e.fromId);

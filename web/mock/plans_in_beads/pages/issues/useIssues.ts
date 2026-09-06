@@ -16,13 +16,13 @@ export interface IssueQueryState {
   search: string;
   /** Rewrites the URL's query string, keeping the path (list or detail). */
   update(patch: Partial<IssueQuery>): void;
-  /** Back to the default query; the view and its options stay. */
+  /** Back to the default query. */
   reset(): void;
 }
 
-/** The view and the query live in the URL (PLAN.md "SPA routes"), not in
- *  component state: a filtered board is a link, and opening an issue then
- *  coming back keeps the query. */
+/** The query lives in the URL (PLAN.md "SPA routes"), not in component
+ *  state: a filtered list is a link, and opening an issue then coming back
+ *  keeps the query. */
 export function useIssueQuery(): IssueQueryState {
   const loc = useLocation();
   const query = parseIssueQuery(queryOf(loc.url));
@@ -31,7 +31,7 @@ export function useIssueQuery(): IssueQueryState {
     query,
     search: encodeIssueQuery(query),
     update: (patch) => go({ ...query, ...patch }),
-    reset: () => go({ ...query, q: DEFAULT_QUERY }),
+    reset: () => go({ q: DEFAULT_QUERY }),
   };
 }
 
@@ -44,7 +44,7 @@ export interface IssueListState {
 
 export function useIssueList(sourceId: string, query: IssueQuery): IssueListState {
   return {
-    rows: filterIssues(sourceId, query),
+    rows: filterIssues(sourceId, query.q),
     labels: labelsOf(sourceId),
   };
 }

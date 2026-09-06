@@ -3,8 +3,8 @@
 Move ngplan plans out of `doc/plan/<date>-<slug>/` and into the beads
 database, one bead per plan with steps as child beads; guard mermaid in
 bead text with an end-of-turn sweep; browse beads, rendered, in
-`crabswarm preview` as a generic issue viewer with list, board, dependency
-graph and detail views.
+`crabswarm preview` as a generic issue viewer: a GitHub-style list with a
+search query and a detail page with a dependency neighbourhood.
 
 Status: idea gate confirmed 2026-09-04. Contracts and steps below are
 drafted with tentative defaults; open questions 5–11 decide them.
@@ -19,9 +19,10 @@ Derived from IDEA.md.
   browser with description, design, acceptance, notes, comments, children
   and dependencies rendered as markdown with mermaid (UC2), and as text via
   `bd show` (UC3).
-- The same viewer offers a list, a kanban board by status with epic
-  swimlanes, and a dependency graph; plans are a saved filter plus
-  affordances every issue gets, never a separate view (D14).
+- The same viewer offers a GitHub-style list — a search query, Open /
+  Closed / Plans buttons — and, on the detail page, the issue's dependency
+  neighbourhood drawn as a graph; plans are `is:plan` plus affordances
+  every issue gets, never a separate view (D14, D18, D20).
 - A handoff item is a backlog bead linked to the step that found it from
   creation (UC4).
 - The idea gate state is stored on the plan bead (UC5).
@@ -39,7 +40,7 @@ Derived from IDEA.md.
   mermaid fences; a Stop hook that runs it (D3, D10).
 - Issue sources in the preview daemon (`bd where` discovery, `--root` /
   `--issue` on `crabswarm preview`), `IssuesService`, and the SPA's tab
-  header with list, board, graph and detail views (D4, D6, D13, D14, D15).
+  header with the list and detail views (D4, D6, D13, D14, D15, D20).
 - Repository instructions (`.apm/instructions/base.instructions.md`)
   updated to the convention.
 - A boundary bead for `ngicks/agents-package` (skill rewrite, hook
@@ -60,7 +61,9 @@ Derived from IDEA.md.
 - New dependency types. bd's `blocks`, `parent-child`, `discovered-from`
   and `related` are what the graph draws; a new kind is a request to
   beads, not a crabswarm change (D14).
-- Drag-and-drop or any write from the board or graph (reading only).
+- A kanban board and a whole-source dependency graph view. Both were
+  drawn in the mock and dropped from this plan (D20); they may return in
+  a later plan. The detail page's neighbourhood graph stays.
 - Replacing beads' sync; `bd dolt push` stays the user's job.
 - Reading Dolt directly. All access goes through the `bd` CLI (D5).
 
@@ -191,47 +194,43 @@ Rejected in D13: keying issues by preview root (several worktrees would
 show one database several times; a root is a directory, a source is a
 repository).
 
-### Views: a generic issue viewer, plans as a filter (D14, D15)
+### Views: a GitHub-style list and a detail page (D14, D15, D18, D20)
 
-Four views per source, switched by `?view=` on the list URL, plus the
-detail page:
+Two screens per source: the list, laid out as GitHub's issues page, and
+the detail page.
 
-| View | Shows | Data |
+| Screen | Shows | Data |
 |---|---|---|
-| list (default) | table under the search bar: one GitHub-style query (`is:` `status:` `label:` `type:` `parent:` `priority:` and free text, negation, AND / OR, quotes) with suggestions for the token under the caret; the sidebar's status strip, **Plans** chip (`is:plan`) and label picker edit tokens of that query (D18) | `ListIssues` |
-| board | kanban columns for the statuses the result has (bd's default has no closed, so no empty closed column); optional swimlanes by parent epic; cards show id, title, priority, label chips; scoped by its own means, not the search bar (Q15) | `ListIssues` |
-| graph | dependency graph, nodes colored by status, edges by type (`blocks`, `parent-child`, `discovered-from`, `related`), click → detail; issues no edge touches are hidden unless `isolated=show`; scoped by its own means, not the search bar (Q15) | `ListIssues` + `ListDependencies` |
-| detail | header, rendered fields, children with progress, dependencies, comments; a local graph of the issue's neighbourhood | `GetIssue` |
+| list (`/issues/{sourceId}`) | the search bar — one GitHub-style query (`is:` `status:` `label:` `type:` `parent:` `priority:` and free text, negation, AND / OR, quotes) with suggestions for the token under the caret (D18) — over the table; a row of **Open N**, **Closed N** and **Plans N** buttons above the rows, GitHub's way, each a spelling of the query (`is:open` / `is:closed` pick one state, `is:plan` narrows) with the count the rest of the query would match; the sidebar's label picker edits `label:` tokens of the same query | `ListIssues` |
+| detail (`/issues/{sourceId}/{issueId}`) | header with progress, rendered fields, children with progress, dependencies table, the issue's dependency neighbourhood as a graph, comments | `GetIssue` + `ListDependencies` |
 
 Convention-aware affordances, applied to every issue that has the data:
 an epic progress bar from child status (any epic, not only plans); a
 `Decision` / `Discussion` badge on comments by text prefix; metadata as
 chips, so `idea_gate` shows without special code; `discovered-from`
 edges labelled as such. Nothing checks for the `plan` label except the
-saved filter. Rejected in D14: a separate plan view (it would only
+Plans button. Rejected in D14: a separate plan view (it would only
 re-derive these from generic data and drift from the generic page).
+Dropped in D20: a kanban board and a whole-source graph view, drawn in
+the mock and set aside for a later plan.
 
-The graph is drawn with the `mermaid` already bundled in the SPA: the
-client emits a `flowchart LR` from the edge list and renders it with the
-same `mermaid.run` path `DocView` uses, so no layout library is added
-(D15). Click-through uses the rendered SVG's node ids, not mermaid's
-`click` directive, keeping `securityLevel: "strict"`. Limits accepted:
-mermaid's layout is not interactive and degrades past a few hundred
-nodes; the graph view therefore renders the *filtered* set and caps at a
-warned-about size (default 150 nodes).
+The neighbourhood is drawn with the `mermaid` already bundled in the
+SPA: the client emits a `flowchart LR` from the issue's edges — parent,
+children, dependencies — and renders it with the same `mermaid.run`
+path `DocView` uses, at natural size in a scrolling box with the current
+issue in the primary colour, so no layout library is added (D15).
+Click-through uses the rendered SVG's node ids, not mermaid's `click`
+directive, keeping `securityLevel: "strict"`. A neighbourhood is one
+issue plus what one edge reaches, so mermaid's static layout is enough.
 
 ```mermaid
 flowchart LR
-    src[source] --> list[list ?view=list]
-    src --> board[board ?view=board]
-    src --> graphv[graph ?view=graph]
-    list --> detail[detail /issues/:sourceId/:issueId]
-    board --> detail
-    graphv --> detail
-    detail --> detail
-    plans[saved filter label=plan] -.applies to.-> list
-    plans -.-> board
-    plans -.-> graphv
+    src[source] --> list[list /issues/:sourceId?q=…]
+    bar[search bar q] -.-> list
+    state[Open / Closed / Plans] -.edit q.-> list
+    labels[label picker] -.edit q.-> list
+    list --> detail[detail /issues/:sourceId/:issueId?q=…]
+    detail -->|neighbourhood node| detail
 ```
 
 #### Presentation preview
@@ -251,27 +250,27 @@ cd web && pnpm exec vite --config mock/plans_in_beads/vite.config.ts
 It demonstrates D1 (a plan read as an ordinary issue: fields, `idea_gate`
 chip, `Decision:` comments, step children with `blocks` order,
 `discovered-from` items), D6 (tab header, `/issues/{sourceId}[/{issueId}]`),
-D7, D12, D13 (source switcher), D14 (list, board and graph views behind
-`?view=`, the **Plans** saved filter, epic progress bars, comment badges,
-metadata chips, filters in the query string) and D15 (the graph and the
-detail page's neighbourhood drawn by the bundled mermaid, click-through
-via SVG node ids). The status strip, label picker and view strip are Ark
-UI parts skinned with daisyUI, as step 6 plans them. It fakes the daemon,
-`bd`, the stream, the edges (the real database has none yet) and the
-Roots tab; the limits file lists what it therefore cannot validate
-(latency, poll cost, discovery, the lint guard, the `/roots` move, the
-`bd dep list` record shape, the graph's size cap). Disposable: nothing
-in it graduates to `web/src`; steps 6–8 rewrite the views against the
+D7, D12, D13 (source switcher), D14 (epic progress bars, comment badges,
+metadata chips), D18 (the search bar with liqe, suggestions, the query
+in the URL), D20 (Open / Closed / Plans buttons over the table) and D15
+(the detail page's neighbourhood drawn by the bundled mermaid,
+click-through via SVG node ids). The search bar and the label picker are
+Ark UI comboboxes skinned with daisyUI, as step 6 plans them. It fakes
+the daemon, `bd`, the stream, the edges (the real database has none yet)
+and the Roots tab; the limits file lists what it therefore cannot
+validate (latency, poll cost, discovery, the lint guard, the `/roots`
+move, the `bd dep list` record shape). Disposable: nothing in it
+graduates to `web/src`; steps 6 and 7 rewrite the views against the
 real client. Findings from building it are folded in below:
 `close_reason` is markdown and is rendered like the other fields; heading
 anchors must be namespaced per field because description and design are
 two documents on one page; `IssueDependency.outgoing` must be pinned to
 the edge's `from` side so the table's wording and the graph's arrows
-agree; the board's columns follow the status filter, since bd's default
-listing has no closed issues and a permanent closed column would sit
-empty; and the graph view hides issues no edge touches by default (a
-backlog is mostly unconnected, and mermaid stacks them in one column), an
-`isolated=show` query flag drawing them.
+agree; and a generated graph must be drawn at natural size in a
+scrolling box, since mermaid's fit-to-width shrinks labels past reading.
+A board view and a whole-source graph view were drawn too and dropped
+(D20): mermaid stacks unconnected issues into one tall column, and a
+board needs its own scoping, so neither earned its place in this plan.
 
 Freshness (D8): the daemon polls each registered source — one
 `bd list --json --status all` every 10 s — diffs IDs and
@@ -279,7 +278,7 @@ Freshness (D8): the daemon polls each registered source — one
 `WatchIssues` stream of `IssuesService`; the SPA invalidates the affected
 queries exactly as it does for file changes. `bd` 1.2.2 has no change
 feed; when a release ships `bd events --follow` (expected around 1.2.3),
-the poller is replaced by a follower, tracked as a backlog issue (step 7).
+the poller is replaced by a follower, tracked as a backlog issue (step 8).
 
 ### Mermaid validation: the `mermaid-lint` CLI already used for files (D9)
 
@@ -570,13 +569,11 @@ message WatchIssuesResponse {
 ```text
 /                              tab header: Roots | Issues; root picker or source picker for the active tab
 /roots/{rootId}/{path...}      file browser (was /r/{rootId}/{path...}; old URLs 404)
-/issues/{sourceId}             list (default); ?view=board | graph switch the view; the search
-                               bar's query in q (GitHub style: q=is:open label:chat -label:tui
-                               type:epic priority:<2 free text; absent = is:open; the Plans saved
-                               filter is q=is:plan), view options beside it (lanes=none for the
-                               board, isolated=show for the graph); the query string is carried
-                               onto the detail URL and back
-/issues/{sourceId}/{issueId}   issue detail: fields, comments, children, dependencies, local graph
+/issues/{sourceId}             list; the search bar's query in q (GitHub style: q=is:open label:chat
+                               -label:tui type:epic priority:<2 free text; absent = is:open; the
+                               Open / Closed / Plans buttons write is:open, is:closed, is:plan);
+                               the query string is carried onto the detail URL and back
+/issues/{sourceId}/{issueId}   issue detail: fields, comments, children, dependencies, neighbourhood graph
 ```
 
 The raw endpoint `GET /raw/{rootId}/{path...}` is unchanged.
@@ -669,7 +666,7 @@ web/src/
 ├── index.css                 global styles, tailwind/daisyUI
 ├── pages/                    route-level screens
 │   ├── preview/              /roots/…: index.tsx, FileTree.tsx, DocumentView.tsx (was DocView), Toc.tsx, ImageView.tsx, usePreview.ts
-│   ├── issues/               /issues/…: index.tsx, IssueFilters.tsx, IssueList.tsx, IssueBoard.tsx (D14), IssueGraph.tsx (D14, D15), IssueView.tsx, MarkdownField.tsx, SourceSwitcher.tsx, useIssues.ts
+│   ├── issues/               /issues/…: index.tsx, QueryBar.tsx (D18), StateButtons.tsx (D20), IssueFilters.tsx, IssueList.tsx, IssueGraph.tsx (D15, the neighbourhood), IssueView.tsx, MarkdownField.tsx, SourceSwitcher.tsx, useIssues.ts
 │   └── not-found.tsx
 ├── components/               UI shared across pages
 │   ├── Layout.tsx            drawer shell
@@ -750,47 +747,44 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    `web/src` into the page-based layout above (including the
    `src/gen` → `src/api/gen` move and its `buf.gen.yaml` output path);
    `Header`, routes moved to `/roots/…`, `SourceSwitcher`, `QueryBar`
-   (the liqe query with suggestions, D18) and `IssueFilters` (status,
-   labels and the **Plans** chip editing that query), `IssueList` and `IssueView` under
+   (the liqe query with suggestions, D18), `StateButtons` (Open / Closed /
+   Plans with counts, D20) and `IssueFilters` (the label picker editing
+   that query), `IssueList` and `IssueView` under
    `/issues/…`, queries in `web/src/api/queries.ts`, a `WatchIssues`
    subscription in `web/src/api/events.ts` invalidating issue queries
    (D8); mermaid renders through the same path `DocView` uses; heading
    anchors namespaced per field (`description--<id>`) as the mock does;
    affordances per D14 (epic progress from `child_closed_count`, comment
-   prefix badges, metadata chips). Interactive widgets — the tab strip,
-   the label multi-select and status toggle group in `IssueFilters` — are
-   Ark UI components (`@ark-ui/react/tabs`, `/combobox`, `/toggle-group`)
-   skinned with daisyUI, per the preact preference rule; static chrome
-   stays plain daisyUI. The type scale moves from the mock's `index.css`
+   prefix badges, metadata chips). Interactive widgets — the search bar
+   and the label multi-select — are Ark UI comboboxes
+   (`@ark-ui/react/combobox`) skinned with daisyUI, per the preact
+   preference rule; static chrome, the state buttons included, stays
+   plain daisyUI. The type scale moves from the mock's `index.css`
    into `web/src/index.css` (D19): the `@theme` text tokens and the
    daisyUI md-tier override, app-wide. Verify: `pnpm test`, Playwright e2e in
    `web/e2e/` updated for `/roots/…` and covering list and detail against
    a daemon backed by the fake `bd`.
-7. **Board view.** `IssueBoard` at `?view=board`: status columns, optional
-   swimlanes by parent epic with a progress bar per lane, same filter bar,
-   cards link to detail; read-only. Verify: Playwright e2e — a fixture
-   with two epics shows two lanes with the right counts; the Plans filter
-   leaves only plan epics.
-8. **Graph view and local graph.** `ListDependencies` in proto and
-   service (`bd dep list` batched per source), `IssueGraph` at
-   `?view=graph` and as the detail page's neighbourhood section: emit a
-   mermaid flowchart from the edges (D15), colour by status, edge label
-   by type, node click → detail via the rendered SVG ids, size cap with a
-   warning. Verify: service test with a fake `bd dep list`; Playwright
-   e2e — a `blocks` chain renders as connected nodes and a click
-   navigates; a 200-node fixture shows the cap warning.
-9. **Instructions and boundary.** Update `.apm/instructions/base.instructions.md`
+7. **Neighbourhood graph.** `ListDependencies` in proto and service
+   (`bd dep list` batched per source) and `IssueGraph` as the detail
+   page's neighbourhood section: emit a mermaid flowchart from the
+   issue's edges (D15), colour by status with the current issue in the
+   primary pair, edge style and label by type, natural size in a
+   scrolling box, node click → detail via the rendered SVG ids. Verify:
+   service test with a fake `bd dep list`; Playwright e2e — a step in a
+   `blocks` chain shows its parent, predecessor and successor, and a
+   click navigates.
+8. **Instructions and boundary.** Update `.apm/instructions/base.instructions.md`
    (plan location, convention summary, `crabswarm issues lint`, preview
    flags); create the agents-package boundary issue (skill rewrite, hook
    packaging) and the "replace the poller with `bd events --follow` once
    bd ships it" issue, both with `discovered-from` this plan. Verify:
    text review.
-10. **Dogfood.** Re-author this plan as the first plan issue per D1: epic +
-    `plan` label, description = IDEA.md, design = this file, acceptance =
-    success criteria, `idea_gate` metadata (D7), steps 1–9 as child tasks
-    in their finished state, decisions as comments. Verify: it renders in
-    list, board (as an epic lane with progress), graph and detail, and
-    `crabswarm issues lint` passes on it.
+9. **Dogfood.** Re-author this plan as the first plan issue per D1: epic +
+   `plan` label, description = IDEA.md, design = this file, acceptance =
+   success criteria, `idea_gate` metadata (D7), steps 1–8 as child tasks
+   in their finished state, decisions as comments. Verify: it renders in
+   the list (under Plans, with progress) and in detail with its
+   neighbourhood, and `crabswarm issues lint` passes on it.
 
 ## Testing and verification
 
@@ -801,8 +795,8 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
   daemon `AddSource` / `ListIssues` / `GetIssue` over Connect with the
   fake `bd`; `crabswarm preview` with and without `--root` / `--issue`.
 - Web e2e: issue list and detail render, mermaid drawn, a change pushed
-  through `WatchIssues` refreshes the open view; board lanes and counts;
-  graph connectivity, click-through and the size cap.
+  through `WatchIssues` refreshes the open view; the state buttons and
+  their counts; the neighbourhood's nodes and click-through.
 - Manual: the Stop hook blocks a turn after a deliberately broken fence.
 
 ## Risks
@@ -818,11 +812,12 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
 - The daemon-side poll costs one `bd` call per source every 10 s even
   with no viewer; acceptable for a dev machine, and it goes away with
   `bd events --follow`.
-- A mermaid-drawn graph is static and slow past a few hundred nodes; the
-  filtered-set rule and the cap keep it usable, and D15 names the
-  fallback (a layout library) if the cap bites in practice.
+- A mermaid-drawn graph is static; a neighbourhood stays small (one
+  issue and its direct relations), and an epic with many children draws
+  wide and scrolls. D15 names the fallback (a layout library) if a
+  whole-source graph returns.
 - The `bd dep list --json` record shape is unverified on a database with
-  edges; step 8 pins it with a fixture from a real dependency.
+  edges; step 7 pins it with a fixture from a real dependency.
 - The Stop hook runs on every turn, including turns that never touched
   beads; acceptable at seconds, revisit with `--limit` if it grows.
 - Empty fields are omitted from `bd`'s JSON; decoding must treat absence
@@ -835,14 +830,15 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
 - `ngicks/agents-package`: rewrite the ngplan skill to author beads per D1
   (create, gate metadata, steps as children, handoff via
   `discovered-from`); package the Stop hook if D11 keeps it local for now.
-  Tracked as a bead in step 6.
+  Tracked as a bead in step 8.
 
 ## Open questions
 
 Resolved 2026-09-04: Q1 → D1, Q2 → D2, Q3 → D3, Q4 → D4, Q5 → D5,
 Q6 → D6, Q7 → D7, Q8 → D8, Q9 → D9, Q10 → D10, Q11 → D11, Q12 → D12,
 Q13 → D13. 2026-09-05: D14 and D15 added from the user's generic-viewer
-direction. 2026-09-06: D16–D18 from the mock.
+direction. 2026-09-06: D16–D20 from the mock; Q15 closed by D20 (the
+board and graph views left the plan).
 
 14. **Where is the search query evaluated?** The mock parses the bar's
     query with liqe in the browser and evaluates it over the source's
@@ -855,52 +851,45 @@ direction. 2026-09-06: D16–D18 from the mock.
     CLI; (c) both, the daemon accepting `query` and the SPA keeping liqe
     for suggestions and instant feedback. Tentative default: (a) now, (b)
     when a CLI consumer appears.
-15. **How are the board and the graph scoped?** The search bar belongs to
-    the list tab; the user wants the board and the graph read by other
-    means. The mock shows both over the default `is:open` set with their
-    own toggles (swimlanes; unconnected issues). Options: (a) their own
-    small controls — a status set and an epic picker for the board, a
-    root issue and a depth for the graph; (b) the same query text, shown
-    read-only above them; (c) nothing beyond the defaults until a need
-    shows. Tentative default: (c) for the mock, decided before step 7.
 
 ## Traceability
 
 Every operative decision clause and every IDEA.md use case, mapped to the
 step that delivers it. "Boundary" is the agents-package issue created in
-step 7 (the ngplan skill rewrite); "bd" means beads delivers it natively.
+step 8 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 
 | Clause | Owner |
 |---|---|
-| D1 plan bead field convention | step 10 (first plan authored to it), step 9 (instructions), boundary (skill) |
-| D1 steps are child tasks with `blocks` order | step 10, boundary; `bd ready` is bd |
-| D1 handoff items via `discovered-from` | step 9 (two such issues created), boundary |
+| D1 plan bead field convention | step 9 (first plan authored to it), step 8 (instructions), boundary (skill) |
+| D1 steps are child tasks with `blocks` order | step 9, boundary; `bd ready` is bd |
+| D1 handoff items via `discovered-from` | step 8 (two such issues created), boundary |
 | D2 directories stay, no migration | non-goal; no step |
 | D3 sweep + validate + Stop hook blocks the turn | steps 2, 3 |
 | D4 GUI first-class, generic over beads | steps 4, 6 |
-| D4 feedback to agents-package afterwards | step 9 (boundary issue) |
+| D4 feedback to agents-package afterwards | step 8 (boundary issue) |
 | D5 `bd` CLI is the only data path | step 1 |
 | D6 tab header, `/roots` move, `/issues`, `IssuesService` | steps 4, 6 |
-| D7 `idea_gate` metadata set/unset | step 10 (set on the dogfood plan), step 9 (instructions), boundary; shown by step 6 (`metadata_json`) |
-| D8 daemon poll → `WatchIssues`; memo for `bd events --follow` | step 4 (poller), step 6 (subscription), step 9 (follow-up issue) |
+| D7 `idea_gate` metadata set/unset | step 9 (set on the dogfood plan), step 8 (instructions), boundary; shown by step 6 (`metadata_json`) |
+| D8 daemon poll → `WatchIssues`; memo for `bd events --follow` | step 4 (poller), step 6 (subscription), step 8 (follow-up issue) |
 | D9 reuse `mermaid-lint` | step 2 |
 | D10 open issues by default, `--limit`, `--all` | step 3 |
 | D11 local hook package, `apm.yml`, `markdown-mermaid-lint` dep, fallback | step 3 |
-| D12 "issues" naming everywhere | steps 1–8 (names), step 9 (docs) |
+| D12 "issues" naming everywhere | steps 1–7 (names), step 8 (docs) |
 | D13 sources via `bd where`, keyed by `.beads`, `--root` / `--issue`, list/remove | steps 1, 4, 5, 6 |
-| D14 generic viewer: list, board, graph, detail; plans = saved filter + affordances; no plan view | steps 6, 7, 8 |
+| D14 generic viewer, plans = `is:plan` + affordances; no plan view | steps 6, 7 |
 | D14 no new dependency types | non-goal; no step |
-| D15 graph drawn with bundled mermaid, filtered set, size cap | step 8 |
-| D16 board columns from the result, unconnected hidden, query string travels, `outgoing` = from side | steps 6, 7, 8 |
+| D15 neighbourhood drawn with bundled mermaid, natural size, click-through | step 7 |
+| D16 query string travels onto detail and back, `outgoing` = from side | steps 6, 7 (board columns and the unconnected toggle left with D20) |
 | D18 search bar with a GitHub-style query, liqe, widgets edit the query | step 6; evaluation site is Q14 (step 4) |
 | D19 type scale (15px body, 13px metadata, daisyUI md tier follows) into `web/src/index.css` | step 6 |
-| UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 10 |
-| UC2 review in the browser with mermaid | steps 4, 6, 7, 8 |
-| UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 9 documents |
-| UC4 handoff born in the backlog | step 9 (practised), boundary (skill); `discovered-from` edges drawn by step 8 |
-| UC5 gate on the bead | D7 → steps 9, 10, boundary |
-| UC6 sub-plans as children | bd (`--parent`); children list in steps 4, 6, lanes in 7; boundary |
-| UC7 steps as children, status from children | children list and progress in steps 4, 6, 7; `bd ready` is bd; boundary |
+| D20 board and graph views dropped; Open / Closed / Plans buttons with counts; neighbourhood stays | step 6 (buttons), step 7 (neighbourhood); non-goal for the views |
+| UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 9 |
+| UC2 review in the browser with mermaid | steps 4, 6, 7 |
+| UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 8 documents |
+| UC4 handoff born in the backlog | step 8 (practised), boundary (skill); `discovered-from` edges drawn by step 7 |
+| UC5 gate on the bead | D7 → steps 8, 9, boundary |
+| UC6 sub-plans as children | bd (`--parent`); children list in steps 4, 6; boundary |
+| UC7 steps as children, status from children | children list and progress in steps 4, 6; `bd ready` is bd; boundary |
 | Diagrams valid by end of turn | steps 2, 3 |
 
 Contract areas: public API (CLI, Go packages) — fenced above; dependencies

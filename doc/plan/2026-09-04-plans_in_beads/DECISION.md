@@ -243,6 +243,29 @@ Rejected: scaling the root font size (scales spacing and every daisyUI
 control, and github-markdown-css is authored in px); one daisyUI tier
 up (18px).
 
+## D20 — Board and graph views leave the plan; GitHub's state buttons over the list (decided 2026-09-06)
+
+Choice: the kanban board and the whole-source dependency graph views
+are dropped from this plan (they may be reconsidered in a later one);
+D14 keeps the generic list and detail pages and their affordances, and
+D15 keeps only the detail page's neighbourhood graph, redrawn at
+natural size with bold titles and the current issue in the primary
+colour. Above the list, as GitHub's issues page has them, **Open N**,
+**Closed N** and **Plans N** buttons: Open and Closed pick one state
+(`is:open` / `is:closed`, and picking the active one again clears the
+state), Plans toggles `is:plan`, and each count is what the rest of the
+query would match with that state. D16's board-column and
+unconnected-issue rules go with the views; its `outgoing` and
+query-string clauses stay. Q15 closes.
+Rationale: the user's call after seeing the mock; a board needs its own
+scoping and a whole-source graph is mostly unconnected issues, so
+neither earned its place, while the state buttons answer the everyday
+question (what is open, what did we close, which are plans) without a
+query.
+Rejected: keeping a placeholder tab strip with one tab; a "saved filter"
+chip in the sidebar instead of GitHub's row (the row is where the eye
+looks first and carries counts).
+
 ## D17 — Mock passes stay inline for this plan (decided 2026-09-06, agent default) [automatic]
 
 Choice: the mock's D14/D15 pass was written inline rather than delegated

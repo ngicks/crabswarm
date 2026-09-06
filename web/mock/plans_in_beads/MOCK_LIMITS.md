@@ -33,8 +33,8 @@ built. It is not a prototype of the implementation and shares no code with it.
   (`related`). Every edge kind bd defines is therefore drawn once.
 - **The second source is invented.** `agents-package` and its four issues —
   a plan epic with two open children, one closed task — are made up so the
-  source switcher has somewhere to switch and the board has a second epic
-  lane. No `bd where` ever ran: `gen.go` computes both source ids as a
+  source switcher has somewhere to switch and a second source has a plan
+  with children. No `bd where` ever ran: `gen.go` computes both source ids as a
   sha256 prefix of the `.beads` path, imitating what the daemon's registry
   would key on (D13).
 - **Markdown is rendered ahead of time.** `gen.go` calls the previewer's own
@@ -101,29 +101,25 @@ these differences — each worth a decision when step 4 writes the real proto:
 
 ## Findings from the views
 
-- **One query text beats separate filter parameters.** The status strip,
-  the Plans chip and the label picker keep no state: each reads its tags
+- **One query text beats separate filter parameters.** The Open / Closed /
+  Plans buttons and the label picker keep no state: each reads its tags
   out of the bar's query and toggles `field:value` tokens in it, so the
-  bar, the URL's `q` and the widgets cannot disagree. A `status:` pick
-  drops `is:open`, which would otherwise AND with it to nothing.
-
-- **The board's columns are the statuses the result has.** The default
-  query `is:open` lists nothing closed, so a board with a fixed closed
-  column would show it empty on every visit. The mock draws a column per
-  status present in the matching issues; the real board needs the same
-  rule or its own default.
-- **The search bar scopes the list only.** The board and the graph are
-  read differently (a board wants its columns, a graph its edges), so the
-  bar and the quick filters live in the list tab, and the other two tabs
-  show the default `is:open` set with their own toggles. How they are
-  scoped is left open (PLAN.md Q15); `q` stays in the URL across tabs so
-  the list comes back as it was.
-- **A graph of a backlog is mostly unconnected issues.** mermaid stacks them
-  in one column, and 40 of 51 open issues have no edge, so the graph view
-  hides unconnected issues by default (`?isolated=show` draws them) and says
-  how many it hid. The neighbourhood on the detail page needs no such rule.
+  bar, the URL's `q` and the widgets cannot disagree. Open and Closed swap
+  each other's token; the active one picked again clears the state.
+- **The state buttons' counts are "how many if I click".** Each is the
+  rest of the query evaluated with that state, so "5 Closed" under
+  `label:chat` means five closed chat issues, as on GitHub. In the real
+  feature that is three evaluations per render, cheap client-side (Q14).
+- **A generated graph must be drawn at natural size.** mermaid's default
+  fits the SVG to the container's width, which shrinks a ten-node
+  neighbourhood until its labels are unreadable; the mock turns
+  `useMaxWidth` off and scrolls instead.
 - **Titles reach mermaid as label text.** Backticks are fine; a literal `\n`
   in a title is a line break to mermaid unless escaped (`lib/graph.ts` does).
+- **A board and a whole-source graph were drawn and dropped (D20).** The
+  graph was mostly unconnected issues stacked in one column (40 of 51
+  open ones have no edge), and the board needed its own scoping apart
+  from the search bar. Both may return in a later plan.
 
 ## What this mock therefore cannot validate
 
@@ -146,8 +142,7 @@ these differences — each worth a decision when step 4 writes the real proto:
   types this export happens not to contain.
 - The shape of `bd dep list --json` records, which the real `ListDependencies`
   decodes; the edges here are written by hand.
-- The graph's size cap (D15, 150 nodes): the fixture has 60 issues, so the
-  warning never shows here, and mermaid's layout time past a few hundred
-  nodes is not measured.
+- How a neighbourhood reads for an epic with dozens of children: the plan
+  here has ten steps and already scrolls sideways.
 - Anything about the shipped artifact: `web/dist`, `dist.tar.zst`, `embed.go`.
   The mock builds to its own git-ignored `dist/` and is never embedded.

@@ -1,20 +1,31 @@
+import type { ComponentChildren } from "preact";
 import type { Issue, IssueSummary } from "@/api/client.js";
 import { metadataPairs, progressOf } from "@/api/issues.js";
 import { shortTime, statusBadgeClass, statusLabel } from "@/lib/format.js";
 import { issueHref } from "@/lib/paths.js";
 
-// The list view (D14): one table row per matching issue, newest updated
+// The list (D14, D20): one table row per matching issue, newest updated
 // first, with the affordances every issue gets when it has the data — an epic
 // progress bar from child status, metadata chips (so `idea_gate` shows). A
-// plan looks like any other epic here; only the Plans saved filter knows the
-// label.
+// plan looks like any other epic here; only the Plans button knows the label.
 
-export function IssueList({ sourceId, rows, search }: { sourceId: string; rows: Issue[]; search: string }) {
-  if (rows.length === 0) {
-    return <div class="p-3 text-sm opacity-60">No issue matches the filters.</div>;
-  }
+export function IssueList({
+  sourceId,
+  rows,
+  search,
+  header,
+}: {
+  sourceId: string;
+  rows: Issue[];
+  search: string;
+  /** The row above the table: the Open / Closed / Plans buttons. */
+  header?: ComponentChildren;
+}) {
   return (
     <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid="issue-list">
+      {header !== undefined && <div class="border-b border-base-300 bg-base-200/60 px-2 py-1.5">{header}</div>}
+      {rows.length === 0 && <div class="p-4 text-sm opacity-60">No issue matches the query.</div>}
+      {rows.length > 0 && (
       <table class="table text-sm">
         <thead>
           <tr>
@@ -32,6 +43,7 @@ export function IssueList({ sourceId, rows, search }: { sourceId: string; rows: 
           ))}
         </tbody>
       </table>
+      )}
     </div>
   );
 }

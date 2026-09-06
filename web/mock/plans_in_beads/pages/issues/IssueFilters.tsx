@@ -1,21 +1,16 @@
 import { Combobox, useListCollection } from "@ark-ui/react/combobox";
 import { useFilter } from "@ark-ui/react/locale";
 import { Portal } from "@ark-ui/react/portal";
-import { ToggleGroup } from "@ark-ui/react/toggle-group";
-import type { IssueStatus } from "@/api/client.js";
-import { ALL_STATUSES, type IssueQuery } from "@/api/issues.js";
-import { hasTag, tagValues, toggleTag } from "@/api/query.js";
-import { statusLabel } from "@/lib/format.js";
+import type { IssueQuery } from "@/api/issues.js";
+import { tagValues, toggleTag } from "@/api/query.js";
 
-// Left-pane quick filters, shared by the list, board and graph views (D14).
-// They keep no state of their own: each widget reads its tags out of the
-// search bar's query and toggles `field:value` tokens in it, so the bar, the
-// URL and the widgets always say the same thing. A `status:` pick drops
-// `is:open` / `is:closed`, which would otherwise AND with it.
+// Left-pane quick filters. They keep no state of their own: the label picker
+// reads its `label:` tags out of the search bar's query and toggles tokens in
+// it, so the bar, the URL and the picker always say the same thing. The
+// Open / Closed / Plans state lives above the table (StateButtons).
 //
-// The status strip and the label picker are Ark UI parts (toggle group,
-// combobox) skinned with daisyUI classes, the way the real IssueFilters is
-// planned (PLAN.md step 6); the saved-filter chip is plain daisyUI.
+// The label picker is an Ark UI combobox skinned with daisyUI classes, the
+// way the real IssueFilters is planned (PLAN.md step 6).
 
 interface Props {
   query: IssueQuery;
@@ -27,60 +22,10 @@ interface Props {
 
 export function IssueFilters({ query, labels, matches, update, reset }: Props) {
   const q = query.q;
-  const statuses = tagValues(q, "status")
-    .map((w) => ALL_STATUSES.find((s) => statusLabel(s) === w))
-    .filter((s): s is IssueStatus => s !== undefined);
-  const isTags = tagValues(q, "is");
-  const setQ = (next: string) => update({ q: next });
-
   return (
     <div class="space-y-2 border-b border-base-300 p-2">
-      <ToggleGroup.Root
-        multiple
-        value={statuses}
-        onValueChange={(d) => {
-          // The strip toggles one status at a time; find which one flipped.
-          const next = d.value as IssueStatus[];
-          const flipped = ALL_STATUSES.find((s) => statuses.includes(s) !== next.includes(s));
-          if (flipped) setQ(toggleTag(q, "status", statusLabel(flipped), ["is:open", "is:closed"]));
-        }}
-        className="flex flex-wrap gap-1"
-        aria-label="Status"
-      >
-        {ALL_STATUSES.map((s) => (
-          <ToggleGroup.Item
-            key={s}
-            value={s}
-            className={`btn btn-sm ${statuses.includes(s) ? "btn-primary" : "btn-outline"}`}
-            title={`status:${statusLabel(s)}`}
-          >
-            {statusLabel(s)}
-          </ToggleGroup.Item>
-        ))}
-      </ToggleGroup.Root>
-      <div class="px-0.5 text-xs opacity-50">
-        {statuses.length > 0
-          ? `status:${statuses.map(statusLabel).join(" status:")}`
-          : isTags.includes("open")
-            ? "is:open — open, in_progress and blocked"
-            : isTags.includes("closed")
-              ? "is:closed"
-              : "any status"}
-      </div>
-
-      <div class="flex flex-wrap items-center gap-1 text-xs">
-        <span class="opacity-60">saved</span>
-        <button
-          class={`btn btn-sm ${hasTag(q, "is", "plan") ? "btn-secondary" : "btn-outline"}`}
-          title="is:plan"
-          onClick={() => setQ(toggleTag(q, "is", "plan"))}
-          data-testid="saved-plans"
-        >
-          Plans
-        </button>
-      </div>
-
-      <LabelPicker labels={labels} selected={tagValues(q, "label")} onToggle={(l) => setQ(toggleTag(q, "label", l))} />
+      <div class="px-2 text-xs font-semibold uppercase tracking-wide opacity-60">Labels</div>
+      <LabelPicker labels={labels} selected={tagValues(q, "label")} onToggle={(l) => update({ q: toggleTag(q, "label", l) })} />
 
       <div class="flex items-center justify-between text-xs opacity-60">
         <span>
