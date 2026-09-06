@@ -21,6 +21,19 @@ shell and `FONTCONFIG_FILE` to a fontconfig naming a nix font directory
 repository's `playwright.config.ts` carries neither, so the fontconfig
 need is a second thing to settle when the pin is aligned.
 
+## Out-of-scope discovery — `golangci-lint run ./...` fails on files this plan never touched
+
+The final gate ran `golangci-lint run ./...` and got 49 findings, all in
+files untouched since the run began: `lll` (lines over 100 characters)
+and `modernize` in `pkg/claudehook/types/types.go` and its round-trip
+test, `modernize` in `crabswarm/hook/audit_test.go`, and `golines` in
+`web/embed_test.go` and `web/scripts/packdist/main.go`. The per-package
+lint hook that runs on edits only sees touched packages, which is why
+these never surfaced. Found 2026-09-06.
+
+Follow-up: either fix them or exclude the generated `types.go` from
+`lll` in the lint config, so the whole-module run is a usable gate.
+
 ## Out-of-scope discovery — the Stop hook ignores `stop_hook_active`
 
 `hooks/issues-mermaid-lint/hooks/hook.json` runs `crabswarm hook exec
