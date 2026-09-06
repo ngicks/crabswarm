@@ -64,7 +64,7 @@ Tools to swarm claude(, codex and others!)
 │   │   │           store.go/member.go/inbox.go/history.go = SQLite store; delivery.go + notify/ = fan-out and keystroke nudges via cmdman;
 │   │   │           resolver/ = cmdman team-info provider (token -> room/team/name); interceptor.go = per-RPC auth + lazy reaping.
 │   │   ├── cli       Client side: token resolution (token.go), member verbs, admin verbs, and cli/tui = the admin TUI (bubbletea).
-│   │   ├── mcpserver `crabswarm chat mcp`: stdio MCP bridge, one instance per agent; auto-joins on startup; tools + resources over the member plane.
+│   │   ├── mcpserver `crabswarm chat mcp`: stdio MCP bridge, one instance per agent; attends the room for the whole session, retrying until the daemon answers and re-attending after a restart; serves even with no identity token; tools + resources over the member plane.
 │   │   ├── notify    Nudging a harness by typing into its cmdman-tracked terminal (SendKeys, gated on reported state).
 │   │   └── internal  cmdman client, sqlc-generated db/, schema/ddl (schema.sql + room_log.sql) and schema/queries.
 │   ├── hook        Claude Code / Codex hook handlers: exec/ (`hook exec` template runner + its Config), path/, audit.go.

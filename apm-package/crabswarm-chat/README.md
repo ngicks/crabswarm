@@ -111,29 +111,45 @@ so the block lands in `.codex/hooks.json` and never becomes a hook there.
 
 ## The bridge is what attends the room
 
-The declared server is `crabswarm chat mcp` over stdio, which the harness starts
-as its own subprocess. It asks to attend while it is starting up — a few tries
-with a growing backoff, which covers a daemon still binding its socket — and
-then serves the room's verbs as tools. So a member has an inbox before its first
-turn, and no hook is involved in getting one.
+The declared server is `crabswarm chat mcp` over stdio. The harness starts it as
+its own subprocess. The bridge asks to attend as it starts and then serves the
+room's verbs as tools, so a member has an inbox before its first turn.
 
-That is the only automatic join this package ships. A `SessionStart` hook used
-to run `crabswarm chat join` as well; it is gone, because the bridge already
-attends before the first turn and a second path to the same idempotent call buys
-nothing. The trade is deliberate and worth stating: a harness that installs the
-hooks and no MCP server no longer joins by itself. Every hook below still runs,
-and `crabswarm chat join --kind agent` typed by hand still works.
+The bridge is the only automatic join this package ships. No hook joins the
+room. A harness that installs the hooks and no MCP server therefore never
+attends by itself. Every hook below still runs, and
+`crabswarm chat join --kind agent` typed by hand still works. An install made
+before the bridge shipped may still carry a join hook of its own; the next
+section says how to find it.
 
-`--kind` is required and the daemon refuses a join that declares nothing, so a
-join can never guess. It is what asks to be nudged: `--kind agent` says an
-arriving message is typed at the member's prompt, which is what the bridge
-sends; `--kind human` gets an inbox and nothing else, which is right for a
-person at a shell and wrong for a session that is meant to be woken.
+`--kind` is required. The daemon refuses a join that declares nothing, so a join
+can never guess. `--kind agent` says an arriving message is typed at the
+member's prompt, and that is what the bridge sends. `--kind human` gets an inbox
+and nothing else. That suits a person at a shell, not a session that is meant to
+be woken.
 
-Running out of attempts does not take the bridge down. It stays up serving tools
-that report why they cannot act, and each tool call asks to attend again — so a
-daemon that comes up late is picked up by the next thing the agent does, which
-is the same "a late delivery, never a lost message" the hooks aim for.
+The bridge keeps asking to attend for the whole session and never gives up. The
+first retries come a fifth of a second apart and the wait grows to two seconds.
+A bridge whose daemon is not up yet attends as soon as the daemon binds its
+socket. A daemon that restarts on a fresh database gets the member back the same
+way. Neither case needs a tool call to prompt it. Until a join lands the bridge
+still serves its tools, and each of them reports why it cannot act.
+
+### Stale hooks from older installs
+
+An older version of this package installed a `SessionStart` hook running
+`crabswarm chat join`. apm's merge never removes an entry a package stopped
+declaring, so that hook survives an upgrade and runs on every session start.
+`--kind` is required now, so the join fails. The hook discards that failure and
+exits 0, so nothing reports it. It costs a subprocess on every session start and
+joins nobody.
+
+Remove it by hand. Search for the string `crabswarm chat join` in:
+
+- `~/.codex/hooks.json`
+- a project's `.codex/hooks.json`
+- `~/.claude/settings.json` and a project's `.claude/settings.json`, under
+  `hooks`
 
 ### What the harness forwards to the bridge
 
@@ -155,11 +171,14 @@ every tool answers that it has no identity.
 
 `XDG_RUNTIME_DIR` decides where the bridge looks for the daemon. The socket path
 is derived from that variable, and a daemon started from a login shell listens
-under it. A bridge spawned without it derives a different path —
-`/run/user/<uid>/crabswarm/default.sock` when that directory exists, otherwise
-`/tmp/crabswarm/default.sock` — and dials a socket nothing answers on. Pinning
-`sock` in `~/.config/crabswarm/config.json` settles the same question for a
-harness that forwards nothing.
+under it. A bridge spawned without the variable probes `/run/user/<uid>` and
+takes `/run/user/<uid>/crabswarm/default.sock` when that directory is there,
+otherwise `/tmp/crabswarm/default.sock`. On an ordinary Linux login the probe
+lands on the path the daemon chose. A daemon started with some other
+`XDG_RUNTIME_DIR`, in a container or under a test harness, still listens where
+the probe never reaches. Forwarding the variable is what covers that case.
+Pinning `sock` in `~/.config/crabswarm/config.json` settles the same question
+for a harness that forwards nothing.
 
 Codex reads `env_vars` from the server's own `[mcp_servers.crabswarm-chat]`
 table. Whether Claude Code accepts the same key in the `.mcp.json` that `apm`
@@ -354,9 +373,9 @@ The MCP server is the same story one layer over: `apm install` writes an
 `crabswarm` with `["chat", "mcp"]`, which is what a Codex install was observed
 to produce; whether Codex then starts the bridge and joins the room has not been
 run against a Codex session either. The table also carries the `env_vars` list
-above, without which Codex hands the bridge an environment holding neither an
-identity token nor the runtime dir the socket path comes from. Without it Codex attends only when someone
-types `crabswarm chat join --kind agent`.
+above. Without that list Codex hands the bridge an environment holding neither
+an identity token nor the runtime dir the socket path comes from. Without the
+bridge Codex attends only when someone types `crabswarm chat join --kind agent`.
 
 What Codex ends up running:
 
