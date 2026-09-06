@@ -309,3 +309,17 @@ the mock, more contract than the arithmetic is worth; `svg-pan-zoom`,
 a further dependency; a scrolling box without zoom, the previous
 state, which the user judged poor; opening every neighbourhood fitted,
 unreadable for a wide one.
+
+## D22 — The GUI stays read-only; a writable board is a later plan (decided 2026-09-06)
+
+Choice: this plan ships no write path. Composing comments on the issue
+page, editing issue content on the strength of a comment, and a log of
+those edits that the page can show all belong to a separate plan for a
+writable issue board.
+Rationale: the user's call when the detail view was restyled; the
+reading experience is what this plan proves, and the first write path
+through the daemon deserves its own idea phase (who writes, as whom,
+how an edit is logged, what bd offers for history).
+Rejected for now: a comment box writing through the daemon to `bd`;
+an edit history taken from bd's version history; logging edits as
+`Edit:` comments by convention. All three are candidates for that plan.
