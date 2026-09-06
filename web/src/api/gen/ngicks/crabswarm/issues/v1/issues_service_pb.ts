@@ -753,10 +753,11 @@ export const IssuesService: GenService<{
     output: typeof GetIssueResponseSchema;
   },
   /**
-   * ListDependencies returns every dependency edge among the given issues in
-   * one `bd dep list` call. An empty issue_ids means every issue of the
-   * source: bd has no whole-source edge listing, so the daemon lists the
-   * source once to gather the ids and then makes that same single dep call.
+   * ListDependencies returns the dependency edges among the given issues.
+   * Every record of a source's listing carries the edges its issue is the
+   * from side of, so the edges come off the listing the source's other reads
+   * already share. An empty issue_ids means every edge of the source; a
+   * non-empty one keeps the edges with both ends inside that set.
    *
    * @generated from rpc ngicks.crabswarm.issues.v1.IssuesService.ListDependencies
    */

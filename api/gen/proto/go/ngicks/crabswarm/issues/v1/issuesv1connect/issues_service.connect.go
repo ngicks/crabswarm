@@ -69,10 +69,11 @@ type IssuesServiceClient interface {
 	// GetIssue returns one issue with every text field rendered to HTML, its
 	// comments, children and dependencies.
 	GetIssue(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
-	// ListDependencies returns every dependency edge among the given issues in
-	// one `bd dep list` call. An empty issue_ids means every issue of the
-	// source: bd has no whole-source edge listing, so the daemon lists the
-	// source once to gather the ids and then makes that same single dep call.
+	// ListDependencies returns the dependency edges among the given issues.
+	// Every record of a source's listing carries the edges its issue is the
+	// from side of, so the edges come off the listing the source's other reads
+	// already share. An empty issue_ids means every edge of the source; a
+	// non-empty one keeps the edges with both ends inside that set.
 	ListDependencies(context.Context, *connect.Request[v1.ListDependenciesRequest]) (*connect.Response[v1.ListDependenciesResponse], error)
 	// WatchIssues streams change notifications produced by the daemon's
 	// per-source poll.
@@ -197,10 +198,11 @@ type IssuesServiceHandler interface {
 	// GetIssue returns one issue with every text field rendered to HTML, its
 	// comments, children and dependencies.
 	GetIssue(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
-	// ListDependencies returns every dependency edge among the given issues in
-	// one `bd dep list` call. An empty issue_ids means every issue of the
-	// source: bd has no whole-source edge listing, so the daemon lists the
-	// source once to gather the ids and then makes that same single dep call.
+	// ListDependencies returns the dependency edges among the given issues.
+	// Every record of a source's listing carries the edges its issue is the
+	// from side of, so the edges come off the listing the source's other reads
+	// already share. An empty issue_ids means every edge of the source; a
+	// non-empty one keeps the edges with both ends inside that set.
 	ListDependencies(context.Context, *connect.Request[v1.ListDependenciesRequest]) (*connect.Response[v1.ListDependenciesResponse], error)
 	// WatchIssues streams change notifications produced by the daemon's
 	// per-source poll.
