@@ -276,3 +276,9 @@ Rationale: the guidance exists to keep bulk output out of the planning
 context, and that cost was already paid when the user pointed it out.
 Rejected: regenerating the same views through a subagent for the sake of
 the rule.
+
+Amended by the user, 2026-09-06: the passes behind D18–D20 were also
+written inline. From here on every change to the mock is delegated to a
+subagent one model class down, as the ngplan visuals reference asks; the
+planning agent reviews the result, keeps `MOCK_LIMITS.md` current and
+records the decisions. This is not an agent default any more.
