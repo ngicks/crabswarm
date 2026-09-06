@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "crabswarm hook exec 'crabswarm issues lint'",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

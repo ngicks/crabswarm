@@ -43,30 +43,34 @@ const (
 var ErrBinaryNotFound = errors.New("mermaid-lint not found")
 
 // Finding is one mermaid diagram that mermaid-lint refused, located in the
-// issue text it was written in.
+// issue text it was written in. The JSON names are the ones a caller
+// printing the findings as a document hands on.
 type Finding struct {
-	IssueID string
+	IssueID string `json:"issue_id"`
 	// Field is the text field the diagram sits in: one of
 	// [FieldDescription], [FieldDesign], [FieldAcceptanceCriteria],
 	// [FieldNotes] or [FieldComment].
-	Field string
+	Field string `json:"field"`
 	// Comment is the 1-based position of the comment among the issue's
 	// comments, zero unless Field is [FieldComment].
-	Comment int
+	Comment int `json:"comment,omitzero"`
 	// Line and Col locate the failure inside that text, counted from its
 	// first line.
-	Line int
-	Col  int
-	// Type is the diagram type mermaid-lint detected, "unknown" when it
-	// could not read one.
-	Type string
+	Line int `json:"line"`
+	Col  int `json:"col"`
+	// Type names what refused the diagram: the diagram type mermaid-lint
+	// detected ("unknown" when it could not read one) for a diagram the
+	// parser rejected, the rule id for a semantic rule that fired at error
+	// severity on a diagram the parser accepted.
+	Type string `json:"type"`
 	// Message is mermaid-lint's account of the failure.
-	Message string
+	Message string `json:"message"`
 }
 
 // linter holds what [Lint] resolves from its options.
 type linter struct {
 	bin string
+	dir string
 }
 
 // Option configures a [Lint] call.
@@ -76,6 +80,20 @@ type Option func(*linter)
 // "mermaid-lint", is looked up on PATH.
 func WithBinary(path string) Option {
 	return func(l *linter) { l.bin = path }
+}
+
+// WithDir runs mermaid-lint in dir, so that the configuration a repository
+// carries — .mermaidlintrc, mermaid-lint.config.js or the mermaidLint key
+// of its package.json — governs its issue text as it governs its files.
+// mermaid-lint searches for that configuration from its own working
+// directory upwards and from nowhere else, so where it runs is the whole
+// mechanism; the issue text is passed to it as absolute paths.
+//
+// The default runs it in the temp directory the text was written to, where
+// it finds no configuration at all and judges every diagram by its
+// built-in defaults.
+func WithDir(dir string) Option {
+	return func(l *linter) { l.dir = dir }
 }
 
 // fenceOpener matches a line opening a mermaid fence: any indentation,
@@ -150,7 +168,25 @@ func Lint(ctx context.Context, list []issues.Issue, opts ...Option) ([]Finding, 
 		names[i] = u.name
 	}
 
-	rep, err := run(ctx, bin, dir, names)
+	// Where mermaid-lint runs decides which configuration it finds, so the
+	// caller's directory takes over the run when one was given and the text
+	// is reached by absolute path from there.
+	runDir := dir
+	if l.dir != "" {
+		runDir = l.dir
+		// Reached from another directory, the text needs a path that does
+		// not depend on where it is read from — which the temp directory's
+		// own is only as long as TMPDIR is absolute.
+		abs, err := filepath.Abs(dir)
+		if err != nil {
+			return nil, fmt.Errorf("resolving the directory holding issue text: %w", err)
+		}
+		for i, u := range units {
+			names[i] = filepath.Join(abs, u.name)
+		}
+	}
+
+	rep, err := run(ctx, bin, runDir, names)
 	if err != nil {
 		return nil, err
 	}

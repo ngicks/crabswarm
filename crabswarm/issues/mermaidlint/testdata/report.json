@@ -56,6 +56,25 @@
       ]
     },
     {
+      "path": "plan-bbb.notes.md",
+      "diagrams": [
+        {
+          "line": 1,
+          "col": 1,
+          "type": "flowchart",
+          "ok": true,
+          "warnings": [
+            {
+              "rule": "duplicate-ids",
+              "message": "node \"A\" declared with label \"one\" (line 3) and \"two\" (line 4)",
+              "line": 4,
+              "severity": "error"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "path": "plan-bbb.comment-1.md",
       "diagrams": [
         {
@@ -75,13 +94,13 @@
     }
   ],
   "summary": {
-    "files": 4,
-    "diagrams": 5,
-    "ok": 2,
+    "files": 5,
+    "diagrams": 6,
+    "ok": 3,
     "errors": 3,
-    "warnings": 0,
+    "warnings": 1,
     "types": {
-      "flowchart": 3,
+      "flowchart": 4,
       "unknown": 1,
       "notadiagram": 1
     }

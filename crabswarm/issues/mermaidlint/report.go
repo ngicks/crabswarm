@@ -23,10 +23,14 @@ type reportFile struct {
 
 type diagram struct {
 	Type string `json:"type"`
+	// Col is the column the diagram's fence opens at. mermaid-lint places
+	// every semantic finding of the diagram there, because a warning
+	// carries no column of its own.
+	Col int `json:"col"`
 	// Error is absent for a diagram that parsed. The report also carries
-	// the position of the fence and any semantic warnings; a finding needs
-	// neither.
-	Error *diagramError `json:"error"`
+	// the line of the fence, which a finding does not need.
+	Error    *diagramError    `json:"error"`
+	Warnings []diagramWarning `json:"warnings"`
 }
 
 type diagramError struct {
@@ -36,11 +40,25 @@ type diagramError struct {
 	Col  int `json:"col"`
 }
 
-// run lints names inside dir and decodes the report.
+// diagramWarning is one semantic rule that fired on a diagram: a duplicate
+// node ID and the like, on a diagram the parser itself accepted.
+type diagramWarning struct {
+	Rule    string `json:"rule"`
+	Message string `json:"message"`
+	// Line is counted in the file. The report gives a warning no column.
+	Line int `json:"line"`
+	// Severity is the severity the rule resolved to, "warn" or "error".
+	Severity string `json:"severity"`
+}
+
+// severityError is the warning severity mermaid-lint fails a run on, so it
+// is the one that makes a warning a finding here too.
+const severityError = "error"
+
+// run lints names from dir and decodes the report. dir is the directory
+// mermaid-lint searches its configuration from, and names are the paths it
+// reads the text through — relative to dir, or absolute.
 func run(ctx context.Context, bin, dir string, names []string) (report, error) {
-	// The files are named relatively with the working directory set to
-	// their own, so the report echoes back exactly the names that were
-	// written and no configuration around the caller's directory applies.
 	cmd := exec.CommandContext(
 		ctx,
 		bin,
@@ -93,21 +111,38 @@ func findings(rep report, units []unit) ([]Finding, error) {
 	var out []Finding
 	for _, u := range units {
 		for _, d := range byName[u.name] {
-			if d.Error == nil {
-				continue
+			if d.Error != nil {
+				out = append(out, Finding{
+					IssueID: u.issueID,
+					Field:   u.field,
+					Comment: u.comment,
+					// mermaid-lint counts the failure in the file, so the
+					// position is already the one inside the text the file
+					// was written from.
+					Line:    d.Error.Line,
+					Col:     d.Error.Col,
+					Type:    d.Type,
+					Message: d.Error.Message,
+				})
 			}
-			out = append(out, Finding{
-				IssueID: u.issueID,
-				Field:   u.field,
-				Comment: u.comment,
-				// mermaid-lint counts the failure in the file, so the
-				// position is already the one inside the text the file was
-				// written from.
-				Line:    d.Error.Line,
-				Col:     d.Error.Col,
-				Type:    d.Type,
-				Message: d.Error.Message,
-			})
+			// A rule that resolved to "error" fails mermaid-lint's own run
+			// exactly as a parse error does, so a diagram the parser
+			// accepted is still refused here. A "warn" is advice and is
+			// left to whoever reads the diagram.
+			for _, w := range d.Warnings {
+				if w.Severity != severityError {
+					continue
+				}
+				out = append(out, Finding{
+					IssueID: u.issueID,
+					Field:   u.field,
+					Comment: u.comment,
+					Line:    w.Line,
+					Col:     d.Col,
+					Type:    w.Rule,
+					Message: w.Message,
+				})
+			}
 		}
 	}
 	return out, nil

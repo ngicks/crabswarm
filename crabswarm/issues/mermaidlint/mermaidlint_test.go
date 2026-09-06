@@ -15,12 +15,14 @@ import (
 )
 
 // The diagrams the tests are written around: one the mermaid parser
-// accepts and three it refuses, each in a different way.
+// accepts, three it refuses each in a different way, and one it parses but
+// a semantic rule refuses at error severity.
 const (
 	goodFence     = "```mermaid\nflowchart TD\n  A --> B\n```\n"
 	badFence      = "```mermaid\nflowchart TD\n  A -->\n```\n"
 	unclosedFence = "```mermaid\nflowchart TD\n  A --> B\n"
 	unknownFence  = "  ```mermaid\n  notadiagram foo\n  ```\n"
+	dupFence      = "```mermaid\nflowchart TD\n  A[one] --> B\n  A[two] --> C\n```\n"
 )
 
 // linted are the issues testdata/report.json was recorded from — two
@@ -48,6 +50,7 @@ func linted() []issues.Issue {
 				Title:              "a diagram in the design",
 				Design:             goodFence,
 				AcceptanceCriteria: "the diagram parses",
+				Notes:              dupFence,
 			},
 			Comments: []issues.Comment{
 				{Text: "still wrong:\n\n- see:\n\n" + unknownFence},
@@ -78,7 +81,7 @@ func TestLint(t *testing.T) {
 		t,
 		inv[0].args,
 		"--format json --quiet plan-aaa.description.md plan-aaa.comment-2.md"+
-			" plan-bbb.design.md plan-bbb.comment-1.md",
+			" plan-bbb.design.md plan-bbb.notes.md plan-bbb.comment-1.md",
 	)
 	// Text with no fence never reaches the disk, so neither the issue
 	// without diagrams nor the fenceless field and comment of the others
@@ -87,7 +90,7 @@ func TestLint(t *testing.T) {
 		t,
 		inv[0].files,
 		"plan-aaa.comment-2.md plan-aaa.description.md"+
-			" plan-bbb.comment-1.md plan-bbb.design.md",
+			" plan-bbb.comment-1.md plan-bbb.design.md plan-bbb.notes.md",
 	)
 	// The directory holding them is gone once Lint returns.
 	_, statErr := os.Stat(inv[0].dir)
@@ -97,10 +100,13 @@ func TestLint(t *testing.T) {
 }
 
 // lintedFindings is what [linted] amounts to: the parse failure at the
-// second diagram of a description, an unclosed fence in a comment and a
-// diagram type mermaid cannot read in another. The failure is placed where
-// mermaid-lint puts it rather than at the fence — the last one opens at
-// column 3 and is reported at column 1.
+// second diagram of a description, an unclosed fence in a comment, a
+// diagram whose type mermaid cannot read in another, and a diagram that
+// parses but declares one node twice, which is a rule mermaid-lint resolves
+// to error severity. A parse failure is placed where mermaid-lint puts it
+// rather than at the fence — the unknown-type one opens at column 3 and is
+// reported at column 1 — while a rule that fired carries no column of its
+// own and is placed at the column its fence opens at.
 var lintedFindings = []Finding{
 	{
 		IssueID: "plan-aaa",
@@ -119,6 +125,14 @@ var lintedFindings = []Finding{
 		Col:     1,
 		Type:    "unknown",
 		Message: "unclosed ```mermaid fence (no closing ``` found)",
+	},
+	{
+		IssueID: "plan-bbb",
+		Field:   FieldNotes,
+		Line:    4,
+		Col:     1,
+		Type:    "duplicate-ids",
+		Message: `node "A" declared with label "one" (line 3) and "two" (line 4)`,
 	},
 	{
 		IssueID: "plan-bbb",
@@ -160,7 +174,58 @@ func TestLintWithBinary(t *testing.T) {
 
 	got, err := Lint(t.Context(), linted(), WithBinary(bin))
 	assert.NilError(t, err)
-	assert.Equal(t, len(got), 3)
+	assert.Equal(t, len(got), len(lintedFindings))
+}
+
+func TestLintWithDir(t *testing.T) {
+	invocations := installFakeMermaidLint(t, "report.json")
+
+	dir := t.TempDir()
+	got, err := Lint(t.Context(), linted(), WithDir(dir))
+	assert.NilError(t, err)
+	// The report is mapped back by file name, so it replays the same
+	// findings however the files were reached.
+	assert.DeepEqual(t, got, lintedFindings)
+
+	inv := invocations()
+	assert.Equal(t, len(inv), 1)
+	// mermaid-lint ran in the given directory — which is where it looks for
+	// its configuration — and reached the issue text elsewhere, so every
+	// name it was handed is absolute.
+	assert.Equal(t, inv[0].dir, dir)
+	for arg := range strings.FieldsSeq(inv[0].args) {
+		if strings.HasPrefix(arg, "-") || arg == "json" {
+			continue
+		}
+		assert.Assert(t, filepath.IsAbs(arg), "issue text passed as %q, want an absolute path", arg)
+	}
+}
+
+func TestLintWithDirAppliesConfig(t *testing.T) {
+	if _, err := exec.LookPath(defaultBinary); err != nil {
+		t.Skipf("%s not on PATH: %v", defaultBinary, err)
+	}
+
+	// A repository that turns the duplicate-ids rule off. Judged from this
+	// directory, the diagram the rule refuses is one the installed
+	// mermaid-lint accepts.
+	dir := t.TempDir()
+	assert.NilError(t, os.WriteFile(
+		filepath.Join(dir, ".mermaidlintrc"),
+		[]byte(`{"rules":{"duplicate-ids":"off"}}`),
+		0o600,
+	))
+
+	var want []Finding
+	for _, f := range lintedFindings {
+		if f.Type != "duplicate-ids" {
+			want = append(want, f)
+		}
+	}
+
+	got, err := Lint(t.Context(), linted(), WithDir(dir))
+	assert.NilError(t, err)
+	assert.DeepEqual(t, got, want)
 }
 
 func TestLintBinaryNotFound(t *testing.T) {
