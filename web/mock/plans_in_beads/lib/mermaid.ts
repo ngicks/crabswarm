@@ -21,11 +21,23 @@ export async function runMermaid(el: HTMLElement, dark: boolean, opts: RunOption
   mermaidMod ??= import("mermaid");
   try {
     const mermaid = (await mermaidMod).default;
+    // Measuring before the page's fonts are usable sizes every label against
+    // the fallback face.
+    await document.fonts.ready;
+    // The font is resolved here instead of left as `inherit`. Mermaid lays a
+    // diagram out in a temporary container on <body> and moves the finished
+    // SVG into place, and the SVG lands inside `pre.mermaid`, which Tailwind's
+    // preflight puts in the monospace stack. `inherit` therefore measured in
+    // the body's sans font and drew in a wider monospace one, so labels were
+    // clipped by boxes sized for narrower text ("Plans in beads" drawn as
+    // "Plan in bea"). An explicit family makes both steps use the same font.
+    // The size is already explicit for the same reason.
+    const bodyFont = getComputedStyle(document.body).fontFamily;
     mermaid.initialize({
       startOnLoad: false,
       theme: dark ? "dark" : "default",
       securityLevel: "strict",
-      themeVariables: opts.graph ? { fontSize: "14px", fontFamily: "inherit" } : undefined,
+      themeVariables: opts.graph ? { fontSize: "14px", fontFamily: bodyFont } : undefined,
       flowchart: opts.graph ? { useMaxWidth: false, curve: "basis", nodeSpacing: 28, rankSpacing: 56, padding: 10 } : undefined,
     });
     await mermaid.run({ nodes: Array.from(nodes) });

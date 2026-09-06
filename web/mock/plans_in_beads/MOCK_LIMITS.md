@@ -129,6 +129,14 @@ these differences — each worth a decision when step 4 writes the real proto:
   share the SVG; a press that moves under 4px is a click, and pointer
   capture is taken only once a drag is certain, or the click retargets to
   the viewport and the node is lost.
+- **mermaid must be given an explicit font family.** It measures labels
+  in a scratch container on `body` and then moves the SVG into the
+  `pre.mermaid` it was asked to render, which Tailwind's preflight puts
+  in monospace; with `fontFamily: "inherit"` the labels were measured in
+  the sans font and drawn in the wider monospace one, so boxes clipped
+  ("Plan in bea", "chil"). `lib/mermaid.ts` now passes the body's
+  computed family and waits for `document.fonts.ready`. A headless run
+  with one font file for every family cannot catch this.
 - **Titles reach mermaid as label text.** Backticks are fine; a literal `\n`
   in a title is a line break to mermaid unless escaped (`lib/graph.ts` does).
 - **A board and a whole-source graph were drawn and dropped (D20).** The
