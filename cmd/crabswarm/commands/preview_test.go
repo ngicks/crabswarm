@@ -54,6 +54,25 @@ func TestPreviewCmd_Subcommands(t *testing.T) {
 	assert.Assert(t, hidden["__serve"])
 }
 
+// `preview` registers a directory as both a file root and an issues source;
+// --root and --issue each narrow it to one side, so combining them is
+// contradictory and cobra rejects it before the command runs.
+func TestPreviewCmd_RootAndIssueAreMutuallyExclusive(t *testing.T) {
+	hermeticEnv(t)
+
+	root := rootCmd()
+	preview, _, err := root.Find([]string{"preview"})
+	assert.NilError(t, err)
+	assert.Assert(t, preview.Flags().Lookup("root") != nil)
+	assert.Assert(t, preview.Flags().Lookup("issue") != nil)
+
+	// No daemon is involved: the flag group is validated before RunE.
+	_, _, err = runPreviewCmd(t, "--root", "--issue")
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "root"), "got %v", err)
+	assert.Assert(t, strings.Contains(err.Error(), "issue"), "got %v", err)
+}
+
 // `preview list` against an address with no daemon fails with the unreachable
 // hint (not a rendered table), and writes nothing to stdout.
 func TestPreviewList_UnreachableDaemonHint(t *testing.T) {

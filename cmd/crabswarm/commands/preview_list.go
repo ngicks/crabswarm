@@ -1,23 +1,20 @@
 package commands
 
 import (
-	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 
-	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
-	"github.com/ngicks/crabswarm/crabswarm/cli"
-	"github.com/ngicks/crabswarm/crabswarm/preview"
+	issuescli "github.com/ngicks/crabswarm/crabswarm/issues/cli"
 )
 
 // previewListCmd wires `preview list`: a thin ConnectRPC client that prints the
-// roots the running daemon has registered.
+// file roots and issue sources the running daemon has registered.
 func previewListCmd(parent *cobra.Command, flagConfig *string) {
 	var flagAddr string
 
 	cmd := &cobra.Command{
 		Use:               "list",
 		Aliases:           []string{"ls"},
-		Short:             "List the roots registered with the running preview daemon",
+		Short:             "List the roots and issue sources registered with the preview daemon",
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,15 +36,9 @@ func runPreviewList(cmd *cobra.Command, _ []string, flagConfig, flagAddr string)
 		return err
 	}
 
-	client := preview.NewClient(pcfg.Addr)
-	resp, err := client.ListRoots(ctx, connect.NewRequest(&previewv1.ListRootsRequest{}))
+	regs, err := previewRegistrations(ctx, pcfg)
 	if err != nil {
-		return cli.PreviewDaemonError(err, pcfg.DaemonName)
+		return err
 	}
-
-	roots := make([]cli.PreviewRoot, 0, len(resp.Msg.GetRoots()))
-	for _, r := range resp.Msg.GetRoots() {
-		roots = append(roots, cli.PreviewRoot{ID: r.GetId(), Name: r.GetName(), Path: r.GetPath()})
-	}
-	return cli.RenderRoots(cmd.OutOrStdout(), roots)
+	return issuescli.RenderRegistrations(cmd.OutOrStdout(), regs)
 }

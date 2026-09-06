@@ -185,19 +185,205 @@ func TestPreviewCmdmanPath(t *testing.T) {
 	}
 }
 
+// fakeBdScript is a stand-in for the real bd binary. `bd where` reports the
+// .beads directory of the directory it runs in, so a temp directory holding one
+// registers as an issue source and a directory without one does not; `bd list`
+// answers with an empty backlog, which is what the daemon's poller reads once a
+// source is registered. Both outputs follow the shapes the issues client
+// decodes: the JSON envelope for where (error envelope on stdout with a
+// non-zero exit), a bare array for list.
+const fakeBdScript = `#!/bin/sh
+case "$1" in
+where)
+  if [ -d "$PWD/.beads" ]; then
+    printf '{"data":{"path":"%s/.beads","prefix":"e2e","database_path":"%s/.beads/db"}}\n' \
+      "$PWD" "$PWD"
+    exit 0
+  fi
+  printf '{"data":{"error":"no_beads_directory","message":"No active beads workspace found."}}\n'
+  exit 1
+  ;;
+list)
+  echo '[]'
+  ;;
+*)
+  echo "fake bd: unknown subcommand $1" >&2
+  exit 2
+  ;;
+esac
+exit 0
+`
+
+// fakeCmdmanScript is a stand-in for cmdman that always reports the daemon as
+// running, so `crabswarm preview` adopts the `preview __serve` process the test
+// started itself instead of daemonizing one.
+const fakeCmdmanScript = `#!/bin/sh
+case "$1" in
+inspect) echo running ;;
+esac
+exit 0
+`
+
+// fakePathEnv writes the fake bd and cmdman into one directory and returns an
+// environment with that directory prepended to PATH, for the daemon process and
+// the CLI invocations alike.
+func fakePathEnv(t *testing.T) []string {
+	t.Helper()
+	dir := t.TempDir()
+	for name, script := range map[string]string{
+		"bd":     fakeBdScript,
+		"cmdman": fakeCmdmanScript,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755); err != nil {
+			t.Fatalf("write fake %s: %v", name, err)
+		}
+	}
+	return append(os.Environ(), "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// TestPreviewIssueSources covers the registration side of `crabswarm preview`:
+// a directory governed by a beads database becomes both a file root and an
+// issue source, one without becomes a root alone, --issue insists on the
+// database, and `preview remove` reaches either kind. The daemon is the same
+// directly started `preview __serve` process TestPreviewServe uses; the fake
+// cmdman only satisfies EnsureDaemon's liveness check.
+func TestPreviewIssueSources(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	env := fakePathEnv(t)
+	addr := freeAddr(t)
+
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	writeFile(t, cfgPath, "{}")
+
+	withBeads := t.TempDir()
+	if err := os.Mkdir(filepath.Join(withBeads, ".beads"), 0o755); err != nil {
+		t.Fatalf("create .beads: %v", err)
+	}
+	plain := t.TempDir()
+
+	serve := exec.Command(crabswarmBin, "preview", "__serve", "--addr", addr, "--config", cfgPath)
+	serve.Env = env
+	serve.Stdout = os.Stderr
+	serve.Stderr = os.Stderr
+	if err := serve.Start(); err != nil {
+		t.Fatalf("start preview __serve: %v", err)
+	}
+	t.Cleanup(func() { stopProcess(t, serve) })
+
+	waitHealthz(ctx, t, addr, 30*time.Second)
+
+	preview := func(args ...string) string {
+		t.Helper()
+		return mustRunCrabswarm(ctx, t, env,
+			append([]string{"preview"}, append(args, "--addr", addr, "--config", cfgPath)...)...)
+	}
+
+	// A directory with a beads database registers on both sides.
+	out := preview(withBeads)
+	if !strings.Contains(out, "/r/") {
+		t.Errorf("preview did not print a root URL; got:\n%s", out)
+	}
+	if !strings.Contains(out, "issue source e2e") {
+		t.Errorf("preview did not report the issue source; got:\n%s", out)
+	}
+
+	counts := countKinds(t, preview("list"))
+	if counts["root"] != 1 || counts["source"] != 1 {
+		t.Errorf("after registering %s: got %v, want 1 root and 1 source", withBeads, counts)
+	}
+
+	// A directory outside every beads workspace registers as a root only, and
+	// that is not an error.
+	out = preview(plain)
+	if !strings.Contains(out, "/r/") {
+		t.Errorf("preview did not print a root URL; got:\n%s", out)
+	}
+	if strings.Contains(out, "issue source") {
+		t.Errorf("preview registered an issue source for a directory without a beads database;"+
+			" got:\n%s", out)
+	}
+
+	counts = countKinds(t, preview("list"))
+	if counts["root"] != 2 || counts["source"] != 1 {
+		t.Errorf("after registering %s: got %v, want 2 roots and 1 source", plain, counts)
+	}
+
+	// --issue asked for the source explicitly, so the missing database is an
+	// error rather than a silently skipped registration.
+	stdout, stderr, err := runCrabswarmEnv(ctx, t, env,
+		"preview", "--issue", plain, "--addr", addr, "--config", cfgPath)
+	if err == nil {
+		t.Errorf("preview --issue on a directory without a beads database succeeded; got:\n%s",
+			stdout)
+	}
+	if !strings.Contains(stderr, "beads") {
+		t.Errorf("preview --issue error does not mention beads; got:\n%s", stderr)
+	}
+
+	// remove takes the source's prefix, the name `preview list` prints for it.
+	if got := preview("remove", "e2e"); !strings.Contains(got, "source") {
+		t.Errorf("remove did not report removing a source; got:\n%s", got)
+	}
+	counts = countKinds(t, preview("list"))
+	if counts["root"] != 2 || counts["source"] != 0 {
+		t.Errorf("after removing the source: got %v, want 2 roots and no source", counts)
+	}
+}
+
+// countKinds tallies the KIND column of `preview list` output by row. The
+// always-printed header is cut off first, so an empty registry counts nothing.
+func countKinds(t *testing.T, out string) map[string]int {
+	t.Helper()
+	_, rows, _ := strings.Cut(strings.TrimSpace(out), "\n")
+	counts := map[string]int{}
+	for line := range strings.SplitSeq(rows, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		counts[fields[0]]++
+	}
+	return counts
+}
+
 // runCrabswarm runs the built crabswarm binary with args, returning trimmed
 // stdout and failing the test if it exits non-zero.
 func runCrabswarm(ctx context.Context, t *testing.T, args ...string) string {
 	t.Helper()
-	cmd := exec.CommandContext(ctx, crabswarmBin, args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	return mustRunCrabswarm(ctx, t, nil, args...)
+}
+
+// mustRunCrabswarm runs the binary under env and fails the test when it exits
+// non-zero, returning its trimmed stdout. A nil env inherits the test's own.
+func mustRunCrabswarm(ctx context.Context, t *testing.T, env []string, args ...string) string {
+	t.Helper()
+	stdout, stderr, err := runCrabswarmEnv(ctx, t, env, args...)
+	if err != nil {
 		t.Fatalf("crabswarm %s failed: %v\nstdout:\n%s\nstderr:\n%s",
-			strings.Join(args, " "), err, stdout.String(), stderr.String())
+			strings.Join(args, " "), err, stdout, stderr)
 	}
-	return strings.TrimSpace(stdout.String())
+	return stdout
+}
+
+// runCrabswarmEnv runs the binary under env and returns its trimmed stdout,
+// trimmed stderr and run error. Unlike mustRunCrabswarm it tolerates a non-zero
+// exit, which the cases asserting on a rejected invocation need.
+func runCrabswarmEnv(
+	ctx context.Context,
+	t *testing.T,
+	env []string,
+	args ...string,
+) (stdout, stderr string, err error) {
+	t.Helper()
+	cmd := exec.CommandContext(ctx, crabswarmBin, args...)
+	cmd.Env = env
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	err = cmd.Run()
+	return strings.TrimSpace(outBuf.String()), strings.TrimSpace(errBuf.String()), err
 }
 
 // cmdmanStopRemove stops and removes the named cmdman daemon, best-effort. It

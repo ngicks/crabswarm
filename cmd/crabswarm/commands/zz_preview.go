@@ -9,8 +9,11 @@ import (
 	"github.com/ngicks/go-common/contextkey"
 	"github.com/spf13/cobra"
 
+	issuesv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/issues/v1"
 	previewv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1"
 	"github.com/ngicks/crabswarm/crabswarm"
+	"github.com/ngicks/crabswarm/crabswarm/cli"
+	issuescli "github.com/ngicks/crabswarm/crabswarm/issues/cli"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
 
@@ -39,7 +42,49 @@ func resolvePreviewConfig(cmd *cobra.Command, flagConfig, flagAddr string) (prev
 	return pcfg, nil
 }
 
-// completePreviewRootDir completes the optional ROOT positional of `preview`
+// previewRegistrations lists everything the daemon at pcfg.Addr has registered
+// — file roots and issue sources — as the one view `preview list` prints and
+// `preview remove` matches its argument against.
+func previewRegistrations(
+	ctx context.Context,
+	pcfg preview.Config,
+) ([]issuescli.Registration, error) {
+	roots, err := preview.NewClient(pcfg.Addr).
+		ListRoots(ctx, connect.NewRequest(&previewv1.ListRootsRequest{}))
+	if err != nil {
+		return nil, cli.PreviewDaemonError(err, pcfg.DaemonName)
+	}
+	sources, err := preview.NewIssuesClient(pcfg.Addr).
+		ListSources(ctx, connect.NewRequest(&issuesv1.ListSourcesRequest{}))
+	if err != nil {
+		return nil, cli.PreviewDaemonError(err, pcfg.DaemonName)
+	}
+
+	pbRoots, pbSources := roots.Msg.GetRoots(), sources.Msg.GetSources()
+	regs := make([]issuescli.Registration, 0, len(pbRoots)+len(pbSources))
+	for _, r := range pbRoots {
+		regs = append(regs, issuescli.Registration{
+			Kind: issuescli.KindRoot,
+			ID:   r.GetId(),
+			Name: r.GetName(),
+			Path: r.GetPath(),
+		})
+	}
+	for _, s := range pbSources {
+		// The .beads path rather than the registering directory: it is what the
+		// source is keyed by, so two worktrees of one repository still read as
+		// the single source they are.
+		regs = append(regs, issuescli.Registration{
+			Kind: issuescli.KindSource,
+			ID:   s.GetId(),
+			Name: s.GetPrefix(),
+			Path: s.GetBeadsPath(),
+		})
+	}
+	return regs, nil
+}
+
+// completePreviewRootDir completes the optional DIR positional of `preview`
 // with directories only; once the single argument is present there is nothing
 // more to complete.
 func completePreviewRootDir(
@@ -53,11 +98,12 @@ func completePreviewRootDir(
 	return nil, cobra.ShellCompDirectiveFilterDirs
 }
 
-// completePreviewRoots completes the NAME|ID positional of `preview remove` with
-// the roots the running daemon reports. It is best-effort: any failure (daemon
-// down, config error) degrades to no suggestions rather than surfacing an error,
-// and the RPC is bounded by a short timeout so completion never hangs the shell.
-func completePreviewRoots(
+// completePreviewRegistrations completes the NAME|ID positional of
+// `preview remove` with the root names and issue-source prefixes the running
+// daemon reports. It is best-effort: any failure (daemon down, config error)
+// degrades to no suggestions rather than surfacing an error, and the RPCs are
+// bounded by a short timeout so completion never hangs the shell.
+func completePreviewRegistrations(
 	cmd *cobra.Command,
 	args []string,
 	_ string,
@@ -75,14 +121,13 @@ func completePreviewRoots(
 	ctx, cancel := context.WithTimeout(cmd.Context(), time.Second)
 	defer cancel()
 
-	resp, err := preview.NewClient(pcfg.Addr).
-		ListRoots(ctx, connect.NewRequest(&previewv1.ListRootsRequest{}))
+	regs, err := previewRegistrations(ctx, pcfg)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	names := make([]string, 0, len(resp.Msg.GetRoots()))
-	for _, r := range resp.Msg.GetRoots() {
-		names = append(names, r.GetName())
+	names := make([]string, 0, len(regs))
+	for _, r := range regs {
+		names = append(names, r.Name)
 	}
 	return names, cobra.ShellCompDirectiveNoFileComp
 }

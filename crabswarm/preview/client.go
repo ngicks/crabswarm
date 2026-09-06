@@ -4,8 +4,15 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/issues/v1/issuesv1connect"
 	"github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/preview/v1/previewv1connect"
 )
+
+// NewIssuesClient returns a connect-go client for the issues API the same
+// daemon serves beside the preview API, dialed exactly like [NewClient].
+func NewIssuesClient(addr string) issuesv1connect.IssuesServiceClient {
+	return issuesv1connect.NewIssuesServiceClient(http.DefaultClient, baseURL(addr))
+}
 
 // NewClient returns a connect-go client for the preview daemon that listens at
 // addr. addr is the daemon's TCP *listen* address (e.g. the configured
