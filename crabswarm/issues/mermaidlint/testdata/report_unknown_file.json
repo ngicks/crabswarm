@@ -1,0 +1,44 @@
+{
+  "version": "0.53.1",
+  "files": [
+    {
+      "path": "plan-aaa.description.md",
+      "diagrams": [
+        {
+          "line": 1,
+          "col": 1,
+          "type": "flowchart",
+          "ok": true,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "path": "somewhere-else.md",
+      "diagrams": [
+        {
+          "line": 1,
+          "col": 1,
+          "type": "flowchart",
+          "ok": false,
+          "warnings": [],
+          "error": {
+            "message": "a finding with no issue text to attach it to",
+            "line": 2,
+            "col": 1
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "files": 2,
+    "diagrams": 2,
+    "ok": 1,
+    "errors": 1,
+    "warnings": 0,
+    "types": {
+      "flowchart": 2
+    }
+  }
+}

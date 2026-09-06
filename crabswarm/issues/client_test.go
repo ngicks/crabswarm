@@ -35,7 +35,13 @@ func TestClientList(t *testing.T) {
 	assert.Equal(t, open.Assignee, "me")
 	assert.Equal(t, open.CommentCount, 1)
 	assert.Equal(t, open.CreatedAt.Format("2006-01-02T15:04:05Z"), "2026-09-04T12:20:33Z")
+	// bd list carries the long text, so a listing is enough to see what an
+	// issue says.
+	assert.Equal(t, open.Description, "woo\n\n## Context\nwhoooaaa")
+	assert.Equal(t, open.Design, "realy nice")
+	assert.Equal(t, open.AcceptanceCriteria, "weeee")
 	// Omitted fields decode as empty.
+	assert.Equal(t, open.Notes, "")
 	assert.Equal(t, len(open.Labels), 0)
 	assert.Assert(t, open.ClosedAt.IsZero())
 	assert.Equal(t, open.ParentID, "")

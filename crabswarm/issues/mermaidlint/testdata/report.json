@@ -1,0 +1,89 @@
+{
+  "version": "0.53.1",
+  "files": [
+    {
+      "path": "plan-aaa.description.md",
+      "diagrams": [
+        {
+          "line": 3,
+          "col": 1,
+          "type": "flowchart",
+          "ok": true,
+          "warnings": []
+        },
+        {
+          "line": 10,
+          "col": 1,
+          "type": "flowchart",
+          "ok": false,
+          "warnings": [],
+          "error": {
+            "message": "expected `&`, `:`, `|`, `v`, `default`, or 8 more, found the end of the diagram",
+            "line": 12,
+            "col": 4,
+            "raw": "Parse error on line 12:\n...lowchart TD  A -->\n---------------------^\nExpecting 'AMP', 'COLON', 'PIPE', 'TESTSTR', 'DOWN', 'DEFAULT', 'NUM', 'COMMA', 'NODE_STRING', 'BRKT', 'MINUS', 'MULT', 'UNICODE_TEXT', got 'EOF'"
+          }
+        }
+      ]
+    },
+    {
+      "path": "plan-aaa.comment-2.md",
+      "diagrams": [
+        {
+          "line": 2,
+          "col": 1,
+          "type": "unknown",
+          "ok": false,
+          "warnings": [],
+          "error": {
+            "message": "unclosed ```mermaid fence (no closing ``` found)",
+            "line": 2,
+            "col": 1
+          }
+        }
+      ]
+    },
+    {
+      "path": "plan-bbb.design.md",
+      "diagrams": [
+        {
+          "line": 1,
+          "col": 1,
+          "type": "flowchart",
+          "ok": true,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "path": "plan-bbb.comment-1.md",
+      "diagrams": [
+        {
+          "line": 5,
+          "col": 3,
+          "type": "notadiagram",
+          "ok": false,
+          "warnings": [],
+          "error": {
+            "message": "unknown diagram type `notadiagram`",
+            "line": 5,
+            "col": 1,
+            "raw": "No diagram type detected matching given configuration for text: notadiagram foo"
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "files": 4,
+    "diagrams": 5,
+    "ok": 2,
+    "errors": 3,
+    "warnings": 0,
+    "types": {
+      "flowchart": 3,
+      "unknown": 1,
+      "notadiagram": 1
+    }
+  }
+}

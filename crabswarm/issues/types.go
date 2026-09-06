@@ -17,9 +17,12 @@ const (
 	StatusClosed     Status = "closed"
 )
 
-// Summary is an issue without its long text, comments or dependencies: what
-// a list view needs. bd omits empty fields from its JSON, so every field
-// here decodes as its zero value when the issue does not carry it.
+// Summary is one record of `bd list --json`: an issue without its
+// comments, dependencies or metadata. bd list reports the long text fields
+// too, so a sweep over the text of a backlog runs off a listing and falls
+// back to [Client.Get] only for comments. bd omits empty fields from its
+// JSON, so every field here decodes as its zero value when the issue does
+// not carry it.
 type Summary struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -33,6 +36,11 @@ type Summary struct {
 	ParentID string   `json:"parent"`
 	Labels   []string `json:"labels"`
 
+	Description        string `json:"description"`
+	Design             string `json:"design"`
+	AcceptanceCriteria string `json:"acceptance_criteria"`
+	Notes              string `json:"notes"`
+
 	CreatedAt time.Time `json:"created_at"`
 	CreatedBy string    `json:"created_by"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -43,14 +51,11 @@ type Summary struct {
 	CommentCount    int `json:"comment_count"`
 }
 
-// Issue is a full issue as `bd show --include-comments` reports it.
+// Issue is a full issue as `bd show --include-comments` reports it: a
+// [Summary] plus what only bd show returns.
 type Issue struct {
 	Summary
 
-	Description        string `json:"description"`
-	Design             string `json:"design"`
-	AcceptanceCriteria string `json:"acceptance_criteria"`
-	Notes              string `json:"notes"`
 	// CloseReason is the conclusion recorded when the issue was closed.
 	CloseReason string `json:"close_reason"`
 	// Metadata is bd's free-form per-issue JSON object, left undecoded
