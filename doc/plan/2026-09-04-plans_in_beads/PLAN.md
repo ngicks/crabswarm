@@ -250,19 +250,17 @@ flowchart LR
 
 #### Presentation preview
 
-A runnable mock of the Issues tab lives at `web/mock/plans_in_beads/`
-(read its `MOCK_LIMITS.md` first). It is an isolated Preact entry served
-by the app's own vite toolchain, fed by `doc/plan/2026-09-04-plans_in_beads/mock/gen.go`,
-which renders a frozen `bd export` of the real backlog plus a synthesized
-plan issue (this plan, stored per D1) through the previewer's real
-markdown renderer. Run from `main/`:
+A runnable mock of the Issues tab lived at `web/mock/plans_in_beads/`
+until step 6 carried its views into `web/src` and removed it (D31); its
+findings are kept in this directory's `MOCK_LIMITS.md`, and the fixture
+generator `mock/gen.go` stays as history (it no longer has a consumer).
+The mock was an isolated Preact entry served by the app's own vite
+toolchain, fed by `gen.go`, which rendered a frozen `bd export` of the
+real backlog plus a synthesized plan issue (this plan, stored per D1)
+through the previewer's real markdown renderer. Its last state is
+commit fe28adc's parent.
 
-```sh
-go run doc/plan/2026-09-04-plans_in_beads/mock/gen.go
-cd web && pnpm exec vite --config mock/plans_in_beads/vite.config.ts
-```
-
-It demonstrates D1 (a plan read as an ordinary issue: fields, `idea_gate_passed`
+It demonstrated D1 (a plan read as an ordinary issue: fields, `idea_gate_passed`
 chip, `Decision:` comments, step children with `blocks` order,
 `discovered-from` items), D6 (tab header, `/issues/{sourceId}[/{issueId}]`),
 D7, D12, D13 (source switcher), D14 (epic progress bars, comment badges,
@@ -275,9 +273,11 @@ daisyUI, as step 6 plans it. It fakes
 the daemon, `bd`, the stream, the edges (the real database has none yet)
 and the Roots tab; the limits file lists what it therefore cannot
 validate (latency, poll cost, discovery, the lint guard, the `/roots`
-move, the `bd dep list` record shape). Disposable: nothing in it
-graduates to `web/src`; steps 6 and 7 rewrite the views against the
-real client. Findings from building it are folded in below:
+move, the `bd dep list` record shape). It was written as disposable;
+in the end its pages, query language and helpers moved into `web/src`
+nearly verbatim with the fixture reader swapped for the Connect client
+(D31), which is why the mock is gone rather than kept beside the app.
+Findings from building it are folded in below:
 `close_reason` is markdown and is rendered like the other fields; heading
 anchors must be namespaced per field because description and design are
 two documents on one page; `IssueDependency.outgoing` must be pinned to

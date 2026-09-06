@@ -483,3 +483,41 @@ Rationale: the contract said NotFound is tolerated, but a host without
 URL; previewing files must not depend on beads being installed.
 Rejected: mapping every daemon failure to NotFound (hides real errors
 from `--issue`); keeping the old renderer beside the new one.
+
+## D31 — The mock graduates into `web/src` and is removed; header tabs are route links (decided 2026-09-06) [automatic]
+
+Choice: the presentation mock's pages, query language, signals and
+helpers move into `web/src` as the real Issues tab over the daemon,
+and `web/mock/plans_in_beads/` is deleted in the same step; its
+`MOCK_LIMITS.md` moves into this plan directory so the findings
+survive, and the fixture generator under `mock/` stays as history.
+The Roots | Issues header draws plain anchors with the tab role rather
+than Ark UI Tabs: each tab is a route, not a panel switch, so there is
+no keyboard-driven panel state for Ark to own. The client-side liqe
+evaluation over one full listing per source stays the default (the
+open question on where the query is evaluated remains open, with that
+as its tentative answer).
+Rationale: the reorganisation broke the mock's imports (the theme
+signal moved and the `@` alias now means `src/`), and a mock that
+imports app files cannot outlive the app's layout; once the app holds
+the same views the mock has nothing left to show.
+Rejected: keeping the mock alive with its own alias map (churn in a
+throwaway); Ark Tabs for route links (behaviour Ark would supply is
+not needed).
+
+## D32 — The detail page reads both edge directions from one whole-source dependency listing (decided 2026-09-06) [automatic]
+
+Choice: the SPA calls `ListDependencies(source_id, [])` once per
+source — one `bd dep list` over every issue id — caches the edges
+under the source's query subtree, invalidates them with the listing
+on `IssuesChanged`, and derives from them both the detail page's
+dependencies table (outgoing and incoming rows, parent-child still
+carried by children and parent) and the neighbourhood's node set.
+`GetIssue`'s own `dependencies` field stays on the wire but the page
+no longer depends on it. Only the detail page triggers the fetch.
+Rationale: `bd show` reports only the edges an issue is the from side
+of, so a blocker or an origin issue showed no dependencies and no
+neighbourhood; the mock drew both directions from a whole-source edge
+list, and one cached `bd dep list` per source is the cost of that.
+Rejected: a per-issue incoming lookup RPC (bd offers no reverse
+query short of listing everything); dropping incoming rows.

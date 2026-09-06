@@ -59,9 +59,11 @@ a dogfood step; until then it stays here.
 - [x] Step 4 `issues/v1` proto, `SourceStore`, `IssuesService`, `Poller` → `WatchIssues` (D6, D8, D13, D29) — mounted beside PreviewService; `ListDependencies` still Unimplemented (step 7); commit 4f09d5f
 - [x] Step 5 `crabswarm preview --root / --issue`, list, remove (D13, D30) — commit 89742d1
 - [x] Step 7a `Client.Dependencies` + `ListDependencies`, `deferred` status, metadata on `Summary` (D15 data side, D29 cleanup) — commit a35cbec
-- [ ] Step 6 SPA tabs, `/roots` move, sources, search bar, state buttons, labels page, list + detail (D4, D6, D8, D14, D18, D19, D20, D23, D24)
-- [ ] Step 7 `ListDependencies` + neighbourhood graph with zoom and pan (D15, D21)
-- [ ] Step 8 instructions + agents-package boundary issue + bd events follow-up
+- [x] Step 6a SPA page layout, Roots | Issues header, `/roots` move, type scale (D4, D6, D19) — commit 780b230
+- [x] Step 6b sources, search bar, state buttons, labels page, list + detail, WatchIssues, neighbourhood graph in the app; mock removed (D8, D14, D15, D18, D20, D21, D23, D24, D31, D32) — 27 Playwright checks against a fake bd; commit fe28adc
+- [x] Step 7 neighbourhood graph end to end (D15, D21) — delivered by a35cbec (data) and fe28adc (view)
+- [x] Step 8a `.apm/instructions/base.instructions.md` updated (the user regenerates AGENTS.md / CLAUDE.md with apm)
+- [ ] Step 8b agents-package boundary issue + bd events follow-up issue, `discovered-from` the plan issue (after step 9)
 - [ ] Step 9 dogfood: this plan as the first plan issue (D1, D7)
 
 Next action: the user reviews the plan (D15 in particular); implementation

@@ -13,7 +13,13 @@ verification depends on it. Found 2026-09-06 while driving the mock headless.
 
 Follow-up: align the `@playwright/test` pin with the revision the nix side
 provides (the user's call, per the web base preference rule: the nix side
-leads, never `playwright install`). Not part of this plan.
+leads, never `playwright install`). Not part of this plan. Until then
+`pnpm e2e` fails at browser launch on this host; the specs pass with a
+config that sets `launchOptions.executablePath` to the 1234 headless
+shell and `FONTCONFIG_FILE` to a fontconfig naming a nix font directory
+(the Ark combobox aborts Chromium's Skia font code without one). The
+repository's `playwright.config.ts` carries neither, so the fontconfig
+need is a second thing to settle when the pin is aligned.
 
 ## Out-of-scope discovery — the Stop hook ignores `stop_hook_active`
 
