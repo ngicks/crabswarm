@@ -1,0 +1,63 @@
+[
+  {
+    "id": "crabswarm-no2",
+    "title": "sample-title",
+    "description": "woo\n\n## Context\nwhoooaaa",
+    "design": "realy nice",
+    "acceptance_criteria": "weeee",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "assignee": "me",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-04T12:20:33Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-04T12:20:33Z",
+    "dependency_count": 0,
+    "dependent_count": 0,
+    "comment_count": 1
+  },
+  {
+    "id": "crabswarm-jp7",
+    "title": "WatchRoom upgrade path for the admin TUI tail poll",
+    "description": "Recorded 2026-09-02.\n\nThe TUI tails the room log by cursor poll (~1s) against\n`ChatAdminService.History`. The daemon already serves server-streaming\n`ChatService.WatchRoom` on the member plane; once an admin-plane stream\n(or a message-appended event feeding one) exists, the poll can be\nreplaced without changing the `tui` package's `LogReader` consumers.\n\nFollow-up: revisit after the producer decision in \"Publish MessageAppended\nso the history resource can announce updates\".\n",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-03T18:21:58Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-03T18:21:58Z",
+    "labels": [
+      "admin",
+      "chat",
+      "proto",
+      "tui"
+    ],
+    "dependency_count": 0,
+    "dependent_count": 0,
+    "comment_count": 0
+  },
+  {
+    "id": "crabswarm-125",
+    "title": "Admin TUI screen",
+    "description": "Recorded 2026-08-31.\n\nThe admin needs its own interactive surface: unlike members it always\nspecifies a room id, and its job is watching over the agents'\nconversation rather than participating in an inbox. Today there is no\nTUI code anywhere under `crabswarm/chat/` or\n`cmd/crabswarm/commands/`, `chat read` is one-shot with no follow mode,\nand the `web/` SPA has generated chat proto types\n(`web/src/gen/ngicks/crabswarm/chat/v1/`) that nothing consumes.\n\nFollow-up: build an admin TUI (room picker / explicit room id, live\nview of the room's conversation via the per-room history plus a\nstreaming or polling tail, send-as-admin input). Depends on \"Add `crabswarm chat admin` subcommand\" and \"Per-room\nmessage history\".\n",
+    "status": "closed",
+    "priority": 2,
+    "issue_type": "task",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-03T18:21:59Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-03T18:22:01Z",
+    "closed_at": "2026-09-03T18:22:01Z",
+    "close_reason": "Resolved 2026-09-03. `crabswarm chat admin tui` exists under\n`crabswarm/chat/cli/tui/`: a rooms pane selects the room (`--room` is an\noptional initial selection), the conversation pane tails the per-room\nhistory by polling, the members pane shows the roster, and a multi-line\nmessage pane sends as admin with `@` addressing. Streaming instead of the\ntail poll stays open as \"WatchRoom upgrade path for the admin TUI tail\npoll\".\n",
+    "labels": [
+      "admin",
+      "chat",
+      "tui"
+    ],
+    "dependency_count": 0,
+    "dependent_count": 0,
+    "comment_count": 0
+  }
+]

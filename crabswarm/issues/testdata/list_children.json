@@ -1,0 +1,39 @@
+[
+  {
+    "id": "scratch-uoj",
+    "title": "child task",
+    "description": "the description",
+    "design": "a design",
+    "acceptance_criteria": "some criteria",
+    "notes": "a note",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-06T11:24:15Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-06T11:24:39Z",
+    "metadata": {
+      "plan": "doc/plan/x",
+      "rank": 3
+    },
+    "labels": [
+      "alpha",
+      "beta"
+    ],
+    "dependencies": [
+      {
+        "issue_id": "scratch-uoj",
+        "depends_on_id": "scratch-2o5",
+        "type": "parent-child",
+        "created_at": "2026-09-06T20:24:23Z",
+        "created_by": "ngicks",
+        "metadata": "{}"
+      }
+    ],
+    "dependency_count": 0,
+    "dependent_count": 0,
+    "comment_count": 1,
+    "parent": "scratch-2o5"
+  }
+]
