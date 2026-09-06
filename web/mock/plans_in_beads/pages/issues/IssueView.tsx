@@ -1,13 +1,15 @@
+import { NavigationMenu } from "@ark-ui/react/navigation-menu";
+import { useState } from "preact/hooks";
 import type { Issue, IssueComment, RenderedField } from "@/api/client.js";
 import { getIssue, listDependencies } from "@/api/client.js";
 import { commentKind, dependencyWording, metadataPairs, progressOf } from "@/api/issues.js";
 import type { GraphNode } from "@/lib/graph.js";
 import { shortTime, statusBadgeClass, statusLabel } from "@/lib/format.js";
-import { issueHref } from "@/lib/paths.js";
+import { issueHref, sourceHref } from "@/lib/paths.js";
 import { IssueGraph } from "./IssueGraph.js";
 import { Progress } from "./IssueList.js";
 import { MarkdownField, fieldAnchor } from "./MarkdownField.js";
-import { Section } from "./Section.js";
+import { Section, sectionId } from "./Section.js";
 import { useOpenIssue } from "./useIssues.js";
 
 // Issue detail (GetIssue): the bead the way bd models it — summary, the four
@@ -17,6 +19,44 @@ import { useOpenIssue } from "./useIssues.js";
 // plan-specific view; the plan convention only shows through the `plan`
 // label, the `idea_gate_passed` metadata chip and the Decision/Discussion badges).
 
+/** One section of the page, in page order. `field` is set for the sections
+ *  that render markdown, whose own headings hang under them in the TOC. */
+interface SectionEntry {
+  key: string;
+  title: string;
+  field?: RenderedField;
+}
+
+function fieldSections(issue: Issue): { key: string; title: string; field: RenderedField }[] {
+  return [
+    { key: "description", title: "Description", field: issue.description },
+    { key: "design", title: "Design", field: issue.design },
+    { key: "acceptance", title: "Acceptance criteria", field: issue.acceptanceCriteria },
+    { key: "notes", title: "Notes", field: issue.notes },
+  ].filter((s) => s.field.html !== "");
+}
+
+/** Every section the page actually renders, in page order: the outline the TOC
+ *  and the jump menu both read, so neither can drift from the page. */
+function outlineOf(issue: Issue): SectionEntry[] {
+  const entries: SectionEntry[] = [];
+  if (issue.summary.status === "ISSUE_STATUS_CLOSED" && issue.closeReason.html !== "") {
+    entries.push({ key: "close", title: "Close reason", field: issue.closeReason });
+  }
+  entries.push(...fieldSections(issue));
+  if (issue.children.length > 0) entries.push({ key: "children", title: `Children (${issue.children.length})` });
+  if (issue.dependencies.length > 0) {
+    entries.push({ key: "dependencies", title: `Dependencies (${issue.dependencies.length})` });
+  }
+  if (neighbourIds(issue).size > 1) entries.push({ key: "neighbourhood", title: "Neighbourhood" });
+  if (issue.comments.length > 0) entries.push({ key: "comments", title: `Comments (${issue.comments.length})` });
+  return entries;
+}
+
+function scrollToId(id: string): void {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export function IssueView({ sourceId, issueId, search }: { sourceId: string; issueId: string; search: string }) {
   const issue = useOpenIssue(sourceId, issueId);
 
@@ -24,29 +64,103 @@ export function IssueView({ sourceId, issueId, search }: { sourceId: string; iss
     return <div class="p-6 text-sm opacity-60">No issue {issueId} in this source.</div>;
   }
 
-  const sections: { key: string; title: string; field: RenderedField }[] = [
-    { key: "description", title: "Description", field: issue.description },
-    { key: "design", title: "Design", field: issue.design },
-    { key: "acceptance", title: "Acceptance criteria", field: issue.acceptanceCriteria },
-    { key: "notes", title: "Notes", field: issue.notes },
-  ].filter((s) => s.field.html !== "");
+  const sections = fieldSections(issue);
+  const outline = outlineOf(issue);
 
   return (
     <div class="flex min-w-0 gap-4">
-      <div class="min-w-0 flex-1 space-y-4">
-        <Header issue={issue} sourceId={sourceId} search={search} />
-        <CloseReason issue={issue} />
-        {sections.map((s) => (
-          <Section key={s.key} title={s.title}>
-            <MarkdownField field={s.field} prefix={s.key} />
-          </Section>
-        ))}
-        <Children issue={issue} sourceId={sourceId} search={search} />
-        <Dependencies issue={issue} sourceId={sourceId} search={search} />
-        <Neighbourhood issue={issue} sourceId={sourceId} search={search} />
-        <Comments issue={issue} />
+      <div class="min-w-0 flex-1">
+        <DetailBar issue={issue} sourceId={sourceId} search={search} outline={outline} />
+        <div class="space-y-4 pt-4">
+          <Header issue={issue} sourceId={sourceId} search={search} />
+          <CloseReason issue={issue} />
+          {sections.map((s) => (
+            <Section key={s.key} id={s.key} title={s.title}>
+              <MarkdownField field={s.field} prefix={s.key} />
+            </Section>
+          ))}
+          <Children issue={issue} sourceId={sourceId} search={search} />
+          <Dependencies issue={issue} sourceId={sourceId} search={search} />
+          <Neighbourhood issue={issue} sourceId={sourceId} search={search} />
+          <Comments issue={issue} />
+        </div>
       </div>
-      <Toc issue={issue} />
+      <Toc outline={outline} />
+    </div>
+  );
+}
+
+// The bar above the detail column, sticky at the top of the scrollport: where
+// the reader came from, which issue this is, and one menu to reach any section
+// of a long issue without scrolling for it.
+//
+// The menu is Ark's navigation menu with the hover trigger disabled, so it
+// opens on a click and stays open until a link is chosen (it is controlled: a
+// link scrolls and then clears the value). Its content is anchored to the item
+// rather than portalled — a single popup needs no shared viewport.
+function DetailBar({
+  issue,
+  sourceId,
+  search,
+  outline,
+}: {
+  issue: Issue;
+  sourceId: string;
+  search: string;
+  outline: SectionEntry[];
+}) {
+  const [open, setOpen] = useState("");
+
+  return (
+    <div
+      // A sticky element pins to the scroll container's content box, not to
+      // its padding edge, so a plain `top-0` would leave the page's own
+      // padding above the bar for content to scroll through. The negative top
+      // and the negative side margins pull the bar over that padding instead.
+      class="sticky -top-4 z-20 -mx-4 flex items-center gap-3 border-b border-base-content/25 bg-base-100 px-4 py-2 sm:-top-6 sm:-mx-6 sm:px-6"
+      data-testid="detail-bar"
+    >
+      <a class="link link-hover shrink-0 text-sm opacity-70" href={sourceHref(sourceId, search)}>
+        ← back to the list
+      </a>
+      <span class="shrink-0 font-mono text-xs opacity-70">{issue.summary.id}</span>
+      <span class="truncate text-sm font-semibold">{issue.summary.title}</span>
+
+      <NavigationMenu.Root
+        class="ml-auto shrink-0"
+        value={open}
+        onValueChange={(d) => setOpen(d.value)}
+        disableHoverTrigger
+        disablePointerLeaveClose
+      >
+        <NavigationMenu.List class="m-0 list-none p-0">
+          <NavigationMenu.Item value="jump" class="relative">
+            <NavigationMenu.Trigger class="btn btn-sm btn-ghost" data-testid="jump-menu-trigger">
+              Jump to ▾
+            </NavigationMenu.Trigger>
+            <NavigationMenu.Content
+              class="menu absolute right-0 top-full z-30 w-64 flex-nowrap rounded-box border border-base-content/25 bg-base-100 shadow"
+              data-testid="jump-menu-content"
+            >
+              {outline.map((e) => (
+                <li key={e.key}>
+                  <NavigationMenu.Link
+                    href={`#${sectionId(e.key)}`}
+                    data-testid={`jump-to-${e.key}`}
+                    onClick={(ev) => {
+                      ev.preventDefault();
+                      scrollToId(sectionId(e.key));
+                      setOpen("");
+                    }}
+                  >
+                    <span class="truncate">{e.title}</span>
+                  </NavigationMenu.Link>
+                </li>
+              ))}
+            </NavigationMenu.Content>
+          </NavigationMenu.Item>
+        </NavigationMenu.List>
+      </NavigationMenu.Root>
     </div>
   );
 }
@@ -105,7 +219,7 @@ function Header({ issue, sourceId, search }: { issue: Issue; sourceId: string; s
 function CloseReason({ issue }: { issue: Issue }) {
   if (issue.summary.status !== "ISSUE_STATUS_CLOSED" || issue.closeReason.html === "") return null;
   return (
-    <Section title="Close reason">
+    <Section id="close" title="Close reason">
       <MarkdownField field={issue.closeReason} prefix="close" />
     </Section>
   );
@@ -114,7 +228,7 @@ function CloseReason({ issue }: { issue: Issue }) {
 function Children({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   if (issue.children.length === 0) return null;
   return (
-    <Section title={`Children (${issue.children.length})`}>
+    <Section id="children" title={`Children (${issue.children.length})`}>
       <div class="overflow-x-auto">
         <table class="table text-sm">
           <thead>
@@ -152,7 +266,7 @@ function Children({ issue, sourceId, search }: { issue: Issue; sourceId: string;
 function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
   if (issue.dependencies.length === 0) return null;
   return (
-    <Section title={`Dependencies (${issue.dependencies.length})`}>
+    <Section id="dependencies" title={`Dependencies (${issue.dependencies.length})`}>
       <div class="overflow-x-auto">
         <table class="table text-sm">
           <thead>
@@ -188,12 +302,18 @@ function Dependencies({ issue, sourceId, search }: { issue: Issue; sourceId: str
 // The issue with everything one edge away: parent, children, dependencies.
 // Edges among the neighbours themselves are drawn too when the source has
 // them, since ListDependencies returns every edge inside the given set.
-function Neighbourhood({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
+function neighbourIds(issue: Issue): Set<string> {
   const s = issue.summary;
   const ids = new Set<string>([s.id]);
   if (s.parentId !== "") ids.add(s.parentId);
   for (const c of issue.children) ids.add(c.id);
   for (const d of issue.dependencies) ids.add(d.id);
+  return ids;
+}
+
+function Neighbourhood({ issue, sourceId, search }: { issue: Issue; sourceId: string; search: string }) {
+  const s = issue.summary;
+  const ids = neighbourIds(issue);
   if (ids.size === 1) return null;
 
   const nodes: GraphNode[] = [];
@@ -206,13 +326,22 @@ function Neighbourhood({ issue, sourceId, search }: { issue: Issue; sourceId: st
 
   // IssueGraph draws its own section card: the legend and the zoom toolbar
   // belong in the header strip beside the title.
-  return <IssueGraph sourceId={sourceId} nodes={nodes} edges={edges} search={search} testId="local-graph" />;
+  return (
+    <IssueGraph
+      sourceId={sourceId}
+      nodes={nodes}
+      edges={edges}
+      search={search}
+      sectionKey="neighbourhood"
+      testId="local-graph"
+    />
+  );
 }
 
 function Comments({ issue }: { issue: Issue }) {
   if (issue.comments.length === 0) return null;
   return (
-    <Section title={`Comments (${issue.comments.length})`}>
+    <Section id="comments" title={`Comments (${issue.comments.length})`}>
       <div class="divide-y divide-base-300" data-testid="comments">
         {issue.comments.map((c, n) => (
           <CommentEntry key={c.id} comment={c} index={n} />
@@ -238,37 +367,61 @@ function CommentEntry({ comment, index }: { comment: IssueComment; index: number
   );
 }
 
-// Right column: the description and design headings, straight off the toc
-// arrays the renderer produced. Anchors are namespaced per field, matching
-// MarkdownField.
-function Toc({ issue }: { issue: Issue }) {
-  const entries = [
-    ...issue.description.toc.map((h) => ({ ...h, prefix: "description" })),
-    ...issue.design.toc.map((h) => ({ ...h, prefix: "design" })),
-  ].filter((h) => h.id !== "" && h.level <= 3);
-  if (entries.length === 0) return null;
+// Right column: the page outline — every section, and under the rendered
+// fields their own headings, straight off the toc arrays the renderer
+// produced. Heading anchors are namespaced per field, matching MarkdownField.
+//
+// `top-12` clears the sticky detail bar, and `flex-nowrap` keeps the daisyUI
+// menu from compressing a long outline into the aside's height instead of
+// letting the aside scroll it.
+function Toc({ outline }: { outline: SectionEntry[] }) {
+  if (outline.length === 0) return null;
 
   return (
-    <aside class="sticky top-0 hidden h-[calc(100dvh_-_6rem)] w-[240px] shrink-0 self-start overflow-auto border-l border-base-300 pl-2 lg:block">
+    <aside
+      class="sticky top-6 hidden h-[calc(100dvh_-_8rem)] w-[240px] shrink-0 self-start overflow-auto border-l border-base-content/25 pl-2 lg:block"
+      data-testid="toc"
+    >
       <div class="px-2 py-2 text-xs font-semibold uppercase tracking-wide opacity-60">On this page</div>
-      <ul class="menu menu-sm w-full p-0">
-        {entries.map((h) => (
-          <li key={`${h.prefix}-${h.id}`}>
+      <ul class="menu menu-sm w-full flex-nowrap p-0">
+        {outline.map((e) => (
+          <li key={e.key}>
             <a
-              href={`#${fieldAnchor(h.prefix, h.id)}`}
-              style={{ paddingLeft: `${(h.level - 1) * 10 + 8}px` }}
-              onClick={(e) => {
-                e.preventDefault();
-                document
-                  .getElementById(fieldAnchor(h.prefix, h.id))
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+              href={`#${sectionId(e.key)}`}
+              onClick={(ev) => {
+                ev.preventDefault();
+                scrollToId(sectionId(e.key));
               }}
             >
-              <span class="truncate">{h.text}</span>
+              <span class="truncate font-medium">{e.title}</span>
             </a>
+            {e.field !== undefined && <Headings entry={e} field={e.field} />}
           </li>
         ))}
       </ul>
     </aside>
+  );
+}
+
+function Headings({ entry, field }: { entry: SectionEntry; field: RenderedField }) {
+  const headings = field.toc.filter((h) => h.id !== "" && h.level <= 3);
+  if (headings.length === 0) return null;
+  return (
+    <ul class="flex-nowrap">
+      {headings.map((h) => (
+        <li key={`${entry.key}-${h.id}`}>
+          <a
+            href={`#${fieldAnchor(entry.key, h.id)}`}
+            style={{ paddingLeft: `${(h.level - 1) * 10 + 8}px` }}
+            onClick={(ev) => {
+              ev.preventDefault();
+              scrollToId(fieldAnchor(entry.key, h.id));
+            }}
+          >
+            <span class="truncate">{h.text}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }

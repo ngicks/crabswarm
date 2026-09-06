@@ -63,7 +63,7 @@ wire, `signals/` is client state, `lib/` is helpers.
 | `pages/issues/LabelsPage.tsx` | `/issues/{sourceId}/labels`: every label with its open and closed counts, a name filter and Active \| Archived; a label is active while an open issue carries it |
 | `pages/issues/IssueList.tsx` | the table: rows with labels, metadata chips and the epic progress bar, the state buttons in its header |
 | `pages/issues/IssueGraph.tsx` | the detail page's neighbourhood: mermaid flowchart from edges in a zoom / pan viewport (wheel, drag, −/+/1:1/Fit, resizable), click-through |
-| `pages/issues/IssueView.tsx` | detail: a title-first header with progress, then rendered fields, children, dependencies, neighbourhood, comments, TOC |
+| `pages/issues/IssueView.tsx` | detail: a sticky bar (back link, id, title, a Jump to menu over every section — Ark navigation menu), a title-first header with progress, then rendered fields, children, dependencies, neighbourhood, comments; the TOC on the right outlines every section with the fields' headings under them |
 | `pages/issues/Section.tsx` | one detail-page section: a card whose header strip carries the section name; every section, table, the graph and the comments use it |
 | `pages/issues/MarkdownField.tsx` | one `.markdown-body` article (the card is the section's), with the client-side mermaid pass; a rendered diagram or image opens the app's lightbox |
 | `pages/issues/useIssues.ts` | the page's state over the api layer: the query-string filters, the rows, the open issue |

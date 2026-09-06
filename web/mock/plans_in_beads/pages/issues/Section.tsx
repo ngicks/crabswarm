@@ -9,12 +9,21 @@ import type { ComponentChildren } from "preact";
 // strip (the legend and the zoom toolbar belong in it) and IssueView imports
 // IssueGraph, so sharing through IssueView would make the two files a cycle.
 
+/** DOM id of a section, shared by the section itself, the TOC and the jump
+ *  menu so all three agree on one anchor per section. */
+export function sectionId(key: string): string {
+  return `section-${key}`;
+}
+
 export function Section({
+  id,
   title,
   extra,
   testId,
   children,
 }: {
+  /** Section key (`description`, `children`, …), turned into the anchor id. */
+  id?: string;
   title: string;
   extra?: ComponentChildren;
   testId?: string;
@@ -22,7 +31,11 @@ export function Section({
 }) {
   return (
     <section
-      class="overflow-hidden rounded-box border border-base-content/25 bg-base-100 shadow-sm"
+      // scroll-mt clears the detail page's sticky bar: without it a section
+      // scrolled to the top of the scrollport hides its own header strip
+      // behind the bar.
+      class="scroll-mt-14 overflow-hidden rounded-box border border-base-content/25 bg-base-100 shadow-sm"
+      id={id === undefined ? undefined : sectionId(id)}
       data-testid={testId}
     >
       {/* Borders and the strip fill are drawn from the foreground colour rather

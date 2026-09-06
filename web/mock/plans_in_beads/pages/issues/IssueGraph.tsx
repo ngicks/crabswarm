@@ -44,6 +44,7 @@ export function IssueGraph({
   edges,
   search,
   title = "Neighbourhood",
+  sectionKey,
   testId = "local-graph",
 }: {
   sourceId: string;
@@ -51,6 +52,8 @@ export function IssueGraph({
   edges: IssueEdge[];
   search: string;
   title?: string;
+  /** Section key for the card's anchor id, so the TOC can reach the graph. */
+  sectionKey?: string;
   testId?: string;
 }) {
   const loc = useLocation();
@@ -285,7 +288,7 @@ export function IssueGraph({
   );
 
   return (
-    <Section title={title} extra={strip} testId={testId}>
+    <Section id={sectionKey} title={title} extra={strip} testId={testId}>
       <div
         ref={viewport}
         class="relative h-[22rem] min-h-40 cursor-grab touch-none select-none resize-y overflow-hidden [&_g.node]:cursor-pointer [&_pre.mermaid]:m-0 [&_pre.mermaid]:bg-transparent"

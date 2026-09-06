@@ -35,12 +35,9 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
       {!source ? (
         <Placeholder text={`No source ${id} is registered.`} />
       ) : openId !== "" ? (
-        <div class="space-y-4">
-          <a class="link link-hover text-sm opacity-70" href={sourceHref(id, search)}>
-            ← back to the list
-          </a>
-          <IssueView sourceId={id} issueId={openId} search={search} />
-        </div>
+        // The back link lives in the detail page's sticky bar, so the detail
+        // view owns the whole column.
+        <IssueView sourceId={id} issueId={openId} search={search} />
       ) : (
         <div class="space-y-3">
           <QueryBar query={query} matches={rows.length} ctx={suggestCtx} update={update} reset={reset} />

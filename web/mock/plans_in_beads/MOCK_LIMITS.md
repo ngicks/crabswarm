@@ -120,6 +120,19 @@ these differences — each worth a decision when step 4 writes the real proto:
   at or above 0.6; below that it opens at 1:1 centred on the current
   issue, and Fit is one click away. Fit itself is never floored, so the
   whole drawing is always reachable.
+- **The outline must be built from the sections, not from two fields.**
+  The first TOC listed the description's and design's headings only, so
+  acceptance criteria and everything below were unreachable; it now
+  lists every rendered section in page order with each field's own
+  headings nested under it, and the sticky Jump to menu uses the same
+  section ids. A daisyUI `menu` compresses a long outline unless it is
+  told not to wrap, and a sticky bar inside a padded scroll container
+  pins to the container's content box, so its offset has to cancel the
+  padding.
+- **Measure after mermaid.** Diagrams render asynchronously and each
+  one changes the height above it; a scroll-to-section driven before
+  the last drawing lands overshoots. Any scroll assertion in the real
+  e2e has to wait for the drawings first.
 - **Labels are not entities in bd (D24).** A label exists as long as an
   issue carries it, so the labels page is an aggregation over the
   listing: counts per label, and "archived" defined as carried only by
