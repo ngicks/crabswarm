@@ -226,6 +226,23 @@ or OR); a hand-rolled tokenizer (no OR, no quoting rules); keeping
 separate URL parameters beside the bar (two sources of truth).
 Left open as Q14: where the real feature evaluates the query.
 
+## D19 — The app adopts the mock's type scale (decided 2026-09-06)
+
+Choice: the type scale the mock settled on — body text 15px and
+metadata 13px through Tailwind's `--text-sm` / `--text-xs` tokens in
+rem, and daisyUI's md tier taking its font size from `text-sm` — moves
+from `web/mock/plans_in_beads/index.css` into `web/src/index.css` in
+the implementation phase (step 6), so the file browser and the Issues
+tab share one scale.
+Rationale: the app's chrome sat on Tailwind's 12 / 14px steps and
+daisyUI's 12 / 14 / 18px tiers, which read small in a table of titles;
+15px is where feeds settle for body text, and there is no such tier to
+pick, so the scale has to be declared. Rem keeps the browser's font
+setting in force.
+Rejected: scaling the root font size (scales spacing and every daisyUI
+control, and github-markdown-css is authored in px); one daisyUI tier
+up (18px).
+
 ## D17 — Mock passes stay inline for this plan (decided 2026-09-06, agent default) [automatic]
 
 Choice: the mock's D14/D15 pass was written inline rather than delegated

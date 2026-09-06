@@ -761,7 +761,9 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
    the label multi-select and status toggle group in `IssueFilters` — are
    Ark UI components (`@ark-ui/react/tabs`, `/combobox`, `/toggle-group`)
    skinned with daisyUI, per the preact preference rule; static chrome
-   stays plain daisyUI. Verify: `pnpm test`, Playwright e2e in
+   stays plain daisyUI. The type scale moves from the mock's `index.css`
+   into `web/src/index.css` (D19): the `@theme` text tokens and the
+   daisyUI md-tier override, app-wide. Verify: `pnpm test`, Playwright e2e in
    `web/e2e/` updated for `/roots/…` and covering list and detail against
    a daemon backed by the fake `bd`.
 7. **Board view.** `IssueBoard` at `?view=board`: status columns, optional
@@ -891,6 +893,7 @@ step 7 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 | D15 graph drawn with bundled mermaid, filtered set, size cap | step 8 |
 | D16 board columns from the result, unconnected hidden, query string travels, `outgoing` = from side | steps 6, 7, 8 |
 | D18 search bar with a GitHub-style query, liqe, widgets edit the query | step 6; evaluation site is Q14 (step 4) |
+| D19 type scale (15px body, 13px metadata, daisyUI md tier follows) into `web/src/index.css` | step 6 |
 | UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 10 |
 | UC2 review in the browser with mermaid | steps 4, 6, 7, 8 |
 | UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 9 documents |

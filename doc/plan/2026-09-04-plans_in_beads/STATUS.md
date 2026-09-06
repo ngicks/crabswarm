@@ -37,6 +37,7 @@ a dogfood step; until then it stays here.
 - [x] D16 "board columns follow the filter; unconnected hidden; query string travels; `outgoing` = from side" decided in the mock (agent default, overturnable)
 - [x] D17 "mock pass stayed inline" recorded; HANDOFF.md opened for the Playwright / nix browser mismatch
 - [x] D18 "GitHub-style search bar, liqe, widgets edit the query" decided in the mock
+- [x] D19 "type scale moves into web/src/index.css in step 6" decided
 - [ ] Q14 "where the query is evaluated" open for step 4
 - [ ] Q15 "how the board and the graph are scoped" open for step 7
 - [x] Contracts finalized (surface delta reflects D5–D15)

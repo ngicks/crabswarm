@@ -11,8 +11,9 @@
 /* Type scale for the issues surface, in rem so the browser's root size still
    applies: body text 15px (`text-sm`, the size social feeds settle on for
    posts), metadata 13px (`text-xs`). Tailwind's own steps are 14 and 12, which
-   read small in a table of titles. Scoped to this CSS entry, so the file
-   browser keeps the app's scale until the real Issues tab decides. daisyUI
+   read small in a table of titles. Scoped to this CSS entry for now; the
+   implementation moves this block and the tier override below into
+   web/src/index.css, app-wide (plan decision D19). daisyUI
    components size themselves (`table`, `tabs-md`, `input-md`); the xs / sm
    tiers are kept for chips and badges only. */
 @theme {
