@@ -26,13 +26,14 @@ Tools to swarm claude(, codex and others!)
   shell scripts or jq unless a template genuinely cannot express it; if a
   two-step behavior doesn't fit, extend the CLI with a flag instead. Model:
   the hooks packages in apm_modules/ngicks/agents-package/hooks/ and this
-  repo's own hooks/.
+  repo's own apm-package/.
 - Mermaid in the backlog is guarded at Stop. `crabswarm issues lint` runs
   mermaid-lint over every `` ```mermaid `` fence in bead text — description,
   design, acceptance criteria, notes and comments — and reports one line per
   refused diagram (`<issue-id> <field>[#<comment-n>]:<line>:<col>: <message>`),
-  exiting 1 when anything was refused. `hooks/issues-mermaid-lint` (a local
-  `path:` dependency in apm.yml) wires it as the Stop hook
+  exiting 1 when anything was refused. `apm-package/issues-mermaid-lint` (a
+  package this repo publishes and consumes back as a git dependency in
+  apm.yml) wires it as the Stop hook
   `crabswarm hook exec 'crabswarm issues lint'`, so a broken diagram in a bead
   blocks the turn until the bead text is fixed. Flags: `--all` (closed issues
   too), `--limit N` (most recently updated first), `--json`, `-C/--dir` — bd
@@ -49,8 +50,9 @@ Tools to swarm claude(, codex and others!)
 │   ├── schema/proto/ngicks/crabswarm/{chat,hook,issues,preview,sdktypes}/v1   *.proto (edit these)
 │   ├── gen/proto                                                              buf output (Go + connect); TS lands in web/src/api/gen
 │   └── buf.gen.yaml, generate.go                                              `go generate ./api/...` regenerates both sides
-├── apm-package
-│   └── crabswarm-chat  APM package this repo publishes: wires a harness (claude / codex) into its chat room — hooks + skill + `[mcp_servers.crabswarm-chat]` (`crabswarm chat mcp`).
+├── apm-package     APM packages this repo publishes, and consumes back through git dependencies in its own apm.yml.
+│   ├── crabswarm-chat       wires a harness (claude / codex) into its chat room — hooks + skill + `[mcp_servers.crabswarm-chat]` (`crabswarm chat mcp`).
+│   └── issues-mermaid-lint  the Stop hook above, `.apm/hooks/hook.json` running `crabswarm hook exec 'crabswarm issues lint'`.
 ├── bin             git-ignore'd bin dir.
 ├── cmd
 │   └── crabswarm
@@ -84,7 +86,6 @@ Tools to swarm claude(, codex and others!)
 │   └── plan        The file-authored ngplan directories (<date>-<NN>-<slug>/), kept as history; new plans are beads epics (see below).
 ├── e2e
 │   └── crabswarm   Process-level tests: TestMain builds the binary once; chat_*.go cover daemon + CLI + hooks + MCP + TUI end to end.
-├── hooks           This repo's own APM hook packages, listed as local path deps in apm.yml; issues-mermaid-lint/hooks/hook.json is the Stop hook above.
 ├── internal        internal helper packages (libver, loggerfactory, templateutil, stdiopipe, cmdsignals, versioninfo).
 ├── pkg
 │   ├── claudehook  helper for claude code hook. Same code can be resued for codex.

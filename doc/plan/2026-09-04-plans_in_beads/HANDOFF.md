@@ -46,7 +46,7 @@ edited.
 
 Folded into beads as crabswarm-4qu on 2026-09-07.
 
-`hooks/issues-mermaid-lint/hooks/hook.json` runs `crabswarm hook exec
+`apm-package/issues-mermaid-lint/.apm/hooks/hook.json` runs `crabswarm hook exec
 'crabswarm issues lint'` on every Stop. A blocking Stop hook fires again on
 the agent's next turn, and the harness marks that turn with
 `stop_hook_active: true` in the hook input so hooks can avoid a loop. The

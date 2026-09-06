@@ -325,12 +325,12 @@ the file hook's job (`hooks/markdown-mermaid-lint`, D11).
 
 ### Hook placement: this repository's apm-managed hooks (D11)
 
-The Stop hook entry is packaged the way agents-package packages hooks —
-a `hooks/<name>/hooks/hook.json` with `version: 1` — inside this
-repository's apm project (`hooks/issues-mermaid-lint`), so `apm install` deploys it beside the
-golangci-lint and vet hooks; step 3 verifies apm accepts a local path
-dependency, and if it does not, the fallback is a documented entry for
-the user's `settings.local.json`. Feedback to `ngicks/agents-package`
+The Stop hook entry ships as an apm package this repository publishes —
+an `apm-package/<name>/.apm/hooks/hook.json` with `version: 1`, alongside
+`crabswarm-chat` (`apm-package/issues-mermaid-lint`) — so `apm install`
+deploys it beside the golangci-lint and vet hooks; step 3 verifies apm
+accepts the dependency, and if it does not, the fallback is a documented
+entry for the user's `settings.local.json`. Feedback to `ngicks/agents-package`
 follows D4. The existing `markdown-mermaid-lint` hook package should be
 added to this repo's `apm.yml` at the same time so files get the guard
 the beads get.
@@ -355,9 +355,8 @@ query language (D18); the mock uses it today, and step 6 carries it into
 # apm.yml — dependencies.apm (D11)
 - git: github.com/ngicks/agents-package
   path: hooks/markdown-mermaid-lint        # files get the same guard
-- path: ./main/hooks/issues-mermaid-lint  # local hook package: the Stop hook; apm runs from the
-                                          # checkout root, a local path must start with ./, and the
-                                          # package needs its own apm.yml (verified 2026-09-07)
+- git: github.com/ngicks/crabswarm       # this repository consuming its own published
+  path: apm-package/issues-mermaid-lint  # package: the Stop hook
 ```
 
 ### CLI
@@ -386,7 +385,7 @@ crabswarm preview list               # KIND ID NAME PATH for roots and issue sou
 crabswarm preview remove <id|name>   # either kind; ambiguous names are an error naming the candidates
 ```
 
-Stop hook entry (`hooks/issues-mermaid-lint/hooks/hook.json` in this repo,
+Stop hook entry (`apm-package/issues-mermaid-lint/.apm/hooks/hook.json` in this repo,
 deployed by apm into `.claude/settings.json` and `.codex/hooks.json`, D11):
 
 ```json
@@ -716,7 +715,7 @@ cmd/crabswarm/commands/preview.go   --root / --issue flags; registers both by de
 cmd/crabswarm/commands/preview_list.go, preview_remove.go   cover sources (changed); render through crabswarm/issues/cli
 api/schema/proto/ngicks/crabswarm/issues/v1/issues_service.proto (new)
 crabswarm/preview/httpapi/handler.go   mounts IssuesService beside PreviewService (changed)
-hooks/issues-mermaid-lint/hooks/hook.json   Stop hook package (new, D11)
+apm-package/issues-mermaid-lint/.apm/hooks/hook.json   Stop hook package (new, D11)
 ```
 
 The Go packages follow the design preference rule as updated on
@@ -802,13 +801,14 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
 3. **`crabswarm issues lint`, hook package, apm wiring.** Command per the
    CLI delta: the command file parses flags and calls `issues.Lint`; the
    one-line-per-finding rendering lives in `crabswarm/issues/cli`, and
-   the exit status comes from the returned error (D25); `hooks/issues-mermaid-lint`
-   package; `apm.yml` gains it and `hooks/markdown-mermaid-lint`. Verify:
+   the exit status comes from the returned error (D25); the
+   `apm-package/issues-mermaid-lint` package; `apm.yml` gains it and
+   `hooks/markdown-mermaid-lint`. Verify:
    e2e in `e2e/crabswarm/` runs the built binary against a fake `bd`
    emitting one good and one broken fence and asserts exit code and line
    format; a Stop dry run through `crabswarm hook exec`; the user runs
    `apm install` outside the worktree and confirms the entry lands in
-   `.claude/settings.json` (if apm rejects a local path, fall back per
+   `.claude/settings.json` (if apm rejects the dependency, fall back per
    D11 and record it).
 4. **Proto, source registry, daemon.** New `issues/v1` package,
    `go generate ./api/...` (needs `pnpm install` in `web/` first — see the
