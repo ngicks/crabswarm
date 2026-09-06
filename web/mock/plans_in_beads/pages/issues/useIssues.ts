@@ -6,6 +6,7 @@ import { useEffect } from "preact/hooks";
 import { useLocation } from "preact-iso";
 import { type Issue, getIssue } from "@/api/client.js";
 import { type IssueQuery, encodeIssueQuery, filterIssues, labelsOf, parseIssueQuery } from "@/api/issues.js";
+import { DEFAULT_QUERY } from "@/api/query.js";
 import { queryOf } from "@/lib/paths.js";
 import { openIssueId } from "@/signals/issues.js";
 
@@ -15,12 +16,13 @@ export interface IssueQueryState {
   search: string;
   /** Rewrites the URL's query string, keeping the path (list or detail). */
   update(patch: Partial<IssueQuery>): void;
+  /** Back to the default query; the view and its options stay. */
   reset(): void;
 }
 
-/** The view and filters live in the URL (PLAN.md "SPA routes"), not in
+/** The view and the query live in the URL (PLAN.md "SPA routes"), not in
  *  component state: a filtered board is a link, and opening an issue then
- *  coming back keeps the filters. */
+ *  coming back keeps the query. */
 export function useIssueQuery(): IssueQueryState {
   const loc = useLocation();
   const query = parseIssueQuery(queryOf(loc.url));
@@ -29,14 +31,14 @@ export function useIssueQuery(): IssueQueryState {
     query,
     search: encodeIssueQuery(query),
     update: (patch) => go({ ...query, ...patch }),
-    reset: () => go({ ...query, statuses: [], labels: [], search: "", savedFilter: "" }),
+    reset: () => go({ ...query, q: DEFAULT_QUERY }),
   };
 }
 
 export interface IssueListState {
   /** Matching issues, newest updated first. */
   rows: Issue[];
-  /** Distinct labels of the source, for the label combobox. */
+  /** Distinct labels of the source, for the label picker and suggestions. */
   labels: string[];
 }
 

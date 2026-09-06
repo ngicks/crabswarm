@@ -92,12 +92,26 @@ these differences — each worth a decision when step 4 writes the real proto:
   `childClosedCount` come from the parent-child edges `gen.go` links;
   `commentCount` from bd's export. The real `ListIssues` fills all three.
 
+- **Filtering is a client-side query language.** The search bar's text is
+  parsed by `liqe` in the browser and evaluated over every issue of the
+  source (`api/query.ts`); `ListIssuesRequest`'s `statuses` / `labels` /
+  `parent_id` are not what the mock sends. Whether the daemon takes the
+  query text and evaluates it, or the SPA keeps evaluating over a full
+  listing, is an open question for step 4 (PLAN.md Q14).
+
 ## Findings from the views
 
-- **The board's closed column follows the status filter.** An empty status
-  filter is bd's default without closed issues, so a board with a closed
-  column would show it empty on every visit. The mock draws only the columns
-  the filter lists; the real board needs the same rule or its own default.
+- **One query text beats separate filter parameters.** The status strip,
+  the Plans chip and the label picker keep no state: each reads its tags
+  out of the bar's query and toggles `field:value` tokens in it, so the
+  bar, the URL's `q` and the widgets cannot disagree. A `status:` pick
+  drops `is:open`, which would otherwise AND with it to nothing.
+
+- **The board's columns are the statuses the result has.** The default
+  query `is:open` lists nothing closed, so a board with a fixed closed
+  column would show it empty on every visit. The mock draws a column per
+  status present in the matching issues; the real board needs the same
+  rule or its own default.
 - **A graph of a backlog is mostly unconnected issues.** mermaid stacks them
   in one column, and 40 of 51 open issues have no edge, so the graph view
   hides unconnected issues by default (`?isolated=show` draws them) and says

@@ -1,6 +1,6 @@
 import type { Issue, IssueStatus, IssueSummary } from "@/api/client.js";
 import { getIssue } from "@/api/client.js";
-import { type IssueQuery, effectiveStatuses, metadataPairs, progressOf } from "@/api/issues.js";
+import { type IssueQuery, metadataPairs, progressOf, statusesPresent } from "@/api/issues.js";
 import { statusBadgeClass, statusLabel } from "@/lib/format.js";
 import { issueHref } from "@/lib/paths.js";
 import { Progress } from "./IssueList.js";
@@ -9,9 +9,9 @@ import { Progress } from "./IssueList.js";
 // swimlanes by parent epic, each lane headed by the epic's progress. Cards
 // link to the detail page; nothing is draggable (editing is a non-goal).
 //
-// The columns are the statuses the filter lists — an empty status filter is
-// bd's default without closed, so the closed column only appears when the
-// reader asks for closed issues.
+// The columns are the statuses the matching issues have — the default query
+// `is:open` lists nothing closed, so the closed column only appears when the
+// query asks for closed issues.
 
 interface Lane {
   key: string;
@@ -32,7 +32,7 @@ export function IssueBoard({
   search: string;
   update(patch: Partial<IssueQuery>): void;
 }) {
-  const columns = effectiveStatuses(query);
+  const columns = statusesPresent(rows);
   const lanes = query.lanes ? byEpic(sourceId, rows) : [{ key: "all", epic: null, rows }];
 
   return (

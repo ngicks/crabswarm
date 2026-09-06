@@ -202,6 +202,30 @@ and the arrows in the graph must read the same edge the same way.
 Rejected: a fixed set of columns; drawing every filtered node; keeping
 `outgoing` as "this bead -> other" without saying which end that is.
 
+## D18 — A GitHub-style search bar, parsed by liqe, is the filter (decided 2026-09-06)
+
+Choice: the Issues surface filters through one query text in the URL's
+`q`, GitHub style — `is:open` (not closed; the default), `is:closed`,
+`is:plan`, `status:<bd status>`, `label:` and `-label:`, `type:`,
+`parent:`, `priority:` with comparisons, free text on title and id, AND,
+OR, parentheses and quotes. `liqe` (3.8.7, BSD-3, added to
+`web/package.json`) parses the text; `api/query.ts` gives the qualifiers
+their meaning and produces suggestions for the token under the caret,
+shown through the Ark combobox. The sidebar widgets keep no state: they
+read their tags out of the query and toggle tokens in it. Unknown
+qualifiers match nothing and are named; a parse error shows the message.
+Validated in `web/mock/plans_in_beads`.
+Rationale: the user asked for the GitHub bar; one query text is a link,
+reads like `bd list --status`, and removes the drift between separate
+`status` / `label` / `filter` parameters and the widgets. liqe is the one
+maintained, typed parser that returns a tree (negation, OR, ranges)
+rather than a flat map, and the mock's evaluator is 150 lines over it.
+Rejected: GitHub's own QueryBuilder web component (Primer styling, still
+needs the grammar); `search-query-parser` (flat key/value, no negation
+or OR); a hand-rolled tokenizer (no OR, no quoting rules); keeping
+separate URL parameters beside the bar (two sources of truth).
+Left open as Q14: where the real feature evaluates the query.
+
 ## D17 — Mock passes stay inline for this plan (decided 2026-09-06, agent default) [automatic]
 
 Choice: the mock's D14/D15 pass was written inline rather than delegated

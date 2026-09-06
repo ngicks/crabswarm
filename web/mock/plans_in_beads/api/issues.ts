@@ -1,9 +1,9 @@
-// Query-like accessors over the fixture "service" in client.ts: the filters
-// ListIssuesRequest carries, their spelling in the URL's query string (PLAN.md
-// "SPA routes": status, label, q, filter=plans, plus view), and the small
-// decodes the issue views need. In the real feature these are the query
-// options of web/src/api/issues.ts and the filtering happens in the daemon;
-// here it happens in the browser.
+// Query-like accessors over the fixture "service" in client.ts: the query the
+// search bar holds and its spelling in the URL (PLAN.md "SPA routes": `q`
+// carries the whole GitHub-style query, `view` and the view options ride
+// beside it), and the small decodes the issue views need. In the real feature
+// these are the query options of web/src/api/issues.ts and the filtering
+// happens in the daemon; here it happens in the browser.
 import {
   type Issue,
   type IssueComment,
@@ -14,6 +14,7 @@ import {
   listIssues,
   listSources,
 } from "./client.js";
+import { DEFAULT_QUERY, matches, parseQuery } from "./query.js";
 
 export const ALL_STATUSES: IssueStatus[] = [
   "ISSUE_STATUS_OPEN",
@@ -21,9 +22,6 @@ export const ALL_STATUSES: IssueStatus[] = [
   "ISSUE_STATUS_BLOCKED",
   "ISSUE_STATUS_CLOSED",
 ];
-
-/** bd's default listing: everything that is not closed. */
-export const DEFAULT_STATUSES: IssueStatus[] = ["ISSUE_STATUS_OPEN", "ISSUE_STATUS_IN_PROGRESS", "ISSUE_STATUS_BLOCKED"];
 
 export function sourceById(id: string): Source | undefined {
   return listSources().find((s) => s.id === id);
@@ -33,16 +31,11 @@ export function sourceById(id: string): Source | undefined {
 export type View = "list" | "board" | "graph";
 export const ALL_VIEWS: View[] = ["list", "board", "graph"];
 
-/** Saved filters: `plans` is D14's only one — `label=plan`. */
-export type SavedFilter = "" | "plans";
-
 /** Everything the list URL's query string carries. */
 export interface IssueQuery {
   view: View;
-  statuses: IssueStatus[];
-  labels: string[];
-  search: string;
-  savedFilter: SavedFilter;
+  /** The search bar's text (api/query.ts); `is:open` when the URL has no `q`. */
+  q: string;
   /** Board only: swimlanes by parent epic. */
   lanes: boolean;
   /** Graph only: draw issues that no edge touches. Off by default: mermaid
@@ -52,48 +45,19 @@ export interface IssueQuery {
 
 export const emptyQuery: IssueQuery = {
   view: "list",
-  statuses: [],
-  labels: [],
-  search: "",
-  savedFilter: "",
+  q: DEFAULT_QUERY,
   lanes: true,
   isolated: false,
 };
-
-// The status words in the URL are bd's own (open, in_progress, ...), so a
-// hand-typed URL reads like a `bd list --status` invocation.
-const STATUS_WORDS: [IssueStatus, string][] = [
-  ["ISSUE_STATUS_OPEN", "open"],
-  ["ISSUE_STATUS_IN_PROGRESS", "in_progress"],
-  ["ISSUE_STATUS_BLOCKED", "blocked"],
-  ["ISSUE_STATUS_CLOSED", "closed"],
-];
-
-function statusFromWord(w: string): IssueStatus | undefined {
-  return STATUS_WORDS.find(([, word]) => word === w)?.[0];
-}
-
-function wordOfStatus(s: IssueStatus): string {
-  return STATUS_WORDS.find(([status]) => status === s)?.[1] ?? "";
-}
 
 /** parseIssueQuery reads the query string (with or without the leading `?`). */
 export function parseIssueQuery(search: string): IssueQuery {
   const p = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const view = p.get("view") ?? "";
-  const list = (key: string) =>
-    (p.get(key) ?? "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s !== "");
   return {
     view: ALL_VIEWS.includes(view as View) ? (view as View) : "list",
-    statuses: list("status")
-      .map(statusFromWord)
-      .filter((s): s is IssueStatus => s !== undefined),
-    labels: list("label"),
-    search: p.get("q") ?? "",
-    savedFilter: p.get("filter") === "plans" ? "plans" : "",
+    // `q=` present but empty means "everything"; absent means the default.
+    q: p.has("q") ? (p.get("q") ?? "") : DEFAULT_QUERY,
     lanes: p.get("lanes") !== "none",
     isolated: p.get("isolated") === "show",
   };
@@ -104,21 +68,15 @@ export function parseIssueQuery(search: string): IssueQuery {
 export function encodeIssueQuery(q: IssueQuery): string {
   const p = new URLSearchParams();
   if (q.view !== "list") p.set("view", q.view);
-  // Statuses in their canonical order, whatever order they were toggled in,
-  // so equal filters give equal URLs.
-  const statuses = ALL_STATUSES.filter((s) => q.statuses.includes(s));
-  if (statuses.length > 0) p.set("status", statuses.map(wordOfStatus).join(","));
-  if (q.labels.length > 0) p.set("label", q.labels.slice().sort().join(","));
-  if (q.search !== "") p.set("q", q.search);
-  if (q.savedFilter !== "") p.set("filter", q.savedFilter);
+  if (q.q !== DEFAULT_QUERY) p.set("q", q.q);
   if (!q.lanes) p.set("lanes", "none");
   if (q.isolated) p.set("isolated", "show");
-  // A comma is a valid query character; keep `status=open,closed` readable.
-  const s = p.toString().replace(/%2C/g, ",");
+  // Keep `q=is:open label:a` readable: colons and commas are valid as they are.
+  const s = p.toString().replace(/%3A/g, ":").replace(/%2C/g, ",");
   return s === "" ? "" : `?${s}`;
 }
 
-/** Distinct labels of a source, for the label combobox. */
+/** Distinct labels of a source, for the label picker and the suggestions. */
 export function labelsOf(sourceId: string): string[] {
   const seen = new Set<string>();
   for (const i of listIssues(sourceId)) {
@@ -127,29 +85,22 @@ export function labelsOf(sourceId: string): string[] {
   return [...seen].sort();
 }
 
-/** The statuses a query actually lists: an empty status filter means bd's
- *  default — open, in progress and blocked — so closed issues only appear
- *  when asked for. The board's columns follow this too. */
-export function effectiveStatuses(q: IssueQuery): IssueStatus[] {
-  return q.statuses.length > 0 ? ALL_STATUSES.filter((s) => q.statuses.includes(s)) : DEFAULT_STATUSES;
-}
-
-/** ListIssues' contract: newest-updated first, filtered. */
+/** ListIssues' contract: newest-updated first, filtered by the query. A query
+ *  that does not parse lists nothing; the bar shows the parser's message. */
 export function filterIssues(sourceId: string, q: IssueQuery): Issue[] {
-  const statuses = effectiveStatuses(q);
-  const needle = q.search.trim().toLowerCase();
+  const parsed = parseQuery(q.q);
+  if (parsed.error !== "") return [];
   return listIssues(sourceId)
-    .filter((i) => statuses.includes(i.summary.status))
-    .filter((i) => q.labels.every((l) => i.summary.labels.includes(l)))
-    .filter((i) => q.savedFilter !== "plans" || i.summary.labels.includes("plan"))
-    .filter(
-      (i) =>
-        needle === "" ||
-        i.summary.title.toLowerCase().includes(needle) ||
-        i.summary.id.toLowerCase().includes(needle),
-    )
+    .filter((i) => matches(parsed.ast, i.summary))
     .slice()
     .sort((a, b) => b.summary.updatedAt.localeCompare(a.summary.updatedAt));
+}
+
+/** The statuses the rows actually have, in canonical order: the board's
+ *  columns. A query without closed issues gets no empty closed column. */
+export function statusesPresent(rows: Issue[]): IssueStatus[] {
+  const seen = new Set(rows.map((i) => i.summary.status));
+  return ALL_STATUSES.filter((s) => seen.has(s));
 }
 
 /** bd metadata as key=value pairs; D7's `idea_gate` is one of them. */

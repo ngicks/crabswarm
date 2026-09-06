@@ -5,9 +5,11 @@ decisions recorded (D14 generic viewer with board and graph, D15 graph via
 bundled mermaid, added 2026-09-05); contracts, ten steps and the
 traceability table are in PLAN.md; the presentation mock at
 `web/mock/plans_in_beads/` covers list, board, graph and detail with the
-Plans saved filter and query-string filters (D14, D15; brought up to date
-2026-09-06, see PLAN.md "Presentation preview" for the findings it folded
-in). Ready to implement, starting at step 1.
+Plans saved filter and a GitHub-style search bar parsed by liqe (D14,
+D15, D18; brought up to date 2026-09-06, see PLAN.md "Presentation
+preview" for the findings it folded in). One open question, Q14, on where
+the query is evaluated; it decides step 4's `ListIssuesRequest`. Ready to
+implement, starting at step 1.
 
 This is intended to be the last file-authored plan. Once the field
 convention (D1) is decided, re-authoring this plan as the first plan bead is
@@ -33,6 +35,8 @@ a dogfood step; until then it stays here.
 - [x] D15 "graph via bundled mermaid, size cap" decided (agent default, overturnable)
 - [x] D16 "board columns follow the filter; unconnected hidden; query string travels; `outgoing` = from side" decided in the mock (agent default, overturnable)
 - [x] D17 "mock pass stayed inline" recorded; HANDOFF.md opened for the Playwright / nix browser mismatch
+- [x] D18 "GitHub-style search bar, liqe, widgets edit the query" decided in the mock
+- [ ] Q14 "where the query is evaluated" open for step 4
 - [x] Contracts finalized (surface delta reflects D5–D15)
 - [x] Traceability gate passed (PLAN.md "Traceability")
 - [ ] Step 1 `crabswarm/issues` client + `Where` (D5, D13)

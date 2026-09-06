@@ -198,7 +198,7 @@ detail page:
 
 | View | Shows | Data |
 |---|---|---|
-| list (default) | filterable table: status chips, labels, type, priority, text search, saved filter **Plans** (`label=plan`) | `ListIssues` |
+| list (default) | table under the search bar: one GitHub-style query (`is:` `status:` `label:` `type:` `parent:` `priority:` and free text, negation, AND / OR, quotes) with suggestions for the token under the caret; the sidebar's status strip, **Plans** chip (`is:plan`) and label picker edit tokens of that query (D18) | `ListIssues` |
 | board | kanban columns for the statuses the filter lists (bd's default has no closed, so no empty closed column); optional swimlanes by parent epic; cards show id, title, priority, label chips | `ListIssues` |
 | graph | dependency graph of the filtered set, nodes colored by status, edges by type (`blocks`, `parent-child`, `discovered-from`, `related`), click → detail; issues no edge touches are hidden unless `isolated=show` | `ListIssues` + `ListDependencies` |
 | detail | header, rendered fields, children with progress, dependencies, comments; a local graph of the issue's neighbourhood | `GetIssue` |
@@ -324,10 +324,17 @@ the beads get.
 
 ### Dependency delta
 
-No manifest changes. `go.mod` and `web/package.json` are unchanged: the
-beads client shells out to `bd`, mermaid validation shells out to
-`mermaid-lint`. Both are dev-environment tools (mise), and the
-dev-environment definition lives outside this repository.
+`go.mod` is unchanged: the beads client shells out to `bd`, mermaid
+validation shells out to `mermaid-lint`. Both are dev-environment tools
+(mise), and the dev-environment definition lives outside this repository.
+
+`web/package.json` gains one runtime dependency for the search bar's
+query language (D18); the mock uses it today, and step 6 carries it into
+`web/src` unless Q14 moves evaluation to the daemon:
+
+```json
+"liqe": "3.8.7"
+```
 
 ```yaml
 # apm.yml — dependencies.apm (D11)
@@ -563,10 +570,12 @@ message WatchIssuesResponse {
 ```text
 /                              tab header: Roots | Issues; root picker or source picker for the active tab
 /roots/{rootId}/{path...}      file browser (was /r/{rootId}/{path...}; old URLs 404)
-/issues/{sourceId}             list (default); ?view=board | graph switch the view; filters in the
-                               query string (status=open,closed  label=a,b  q=text  filter=plans),
-                               view options too (lanes=none for the board, isolated=show for the graph);
-                               the query string is carried onto the detail URL and back
+/issues/{sourceId}             list (default); ?view=board | graph switch the view; the search
+                               bar's query in q (GitHub style: q=is:open label:chat -label:tui
+                               type:epic priority:<2 free text; absent = is:open; the Plans saved
+                               filter is q=is:plan), view options beside it (lanes=none for the
+                               board, isolated=show for the graph); the query string is carried
+                               onto the detail URL and back
 /issues/{sourceId}/{issueId}   issue detail: fields, comments, children, dependencies, local graph
 ```
 
@@ -740,9 +749,9 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
 6. **SPA: layout, tabs, route move, list and detail.** Reorganise
    `web/src` into the page-based layout above (including the
    `src/gen` → `src/api/gen` move and its `buf.gen.yaml` output path);
-   `Header`, routes moved to `/roots/…`, `SourceSwitcher`, `IssueFilters`
-   (status, labels, text,
-   the **Plans** saved filter), `IssueList` and `IssueView` under
+   `Header`, routes moved to `/roots/…`, `SourceSwitcher`, `QueryBar`
+   (the liqe query with suggestions, D18) and `IssueFilters` (status,
+   labels and the **Plans** chip editing that query), `IssueList` and `IssueView` under
    `/issues/…`, queries in `web/src/api/queries.ts`, a `WatchIssues`
    subscription in `web/src/api/events.ts` invalidating issue queries
    (D8); mermaid renders through the same path `DocView` uses; heading
@@ -828,10 +837,22 @@ RPC schema: see Proto above. Config keys, environment variables: no change.
 
 ## Open questions
 
-None. Resolved 2026-09-04: Q1 → D1, Q2 → D2, Q3 → D3, Q4 → D4, Q5 → D5,
+Resolved 2026-09-04: Q1 → D1, Q2 → D2, Q3 → D3, Q4 → D4, Q5 → D5,
 Q6 → D6, Q7 → D7, Q8 → D8, Q9 → D9, Q10 → D10, Q11 → D11, Q12 → D12,
 Q13 → D13. 2026-09-05: D14 and D15 added from the user's generic-viewer
-direction.
+direction. 2026-09-06: D16–D18 from the mock.
+
+14. **Where is the search query evaluated?** The mock parses the bar's
+    query with liqe in the browser and evaluates it over the source's
+    full `ListIssues` listing (D18). Options for step 4: (a) keep that —
+    `ListIssuesRequest` drops `statuses` / `labels` / `parent_id`, the
+    SPA fetches one listing per source and filters; cheap at this size,
+    one `bd list` per poll already brings everything; (b) the daemon
+    takes `query` text and evaluates a Go port of the grammar, so the
+    same query works for `crabswarm issues lint --query` and for the
+    CLI; (c) both, the daemon accepting `query` and the SPA keeping liqe
+    for suggestions and instant feedback. Tentative default: (a) now, (b)
+    when a CLI consumer appears.
 
 ## Traceability
 
@@ -860,6 +881,8 @@ step 7 (the ngplan skill rewrite); "bd" means beads delivers it natively.
 | D14 generic viewer: list, board, graph, detail; plans = saved filter + affordances; no plan view | steps 6, 7, 8 |
 | D14 no new dependency types | non-goal; no step |
 | D15 graph drawn with bundled mermaid, filtered set, size cap | step 8 |
+| D16 board columns from the result, unconnected hidden, query string travels, `outgoing` = from side | steps 6, 7, 8 |
+| D18 search bar with a GitHub-style query, liqe, widgets edit the query | step 6; evaluation site is Q14 (step 4) |
 | UC1 draft from any worktree, read from any other | bd (shared database), D13 for the GUI (steps 4, 6), step 10 |
 | UC2 review in the browser with mermaid | steps 4, 6, 7, 8 |
 | UC3 plan outlives the worktree | bd (`bd search`, `bd show`); step 9 documents |

@@ -25,6 +25,7 @@
     "@preact/signals": "2.9.2",
     "@tanstack/preact-query": "5.101.2",
     "github-markdown-css": "5.9.0",
+    "liqe": "3.8.7",
     "mathjax": "4.1.2",
     "mermaid": "11.16.0",
     "preact": "10.29.3",

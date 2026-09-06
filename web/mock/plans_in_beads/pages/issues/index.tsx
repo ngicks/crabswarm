@@ -1,5 +1,6 @@
+import { useMemo } from "preact/hooks";
 import { drawerOpen } from "#src/signals/ui.js";
-import { type Issue, listDependencies, listSources } from "@/api/client.js";
+import { type Issue, listDependencies, listIssues, listSources } from "@/api/client.js";
 import { type IssueQuery, sourceById } from "@/api/issues.js";
 import { safeDecode, sourceHref } from "@/lib/paths.js";
 import { IssueBoard } from "./IssueBoard.js";
@@ -7,6 +8,7 @@ import { IssueFilters } from "./IssueFilters.js";
 import { IssueGraph } from "./IssueGraph.js";
 import { IssueList } from "./IssueList.js";
 import { IssueView } from "./IssueView.js";
+import { QueryBar } from "./QueryBar.js";
 import { SourceSwitcher } from "./SourceSwitcher.js";
 import { ViewTabs } from "./ViewTabs.js";
 import { useIssueList, useIssueQuery } from "./useIssues.js";
@@ -16,9 +18,10 @@ import { useIssueList, useIssueQuery } from "./useIssues.js";
 // one issue in the same frame, and / picks a source before either exists.
 //
 // The left column (bg-base-200, as the file browser's) holds the source
-// switcher and the filter bar; the filters live in the query string, so the
-// views and the detail page share them. The main column holds the view strip
-// and, under it, the view or the open issue.
+// switcher and the quick filters; the main column holds the search bar, the
+// view strip and, under them, the view or the open issue. The query lives in
+// the URL's `q`, so the bar, the widgets, the views and the detail page share
+// it.
 
 export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string; issueId?: string }) {
   const id = safeDecode(sourceId);
@@ -26,6 +29,10 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
   const source = sourceById(id);
   const { query, search, update, reset } = useIssueQuery();
   const { rows, labels } = useIssueList(id, query);
+  const suggestCtx = useMemo(
+    () => ({ labels, ids: listIssues(id).map((i) => i.summary.id) }),
+    [labels, id],
+  );
 
   const side = source ? (
     <IssueFilters query={query} labels={labels} matches={rows.length} update={update} reset={reset} />
@@ -60,6 +67,7 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
           <Placeholder text={`No source ${id} is registered.`} />
         ) : (
           <div class="space-y-4">
+            <QueryBar query={query} matches={rows.length} ctx={suggestCtx} update={update} reset={reset} />
             <div class="flex flex-wrap items-center gap-3">
               <ViewTabs sourceId={id} query={query} onIssue={openId !== ""} />
               {openId !== "" && (
@@ -68,15 +76,20 @@ export function IssuesPage({ sourceId = "", issueId = "" }: { sourceId?: string;
                 </span>
               )}
             </div>
-            {openId !== "" ? (
-              <IssueView sourceId={id} issueId={openId} search={search} />
-            ) : query.view === "board" ? (
-              <IssueBoard sourceId={id} rows={rows} query={query} search={search} update={update} />
-            ) : query.view === "graph" ? (
-              <GraphView sourceId={id} rows={rows} query={query} search={search} update={update} />
-            ) : (
-              <IssueList sourceId={id} rows={rows} search={search} />
-            )}
+            {
+              (() => {
+                switch (true) {
+                  case openId !== "":
+                    return <IssueView sourceId={id} issueId={openId} search={search} />
+                  case query.view === "board":
+                    return <IssueBoard sourceId={id} rows={rows} query={query} search={search} update={update} />
+                  case query.view === "graph":
+                    return <GraphView sourceId={id} rows={rows} query={query} search={search} update={update} />
+                  default:
+                    return <IssueList sourceId={id} rows={rows} search={search} />
+                }
+              })()
+            }
           </div>
         )}
       </main>
