@@ -1,0 +1,11 @@
+name: issues-mermaid-lint
+version: 0.1.0
+description: Stop hook that refuses a turn when an open beads issue holds a mermaid fence mermaid-lint rejects (runs `crabswarm issues lint` through `crabswarm hook exec`).
+author: ngicks
+targets:
+  - claude
+  - codex
+dependencies:
+  apm: []
+  mcp: []
+scripts: {}

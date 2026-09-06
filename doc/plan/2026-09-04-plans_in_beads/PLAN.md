@@ -355,7 +355,9 @@ query language (D18); the mock uses it today, and step 6 carries it into
 # apm.yml — dependencies.apm (D11)
 - git: github.com/ngicks/agents-package
   path: hooks/markdown-mermaid-lint        # files get the same guard
-- path: hooks/issues-mermaid-lint         # local hook package: the Stop hook (form verified in step 3)
+- path: ./main/hooks/issues-mermaid-lint  # local hook package: the Stop hook; apm runs from the
+                                          # checkout root, a local path must start with ./, and the
+                                          # package needs its own apm.yml (verified 2026-09-07)
 ```
 
 ### CLI
