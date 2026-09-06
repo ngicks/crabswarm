@@ -368,15 +368,20 @@ crabswarm issues lint                # open issues (default)
 crabswarm issues lint --all          # open and closed
 crabswarm issues lint --limit 20     # newest 20 by updated_at, any status
 crabswarm issues lint --json         # findings as a JSON array
-crabswarm issues lint -C <dir>       # run bd from <dir> (default: cwd)
+crabswarm issues lint -C <dir>       # run bd and mermaid-lint from <dir> (default: cwd); long form --dir
+# A rule warning mermaid-lint reports with severity "error" is a finding too
+# (its rule id is the "type" in --json output); the repository's mermaid-lint
+# config applies because the tool runs in <dir>.
 
 # Preview registration (changed): DIR becomes a file root and, when
 # `bd where` succeeds in DIR, an issues source keyed by its .beads path.
-crabswarm preview [DIR]              # both (default)
+crabswarm preview [DIR]              # both (default); no beads database = no source, silently; any
+                                     # other source failure (no bd on PATH) = one stderr warning, exit 0
 crabswarm preview --root [DIR]       # file root only
 crabswarm preview --issue [DIR]      # issues source only; error when DIR has no beads database
-crabswarm preview list               # roots and issue sources, each with ID, name, path
-crabswarm preview remove <id|name>   # either kind
+crabswarm preview list               # KIND ID NAME PATH for roots and issue sources (a source's
+                                     # name is its bd prefix, its path the .beads directory)
+crabswarm preview remove <id|name>   # either kind; ambiguous names are an error naming the candidates
 ```
 
 Stop hook entry (`hooks/issues-mermaid-lint/hooks/hook.json` in this repo,
@@ -469,6 +474,7 @@ enum IssueStatus {
   ISSUE_STATUS_IN_PROGRESS = 2;
   ISSUE_STATUS_BLOCKED = 3;
   ISSUE_STATUS_CLOSED = 4;
+  ISSUE_STATUS_DEFERRED = 5;      // bd's fifth status (added while implementing)
 }
 
 message IssueSummary {
@@ -616,7 +622,8 @@ func NewClient(dir string, opts ...Option) *Client
 func (c *Client) List(ctx context.Context, f ListFilter) ([]Summary, error)        // bd list --json --limit N (0 = unlimited; bd's own default of 50 would truncate)
 func (c *Client) Children(ctx context.Context, id string) ([]Summary, error)      // List with ParentID
 func (c *Client) Get(ctx context.Context, id string) (*Issue, error)              // bd show --id=<id> --json --include-comments (array of one)
-func (c *Client) Dependencies(ctx context.Context, ids []string) ([]Edge, error)  // bd dep list <ids...> --json, one call (step 7)
+func (c *Client) Dependencies(ctx context.Context, ids []string) ([]Edge, error)  // bd dep list <ids...> --json, one call; bd prints edge records for several resolved ids and per-issue records for one, both decoded
+type Edge struct{ FromID, ToID, Type string } // From: dependent / child / discoverer
 
 type ListFilter struct {
     Statuses      []Status   // one comma-joined --status

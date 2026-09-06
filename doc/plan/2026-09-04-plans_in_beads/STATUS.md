@@ -55,9 +55,10 @@ a dogfood step; until then it stays here.
 - [x] Step 1 `crabswarm/issues` client + `Where` (D5, D13, D27) — `Where`, `Client.List/Children/Get`, fake-bd tests; commit d7dcc71
 - [x] Step 4a `issues/v1` proto and generated bindings — commit dd6de5b
 - [x] Step 2 `mermaidlint` over `mermaid-lint` (D9, D28) — one run over temp files, findings mapped back, real-binary test; commit d6176c1
-- [ ] Step 3 `crabswarm issues lint` + Stop hook + apm wiring (D3, D10, D11, D12)
+- [x] Step 3 `crabswarm issues lint` + Stop hook + apm wiring (D3, D10, D11, D12, D28) — e2e and a Stop dry run pass; the local-path apm entry is unverified until the user runs `apm install`; commit 110ea3d
 - [x] Step 4 `issues/v1` proto, `SourceStore`, `IssuesService`, `Poller` → `WatchIssues` (D6, D8, D13, D29) — mounted beside PreviewService; `ListDependencies` still Unimplemented (step 7); commit 4f09d5f
-- [ ] Step 5 `crabswarm preview --root / --issue`, list, remove (D13)
+- [x] Step 5 `crabswarm preview --root / --issue`, list, remove (D13, D30) — commit 89742d1
+- [x] Step 7a `Client.Dependencies` + `ListDependencies`, `deferred` status, metadata on `Summary` (D15 data side, D29 cleanup) — commit a35cbec
 - [ ] Step 6 SPA tabs, `/roots` move, sources, search bar, state buttons, labels page, list + detail (D4, D6, D8, D14, D18, D19, D20, D23, D24)
 - [ ] Step 7 `ListDependencies` + neighbourhood graph with zoom and pan (D15, D21)
 - [ ] Step 8 instructions + agents-package boundary issue + bd events follow-up

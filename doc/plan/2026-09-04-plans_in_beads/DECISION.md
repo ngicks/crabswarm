@@ -464,3 +464,22 @@ types file while the lint worker owned it.
 Rejected: the service creating its own store; a poller per
 `WatchIssues` subscriber (the poll must run with no viewer so the diff
 baseline exists when one connects).
+
+## D30 — Source registration never blocks previewing files (decided 2026-09-06) [automatic]
+
+Choice: in its default mode `crabswarm preview DIR` never fails on the
+issues side: a directory with no beads database registers no source
+silently (the common markdown-only case), and any other failure — no
+`bd` on PATH, a daemon-side error — is one warning line on stderr; the
+root is registered and the URL printed either way. Only `--issue`
+makes a failure an error.
+`preview list` gains a KIND column and shows a source's bd prefix as
+its name and its `.beads` directory as its path; `preview remove`
+resolves ids and names across both kinds and refuses an ambiguous
+name. The unreferenced root-only renderer in `crabswarm/cli` is
+removed.
+Rationale: the contract said NotFound is tolerated, but a host without
+`bd` would have failed a plain markdown preview after printing its
+URL; previewing files must not depend on beads being installed.
+Rejected: mapping every daemon failure to NotFound (hides real errors
+from `--issue`); keeping the old renderer beside the new one.
