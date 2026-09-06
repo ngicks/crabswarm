@@ -7,7 +7,8 @@
 // [Where] resolves the beads directory that governs a directory. [Client]
 // reads issues out of it: [Client.List] and [Client.Children] return
 // [Summary] records, [Client.Get] returns a full [Issue] with its comments
-// and dependencies.
+// and dependencies, and [Client.Dependencies] returns the [Edge] records of
+// many issues at once.
 package issues
 
 import (

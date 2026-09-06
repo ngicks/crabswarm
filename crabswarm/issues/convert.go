@@ -35,15 +35,10 @@ func sourceToProto(s Source) *issuesv1.Source {
 	}
 }
 
-// summaryToProto renders one listing record. Neither the metadata nor the
-// child counts come from the record itself — bd's listing carries no child
-// count and [Summary] holds no metadata — so both are passed in by the
-// caller that gathered them.
-func summaryToProto(
-	s Summary,
-	metadata json.RawMessage,
-	children childCount,
-) *issuesv1.IssueSummary {
+// summaryToProto renders one listing record. The child counts do not come
+// from the record itself — bd's listing carries no child count — so the
+// caller that tallied them passes them in.
+func summaryToProto(s Summary, children childCount) *issuesv1.IssueSummary {
 	return &issuesv1.IssueSummary{
 		Id:               s.ID,
 		Title:            s.Title,
@@ -57,13 +52,20 @@ func summaryToProto(
 		ChildClosedCount: int32(children.closed),
 		CreatedAt:        timestampOrNil(s.CreatedAt),
 		UpdatedAt:        timestampOrNil(s.UpdatedAt),
-		MetadataJson:     metadataJSON(metadata),
+		MetadataJson:     metadataJSON(s.Metadata),
 	}
 }
 
-// statusToProto maps a stored status onto the API enum. bd's "deferred" has
-// no API counterpart and lands on unspecified, as does any status a later bd
-// adds.
+func edgeToProto(e Edge) *issuesv1.IssueEdge {
+	return &issuesv1.IssueEdge{
+		FromId: e.FromID,
+		ToId:   e.ToID,
+		Type:   e.Type,
+	}
+}
+
+// statusToProto maps a stored status onto the API enum. A status a later bd
+// adds lands on unspecified.
 func statusToProto(s Status) issuesv1.IssueStatus {
 	switch s {
 	case StatusOpen:
@@ -72,6 +74,8 @@ func statusToProto(s Status) issuesv1.IssueStatus {
 		return issuesv1.IssueStatus_ISSUE_STATUS_IN_PROGRESS
 	case StatusBlocked:
 		return issuesv1.IssueStatus_ISSUE_STATUS_BLOCKED
+	case StatusDeferred:
+		return issuesv1.IssueStatus_ISSUE_STATUS_DEFERRED
 	case StatusClosed:
 		return issuesv1.IssueStatus_ISSUE_STATUS_CLOSED
 	default:
@@ -92,6 +96,8 @@ func statusesFromProto(in []issuesv1.IssueStatus) []Status {
 			out = append(out, StatusInProgress)
 		case issuesv1.IssueStatus_ISSUE_STATUS_BLOCKED:
 			out = append(out, StatusBlocked)
+		case issuesv1.IssueStatus_ISSUE_STATUS_DEFERRED:
+			out = append(out, StatusDeferred)
 		case issuesv1.IssueStatus_ISSUE_STATUS_CLOSED:
 			out = append(out, StatusClosed)
 		case issuesv1.IssueStatus_ISSUE_STATUS_UNSPECIFIED:

@@ -192,16 +192,73 @@ func TestServiceGetIssueMissing(t *testing.T) {
 	assert.Equal(t, connect.CodeOf(err), connect.CodeNotFound)
 }
 
-func TestServiceListDependenciesUnimplemented(t *testing.T) {
+func TestServiceListDependenciesUnknownSource(t *testing.T) {
 	_, err := newTestService(t).ListDependencies(t.Context(),
-		connect.NewRequest(&issuesv1.ListDependenciesRequest{}))
-	assert.Equal(t, connect.CodeOf(err), connect.CodeUnimplemented)
+		connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: "nope"}))
+	assert.Equal(t, connect.CodeOf(err), connect.CodeNotFound)
+}
+
+func TestServiceListDependenciesWholeSource(t *testing.T) {
+	invocations := installFakeBd(t)
+	svc := newTestService(t)
+	id := addSource(t, svc, t.TempDir())
+
+	res, err := svc.ListDependencies(t.Context(),
+		connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: id}))
+	assert.NilError(t, err)
+
+	// bd has no "every edge" listing, so the source's ids are gathered first
+	// and handed to one dep listing.
+	inv := invocations()
+	assert.Equal(t, len(inv), 3) // where + list + dep list
+	assert.Equal(t, inv[1].args,
+		"list --json --status open,in_progress,blocked,deferred,closed --limit 0")
+	assert.Equal(t, inv[2].args,
+		"dep list crabswarm-no2 crabswarm-jp7 crabswarm-125 --json")
+
+	got := res.Msg.GetEdges()
+	assert.Equal(t, len(got), 3)
+	assert.Equal(t, got[0].GetFromId(), "crabswarm-no2")
+	assert.Equal(t, got[0].GetToId(), "crabswarm-jp7")
+	assert.Equal(t, got[0].GetType(), "blocks")
+	// The parent link is an edge here, unlike in GetIssue's dependencies.
+	assert.Equal(t, got[2].GetType(), "parent-child")
+}
+
+func TestServiceListDependenciesWithinRequestedIssues(t *testing.T) {
+	svc, id := withStub(t, &stubReader{
+		issues: []Issue{
+			{Summary: Summary{ID: "epic", Status: StatusOpen}},
+			{Summary: Summary{ID: "c1", ParentID: "epic", Status: StatusOpen}},
+			{Summary: Summary{ID: "outside", Status: StatusOpen}},
+		},
+		edges: []Edge{
+			{FromID: "c1", ToID: "epic", Type: "parent-child"},
+			{FromID: "c1", ToID: "outside", Type: "blocks"},
+		},
+	})
+
+	res, err := svc.ListDependencies(t.Context(),
+		connect.NewRequest(&issuesv1.ListDependenciesRequest{
+			SourceId: id,
+			IssueIds: []string{"epic", "c1"},
+		}))
+	assert.NilError(t, err)
+
+	// The caller asked for a set of issues to draw, so the edge leaving it is
+	// dropped: it points at a node the caller does not hold.
+	got := res.Msg.GetEdges()
+	assert.Equal(t, len(got), 1)
+	assert.Equal(t, got[0].GetFromId(), "c1")
+	assert.Equal(t, got[0].GetToId(), "epic")
+	assert.Equal(t, got[0].GetType(), "parent-child")
 }
 
 // stubReader is an in-memory [issueReader]: the service reads it instead of
 // running bd, so a test can pin the exact records a source reports.
 type stubReader struct {
 	issues []Issue
+	edges  []Edge
 }
 
 func (r *stubReader) matching(f ListFilter) []Issue {
@@ -224,8 +281,20 @@ func (r *stubReader) List(_ context.Context, f ListFilter) ([]Summary, error) {
 	return out, nil
 }
 
-func (r *stubReader) ListFull(_ context.Context, f ListFilter) ([]Issue, error) {
-	return r.matching(f), nil
+// Dependencies answers the way bd does: every outgoing edge of the issues it
+// was asked about, wherever the other end sits.
+func (r *stubReader) Dependencies(_ context.Context, ids []string) ([]Edge, error) {
+	asked := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		asked[id] = struct{}{}
+	}
+	var out []Edge
+	for _, e := range r.edges {
+		if _, ok := asked[e.FromID]; ok {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }
 
 func (r *stubReader) Get(_ context.Context, id string) (*Issue, error) {
@@ -252,10 +321,11 @@ func TestServiceListIssuesCountsChildren(t *testing.T) {
 		{Summary: Summary{ID: "epic", Title: "an epic", Status: StatusOpen}},
 		{Summary: Summary{ID: "c1", ParentID: "epic", Status: StatusClosed}},
 		{Summary: Summary{ID: "c2", ParentID: "epic", Status: StatusOpen}},
-		{
-			Summary:  Summary{ID: "meta", Status: StatusOpen},
+		{Summary: Summary{
+			ID:       "meta",
+			Status:   StatusOpen,
 			Metadata: json.RawMessage("{\n  \"plan\": \"doc/plan/x\"\n}"),
-		},
+		}},
 	}})
 
 	res, err := svc.ListIssues(t.Context(),

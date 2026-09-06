@@ -169,6 +169,101 @@ func TestClientGetFlagLikeID(t *testing.T) {
 	assert.Equal(t, inv[0].args, "show --id=-C --json --include-comments")
 }
 
+func TestClientDependencies(t *testing.T) {
+	invocations := installFakeBd(t)
+
+	got, err := NewClient(t.TempDir()).Dependencies(t.Context(),
+		[]string{"crabswarm-no2", "crabswarm-jp7", "crabswarm-125"})
+	assert.NilError(t, err)
+
+	inv := invocations()
+	assert.Equal(t, len(inv), 1)
+	// The ids go in positionally, before --json.
+	assert.Equal(t, inv[0].args,
+		"dep list crabswarm-no2 crabswarm-jp7 crabswarm-125 --json")
+
+	// From is the side carrying the link, To what it points at, and the
+	// parent link is reported like any other edge.
+	assert.DeepEqual(t, got, []Edge{
+		{FromID: "crabswarm-no2", ToID: "crabswarm-jp7", Type: "blocks"},
+		{FromID: "crabswarm-no2", ToID: "crabswarm-125", Type: "discovered-from"},
+		{FromID: "crabswarm-jp7", ToID: "crabswarm-125", Type: "parent-child"},
+	})
+}
+
+func TestClientDependenciesOneID(t *testing.T) {
+	invocations := installFakeBd(t)
+
+	// Asked about a single issue bd falls back to its older per-issue shape,
+	// which names only the target of each edge.
+	got, err := NewClient(t.TempDir()).Dependencies(t.Context(), []string{"scratch-uoj"})
+	assert.NilError(t, err)
+
+	inv := invocations()
+	assert.Equal(t, len(inv), 1)
+	assert.Equal(t, inv[0].args, "dep list scratch-uoj --json")
+
+	assert.DeepEqual(t, got, []Edge{
+		{FromID: "scratch-uoj", ToID: "scratch-2o5", Type: "parent-child"},
+	})
+}
+
+func TestClientDependenciesNoIDs(t *testing.T) {
+	invocations := installFakeBd(t)
+
+	got, err := NewClient(t.TempDir()).Dependencies(t.Context(), nil)
+	assert.NilError(t, err)
+	assert.Equal(t, len(got), 0)
+	// bd rejects a dep listing with no ids, so none is run.
+	assert.Equal(t, len(invocations()), 0)
+}
+
+func TestClientDependenciesDuplicateIDs(t *testing.T) {
+	invocations := installFakeBd(t)
+
+	_, err := NewClient(t.TempDir()).Dependencies(t.Context(),
+		[]string{"crabswarm-no2", "crabswarm-jp7", "crabswarm-no2"})
+	assert.NilError(t, err)
+
+	// bd reports an issue's edges once per time it is named, so a repeated id
+	// is collapsed before the command line is built.
+	inv := invocations()
+	assert.Equal(t, len(inv), 1)
+	assert.Equal(t, inv[0].args, "dep list crabswarm-no2 crabswarm-jp7 --json")
+}
+
+func TestClientDependenciesMissingID(t *testing.T) {
+	installFakeBd(t)
+
+	_, err := NewClient(t.TempDir()).Dependencies(t.Context(), []string{"scratch-nope"})
+	assert.Assert(t, err != nil)
+	// bd writes nothing to stderr here, so its JSON report is the only thing
+	// naming the id.
+	assert.Assert(
+		t,
+		strings.Contains(err.Error(), `no issue found matching "scratch-nope"`),
+		"got %v",
+		err,
+	)
+}
+
+func TestClientDependenciesUnattributableShape(t *testing.T) {
+	installFakeBd(t)
+	// Real bd answers several ids with the per-issue shape when only one of
+	// them resolves, and then nothing says which one the edges belong to.
+	t.Setenv("FAKE_BD_DEP_SINGLE", "1")
+
+	_, err := NewClient(t.TempDir()).Dependencies(t.Context(),
+		[]string{"scratch-uoj", "scratch-gone"})
+	assert.Assert(t, err != nil)
+	assert.Assert(
+		t,
+		strings.Contains(err.Error(), "without their from side"),
+		"got %v",
+		err,
+	)
+}
+
 func TestClientWithEnvAndBinary(t *testing.T) {
 	invocations := installFakeBd(t)
 

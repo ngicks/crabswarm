@@ -1,0 +1,14 @@
+[
+  {
+    "id": "scratch-2o5",
+    "title": "parent epic",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "epic",
+    "owner": "yknt.bsl@gmail.com",
+    "created_at": "2026-09-06T12:08:43Z",
+    "created_by": "ngicks",
+    "updated_at": "2026-09-06T12:08:43Z",
+    "dependency_type": "parent-child"
+  }
+]

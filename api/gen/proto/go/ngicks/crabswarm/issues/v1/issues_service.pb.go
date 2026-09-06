@@ -31,6 +31,7 @@ const (
 	IssueStatus_ISSUE_STATUS_IN_PROGRESS IssueStatus = 2
 	IssueStatus_ISSUE_STATUS_BLOCKED     IssueStatus = 3
 	IssueStatus_ISSUE_STATUS_CLOSED      IssueStatus = 4
+	IssueStatus_ISSUE_STATUS_DEFERRED    IssueStatus = 5
 )
 
 // Enum value maps for IssueStatus.
@@ -41,6 +42,7 @@ var (
 		2: "ISSUE_STATUS_IN_PROGRESS",
 		3: "ISSUE_STATUS_BLOCKED",
 		4: "ISSUE_STATUS_CLOSED",
+		5: "ISSUE_STATUS_DEFERRED",
 	}
 	IssueStatus_value = map[string]int32{
 		"ISSUE_STATUS_UNSPECIFIED": 0,
@@ -48,6 +50,7 @@ var (
 		"ISSUE_STATUS_IN_PROGRESS": 2,
 		"ISSUE_STATUS_BLOCKED":     3,
 		"ISSUE_STATUS_CLOSED":      4,
+		"ISSUE_STATUS_DEFERRED":    5,
 	}
 )
 
@@ -1518,13 +1521,14 @@ const file_ngicks_crabswarm_issues_v1_issues_service_proto_rawDesc = "" +
 	"\x13WatchIssuesResponse\x12R\n" +
 	"\x0eissues_changed\x18\x01 \x01(\v2).ngicks.crabswarm.issues.v1.IssuesChangedH\x00R\rissuesChanged\x12U\n" +
 	"\x0fsources_changed\x18\x02 \x01(\v2*.ngicks.crabswarm.issues.v1.SourcesChangedH\x00R\x0esourcesChangedB\a\n" +
-	"\x05event*\x93\x01\n" +
+	"\x05event*\xae\x01\n" +
 	"\vIssueStatus\x12\x1c\n" +
 	"\x18ISSUE_STATUS_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11ISSUE_STATUS_OPEN\x10\x01\x12\x1c\n" +
 	"\x18ISSUE_STATUS_IN_PROGRESS\x10\x02\x12\x18\n" +
 	"\x14ISSUE_STATUS_BLOCKED\x10\x03\x12\x17\n" +
-	"\x13ISSUE_STATUS_CLOSED\x10\x042\xa1\x06\n" +
+	"\x13ISSUE_STATUS_CLOSED\x10\x04\x12\x19\n" +
+	"\x15ISSUE_STATUS_DEFERRED\x10\x052\xa1\x06\n" +
 	"\rIssuesService\x12n\n" +
 	"\vListSources\x12..ngicks.crabswarm.issues.v1.ListSourcesRequest\x1a/.ngicks.crabswarm.issues.v1.ListSourcesResponse\x12h\n" +
 	"\tAddSource\x12,.ngicks.crabswarm.issues.v1.AddSourceRequest\x1a-.ngicks.crabswarm.issues.v1.AddSourceResponse\x12q\n" +

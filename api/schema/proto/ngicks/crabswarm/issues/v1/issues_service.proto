@@ -69,6 +69,7 @@ enum IssueStatus {
   ISSUE_STATUS_IN_PROGRESS = 2;
   ISSUE_STATUS_BLOCKED = 3;
   ISSUE_STATUS_CLOSED = 4;
+  ISSUE_STATUS_DEFERRED = 5;
 }
 
 message IssueSummary {

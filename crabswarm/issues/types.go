@@ -17,12 +17,12 @@ const (
 	StatusClosed     Status = "closed"
 )
 
-// Summary is one record of `bd list --json`: an issue without its
-// comments, dependencies or metadata. bd list reports the long text fields
-// too, so a sweep over the text of a backlog runs off a listing and falls
-// back to [Client.Get] only for comments. bd omits empty fields from its
-// JSON, so every field here decodes as its zero value when the issue does
-// not carry it.
+// Summary is one record of `bd list --json`: an issue without its comments
+// and dependencies. bd list reports the long text fields and the metadata
+// object too, so a sweep over the text of a backlog runs off a listing and
+// falls back to [Client.Get] only for comments and edges. bd omits empty
+// fields from its JSON, so every field here decodes as its zero value when
+// the issue does not carry it.
 type Summary struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -35,6 +35,10 @@ type Summary struct {
 	// ParentID is the issue this one is a child of, empty at top level.
 	ParentID string   `json:"parent"`
 	Labels   []string `json:"labels"`
+	// Metadata is bd's free-form per-issue JSON object, left undecoded
+	// because its shape is a convention between whoever writes it and
+	// whoever reads it, not something bd defines.
+	Metadata json.RawMessage `json:"metadata"`
 
 	Description        string `json:"description"`
 	Design             string `json:"design"`
@@ -58,10 +62,6 @@ type Issue struct {
 
 	// CloseReason is the conclusion recorded when the issue was closed.
 	CloseReason string `json:"close_reason"`
-	// Metadata is bd's free-form per-issue JSON object, left undecoded
-	// because its shape is a convention between whoever writes it and
-	// whoever reads it, not something bd defines.
-	Metadata json.RawMessage `json:"metadata"`
 
 	Comments     []Comment    `json:"comments"`
 	Dependencies []Dependency `json:"dependencies"`
@@ -85,4 +85,19 @@ type Dependency struct {
 	// DependencyType is the edge kind: blocks, parent-child,
 	// discovered-from, related.
 	DependencyType string `json:"dependency_type"`
+}
+
+// Edge is one dependency link between two issues, the shape
+// [Client.Dependencies] reports. bd stores every link in one direction, so
+// From is always the side that carries the link — the dependent, the child,
+// the discoverer — and To the side it points at.
+type Edge struct {
+	// FromID is the issue the link belongs to: the one that depends on
+	// ToID, is a child of it, or was discovered from it.
+	FromID string
+	// ToID is the blocker, the parent, or the origin.
+	ToID string
+	// Type is the edge kind: blocks, parent-child, discovered-from,
+	// related.
+	Type string
 }
