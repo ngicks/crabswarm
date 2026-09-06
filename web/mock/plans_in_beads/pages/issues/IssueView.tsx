@@ -226,7 +226,7 @@ function CommentEntry({ comment, index }: { comment: IssueComment; index: number
   const kind = commentKind(comment);
   return (
     <div>
-      <div class="flex flex-wrap items-center gap-2 bg-base-200/50 px-5 py-2 text-xs opacity-70">
+      <div class="flex flex-wrap items-center gap-2 bg-base-200 px-5 py-2 text-xs opacity-70">
         <span class="font-medium">{comment.author}</span>
         {kind !== "" && (
           <span class={`badge ${kind === "Decision" ? "badge-primary" : "badge-secondary"}`}>{kind}</span>

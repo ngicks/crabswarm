@@ -22,7 +22,10 @@ export function Section({
 }) {
   return (
     <section class="overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm" data-testid={testId}>
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-base-300 bg-base-200 px-5 py-3">
+      {/* The strip is base-300, and so is the card border, so its bottom edge
+          gets its own colour: in light theme base-300 alone sits too close to
+          the base-100 body to mark the boundary at a glance. */}
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b-2 border-base-content/15 bg-base-300 px-5 py-3">
         <h2 class="text-lg font-semibold">{title}</h2>
         {extra}
       </div>
