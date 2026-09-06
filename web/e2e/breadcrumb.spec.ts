@@ -3,10 +3,10 @@ import { fileURLToPath } from "node:url";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_BASE_URL } from "../playwright.config.js";
 
-// Drives the sticky top bar's location trail (Layout Breadcrumbs) against the
-// Go preview server: only the home icon navigates, while root and directory
-// crumbs point the left navigation at themselves (signals/ui reveal → FileTree
-// DirNode), expanding the lazily fetched levels on the way down.
+// Drives the document bar's location trail (pages/preview Breadcrumbs) against
+// the Go preview server: only the home icon navigates, while root and directory
+// crumbs point the left navigation at themselves (signals/navigation reveal →
+// FileTree DirNode), expanding the lazily fetched levels on the way down.
 //
 // The headless environment has no fonts (see mermaid-lightbox.spec.ts), so
 // text-only controls — crumbs and tree rows alike — measure 0x0 and Playwright
@@ -52,7 +52,7 @@ function press(locator: Locator) {
 const SELECTED = /(^|\s)bg-primary(\s|$)/;
 
 test("the trail names the root and every path segment", async ({ page }) => {
-  await page.goto(`/r/${rootId}/${docPath}`);
+  await page.goto(`/roots/${rootId}/${docPath}`);
   await expect(page.getByTestId("breadcrumbs").getByRole("button")).toHaveText([
     rootName,
     "nested",
@@ -64,22 +64,22 @@ test("the trail names the root and every path segment", async ({ page }) => {
 // The root crumb reveals the root itself, which the switcher already marks as
 // the active entry — so that marking has to actually be there.
 test("the switcher marks the root the trail names", async ({ page }) => {
-  await page.goto(`/r/${rootId}/${docPath}`);
+  await page.goto(`/roots/${rootId}/${docPath}`);
   await press(crumb(page, rootName));
   await expect(page.getByRole("link", { name: rootName, exact: true })).toHaveClass(SELECTED);
 });
 
 test("the home icon leaves the document for the root picker", async ({ page }) => {
-  await page.goto(`/r/${rootId}/${docPath}`);
+  await page.goto(`/roots/${rootId}/${docPath}`);
   await page.getByTestId("breadcrumbs").getByRole("link", { name: "Home" }).click();
-  await expect(page).toHaveURL(`${E2E_BASE_URL}/`);
+  await expect(page).toHaveURL(`${E2E_BASE_URL}/roots`);
   await expect(page.getByRole("heading", { name: "crabswarm preview" })).toBeAttached();
   // No root is selected any more, so there is no tree to browse.
   await expect(tree(page)).toHaveCount(0);
 });
 
 test("a directory crumb expands the tree down to it and marks it, without navigating", async ({ page }) => {
-  await page.goto(`/r/${rootId}/${docPath}`);
+  await page.goto(`/roots/${rootId}/${docPath}`);
   const dir = tree(page).getByRole("button", { name: "deep" });
   await expect(dir).toHaveCount(0);
 
@@ -91,11 +91,11 @@ test("a directory crumb expands the tree down to it and marks it, without naviga
   await expect(tree(page).getByRole("link", { name: "note.md" })).toBeAttached();
   // Only the crumb's own directory is marked, not the ones passed through.
   await expect(tree(page).getByRole("button", { name: "nested" })).not.toHaveClass(SELECTED);
-  await expect(page).toHaveURL(`${E2E_BASE_URL}/r/${rootId}/${docPath}`);
+  await expect(page).toHaveURL(`${E2E_BASE_URL}/roots/${rootId}/${docPath}`);
 });
 
 test("clicking the same crumb again re-opens a directory collapsed by hand", async ({ page }) => {
-  await page.goto(`/r/${rootId}/${docPath}`);
+  await page.goto(`/roots/${rootId}/${docPath}`);
   const child = tree(page).getByRole("button", { name: "deep" });
 
   await press(crumb(page, "nested"));
@@ -110,7 +110,7 @@ test("clicking the same crumb again re-opens a directory collapsed by hand", asy
 
 test("below lg a crumb opens the drawer it reveals into", async ({ page }) => {
   await page.setViewportSize({ width: 500, height: 800 });
-  await page.goto(`/r/${rootId}/${docPath}`);
+  await page.goto(`/roots/${rootId}/${docPath}`);
   await expect(tree(page)).not.toBeVisible();
 
   await press(crumb(page, "nested"));

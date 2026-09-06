@@ -2,8 +2,8 @@ import { signal } from "@preact/signals";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
 // App-level lightbox with pan/zoom (mirrors OpenRawDialog's module-signal
-// pattern). Two content kinds: plain images (DocView inline images, the
-// standalone ImageView) and rendered mermaid SVGs (DocView diagrams), which are
+// pattern). Two content kinds: plain images (DocumentView inline images, the
+// standalone ImageView) and rendered mermaid SVGs (DocumentView diagrams), which are
 // re-injected at their natural viewBox size so oversized diagrams can be read
 // at 100% instead of squeezed into the article column. Wheel/buttons zoom,
 // drag pans; a plain click (no drag), Escape, or the ✕ button closes.

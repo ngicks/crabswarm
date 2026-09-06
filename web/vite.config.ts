@@ -10,8 +10,15 @@ const env =
   (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 const backend = env.CRABSWARM_PREVIEW_BACKEND ?? "http://localhost:6419";
 
+// `@` → src/, kept in sync with tsconfig.json `paths`. `#` → web/ needs nothing
+// here: Vite reads package.json `imports` itself. `import.meta.url` rather than
+// node:path so the config typechecks without @types/node, the same reason the
+// backend URL above is read through globalThis.
+const src = decodeURIComponent(new URL("./src", import.meta.url).pathname);
+
 export default defineConfig({
   plugins: [preact(), tailwindcss()],
+  resolve: { alias: { "@": src } },
   server: {
     proxy: {
       "/ngicks.crabswarm.preview.v1.PreviewService": { target: backend, changeOrigin: true },

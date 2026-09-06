@@ -1,10 +1,10 @@
 import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { useTree } from "../api/queries.js";
-import { EntryType, type TreeEntry } from "../gen/ngicks/crabswarm/preview/v1/preview_service_pb.js";
-import { docHref, isImagePath, joinPath } from "../routes.js";
-import { drawerOpen, revealTarget } from "../signals/ui.js";
-import { openRaw } from "./OpenRawDialog.js";
+import { useTree } from "@/api/preview.js";
+import { EntryType, type TreeEntry } from "@/api/gen/ngicks/crabswarm/preview/v1/preview_service_pb.js";
+import { openRaw } from "@/components/ui/OpenRawDialog.js";
+import { docHref, isImagePath, joinPath } from "@/lib/paths.js";
+import { drawerOpen, revealTarget } from "@/signals/navigation.js";
 
 // nvim-tree / VSCode-style lazy tree (PLAN "Frontend": FileTree). Each expanded
 // directory issues its own GetTree query, so the tree is fetched one level at a

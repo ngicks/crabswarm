@@ -2,8 +2,8 @@ import { render } from "preact";
 import { LocationProvider } from "preact-iso";
 import { QueryClient, QueryClientProvider } from "@tanstack/preact-query";
 import "./index.css";
-import "./signals/ui.js"; // side effect: install the theme <-> <html> effect early
-import { App } from "./routes.js";
+import "./signals/preferences.js"; // side effect: install the theme <-> <html> effect early
+import { App } from "./app.js";
 
 const queryClient = new QueryClient({
   defaultOptions: {

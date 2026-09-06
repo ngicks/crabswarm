@@ -1,8 +1,8 @@
 import { useLocation } from "preact-iso";
 import { useEffect } from "preact/hooks";
-import { rawUrl } from "../api/client.js";
-import { parseDocLocation } from "../routes.js";
-import { openLightbox } from "./Lightbox.js";
+import { rawUrl } from "@/api/client.js";
+import { openLightbox } from "@/components/Lightbox.js";
+import { parseDocLocation } from "@/lib/paths.js";
 
 // ImageView renders an image file inline (like GitHub's file view) instead of
 // routing it through the confirm-then-open-raw dialog. It needs no server call:

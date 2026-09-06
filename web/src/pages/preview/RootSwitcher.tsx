@@ -1,4 +1,5 @@
-import { useRoots } from "../api/queries.js";
+import { useRoots } from "@/api/preview.js";
+import { docHref } from "@/lib/paths.js";
 
 /** Root list at the top of the left drawer (PLAN "Frontend": RootSwitcher). */
 export function RootSwitcher({ activeRootId }: { activeRootId: string }) {
@@ -18,7 +19,7 @@ export function RootSwitcher({ activeRootId }: { activeRootId: string }) {
                 faint on the sidebar, so paint the selection with the primary
                 pair like FileTree does. */}
             <a
-              href={`/r/${encodeURIComponent(r.id)}/`}
+              href={docHref(r.id, "")}
               class={r.id === activeRootId ? "bg-primary text-primary-content font-medium" : ""}
               title={r.path}
             >

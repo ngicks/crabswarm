@@ -1,11 +1,37 @@
 @import "tailwindcss";
 
 /* daisyUI supplies the app chrome (drawer, navbar, buttons, menu). Enable the
-   light + dark themes; `theme` signal in signals/ui.ts drives which is active
-   via <html data-theme>. github-markdown-css styles the rendered document body
-   and is injected/switched separately (see signals/ui.ts). */
+   light + dark themes; `theme` signal in signals/preferences.ts drives which is
+   active via <html data-theme>. github-markdown-css styles the rendered document
+   body and is injected/switched separately (see signals/preferences.ts). */
 @plugin "daisyui" {
   themes: light --default, dark --prefersdark;
+}
+
+/* Type scale, in rem so the browser's root size still applies: body text 15px
+   (`text-sm`, the size social feeds settle on for posts), metadata 13px
+   (`text-xs`). Tailwind's own steps are 14 and 12, which read small in a table
+   of titles. daisyUI components size themselves (`table`, `tabs-md`,
+   `input-md`); the xs / sm tiers are kept for chips and badges only. */
+@theme {
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: calc(1.25 / 0.8125);
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: calc(1.5 / 0.9375);
+}
+
+/* daisyUI sizes its controls per tier (sm 12px, md 14px, lg 18px) and its
+   --size-field variable scales heights only, so there is no 15px tier to
+   pick. The md tier is the body tier: it follows text-sm. These rules are
+   unlayered, so they win over daisyUI's @layer rules. */
+.tabs-md > .tab,
+.input-md,
+.select-md {
+  font-size: var(--text-sm);
+}
+.btn-md,
+.btn:not(.btn-xs, .btn-sm, .btn-lg, .btn-xl) {
+  --fontsize: var(--text-sm);
 }
 
 html,
@@ -15,8 +41,8 @@ body,
 }
 
 /* Rendered-document tweaks layered on top of github-markdown-css. The doc/image
-   wrapper (DocView/ImageView) supplies the card surface, so the body itself must
-   be transparent. github-markdown-css sets its own `.markdown-body` background
+   wrapper (DocumentView/ImageView) supplies the card surface, so the body itself
+   must be transparent. github-markdown-css sets its own `.markdown-body` background
    (light #fff / dark #0d1117) via a <style> injected unlayered at runtime, which
    would otherwise win over this rule — hence `!important`. */
 .markdown-body {
@@ -45,14 +71,14 @@ body,
   background: transparent;
   text-align: center;
 }
-/* Rendered diagrams open the pan/zoom lightbox on click (DocView
+/* Rendered diagrams open the pan/zoom lightbox on click (DocumentView
    onArticleClick); :has(svg) leaves failed renders (raw source) alone. */
 .markdown-body pre.mermaid:has(svg),
 .markdown-body .mermaid:has(svg) {
   cursor: zoom-in;
 }
 
-/* Inline images open a zoom lightbox on click (DocView onArticleClick); linked
+/* Inline images open a zoom lightbox on click (DocumentView onArticleClick); linked
    images keep the link cursor since the anchor wins. */
 .markdown-body img {
   cursor: zoom-in;

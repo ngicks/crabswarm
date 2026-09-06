@@ -1,18 +1,18 @@
 import { useLocation } from "preact-iso";
 import { useEffect, useRef } from "preact/hooks";
-import { useDocument } from "../api/queries.js";
-import { rawUrl } from "../api/client.js";
-import { parseDocLocation } from "../routes.js";
-import { theme } from "../signals/ui.js";
-import { openLightbox, openSvgLightbox } from "./Lightbox.js";
+import { useDocument } from "@/api/preview.js";
+import { rawUrl } from "@/api/client.js";
+import { openLightbox, openSvgLightbox } from "@/components/Lightbox.js";
+import { parseDocLocation } from "@/lib/paths.js";
+import { theme } from "@/signals/preferences.js";
 
-// DocView renders the pre-rendered HTML fragment from GetDocument (chroma
+// DocumentView renders the pre-rendered HTML fragment from GetDocument (chroma
 // classes, goldmark-mermaid `<pre class="mermaid">`, MathJax \(...\)/\[...\]
 // markup) and drives the client-side enrichment the server HTML expects:
 // mermaid + MathJax typesetting, relative-image rewriting to /raw, and anchor
 // scrolling. The renderer emits its own CDN <script> for mermaid in client
 // mode; we strip it and run our locally bundled mermaid + MathJax instead.
-export function DocView() {
+export function DocumentView() {
   const loc = useLocation();
   const { rootId, path } = parseDocLocation(loc.path);
   const { data, isLoading, error } = useDocument(rootId, path);

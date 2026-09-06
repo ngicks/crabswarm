@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/preact-query";
 import { previewClient } from "./client.js";
-import { qk } from "./queries.js";
+import { qk } from "./preview.js";
 
 const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 10_000;

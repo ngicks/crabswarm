@@ -1,9 +1,9 @@
 import { useEffect, useState } from "preact/hooks";
-import { useDocument } from "../api/queries.js";
-import { tocOpen } from "../signals/ui.js";
+import { useDocument } from "@/api/preview.js";
+import { tocOpen } from "@/signals/navigation.js";
 
 // Right-panel table of contents with active-heading highlight (PLAN "Frontend":
-// Toc). It reuses the GetDocument query (same key as DocView, so no extra
+// Toc). It reuses the GetDocument query (same key as DocumentView, so no extra
 // fetch) for the heading list, and an IntersectionObserver over the rendered
 // heading anchors — whose ids match the TOC ids via the server AutoHeadingID
 // pass — to track which heading is in view.

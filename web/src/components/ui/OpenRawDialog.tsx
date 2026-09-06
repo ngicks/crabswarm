@@ -1,7 +1,7 @@
 import { Dialog } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
 import { signal } from "@preact/signals";
-import { rawUrl } from "../api/client.js";
+import { rawUrl } from "@/api/client.js";
 
 // A single app-level confirm dialog (Ark UI Dialog, headless; daisyUI skin).
 // Clicking a non-markdown tree entry sets the target; confirming opens the raw

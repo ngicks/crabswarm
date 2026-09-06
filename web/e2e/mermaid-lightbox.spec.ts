@@ -25,7 +25,7 @@ test.beforeAll(async () => {
   });
   expect(resp.ok).toBeTruthy();
   const body = (await resp.json()) as { root: { id: string } };
-  docUrl = `/r/${body.root.id}/README.md`;
+  docUrl = `/roots/${body.root.id}/README.md`;
 });
 
 async function openLightbox(page: Page) {

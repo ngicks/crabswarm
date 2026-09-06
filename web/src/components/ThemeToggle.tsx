@@ -1,4 +1,4 @@
-import { theme, toggleTheme } from "../signals/ui.js";
+import { theme, toggleTheme } from "@/signals/preferences.js";
 
 /** daisyUI light/dark toggle; the theme signal also swaps the markdown css. */
 export function ThemeToggle() {

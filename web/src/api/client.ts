@@ -1,6 +1,6 @@
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { PreviewService } from "../gen/ngicks/crabswarm/preview/v1/preview_service_pb.js";
+import { PreviewService } from "./gen/ngicks/crabswarm/preview/v1/preview_service_pb.js";
 
 // Same-origin transport: the SPA is served by the preview HTTP server, which
 // also mounts the connect handlers. In `vite dev` the origin is the vite server
