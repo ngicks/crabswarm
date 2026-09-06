@@ -187,6 +187,27 @@ test("a closed issue shows its close reason", async ({ page }) => {
   await expect(page.locator("#section-close")).toContainText("crabswarm chat admin tui");
 });
 
+test("an issue at the receiving end of its edges still shows them", async ({ page }) => {
+  // Nothing in crabswarm-125's own record names an edge: bd reports only the
+  // edges an issue carries, and both of this one's are carried by the issues
+  // pointing at it. The page reads them off the source's whole edge list.
+  await page.goto(issueUrl("crabswarm-125"));
+
+  const deps = page.locator("#section-dependencies");
+  await expect(page.getByRole("heading", { name: "Dependencies (2)", level: 2 })).toBeAttached();
+  // Worded from this issue's side: it is what the other was discovered from.
+  await expect(deps).toContainText("discovered");
+  await expect(deps).toContainText("crabswarm-no2");
+  await expect(deps).toContainText("related to");
+  await expect(deps).toContainText("crabswarm-jp7");
+  // The title comes from the source's listing, not from the edge.
+  await expect(deps).toContainText("Plans in beads");
+
+  const canvas = page.getByTestId("graph-canvas");
+  await expect(page.getByTestId("local-graph")).toContainText("3 issues, 3 edges");
+  await expect(canvas.locator("g.node")).toHaveCount(3);
+});
+
 test("an unknown issue id says so rather than blanking the page", async ({ page }) => {
   await page.goto(issueUrl("crabswarm-zzz"));
   await expect(page.getByText("No issue crabswarm-zzz in this source.")).toBeAttached();

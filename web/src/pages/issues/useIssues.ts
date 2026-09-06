@@ -42,10 +42,15 @@ export interface IssueListState {
   error: unknown;
 }
 
+/** Stands in for a listing that has not arrived, with a stable identity: the
+ *  neighbourhood graph memoises on the listing, and a fresh `[]` per render
+ *  would make it throw its drawing away and redraw. */
+const NO_ISSUES: IssueSummary[] = [];
+
 /** One ListIssues per source, filtered in the browser by the query text. */
 export function useIssueList(sourceId: string, query: IssueQuery): IssueListState {
   const { data, isLoading, error } = useIssueListing(sourceId);
-  const listing = data?.issues ?? [];
+  const listing = data?.issues ?? NO_ISSUES;
   return {
     listing,
     rows: filterIssues(listing, query.q),

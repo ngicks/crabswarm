@@ -8,7 +8,17 @@ import type {
   RenderedField,
 } from "@/api/gen/ngicks/crabswarm/issues/v1/issues_service_pb.js";
 import { IssueStatus } from "@/api/gen/ngicks/crabswarm/issues/v1/issues_service_pb.js";
-import { commentKind, dependencyWording, metadataPairs, progressOf, useDependencies, useIssue } from "@/api/issues.js";
+import {
+  type DependencyRow,
+  commentKind,
+  dependencyRows,
+  dependencyWording,
+  edgesOf,
+  metadataPairs,
+  progressOf,
+  useDependencies,
+  useIssue,
+} from "@/api/issues.js";
 import { shortTime, statusBadgeClass, statusLabel } from "@/lib/format.js";
 import type { GraphNode } from "@/lib/graph.js";
 import { issueHref, sourceHref } from "@/lib/paths.js";
@@ -59,18 +69,27 @@ function closeReasonOf(issue: FullIssue): RenderedField | undefined {
 
 /** Every section the page actually renders, in page order: the outline the TOC
  *  and the jump menu both read, so neither can drift from the page. */
-function outlineOf(issue: FullIssue): SectionEntry[] {
+function outlineOf(issue: FullIssue, edges: IssueEdge[], dependencies: number): SectionEntry[] {
   const entries: SectionEntry[] = [];
   const close = closeReasonOf(issue);
   if (close) entries.push({ key: "close", title: "Close reason", field: close });
   entries.push(...fieldSections(issue));
   if (issue.children.length > 0) entries.push({ key: "children", title: `Children (${issue.children.length})` });
-  if (issue.dependencies.length > 0) {
-    entries.push({ key: "dependencies", title: `Dependencies (${issue.dependencies.length})` });
-  }
-  if (neighbourIds(issue).length > 1) entries.push({ key: "neighbourhood", title: "Neighbourhood" });
+  if (dependencies > 0) entries.push({ key: "dependencies", title: `Dependencies (${dependencies})` });
+  if (neighbourIds(issue, edges).length > 1) entries.push({ key: "neighbourhood", title: "Neighbourhood" });
   if (issue.comments.length > 0) entries.push({ key: "comments", title: `Comments (${issue.comments.length})` });
   return entries;
+}
+
+/** Titles for the ids an edge names. The edges carry none, so they come from
+ *  the source's listing, with the issue's own children folded in so an epic
+ *  still names them before the listing lands. */
+function titleLookup(issue: FullIssue, listing: IssueSummary[]): (id: string) => string {
+  const known = new Map<string, string>();
+  for (const s of listing) known.set(s.id, s.title);
+  for (const c of issue.children) known.set(c.id, c.title);
+  known.set(issue.summary.id, issue.summary.title);
+  return (id) => known.get(id) ?? "";
 }
 
 function scrollToId(id: string): void {
@@ -86,11 +105,14 @@ export function IssueView({
   sourceId: string;
   issueId: string;
   search: string;
-  /** The source's listing, where the neighbourhood graph finds a neighbour's
-   *  title and status: IssueDependency carries neither. */
+  /** The source's listing, where the dependency table and the neighbourhood
+   *  graph find an id's title and status: an edge carries neither. */
   listing: IssueSummary[];
 }) {
   const { data, isLoading, error } = useIssue(sourceId, issueId);
+  // The source's whole edge list, so the page can show what this issue blocks
+  // and what was discovered from it, not only what it carries itself.
+  const deps = useDependencies(sourceId);
   const issue = data?.issue;
 
   if (isLoading) {
@@ -105,8 +127,10 @@ export function IssueView({
   }
   const full = issue as FullIssue;
 
+  const edges = deps.data?.edges ?? NO_EDGES;
+  const rows = dependencyRows(edges, full.summary.id, titleLookup(full, listing));
   const sections = fieldSections(full);
-  const outline = outlineOf(full);
+  const outline = outlineOf(full, edges, rows.length);
   const close = closeReasonOf(full);
 
   return (
@@ -126,8 +150,8 @@ export function IssueView({
             </Section>
           ))}
           <Children issue={full} sourceId={sourceId} search={search} />
-          <Dependencies issue={full} sourceId={sourceId} search={search} />
-          <Neighbourhood issue={full} sourceId={sourceId} search={search} listing={listing} />
+          <Dependencies rows={rows} sourceId={sourceId} search={search} />
+          <Neighbourhood issue={full} edges={edges} sourceId={sourceId} search={search} listing={listing} />
           <Comments issue={full} />
         </div>
       </div>
@@ -300,10 +324,10 @@ function Children({ issue, sourceId, search }: { issue: FullIssue; sourceId: str
   );
 }
 
-function Dependencies({ issue, sourceId, search }: { issue: FullIssue; sourceId: string; search: string }) {
-  if (issue.dependencies.length === 0) return null;
+function Dependencies({ rows, sourceId, search }: { rows: DependencyRow[]; sourceId: string; search: string }) {
+  if (rows.length === 0) return null;
   return (
-    <Section id="dependencies" title={`Dependencies (${issue.dependencies.length})`}>
+    <Section id="dependencies" title={`Dependencies (${rows.length})`}>
       <div class="overflow-x-auto">
         <table class="table text-sm">
           <thead>
@@ -315,7 +339,7 @@ function Dependencies({ issue, sourceId, search }: { issue: FullIssue; sourceId:
             </tr>
           </thead>
           <tbody>
-            {issue.dependencies.map((d) => (
+            {rows.map((d) => (
               <tr key={`${d.type}-${d.id}-${String(d.outgoing)}`} class="hover">
                 <td class="text-xs">{dependencyWording(d)}</td>
                 <td>
@@ -336,36 +360,38 @@ function Dependencies({ issue, sourceId, search }: { issue: FullIssue; sourceId:
   );
 }
 
-// The issue with everything one edge away: parent, children, dependencies.
-// Edges among the neighbours themselves are drawn too when the source has
-// them, since ListDependencies returns every edge inside the given set.
-function neighbourIds(issue: FullIssue): string[] {
+// The issue with everything one edge away: its parent, its children, and the
+// far end of every edge it touches in either direction. The order is fixed —
+// self, parent, children, then each incident edge as the source reports it —
+// so the drawing does not reshuffle when the page re-renders.
+function neighbourIds(issue: FullIssue, edges: IssueEdge[]): string[] {
   const s = issue.summary;
   const ids = new Set<string>([s.id]);
   if (s.parentId !== "") ids.add(s.parentId);
   for (const c of issue.children) ids.add(c.id);
-  for (const d of issue.dependencies) ids.add(d.id);
+  for (const e of edgesOf(edges, s.id)) ids.add(e.fromId === s.id ? e.toId : e.fromId);
   return [...ids];
 }
 
-/** The graph and the queries feeding it must keep their identity across a
+/** The graph and the values feeding it must keep their identity across a
  *  render that changed nothing, or the mermaid effect throws the drawing away
  *  and redraws it on every keystroke elsewhere on the page. */
 const NO_EDGES: IssueEdge[] = [];
-const NO_IDS: string[] = [];
 
 function Neighbourhood({
   issue,
+  edges,
   sourceId,
   search,
   listing,
 }: {
   issue: FullIssue;
+  edges: IssueEdge[];
   sourceId: string;
   search: string;
   listing: IssueSummary[];
 }) {
-  const ids = useMemo(() => neighbourIds(issue), [issue]);
+  const ids = useMemo(() => neighbourIds(issue, edges), [issue, edges]);
   // A neighbour's title and status come from the listing; a child's from the
   // issue itself, so an epic still draws before the listing lands.
   const nodes = useMemo(() => {
@@ -381,9 +407,12 @@ function Neighbourhood({
     }
     return out;
   }, [ids, issue, listing]);
-  // An issue standing alone draws no graph, and every bd read is a subprocess,
-  // so it must not ask for the edges of a set of one either.
-  const { data } = useDependencies(sourceId, ids.length > 1 ? ids : NO_IDS);
+  // Only the edges between the drawn nodes; the source's others belong to
+  // issues this graph does not hold.
+  const within = useMemo(() => {
+    const drawn = new Set(nodes.map((n) => n.id));
+    return edges.filter((e) => drawn.has(e.fromId) && drawn.has(e.toId));
+  }, [edges, nodes]);
 
   if (ids.length <= 1) return null;
 
@@ -393,7 +422,7 @@ function Neighbourhood({
     <IssueGraph
       sourceId={sourceId}
       nodes={nodes}
-      edges={data?.edges ?? NO_EDGES}
+      edges={within}
       search={search}
       sectionKey="neighbourhood"
       testId="local-graph"

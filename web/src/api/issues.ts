@@ -11,7 +11,7 @@ import { timeValue } from "@/lib/format.js";
 import { issuesClient } from "./client.js";
 import {
   type IssueComment,
-  type IssueDependency,
+  type IssueEdge,
   IssueStatus,
   type IssueSummary,
   type Source,
@@ -39,8 +39,6 @@ export const qk = {
   listing: (sourceId: string) => ["issues", "source", sourceId, "listing"] as const,
   issue: (sourceId: string, issueId: string) => ["issues", "source", sourceId, "issue", issueId] as const,
   dependencies: (sourceId: string) => ["issues", "source", sourceId, "deps"] as const,
-  dependenciesOf: (sourceId: string, issueIds: string[]) =>
-    ["issues", "source", sourceId, "deps", [...issueIds].sort()] as const,
 };
 
 /** The registered beads databases. */
@@ -71,13 +69,20 @@ export function useIssue(sourceId: string, issueId: string) {
   });
 }
 
-/** Every dependency edge among the given issues, in one call however many
- *  nodes the graph draws. */
-export function useDependencies(sourceId: string, issueIds: string[]) {
+/** Every dependency edge of a source, in one call.
+ *
+ *  The whole source rather than one issue's neighbours, because bd reports
+ *  only the edges an issue carries — what it depends on, whose child it is,
+ *  what it was discovered from. The other direction, what an issue blocks and
+ *  what was discovered from it, exists nowhere but in the edges other issues
+ *  carry, so a detail page that asked only about its own neighbours could
+ *  never see it. Only the detail page reads this; the list and the labels page
+ *  never mount it, so no bd subprocess runs for them. */
+export function useDependencies(sourceId: string) {
   return useQuery({
-    queryKey: qk.dependenciesOf(sourceId, issueIds),
-    queryFn: () => issuesClient.listDependencies({ sourceId, issueIds }),
-    enabled: sourceId !== "" && issueIds.length > 0,
+    queryKey: qk.dependencies(sourceId),
+    queryFn: () => issuesClient.listDependencies({ sourceId, issueIds: [] }),
+    enabled: sourceId !== "",
   });
 }
 
@@ -184,12 +189,51 @@ export function progressOf(s: IssueSummary): { closed: number; total: number } |
   return { closed: s.childClosedCount, total: s.childCount };
 }
 
+/** bd's edge kind for the parent link. */
+const PARENT_CHILD = "parent-child";
+
+/** One row of the detail page's dependency table, read off the source's edges
+ *  rather than off GetIssue, so both directions of an edge get a row. */
+export interface DependencyRow {
+  /** The issue at the other end. */
+  id: string;
+  title: string;
+  type: string;
+  /** True when this issue is the edge's from side: it depends on, is a child
+   *  of, or was discovered from the other one. */
+  outgoing: boolean;
+}
+
+/** Every edge with `issueId` at either end, in the order the source reports
+ *  them. */
+export function edgesOf(edges: IssueEdge[], issueId: string): IssueEdge[] {
+  return edges.filter((e) => e.fromId === issueId || e.toId === issueId);
+}
+
+/** The dependency rows of one issue, both directions, titled from `titleOf`
+ *  (the edges carry ids only). Parent-child edges are left out: the parent
+ *  link in the header and the children table already carry them. */
+export function dependencyRows(
+  edges: IssueEdge[],
+  issueId: string,
+  titleOf: (id: string) => string,
+): DependencyRow[] {
+  const rows: DependencyRow[] = [];
+  for (const e of edgesOf(edges, issueId)) {
+    if (e.type === PARENT_CHILD) continue;
+    const outgoing = e.fromId === issueId;
+    const other = outgoing ? e.toId : e.fromId;
+    rows.push({ id: other, title: titleOf(other), type: e.type, outgoing });
+  }
+  return rows;
+}
+
 /** How one dependency row reads from this issue's side. */
-export function dependencyWording(d: IssueDependency): string {
+export function dependencyWording(d: { type: string; outgoing: boolean }): string {
   switch (d.type) {
     case "blocks":
       return d.outgoing ? "depends on" : "blocks";
-    case "parent-child":
+    case PARENT_CHILD:
       return d.outgoing ? "child of" : "parent of";
     case "discovered-from":
       return d.outgoing ? "discovered from" : "discovered";
