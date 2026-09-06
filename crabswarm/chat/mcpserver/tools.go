@@ -59,8 +59,11 @@ func (s *Server) addTools() {
 	}, s.read)
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name: "chat_members",
-		Description: "List everyone attending your room, one team-qualified " +
-			"member per line. Each line is exactly the address chat_send takes.",
+		Description: "List everyone attending your room, one member per line. " +
+			"The first column is exactly the address chat_send takes; the ones " +
+			"after it are the kind — agent for a harness a message is typed " +
+			"into, human for someone who reads an inbox — and the state that " +
+			"harness last reported.",
 	}, s.members)
 }
 

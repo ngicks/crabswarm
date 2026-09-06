@@ -185,14 +185,19 @@ func TestClient_History(t *testing.T) {
 
 func TestClient_ListMembersAndAddresses(t *testing.T) {
 	fake := &fakeChatService{members: []*chatv1.Member{
-		member("backend", "alice", "/work"),
-		member("frontend", "bob", "/work"),
+		memberWith("backend", "alice", "/work",
+			chatv1.MemberKind_MEMBER_KIND_AGENT,
+			chatv1.HarnessState_HARNESS_STATE_WORKING),
+		memberWith("frontend", "bob", "/work",
+			chatv1.MemberKind_MEMBER_KIND_HUMAN,
+			chatv1.HarnessState_HARNESS_STATE_DONE),
 	}}
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
 	assert.NilError(t, d.client.ListMembers(t.Context(), &out, "tok-a"))
-	assert.Equal(t, out.String(), "backend/alice\nfrontend/bob\n")
+	assert.Equal(t, out.String(),
+		"backend/alice  agent  working\nfrontend/bob  human  done\n")
 
 	// Completion needs the same strings as values rather than as a listing.
 	addresses, err := d.client.MemberAddresses(t.Context(), "tok-a")

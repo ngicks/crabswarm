@@ -25,18 +25,21 @@ func fixtureRoster() []*chatv1.Member {
 			Team:  "backend",
 			Name:  "alice",
 			Room:  fixtureRoom,
+			Kind:  chatv1.MemberKind_MEMBER_KIND_AGENT,
 			State: chatv1.HarnessState_HARNESS_STATE_WORKING,
 		},
 		{
 			Team:  "backend",
 			Name:  "bob",
 			Room:  fixtureRoom,
+			Kind:  chatv1.MemberKind_MEMBER_KIND_AGENT,
 			State: chatv1.HarnessState_HARNESS_STATE_WAITING,
 		},
 		{
 			Team:  "frontend",
 			Name:  "cid",
 			Room:  fixtureRoom,
+			Kind:  chatv1.MemberKind_MEMBER_KIND_HUMAN,
 			State: chatv1.HarnessState_HARNESS_STATE_DONE,
 		},
 	}
@@ -256,17 +259,19 @@ func TestLettersAreTextOnlyInTheFocusedMessagePane(t *testing.T) {
 	assert.Assert(t, !m.following)
 }
 
-// Every member is in the members pane with the state that says whether it can
-// be interrupted, grouped under the team it belongs to; the count is on the
-// frame the pane is drawn in.
-func TestMembersPaneListsEveryMemberWithItsState(t *testing.T) {
+// Every member is in the members pane with the kind that says whether it is
+// typed into at all and the state that says whether it can be interrupted right
+// now, grouped under the team it belongs to; the count is on the frame the pane
+// is drawn in.
+func TestMembersPaneListsEveryMemberWithItsKindAndState(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 	m = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 20})
 
 	r := m.rects()
 	pane := m.membersPane(r.members.Dx()-2, r.members.Dy()-2)
 	for _, want := range []string{
-		"backend", "alice", "working", "bob", "waiting", "frontend", "cid", "done",
+		"backend", "alice", "agent", "working", "bob", "waiting",
+		"frontend", "cid", "human", "done",
 	} {
 		assert.Assert(t, strings.Contains(pane, want),
 			"members pane missing %q:\n%s", want, pane)

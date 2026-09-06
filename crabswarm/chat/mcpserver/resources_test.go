@@ -22,10 +22,13 @@ import (
 // a bridge that never does it fails instead of hanging the suite.
 const eventTimeout = 5 * time.Second
 
-func memberInState(
-	team, name, room string, state chatv1.HarnessState,
+// memberOnRoster is member() with the two things the roster carries beside an
+// address: what attends, and what its harness last reported.
+func memberOnRoster(
+	team, name, room string, kind chatv1.MemberKind, state chatv1.HarnessState,
 ) *chatv1.Member {
 	m := member(team, name, room)
+	m.Kind = kind
 	m.State = state
 	return m
 }
@@ -139,18 +142,20 @@ func TestServer_ServesTheRoomAsResources(t *testing.T) {
 }
 
 // The roster is a resource rather than a fifth tool, and answers as structured
-// data: its reader is the harness, and a member's state is not in the listing
-// the CLI prints at all.
+// data: its reader is the harness, which re-reads the room as it changes rather
+// than parsing the columns the CLI prints.
 func TestServer_ServesTheRoster(t *testing.T) {
 	fake := &fakeChatService{
 		self: member("backend", "alice", testRoom),
 		members: []*chatv1.Member{
-			memberInState("backend", "alice", testRoom,
+			memberOnRoster("backend", "alice", testRoom,
+				chatv1.MemberKind_MEMBER_KIND_AGENT,
 				chatv1.HarnessState_HARNESS_STATE_WORKING),
-			memberInState("frontend", "bob", testRoom,
+			memberOnRoster("frontend", "bob", testRoom,
+				chatv1.MemberKind_MEMBER_KIND_HUMAN,
 				chatv1.HarnessState_HARNESS_STATE_WAITING),
-			// A member the daemon reported no state for still belongs on the
-			// roster: it attends the room either way.
+			// A member the daemon reported neither a kind nor a state for still
+			// belongs on the roster: it attends the room either way.
 			member("ops", "carol", testRoom),
 		},
 	}
@@ -173,18 +178,21 @@ func TestServer_ServesTheRoster(t *testing.T) {
       "address": "backend/alice",
       "team": "backend",
       "name": "alice",
+      "kind": "agent",
       "state": "working"
     },
     {
       "address": "frontend/bob",
       "team": "frontend",
       "name": "bob",
+      "kind": "human",
       "state": "waiting"
     },
     {
       "address": "ops/carol",
       "team": "ops",
       "name": "carol",
+      "kind": "unknown",
       "state": "unknown"
     }
   ]

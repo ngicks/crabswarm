@@ -31,16 +31,17 @@ else $CMDMAN_CMD_ID. Anything cmdman runs — a harness or the shell someone
 types in — inherits the last one and needs no setup; whoever attends from
 outside passes the token that ` + "`chat admin register`" + ` printed.
 
-Being typed into is a separate choice from the token: ` + "`join --agent`" + ` asks for
-it, and a join without the flag is inbox-only.
+Being typed into is a separate choice from the token: ` + "`join --kind agent`" + ` asks
+for it, ` + "`join --kind human`" + ` is inbox-only, and a join that declares neither is
+refused.
 
 The ` + "`admin`" + ` group is host-only and proves it by decrypting a challenge
 with the age identity file named by --identity, rather than by carrying a
 token. Attending no room, its verbs name the room they act on.`,
 		Example: `  # attending by hand: messages wait in the inbox
-  crabswarm chat join --name reviewer
+  crabswarm chat join --kind human --name reviewer
   # attending from a harness: an arriving message is typed at its prompt
-  crabswarm chat join --agent
+  crabswarm chat join --kind agent
   crabswarm chat send backend/alice "PR is ready"
   crabswarm chat read`,
 		// Runnable with NoArgs rather than a bare group: cobra returns help for a

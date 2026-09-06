@@ -149,8 +149,12 @@ func TestServer_ToolsAnswerWithTheCLIWording(t *testing.T) {
 			SentAt: timestamppb.New(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)),
 		}},
 		members: []*chatv1.Member{
-			member("backend", "alice", testRoom),
-			member("frontend", "bob", testRoom),
+			memberOnRoster("backend", "alice", testRoom,
+				chatv1.MemberKind_MEMBER_KIND_AGENT,
+				chatv1.HarnessState_HARNESS_STATE_WORKING),
+			memberOnRoster("frontend", "bob", testRoom,
+				chatv1.MemberKind_MEMBER_KIND_HUMAN,
+				chatv1.HarnessState_HARNESS_STATE_DONE),
 		},
 	}
 	session := startSession(t, fake)
@@ -176,7 +180,7 @@ func TestServer_ToolsAnswerWithTheCLIWording(t *testing.T) {
 		},
 		{
 			name: "chat_members",
-			want: "backend/alice\nfrontend/bob\n",
+			want: "backend/alice  agent  working\nfrontend/bob  human  done\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

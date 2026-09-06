@@ -147,9 +147,16 @@ func renderTranscript[E transcriptEntry](w io.Writer, entries []E) error {
 	return err
 }
 
-// RenderMembers lists the room's attendance, one team-qualified member per
-// line. That spelling is the point: each line is exactly the address argument
-// `chat send` takes, so the reader never has to assemble one.
+// RenderMembers lists the room's attendance, one member per line: the
+// team-qualified address, the kind and the harness state, separated by two
+// spaces. The first column is the point: it is exactly the address argument
+// `chat send` takes, so the reader never has to assemble one, and it stays
+// first and unpadded so a line still cuts cleanly on whitespace.
+//
+// The kind is there because it says whether a message reaches the member on its
+// own: an agent is typed into when one arrives, a human is only ever handed its
+// inbox when it asks. Whoever is waiting for an answer reads that off the
+// roster rather than guessing from the name.
 func RenderMembers(w io.Writer, members []*chatv1.Member) error {
 	if len(members) == 0 {
 		_, err := fmt.Fprintln(w, "no members")
@@ -157,17 +164,19 @@ func RenderMembers(w io.Writer, members []*chatv1.Member) error {
 	}
 	var b strings.Builder
 	for _, m := range members {
-		b.WriteString(qualify(m))
-		b.WriteByte('\n')
+		fmt.Fprintf(&b, "%s  %s  %s\n",
+			qualify(m), MemberKindName(m.GetKind()), HarnessStateName(m.GetState()))
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
 }
 
 // RenderRooms prints the whole topology as an indented room → team → member
-// tree. The admin listing is the one place where a member's three coordinates
-// are all in play, and nesting shows the grouping that a flat "room/team/name"
-// column would make the reader reconstruct.
+// tree, each member followed by its kind. The admin listing is the one place
+// where a member's three coordinates are all in play, and nesting shows the
+// grouping that a flat "room/team/name" column would make the reader
+// reconstruct; the kind is what tells an operator which of those members a
+// message reaches on its own.
 //
 // Teams appear in the order the daemon first mentions them and members in the
 // order they arrive, so the tree mirrors the listing rather than imposing an
@@ -182,8 +191,8 @@ func RenderRooms(w io.Writer, rooms []*chatv1.Room) error {
 		fmt.Fprintf(&b, "room: %s\n", r.GetName())
 		for _, t := range groupByTeam(r.GetMembers()) {
 			fmt.Fprintf(&b, "  team: %s\n", t.team)
-			for _, name := range t.names {
-				fmt.Fprintf(&b, "    %s\n", name)
+			for _, m := range t.members {
+				fmt.Fprintf(&b, "    %s  %s\n", m.GetName(), MemberKindName(m.GetKind()))
 			}
 		}
 	}
@@ -191,10 +200,10 @@ func RenderRooms(w io.Writer, rooms []*chatv1.Room) error {
 	return err
 }
 
-// teamMembers is one team of a room and the names attending under it.
+// teamMembers is one team of a room and the members attending under it.
 type teamMembers struct {
-	team  string
-	names []string
+	team    string
+	members []*chatv1.Member
 }
 
 // groupByTeam buckets a room's members by team, keeping first-mention order.
@@ -206,7 +215,7 @@ func groupByTeam(members []*chatv1.Member) []teamMembers {
 			grouped = append(grouped, teamMembers{team: m.GetTeam()})
 			i = len(grouped) - 1
 		}
-		grouped[i].names = append(grouped[i].names, m.GetName())
+		grouped[i].members = append(grouped[i].members, m)
 	}
 	return grouped
 }

@@ -70,7 +70,11 @@ those: send that to them.
 crabswarm chat members
 ```
 
-One `team/name` per line — each line is exactly the address `send` takes.
+One member per line: `team/name`, then the kind and the harness state. The
+first column is exactly the address `send` takes. The kind says whether a
+message reaches that member on its own — `agent` is woken by an arriving
+message, `human` reads an inbox when they get to it — so expect an answer from
+an agent sooner than from a human.
 
 ## Etiquette
 

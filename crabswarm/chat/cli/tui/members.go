@@ -31,13 +31,15 @@ func (r rosterRow) address() string {
 	return cli.AdminTarget{Team: r.team, Name: r.member.GetName()}.String()
 }
 
-// text is what the row says: a team's name, or a member's beside the harness
-// state that says whether it can be interrupted.
+// text is what the row says: a team's name, or a member's beside the kind that
+// says whether a message is typed into it at all and the harness state that
+// says whether it can be interrupted right now.
 func (r rosterRow) text() string {
 	if r.heading() {
 		return r.team
 	}
-	return fmt.Sprintf(" %-*s %s", nameColumn, r.member.GetName(),
+	return fmt.Sprintf(" %-*s %s %s", nameColumn, r.member.GetName(),
+		cli.MemberKindName(r.member.GetKind()),
 		cli.HarnessStateName(r.member.GetState()))
 }
 

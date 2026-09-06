@@ -48,11 +48,14 @@ type roster struct {
 
 // rosterMember is one attendee. Address is spelled out beside the team and name
 // it is made of, so the reader can hand it straight to chat_send instead of
-// assembling one and getting the collision rule wrong.
+// assembling one and getting the collision rule wrong. Kind says whether a
+// message reaches the member on its own: an agent is typed into when one
+// arrives, a human is only ever handed its inbox when it asks.
 type rosterMember struct {
 	Address string `json:"address"`
 	Team    string `json:"team"`
 	Name    string `json:"name"`
+	Kind    string `json:"kind"`
 	State   string `json:"state"`
 }
 
@@ -66,10 +69,12 @@ func (s *Server) addResources() {
 		URI:      membersURI,
 		MIMEType: membersMIMEType,
 		Description: "Everyone attending your room: the address chat_send " +
-			"takes, the team and name it is made of, and the state each " +
-			"member's harness last reported — working, waiting or done, and " +
-			"unknown where the daemon reported none. Subscribe to be told " +
-			"when someone joins, leaves, or changes state.",
+			"takes, the team and name it is made of, the kind — agent for a " +
+			"harness a message is typed into, human for someone who reads an " +
+			"inbox — and the state each member's harness last reported: " +
+			"working, waiting or done, and unknown where the daemon reported " +
+			"none. Subscribe to be told when someone joins, leaves, or " +
+			"changes state.",
 	}, s.readMembers)
 	s.mcp.AddResource(&mcp.Resource{
 		Name:     "history",
@@ -152,6 +157,7 @@ func rosterOf(members []*chatv1.Member) roster {
 			Address: cli.Address(m),
 			Team:    m.GetTeam(),
 			Name:    m.GetName(),
+			Kind:    cli.MemberKindName(m.GetKind()),
 			State:   cli.HarnessStateName(m.GetState()),
 		})
 	}

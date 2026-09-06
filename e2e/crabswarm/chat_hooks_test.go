@@ -288,8 +288,8 @@ func assertHookIsSilent(t *testing.T, res hookResult) {
 func startChatRoomWithMail(t *testing.T) string {
 	t.Helper()
 	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
 	runChat(t, cfg, "tok-bob", "send", "ana", chatSentText)
 	return cfg
 }
@@ -368,7 +368,7 @@ func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 // asserted here is the half a harness sees.
 func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
 	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 	hooks := readChatHooks(t)
 
 	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
@@ -425,7 +425,7 @@ func TestChatHooks_PostToolUseIsSilentWithoutMessages(t *testing.T) {
 
 	t.Run("the inbox is empty", func(t *testing.T) {
 		cfg := startChatDaemon(t)
-		runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+		runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 		assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", command, postToolUseEnvelope))
 	})
 
@@ -495,7 +495,7 @@ func TestChatHooks_IdleNotificationRecoversAnInterruptedTurn(t *testing.T) {
 	for _, stuck := range []string{"working", "waiting"} {
 		t.Run("interrupted while "+stuck, func(t *testing.T) {
 			cfg := startChatDaemon(t)
-			runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
+			runChat(t, cfg, "tok-ana", "join", "--kind", "agent", "--name", "ana")
 			runChat(t, cfg, "tok-ana", "report-state", stuck)
 
 			assertHookIsSilent(t,
