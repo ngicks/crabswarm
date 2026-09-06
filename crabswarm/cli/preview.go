@@ -2,34 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"os"
-	"text/tabwriter"
 
 	"connectrpc.com/connect"
 )
-
-// PreviewRoot is the presentation view of a registered preview root: the three
-// columns `preview list` prints. It decouples the CLI table renderer from the
-// generated protobuf type so this package stays independent of the wire schema.
-type PreviewRoot struct {
-	ID   string
-	Name string
-	Path string
-}
-
-// RenderRoots writes the registered preview roots to w as an aligned three-column
-// table (ID, NAME, PATH). The header is always printed so the output is stable
-// and greppable even when no roots are registered.
-func RenderRoots(w io.Writer, roots []PreviewRoot) error {
-	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNAME\tPATH")
-	for _, r := range roots {
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", r.ID, r.Name, r.Path)
-	}
-	return tw.Flush()
-}
 
 // PreviewURL builds the browser URL that opens the root rootID: the previewer
 // serves each root under /r/<rootID>/. addr is the server's TCP *listen*

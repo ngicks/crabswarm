@@ -55,7 +55,7 @@ networks.`,
 	cmd.Flags().BoolVar(&flagRoot, "root", false,
 		"register DIR as a file root only, leaving its issues unregistered")
 	cmd.Flags().BoolVar(&flagIssue, "issue", false,
-		"register DIR as an issues source only; fails when no beads database governs it")
+		"register DIR as an issues source only; fails when its beads database cannot be resolved")
 	cmd.MarkFlagsMutuallyExclusive("root", "issue")
 
 	previewServeCmd(cmd, flagConfig)
@@ -136,10 +136,14 @@ func addPreviewRoot(
 // addPreviewSource registers the beads database governing abs as an issues
 // source and prints its prefix and ID.
 //
-// required says what a directory outside every beads workspace means. The
-// daemon answers NotFound for one; with --issue the user asked for the source
-// by itself, so that is the error they get, while the default registration
-// treats it as a directory that simply has no issues to serve.
+// required says how much the caller wants the source. With --issue it is the
+// whole request, so any failure is the command's failure. Without it the user
+// asked to preview a directory, and issues are what that directory happens to
+// carry: nothing about them fails the preview the root already serves. A
+// directory governed by no beads database, which the daemon reports as
+// NotFound, is the ordinary shape of a repository that keeps no issues and
+// passes silently; every other failure — bd not installed, bd erroring, the
+// daemon itself — is unexpected enough to warrant one line on stderr.
 func addPreviewSource(
 	ctx context.Context,
 	cmd *cobra.Command,
@@ -151,12 +155,14 @@ func addPreviewSource(
 	resp, err := preview.NewIssuesClient(pcfg.Addr).
 		AddSource(ctx, connect.NewRequest(&issuesv1.AddSourceRequest{Dir: abs}))
 	if err != nil {
-		if !required && connect.CodeOf(err) == connect.CodeNotFound {
-			logger.Debug("preview: no beads database, registering no issues source",
-				"dir", abs, "err", err)
-			return nil
+		if required {
+			return cli.PreviewDaemonError(err, pcfg.DaemonName)
 		}
-		return cli.PreviewDaemonError(err, pcfg.DaemonName)
+		logger.Debug("preview: registering no issues source", "dir", abs, "err", err)
+		if connect.CodeOf(err) != connect.CodeNotFound {
+			fmt.Fprintf(cmd.ErrOrStderr(), "no issues source registered: %v\n", err)
+		}
+		return nil
 	}
 	src := resp.Msg.GetSource()
 	fmt.Fprintf(cmd.OutOrStdout(), "issue source %s (%s)\n", src.GetPrefix(), src.GetId())

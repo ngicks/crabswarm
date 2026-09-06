@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"bytes"
 	"errors"
 	"strings"
 	"testing"
@@ -37,28 +36,6 @@ func TestPreviewURL_WildcardRewritten(t *testing.T) {
 // An address without a host:port shape is used verbatim rather than guessed.
 func TestPreviewURL_Unparsable(t *testing.T) {
 	assert.Equal(t, cli.PreviewURL("garbage", "y"), "http://garbage/r/y/")
-}
-
-// RenderRoots always prints the header and one aligned row per root.
-func TestRenderRoots(t *testing.T) {
-	var buf bytes.Buffer
-	assert.NilError(t, cli.RenderRoots(&buf, []cli.PreviewRoot{
-		{ID: "id1", Name: "docs", Path: "/home/me/docs"},
-	}))
-	out := buf.String()
-	assert.Assert(t, strings.Contains(out, "ID"))
-	assert.Assert(t, strings.Contains(out, "NAME"))
-	assert.Assert(t, strings.Contains(out, "PATH"))
-	assert.Assert(t, strings.Contains(out, "id1"))
-	assert.Assert(t, strings.Contains(out, "docs"))
-	assert.Assert(t, strings.Contains(out, "/home/me/docs"))
-}
-
-// An empty list still prints the header so the output shape is stable.
-func TestRenderRoots_Empty(t *testing.T) {
-	var buf bytes.Buffer
-	assert.NilError(t, cli.RenderRoots(&buf, nil))
-	assert.Assert(t, strings.Contains(buf.String(), "ID"))
 }
 
 // A refused connection surfaces as connect CodeUnavailable; PreviewDaemonError

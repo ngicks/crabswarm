@@ -224,21 +224,37 @@ esac
 exit 0
 `
 
-// fakePathEnv writes the fake bd and cmdman into one directory and returns an
-// environment with that directory prepended to PATH, for the daemon process and
-// the CLI invocations alike.
-func fakePathEnv(t *testing.T) []string {
+// fakeBinEnv writes the named scripts into a fresh directory and returns an
+// environment whose PATH is that directory alone, for the daemon process and
+// the CLI invocations alike. PATH is replaced rather than extended so a real bd
+// or cmdman installed on the developer's machine cannot answer instead — which
+// is the whole point of the case that runs without bd.
+func fakeBinEnv(t *testing.T, scripts map[string]string) []string {
 	t.Helper()
 	dir := t.TempDir()
-	for name, script := range map[string]string{
-		"bd":     fakeBdScript,
-		"cmdman": fakeCmdmanScript,
-	} {
+	for name, script := range scripts {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755); err != nil {
 			t.Fatalf("write fake %s: %v", name, err)
 		}
 	}
-	return append(os.Environ(), "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return append(os.Environ(), "PATH="+dir)
+}
+
+// startPreviewServe runs the hidden daemon entry point directly under env — the
+// same process cmdman would otherwise daemonize — and returns once it answers
+// /healthz.
+func startPreviewServe(ctx context.Context, t *testing.T, env []string, addr, cfgPath string) {
+	t.Helper()
+	serve := exec.Command(crabswarmBin, "preview", "__serve", "--addr", addr, "--config", cfgPath)
+	serve.Env = env
+	serve.Stdout = os.Stderr
+	serve.Stderr = os.Stderr
+	if err := serve.Start(); err != nil {
+		t.Fatalf("start preview __serve: %v", err)
+	}
+	t.Cleanup(func() { stopProcess(t, serve) })
+
+	waitHealthz(ctx, t, addr, 30*time.Second)
 }
 
 // TestPreviewIssueSources covers the registration side of `crabswarm preview`:
@@ -251,7 +267,10 @@ func TestPreviewIssueSources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	env := fakePathEnv(t)
+	env := fakeBinEnv(t, map[string]string{
+		"bd":     fakeBdScript,
+		"cmdman": fakeCmdmanScript,
+	})
 	addr := freeAddr(t)
 
 	cfgPath := filepath.Join(t.TempDir(), "config.json")
@@ -263,16 +282,7 @@ func TestPreviewIssueSources(t *testing.T) {
 	}
 	plain := t.TempDir()
 
-	serve := exec.Command(crabswarmBin, "preview", "__serve", "--addr", addr, "--config", cfgPath)
-	serve.Env = env
-	serve.Stdout = os.Stderr
-	serve.Stderr = os.Stderr
-	if err := serve.Start(); err != nil {
-		t.Fatalf("start preview __serve: %v", err)
-	}
-	t.Cleanup(func() { stopProcess(t, serve) })
-
-	waitHealthz(ctx, t, addr, 30*time.Second)
+	startPreviewServe(ctx, t, env, addr, cfgPath)
 
 	preview := func(args ...string) string {
 		t.Helper()
@@ -294,15 +304,24 @@ func TestPreviewIssueSources(t *testing.T) {
 		t.Errorf("after registering %s: got %v, want 1 root and 1 source", withBeads, counts)
 	}
 
-	// A directory outside every beads workspace registers as a root only, and
-	// that is not an error.
-	out = preview(plain)
-	if !strings.Contains(out, "/r/") {
-		t.Errorf("preview did not print a root URL; got:\n%s", out)
+	// A directory outside every beads workspace registers as a root only. A
+	// repository that keeps no issues is the ordinary case, so it is neither an
+	// error nor worth a warning.
+	stdout, stderr, err := runCrabswarmEnv(ctx, t, env,
+		"preview", plain, "--addr", addr, "--config", cfgPath)
+	if err != nil {
+		t.Fatalf("preview on a directory without a beads database failed: %v\n"+
+			"stdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
-	if strings.Contains(out, "issue source") {
+	if !strings.Contains(stdout, "/r/") {
+		t.Errorf("preview did not print a root URL; got:\n%s", stdout)
+	}
+	if strings.Contains(stdout, "issue source") {
 		t.Errorf("preview registered an issue source for a directory without a beads database;"+
-			" got:\n%s", out)
+			" got:\n%s", stdout)
+	}
+	if strings.Contains(stderr, "no issues source registered") {
+		t.Errorf("preview warned about a directory that simply keeps no issues; got:\n%s", stderr)
 	}
 
 	counts = countKinds(t, preview("list"))
@@ -312,7 +331,7 @@ func TestPreviewIssueSources(t *testing.T) {
 
 	// --issue asked for the source explicitly, so the missing database is an
 	// error rather than a silently skipped registration.
-	stdout, stderr, err := runCrabswarmEnv(ctx, t, env,
+	stdout, stderr, err = runCrabswarmEnv(ctx, t, env,
 		"preview", "--issue", plain, "--addr", addr, "--config", cfgPath)
 	if err == nil {
 		t.Errorf("preview --issue on a directory without a beads database succeeded; got:\n%s",
@@ -329,6 +348,45 @@ func TestPreviewIssueSources(t *testing.T) {
 	counts = countKinds(t, preview("list"))
 	if counts["root"] != 2 || counts["source"] != 0 {
 		t.Errorf("after removing the source: got %v, want 2 roots and no source", counts)
+	}
+}
+
+// TestPreviewWithoutBd covers the daemon failing to resolve a beads database
+// for a reason other than the directory having none: bd is not installed at
+// all. Unlike a directory that simply keeps no issues, this is unexpected, so
+// the default registration keeps working and says so — the root is registered,
+// its URL printed, and the failure reported as one warning on stderr — while
+// --issue, whose whole request is the source, fails.
+func TestPreviewWithoutBd(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	env := fakeBinEnv(t, map[string]string{"cmdman": fakeCmdmanScript})
+	addr := freeAddr(t)
+
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	writeFile(t, cfgPath, "{}")
+	dir := t.TempDir()
+
+	startPreviewServe(ctx, t, env, addr, cfgPath)
+
+	stdout, stderr, err := runCrabswarmEnv(ctx, t, env,
+		"preview", dir, "--addr", addr, "--config", cfgPath)
+	if err != nil {
+		t.Fatalf("preview failed although only the issues source could not be registered: %v\n"+
+			"stdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "/r/") {
+		t.Errorf("preview did not print a root URL; got:\n%s", stdout)
+	}
+	if !strings.Contains(stderr, "no issues source registered") {
+		t.Errorf("preview did not warn about the unregistered issues source; got:\n%s", stderr)
+	}
+
+	_, stderr, err = runCrabswarmEnv(ctx, t, env,
+		"preview", "--issue", dir, "--addr", addr, "--config", cfgPath)
+	if err == nil {
+		t.Errorf("preview --issue succeeded without bd; stderr:\n%s", stderr)
 	}
 }
 

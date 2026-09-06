@@ -22,9 +22,11 @@ func TestIssuesServiceMounted(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(res.Msg.GetSources()), 0)
 
-	// The dependency graph is a later step: a mounted route answers
-	// Unimplemented, an unmounted one would 404.
+	// A second method proves the whole service is routed, not just the one
+	// procedure: asking for a source nothing registered reaches the handler,
+	// which answers NotFound. An unmounted route would 404 instead, and connect
+	// reports a 404 as Unimplemented — so NotFound is what tells the two apart.
 	_, err = client.ListDependencies(t.Context(),
-		connect.NewRequest(&issuesv1.ListDependenciesRequest{}))
-	assert.Equal(t, connect.CodeOf(err), connect.CodeUnimplemented)
+		connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: "no-such-source"}))
+	assert.Equal(t, connect.CodeOf(err), connect.CodeNotFound)
 }
