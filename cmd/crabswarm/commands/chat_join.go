@@ -1,6 +1,10 @@
 package commands
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+)
 
 func chatJoinCmd(parent *cobra.Command, flags *chatFlags) {
 	var (
@@ -53,5 +57,9 @@ func runChatJoin(
 	}
 	defer client.Close()
 
-	return client.Join(cmd.Context(), cmd.OutOrStdout(), token, flagName, flagAgent)
+	kind := chatv1.MemberKind_MEMBER_KIND_HUMAN
+	if flagAgent {
+		kind = chatv1.MemberKind_MEMBER_KIND_AGENT
+	}
+	return client.Join(cmd.Context(), cmd.OutOrStdout(), token, flagName, kind)
 }

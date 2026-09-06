@@ -739,7 +739,8 @@ func TestAdminService_RegisteredMemberChatsAsHuman(t *testing.T) {
 	assert.NilError(t, err)
 	token := registered.GetToken()
 
-	joined, err := member.Join(callCtx(t, token), &chatv1.JoinRequest{Name: "ignored"})
+	joined, err := member.Join(callCtx(t, token),
+		&chatv1.JoinRequest{Name: "ignored", Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
 	assert.NilError(t, err)
 	assert.Equal(t, joined.GetSelf().GetName(), "hana")
 	assert.Equal(t, joined.GetSelf().GetRoom(), "/work")

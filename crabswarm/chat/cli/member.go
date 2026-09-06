@@ -14,18 +14,18 @@ import (
 // reports the identity the daemon settled on, which is
 // where the caller learns its own room and team.
 //
-// agent says an agent harness is what attends, which is what lets an arriving
-// message be typed into its terminal. A caller that is anything else — a person
-// at a shell, a script — passes false and is only ever handed its inbox when it
-// asks.
+// kind says what attends. An agent harness is typed into when a message
+// arrives; anything else — a person at a shell, a script — is only ever handed
+// its inbox when it asks. The daemon refuses a kind it was not told, so a
+// caller passes one.
 func (c *Client) Join(
 	ctx context.Context,
 	w io.Writer,
 	token, name string,
-	agent bool,
+	kind chatv1.MemberKind,
 ) error {
 	resp, err := c.chat.Join(withToken(ctx, token),
-		&chatv1.JoinRequest{Name: name, Agent: agent})
+		&chatv1.JoinRequest{Name: name, Kind: kind})
 	if err != nil {
 		return callError(err)
 	}

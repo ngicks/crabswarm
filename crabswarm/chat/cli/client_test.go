@@ -205,7 +205,8 @@ func TestClient_CarriesTokenAsMetadata(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
-	assert.NilError(t, d.client.Join(t.Context(), &out, "tok-a", "alice", false))
+	assert.NilError(t, d.client.Join(t.Context(), &out, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN))
 	assert.Equal(t, out.String(), "joined /work/proj as backend/alice\n")
 	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a"})
 }
@@ -215,7 +216,8 @@ func TestClient_CarriesTokenAsMetadata(t *testing.T) {
 func TestClient_EmptyTokenIsRejected(t *testing.T) {
 	d := serveTestDaemon(t, &fakeChatService{}, nil)
 
-	err := d.client.Join(t.Context(), &strings.Builder{}, "", "alice", false)
+	err := d.client.Join(t.Context(), &strings.Builder{}, "", "alice",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
 	assert.Assert(t, err != nil)
 	assert.Assert(t, strings.Contains(err.Error(), chat.TokenMetadataKey))
 	assert.Equal(t, status.Code(errors.Unwrap(err)), codes.Unauthenticated)
@@ -244,7 +246,8 @@ func TestClient_ProviderUnavailableIsNotTheDaemonBeingDown(t *testing.T) {
 	fake := &fakeChatService{err: status.Error(codes.Unavailable, msg)}
 	d := serveTestDaemon(t, fake, nil)
 
-	err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice", false)
+	err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
 	assert.Assert(t, err != nil)
 	assert.Equal(t, err.Error(), msg)
 	assert.Assert(t, !errors.Is(err, ErrDaemonUnreachable))

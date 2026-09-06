@@ -195,7 +195,8 @@ func TestServer_ToolsAnswerWithTheCLIWording(t *testing.T) {
 	assert.Equal(t, fake.lastJoin().GetName(), "")
 	// As an agent: a harness is the only thing that starts a bridge, and a
 	// message reaching it should be typed into the terminal it runs in.
-	assert.Equal(t, fake.lastJoin().GetAgent(), true)
+	assert.Equal(t, fake.lastJoin().GetKind(),
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
 	assert.Equal(t, fake.lastSend().GetTo(), "bob")
 	assert.Equal(t, fake.lastSend().GetText(), "PR is ready")
 	assert.Equal(t, fake.lastBroadcast().GetText(), "starting the release")

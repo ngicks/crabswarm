@@ -242,10 +242,10 @@ func checkLiveness(
 			"member", m.Team+"/"+m.Name, "err", err)
 		return memberUnjudged
 	}
-	// No status is withdrawn here: the member is reaped because the provider
-	// no longer knows its token, which means the command that carried the
-	// display is already gone.
-	logger.Info("chat: reaping member the provider no longer knows",
+	// No status is withdrawn here: the member is reaped because the command
+	// behind its token is gone — forgotten by the provider or exited — so
+	// whatever carried the display went with it.
+	logger.Info("chat: reaping member whose command is gone",
 		"member", m.Team+"/"+m.Name, "room", m.Room, "err", err)
 	if _, err := store.RemoveMember(ctx, m.Token); err != nil {
 		logger.Warn("chat: removing reaped member failed",
@@ -369,6 +369,23 @@ func memberState(state chatv1.HarnessState) (MemberState, error) {
 	}
 }
 
+// memberKind maps the declared kind onto the stored one. The unspecified kind
+// is rejected rather than defaulted: a member taken for a human is never
+// mirrored to the status display and never nudged, and the store keeps the
+// first join, so a request that filled in nothing would settle the question
+// wrongly and for good.
+func memberKind(kind chatv1.MemberKind) (MemberKind, error) {
+	switch kind {
+	case chatv1.MemberKind_MEMBER_KIND_AGENT:
+		return KindAgent, nil
+	case chatv1.MemberKind_MEMBER_KIND_HUMAN:
+		return KindHuman, nil
+	default:
+		return "", status.Error(codes.InvalidArgument,
+			"join declares no kind: pass --kind agent|human")
+	}
+}
+
 // storeStatus maps a store error onto the status code its sentinel means. The
 // store's message is kept: it names the address, the room and the colliding
 // teams, which is exactly what the caller has to act on.
@@ -402,12 +419,28 @@ func harnessStateProto(state MemberState) chatv1.HarnessState {
 	}
 }
 
+// memberKindProto maps the stored kind back onto the wire enum. Unlike
+// [memberKind] it refuses nothing: every stored member carries a kind, and a
+// caller reading one that does not is better served by the unspecified value
+// than by an error about a member it only asked to see.
+func memberKindProto(kind MemberKind) chatv1.MemberKind {
+	switch kind {
+	case KindAgent:
+		return chatv1.MemberKind_MEMBER_KIND_AGENT
+	case KindHuman:
+		return chatv1.MemberKind_MEMBER_KIND_HUMAN
+	default:
+		return chatv1.MemberKind_MEMBER_KIND_UNSPECIFIED
+	}
+}
+
 func memberProto(m Member) *chatv1.Member {
 	return &chatv1.Member{
 		Name:  m.Name,
 		Team:  m.Team,
 		Room:  m.Room,
 		State: harnessStateProto(m.State),
+		Kind:  memberKindProto(m.Kind),
 	}
 }
 

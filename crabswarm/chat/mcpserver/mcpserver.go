@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 	"github.com/ngicks/crabswarm/internal/libver"
 )
@@ -216,7 +217,9 @@ func (s *Server) ensureJoined(ctx context.Context) error {
 	// Always as an agent: this bridge is started by a harness and serves
 	// nothing else, so the terminal behind it is one a nudge belongs in.
 	var identity strings.Builder
-	if err := s.client.Join(ctx, &identity, s.token, "", true); err != nil {
+	err := s.client.Join(ctx, &identity, s.token, "",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	if err != nil {
 		return fmt.Errorf("attending the chat room: %w", err)
 	}
 	s.joined = true

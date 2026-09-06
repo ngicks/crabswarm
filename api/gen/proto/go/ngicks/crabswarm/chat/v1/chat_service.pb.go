@@ -85,6 +85,57 @@ func (HarnessState) EnumDescriptor() ([]byte, []int) {
 	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{0}
 }
 
+// MemberKind says whether a member runs an agent harness whose terminal a
+// nudge may be typed into, or is anything else and is inbox-only.
+type MemberKind int32
+
+const (
+	MemberKind_MEMBER_KIND_UNSPECIFIED MemberKind = 0
+	MemberKind_MEMBER_KIND_AGENT       MemberKind = 1
+	MemberKind_MEMBER_KIND_HUMAN       MemberKind = 2
+)
+
+// Enum value maps for MemberKind.
+var (
+	MemberKind_name = map[int32]string{
+		0: "MEMBER_KIND_UNSPECIFIED",
+		1: "MEMBER_KIND_AGENT",
+		2: "MEMBER_KIND_HUMAN",
+	}
+	MemberKind_value = map[string]int32{
+		"MEMBER_KIND_UNSPECIFIED": 0,
+		"MEMBER_KIND_AGENT":       1,
+		"MEMBER_KIND_HUMAN":       2,
+	}
+)
+
+func (x MemberKind) Enum() *MemberKind {
+	p := new(MemberKind)
+	*p = x
+	return p
+}
+
+func (x MemberKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MemberKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_enumTypes[1].Descriptor()
+}
+
+func (MemberKind) Type() protoreflect.EnumType {
+	return &file_ngicks_crabswarm_chat_v1_chat_service_proto_enumTypes[1]
+}
+
+func (x MemberKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MemberKind.Descriptor instead.
+func (MemberKind) EnumDescriptor() ([]byte, []int) {
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{1}
+}
+
 // Member is one participant of a room.
 type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -101,7 +152,10 @@ type Member struct {
 	// a reader whether the member can be interrupted. It is unspecified where no
 	// state was recorded alongside the member: the sender a delivered message
 	// carries is the identity as of send time rather than a live member.
-	State         HarnessState `protobuf:"varint,4,opt,name=state,proto3,enum=ngicks.crabswarm.chat.v1.HarnessState" json:"state,omitempty"`
+	State HarnessState `protobuf:"varint,4,opt,name=state,proto3,enum=ngicks.crabswarm.chat.v1.HarnessState" json:"state,omitempty"`
+	// Kind is how the member joined. It is unspecified only on a sender
+	// snapshot, which records who spoke rather than who is attending.
+	Kind          MemberKind `protobuf:"varint,5,opt,name=kind,proto3,enum=ngicks.crabswarm.chat.v1.MemberKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,6 +216,13 @@ func (x *Member) GetState() HarnessState {
 		return x.State
 	}
 	return HarnessState_HARNESS_STATE_UNSPECIFIED
+}
+
+func (x *Member) GetKind() MemberKind {
+	if x != nil {
+		return x.Kind
+	}
+	return MemberKind_MEMBER_KIND_UNSPECIFIED
 }
 
 // Room is a chat room and its current attendance.
@@ -287,10 +348,11 @@ type JoinRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is the name to attend under, unique within the caller's team.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Agent declares the caller is an agent harness whose terminal may be
-	// nudged by keystroke injection while idle. Without it the member is
-	// inbox-only and is never typed at.
-	Agent         bool `protobuf:"varint,4,opt,name=agent,proto3" json:"agent,omitempty"`
+	// Kind declares what attends. It is required: a request leaving it
+	// unspecified is refused with InvalidArgument rather than taken for a
+	// human, since nudging the wrong kind types keystrokes into somebody's
+	// shell.
+	Kind          MemberKind `protobuf:"varint,5,opt,name=kind,proto3,enum=ngicks.crabswarm.chat.v1.MemberKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -332,11 +394,11 @@ func (x *JoinRequest) GetName() string {
 	return ""
 }
 
-func (x *JoinRequest) GetAgent() bool {
+func (x *JoinRequest) GetKind() MemberKind {
 	if x != nil {
-		return x.Agent
+		return x.Kind
 	}
-	return false
+	return MemberKind_MEMBER_KIND_UNSPECIFIED
 }
 
 type JoinResponse struct {
@@ -2311,22 +2373,23 @@ var File_ngicks_crabswarm_chat_v1_chat_service_proto protoreflect.FileDescriptor
 
 const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\n" +
-	"+ngicks/crabswarm/chat/v1/chat_service.proto\x12\x18ngicks.crabswarm.chat.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x82\x01\n" +
+	"+ngicks/crabswarm/chat/v1/chat_service.proto\x12\x18ngicks.crabswarm.chat.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbc\x01\n" +
 	"\x06Member\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04team\x18\x02 \x01(\tR\x04team\x12\x12\n" +
 	"\x04room\x18\x03 \x01(\tR\x04room\x12<\n" +
-	"\x05state\x18\x04 \x01(\x0e2&.ngicks.crabswarm.chat.v1.HarnessStateR\x05state\"V\n" +
+	"\x05state\x18\x04 \x01(\x0e2&.ngicks.crabswarm.chat.v1.HarnessStateR\x05state\x128\n" +
+	"\x04kind\x18\x05 \x01(\x0e2$.ngicks.crabswarm.chat.v1.MemberKindR\x04kind\"V\n" +
 	"\x04Room\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12:\n" +
 	"\amembers\x18\x02 \x03(\v2 .ngicks.crabswarm.chat.v1.MemberR\amembers\"\x88\x01\n" +
 	"\aMessage\x124\n" +
 	"\x04from\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x04from\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x123\n" +
-	"\asent_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\"C\n" +
+	"\asent_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\"m\n" +
 	"\vJoinRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05agent\x18\x04 \x01(\bR\x05agentJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"D\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x128\n" +
+	"\x04kind\x18\x05 \x01(\x0e2$.ngicks.crabswarm.chat.v1.MemberKindR\x04kindJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"D\n" +
 	"\fJoinResponse\x124\n" +
 	"\x04self\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x04self\"1\n" +
 	"\vSendRequest\x12\x0e\n" +
@@ -2431,7 +2494,12 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x19HARNESS_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15HARNESS_STATE_WORKING\x10\x01\x12\x19\n" +
 	"\x15HARNESS_STATE_WAITING\x10\x02\x12\x16\n" +
-	"\x12HARNESS_STATE_DONE\x10\x032\xea\x06\n" +
+	"\x12HARNESS_STATE_DONE\x10\x03*W\n" +
+	"\n" +
+	"MemberKind\x12\x1b\n" +
+	"\x17MEMBER_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11MEMBER_KIND_AGENT\x10\x01\x12\x15\n" +
+	"\x11MEMBER_KIND_HUMAN\x10\x022\xea\x06\n" +
 	"\vChatService\x12U\n" +
 	"\x04Join\x12%.ngicks.crabswarm.chat.v1.JoinRequest\x1a&.ngicks.crabswarm.chat.v1.JoinResponse\x12U\n" +
 	"\x04Send\x12%.ngicks.crabswarm.chat.v1.SendRequest\x1a&.ngicks.crabswarm.chat.v1.SendResponse\x12d\n" +
@@ -2464,123 +2532,126 @@ func file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP() []byte {
 	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescData
 }
 
-var file_ngicks_crabswarm_chat_v1_chat_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_ngicks_crabswarm_chat_v1_chat_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_ngicks_crabswarm_chat_v1_chat_service_proto_goTypes = []any{
 	(HarnessState)(0),              // 0: ngicks.crabswarm.chat.v1.HarnessState
-	(*Member)(nil),                 // 1: ngicks.crabswarm.chat.v1.Member
-	(*Room)(nil),                   // 2: ngicks.crabswarm.chat.v1.Room
-	(*Message)(nil),                // 3: ngicks.crabswarm.chat.v1.Message
-	(*JoinRequest)(nil),            // 4: ngicks.crabswarm.chat.v1.JoinRequest
-	(*JoinResponse)(nil),           // 5: ngicks.crabswarm.chat.v1.JoinResponse
-	(*SendRequest)(nil),            // 6: ngicks.crabswarm.chat.v1.SendRequest
-	(*SendResponse)(nil),           // 7: ngicks.crabswarm.chat.v1.SendResponse
-	(*BroadcastRequest)(nil),       // 8: ngicks.crabswarm.chat.v1.BroadcastRequest
-	(*BroadcastResponse)(nil),      // 9: ngicks.crabswarm.chat.v1.BroadcastResponse
-	(*ReadRequest)(nil),            // 10: ngicks.crabswarm.chat.v1.ReadRequest
-	(*ReadResponse)(nil),           // 11: ngicks.crabswarm.chat.v1.ReadResponse
-	(*HistoryRequest)(nil),         // 12: ngicks.crabswarm.chat.v1.HistoryRequest
-	(*HistoryEntry)(nil),           // 13: ngicks.crabswarm.chat.v1.HistoryEntry
-	(*HistoryResponse)(nil),        // 14: ngicks.crabswarm.chat.v1.HistoryResponse
-	(*ListMembersRequest)(nil),     // 15: ngicks.crabswarm.chat.v1.ListMembersRequest
-	(*ListMembersResponse)(nil),    // 16: ngicks.crabswarm.chat.v1.ListMembersResponse
-	(*LeaveRequest)(nil),           // 17: ngicks.crabswarm.chat.v1.LeaveRequest
-	(*LeaveResponse)(nil),          // 18: ngicks.crabswarm.chat.v1.LeaveResponse
-	(*ReportStateRequest)(nil),     // 19: ngicks.crabswarm.chat.v1.ReportStateRequest
-	(*ReportStateResponse)(nil),    // 20: ngicks.crabswarm.chat.v1.ReportStateResponse
-	(*WatchRoomRequest)(nil),       // 21: ngicks.crabswarm.chat.v1.WatchRoomRequest
-	(*MemberStateChanged)(nil),     // 22: ngicks.crabswarm.chat.v1.MemberStateChanged
-	(*MemberJoined)(nil),           // 23: ngicks.crabswarm.chat.v1.MemberJoined
-	(*MemberLeft)(nil),             // 24: ngicks.crabswarm.chat.v1.MemberLeft
-	(*MessageAppended)(nil),        // 25: ngicks.crabswarm.chat.v1.MessageAppended
-	(*RoomEvent)(nil),              // 26: ngicks.crabswarm.chat.v1.RoomEvent
-	(*GetNonceRequest)(nil),        // 27: ngicks.crabswarm.chat.v1.GetNonceRequest
-	(*GetNonceResponse)(nil),       // 28: ngicks.crabswarm.chat.v1.GetNonceResponse
-	(*ListRoomsRequest)(nil),       // 29: ngicks.crabswarm.chat.v1.ListRoomsRequest
-	(*ListRoomsResponse)(nil),      // 30: ngicks.crabswarm.chat.v1.ListRoomsResponse
-	(*MoveMemberRequest)(nil),      // 31: ngicks.crabswarm.chat.v1.MoveMemberRequest
-	(*MoveMemberResponse)(nil),     // 32: ngicks.crabswarm.chat.v1.MoveMemberResponse
-	(*RegisterMemberRequest)(nil),  // 33: ngicks.crabswarm.chat.v1.RegisterMemberRequest
-	(*RegisterMemberResponse)(nil), // 34: ngicks.crabswarm.chat.v1.RegisterMemberResponse
-	(*AdminSendRequest)(nil),       // 35: ngicks.crabswarm.chat.v1.AdminSendRequest
-	(*Everyone)(nil),               // 36: ngicks.crabswarm.chat.v1.Everyone
-	(*TeamTarget)(nil),             // 37: ngicks.crabswarm.chat.v1.TeamTarget
-	(*MemberTarget)(nil),           // 38: ngicks.crabswarm.chat.v1.MemberTarget
-	(*AdminSendResponse)(nil),      // 39: ngicks.crabswarm.chat.v1.AdminSendResponse
-	(*AdminHistoryRequest)(nil),    // 40: ngicks.crabswarm.chat.v1.AdminHistoryRequest
-	(*AdminHistoryEntry)(nil),      // 41: ngicks.crabswarm.chat.v1.AdminHistoryEntry
-	(*AdminHistoryResponse)(nil),   // 42: ngicks.crabswarm.chat.v1.AdminHistoryResponse
-	(*timestamppb.Timestamp)(nil),  // 43: google.protobuf.Timestamp
+	(MemberKind)(0),                // 1: ngicks.crabswarm.chat.v1.MemberKind
+	(*Member)(nil),                 // 2: ngicks.crabswarm.chat.v1.Member
+	(*Room)(nil),                   // 3: ngicks.crabswarm.chat.v1.Room
+	(*Message)(nil),                // 4: ngicks.crabswarm.chat.v1.Message
+	(*JoinRequest)(nil),            // 5: ngicks.crabswarm.chat.v1.JoinRequest
+	(*JoinResponse)(nil),           // 6: ngicks.crabswarm.chat.v1.JoinResponse
+	(*SendRequest)(nil),            // 7: ngicks.crabswarm.chat.v1.SendRequest
+	(*SendResponse)(nil),           // 8: ngicks.crabswarm.chat.v1.SendResponse
+	(*BroadcastRequest)(nil),       // 9: ngicks.crabswarm.chat.v1.BroadcastRequest
+	(*BroadcastResponse)(nil),      // 10: ngicks.crabswarm.chat.v1.BroadcastResponse
+	(*ReadRequest)(nil),            // 11: ngicks.crabswarm.chat.v1.ReadRequest
+	(*ReadResponse)(nil),           // 12: ngicks.crabswarm.chat.v1.ReadResponse
+	(*HistoryRequest)(nil),         // 13: ngicks.crabswarm.chat.v1.HistoryRequest
+	(*HistoryEntry)(nil),           // 14: ngicks.crabswarm.chat.v1.HistoryEntry
+	(*HistoryResponse)(nil),        // 15: ngicks.crabswarm.chat.v1.HistoryResponse
+	(*ListMembersRequest)(nil),     // 16: ngicks.crabswarm.chat.v1.ListMembersRequest
+	(*ListMembersResponse)(nil),    // 17: ngicks.crabswarm.chat.v1.ListMembersResponse
+	(*LeaveRequest)(nil),           // 18: ngicks.crabswarm.chat.v1.LeaveRequest
+	(*LeaveResponse)(nil),          // 19: ngicks.crabswarm.chat.v1.LeaveResponse
+	(*ReportStateRequest)(nil),     // 20: ngicks.crabswarm.chat.v1.ReportStateRequest
+	(*ReportStateResponse)(nil),    // 21: ngicks.crabswarm.chat.v1.ReportStateResponse
+	(*WatchRoomRequest)(nil),       // 22: ngicks.crabswarm.chat.v1.WatchRoomRequest
+	(*MemberStateChanged)(nil),     // 23: ngicks.crabswarm.chat.v1.MemberStateChanged
+	(*MemberJoined)(nil),           // 24: ngicks.crabswarm.chat.v1.MemberJoined
+	(*MemberLeft)(nil),             // 25: ngicks.crabswarm.chat.v1.MemberLeft
+	(*MessageAppended)(nil),        // 26: ngicks.crabswarm.chat.v1.MessageAppended
+	(*RoomEvent)(nil),              // 27: ngicks.crabswarm.chat.v1.RoomEvent
+	(*GetNonceRequest)(nil),        // 28: ngicks.crabswarm.chat.v1.GetNonceRequest
+	(*GetNonceResponse)(nil),       // 29: ngicks.crabswarm.chat.v1.GetNonceResponse
+	(*ListRoomsRequest)(nil),       // 30: ngicks.crabswarm.chat.v1.ListRoomsRequest
+	(*ListRoomsResponse)(nil),      // 31: ngicks.crabswarm.chat.v1.ListRoomsResponse
+	(*MoveMemberRequest)(nil),      // 32: ngicks.crabswarm.chat.v1.MoveMemberRequest
+	(*MoveMemberResponse)(nil),     // 33: ngicks.crabswarm.chat.v1.MoveMemberResponse
+	(*RegisterMemberRequest)(nil),  // 34: ngicks.crabswarm.chat.v1.RegisterMemberRequest
+	(*RegisterMemberResponse)(nil), // 35: ngicks.crabswarm.chat.v1.RegisterMemberResponse
+	(*AdminSendRequest)(nil),       // 36: ngicks.crabswarm.chat.v1.AdminSendRequest
+	(*Everyone)(nil),               // 37: ngicks.crabswarm.chat.v1.Everyone
+	(*TeamTarget)(nil),             // 38: ngicks.crabswarm.chat.v1.TeamTarget
+	(*MemberTarget)(nil),           // 39: ngicks.crabswarm.chat.v1.MemberTarget
+	(*AdminSendResponse)(nil),      // 40: ngicks.crabswarm.chat.v1.AdminSendResponse
+	(*AdminHistoryRequest)(nil),    // 41: ngicks.crabswarm.chat.v1.AdminHistoryRequest
+	(*AdminHistoryEntry)(nil),      // 42: ngicks.crabswarm.chat.v1.AdminHistoryEntry
+	(*AdminHistoryResponse)(nil),   // 43: ngicks.crabswarm.chat.v1.AdminHistoryResponse
+	(*timestamppb.Timestamp)(nil),  // 44: google.protobuf.Timestamp
 }
 var file_ngicks_crabswarm_chat_v1_chat_service_proto_depIdxs = []int32{
 	0,  // 0: ngicks.crabswarm.chat.v1.Member.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
-	1,  // 1: ngicks.crabswarm.chat.v1.Room.members:type_name -> ngicks.crabswarm.chat.v1.Member
-	1,  // 2: ngicks.crabswarm.chat.v1.Message.from:type_name -> ngicks.crabswarm.chat.v1.Member
-	43, // 3: ngicks.crabswarm.chat.v1.Message.sent_at:type_name -> google.protobuf.Timestamp
-	1,  // 4: ngicks.crabswarm.chat.v1.JoinResponse.self:type_name -> ngicks.crabswarm.chat.v1.Member
-	1,  // 5: ngicks.crabswarm.chat.v1.SendResponse.recipient:type_name -> ngicks.crabswarm.chat.v1.Member
-	3,  // 6: ngicks.crabswarm.chat.v1.ReadResponse.messages:type_name -> ngicks.crabswarm.chat.v1.Message
-	1,  // 7: ngicks.crabswarm.chat.v1.HistoryEntry.from:type_name -> ngicks.crabswarm.chat.v1.Member
-	1,  // 8: ngicks.crabswarm.chat.v1.HistoryEntry.to:type_name -> ngicks.crabswarm.chat.v1.Member
-	43, // 9: ngicks.crabswarm.chat.v1.HistoryEntry.sent_at:type_name -> google.protobuf.Timestamp
-	13, // 10: ngicks.crabswarm.chat.v1.HistoryResponse.entries:type_name -> ngicks.crabswarm.chat.v1.HistoryEntry
-	1,  // 11: ngicks.crabswarm.chat.v1.ListMembersResponse.members:type_name -> ngicks.crabswarm.chat.v1.Member
-	0,  // 12: ngicks.crabswarm.chat.v1.ReportStateRequest.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
-	1,  // 13: ngicks.crabswarm.chat.v1.MemberStateChanged.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	0,  // 14: ngicks.crabswarm.chat.v1.MemberStateChanged.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
-	1,  // 15: ngicks.crabswarm.chat.v1.MemberJoined.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	1,  // 16: ngicks.crabswarm.chat.v1.MemberLeft.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	3,  // 17: ngicks.crabswarm.chat.v1.MessageAppended.message:type_name -> ngicks.crabswarm.chat.v1.Message
-	22, // 18: ngicks.crabswarm.chat.v1.RoomEvent.member_state_changed:type_name -> ngicks.crabswarm.chat.v1.MemberStateChanged
-	23, // 19: ngicks.crabswarm.chat.v1.RoomEvent.member_joined:type_name -> ngicks.crabswarm.chat.v1.MemberJoined
-	24, // 20: ngicks.crabswarm.chat.v1.RoomEvent.member_left:type_name -> ngicks.crabswarm.chat.v1.MemberLeft
-	25, // 21: ngicks.crabswarm.chat.v1.RoomEvent.message_appended:type_name -> ngicks.crabswarm.chat.v1.MessageAppended
-	43, // 22: ngicks.crabswarm.chat.v1.GetNonceResponse.expires_at:type_name -> google.protobuf.Timestamp
-	2,  // 23: ngicks.crabswarm.chat.v1.ListRoomsResponse.rooms:type_name -> ngicks.crabswarm.chat.v1.Room
-	1,  // 24: ngicks.crabswarm.chat.v1.MoveMemberResponse.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	1,  // 25: ngicks.crabswarm.chat.v1.RegisterMemberResponse.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	36, // 26: ngicks.crabswarm.chat.v1.AdminSendRequest.everyone:type_name -> ngicks.crabswarm.chat.v1.Everyone
-	37, // 27: ngicks.crabswarm.chat.v1.AdminSendRequest.team:type_name -> ngicks.crabswarm.chat.v1.TeamTarget
-	38, // 28: ngicks.crabswarm.chat.v1.AdminSendRequest.member:type_name -> ngicks.crabswarm.chat.v1.MemberTarget
-	1,  // 29: ngicks.crabswarm.chat.v1.AdminHistoryEntry.from:type_name -> ngicks.crabswarm.chat.v1.Member
-	1,  // 30: ngicks.crabswarm.chat.v1.AdminHistoryEntry.to:type_name -> ngicks.crabswarm.chat.v1.Member
-	43, // 31: ngicks.crabswarm.chat.v1.AdminHistoryEntry.sent_at:type_name -> google.protobuf.Timestamp
-	41, // 32: ngicks.crabswarm.chat.v1.AdminHistoryResponse.entries:type_name -> ngicks.crabswarm.chat.v1.AdminHistoryEntry
-	4,  // 33: ngicks.crabswarm.chat.v1.ChatService.Join:input_type -> ngicks.crabswarm.chat.v1.JoinRequest
-	6,  // 34: ngicks.crabswarm.chat.v1.ChatService.Send:input_type -> ngicks.crabswarm.chat.v1.SendRequest
-	8,  // 35: ngicks.crabswarm.chat.v1.ChatService.Broadcast:input_type -> ngicks.crabswarm.chat.v1.BroadcastRequest
-	10, // 36: ngicks.crabswarm.chat.v1.ChatService.Read:input_type -> ngicks.crabswarm.chat.v1.ReadRequest
-	12, // 37: ngicks.crabswarm.chat.v1.ChatService.History:input_type -> ngicks.crabswarm.chat.v1.HistoryRequest
-	15, // 38: ngicks.crabswarm.chat.v1.ChatService.ListMembers:input_type -> ngicks.crabswarm.chat.v1.ListMembersRequest
-	17, // 39: ngicks.crabswarm.chat.v1.ChatService.Leave:input_type -> ngicks.crabswarm.chat.v1.LeaveRequest
-	19, // 40: ngicks.crabswarm.chat.v1.ChatService.ReportState:input_type -> ngicks.crabswarm.chat.v1.ReportStateRequest
-	21, // 41: ngicks.crabswarm.chat.v1.ChatService.WatchRoom:input_type -> ngicks.crabswarm.chat.v1.WatchRoomRequest
-	27, // 42: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:input_type -> ngicks.crabswarm.chat.v1.GetNonceRequest
-	29, // 43: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:input_type -> ngicks.crabswarm.chat.v1.ListRoomsRequest
-	31, // 44: ngicks.crabswarm.chat.v1.ChatAdminService.MoveMember:input_type -> ngicks.crabswarm.chat.v1.MoveMemberRequest
-	33, // 45: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:input_type -> ngicks.crabswarm.chat.v1.RegisterMemberRequest
-	35, // 46: ngicks.crabswarm.chat.v1.ChatAdminService.Send:input_type -> ngicks.crabswarm.chat.v1.AdminSendRequest
-	40, // 47: ngicks.crabswarm.chat.v1.ChatAdminService.History:input_type -> ngicks.crabswarm.chat.v1.AdminHistoryRequest
-	5,  // 48: ngicks.crabswarm.chat.v1.ChatService.Join:output_type -> ngicks.crabswarm.chat.v1.JoinResponse
-	7,  // 49: ngicks.crabswarm.chat.v1.ChatService.Send:output_type -> ngicks.crabswarm.chat.v1.SendResponse
-	9,  // 50: ngicks.crabswarm.chat.v1.ChatService.Broadcast:output_type -> ngicks.crabswarm.chat.v1.BroadcastResponse
-	11, // 51: ngicks.crabswarm.chat.v1.ChatService.Read:output_type -> ngicks.crabswarm.chat.v1.ReadResponse
-	14, // 52: ngicks.crabswarm.chat.v1.ChatService.History:output_type -> ngicks.crabswarm.chat.v1.HistoryResponse
-	16, // 53: ngicks.crabswarm.chat.v1.ChatService.ListMembers:output_type -> ngicks.crabswarm.chat.v1.ListMembersResponse
-	18, // 54: ngicks.crabswarm.chat.v1.ChatService.Leave:output_type -> ngicks.crabswarm.chat.v1.LeaveResponse
-	20, // 55: ngicks.crabswarm.chat.v1.ChatService.ReportState:output_type -> ngicks.crabswarm.chat.v1.ReportStateResponse
-	26, // 56: ngicks.crabswarm.chat.v1.ChatService.WatchRoom:output_type -> ngicks.crabswarm.chat.v1.RoomEvent
-	28, // 57: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:output_type -> ngicks.crabswarm.chat.v1.GetNonceResponse
-	30, // 58: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:output_type -> ngicks.crabswarm.chat.v1.ListRoomsResponse
-	32, // 59: ngicks.crabswarm.chat.v1.ChatAdminService.MoveMember:output_type -> ngicks.crabswarm.chat.v1.MoveMemberResponse
-	34, // 60: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:output_type -> ngicks.crabswarm.chat.v1.RegisterMemberResponse
-	39, // 61: ngicks.crabswarm.chat.v1.ChatAdminService.Send:output_type -> ngicks.crabswarm.chat.v1.AdminSendResponse
-	42, // 62: ngicks.crabswarm.chat.v1.ChatAdminService.History:output_type -> ngicks.crabswarm.chat.v1.AdminHistoryResponse
-	48, // [48:63] is the sub-list for method output_type
-	33, // [33:48] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	1,  // 1: ngicks.crabswarm.chat.v1.Member.kind:type_name -> ngicks.crabswarm.chat.v1.MemberKind
+	2,  // 2: ngicks.crabswarm.chat.v1.Room.members:type_name -> ngicks.crabswarm.chat.v1.Member
+	2,  // 3: ngicks.crabswarm.chat.v1.Message.from:type_name -> ngicks.crabswarm.chat.v1.Member
+	44, // 4: ngicks.crabswarm.chat.v1.Message.sent_at:type_name -> google.protobuf.Timestamp
+	1,  // 5: ngicks.crabswarm.chat.v1.JoinRequest.kind:type_name -> ngicks.crabswarm.chat.v1.MemberKind
+	2,  // 6: ngicks.crabswarm.chat.v1.JoinResponse.self:type_name -> ngicks.crabswarm.chat.v1.Member
+	2,  // 7: ngicks.crabswarm.chat.v1.SendResponse.recipient:type_name -> ngicks.crabswarm.chat.v1.Member
+	4,  // 8: ngicks.crabswarm.chat.v1.ReadResponse.messages:type_name -> ngicks.crabswarm.chat.v1.Message
+	2,  // 9: ngicks.crabswarm.chat.v1.HistoryEntry.from:type_name -> ngicks.crabswarm.chat.v1.Member
+	2,  // 10: ngicks.crabswarm.chat.v1.HistoryEntry.to:type_name -> ngicks.crabswarm.chat.v1.Member
+	44, // 11: ngicks.crabswarm.chat.v1.HistoryEntry.sent_at:type_name -> google.protobuf.Timestamp
+	14, // 12: ngicks.crabswarm.chat.v1.HistoryResponse.entries:type_name -> ngicks.crabswarm.chat.v1.HistoryEntry
+	2,  // 13: ngicks.crabswarm.chat.v1.ListMembersResponse.members:type_name -> ngicks.crabswarm.chat.v1.Member
+	0,  // 14: ngicks.crabswarm.chat.v1.ReportStateRequest.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
+	2,  // 15: ngicks.crabswarm.chat.v1.MemberStateChanged.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	0,  // 16: ngicks.crabswarm.chat.v1.MemberStateChanged.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
+	2,  // 17: ngicks.crabswarm.chat.v1.MemberJoined.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	2,  // 18: ngicks.crabswarm.chat.v1.MemberLeft.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	4,  // 19: ngicks.crabswarm.chat.v1.MessageAppended.message:type_name -> ngicks.crabswarm.chat.v1.Message
+	23, // 20: ngicks.crabswarm.chat.v1.RoomEvent.member_state_changed:type_name -> ngicks.crabswarm.chat.v1.MemberStateChanged
+	24, // 21: ngicks.crabswarm.chat.v1.RoomEvent.member_joined:type_name -> ngicks.crabswarm.chat.v1.MemberJoined
+	25, // 22: ngicks.crabswarm.chat.v1.RoomEvent.member_left:type_name -> ngicks.crabswarm.chat.v1.MemberLeft
+	26, // 23: ngicks.crabswarm.chat.v1.RoomEvent.message_appended:type_name -> ngicks.crabswarm.chat.v1.MessageAppended
+	44, // 24: ngicks.crabswarm.chat.v1.GetNonceResponse.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 25: ngicks.crabswarm.chat.v1.ListRoomsResponse.rooms:type_name -> ngicks.crabswarm.chat.v1.Room
+	2,  // 26: ngicks.crabswarm.chat.v1.MoveMemberResponse.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	2,  // 27: ngicks.crabswarm.chat.v1.RegisterMemberResponse.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	37, // 28: ngicks.crabswarm.chat.v1.AdminSendRequest.everyone:type_name -> ngicks.crabswarm.chat.v1.Everyone
+	38, // 29: ngicks.crabswarm.chat.v1.AdminSendRequest.team:type_name -> ngicks.crabswarm.chat.v1.TeamTarget
+	39, // 30: ngicks.crabswarm.chat.v1.AdminSendRequest.member:type_name -> ngicks.crabswarm.chat.v1.MemberTarget
+	2,  // 31: ngicks.crabswarm.chat.v1.AdminHistoryEntry.from:type_name -> ngicks.crabswarm.chat.v1.Member
+	2,  // 32: ngicks.crabswarm.chat.v1.AdminHistoryEntry.to:type_name -> ngicks.crabswarm.chat.v1.Member
+	44, // 33: ngicks.crabswarm.chat.v1.AdminHistoryEntry.sent_at:type_name -> google.protobuf.Timestamp
+	42, // 34: ngicks.crabswarm.chat.v1.AdminHistoryResponse.entries:type_name -> ngicks.crabswarm.chat.v1.AdminHistoryEntry
+	5,  // 35: ngicks.crabswarm.chat.v1.ChatService.Join:input_type -> ngicks.crabswarm.chat.v1.JoinRequest
+	7,  // 36: ngicks.crabswarm.chat.v1.ChatService.Send:input_type -> ngicks.crabswarm.chat.v1.SendRequest
+	9,  // 37: ngicks.crabswarm.chat.v1.ChatService.Broadcast:input_type -> ngicks.crabswarm.chat.v1.BroadcastRequest
+	11, // 38: ngicks.crabswarm.chat.v1.ChatService.Read:input_type -> ngicks.crabswarm.chat.v1.ReadRequest
+	13, // 39: ngicks.crabswarm.chat.v1.ChatService.History:input_type -> ngicks.crabswarm.chat.v1.HistoryRequest
+	16, // 40: ngicks.crabswarm.chat.v1.ChatService.ListMembers:input_type -> ngicks.crabswarm.chat.v1.ListMembersRequest
+	18, // 41: ngicks.crabswarm.chat.v1.ChatService.Leave:input_type -> ngicks.crabswarm.chat.v1.LeaveRequest
+	20, // 42: ngicks.crabswarm.chat.v1.ChatService.ReportState:input_type -> ngicks.crabswarm.chat.v1.ReportStateRequest
+	22, // 43: ngicks.crabswarm.chat.v1.ChatService.WatchRoom:input_type -> ngicks.crabswarm.chat.v1.WatchRoomRequest
+	28, // 44: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:input_type -> ngicks.crabswarm.chat.v1.GetNonceRequest
+	30, // 45: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:input_type -> ngicks.crabswarm.chat.v1.ListRoomsRequest
+	32, // 46: ngicks.crabswarm.chat.v1.ChatAdminService.MoveMember:input_type -> ngicks.crabswarm.chat.v1.MoveMemberRequest
+	34, // 47: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:input_type -> ngicks.crabswarm.chat.v1.RegisterMemberRequest
+	36, // 48: ngicks.crabswarm.chat.v1.ChatAdminService.Send:input_type -> ngicks.crabswarm.chat.v1.AdminSendRequest
+	41, // 49: ngicks.crabswarm.chat.v1.ChatAdminService.History:input_type -> ngicks.crabswarm.chat.v1.AdminHistoryRequest
+	6,  // 50: ngicks.crabswarm.chat.v1.ChatService.Join:output_type -> ngicks.crabswarm.chat.v1.JoinResponse
+	8,  // 51: ngicks.crabswarm.chat.v1.ChatService.Send:output_type -> ngicks.crabswarm.chat.v1.SendResponse
+	10, // 52: ngicks.crabswarm.chat.v1.ChatService.Broadcast:output_type -> ngicks.crabswarm.chat.v1.BroadcastResponse
+	12, // 53: ngicks.crabswarm.chat.v1.ChatService.Read:output_type -> ngicks.crabswarm.chat.v1.ReadResponse
+	15, // 54: ngicks.crabswarm.chat.v1.ChatService.History:output_type -> ngicks.crabswarm.chat.v1.HistoryResponse
+	17, // 55: ngicks.crabswarm.chat.v1.ChatService.ListMembers:output_type -> ngicks.crabswarm.chat.v1.ListMembersResponse
+	19, // 56: ngicks.crabswarm.chat.v1.ChatService.Leave:output_type -> ngicks.crabswarm.chat.v1.LeaveResponse
+	21, // 57: ngicks.crabswarm.chat.v1.ChatService.ReportState:output_type -> ngicks.crabswarm.chat.v1.ReportStateResponse
+	27, // 58: ngicks.crabswarm.chat.v1.ChatService.WatchRoom:output_type -> ngicks.crabswarm.chat.v1.RoomEvent
+	29, // 59: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:output_type -> ngicks.crabswarm.chat.v1.GetNonceResponse
+	31, // 60: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:output_type -> ngicks.crabswarm.chat.v1.ListRoomsResponse
+	33, // 61: ngicks.crabswarm.chat.v1.ChatAdminService.MoveMember:output_type -> ngicks.crabswarm.chat.v1.MoveMemberResponse
+	35, // 62: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:output_type -> ngicks.crabswarm.chat.v1.RegisterMemberResponse
+	40, // 63: ngicks.crabswarm.chat.v1.ChatAdminService.Send:output_type -> ngicks.crabswarm.chat.v1.AdminSendResponse
+	43, // 64: ngicks.crabswarm.chat.v1.ChatAdminService.History:output_type -> ngicks.crabswarm.chat.v1.AdminHistoryResponse
+	50, // [50:65] is the sub-list for method output_type
+	35, // [35:50] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_ngicks_crabswarm_chat_v1_chat_service_proto_init() }
@@ -2604,7 +2675,7 @@ func file_ngicks_crabswarm_chat_v1_chat_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc), len(file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   2,
