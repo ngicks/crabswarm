@@ -3,11 +3,14 @@ package issues
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"golang.org/x/sync/errgroup"
 	"gotest.tools/v3/assert"
 
 	issuesv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/issues/v1"
@@ -96,6 +99,23 @@ func receive(t *testing.T, sub <-chan event) event {
 	}
 }
 
+// findProtoIssue returns the listed issue with the given id, failing the test
+// when the recording does not carry it.
+func findProtoIssue(
+	t *testing.T,
+	listed []*issuesv1.IssueSummary,
+	id string,
+) *issuesv1.IssueSummary {
+	t.Helper()
+	for _, issue := range listed {
+		if issue.GetId() == id {
+			return issue
+		}
+	}
+	t.Fatalf("no issue %q in the listing", id)
+	return nil
+}
+
 func TestServiceListIssuesFromBd(t *testing.T) {
 	invocations := installFakeBd(t)
 	svc := newTestService(t)
@@ -105,26 +125,56 @@ func TestServiceListIssuesFromBd(t *testing.T) {
 		connect.NewRequest(&issuesv1.ListIssuesRequest{SourceId: id}))
 	assert.NilError(t, err)
 
+	// 17 of the 81 recorded issues are closed, and a request naming no status
+	// keeps bd's own default of hiding them.
 	got := res.Msg.GetIssues()
-	assert.Equal(t, len(got), 3)
-	assert.Equal(t, got[0].GetId(), "crabswarm-no2")
-	assert.Equal(t, got[0].GetTitle(), "sample-title")
+	assert.Equal(t, len(got), 64)
+	assert.Assert(t, !slices.ContainsFunc(got, func(issue *issuesv1.IssueSummary) bool {
+		return issue.GetStatus() == issuesv1.IssueStatus_ISSUE_STATUS_CLOSED
+	}), "a closed issue reached the default listing")
+
+	// Newest-updated first.
+	assert.Equal(t, got[0].GetId(), "crabswarm-3hp.1")
+	assert.Equal(t, got[0].GetTitle(), "Decode bd list edges and re-record the Go fixtures")
 	assert.Equal(t, got[0].GetIssueType(), "task")
-	assert.Equal(t, got[0].GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_OPEN)
-	assert.Equal(t, got[0].GetCommentCount(), int32(1))
+	assert.Equal(t, got[0].GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_IN_PROGRESS)
+	assert.Equal(t, got[0].GetCommentCount(), int32(0))
 	assert.Assert(t, got[0].GetCreatedAt() != nil)
 	// An issue recording no metadata still carries a parsable object.
 	assert.Equal(t, got[0].GetMetadataJson(), "{}")
-	assert.DeepEqual(t, got[1].GetLabels(), []string{"admin", "chat", "proto", "tui"})
-	assert.Equal(t, got[2].GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_CLOSED)
+	assert.DeepEqual(t, got[0].GetLabels(), []string{"step"})
 
-	// The listing is asked for newest-updated first; the child tally is the
-	// second call, which needs the statuses bd's default listing hides.
+	open := findProtoIssue(t, got, "crabswarm-jp7")
+	assert.Equal(t, open.GetStatus(), issuesv1.IssueStatus_ISSUE_STATUS_OPEN)
+	assert.DeepEqual(t, open.GetLabels(), []string{"admin", "chat", "proto", "tui"})
+
+	// One listing answers the whole request: the status filter, the ordering
+	// and the child tally are all applied to it here rather than asked of bd.
 	inv := invocations()
-	assert.Equal(t, len(inv), 3) // where + list + tally
-	assert.Equal(t, inv[1].args, "list --json --limit 0 --sort updated")
-	assert.Equal(t, inv[2].args,
+	assert.Equal(t, len(inv), 2) // where + list
+	assert.Equal(t, inv[1].args,
 		"list --json --status open,in_progress,blocked,deferred,closed --limit 0")
+}
+
+func TestServiceListIssuesCountsChildrenFromTheListing(t *testing.T) {
+	installFakeBd(t)
+	svc := newTestService(t)
+	id := addSource(t, svc, t.TempDir())
+
+	res, err := svc.ListIssues(t.Context(),
+		connect.NewRequest(&issuesv1.ListIssuesRequest{SourceId: id}))
+	assert.NilError(t, err)
+
+	// Hand-counted in testdata/list.json: crabswarm-ylc has eight children,
+	// two of them closed. The closed ones are counted but not listed, which
+	// is the point of tallying the whole listing rather than the result.
+	got := res.Msg.GetIssues()
+	epic := findProtoIssue(t, got, "crabswarm-ylc")
+	assert.Equal(t, epic.GetChildCount(), int32(8))
+	assert.Equal(t, epic.GetChildClosedCount(), int32(2))
+	assert.Assert(t, !slices.ContainsFunc(got, func(issue *issuesv1.IssueSummary) bool {
+		return issue.GetId() == "crabswarm-ylc.6"
+	}), "a closed child was listed; it should only be counted")
 }
 
 func TestServiceListIssuesUnknownSource(t *testing.T) {
@@ -163,21 +213,56 @@ func TestServiceGetIssueFromBd(t *testing.T) {
 	assert.Equal(t, issue.GetComments()[0].GetAuthor(), "ngicks")
 	assert.Assert(t, strings.Contains(issue.GetComments()[0].GetText().GetHtml(), "first comment"))
 
-	// The fake replays one children fixture for any parent asked for.
-	assert.Equal(t, len(issue.GetChildren()), 1)
-	assert.Equal(t, issue.GetSummary().GetChildCount(), int32(1))
-	assert.Equal(t, issue.GetSummary().GetChildClosedCount(), int32(0))
+	// Children come from the source's listing, and the recorded listing holds
+	// no issue under the recorded one.
+	assert.Equal(t, len(issue.GetChildren()), 0)
+	assert.Equal(t, issue.GetSummary().GetChildCount(), int32(0))
 
 	// The one dependency the fixture carries is the parent link, which
 	// parent_id and children already report.
 	assert.Equal(t, len(issue.GetDependencies()), 0)
 
+	// The listing runs first so a detail page firing this call beside a board
+	// and a graph joins one listing instead of starting a second, and it is
+	// the whole-source listing: nothing asks bd for one issue's children.
 	inv := invocations()
-	assert.Equal(t, len(inv), 3) // where + show + children
-	assert.Equal(t, inv[1].args, "show --id=scratch-uoj --json --include-comments")
-	assert.Equal(t, inv[2].args,
-		"list --json --status open,in_progress,blocked,deferred,closed"+
-			" --parent scratch-uoj --limit 0")
+	assert.Equal(t, len(inv), 3) // where + list + show
+	assert.Equal(t, inv[1].args,
+		"list --json --status open,in_progress,blocked,deferred,closed --limit 0")
+	assert.Equal(t, inv[2].args, "show --id=scratch-uoj --json --include-comments")
+	assert.Assert(t, !slices.ContainsFunc(inv, func(i invocation) bool {
+		return strings.Contains(i.args, "--parent")
+	}), "bd was asked for one issue's children")
+}
+
+func TestServiceGetIssueChildrenComeFromTheListing(t *testing.T) {
+	reader := &stubReader{issues: []Issue{
+		{Summary: Summary{ID: "epic", Status: StatusOpen}},
+		{Summary: Summary{ID: "c1", ParentID: "epic", Status: StatusClosed}},
+		{Summary: Summary{ID: "c2", ParentID: "epic", Status: StatusOpen}},
+		{Summary: Summary{ID: "other", ParentID: "elsewhere", Status: StatusOpen}},
+	}}
+	svc, id := withStub(t, reader)
+
+	res, err := svc.GetIssue(t.Context(), connect.NewRequest(&issuesv1.GetIssueRequest{
+		SourceId: id,
+		IssueId:  "epic",
+	}))
+	assert.NilError(t, err)
+
+	issue := res.Msg.GetIssue()
+	// A closed child is still a child: an epic's progress is what the count
+	// is for.
+	assert.DeepEqual(t, []string{
+		issue.GetChildren()[0].GetId(),
+		issue.GetChildren()[1].GetId(),
+	}, []string{"c1", "c2"})
+	assert.Equal(t, issue.GetSummary().GetChildCount(), int32(2))
+	assert.Equal(t, issue.GetSummary().GetChildClosedCount(), int32(1))
+
+	// The source was listed once, whole and unnarrowed. Asking bd for one
+	// issue's children would be a second listing of the same database.
+	assert.DeepEqual(t, reader.filters, []ListFilter{{Statuses: allStatuses}})
 }
 
 func TestServiceGetIssueMissing(t *testing.T) {
@@ -207,34 +292,38 @@ func TestServiceListDependenciesWholeSource(t *testing.T) {
 		connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: id}))
 	assert.NilError(t, err)
 
-	// bd has no "every edge" listing, so the source's ids are gathered first
-	// and handed to one dep listing.
+	// The listing already carries every issue's outgoing edges, so the whole
+	// graph costs one bd call.
 	inv := invocations()
-	assert.Equal(t, len(inv), 3) // where + list + dep list
+	assert.Equal(t, len(inv), 2) // where + list
 	assert.Equal(t, inv[1].args,
 		"list --json --status open,in_progress,blocked,deferred,closed --limit 0")
-	assert.Equal(t, inv[2].args,
-		"dep list crabswarm-no2 crabswarm-jp7 crabswarm-125 --json")
 
 	got := res.Msg.GetEdges()
-	assert.Equal(t, len(got), 3)
-	assert.Equal(t, got[0].GetFromId(), "crabswarm-no2")
-	assert.Equal(t, got[0].GetToId(), "crabswarm-jp7")
-	assert.Equal(t, got[0].GetType(), "blocks")
+	assert.Equal(t, len(got), 54)
+	assert.Equal(t, got[0].GetFromId(), "crabswarm-lpq.9")
+	assert.Equal(t, got[0].GetToId(), "crabswarm-lpq")
 	// The parent link is an edge here, unlike in GetIssue's dependencies.
-	assert.Equal(t, got[2].GetType(), "parent-child")
+	assert.Equal(t, got[0].GetType(), "parent-child")
+	assert.Equal(t, got[1].GetFromId(), "crabswarm-lpq.9")
+	assert.Equal(t, got[1].GetToId(), "crabswarm-lpq.8")
+	assert.Equal(t, got[1].GetType(), "blocks")
 }
 
 func TestServiceListDependenciesWithinRequestedIssues(t *testing.T) {
 	svc, id := withStub(t, &stubReader{
 		issues: []Issue{
 			{Summary: Summary{ID: "epic", Status: StatusOpen}},
-			{Summary: Summary{ID: "c1", ParentID: "epic", Status: StatusOpen}},
+			{Summary: Summary{
+				ID:       "c1",
+				ParentID: "epic",
+				Status:   StatusOpen,
+				Dependencies: []Edge{
+					{FromID: "c1", ToID: "epic", Type: "parent-child"},
+					{FromID: "c1", ToID: "outside", Type: "blocks"},
+				},
+			}},
 			{Summary: Summary{ID: "outside", Status: StatusOpen}},
-		},
-		edges: []Edge{
-			{FromID: "c1", ToID: "epic", Type: "parent-child"},
-			{FromID: "c1", ToID: "outside", Type: "blocks"},
 		},
 	})
 
@@ -255,44 +344,25 @@ func TestServiceListDependenciesWithinRequestedIssues(t *testing.T) {
 }
 
 // stubReader is an in-memory [issueReader]: the service reads it instead of
-// running bd, so a test can pin the exact records a source reports.
+// running bd, so a test can pin the exact records a source reports. It applies
+// no filter of its own — the service narrows a listing in Go — and records
+// every filter it was asked for, so a test can see what reached bd.
 type stubReader struct {
 	issues []Issue
-	edges  []Edge
-}
-
-func (r *stubReader) matching(f ListFilter) []Issue {
-	var out []Issue
-	for _, issue := range r.issues {
-		if f.ParentID != "" && issue.ParentID != f.ParentID {
-			continue
-		}
-		out = append(out, issue)
-	}
-	return out
+	// listErr fails every listing while it is set, standing in for a bd that
+	// exits non-zero.
+	listErr error
+	filters []ListFilter
 }
 
 func (r *stubReader) List(_ context.Context, f ListFilter) ([]Summary, error) {
-	matched := r.matching(f)
-	out := make([]Summary, len(matched))
-	for i, issue := range matched {
+	r.filters = append(r.filters, f)
+	if r.listErr != nil {
+		return nil, r.listErr
+	}
+	out := make([]Summary, len(r.issues))
+	for i, issue := range r.issues {
 		out[i] = issue.Summary
-	}
-	return out, nil
-}
-
-// Dependencies answers the way bd does: every outgoing edge of the issues it
-// was asked about, wherever the other end sits.
-func (r *stubReader) Dependencies(_ context.Context, ids []string) ([]Edge, error) {
-	asked := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		asked[id] = struct{}{}
-	}
-	var out []Edge
-	for _, e := range r.edges {
-		if _, ok := asked[e.FromID]; ok {
-			out = append(out, e)
-		}
 	}
 	return out, nil
 }
@@ -316,6 +386,48 @@ func withStub(t *testing.T, reader *stubReader) (*Service, string) {
 	return svc, src.ID
 }
 
+// TestServiceListingFailureIsInternal drives every RPC that reads through the
+// source's listing. bd's own message is what carries host paths and database
+// state, so it must stay in the log rather than ride out in the response.
+func TestServiceListingFailureIsInternal(t *testing.T) {
+	const message = "bd list: exit status 3: /home/someone/repo/.beads is locked"
+	svc, id := withStub(t, &stubReader{
+		issues:  []Issue{{Summary: Summary{ID: "epic", Status: StatusOpen}}},
+		listErr: errors.New(message),
+	})
+
+	for _, tc := range []struct {
+		name string
+		call func() error
+	}{
+		{"ListIssues", func() error {
+			_, err := svc.ListIssues(t.Context(),
+				connect.NewRequest(&issuesv1.ListIssuesRequest{SourceId: id}))
+			return err
+		}},
+		{"GetIssue", func() error {
+			_, err := svc.GetIssue(t.Context(), connect.NewRequest(&issuesv1.GetIssueRequest{
+				SourceId: id,
+				IssueId:  "epic",
+			}))
+			return err
+		}},
+		{"ListDependencies", func() error {
+			_, err := svc.ListDependencies(t.Context(),
+				connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: id}))
+			return err
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.call()
+			assert.Assert(t, err != nil)
+			assert.Equal(t, connect.CodeOf(err), connect.CodeInternal)
+			assert.Assert(t, !strings.Contains(err.Error(), message), "got %v", err)
+			assert.Assert(t, strings.Contains(err.Error(), "listing issues failed"), "got %v", err)
+		})
+	}
+}
+
 func TestServiceListIssuesCountsChildren(t *testing.T) {
 	svc, id := withStub(t, &stubReader{issues: []Issue{
 		{Summary: Summary{ID: "epic", Title: "an epic", Status: StatusOpen}},
@@ -332,15 +444,71 @@ func TestServiceListIssuesCountsChildren(t *testing.T) {
 		connect.NewRequest(&issuesv1.ListIssuesRequest{SourceId: id}))
 	assert.NilError(t, err)
 
+	// The closed child is counted but not listed: a request naming no status
+	// keeps bd's own default of hiding closed issues.
 	got := res.Msg.GetIssues()
-	assert.Equal(t, len(got), 4)
+	assert.Equal(t, len(got), 3)
+
 	// bd reports no child count, so it is tallied from the listing: the epic
 	// has two children, one of them closed.
-	assert.Equal(t, got[0].GetChildCount(), int32(2))
-	assert.Equal(t, got[0].GetChildClosedCount(), int32(1))
-	assert.Equal(t, got[1].GetChildCount(), int32(0))
+	epic := findProtoIssue(t, got, "epic")
+	assert.Equal(t, epic.GetChildCount(), int32(2))
+	assert.Equal(t, epic.GetChildClosedCount(), int32(1))
+	assert.Equal(t, findProtoIssue(t, got, "c2").GetChildCount(), int32(0))
 	// Metadata rides along compacted, verbatim keys and all.
-	assert.Equal(t, got[3].GetMetadataJson(), `{"plan":"doc/plan/x"}`)
+	assert.Equal(t, findProtoIssue(t, got, "meta").GetMetadataJson(),
+		`{"plan":"doc/plan/x"}`)
+}
+
+// TestServiceDetailPageBurstReadsBdOnce fires the three calls a detail page
+// makes at once. The source is listed once for all of them and read once for
+// the issue itself, and the fake bd refuses to run beside another one, so an
+// extra invocation would fail the burst rather than merely be counted.
+func TestServiceDetailPageBurstReadsBdOnce(t *testing.T) {
+	invocations := installFakeBd(t)
+	svc := newTestService(t)
+	// Registering runs bd too; the exclusive check is for the burst below.
+	id := addSource(t, svc, t.TempDir())
+	requireExclusiveFakeBd(t)
+
+	// Released together, so every call asks while the first bd is still in
+	// flight.
+	start := make(chan struct{})
+	var g errgroup.Group
+	g.Go(func() error {
+		<-start
+		_, err := svc.ListIssues(t.Context(),
+			connect.NewRequest(&issuesv1.ListIssuesRequest{SourceId: id}))
+		return err
+	})
+	g.Go(func() error {
+		<-start
+		_, err := svc.GetIssue(t.Context(), connect.NewRequest(&issuesv1.GetIssueRequest{
+			SourceId: id,
+			IssueId:  "scratch-uoj",
+		}))
+		return err
+	})
+	g.Go(func() error {
+		<-start
+		_, err := svc.ListDependencies(t.Context(),
+			connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: id}))
+		return err
+	})
+	close(start)
+	assert.NilError(t, g.Wait())
+
+	var lists, shows int
+	for _, inv := range invocations() {
+		switch {
+		case strings.HasPrefix(inv.args, "list "):
+			lists++
+		case strings.HasPrefix(inv.args, "show "):
+			shows++
+		}
+	}
+	assert.Equal(t, lists, 1)
+	assert.Equal(t, shows, 1)
 }
 
 func TestServiceGetIssueRendersMarkdown(t *testing.T) {

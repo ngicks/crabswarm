@@ -6,6 +6,10 @@ import { Header } from "./Header.js";
 // width, then the routed page filling the rest of the column. A page that has
 // columns of its own — the file browser's tree and table of contents — owns
 // them below this frame, so the header stays above both.
+//
+// The frame is one viewport tall and clips what it cannot hold: every surface
+// below it scrolls in a column of its own, and a page whose layout reached past
+// the frame would put a second, useless scrollbar on the window beside it.
 export function Layout({ children }: { children: ComponentChildren }) {
   const loc = useLocation();
   // `/` lands on the file browser's root picker, so anything that is not the
@@ -13,7 +17,7 @@ export function Layout({ children }: { children: ComponentChildren }) {
   const tab: "roots" | "issues" = loc.path.startsWith("/issues") ? "issues" : "roots";
 
   return (
-    <div class="flex h-full min-h-full flex-col">
+    <div class="flex h-dvh flex-col overflow-hidden">
       <Header tab={tab} />
       {children}
     </div>

@@ -6,9 +6,11 @@
 //
 // [Where] resolves the beads directory that governs a directory. [Client]
 // reads issues out of it: [Client.List] and [Client.Children] return
-// [Summary] records, [Client.Get] returns a full [Issue] with its comments
-// and dependencies, and [Client.Dependencies] returns the [Edge] records of
-// many issues at once.
+// [Summary] records, each carrying its own outgoing [Edge] records, and
+// [Client.Get] returns a full [Issue] with its comments and dependencies.
+// [Poller] turns a client into one listing per source that every reader of
+// that source shares, so bd — which admits a single process per database —
+// runs once for a screenful of questions.
 package issues
 
 import (

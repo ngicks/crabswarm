@@ -47,10 +47,11 @@ type IssuesServiceClient interface {
 	// GetIssue returns one issue with every text field rendered to HTML, its
 	// comments, children and dependencies.
 	GetIssue(ctx context.Context, in *GetIssueRequest, opts ...grpc.CallOption) (*GetIssueResponse, error)
-	// ListDependencies returns every dependency edge among the given issues in
-	// one `bd dep list` call. An empty issue_ids means every issue of the
-	// source: bd has no whole-source edge listing, so the daemon lists the
-	// source once to gather the ids and then makes that same single dep call.
+	// ListDependencies returns the dependency edges among the given issues.
+	// Every record of a source's listing carries the edges its issue is the
+	// from side of, so the edges come off the listing the source's other reads
+	// already share. An empty issue_ids means every edge of the source; a
+	// non-empty one keeps the edges with both ends inside that set.
 	ListDependencies(ctx context.Context, in *ListDependenciesRequest, opts ...grpc.CallOption) (*ListDependenciesResponse, error)
 	// WatchIssues streams change notifications produced by the daemon's
 	// per-source poll.
@@ -163,10 +164,11 @@ type IssuesServiceServer interface {
 	// GetIssue returns one issue with every text field rendered to HTML, its
 	// comments, children and dependencies.
 	GetIssue(context.Context, *GetIssueRequest) (*GetIssueResponse, error)
-	// ListDependencies returns every dependency edge among the given issues in
-	// one `bd dep list` call. An empty issue_ids means every issue of the
-	// source: bd has no whole-source edge listing, so the daemon lists the
-	// source once to gather the ids and then makes that same single dep call.
+	// ListDependencies returns the dependency edges among the given issues.
+	// Every record of a source's listing carries the edges its issue is the
+	// from side of, so the edges come off the listing the source's other reads
+	// already share. An empty issue_ids means every edge of the source; a
+	// non-empty one keeps the edges with both ends inside that set.
 	ListDependencies(context.Context, *ListDependenciesRequest) (*ListDependenciesResponse, error)
 	// WatchIssues streams change notifications produced by the daemon's
 	// per-source poll.

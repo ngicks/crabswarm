@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
 )
@@ -20,25 +21,26 @@ import (
 //   - where          -> where.json, or where_no_beads.json with exit 1 when
 //     FAKE_BD_NO_BEADS is set, matching bd's behavior of printing the error
 //     envelope on stdout.
-//   - list           -> list_children.json when --parent is present; else the
-//     next fixture of the colon-separated FAKE_BD_LIST_SEQUENCE, counted in
-//     FAKE_BD_LIST_COUNTER, so successive polls read a changing backlog; else
-//     list.json. The last fixture of the sequence replays for every further
-//     call, so a poll past the end of the sequence reports no change.
+//   - list           -> the next fixture of the colon-separated
+//     FAKE_BD_LIST_SEQUENCE, counted in FAKE_BD_LIST_COUNTER, so successive
+//     polls read a changing backlog; else list.json. The last fixture of the
+//     sequence replays for every further call, so a poll past the end of the
+//     sequence reports no change.
 //   - show --id=<id> -> show.json for the one recorded issue, else
 //     show_not_found.json with exit 1.
-//   - dep list <ids> -> dep_list.json, the flat batch of edges real bd prints
-//     for two or more ids; dep_list_single.json, the per-issue shape it falls
-//     back to, for one id or when FAKE_BD_DEP_SINGLE is set;
-//     dep_not_found.json with exit 1 when the one id is unknown.
+//
+// FAKE_BD_EXCLUSIVE names a lock directory that turns the fake into a stand-in
+// for the real bd's one-process-per-database rule: the invocation creates the
+// directory, fails when it already exists, sleeps long enough for an
+// overlapping invocation to reach that check, and removes it on the way out. A
+// test that sets it therefore fails on an overlap instead of assuming there was
+// none. The invocation is recorded before the check, so a run that should never
+// have started still shows up in the log. A killed invocation leaves the
+// directory behind and every later one then fails, which is also what a
+// database lock does when the process holding it dies.
 const fakeBdScript = `#!/bin/sh
 sub="$1"
 shift
-
-parent=
-for a in "$@"; do
-  if [ "$a" = "--parent" ]; then parent=1; fi
-done
 
 {
   printf '%s\t' "$(pwd)"
@@ -49,6 +51,15 @@ done
   printf '\n'
 } >> "$FAKE_BD_LOG"
 
+if [ -n "$FAKE_BD_EXCLUSIVE" ]; then
+  if ! mkdir "$FAKE_BD_EXCLUSIVE" 2>/dev/null; then
+    echo "fake bd: another bd is already running on this database" >&2
+    exit 3
+  fi
+  trap 'rmdir "$FAKE_BD_EXCLUSIVE"' EXIT
+  sleep 0.3
+fi
+
 case "$sub" in
 where)
   if [ -n "$FAKE_BD_NO_BEADS" ]; then
@@ -58,9 +69,7 @@ where)
   cat "$FAKE_BD_TESTDATA/where.json"
   ;;
 list)
-  if [ -n "$parent" ]; then
-    cat "$FAKE_BD_TESTDATA/list_children.json"
-  elif [ -n "$FAKE_BD_LIST_SEQUENCE" ]; then
+  if [ -n "$FAKE_BD_LIST_SEQUENCE" ]; then
     n=0
     if [ -f "$FAKE_BD_LIST_COUNTER" ]; then n=$(cat "$FAKE_BD_LIST_COUNTER"); fi
     echo "$((n + 1))" > "$FAKE_BD_LIST_COUNTER"
@@ -72,34 +81,6 @@ list)
     cat "$FAKE_BD_TESTDATA/$1"
   else
     cat "$FAKE_BD_TESTDATA/list.json"
-  fi
-  ;;
-dep)
-  verb="$1"
-  shift
-  if [ "$verb" != list ]; then
-    echo "fake bd: unknown dep verb $verb" >&2
-    exit 2
-  fi
-  ids=0
-  last=
-  for a in "$@"; do
-    case "$a" in
-    -*) ;;
-    *)
-      ids=$((ids + 1))
-      last=$a
-      ;;
-    esac
-  done
-  if [ "$ids" -eq 1 ] && [ "$last" = "scratch-nope" ]; then
-    cat "$FAKE_BD_TESTDATA/dep_not_found.json"
-    exit 1
-  fi
-  if [ "$ids" -le 1 ] || [ -n "$FAKE_BD_DEP_SINGLE" ]; then
-    cat "$FAKE_BD_TESTDATA/dep_list_single.json"
-  else
-    cat "$FAKE_BD_TESTDATA/dep_list.json"
   fi
   ;;
 show)
@@ -128,6 +109,57 @@ type invocation struct {
 	args     string // subcommand and flags, space-joined
 }
 
+// requireExclusiveFakeBd makes every following fake bd refuse to run beside
+// another one, the way the real bd refuses a database a second process holds.
+// It must be called after [installFakeBd], whose leak guard clears the
+// variable.
+func requireExclusiveFakeBd(t *testing.T) {
+	t.Helper()
+	// The fake creates the directory itself, so name one under a directory
+	// that exists and nothing else uses.
+	t.Setenv("FAKE_BD_EXCLUSIVE", filepath.Join(t.TempDir(), "database.lock"))
+}
+
+// waitInvocations blocks until n invocations have been recorded. It is how a
+// test lands a second caller inside the window of a bd that is already
+// running: the fake records itself before it sleeps.
+func waitInvocations(t *testing.T, invocations func() []invocation, n int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if got := len(invocations()); got >= n {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("waited for %d invocations, saw %d", n, len(invocations()))
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// assertInvocationsStay fails unless exactly n invocations are recorded for
+// the whole of d. It is how a test asserts a bd never started rather than
+// merely not having started yet: the fake records itself before it does
+// anything else, so d only has to cover spawning the process.
+func assertInvocationsStay(
+	t *testing.T,
+	invocations func() []invocation,
+	n int,
+	d time.Duration,
+) {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for {
+		if got := len(invocations()); got != n {
+			t.Fatalf("saw %d invocations, want %d", got, n)
+		}
+		if time.Now().After(deadline) {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // installFakeBd writes the fake bd onto a fresh dir prepended to PATH and
 // returns a function reading back the invocations recorded so far. It uses
 // t.Setenv, so the test cannot be parallel.
@@ -147,9 +179,9 @@ func installFakeBd(t *testing.T) (invocations func() []invocation) {
 	t.Setenv("FAKE_BD_LIST_COUNTER", filepath.Join(dir, "list.counter"))
 	// Inherited values must not leak into a run that does not set them.
 	t.Setenv("FAKE_BD_NO_BEADS", "")
-	t.Setenv("FAKE_BD_DEP_SINGLE", "")
 	t.Setenv("FAKE_BD_LIST_SEQUENCE", "")
 	t.Setenv("FAKE_BD_EXTRA", "")
+	t.Setenv("FAKE_BD_EXCLUSIVE", "")
 	t.Setenv("BD_JSON_ENVELOPE", "")
 
 	return func() []invocation {
@@ -159,8 +191,18 @@ func installFakeBd(t *testing.T) (invocations func() []invocation) {
 			return nil
 		}
 		assert.NilError(t, err)
+		// A test reads the log while a fake bd may still be writing to it,
+		// and the fake writes its line in several pieces. Everything up to
+		// the last newline is a whole line; a tail without one is half of
+		// the line the next read reports.
+		recorded := string(b)
+		if i := strings.LastIndexByte(recorded, '\n'); i >= 0 {
+			recorded = recorded[:i]
+		} else {
+			recorded = ""
+		}
 		var out []invocation
-		for line := range strings.SplitSeq(strings.TrimSuffix(string(b), "\n"), "\n") {
+		for line := range strings.SplitSeq(recorded, "\n") {
 			if line == "" {
 				continue
 			}

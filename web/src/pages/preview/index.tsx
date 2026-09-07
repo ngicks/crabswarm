@@ -27,7 +27,12 @@ export function PreviewPage() {
   }, [loc.path]);
 
   return (
-    <div class="drawer min-h-0 flex-1 lg:drawer-open">
+    // daisyUI lays the drawer out as a grid and leaves its one row implicit, so
+    // the row sizes to content and grows past the frame however tall the
+    // document under it is — `overflow-auto` on the column below does not shrink
+    // what the row asks for. Pinning the row to the grid's own height puts the
+    // scrolling back where it belongs, in that column.
+    <div class="drawer min-h-0 flex-1 grid-rows-[minmax(0,1fr)] lg:drawer-open">
       <input
         id="crab-left-drawer"
         type="checkbox"
@@ -189,12 +194,11 @@ function TocPanel({ rootId, path }: { rootId: string; path: string }) {
   if (rootId === "" || path === "" || isImagePath(path)) return null;
   return (
     <>
-      {/* lg+: persistent right column, always shown. Sticky just below the two
-          stacked bars (tab header + document bar, min-h-12 each = 6rem) and
-          capped to the remaining viewport so a long TOC scrolls on its own
-          without moving the body; its sticky containing block is the tall flex
-          row. */}
-      <aside class="hidden shrink-0 overflow-auto border-l border-base-300 lg:sticky lg:top-24 lg:block lg:h-[calc(100dvh_-_6rem)] lg:w-[240px] lg:self-start">
+      {/* lg+: persistent right column, always shown. It fills the row it sits
+          in — the viewport below the two stacked bars (tab header + document
+          bar) — so a long TOC scrolls on its own rather than reaching past the
+          frame, and `self-start` keeps it from stretching further. */}
+      <aside class="hidden shrink-0 overflow-auto border-l border-base-300 lg:sticky lg:top-24 lg:block lg:h-full lg:w-[240px] lg:self-start">
         <Toc rootId={rootId} path={path} />
       </aside>
 

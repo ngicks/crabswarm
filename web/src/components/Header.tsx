@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle.js";
 // surface's own page, below this bar.
 export function Header({ tab }: { tab: "roots" | "issues" }) {
   return (
-    <header class="sticky top-0 z-30 flex min-h-12 items-end gap-2 border-b border-base-300 bg-base-100 px-2">
+    <header class="sticky top-0 z-30 flex min-h-12 shrink-0 items-end gap-2 border-b border-base-300 bg-base-100 px-2">
       <span class="hidden self-center px-2 pb-1 text-sm font-semibold opacity-70 sm:inline">
         crabswarm preview
       </span>

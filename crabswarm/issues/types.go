@@ -17,12 +17,12 @@ const (
 	StatusClosed     Status = "closed"
 )
 
-// Summary is one record of `bd list --json`: an issue without its comments
-// and dependencies. bd list reports the long text fields and the metadata
-// object too, so a sweep over the text of a backlog runs off a listing and
-// falls back to [Client.Get] only for comments and edges. bd omits empty
-// fields from its JSON, so every field here decodes as its zero value when
-// the issue does not carry it.
+// Summary is one record of `bd list --json`: an issue without its comments.
+// bd list reports the long text fields, the metadata object and the issue's
+// outgoing edges too, so a sweep over the text and the graph of a backlog
+// runs off a listing and falls back to [Client.Get] only for comments. bd
+// omits empty fields from its JSON, so every field here decodes as its zero
+// value when the issue does not carry it.
 type Summary struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -53,6 +53,10 @@ type Summary struct {
 	DependencyCount int `json:"dependency_count"`
 	DependentCount  int `json:"dependent_count"`
 	CommentCount    int `json:"comment_count"`
+
+	// Dependencies is the outgoing edges bd list reports: what the issue
+	// depends on, whose child it is, what it was discovered from.
+	Dependencies []Edge `json:"dependencies"`
 }
 
 // Issue is a full issue as `bd show --include-comments` reports it: a
@@ -63,7 +67,11 @@ type Issue struct {
 	// CloseReason is the conclusion recorded when the issue was closed.
 	CloseReason string `json:"close_reason"`
 
-	Comments     []Comment    `json:"comments"`
+	Comments []Comment `json:"comments"`
+	// Dependencies shadows [Summary.Dependencies]: bd show answers the same
+	// JSON name with whole issue records rather than the edge records bd list
+	// reports, and the shallower field is the one encoding/json fills, so an
+	// Issue carries the show shape and the embedded Summary's slice stays nil.
 	Dependencies []Dependency `json:"dependencies"`
 }
 
@@ -87,17 +95,17 @@ type Dependency struct {
 	DependencyType string `json:"dependency_type"`
 }
 
-// Edge is one dependency link between two issues, the shape
-// [Client.Dependencies] reports. bd stores every link in one direction, so
+// Edge is one dependency link between two issues, the shape bd list reports
+// under an issue's dependencies. bd stores every link in one direction, so
 // From is always the side that carries the link — the dependent, the child,
 // the discoverer — and To the side it points at.
 type Edge struct {
 	// FromID is the issue the link belongs to: the one that depends on
 	// ToID, is a child of it, or was discovered from it.
-	FromID string
+	FromID string `json:"issue_id"`
 	// ToID is the blocker, the parent, or the origin.
-	ToID string
+	ToID string `json:"depends_on_id"`
 	// Type is the edge kind: blocks, parent-child, discovered-from,
 	// related.
-	Type string
+	Type string `json:"type"`
 }

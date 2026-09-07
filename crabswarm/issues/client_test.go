@@ -1,14 +1,30 @@
 package issues
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"golang.org/x/sync/errgroup"
 	"gotest.tools/v3/assert"
 )
+
+// findSummary returns the listed issue with the given id, failing the test
+// when the recording does not carry it.
+func findSummary(t *testing.T, listed []Summary, id string) Summary {
+	t.Helper()
+	for _, sum := range listed {
+		if sum.ID == id {
+			return sum
+		}
+	}
+	t.Fatalf("no issue %q in the listing", id)
+	return Summary{}
+}
 
 func TestClientList(t *testing.T) {
 	invocations := installFakeBd(t)
@@ -16,7 +32,7 @@ func TestClientList(t *testing.T) {
 
 	got, err := NewClient(dir).List(t.Context(), ListFilter{})
 	assert.NilError(t, err)
-	assert.Equal(t, len(got), 3)
+	assert.Equal(t, len(got), 81)
 
 	// A bare filter still pins the limit: bd's own default would cap the
 	// result at 50.
@@ -27,31 +43,73 @@ func TestClientList(t *testing.T) {
 	// Only `bd where` runs with the envelope.
 	assert.Equal(t, inv[0].envelope, "")
 
-	open := got[0]
-	assert.Equal(t, open.ID, "crabswarm-no2")
-	assert.Equal(t, open.Title, "sample-title")
-	assert.Equal(t, open.Status, StatusOpen)
-	assert.Equal(t, open.Type, "task")
-	assert.Equal(t, open.Assignee, "me")
-	assert.Equal(t, open.CommentCount, 1)
-	assert.Equal(t, open.CreatedAt.Format("2006-01-02T15:04:05Z"), "2026-09-04T12:20:33Z")
+	closed := got[0]
+	assert.Equal(t, closed.ID, "crabswarm-lpq.9")
+	assert.Equal(t, closed.Title, "Step 9 — Dogfood")
+	assert.Equal(t, closed.Status, StatusClosed)
+	assert.Equal(t, closed.Type, "task")
+	assert.Equal(t, closed.ParentID, "crabswarm-lpq")
+	assert.DeepEqual(t, closed.Labels, []string{"step"})
+	assert.Equal(t, closed.CreatedAt.Format("2006-01-02T15:04:05Z"), "2026-09-06T13:19:54Z")
+	assert.Assert(t, !closed.ClosedAt.IsZero())
 	// bd list carries the long text, so a listing is enough to see what an
 	// issue says.
-	assert.Equal(t, open.Description, "woo\n\n## Context\nwhoooaaa")
-	assert.Equal(t, open.Design, "realy nice")
-	assert.Equal(t, open.AcceptanceCriteria, "weeee")
+	assert.Assert(t, closed.Description != "")
 	// Omitted fields decode as empty.
-	assert.Equal(t, open.Notes, "")
-	assert.Equal(t, len(open.Labels), 0)
+	assert.Equal(t, closed.Design, "")
+	assert.Equal(t, closed.Notes, "")
+	assert.Equal(t, closed.Assignee, "")
+	assert.Equal(t, closed.CommentCount, 0)
+
+	// An epic carries the long fields and the metadata object its children
+	// leave empty.
+	epic := findSummary(t, got, "crabswarm-lpq")
+	assert.Equal(t, epic.Type, "epic")
+	assert.Equal(t, epic.ParentID, "")
+	assert.DeepEqual(t, epic.Labels, []string{"plan"})
+	assert.Assert(t, epic.Design != "")
+	assert.Assert(t, epic.AcceptanceCriteria != "")
+	assert.Assert(t, epic.Notes != "")
+	assert.Equal(t, epic.CommentCount, 36)
+	// Metadata stays raw JSON; its keys are a caller convention.
+	var meta map[string]any
+	assert.NilError(t, json.Unmarshal(epic.Metadata, &meta))
+	assert.Equal(t, meta["idea_gate_passed"], "2026-09-04")
+
+	open := findSummary(t, got, "crabswarm-jp7")
+	assert.Equal(t, open.Status, StatusOpen)
 	assert.Assert(t, open.ClosedAt.IsZero())
-	assert.Equal(t, open.ParentID, "")
+	assert.DeepEqual(t, open.Labels, []string{"admin", "chat", "proto", "tui"})
+}
 
-	assert.DeepEqual(t, got[1].Labels, []string{"admin", "chat", "proto", "tui"})
+func TestClientListCarriesDependencies(t *testing.T) {
+	installFakeBd(t)
 
-	closed := got[2]
-	assert.Equal(t, closed.ID, "crabswarm-125")
-	assert.Equal(t, closed.Status, StatusClosed)
-	assert.Assert(t, !closed.ClosedAt.IsZero())
+	got, err := NewClient(t.TempDir()).List(t.Context(), ListFilter{})
+	assert.NilError(t, err)
+
+	// Every issue reports its own outgoing edges, so flattening a listing
+	// yields the whole graph of a backlog without a second bd call.
+	var edges []Edge
+	var carrying int
+	for _, sum := range got {
+		if len(sum.Dependencies) > 0 {
+			carrying++
+		}
+		edges = append(edges, sum.Dependencies...)
+	}
+	assert.Equal(t, carrying, 32)
+	assert.Equal(t, len(edges), 54)
+
+	// An issue's edges always name it as the from side, and one issue reports
+	// links of several kinds.
+	assert.DeepEqual(t, findSummary(t, got, "crabswarm-lpq.9").Dependencies, []Edge{
+		{FromID: "crabswarm-lpq.9", ToID: "crabswarm-lpq", Type: "parent-child"},
+		{FromID: "crabswarm-lpq.9", ToID: "crabswarm-lpq.8", Type: "blocks"},
+	})
+
+	// An issue with no links reports none rather than an empty record.
+	assert.Equal(t, len(findSummary(t, got, "crabswarm-jp7").Dependencies), 0)
 }
 
 func TestClientListFilters(t *testing.T) {
@@ -60,7 +118,7 @@ func TestClientListFilters(t *testing.T) {
 	_, err := NewClient(t.TempDir()).List(t.Context(), ListFilter{
 		Statuses:      []Status{StatusOpen, StatusInProgress},
 		Labels:        []string{"chat", "tui"},
-		ParentID:      "crabswarm-125",
+		ParentID:      "crabswarm-lpq",
 		Limit:         5,
 		SortByUpdated: true,
 	})
@@ -74,24 +132,8 @@ func TestClientListFilters(t *testing.T) {
 		t,
 		inv[0].args,
 		"list --json --status open,in_progress --label chat --label tui"+
-			" --parent crabswarm-125 --limit 5 --sort updated",
+			" --parent crabswarm-lpq --limit 5 --sort updated",
 	)
-}
-
-func TestClientChildren(t *testing.T) {
-	invocations := installFakeBd(t)
-
-	got, err := NewClient(t.TempDir()).Children(t.Context(), "scratch-2o5")
-	assert.NilError(t, err)
-
-	inv := invocations()
-	assert.Equal(t, len(inv), 1)
-	assert.Equal(t, inv[0].args, "list --json --parent scratch-2o5 --limit 0")
-
-	assert.Equal(t, len(got), 1)
-	assert.Equal(t, got[0].ID, "scratch-uoj")
-	assert.Equal(t, got[0].ParentID, "scratch-2o5")
-	assert.DeepEqual(t, got[0].Labels, []string{"alpha", "beta"})
 }
 
 func TestClientGet(t *testing.T) {
@@ -169,99 +211,129 @@ func TestClientGetFlagLikeID(t *testing.T) {
 	assert.Equal(t, inv[0].args, "show --id=-C --json --include-comments")
 }
 
-func TestClientDependencies(t *testing.T) {
+func TestClientRunSharesOneRun(t *testing.T) {
 	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
 
-	got, err := NewClient(t.TempDir()).Dependencies(t.Context(),
-		[]string{"crabswarm-no2", "crabswarm-jp7", "crabswarm-125"})
-	assert.NilError(t, err)
+	// Released together, so every caller asks while the first run is still
+	// in flight.
+	start := make(chan struct{})
+	results := make([][]Summary, 8)
+	var g errgroup.Group
+	for i := range results {
+		g.Go(func() error {
+			<-start
+			got, err := client.List(t.Context(), ListFilter{})
+			results[i] = got
+			return err
+		})
+	}
+	close(start)
+	assert.NilError(t, g.Wait())
 
+	// One bd read the database; every caller decoded that one output.
 	inv := invocations()
 	assert.Equal(t, len(inv), 1)
-	// The ids go in positionally, before --json.
-	assert.Equal(t, inv[0].args,
-		"dep list crabswarm-no2 crabswarm-jp7 crabswarm-125 --json")
+	assert.Equal(t, inv[0].args, "list --json --limit 0")
+	for _, got := range results {
+		assert.Equal(t, len(got), 81)
+		assert.Equal(t, got[0].ID, results[0][0].ID)
+	}
+}
 
-	// From is the side carrying the link, To what it points at, and the
-	// parent link is reported like any other edge.
-	assert.DeepEqual(t, got, []Edge{
-		{FromID: "crabswarm-no2", ToID: "crabswarm-jp7", Type: "blocks"},
-		{FromID: "crabswarm-no2", ToID: "crabswarm-125", Type: "discovered-from"},
-		{FromID: "crabswarm-jp7", ToID: "crabswarm-125", Type: "parent-child"},
+func TestClientRunQueuesDifferentArguments(t *testing.T) {
+	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
+
+	var g errgroup.Group
+	g.Go(func() error {
+		_, err := client.List(t.Context(), ListFilter{})
+		return err
 	})
-}
-
-func TestClientDependenciesOneID(t *testing.T) {
-	invocations := installFakeBd(t)
-
-	// Asked about a single issue bd falls back to its older per-issue shape,
-	// which names only the target of each edge.
-	got, err := NewClient(t.TempDir()).Dependencies(t.Context(), []string{"scratch-uoj"})
-	assert.NilError(t, err)
-
-	inv := invocations()
-	assert.Equal(t, len(inv), 1)
-	assert.Equal(t, inv[0].args, "dep list scratch-uoj --json")
-
-	assert.DeepEqual(t, got, []Edge{
-		{FromID: "scratch-uoj", ToID: "scratch-2o5", Type: "parent-child"},
+	g.Go(func() error {
+		_, err := client.Get(t.Context(), "scratch-uoj")
+		return err
 	})
+	// Two different argument lists share no run, so they can only both
+	// succeed by taking the slot one after the other: the fake refuses a bd
+	// started beside another one.
+	assert.NilError(t, g.Wait())
+
+	assert.Equal(t, len(invocations()), 2)
 }
 
-func TestClientDependenciesNoIDs(t *testing.T) {
+func TestClientRunCancelWhileQueued(t *testing.T) {
 	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
 
-	got, err := NewClient(t.TempDir()).Dependencies(t.Context(), nil)
-	assert.NilError(t, err)
-	assert.Equal(t, len(got), 0)
-	// bd rejects a dep listing with no ids, so none is run.
-	assert.Equal(t, len(invocations()), 0)
-}
+	running := make(chan error, 1)
+	go func() {
+		_, err := client.List(t.Context(), ListFilter{})
+		running <- err
+	}()
+	// The fake records itself before it sleeps, so the slot is taken by the
+	// time the invocation shows up.
+	waitInvocations(t, invocations, 1)
 
-func TestClientDependenciesDuplicateIDs(t *testing.T) {
-	invocations := installFakeBd(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	queued := make(chan error, 1)
+	go func() {
+		_, err := client.Get(ctx, "scratch-uoj")
+		queued <- err
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	assert.ErrorIs(t, <-queued, context.Canceled)
 
-	_, err := NewClient(t.TempDir()).Dependencies(t.Context(),
-		[]string{"crabswarm-no2", "crabswarm-jp7", "crabswarm-no2"})
-	assert.NilError(t, err)
+	select {
+	case <-running:
+		t.Fatal("the cancelled caller waited for the running bd to finish")
+	default:
+	}
+	assert.NilError(t, <-running)
 
-	// bd reports an issue's edges once per time it is named, so a repeated id
-	// is collapsed before the command line is built.
+	// Nobody was left wanting the queued run, so it never spawned a bd. The
+	// window starts here on purpose: the slot only frees when the running bd
+	// returns, so a cancellation that had merely unblocked the caller and left
+	// the run queued would spawn its bd just after this point, not before it.
+	assertInvocationsStay(t, invocations, 1, time.Second)
+
 	inv := invocations()
-	assert.Equal(t, len(inv), 1)
-	assert.Equal(t, inv[0].args, "dep list crabswarm-no2 crabswarm-jp7 --json")
+	assert.Equal(t, inv[0].args, "list --json --limit 0")
 }
 
-func TestClientDependenciesMissingID(t *testing.T) {
-	installFakeBd(t)
+func TestClientRunOutlivesOneCallerLeaving(t *testing.T) {
+	invocations := installFakeBd(t)
+	requireExclusiveFakeBd(t)
+	client := NewClient(t.TempDir())
 
-	_, err := NewClient(t.TempDir()).Dependencies(t.Context(), []string{"scratch-nope"})
-	assert.Assert(t, err != nil)
-	// bd writes nothing to stderr here, so its JSON report is the only thing
-	// naming the id.
-	assert.Assert(
-		t,
-		strings.Contains(err.Error(), `no issue found matching "scratch-nope"`),
-		"got %v",
-		err,
-	)
-}
+	var got []Summary
+	staying := make(chan error, 1)
+	go func() {
+		var err error
+		got, err = client.List(t.Context(), ListFilter{})
+		staying <- err
+	}()
+	waitInvocations(t, invocations, 1)
 
-func TestClientDependenciesUnattributableShape(t *testing.T) {
-	installFakeBd(t)
-	// Real bd answers several ids with the per-issue shape when only one of
-	// them resolves, and then nothing says which one the edges belong to.
-	t.Setenv("FAKE_BD_DEP_SINGLE", "1")
+	ctx, cancel := context.WithCancel(t.Context())
+	leaving := make(chan error, 1)
+	go func() {
+		_, err := client.List(ctx, ListFilter{})
+		leaving <- err
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	assert.ErrorIs(t, <-leaving, context.Canceled)
 
-	_, err := NewClient(t.TempDir()).Dependencies(t.Context(),
-		[]string{"scratch-uoj", "scratch-gone"})
-	assert.Assert(t, err != nil)
-	assert.Assert(
-		t,
-		strings.Contains(err.Error(), "without their from side"),
-		"got %v",
-		err,
-	)
+	// The run belongs to neither caller: the one that stayed still reads
+	// the output of the single bd both had joined.
+	assert.NilError(t, <-staying)
+	assert.Equal(t, len(got), 81)
+	assert.Equal(t, len(invocations()), 1)
 }
 
 func TestClientWithEnvAndBinary(t *testing.T) {
