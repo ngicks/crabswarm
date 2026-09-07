@@ -40,6 +40,25 @@ body,
   height: 100%;
 }
 
+/* The shell (components/Layout) is exactly one viewport tall and every surface
+   scrolls inside its own column, so the document must never scroll alongside
+   them. html's value is the one the browser lifts to the viewport, and body
+   needs its own on top of it: a node parked outside #app — mermaid hangs a
+   tooltip off the body, headless components portal their popups there — would
+   otherwise stretch the page and paint a second scrollbar beside the column's.
+   Those nodes are absolutely positioned, so body also has to be their
+   containing block or the clip never reaches them. `clip` rather than `hidden`,
+   because a hidden box is still a scroll container: `scrollIntoView` on a
+   section anchor would then drag the whole app up by the height of whatever
+   stray node body had swallowed, and leave it there. */
+html {
+  overflow: hidden;
+}
+body {
+  position: relative;
+  overflow: clip;
+}
+
 /* Rendered-document tweaks layered on top of github-markdown-css. The doc/image
    wrapper (DocumentView/ImageView) supplies the card surface, so the body itself
    must be transparent. github-markdown-css sets its own `.markdown-body` background
