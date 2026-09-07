@@ -411,6 +411,9 @@ func TestServer_AttendsAgainWhenTheRoomSaysItLeft(t *testing.T) {
 	waitFor(t, "the bridge never attended again", func() bool {
 		return fake.attendCount() == 2
 	})
+	waitFor(t, "the bridge never watched the room again", func() bool {
+		return fake.watchCount() == 2
+	})
 	assert.Equal(t, fake.readCount(), 0, "no tool call was made")
 }
 

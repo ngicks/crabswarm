@@ -67,8 +67,8 @@ type Server struct {
 	// accepted join reported it. It is kept because the room's event feed names
 	// a departing member by team and name and by nothing else, so it is the only
 	// thing an event announcing this bridge's own departure can be matched
-	// against. It is guarded by joinMu because it is written and read exactly
-	// where joined is.
+	// against. It is guarded by joinMu because it is set and cleared together
+	// with joined.
 	self *chatv1.Member
 
 	// The two loops' schedules, held here rather than read from the constants
@@ -336,6 +336,11 @@ func (s *Server) forgetJoined(err error) error {
 // session's membership, and it keeps attending until the session ends: a room
 // missing a member whose agent is still running is the failure this exists to
 // prevent, and leaving is spelled by stopping the harness.
+//
+// An admin move announces the moved member's departure under its old team and
+// name, so it matches here as well. The join that follows finds the token
+// already attending and returns the moved membership unchanged, so the move
+// stands; the cost is one redundant round trip and a reopened feed.
 func (s *Server) leftItself(ev *chatv1.RoomEvent) bool {
 	left := ev.GetMemberLeft().GetMember()
 	if left == nil {

@@ -276,9 +276,10 @@ func TestDial_RejectsEmptySocketPath(t *testing.T) {
 }
 
 // daemonDelay is how long the daemon in the case below takes to arrive: long
-// enough that the client has failed to reach it several times over and is
-// waiting between attempts of its own when it does.
-const daemonDelay = 3 * time.Second
+// enough that the client has failed to reach it at least once and is waiting
+// between attempts of its own when it does, short enough not to slow the
+// package's tests.
+const daemonDelay = 500 * time.Millisecond
 
 // A client dialled at a socket nothing is listening on reaches the daemon that
 // turns up later, over the connection it already has. That is the shape every

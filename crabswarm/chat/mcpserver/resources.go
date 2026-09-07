@@ -260,7 +260,9 @@ func (s *Server) watchMembers(ctx context.Context) {
 		// yet is the attend loop's news to report, and it reports it: saying it
 		// again here would double every line a bridge waiting for its daemon
 		// writes.
-		if !errors.Is(err, errNotAttending) {
+		// A feed the bridge ended itself on its own departure broke nothing
+		// either; the attend loop reports the join that follows.
+		if !errors.Is(err, errNotAttending) && !errors.Is(err, errLeftTheRoom) {
 			s.warnRetry("the room event feed ended; watching again", failures, backoff, err)
 		}
 		select {
@@ -294,10 +296,11 @@ var errLeftTheRoom = errors.New("the room reported this member as having left")
 // A feed refused for that reason gives the declared attendance back up, so the
 // next attempt declares it again instead of looping on the same no.
 //
-// An event announcing this bridge's own departure ends the feed too, after it is
-// announced like any other roster change. The daemon authorises a feed once, so
-// this stream would otherwise run on perfectly well while the membership behind
-// it is gone; ending it puts the next attempt back through the join. See
+// An event announcing this bridge's own departure makes the bridge end the feed
+// too, after the event is announced like any other roster change. The daemon
+// authorises a feed once, so this stream would otherwise run on perfectly well
+// while the membership behind it is gone; ending it puts the next attempt back
+// through the join. See
 // [Server.leftItself] for what counts as this bridge's departure and why the
 // bridge undoes one.
 func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
@@ -305,7 +308,12 @@ func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", errNotAttending, err)
 	}
-	stream, err := s.client.WatchRoom(ctx, token)
+	// The stream gets a context of its own: returning on a departure leaves a
+	// stream the daemon still serves, and cancelling is the only way to end
+	// one the daemon has not ended. ctx itself lives as long as the session.
+	sctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stream, err := s.client.WatchRoom(sctx, token)
 	if err != nil {
 		return s.forgetJoined(err)
 	}
