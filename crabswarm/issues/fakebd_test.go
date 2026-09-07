@@ -21,11 +21,11 @@ import (
 //   - where          -> where.json, or where_no_beads.json with exit 1 when
 //     FAKE_BD_NO_BEADS is set, matching bd's behavior of printing the error
 //     envelope on stdout.
-//   - list           -> list_children.json when --parent is present; else the
-//     next fixture of the colon-separated FAKE_BD_LIST_SEQUENCE, counted in
-//     FAKE_BD_LIST_COUNTER, so successive polls read a changing backlog; else
-//     list.json. The last fixture of the sequence replays for every further
-//     call, so a poll past the end of the sequence reports no change.
+//   - list           -> the next fixture of the colon-separated
+//     FAKE_BD_LIST_SEQUENCE, counted in FAKE_BD_LIST_COUNTER, so successive
+//     polls read a changing backlog; else list.json. The last fixture of the
+//     sequence replays for every further call, so a poll past the end of the
+//     sequence reports no change.
 //   - show --id=<id> -> show.json for the one recorded issue, else
 //     show_not_found.json with exit 1.
 //
@@ -41,11 +41,6 @@ import (
 const fakeBdScript = `#!/bin/sh
 sub="$1"
 shift
-
-parent=
-for a in "$@"; do
-  if [ "$a" = "--parent" ]; then parent=1; fi
-done
 
 {
   printf '%s\t' "$(pwd)"
@@ -74,9 +69,7 @@ where)
   cat "$FAKE_BD_TESTDATA/where.json"
   ;;
 list)
-  if [ -n "$parent" ]; then
-    cat "$FAKE_BD_TESTDATA/list_children.json"
-  elif [ -n "$FAKE_BD_LIST_SEQUENCE" ]; then
+  if [ -n "$FAKE_BD_LIST_SEQUENCE" ]; then
     n=0
     if [ -f "$FAKE_BD_LIST_COUNTER" ]; then n=$(cat "$FAKE_BD_LIST_COUNTER"); fi
     echo "$((n + 1))" > "$FAKE_BD_LIST_COUNTER"
@@ -141,6 +134,29 @@ func waitInvocations(t *testing.T, invocations func() []invocation, n int) {
 			t.Fatalf("waited for %d invocations, saw %d", n, len(invocations()))
 		}
 		time.Sleep(time.Millisecond)
+	}
+}
+
+// assertInvocationsStay fails unless exactly n invocations are recorded for
+// the whole of d. It is how a test asserts a bd never started rather than
+// merely not having started yet: the fake records itself before it does
+// anything else, so d only has to cover spawning the process.
+func assertInvocationsStay(
+	t *testing.T,
+	invocations func() []invocation,
+	n int,
+	d time.Duration,
+) {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for {
+		if got := len(invocations()); got != n {
+			t.Fatalf("saw %d invocations, want %d", got, n)
+		}
+		if time.Now().After(deadline) {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 

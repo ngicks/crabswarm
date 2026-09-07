@@ -3,6 +3,7 @@ package issues
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -347,12 +348,18 @@ func TestServiceListDependenciesWithinRequestedIssues(t *testing.T) {
 // no filter of its own — the service narrows a listing in Go — and records
 // every filter it was asked for, so a test can see what reached bd.
 type stubReader struct {
-	issues  []Issue
+	issues []Issue
+	// listErr fails every listing while it is set, standing in for a bd that
+	// exits non-zero.
+	listErr error
 	filters []ListFilter
 }
 
 func (r *stubReader) List(_ context.Context, f ListFilter) ([]Summary, error) {
 	r.filters = append(r.filters, f)
+	if r.listErr != nil {
+		return nil, r.listErr
+	}
 	out := make([]Summary, len(r.issues))
 	for i, issue := range r.issues {
 		out[i] = issue.Summary
@@ -377,6 +384,48 @@ func withStub(t *testing.T, reader *stubReader) (*Service, string) {
 	src := Source{ID: "src-1", BeadsPath: "/repo/.beads", Prefix: "scratch", Dir: "/repo"}
 	svc.store.sources[src.ID] = src
 	return svc, src.ID
+}
+
+// TestServiceListingFailureIsInternal drives every RPC that reads through the
+// source's listing. bd's own message is what carries host paths and database
+// state, so it must stay in the log rather than ride out in the response.
+func TestServiceListingFailureIsInternal(t *testing.T) {
+	const message = "bd list: exit status 3: /home/someone/repo/.beads is locked"
+	svc, id := withStub(t, &stubReader{
+		issues:  []Issue{{Summary: Summary{ID: "epic", Status: StatusOpen}}},
+		listErr: errors.New(message),
+	})
+
+	for _, tc := range []struct {
+		name string
+		call func() error
+	}{
+		{"ListIssues", func() error {
+			_, err := svc.ListIssues(t.Context(),
+				connect.NewRequest(&issuesv1.ListIssuesRequest{SourceId: id}))
+			return err
+		}},
+		{"GetIssue", func() error {
+			_, err := svc.GetIssue(t.Context(), connect.NewRequest(&issuesv1.GetIssueRequest{
+				SourceId: id,
+				IssueId:  "epic",
+			}))
+			return err
+		}},
+		{"ListDependencies", func() error {
+			_, err := svc.ListDependencies(t.Context(),
+				connect.NewRequest(&issuesv1.ListDependenciesRequest{SourceId: id}))
+			return err
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.call()
+			assert.Assert(t, err != nil)
+			assert.Equal(t, connect.CodeOf(err), connect.CodeInternal)
+			assert.Assert(t, !strings.Contains(err.Error(), message), "got %v", err)
+			assert.Assert(t, strings.Contains(err.Error(), "listing issues failed"), "got %v", err)
+		})
+	}
 }
 
 func TestServiceListIssuesCountsChildren(t *testing.T) {

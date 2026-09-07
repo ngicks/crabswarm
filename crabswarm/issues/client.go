@@ -18,11 +18,13 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// bdRunTimeout bounds one bd invocation. The run is detached from the
-// caller that started it — later callers join it, and a caller that gives
-// up leaves it running for the others — so no caller's deadline can end
-// it, and it holds the client's one queue slot until it returns. A bd that
-// outlives everyone who wanted its output must therefore end on its own.
+// bdRunTimeout bounds a run from the moment it is created, which is before
+// it queues for the client's one slot: it covers the wait for that slot and
+// the bd invocation together. The run is detached from the caller that
+// started it — later callers join it, and a caller that gives up leaves it
+// running for the others — so no caller's deadline can end it, and it holds
+// the slot until it returns. A bd that outlives everyone who wanted its
+// output must therefore end on its own.
 const bdRunTimeout = 2 * time.Minute
 
 // errAbandoned reports a run whose callers all left before it produced
@@ -317,11 +319,6 @@ func (c *Client) List(ctx context.Context, f ListFilter) ([]Summary, error) {
 		return nil, fmt.Errorf("decoding bd list: %w", err)
 	}
 	return summaries, nil
-}
-
-// Children returns the issues whose parent is id.
-func (c *Client) Children(ctx context.Context, id string) ([]Summary, error) {
-	return c.List(ctx, ListFilter{ParentID: id})
 }
 
 // errorReport is the JSON a failing bd subcommand prints on stdout.

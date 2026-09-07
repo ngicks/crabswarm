@@ -136,22 +136,6 @@ func TestClientListFilters(t *testing.T) {
 	)
 }
 
-func TestClientChildren(t *testing.T) {
-	invocations := installFakeBd(t)
-
-	got, err := NewClient(t.TempDir()).Children(t.Context(), "scratch-2o5")
-	assert.NilError(t, err)
-
-	inv := invocations()
-	assert.Equal(t, len(inv), 1)
-	assert.Equal(t, inv[0].args, "list --json --parent scratch-2o5 --limit 0")
-
-	assert.Equal(t, len(got), 1)
-	assert.Equal(t, got[0].ID, "scratch-uoj")
-	assert.Equal(t, got[0].ParentID, "scratch-2o5")
-	assert.DeepEqual(t, got[0].Labels, []string{"alpha", "beta"})
-}
-
 func TestClientGet(t *testing.T) {
 	invocations := installFakeBd(t)
 
@@ -311,9 +295,13 @@ func TestClientRunCancelWhileQueued(t *testing.T) {
 	}
 	assert.NilError(t, <-running)
 
-	// Nobody was left wanting the queued run, so it never spawned a bd.
+	// Nobody was left wanting the queued run, so it never spawned a bd. The
+	// window starts here on purpose: the slot only frees when the running bd
+	// returns, so a cancellation that had merely unblocked the caller and left
+	// the run queued would spawn its bd just after this point, not before it.
+	assertInvocationsStay(t, invocations, 1, time.Second)
+
 	inv := invocations()
-	assert.Equal(t, len(inv), 1)
 	assert.Equal(t, inv[0].args, "list --json --limit 0")
 }
 

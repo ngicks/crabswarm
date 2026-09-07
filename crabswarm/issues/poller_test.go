@@ -3,7 +3,9 @@ package issues
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -18,10 +20,17 @@ import (
 // between two polls.
 type stubLister struct {
 	listings [][]Summary
-	calls    int
+	// err fails every listing while it is set. A failed call does not advance
+	// the script, so a test can drop a failure between two scripted listings
+	// without losing one of them.
+	err   error
+	calls int
 }
 
 func (s *stubLister) List(_ context.Context, _ ListFilter) ([]Summary, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	i := min(s.calls, len(s.listings)-1)
 	s.calls++
 	return s.listings[i], nil
@@ -99,6 +108,72 @@ func TestPollerRefreshEmitsOutsideTick(t *testing.T) {
 	// The refresh moved the baseline, so the next tick finds nothing new.
 	p.poll(t.Context())
 	assert.Equal(t, len(emitted), 1)
+}
+
+func TestPollerRefreshPropagatesListingFailure(t *testing.T) {
+	failure := errors.New("bd list: exit status 3")
+	lister := &stubLister{
+		err: failure,
+		listings: [][]Summary{
+			{{ID: "a", UpdatedAt: at(0)}, {ID: "b", UpdatedAt: at(0)}},
+			{{ID: "a", UpdatedAt: at(1)}, {ID: "b", UpdatedAt: at(0)}},
+		},
+	}
+
+	var emitted [][]string
+	p := NewPoller(nil, "src-1", lister, time.Minute,
+		func(_ string, issueIDs []string) { emitted = append(emitted, issueIDs) })
+
+	// bd's own error reaches the caller: a request reading through the poller
+	// has to be able to tell a failed listing from an empty source.
+	_, err := p.Refresh(t.Context())
+	assert.ErrorIs(t, err, failure)
+	// A failure before any listing succeeded records no baseline, so the
+	// first listing that does succeed is still the baseline.
+	assert.Assert(t, !p.primed)
+	assert.Equal(t, len(p.seen), 0)
+
+	lister.err = nil
+	_, err = p.Refresh(t.Context())
+	assert.NilError(t, err)
+	assert.Equal(t, len(emitted), 0)
+
+	// A failure after that leaves the baseline where the last success left it.
+	lister.err = failure
+	_, err = p.Refresh(t.Context())
+	assert.ErrorIs(t, err, failure)
+	assert.Equal(t, len(emitted), 0)
+	assert.Assert(t, p.primed)
+	assert.DeepEqual(t, p.seen, map[string]time.Time{"a": at(0), "b": at(0)})
+
+	// So the next listing that succeeds diffs against that baseline and names
+	// the one issue that moved, instead of taking the whole source for new.
+	lister.err = nil
+	listed, err := p.Refresh(t.Context())
+	assert.NilError(t, err)
+	assert.DeepEqual(t, listed, lister.listings[1])
+	assert.Equal(t, len(emitted), 1)
+	assert.DeepEqual(t, emitted[0], []string{"a"})
+}
+
+func TestPollerPollLogsListingFailure(t *testing.T) {
+	var logged bytes.Buffer
+	p := NewPoller(
+		slog.New(slog.NewTextHandler(&logged, nil)),
+		"src-1",
+		&stubLister{err: errors.New("bd list: exit status 3")},
+		time.Minute,
+		func(string, []string) { t.Error("a failed poll emitted an event") },
+	)
+
+	p.poll(t.Context())
+
+	// A tick answers to no caller, so the log is the only place its failure
+	// is reported.
+	got := logged.String()
+	assert.Assert(t, strings.Contains(got, "issues: poll failed"), "got %q", got)
+	assert.Assert(t, strings.Contains(got, "src-1"), "got %q", got)
+	assert.Assert(t, strings.Contains(got, "exit status 3"), "got %q", got)
 }
 
 func TestPollerRefreshCollapsesCallers(t *testing.T) {

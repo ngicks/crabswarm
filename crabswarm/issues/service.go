@@ -51,9 +51,11 @@ type issueReader interface {
 //
 // A source's poller owns the one listing every read of that source derives
 // from, so a board, an issue's children and a dependency graph share a single
-// `bd list`. It exists as soon as the source is first read, whether or not
-// [Service.Run] is running; Run only adds the ticker that polls it on a
-// schedule and fans the diffs out to WatchIssues subscribers.
+// `bd list`. It is built on the source's first use — an RPC reading the
+// source, or [Service.Run] starting that source's ticker, whichever comes
+// first — so an RPC arriving before Run, or with no Run at all, reads through
+// it. Run adds the ticker that polls it on a schedule and fans the diffs out
+// to WatchIssues subscribers.
 //
 // Tickers start when a source is added and stop when it is removed, all under
 // the errgroup created by Run. Adding or removing a source also publishes a
@@ -78,8 +80,8 @@ type Service struct {
 }
 
 // sourceState is what a source is read through: the bd reader and the poller
-// holding that source's one shared listing. Both are built on the first read
-// of the source and dropped together when it is removed.
+// holding that source's one shared listing. Both are built on the source's
+// first use and dropped together when it is removed.
 type sourceState struct {
 	reader issueReader
 	poller *Poller
@@ -181,10 +183,10 @@ func (s *Service) startPoller(src Source) {
 }
 
 // startPollerLocked runs src's poller on its interval under the Run errgroup,
-// unless the ticker is already running or the service is not. It does not
-// create the poller: a source has one from its first read, so an RPC arriving
-// before Run — or with no Run at all — still reads through it. The caller
-// holds s.mu.
+// unless the ticker is already running or the service is not. It takes the
+// poller through stateLocked, so starting the ticker builds it when nothing
+// has read the source yet and joins the one an earlier read built otherwise.
+// The caller holds s.mu.
 func (s *Service) startPollerLocked(src Source) {
 	if s.group == nil || s.runCtx == nil || s.runCtx.Err() != nil {
 		return

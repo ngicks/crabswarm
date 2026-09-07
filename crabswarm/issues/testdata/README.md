@@ -27,14 +27,13 @@ diff between the two listings names that one issue and nothing else.
 These were not re-recorded, so the commands below are the ones each fixture
 answers rather than commands run against the database this repository carries.
 
-`show.json` and `list_children.json` carry issues under the `scratch` prefix.
-This repository's backlog never held them. They record a child issue with
-metadata, notes, labels and one comment, plus the epic it hangs under.
+`show.json` carries an issue under the `scratch` prefix. This repository's
+backlog never held it. It records a child issue with metadata, notes, labels
+and one comment, plus the epic it hangs under as its one dependency.
 
 | File | Command it answers |
 | --- | --- |
 | `show.json` | `bd show --id=scratch-uoj --json --include-comments` |
-| `list_children.json` | `bd list --json --status open,in_progress,blocked,deferred,closed --parent scratch-2o5 --limit 0` |
 | `show_not_found.json` | `bd show` for an id no issue matches |
 | `where.json` | `bd where --json` with `BD_JSON_ENVELOPE=1` |
 | `where_no_beads.json` | the same `bd where` in a directory no beads workspace governs |
