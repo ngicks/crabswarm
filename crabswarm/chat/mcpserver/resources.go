@@ -30,10 +30,11 @@ const (
 )
 
 // The roster is answered as structured data because its reader is the harness
-// rather than the model, and because a member's state is not in the CLI's
-// listing at all. The transcript is answered in the CLI's own words: every line
-// of it already carries everything an entry holds, so a second spelling of the
-// same conversation would be one more thing to keep in step.
+// rather than the model: it gets an address, a team, a name, a kind and a state
+// as fields it can act on, where the CLI's listing would have to be split back
+// into columns first. The transcript is answered in the CLI's own words: every
+// line of it already carries everything an entry holds, so a second spelling of
+// the same conversation would be one more thing to keep in step.
 const (
 	membersMIMEType = "application/json"
 	historyMIMEType = "text/plain"
@@ -218,7 +219,7 @@ func (s *Server) unsubscribed(_ context.Context, req *mcp.UnsubscribeRequest) er
 // How long the bridge waits before watching the room again after its feed
 // ended. The daemon drops a watcher that falls behind, so ending is ordinary
 // enough that the first retry is quick; the ceiling is what keeps a daemon that
-// is down from being asked in a loop.
+// is down from being asked in a loop. [New] seeds a Server with these.
 const (
 	watchBackoffBase = 200 * time.Millisecond
 	watchBackoffMax  = 5 * time.Second
@@ -231,12 +232,14 @@ const (
 // subscribed harness is holding a view of the room that would quietly stop
 // being true, with no call of its own to fail and tell it so. The bridge is in
 // the same position about its own membership — the daemon can forget it between
-// one turn and the next — and a feed the daemon refuses is what tells it, since
-// there may be no tool call for hours. That is why the feed runs from the start
-// rather than from the first subscription: an unsubscribed session is told
-// nothing either way, so nothing is spent on it but the stream.
+// one turn and the next — and the feed is what tells it, since there may be no
+// tool call for hours: a feed the daemon refuses says the membership is already
+// gone, and an event naming this member as having left says it is going now.
+// That is why the feed runs from the start rather than from the first
+// subscription: an unsubscribed session is told nothing either way, so nothing
+// is spent on it but the stream.
 func (s *Server) watchMembers(ctx context.Context) {
-	backoff := watchBackoffBase
+	backoff := s.watchBackoffBase
 	failures := 0
 	for resumed := false; ; resumed = true {
 		started := time.Now()
@@ -249,8 +252,8 @@ func (s *Server) watchMembers(ctx context.Context) {
 		// feed that never got going is, so it starts its retries over rather
 		// than inheriting the wait the previous failure had climbed to. Settled
 		// before the log, so the wait it reports is the one it takes.
-		if time.Since(started) >= watchBackoffMax {
-			backoff = watchBackoffBase
+		if time.Since(started) >= s.watchBackoffMax {
+			backoff = s.watchBackoffBase
 			failures = 1
 		}
 		// A feed that could not be opened because the bridge is not attending
@@ -265,13 +268,16 @@ func (s *Server) watchMembers(ctx context.Context) {
 			return
 		case <-time.After(backoff):
 		}
-		backoff = min(2*backoff, watchBackoffMax)
+		backoff = min(2*backoff, s.watchBackoffMax)
 	}
 }
 
 // errNotAttending marks a feed attempt that never reached the daemon because
 // the bridge has no attendance to watch on behalf of.
 var errNotAttending = errors.New("not attending the chat room")
+
+// errLeftTheRoom ends a feed that carried this bridge's own departure.
+var errLeftTheRoom = errors.New("the room reported this member as having left")
 
 // streamRoom watches the room until the feed ends, announcing the roster as
 // changed for every event that changes it. It returns why the feed ended.
@@ -287,6 +293,13 @@ var errNotAttending = errors.New("not attending the chat room")
 // acknowledge only spends the backoff on a refusal the join would have cleared.
 // A feed refused for that reason gives the declared attendance back up, so the
 // next attempt declares it again instead of looping on the same no.
+//
+// An event announcing this bridge's own departure ends the feed too, after it is
+// announced like any other roster change. The daemon authorises a feed once, so
+// this stream would otherwise run on perfectly well while the membership behind
+// it is gone; ending it puts the next attempt back through the join. See
+// [Server.leftItself] for what counts as this bridge's departure and why the
+// bridge undoes one.
 func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
 	token, err := s.ensureJoined(ctx)
 	if err != nil {
@@ -306,6 +319,9 @@ func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
 		}
 		if rosterChanged(ev) {
 			s.membersChanged(ctx)
+		}
+		if s.leftItself(ev) {
+			return errLeftTheRoom
 		}
 	}
 }

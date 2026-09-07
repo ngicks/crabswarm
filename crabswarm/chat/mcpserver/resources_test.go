@@ -51,6 +51,14 @@ func joinedEvent(m *chatv1.Member) *chatv1.RoomEvent {
 	}
 }
 
+func leftEvent(m *chatv1.Member) *chatv1.RoomEvent {
+	return &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MemberLeft{
+			MemberLeft: &chatv1.MemberLeft{Member: m},
+		},
+	}
+}
+
 func messageAppendedEvent(from *chatv1.Member, text string) *chatv1.RoomEvent {
 	return &chatv1.RoomEvent{
 		Event: &chatv1.RoomEvent_MessageAppended{
@@ -61,15 +69,17 @@ func messageAppendedEvent(from *chatv1.Member, text string) *chatv1.RoomEvent {
 	}
 }
 
-// watchedUpdates connects a harness that records what the bridge announces, and
-// returns the session beside the URIs as they arrive.
+// watchedUpdates runs bridge under a harness that records what it announces,
+// and returns the session beside the URIs as they arrive. The bridge is the
+// caller's to build, since a case about the feed retrying has to set the pace
+// it retries at.
 func watchedUpdates(
-	t *testing.T, svc *fakeChatService,
+	t *testing.T, bridge *Server,
 ) (*mcp.ClientSession, <-chan string) {
 	t.Helper()
 
 	updated := make(chan string, 8)
-	session := startSessionWith(t, svc, &mcp.ClientOptions{
+	session := serveBridge(t, bridge, &mcp.ClientOptions{
 		ResourceUpdatedHandler: func(
 			_ context.Context, req *mcp.ResourceUpdatedNotificationRequest,
 		) {
@@ -318,7 +328,7 @@ func TestServer_AnnouncesTheRosterWhenTheRoomChanges(t *testing.T) {
 		members: []*chatv1.Member{member("backend", "alice", testRoom)},
 		events:  make(chan *chatv1.RoomEvent),
 	}
-	session, updated := watchedUpdates(t, fake)
+	session, updated := watchedUpdates(t, newTestBridge(t, fake))
 
 	subscribeToRoster(t, session, fake, updated)
 
@@ -349,12 +359,13 @@ func TestServer_WatchesTheRoomBeforeAnythingSubscribes(t *testing.T) {
 		members: []*chatv1.Member{member("backend", "alice", testRoom)},
 		events:  make(chan *chatv1.RoomEvent),
 	}
-	session, updated := watchedUpdates(t, fake)
+	session, updated := watchedUpdates(t, newTestBridge(t, fake))
 
 	// The feed is up once it can carry an event, and nothing was subscribed to
-	// carry it to.
+	// carry it to. One feed, not several: the bridge watches from the start and
+	// the stream it opened is still the one it is reading.
 	pushEvent(t, fake, joinedEvent(member("ops", "carol", testRoom)))
-	assert.Assert(t, fake.watchCount() >= 1)
+	assert.Equal(t, fake.watchCount(), 1)
 	noMoreUpdates(t, updated)
 
 	// Subscribing to the feed that was already running is what makes the same
@@ -461,7 +472,11 @@ func TestServer_WatchesAgainAfterTheFeedEnds(t *testing.T) {
 		events:  make(chan *chatv1.RoomEvent),
 		drops:   make(chan error),
 	}
-	session, updated := watchedUpdates(t, fake)
+	// The case is about the feed coming back, so the loop that brings it back
+	// runs at a pace the case can wait for.
+	bridge := newTestBridge(t, fake)
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
+	session, updated := watchedUpdates(t, bridge)
 
 	subscribeToRoster(t, session, fake, updated)
 
@@ -472,10 +487,11 @@ func TestServer_WatchesAgainAfterTheFeedEnds(t *testing.T) {
 	// what nobody can be told about.
 	assert.Equal(t, nextUpdate(t, updated), membersURI)
 
-	// The new feed carries what the dropped one would have.
+	// The new feed carries what the dropped one would have. Two feeds in all:
+	// the one that was dropped and the one reading this event.
 	pushEvent(t, fake, stateChangedEvent(
 		member("frontend", "bob", testRoom),
 		chatv1.HarnessState_HARNESS_STATE_DONE))
 	assert.Equal(t, nextUpdate(t, updated), membersURI)
-	assert.Assert(t, fake.watchCount() >= 2)
+	assert.Equal(t, fake.watchCount(), 2)
 }

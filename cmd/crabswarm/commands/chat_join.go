@@ -74,5 +74,6 @@ func runChatJoin(
 	}
 	defer client.Close()
 
-	return client.Join(cmd.Context(), cmd.OutOrStdout(), token, flagName, kind)
+	_, err = client.Join(cmd.Context(), cmd.OutOrStdout(), token, flagName, kind)
+	return err
 }

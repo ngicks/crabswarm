@@ -135,6 +135,11 @@ socket. A daemon that restarts on a fresh database gets the member back the same
 way. Neither case needs a tool call to prompt it. Until a join lands the bridge
 still serves its tools, and each of them reports why it cannot act.
 
+The bridge also watches the room's event feed. It notices when its own
+membership is withdrawn and asks to attend again within seconds.
+`crabswarm chat leave` typed against a live bridge is undone this way. The
+bridge is the session's membership. Stopping the harness ends it.
+
 ### Stale hooks from older installs
 
 An older version of this package installed a `SessionStart` hook running

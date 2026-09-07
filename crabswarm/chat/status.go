@@ -92,7 +92,7 @@ func (m *CmdmanStatusMirror) publishable(member Member, what string) bool {
 	// was admitted in.
 	//
 	// Warn, not Debug: this line is the same for a human who never wanted a
-	// display and for an agent admitted without declaring one — and the second
+	// display and for an agent harness that joined as a human — and the second
 	// is a member that never shows up in cmdman and never gets nudged, with
 	// nothing else to say so. A human joining costs a line; an agent wired
 	// wrong costs the operator the only hint they get.

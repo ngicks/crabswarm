@@ -63,6 +63,20 @@ func fixtureCrowd(teams, perTeam int) []*chatv1.Member {
 	return members
 }
 
+// fixtureDerivedName is a room holding one member under the name the daemon
+// derives for an agent that named itself nothing: the kind word, then the head
+// of the token. That is fourteen characters, wider than the column the members
+// pane spells a name in.
+func fixtureDerivedName() []*chatv1.Member {
+	return []*chatv1.Member{{
+		Team:  "backend",
+		Name:  "agent-4f2c8a1b",
+		Room:  fixtureRoom,
+		Kind:  chatv1.MemberKind_MEMBER_KIND_AGENT,
+		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+	}}
+}
+
 // fixtureEntries builds n conversation entries, each carrying its own number so
 // a test can tell which stretch of the room is on screen.
 func fixtureEntries(n int) []*chatv1.AdminHistoryEntry {

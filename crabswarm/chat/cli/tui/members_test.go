@@ -89,6 +89,24 @@ func TestTheMembersCursorMoves(t *testing.T) {
 	assert.Equal(t, m.text.Value(), "")
 }
 
+// A name wider than its column is cut, and the row still reads to the end. The
+// state word is the last thing on the line and the thing the pane is read for —
+// whether the member can be interrupted right now — so a name allowed to push
+// the row wider would take exactly that off the screen when the pane clips.
+func TestALongNameDoesNotPushTheStateOffTheRow(t *testing.T) {
+	m := fixtureModel(t, Deps{})
+	m.roster = fixtureDerivedName()
+	m.layout()
+
+	r := m.rects()
+	pane := m.membersPane(r.members.Dx()-2, r.members.Dy()-2)
+	lines := strings.Split(pane, "\n")
+
+	// The head of the name goes rather than the tail: two agents of one team are
+	// named after the same kind and differ only in the token behind it.
+	assert.Equal(t, lines[1], " …-4f2c8a1b agent working")
+}
+
 // The row the cursor is on is picked out, and a team heading keeps the team
 // colour where the cursor is somewhere else.
 func TestTheMembersCursorIsDrawn(t *testing.T) {

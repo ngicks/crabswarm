@@ -201,16 +201,18 @@ const (
 	// memberUnjudged: the lookup itself failed, so nothing was learned about
 	// the token and its holder stays.
 	memberUnjudged
-	// memberReaped: the provider no longer knows the token, and its holder is
-	// gone from the store.
+	// memberReaped: the provider places the token nowhere any more — it knows no
+	// such command, or the command it names has stopped running — and the
+	// token's holder is gone from the store.
 	memberReaped
 )
 
 // checkLiveness asks the provider about m and drops m from the store when the
-// provider no longer knows its token. It is the one definition of a member
-// being gone, shared by the lazy reap the member half runs before every RPC and
-// by the name-collision paths of both halves: a flaky cmdman must not free
-// names any more than it may empty rooms.
+// provider places its token nowhere any more: it knows no such command, or the
+// command it names is reported as no longer running. It is the one definition of
+// a member being gone, shared by the lazy reap the member half runs before every
+// RPC and by the name-collision paths of both halves: a flaky cmdman must not
+// free names any more than it may empty rooms.
 //
 // Only an agent is asked about: an agent is gone when the session that carried
 // it is, while anyone else stays until they say otherwise, and a name they hold
@@ -380,6 +382,10 @@ func memberState(state chatv1.HarnessState) (MemberState, error) {
 // mirrored to the status display and never nudged, and the store keeps the
 // first join, so a request that filled in nothing would settle the question
 // wrongly and for good.
+//
+// The refusal names the field of the request rather than a flag of any client.
+// The CLI is one caller among several — the MCP bridge is another — and it says
+// which flag to add itself, in words a person typing it can act on.
 func memberKind(kind chatv1.MemberKind) (MemberKind, error) {
 	switch kind {
 	case chatv1.MemberKind_MEMBER_KIND_AGENT:
@@ -388,7 +394,7 @@ func memberKind(kind chatv1.MemberKind) (MemberKind, error) {
 		return KindHuman, nil
 	default:
 		return "", status.Error(codes.InvalidArgument,
-			"join declares no kind: pass --kind agent|human")
+			"join declares no member kind")
 	}
 }
 

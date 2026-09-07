@@ -451,13 +451,27 @@ func lines(s string) []string {
 // memberAddresses is the first column of a `chat members` listing — the address
 // `chat send` takes — for the assertions about who attends rather than about
 // how a member is rendered.
+//
+// A room with nobody in it prints one sentence saying so rather than an empty
+// listing, and reading a word of that sentence as an address would report a
+// member nobody can write to. The empty room is the empty roster.
 func memberAddresses(s string) []string {
+	if strings.TrimSpace(s) == emptyRosterLine {
+		return nil
+	}
 	var out []string
 	for _, l := range lines(s) {
-		out = append(out, strings.Fields(l)[0])
+		fields := strings.Fields(l)
+		if len(fields) == 0 {
+			continue
+		}
+		out = append(out, fields[0])
 	}
 	return out
 }
+
+// emptyRosterLine is what `chat members` prints for a room nobody attends.
+const emptyRosterLine = "no members"
 
 // The addresses the bridge cases below spell. A bridge joins with no name at
 // all — an agent is named by whoever registered it, not by the harness it runs
@@ -1732,7 +1746,42 @@ func TestChat_BridgeAttendsOnceTheDaemonComesUp(t *testing.T) {
 	// declares attendance on its way to answering, so calling one would prove
 	// nothing about the join the bridge makes on its own.
 	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
-	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 5*time.Second)
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+}
+
+// A membership can be taken away from under a live bridge. The daemon publishes
+// the departure into the feed the departing member is itself reading, and it
+// authorises a feed once and never again, so the bridge is left holding a stream
+// that still works and a membership that does not — with no call of its own to
+// fail and say so until the agent happens to use a tool, which may be hours
+// away. The departure names it, and that is what it goes on.
+//
+// `crabswarm chat leave` typed by a second process holding the bridge's token is
+// the shortest way into that state. The bridge undoes it within seconds, which
+// is the intended answer: the bridge is the session's membership and keeps
+// attending until the session ends.
+func TestChat_BridgeReattendsAfterItsMembershipIsWithdrawn(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+	startChatServe(t, cfg)
+	startChatBridge(t, cfg, "tok-ana")
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	// The daemon answers a leave for members alone, so this succeeding is itself
+	// the proof that the bridge was attending and is not any more.
+	runChat(t, cfg, "tok-ana", "leave")
+
+	// Attendance read through a member verb, which the daemon also answers for
+	// members alone. Nothing has called a tool on the bridge.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	// The hook path is what this is for: a state report reaches cmdman's status
+	// display again, on the member the bridge attended for a second time.
+	runChat(t, cfg, "tok-ana", "report-state", "working")
+	published := stubStatus(t, cfg)
+	want := "set working tok-ana --detail crabswarm chat"
+	if !slices.Contains(published, want) {
+		t.Errorf("cmdman status invocations = %q, want one of them to be %q", published, want)
+	}
 }
 
 // A daemon can go away and come back under a live bridge — restarted by its

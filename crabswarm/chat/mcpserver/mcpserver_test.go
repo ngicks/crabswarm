@@ -34,27 +34,17 @@ const testRoom = "/work/proj"
 func startSession(t *testing.T, svc *fakeChatService) *mcp.ClientSession {
 	t.Helper()
 
-	return startSessionWith(t, svc, nil)
+	return serveBridge(t, newTestBridge(t, svc), nil)
 }
 
-// startSessionWith is [startSession] for a harness that listens for what the
-// bridge announces, rather than only calling it.
-func startSessionWith(
-	t *testing.T, svc *fakeChatService, opts *mcp.ClientOptions,
-) *mcp.ClientSession {
-	t.Helper()
-
-	return serveBridge(t, newTestBridge(t, svc), opts)
-}
-
-// heldPace is the attend loop's wait for a case that is not about the loop: the
+// heldPace is a retry loop's wait for a case that is not about the loop: the
 // first attempt happens as it does in production and the next is due long after
 // the case has finished, so what the stub recorded is what the case itself
-// asked for. The cases about the loop set their own pace.
+// asked for. The cases about a loop set their own pace.
 const heldPace = time.Hour
 
-// newTestBridge builds a bridge onto the stub with its attend loop held at
-// [heldPace].
+// newTestBridge builds a bridge onto the stub with both its retry loops — the
+// one that attends and the one that watches the room — held at [heldPace].
 func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
 	t.Helper()
 
@@ -62,7 +52,18 @@ func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
 	assert.NilError(t, err)
 	bridge.joinBackoffBase = heldPace
 	bridge.joinBackoffMax = heldPace
+	bridge.watchBackoffBase = heldPace
+	bridge.watchBackoffMax = heldPace
 	return bridge
+}
+
+// runsAt sets both loops going at a pace a case can wait for, for the cases
+// that are about a loop retrying rather than about what one attempt did.
+func runsAt(bridge *Server, base, max time.Duration) {
+	bridge.joinBackoffBase = base
+	bridge.joinBackoffMax = max
+	bridge.watchBackoffBase = base
+	bridge.watchBackoffMax = max
 }
 
 // serveBridge runs bridge over an in-memory pipe and returns the session a
@@ -322,7 +323,9 @@ func TestServer_AttendsAgainAfterTheDaemonForgetsTheMember(t *testing.T) {
 	res, err = session.CallTool(t.Context(), read)
 	assert.NilError(t, err)
 	assert.Assert(t, !res.IsError, "tool failed: %s", textOf(t, res))
-	assert.Assert(t, fake.joinCount() > 1, "the bridge never attended again")
+	// Twice in all: the join this session opened with, and the one the refusal
+	// sent it back for. Both loops are held, so nothing else asked.
+	assert.Equal(t, fake.joinCount(), 2, "the bridge never attended again")
 }
 
 // A bridge whose daemon refuses it keeps asking, past any handful of attempts.
@@ -335,8 +338,7 @@ func TestServer_KeepsAttendingUntilTheDaemonAdmitsIt(t *testing.T) {
 		err:  status.Error(codes.Unauthenticated, "unknown identity token"),
 	}
 	bridge := newTestBridge(t, fake)
-	bridge.joinBackoffBase = 10 * time.Millisecond
-	bridge.joinBackoffMax = 20 * time.Millisecond
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
 	serveBridge(t, bridge, nil)
 
 	// More attempts than a bounded retry would have made. Both the attend loop
@@ -364,8 +366,7 @@ func TestServer_AttendsAgainWithoutBeingAsked(t *testing.T) {
 		drops:  make(chan error),
 	}
 	bridge := newTestBridge(t, fake)
-	bridge.joinBackoffBase = 10 * time.Millisecond
-	bridge.joinBackoffMax = 20 * time.Millisecond
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
 	serveBridge(t, bridge, nil)
 
 	waitFor(t, "the bridge never attended", func() bool {
@@ -381,6 +382,68 @@ func TestServer_AttendsAgainWithoutBeingAsked(t *testing.T) {
 		return fake.attendCount() == 2
 	})
 	assert.Equal(t, fake.readCount(), 0, "no tool call was made")
+}
+
+// The daemon publishes a member's departure into the feed that member is
+// reading, and it authorises a feed once and never again — so a bridge whose
+// membership was taken away is left holding a stream that works and a
+// membership that does not. The departure names it, and that is enough: it
+// attends again without anything asking, which is what the agent's hooks need,
+// since they report harness state through the CLI and are refused for as long
+// as the room is missing the member.
+func TestServer_AttendsAgainWhenTheRoomSaysItLeft(t *testing.T) {
+	self := member("backend", "alice", testRoom)
+	fake := &fakeChatService{
+		self:   self,
+		events: make(chan *chatv1.RoomEvent),
+		drops:  make(chan error),
+	}
+	bridge := newTestBridge(t, fake)
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
+	serveBridge(t, bridge, nil)
+
+	waitFor(t, "the bridge never attended", func() bool {
+		return fake.attendCount() == 1
+	})
+
+	pushEvent(t, fake, leftEvent(self))
+
+	waitFor(t, "the bridge never attended again", func() bool {
+		return fake.attendCount() == 2
+	})
+	assert.Equal(t, fake.readCount(), 0, "no tool call was made")
+}
+
+// Someone else leaving is the ordinary traffic of a room, and the bridge stays
+// exactly as it was: its own membership is untouched, so re-declaring it would
+// spend a round trip on every departure the room ever sees.
+func TestServer_StaysAttendingWhenAnotherMemberLeaves(t *testing.T) {
+	fake := &fakeChatService{
+		self:   member("backend", "alice", testRoom),
+		events: make(chan *chatv1.RoomEvent),
+		drops:  make(chan error),
+	}
+	// Both loops run quickly, so a departure taken for this bridge's own would
+	// have been acted on well inside the settle below rather than waiting out a
+	// backoff the case would never see the end of.
+	bridge := newTestBridge(t, fake)
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
+	serveBridge(t, bridge, nil)
+
+	waitFor(t, "the bridge never attended", func() bool {
+		return fake.attendCount() == 1
+	})
+
+	// A teammate, and a member of another team carrying this bridge's own name:
+	// a departure is matched on both halves of an identity, not on either alone.
+	pushEvent(t, fake, leftEvent(member("backend", "bob", testRoom)))
+	pushEvent(t, fake, leftEvent(member("frontend", "alice", testRoom)))
+
+	// The feed the bridge is reading is still the one it opened, and the
+	// membership behind it is still the one it declared.
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, fake.joinCount(), 1, "the bridge attended again")
+	assert.Equal(t, fake.watchCount(), 1, "the bridge watched the room again")
 }
 
 // A bridge whose harness handed it no identity at all — no --token, and an
@@ -417,4 +480,26 @@ func TestServer_WithoutATokenServesToolsThatSayWhatIsMissing(t *testing.T) {
 func TestNew_RejectsEmptySocketPath(t *testing.T) {
 	_, err := New(nil, "", testToken)
 	assert.Assert(t, err != nil)
+}
+
+// Both retry loops come out of New with a pace of their own. The fields exist so
+// a test can slow a loop down or hold it still, and a bridge nobody tuned would
+// otherwise run them at a zero wait — asking the daemon as fast as it can answer
+// for the whole session.
+func TestNew_SeedsBothRetryPaces(t *testing.T) {
+	bridge, err := New(nil, serveTestDaemon(t, &fakeChatService{}), testToken)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = bridge.client.Close() })
+
+	for _, tc := range []struct {
+		what      string
+		base, max time.Duration
+	}{
+		{what: "attending", base: bridge.joinBackoffBase, max: bridge.joinBackoffMax},
+		{what: "watching", base: bridge.watchBackoffBase, max: bridge.watchBackoffMax},
+	} {
+		assert.Assert(t, tc.base > 0, "%s starts at %s", tc.what, tc.base)
+		assert.Assert(t, tc.max >= tc.base,
+			"%s climbs to %s, below its first wait of %s", tc.what, tc.max, tc.base)
+	}
 }

@@ -46,7 +46,7 @@ func RegisterFlags(cmd *cobra.Command) *Config {
 	f.BoolFunc(
 		"log",
 		`log format "text" or "json" (case-insensitive; default "json");`+
-			` without it, warnings and above are logged as text`,
+			` without either flag, warnings and above are logged as text`,
 		func(s string) error {
 			config.Enabled = true
 			switch v := strings.ToLower(s); v {
@@ -192,8 +192,8 @@ func BuildLogger(config *Config) *slog.Logger {
 func BuildLoggerTo(config *Config, w io.Writer) *slog.Logger {
 	if !config.Enabled {
 		// A command nobody configured logging for still says when something went
-		// wrong: a bridge that gave up attending, a member state that never
-		// reached the display, a nudge nobody sent. Discarding those made
+		// wrong: a bridge that cannot reach its daemon, a member that was never
+		// mirrored to cmdman, a nudge nobody sent. Discarding those made
 		// "nothing happened" the only symptom, and nobody turns on logging for a
 		// failure they have not noticed yet.
 		//

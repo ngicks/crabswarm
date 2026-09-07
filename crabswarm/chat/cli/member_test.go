@@ -16,16 +16,25 @@ func TestClient_Join(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
-	assert.NilError(t, d.client.Join(t.Context(), &out, "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_HUMAN))
+	self, err := d.client.Join(t.Context(), &out, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
+	assert.NilError(t, err)
 	assert.Equal(t, fake.join.GetName(), "alice")
 	assert.Equal(t, fake.join.GetKind(), chatv1.MemberKind_MEMBER_KIND_HUMAN)
 	assert.Equal(t, out.String(), "joined /work/proj as backend/alice\n")
 
+	// The identity is handed back as well as printed: a caller that has to
+	// recognise its own membership on the room's event feed has only the team
+	// and the name to match against.
+	assert.Equal(t, self.GetTeam(), "backend")
+	assert.Equal(t, self.GetName(), "alice")
+	assert.Equal(t, self.GetRoom(), "/work/proj")
+
 	// An unnamed join sends an empty name: naming the member is the daemon's
 	// job when the caller declines to.
-	assert.NilError(t, d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "",
-		chatv1.MemberKind_MEMBER_KIND_HUMAN))
+	_, err = d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
+	assert.NilError(t, err)
 	assert.Equal(t, fake.join.GetName(), "")
 }
 
@@ -35,9 +44,9 @@ func TestClient_JoinCarriesTheDeclaredKind(t *testing.T) {
 	fake := &fakeChatService{self: member("backend", "alice", "/work/proj")}
 	d := serveTestDaemon(t, fake, nil)
 
-	assert.NilError(t,
-		d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice",
-			chatv1.MemberKind_MEMBER_KIND_AGENT))
+	_, err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.NilError(t, err)
 	assert.Equal(t, fake.join.GetKind(), chatv1.MemberKind_MEMBER_KIND_AGENT)
 }
 

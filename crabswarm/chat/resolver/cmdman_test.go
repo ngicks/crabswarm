@@ -124,6 +124,19 @@ func TestCmdmanCompose_Resolve_NameNeedsCommandLabel(t *testing.T) {
 	assert.Equal(t, got.Name, "")
 }
 
+// Only the first run of whitespace separates the state from the config, so a
+// space inside the config survives: a command whose working directory has one
+// resolves to that whole directory rather than to the half before the space.
+func TestCmdmanCompose_Resolve_ConfigCarryingASpace(t *testing.T) {
+	bin := stubCmdmanReplying(t, `running {"argv":["claude","--dir","/work/my repo"],`+
+		`"dir":"/work/my repo","labels":{"cmdman.compose.project":"swarm"}}`, "")
+
+	got, err := NewCmdmanCompose(bin).Resolve(t.Context(), "deadbeef")
+	assert.NilError(t, err)
+	assert.Equal(t, got.Room, "/work/my repo")
+	assert.Equal(t, got.Team, "swarm")
+}
+
 func TestCmdmanCompose_Resolve_NoComposeLabel(t *testing.T) {
 	bin := stubCmdman(t, `printf '%s\n' 'running {"dir":"/work/repo","labels":{"other":"x"}}'`+"\n")
 

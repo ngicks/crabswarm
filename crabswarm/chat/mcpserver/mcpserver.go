@@ -63,12 +63,21 @@ type Server struct {
 	// answer would tell the first nothing it did not already know.
 	joinMu sync.Mutex
 	joined bool
+	// self is the identity the daemon admitted this bridge under, as the last
+	// accepted join reported it. It is kept because the room's event feed names
+	// a departing member by team and name and by nothing else, so it is the only
+	// thing an event announcing this bridge's own departure can be matched
+	// against. It is guarded by joinMu because it is written and read exactly
+	// where joined is.
+	self *chatv1.Member
 
-	// The attend loop's schedule, held here rather than read from the constants
-	// below so a test can drive the loop at a pace it can wait for. [New] takes
+	// The two loops' schedules, held here rather than read from the constants
+	// below so a test can drive either at a pace it can wait for. [New] takes
 	// the constants.
-	joinBackoffBase time.Duration
-	joinBackoffMax  time.Duration
+	joinBackoffBase  time.Duration
+	joinBackoffMax   time.Duration
+	watchBackoffBase time.Duration
+	watchBackoffMax  time.Duration
 }
 
 // New dials sockPath and prepares the MCP server. Attendance is declared from
@@ -90,11 +99,13 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		logger:          logger,
-		client:          client,
-		token:           token,
-		joinBackoffBase: joinBackoffBase,
-		joinBackoffMax:  joinBackoffMax,
+		logger:           logger,
+		client:           client,
+		token:            token,
+		joinBackoffBase:  joinBackoffBase,
+		joinBackoffMax:   joinBackoffMax,
+		watchBackoffBase: watchBackoffBase,
+		watchBackoffMax:  watchBackoffMax,
 	}
 	s.mcp = mcp.NewServer(
 		&mcp.Implementation{Name: serverName, Version: libver.Version},
@@ -171,7 +182,8 @@ const (
 // broke; after it a loop that keeps trying for the rest of the session would
 // bury everything else on the harness's stderr, and the second identical line
 // says nothing the first did not. Against the ceilings the two loops retry at,
-// this is a line every half minute or so.
+// this is a line every half minute from the attend loop and one every minute or
+// so from the feed.
 const warnEvery = 15
 
 // warnRetry reports a failed attempt — the first of a run, and every warnEvery
@@ -266,11 +278,13 @@ func (s *Server) ensureJoined(ctx context.Context) (string, error) {
 	// Always as an agent: this bridge is started by a harness and serves
 	// nothing else, so the terminal behind it is one a nudge belongs in.
 	var identity strings.Builder
-	if err := s.client.Join(ctx, &identity, token, "",
-		chatv1.MemberKind_MEMBER_KIND_AGENT); err != nil {
+	self, err := s.client.Join(ctx, &identity, token, "",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	if err != nil {
 		return "", fmt.Errorf("attending the chat room: %w", err)
 	}
 	s.joined = true
+	s.self = self
 	s.logger.Info("attending the chat room", "identity", strings.TrimSpace(identity.String()))
 	return token, nil
 }
@@ -279,13 +293,15 @@ func (s *Server) ensureJoined(ctx context.Context) (string, error) {
 // a caller it does not count as a member, so the next call declares it again.
 // It hands err back unchanged, so the call site returns it in place.
 //
-// Attendance outlives the bridge's memory of it in more than one way: the
-// daemon reaps a member whose command the team-info provider stopped knowing,
-// a human types `crabswarm chat leave`, a restarted daemon comes back on a
-// fresh database. Without this the bridge would keep acting on a membership
-// that no longer exists — every tool failing the same way forever, and the
-// watch loop spending its backoff on the same refusal — with a join it is
-// already sure it made standing in the way of the one that would fix it.
+// A membership the daemon has dropped is news that arrives in one of two ways,
+// and this is the one that arrives as the failure of a call: the daemon reaped
+// a member whose command the team-info provider stopped knowing, a human typed
+// `crabswarm chat leave`, a restarted daemon came back on a fresh database.
+// Without this the bridge would keep acting on a membership that no longer
+// exists — every tool failing the same way forever, and the watch loop spending
+// its backoff on the same refusal — with a join it is already sure it made
+// standing in the way of the one that would fix it. The other way the news
+// arrives is on the room's event feed, which [Server.leftItself] reads.
 //
 // Unauthenticated alone: that is the code the daemon answers a caller it
 // cannot resolve to a member with. NotFound means the member the caller
@@ -297,5 +313,41 @@ func (s *Server) forgetJoined(err error) error {
 	s.joinMu.Lock()
 	defer s.joinMu.Unlock()
 	s.joined = false
+	s.self = nil
 	return err
+}
+
+// leftItself reports whether ev is the room announcing this bridge's own
+// departure, and drops the remembered attendance when it is — the same thing
+// [Server.forgetJoined] does with a refusal, arrived at from the other side.
+//
+// The daemon publishes a member's departure into the feed that member is
+// reading, and it authorises a feed once and never again, so the stream carries
+// on after the membership behind it is gone. Nothing else would tell the bridge:
+// its next call would be refused, but that call may be hours away, and every
+// hook reporting harness state in the meantime fails as an unknown caller.
+//
+// A member is matched by team and name because that is all a departure carries;
+// the identity is the one the daemon itself settled on at the last join, so the
+// comparison is against the daemon's own spelling rather than a guess.
+//
+// This makes a `crabswarm chat leave` typed against a live bridge an instruction
+// the bridge undoes within seconds. That is intended. The bridge is the
+// session's membership, and it keeps attending until the session ends: a room
+// missing a member whose agent is still running is the failure this exists to
+// prevent, and leaving is spelled by stopping the harness.
+func (s *Server) leftItself(ev *chatv1.RoomEvent) bool {
+	left := ev.GetMemberLeft().GetMember()
+	if left == nil {
+		return false
+	}
+	s.joinMu.Lock()
+	defer s.joinMu.Unlock()
+	if !s.joined || s.self == nil ||
+		left.GetTeam() != s.self.GetTeam() || left.GetName() != s.self.GetName() {
+		return false
+	}
+	s.joined = false
+	s.self = nil
+	return true
 }

@@ -76,8 +76,9 @@ func TestService_JoinRejectsAnUndeclaredKind(t *testing.T) {
 	_, err := svc.Join(callCtx(t, "tok-a"),
 		&chatv1.JoinRequest{Name: "ana"})
 	assert.Equal(t, status.Code(err), codes.InvalidArgument)
-	assert.Equal(t, status.Convert(err).Message(),
-		"join declares no kind: pass --kind agent|human")
+	// The daemon's refusal names the field of the request. Which flag to add is
+	// the CLI's to say, and it says so before a request is ever built.
+	assert.Equal(t, status.Convert(err).Message(), "join declares no member kind")
 
 	_, err = svc.store.Member(t.Context(), "tok-a")
 	assert.ErrorIs(t, err, ErrNotFound)

@@ -45,10 +45,12 @@ const ProviderUnavailableMessage = "looking up team information"
 // consulting the provider.
 //
 // A name a teammate already carries is AlreadyExists, unless that teammate
-// turns out to be gone — an agent whose token the provider has stopped knowing
-// is dropped here the way the reaper drops it elsewhere, and the joiner takes
-// the name. That is what a recreated command looks like: it derives the exact
-// name its predecessor is still holding, and nobody else would ever free it.
+// turns out to be gone — an agent whose token the provider places nowhere any
+// more, because it knows no such command or reports that command as no longer
+// running, is dropped here the way the reaper drops it elsewhere, and the joiner
+// takes the name. That is what a recreated command looks like: it derives the
+// exact name its predecessor is still holding, and nobody else would ever free
+// it.
 func (s *Service) Join(
 	ctx context.Context,
 	req *chatv1.JoinRequest,

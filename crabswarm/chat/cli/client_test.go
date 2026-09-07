@@ -3,12 +3,15 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -205,8 +208,9 @@ func TestClient_CarriesTokenAsMetadata(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
-	assert.NilError(t, d.client.Join(t.Context(), &out, "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_HUMAN))
+	_, err := d.client.Join(t.Context(), &out, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
+	assert.NilError(t, err)
 	assert.Equal(t, out.String(), "joined /work/proj as backend/alice\n")
 	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a"})
 }
@@ -216,7 +220,7 @@ func TestClient_CarriesTokenAsMetadata(t *testing.T) {
 func TestClient_EmptyTokenIsRejected(t *testing.T) {
 	d := serveTestDaemon(t, &fakeChatService{}, nil)
 
-	err := d.client.Join(t.Context(), &strings.Builder{}, "", "alice",
+	_, err := d.client.Join(t.Context(), &strings.Builder{}, "", "alice",
 		chatv1.MemberKind_MEMBER_KIND_HUMAN)
 	assert.Assert(t, err != nil)
 	assert.Assert(t, strings.Contains(err.Error(), chat.TokenMetadataKey))
@@ -246,7 +250,7 @@ func TestClient_ProviderUnavailableIsNotTheDaemonBeingDown(t *testing.T) {
 	fake := &fakeChatService{err: status.Error(codes.Unavailable, msg)}
 	d := serveTestDaemon(t, fake, nil)
 
-	err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice",
+	_, err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice",
 		chatv1.MemberKind_MEMBER_KIND_HUMAN)
 	assert.Assert(t, err != nil)
 	assert.Equal(t, err.Error(), msg)
@@ -269,4 +273,66 @@ func TestClient_UnreachableDaemonHint(t *testing.T) {
 func TestDial_RejectsEmptySocketPath(t *testing.T) {
 	_, err := Dial("")
 	assert.Assert(t, err != nil)
+}
+
+// daemonDelay is how long the daemon in the case below takes to arrive: long
+// enough that the client has failed to reach it several times over and is
+// waiting between attempts of its own when it does.
+const daemonDelay = 3 * time.Second
+
+// A client dialled at a socket nothing is listening on reaches the daemon that
+// turns up later, over the connection it already has. That is the shape every
+// long-lived caller here is in: a bridge is started by its harness before the
+// daemon is up and holds one client for the whole session, so the connection
+// behind it has to become usable on its own rather than by being dialled again.
+//
+// The call is retried rather than left to wait. A call made while nothing is
+// listening is refused at once — that immediacy is what lets the CLI answer a
+// missing daemon with the line that says to start one — so what is watched here
+// is the connection underneath recovering, which is the half a caller cannot do
+// anything about.
+func TestClient_ReachesADaemonThatArrivesLate(t *testing.T) {
+	sock := filepath.Join(t.TempDir(), "chat.sock")
+	client, err := Dial(sock)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = client.Close() })
+
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()))
+	chatv1.RegisterChatServiceServer(srv, &fakeChatService{})
+
+	// Generous against the wait the client may be sitting in when the socket
+	// appears; a client that gave up entirely fails here rather than hanging.
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	var serving errgroup.Group
+	serving.Go(func() error {
+		select {
+		case <-time.After(daemonDelay):
+		case <-ctx.Done():
+			return nil
+		}
+		lis, err := net.Listen("unix", sock)
+		if err != nil {
+			return fmt.Errorf("listening on %s: %w", sock, err)
+		}
+		// Serve ends when the cleanup below stops the server, which is the end
+		// of the case rather than a failure of it.
+		_ = srv.Serve(lis)
+		return nil
+	})
+	t.Cleanup(func() {
+		cancel()
+		srv.Stop()
+		assert.NilError(t, serving.Wait())
+	})
+
+	var last error
+	for ctx.Err() == nil {
+		if last = client.Read(ctx, &strings.Builder{}, "tok-a", ReadOptions{}); last == nil {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("the client never reached the daemon; the last attempt said: %v", last)
 }
