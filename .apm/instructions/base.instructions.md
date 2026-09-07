@@ -69,9 +69,13 @@ Tools to swarm claude(, codex and others!)
 │   │   └── internal  cmdman client, sqlc-generated db/, schema/ddl (schema.sql + room_log.sql) and schema/queries.
 │   ├── hook        Claude Code / Codex hook handlers: exec/ (`hook exec` template runner + its Config), path/, audit.go.
 │   ├── issues      Beads backlog reader: every call shells out to `bd ... --json`, nothing opens the database.
-│   │   │           client.go/types.go/convert.go = the bd client; sources.go = SourceStore (ID hashes the .beads path, so every
-│   │   │           worktree of a repo is one source; display name is the issue prefix); service.go = IssuesService, a Connect
-│   │   │           service the preview daemon mounts beside PreviewService; poller.go = 10s `bd list` diff (bd has no change feed).
+│   │   │           client.go/types.go/convert.go = the bd client; it collapses identical concurrent invocations into one run and
+│   │   │           queues every run of a client behind a one-slot semaphore (embedded dolt admits one process per database).
+│   │   │           sources.go = SourceStore (ID hashes the .beads path, so every worktree of a repo is one source; display name
+│   │   │           is the issue prefix); service.go = IssuesService, a Connect service the preview daemon mounts beside
+│   │   │           PreviewService; poller.go = Poller.Refresh, the shared all-status `bd list` every RPC reads through, diffed
+│   │   │           on each run for change events (bd has no change feed) and only scheduled by the 10s ticker; filter.go =
+│   │   │           status/label/parent filters, sort, child counts, children and dependency edges, derived from that listing in Go.
 │   │   ├── mermaidlint  Sweep/Lint: one temp file per text field or comment, one mermaid-lint run, report mapped back to issue+field+line.
 │   │   └── cli          What `issues lint` and the preview registration commands print (RenderFindings, RenderRegistrations, ResolveRegistration).
 │   ├── preview     `crabswarm preview` daemon + HTTP API + renderers. `preview DIR` registers DIR as a file root and, when a
