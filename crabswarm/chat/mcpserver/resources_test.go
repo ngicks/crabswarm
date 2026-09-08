@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gotest.tools/v3/assert"
 
@@ -22,10 +24,13 @@ import (
 // a bridge that never does it fails instead of hanging the suite.
 const eventTimeout = 5 * time.Second
 
-func memberInState(
-	team, name, room string, state chatv1.HarnessState,
+// memberOnRoster is member() with the two things the roster carries beside an
+// address: what attends, and what its harness last reported.
+func memberOnRoster(
+	team, name, room string, kind chatv1.MemberKind, state chatv1.HarnessState,
 ) *chatv1.Member {
 	m := member(team, name, room)
+	m.Kind = kind
 	m.State = state
 	return m
 }
@@ -46,6 +51,14 @@ func joinedEvent(m *chatv1.Member) *chatv1.RoomEvent {
 	}
 }
 
+func leftEvent(m *chatv1.Member) *chatv1.RoomEvent {
+	return &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MemberLeft{
+			MemberLeft: &chatv1.MemberLeft{Member: m},
+		},
+	}
+}
+
 func messageAppendedEvent(from *chatv1.Member, text string) *chatv1.RoomEvent {
 	return &chatv1.RoomEvent{
 		Event: &chatv1.RoomEvent_MessageAppended{
@@ -56,15 +69,17 @@ func messageAppendedEvent(from *chatv1.Member, text string) *chatv1.RoomEvent {
 	}
 }
 
-// watchedUpdates connects a harness that records what the bridge announces, and
-// returns the session beside the URIs as they arrive.
+// watchedUpdates runs bridge under a harness that records what it announces,
+// and returns the session beside the URIs as they arrive. The bridge is the
+// caller's to build, since a case about the feed retrying has to set the pace
+// it retries at.
 func watchedUpdates(
-	t *testing.T, svc *fakeChatService,
+	t *testing.T, bridge *Server,
 ) (*mcp.ClientSession, <-chan string) {
 	t.Helper()
 
 	updated := make(chan string, 8)
-	session := startSessionWith(t, svc, &mcp.ClientOptions{
+	session := serveBridge(t, bridge, &mcp.ClientOptions{
 		ResourceUpdatedHandler: func(
 			_ context.Context, req *mcp.ResourceUpdatedNotificationRequest,
 		) {
@@ -82,6 +97,57 @@ func pushEvent(t *testing.T, svc *fakeChatService, ev *chatv1.RoomEvent) {
 
 	select {
 	case svc.events <- ev:
+	case <-time.After(eventTimeout):
+		t.Fatal("nothing is watching the room")
+	}
+}
+
+// subscribeToRoster subscribes to the roster and returns once the bridge is
+// announcing to the subscription.
+//
+// Waiting is what makes the cases below deterministic. The SDK's Subscribe
+// returns before the server has recorded the subscription, and the room is
+// watched from the moment the bridge starts, so an event pushed straight after
+// subscribing is regularly announced to nobody. The helper keeps pushing until
+// one lands, then waits for the channel to go quiet, so the case that follows
+// starts from a subscription that works and an inbox with nothing left in it.
+func subscribeToRoster(
+	t *testing.T, session *mcp.ClientSession, svc *fakeChatService, updated <-chan string,
+) {
+	t.Helper()
+
+	assert.NilError(t, session.Subscribe(t.Context(),
+		&mcp.SubscribeParams{URI: membersURI}))
+
+	deadline := time.Now().Add(eventTimeout)
+	for announced := false; !announced; {
+		if time.Now().After(deadline) {
+			t.Fatalf("the subscription to %s never took effect", membersURI)
+		}
+		pushEvent(t, svc, joinedEvent(member("ops", "settling", testRoom)))
+		select {
+		case <-updated:
+			announced = true
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	for {
+		select {
+		case <-updated:
+		case <-time.After(50 * time.Millisecond):
+			return
+		}
+	}
+}
+
+// dropFeed ends the feed the bridge is reading, the way the daemon does when it
+// refuses a watcher. It returns once the stub has taken the error, so the feed
+// the next assertion is about is the one that comes after this.
+func dropFeed(t *testing.T, svc *fakeChatService, err error) {
+	t.Helper()
+
+	select {
+	case svc.drops <- err:
 	case <-time.After(eventTimeout):
 		t.Fatal("nothing is watching the room")
 	}
@@ -139,18 +205,20 @@ func TestServer_ServesTheRoomAsResources(t *testing.T) {
 }
 
 // The roster is a resource rather than a fifth tool, and answers as structured
-// data: its reader is the harness, and a member's state is not in the listing
-// the CLI prints at all.
+// data: its reader is the harness, which re-reads the room as it changes rather
+// than parsing the columns the CLI prints.
 func TestServer_ServesTheRoster(t *testing.T) {
 	fake := &fakeChatService{
 		self: member("backend", "alice", testRoom),
 		members: []*chatv1.Member{
-			memberInState("backend", "alice", testRoom,
+			memberOnRoster("backend", "alice", testRoom,
+				chatv1.MemberKind_MEMBER_KIND_AGENT,
 				chatv1.HarnessState_HARNESS_STATE_WORKING),
-			memberInState("frontend", "bob", testRoom,
+			memberOnRoster("frontend", "bob", testRoom,
+				chatv1.MemberKind_MEMBER_KIND_HUMAN,
 				chatv1.HarnessState_HARNESS_STATE_WAITING),
-			// A member the daemon reported no state for still belongs on the
-			// roster: it attends the room either way.
+			// A member the daemon reported neither a kind nor a state for still
+			// belongs on the roster: it attends the room either way.
 			member("ops", "carol", testRoom),
 		},
 	}
@@ -173,18 +241,21 @@ func TestServer_ServesTheRoster(t *testing.T) {
       "address": "backend/alice",
       "team": "backend",
       "name": "alice",
+      "kind": "agent",
       "state": "working"
     },
     {
       "address": "frontend/bob",
       "team": "frontend",
       "name": "bob",
+      "kind": "human",
       "state": "waiting"
     },
     {
       "address": "ops/carol",
       "team": "ops",
       "name": "carol",
+      "kind": "unknown",
       "state": "unknown"
     }
   ]
@@ -257,10 +328,9 @@ func TestServer_AnnouncesTheRosterWhenTheRoomChanges(t *testing.T) {
 		members: []*chatv1.Member{member("backend", "alice", testRoom)},
 		events:  make(chan *chatv1.RoomEvent),
 	}
-	session, updated := watchedUpdates(t, fake)
+	session, updated := watchedUpdates(t, newTestBridge(t, fake))
 
-	assert.NilError(t, session.Subscribe(t.Context(),
-		&mcp.SubscribeParams{URI: membersURI}))
+	subscribeToRoster(t, session, fake, updated)
 
 	pushEvent(t, fake, stateChangedEvent(
 		member("frontend", "bob", testRoom),
@@ -278,26 +348,31 @@ func TestServer_AnnouncesTheRosterWhenTheRoomChanges(t *testing.T) {
 	noMoreUpdates(t, updated)
 }
 
-// Nothing is watched until something asks to be told. A harness that lists what
-// the bridge offers and never subscribes should cost the daemon no stream.
-func TestServer_WatchesNothingUntilSomethingSubscribes(t *testing.T) {
+// The room is watched from the start, and a session that has not subscribed is
+// told nothing about it. The feed is what tells the bridge its own membership
+// has lapsed, which is news it needs whether or not the harness ever asks to be
+// told about the roster; announcing to a session that did not subscribe is the
+// SDK's business, and it does not.
+func TestServer_WatchesTheRoomBeforeAnythingSubscribes(t *testing.T) {
 	fake := &fakeChatService{
 		self:    member("backend", "alice", testRoom),
 		members: []*chatv1.Member{member("backend", "alice", testRoom)},
 		events:  make(chan *chatv1.RoomEvent),
 	}
-	session := startSession(t, fake)
+	session, updated := watchedUpdates(t, newTestBridge(t, fake))
 
-	_, err := session.ReadResource(t.Context(),
-		&mcp.ReadResourceParams{URI: membersURI})
-	assert.NilError(t, err)
-	assert.Equal(t, fake.watchCount(), 0)
-
-	assert.NilError(t, session.Subscribe(t.Context(),
-		&mcp.SubscribeParams{URI: membersURI}))
-	// The feed is up once it can carry an event.
+	// The feed is up once it can carry an event, and nothing was subscribed to
+	// carry it to. One feed, not several: the bridge watches from the start and
+	// the stream it opened is still the one it is reading.
 	pushEvent(t, fake, joinedEvent(member("ops", "carol", testRoom)))
 	assert.Equal(t, fake.watchCount(), 1)
+	noMoreUpdates(t, updated)
+
+	// Subscribing to the feed that was already running is what makes the same
+	// event reach the harness.
+	subscribeToRoster(t, session, fake, updated)
+	pushEvent(t, fake, joinedEvent(member("ops", "dave", testRoom)))
+	assert.Equal(t, nextUpdate(t, updated), membersURI)
 }
 
 // unwatchable is a URI the bridge does not serve, spelled as one a harness
@@ -335,7 +410,7 @@ func assertRefusedInWords(t *testing.T, uri string, err error) {
 // refused because the SDK would otherwise leave the harness waiting on news
 // that could never come; the transcript is refused because the room's feed
 // carries nothing that would announce it, which is the same waiting arrived at
-// from the other side. Neither starts a feed.
+// from the other side.
 //
 // The handler is exercised directly because the protocol the SDK negotiates
 // here opens a subscription without waiting for the answer, so a refusal never
@@ -357,24 +432,16 @@ func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
 			Params: &mcp.SubscribeParams{URI: tc.uri},
 		})
 		tc.refused(t, tc.uri, err)
-		select {
-		case <-bridge.watchWanted:
-			t.Fatalf("subscribing to %s started the room feed", tc.uri)
-		default:
-		}
 	}
 
 	assert.NilError(t, bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
 		Params: &mcp.SubscribeParams{URI: membersURI},
 	}))
-	<-bridge.watchWanted
 }
 
 // Withdrawing is answered by the same gate as asking, and in the same words: a
 // harness that was refused a subscription has none to withdraw, so telling it
-// the withdrawal succeeded would say it had had one. Only the roster's is
-// acknowledged, and acknowledging it starts nothing — the feed belongs to the
-// subscription side.
+// the withdrawal succeeded would say it had had one.
 //
 // Exercised directly for the reason the subscribe side is: the SDK does not
 // hand either refusal back as the error of a client call.
@@ -393,12 +460,6 @@ func TestServer_RefusesToUnwatchWhatItCannotAnnounce(t *testing.T) {
 	assert.NilError(t, unsubscribe(membersURI))
 	assertNotFound(t, unwatchable, unsubscribe(unwatchable))
 	assertRefusedInWords(t, historyURI, unsubscribe(historyURI))
-
-	select {
-	case <-bridge.watchWanted:
-		t.Fatal("unsubscribing started the room feed")
-	default:
-	}
 }
 
 // The daemon drops a watcher that falls behind, so the bridge watches again —
@@ -406,24 +467,31 @@ func TestServer_RefusesToUnwatchWhatItCannotAnnounce(t *testing.T) {
 // while nothing was watching went unannounced and only a re-read can find it.
 func TestServer_WatchesAgainAfterTheFeedEnds(t *testing.T) {
 	fake := &fakeChatService{
-		self:          member("backend", "alice", testRoom),
-		members:       []*chatv1.Member{member("backend", "alice", testRoom)},
-		events:        make(chan *chatv1.RoomEvent),
-		watchFailures: 1,
+		self:    member("backend", "alice", testRoom),
+		members: []*chatv1.Member{member("backend", "alice", testRoom)},
+		events:  make(chan *chatv1.RoomEvent),
+		drops:   make(chan error),
 	}
-	session, updated := watchedUpdates(t, fake)
+	// The case is about the feed coming back, so the loop that brings it back
+	// runs at a pace the case can wait for.
+	bridge := newTestBridge(t, fake)
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
+	session, updated := watchedUpdates(t, bridge)
 
-	assert.NilError(t, session.Subscribe(t.Context(),
-		&mcp.SubscribeParams{URI: membersURI}))
+	subscribeToRoster(t, session, fake, updated)
 
+	dropFeed(t, fake, status.Error(codes.ResourceExhausted, "watcher fell behind"))
+
+	// The roster is announced as changed as soon as the new feed is up, without
+	// an event to announce: what happened while nothing was watching is exactly
+	// what nobody can be told about.
 	assert.Equal(t, nextUpdate(t, updated), membersURI)
 
-	// The new feed carries what the dropped one would have. Taking the event is
-	// also what proves a second watcher is up: the first was refused before it
-	// could read anything.
+	// The new feed carries what the dropped one would have. Two feeds in all:
+	// the one that was dropped and the one reading this event.
 	pushEvent(t, fake, stateChangedEvent(
 		member("frontend", "bob", testRoom),
 		chatv1.HarnessState_HARNESS_STATE_DONE))
-	assert.Equal(t, fake.watchCount(), 2)
 	assert.Equal(t, nextUpdate(t, updated), membersURI)
+	assert.Equal(t, fake.watchCount(), 2)
 }

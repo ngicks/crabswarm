@@ -4,9 +4,12 @@ import "github.com/spf13/cobra"
 
 func chatAdminListCmd(parent *cobra.Command, flags *chatFlags) {
 	cmd := &cobra.Command{
-		Use:               "list",
-		Aliases:           []string{"ls"},
-		Short:             "List every room, its teams and their members (admin)",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List every room, its teams and their members (admin)",
+		Long: `list prints the whole topology as a room → team → member tree, each member
+followed by its kind — agent for a harness an arriving message is typed into,
+human for someone who reads an inbox.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -44,12 +44,26 @@ const chatTokenEnvVar = "CRABSWARM_CHAT_TOKEN"
 // the command under and the replica index that tells one instance of a scaled
 // command from another. Either may be empty, which is a command whose labels do
 // not say.
+//
+// state is what cmdman reports the command's process to be doing. An empty one
+// is a command that is running, which is what almost every case wants; a case
+// that ends a session sets it to "exited", the state cmdman keeps answering
+// with until the command is removed altogether.
 type stubCommand struct {
 	token      string
 	dir        string
 	project    string
 	command    string
 	scaleIndex string
+	state      string
+}
+
+// stubState is the state the stub cmdman reports for c, defaulting to running.
+func stubState(c stubCommand) string {
+	if c.state == "" {
+		return "running"
+	}
+	return c.state
 }
 
 // defaultStubCommands is the roster the plain member cases run against: two
@@ -63,12 +77,16 @@ func defaultStubCommands() []stubCommand {
 }
 
 // stubCmdmanScript renders a stub cmdman answering the surfaces the chat broker
-// uses: `inspect <ID> --format '{{json .Config}}'` for placement, `status
-// set|delete` for the state display, and `capture-screen` / `send-keys` for the
-// terminal nudge. Each token in commands reports its own directory and compose
-// project; an unknown ID fails the way cmdman fails on one, since the daemon
-// reads that exact wording as "this token names nothing" rather than "the
-// lookup broke".
+// uses: `inspect <ID> --format '{{.State}} {{json .Config}}'` for placement,
+// `status set|delete` for the state display, and `capture-screen` / `send-keys`
+// for the terminal nudge. Each token in commands reports its own process state,
+// directory and compose project; an unknown ID fails the way cmdman fails on
+// one, since the daemon reads that exact wording as "this token names nothing"
+// rather than "the lookup broke".
+//
+// A command whose state is not running is still answered for, the way cmdman
+// answers about a command whose process has ended until it is removed. The
+// daemon is what draws the line between the two.
 //
 // Status and send-keys invocations are recorded beside the stub rather than
 // answered, so a test can read back what the daemon published and what it typed.
@@ -103,14 +121,15 @@ fi
 case "$2" in
 `)
 	for _, c := range commands {
-		fmt.Fprintf(&b, "\t%s) dir=%s; labels='%s' ;;\n", c.token, c.dir, stubLabels(c))
+		fmt.Fprintf(&b, "\t%s) state=%s; dir=%s; labels='%s' ;;\n",
+			c.token, stubState(c), c.dir, stubLabels(c))
 	}
 	b.WriteString(`	*)
 		echo "error: resolve command: no command found matching \"$2\"" >&2
 		exit 1
 		;;
 esac
-printf '{"dir":"%s","labels":%s}\n' "$dir" "$labels"
+printf '%s {"dir":"%s","labels":%s}\n' "$state" "$dir" "$labels"
 `)
 	return b.String()
 }
@@ -217,7 +236,39 @@ func startChatDaemonKeeping(
 	adminRecipients ...string,
 ) string {
 	t.Helper()
+
+	cfgPath := writeChatConfig(t, historyLimit, commands, adminRecipients...)
+	startChatServe(t, cfgPath)
+	return cfgPath
+}
+
+// writeChatConfig writes the config a daemon and everything talking to it
+// share — the socket, the database, the stub cmdman and the admin recipients —
+// and returns its path. It starts nothing, so a case can hand the config to a
+// client that has to cope with a daemon that is not there yet.
+func writeChatConfig(
+	t *testing.T,
+	historyLimit int,
+	commands []stubCommand,
+	adminRecipients ...string,
+) string {
+	t.Helper()
 	dir := t.TempDir()
+	return writeChatConfigOn(t, dir, chatSock(filepath.Join(dir, "config.json")),
+		historyLimit, commands, adminRecipients...)
+}
+
+// writeChatConfigOn is writeChatConfig with the directory it works in and the
+// socket it names given by the caller, for the case that has the bridge derive
+// the socket path from its environment instead of reading it out of a config.
+func writeChatConfigOn(
+	t *testing.T,
+	dir, sock string,
+	historyLimit int,
+	commands []stubCommand,
+	adminRecipients ...string,
+) string {
+	t.Helper()
 
 	stub := filepath.Join(dir, "cmdman")
 	writeFile(t, stub, stubCmdmanScript(commands))
@@ -230,11 +281,25 @@ func startChatDaemonKeeping(
 		t.Fatalf("marshal admin recipients: %v", err)
 	}
 
-	sock := filepath.Join(dir, "chat.sock")
 	cfgPath := filepath.Join(dir, "config.json")
 	writeFile(t, cfgPath, fmt.Sprintf(
 		`{"sock":%q,"chat":{"db":%q,"cmdman_bin":%q,"admin_recipients":%s,"history_limit":%d}}`,
 		sock, filepath.Join(dir, "chat.db"), stub, recipients, historyLimit))
+	return cfgPath
+}
+
+// startChatServe starts `crabswarm serve` on cfgPath and returns once its
+// socket answers. The process is returned so a case can end it and start
+// another on the same config, which is what a daemon restart is.
+func startChatServe(t *testing.T, cfgPath string) *exec.Cmd {
+	t.Helper()
+	return startChatServeOn(t, cfgPath, chatSock(cfgPath))
+}
+
+// startChatServeOn is startChatServe for a config naming a socket somewhere
+// other than beside it, which is the path the daemon then has to be waited on.
+func startChatServeOn(t *testing.T, cfgPath, sock string) *exec.Cmd {
+	t.Helper()
 
 	serve := exec.Command(crabswarmBin, "serve", "--config", cfgPath)
 	serve.Env = chatEnviron()
@@ -246,7 +311,7 @@ func startChatDaemonKeeping(
 	t.Cleanup(func() { stopProcess(t, serve) })
 
 	waitSocket(t, sock, 30*time.Second)
-	return cfgPath
+	return serve
 }
 
 // rewriteStubRoster replaces what the running daemon's stub cmdman knows with
@@ -383,6 +448,31 @@ func lines(s string) []string {
 	return out
 }
 
+// memberAddresses is the first column of a `chat members` listing — the address
+// `chat send` takes — for the assertions about who attends rather than about
+// how a member is rendered.
+//
+// A room with nobody in it prints one sentence saying so rather than an empty
+// listing, and reading a word of that sentence as an address would report a
+// member nobody can write to. The empty room is the empty roster.
+func memberAddresses(s string) []string {
+	if strings.TrimSpace(s) == emptyRosterLine {
+		return nil
+	}
+	var out []string
+	for _, l := range lines(s) {
+		fields := strings.Fields(l)
+		if len(fields) == 0 {
+			continue
+		}
+		out = append(out, fields[0])
+	}
+	return out
+}
+
+// emptyRosterLine is what `chat members` prints for a room nobody attends.
+const emptyRosterLine = "no members"
+
 // The addresses the bridge cases below spell. A bridge joins with no name at
 // all — an agent is named by whoever registered it, not by the harness it runs
 // under — so the daemon derives one from the token, and that derivation is what
@@ -401,9 +491,26 @@ const (
 // case below runs `chat join` for a token it hands to one.
 func startChatBridge(t *testing.T, cfgPath, token string) *mcp.ClientSession {
 	t.Helper()
-	cmd := exec.CommandContext(t.Context(), crabswarmBin,
-		"chat", "mcp", "--config", cfgPath, "--token", token)
-	cmd.Env = chatEnviron()
+	return startChatBridgeIn(t, cfgPath, token, chatEnviron())
+}
+
+// startChatBridgeIn is [startChatBridge] with the environment the harness hands
+// the bridge, for the cases about what a bridge can and cannot resolve out of
+// it. An empty token passes no --token at all, and an empty config path no
+// --config — a bridge left to resolve the daemon socket for itself.
+func startChatBridgeIn(
+	t *testing.T, cfgPath, token string, env []string,
+) *mcp.ClientSession {
+	t.Helper()
+	args := []string{"chat", "mcp"}
+	if cfgPath != "" {
+		args = append(args, "--config", cfgPath)
+	}
+	if token != "" {
+		args = append(args, "--token", token)
+	}
+	cmd := exec.CommandContext(t.Context(), crabswarmBin, args...)
+	cmd.Env = env
 	// Everything the bridge says goes to stderr by design, since stdout carries
 	// the protocol; forwarding it is what makes a failing case readable.
 	cmd.Stderr = os.Stderr
@@ -411,7 +518,7 @@ func startChatBridge(t *testing.T, cfgPath, token string) *mcp.ClientSession {
 	client := mcp.NewClient(&mcp.Implementation{Name: "crabswarm-e2e", Version: "v0"}, nil)
 	session, err := client.Connect(t.Context(), &mcp.CommandTransport{Command: cmd}, nil)
 	if err != nil {
-		t.Fatalf("connect to the chat bridge for %s: %v", token, err)
+		t.Fatalf("connect to the chat bridge for %q: %v", token, err)
 	}
 	// Closing the session shuts the subprocess down the way the stdio transport
 	// is meant to: stdin first, then a wait for the process to go.
@@ -476,6 +583,42 @@ func waitChatAttendance(t *testing.T, cfgPath, token string, timeout time.Durati
 		token, timeout, refusal)
 }
 
+// waitChatRosterHas blocks until the member holding observer lists address in
+// its room, which is how one member watches another arrive.
+func waitChatRosterHas(
+	t *testing.T, cfgPath, observer, address string, timeout time.Duration,
+) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	var listed []string
+	for time.Now().Before(deadline) {
+		listed = memberAddresses(runChat(t, cfgPath, observer, "members"))
+		if slices.Contains(listed, address) {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("%s did not appear in the room within %s; the room held %v",
+		address, timeout, listed)
+}
+
+// removeChatDatabase deletes the chat store the config names, sidecars and all.
+// SQLite runs in WAL mode here, so part of what the daemon knows lives beside
+// the database file, and a daemon brought back on half of one would not be the
+// fresh start a case is playing.
+func removeChatDatabase(t *testing.T, cfgPath string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(cfgPath), "chat.db*"))
+	if err != nil {
+		t.Fatalf("look for the chat database: %v", err)
+	}
+	for _, path := range matches {
+		if err := os.Remove(path); err != nil {
+			t.Fatalf("remove %s: %v", path, err)
+		}
+	}
+}
+
 // chatMessageBody strips the stamp off a rendered message and returns the rest.
 // The instant is the one part of the rendering a case cannot pin, so it is
 // checked for being an instant at all and then dropped.
@@ -503,19 +646,26 @@ func TestChat(t *testing.T) {
 	cfg := startChatDaemon(t)
 
 	// Join: the room and the team come from the token, not from the caller.
-	got := runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	got := runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 	if want := "joined " + chatRoom + " as alpha/ana\n"; got != want {
 		t.Errorf("join = %q, want %q", got, want)
 	}
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
 
-	// Members: everyone in the room, across teams, spelled as an address.
-	members := lines(runChat(t, cfg, "tok-ana", "members"))
-	slices.Sort(members)
-	want := []string{"alpha/ana", "alpha/bob", "beta/cid"}
-	if !slices.Equal(members, want) {
-		t.Errorf("members = %v, want %v", members, want)
+	// Members: everyone in the room, across teams. The first column is the
+	// address, and the kind and the state follow it — the kind says whether a
+	// message reaches that member on its own, which is what the sender wants to
+	// know before waiting for an answer.
+	roster := lines(runChat(t, cfg, "tok-ana", "members"))
+	slices.Sort(roster)
+	want := []string{
+		"alpha/ana  human  done",
+		"alpha/bob  human  done",
+		"beta/cid  human  done",
+	}
+	if !slices.Equal(roster, want) {
+		t.Errorf("members = %v, want %v", roster, want)
 	}
 
 	// Send: a bare name resolves within the sender's own team.
@@ -558,7 +708,7 @@ func TestChat(t *testing.T) {
 	if got := runChat(t, cfg, "tok-cid", "leave"); got != "left the room\n" {
 		t.Errorf("leave = %q, want %q", got, "left the room\n")
 	}
-	members = lines(runChat(t, cfg, "tok-ana", "members"))
+	members := memberAddresses(runChat(t, cfg, "tok-ana", "members"))
 	if slices.Contains(members, "beta/cid") {
 		t.Errorf("members after leave = %v, want no beta/cid", members)
 	}
@@ -569,7 +719,7 @@ func TestChat(t *testing.T) {
 // the "rpc error: code = ..." envelope around it.
 func TestChat_ServerErrorIsReportedPlainly(t *testing.T) {
 	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 
 	_, stderr, err := execChat(t, cfg, "tok-ana", "send", "nobody", "hi")
 	if err == nil {
@@ -583,12 +733,51 @@ func TestChat_ServerErrorIsReportedPlainly(t *testing.T) {
 	}
 }
 
+// A join that declares no kind is refused outright. Being typed into is not a
+// thing to default: a harness hook from an older install still running
+// `crabswarm chat join` with no flag has to fail where whoever wired it can see
+// it, rather than quietly attending as a member no message is ever typed into.
+func TestChat_JoinWithoutAKindIsRefused(t *testing.T) {
+	cfg := startChatDaemon(t)
+
+	stdout, stderr, err := execChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	if err == nil {
+		t.Fatal("join without --kind succeeded, want a failure")
+	}
+	if exit, ok := errors.AsType[*exec.ExitError](err); !ok || exit.ExitCode() != 1 {
+		t.Errorf("join without --kind exited with %v, want status 1", err)
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want nothing", stdout)
+	}
+	if !strings.Contains(stderr, "kind") {
+		t.Errorf("stderr = %q, want it to name the flag that is missing", stderr)
+	}
+
+	// Nothing attended, so the refusal cost the room nothing: the next thing to
+	// run is the repaired command, not a leave.
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	if got := memberAddresses(runChat(t, cfg, "tok-bob", "members")); !slices.Equal(
+		got, []string{"alpha/bob"}) {
+		t.Errorf("members = %v, want only alpha/bob: the refused join must not attend", got)
+	}
+}
+
 // A token no provider vouches for cannot attend, and the refusal reaches the
 // user rather than being swallowed into an empty success.
 func TestChat_UnknownTokenIsRejected(t *testing.T) {
 	cfg := startChatDaemon(t)
 
-	stdout, stderr, err := execChat(t, cfg, "tok-stranger", "join", "--name", "who")
+	stdout, stderr, err := execChat(
+		t,
+		cfg,
+		"tok-stranger",
+		"join",
+		"--kind",
+		"human",
+		"--name",
+		"who",
+	)
 	if err == nil {
 		t.Fatal("join with an unknown token succeeded, want a failure")
 	}
@@ -608,7 +797,16 @@ func TestChat_NonComposeTokenIsRejected(t *testing.T) {
 		{token: "tok-loner", dir: chatRoom},
 	})
 
-	stdout, stderr, err := execChat(t, cfg, "tok-loner", "join", "--name", "loner")
+	stdout, stderr, err := execChat(
+		t,
+		cfg,
+		"tok-loner",
+		"join",
+		"--kind",
+		"human",
+		"--name",
+		"loner",
+	)
 	if err == nil {
 		t.Fatal("join without a compose project succeeded, want a failure")
 	}
@@ -630,35 +828,45 @@ func TestChat_JoinWithoutNameTakesComposeLabels(t *testing.T) {
 		{token: "tok-worker", dir: chatRoom, project: "alpha",
 			command: "worker", scaleIndex: "2"},
 		{token: "tok-solo", dir: chatRoom, project: "alpha", command: "solo"},
-		// Exactly eight characters, which is as much of a token as a
-		// token-derived name carries, so the fallback below is spelled out
+		// Exactly eight characters each, which is as much of a token as a
+		// token-derived name carries, so the fallbacks below are spelled out
 		// whole.
 		{token: "tok-bare", dir: chatRoom, project: "alpha"},
+		{token: "tok-anon", dir: chatRoom, project: "alpha"},
 	})
 
-	got := runChat(t, cfg, "tok-worker", "join")
+	got := runChat(t, cfg, "tok-worker", "join", "--kind", "human")
 	if want := "joined " + chatRoom + " as alpha/worker-2\n"; got != want {
 		t.Errorf("join = %q, want %q", got, want)
 	}
 
 	// An unscaled command carries no replica index to append, so the declared
 	// name stands on its own.
-	got = runChat(t, cfg, "tok-solo", "join")
+	got = runChat(t, cfg, "tok-solo", "join", "--kind", "human")
 	if want := "joined " + chatRoom + " as alpha/solo\n"; got != want {
 		t.Errorf("join of an unscaled command = %q, want %q", got, want)
 	}
 
 	// Nothing in the labels names this one, so the daemon falls back to the
-	// token, as it did before the labels were read at all.
-	got = runChat(t, cfg, "tok-bare", "join")
-	if want := "joined " + chatRoom + " as alpha/agent-tok-bare\n"; got != want {
+	// token, as it did before the labels were read at all — prefixed by the kind
+	// the joiner declared, so the fallback name does not say the member is
+	// something it is not.
+	got = runChat(t, cfg, "tok-bare", "join", "--kind", "human")
+	if want := "joined " + chatRoom + " as alpha/human-tok-bare\n"; got != want {
 		t.Errorf("join without naming labels = %q, want %q", got, want)
 	}
 
+	got = runChat(t, cfg, "tok-anon", "join", "--kind", "agent")
+	if want := "joined " + chatRoom + " as alpha/agent-tok-anon\n"; got != want {
+		t.Errorf("join of an unnamed agent = %q, want %q", got, want)
+	}
+
 	// The derived names are the ones a teammate sees and addresses.
-	members := lines(runChat(t, cfg, "tok-worker", "members"))
+	members := memberAddresses(runChat(t, cfg, "tok-worker", "members"))
 	slices.Sort(members)
-	want := []string{"alpha/agent-tok-bare", "alpha/solo", "alpha/worker-2"}
+	want := []string{
+		"alpha/agent-tok-anon", "alpha/human-tok-bare", "alpha/solo", "alpha/worker-2",
+	}
 	if !slices.Equal(members, want) {
 		t.Errorf("members = %v, want %v", members, want)
 	}
@@ -669,7 +877,7 @@ func TestChat_JoinWithoutNameTakesComposeLabels(t *testing.T) {
 		{token: "tok-worker", dir: chatRoom, project: "alpha",
 			command: "worker", scaleIndex: "2"},
 	})
-	got = runChat(t, cfg, "tok-worker", "join", "--name", "chosen")
+	got = runChat(t, cfg, "tok-worker", "join", "--kind", "human", "--name", "chosen")
 	if want := "joined " + chatRoom + " as alpha/chosen\n"; got != want {
 		t.Errorf("join with an explicit name = %q, want %q", got, want)
 	}
@@ -686,7 +894,7 @@ func TestChat_RecreatedReplicaRejoinsUnderTheSameName(t *testing.T) {
 	}
 	cfg := startChatDaemonWith(t, []stubCommand{replica("tok-first")})
 
-	got := runChat(t, cfg, "tok-first", "join", "--agent")
+	got := runChat(t, cfg, "tok-first", "join", "--kind", "agent")
 	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
 		t.Errorf("join = %q, want %q", got, want)
 	}
@@ -695,14 +903,71 @@ func TestChat_RecreatedReplicaRejoinsUnderTheSameName(t *testing.T) {
 	// and the one that replaced it answers under a new ID with the same labels.
 	rewriteStubRoster(t, cfg, []stubCommand{replica("tok-second")})
 
-	got = runChat(t, cfg, "tok-second", "join", "--agent")
+	got = runChat(t, cfg, "tok-second", "join", "--kind", "agent")
 	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
 		t.Errorf("join after recreate = %q, want %q", got, want)
 	}
 
-	members := lines(runChat(t, cfg, "tok-second", "members"))
+	members := memberAddresses(runChat(t, cfg, "tok-second", "members"))
 	if want := []string{"alpha/worker-1"}; !slices.Equal(members, want) {
 		t.Errorf("members = %v, want %v", members, want)
+	}
+}
+
+// cmdman answers about a command whose process has ended until the command is
+// removed, so an agent whose session is over still has a token cmdman resolves.
+// The daemon reads the reported state and treats an exited command as a token
+// nobody holds: the member is dropped and the name it carried is free for the
+// replica that replaces it.
+//
+// The replacement's join is what triggers the check here. The daemon vouches
+// for a token it looked up moments ago without asking cmdman again, and the one
+// path that always asks afresh is a joiner colliding with a name — which is
+// exactly what a recreated replica does.
+func TestChat_ExitedReplicaIsReplacedByItsRecreation(t *testing.T) {
+	replica := func(token, state string) stubCommand {
+		return stubCommand{token: token, dir: chatRoom, project: "alpha",
+			command: "worker", scaleIndex: "1", state: state}
+	}
+	watcher := stubCommand{token: "tok-watcher", dir: chatRoom, project: "alpha"}
+	cfg := startChatDaemonWith(t, []stubCommand{replica("tok-first", "running"), watcher})
+
+	runChat(t, cfg, "tok-watcher", "join", "--kind", "human", "--name", "watcher")
+	got := runChat(t, cfg, "tok-first", "join", "--kind", "agent")
+	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
+		t.Errorf("join = %q, want %q", got, want)
+	}
+
+	// The replica's process ends and cmdman keeps the command, labels and all,
+	// reporting it exited. The replacement comes up beside it under a new ID
+	// carrying the same compose labels.
+	rewriteStubRoster(t, cfg, []stubCommand{
+		replica("tok-first", "exited"),
+		replica("tok-second", "running"),
+		watcher,
+	})
+
+	got = runChat(t, cfg, "tok-second", "join", "--kind", "agent")
+	if want := "joined " + chatRoom + " as alpha/worker-1\n"; got != want {
+		t.Errorf("join after the replica exited = %q, want %q", got, want)
+	}
+
+	// One worker, held by the replacement: the room a teammate sees carries no
+	// ghost of the session that ended.
+	members := memberAddresses(runChat(t, cfg, "tok-watcher", "members"))
+	slices.Sort(members)
+	if want := []string{"alpha/watcher", "alpha/worker-1"}; !slices.Equal(members, want) {
+		t.Errorf("members = %v, want %v", members, want)
+	}
+
+	// The exited replica attends nothing any more: it was dropped when its
+	// successor took the name, not merely hidden behind it.
+	_, stderr, err := execChat(t, cfg, "tok-first", "read")
+	if err == nil {
+		t.Fatal("reading as the exited replica succeeded, want a refusal")
+	}
+	if !strings.Contains(stderr, "join first") {
+		t.Errorf("stderr = %q, want it to say the token attends no room", stderr)
 	}
 }
 
@@ -718,10 +983,10 @@ func TestChat_NameCollisionAddressing(t *testing.T) {
 		{token: "tok-gamma-sam", dir: chatRoom, project: "gamma"},
 	})
 
-	runChat(t, cfg, "tok-alpha-sam", "join", "--name", "sam")
-	runChat(t, cfg, "tok-beta-sam", "join", "--name", "sam")
-	runChat(t, cfg, "tok-alpha-uniq", "join", "--name", "uniq")
-	runChat(t, cfg, "tok-asker", "join", "--name", "asker")
+	runChat(t, cfg, "tok-alpha-sam", "join", "--kind", "human", "--name", "sam")
+	runChat(t, cfg, "tok-beta-sam", "join", "--kind", "human", "--name", "sam")
+	runChat(t, cfg, "tok-alpha-uniq", "join", "--kind", "human", "--name", "uniq")
+	runChat(t, cfg, "tok-asker", "join", "--kind", "human", "--name", "asker")
 
 	// Two other teams carry the name and the caller's own does not, so there is
 	// nothing to prefer: the refusal names both teams and the form to retry
@@ -758,7 +1023,7 @@ func TestChat_NameCollisionAddressing(t *testing.T) {
 
 	// Once the caller's own team carries the name too, that one wins over the
 	// other teams' — and over the ambiguity the same address gave a moment ago.
-	runChat(t, cfg, "tok-gamma-sam", "join", "--name", "sam")
+	runChat(t, cfg, "tok-gamma-sam", "join", "--kind", "human", "--name", "sam")
 	got = runChat(t, cfg, "tok-asker", "send", "sam", "for my own team")
 	if want := "sent to gamma/sam\n"; got != want {
 		t.Errorf("own-team send = %q, want %q", got, want)
@@ -778,18 +1043,18 @@ func TestChat_RoomsAreIsolated(t *testing.T) {
 		{token: "tok-zed", dir: chatOtherRoom, project: "alpha"},
 	})
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	got := runChat(t, cfg, "tok-zed", "join", "--name", "zed")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	got := runChat(t, cfg, "tok-zed", "join", "--kind", "human", "--name", "zed")
 	if want := "joined " + chatOtherRoom + " as alpha/zed\n"; got != want {
 		t.Errorf("join = %q, want %q", got, want)
 	}
 
 	// Each side lists its own room only, though both are team alpha.
-	if members := lines(runChat(t, cfg, "tok-ana", "members")); !slices.Equal(
+	if members := memberAddresses(runChat(t, cfg, "tok-ana", "members")); !slices.Equal(
 		members, []string{"alpha/ana"}) {
 		t.Errorf("members = %v, want only alpha/ana", members)
 	}
-	if members := lines(runChat(t, cfg, "tok-zed", "members")); !slices.Equal(
+	if members := memberAddresses(runChat(t, cfg, "tok-zed", "members")); !slices.Equal(
 		members, []string{"alpha/zed"}) {
 		t.Errorf("members of the other room = %v, want only alpha/zed", members)
 	}
@@ -820,9 +1085,9 @@ func TestChat_RoomsAreIsolated(t *testing.T) {
 // only its recipient ever received.
 func TestChat_HistoryOutlivesTheInbox(t *testing.T) {
 	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
 
 	runChat(t, cfg, "tok-ana", "send", "bob", "ping")
 	runChat(t, cfg, "tok-ana", "broadcast", "standup in 5")
@@ -873,8 +1138,8 @@ func TestChat_HistoryOutlivesTheInbox(t *testing.T) {
 // the config layers pin that separately.
 func TestChat_ConfiguredHistoryLimitBoundsTheRoom(t *testing.T) {
 	cfg := startChatDaemonKeeping(t, 3, defaultStubCommands())
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
 
 	for i := range 5 {
 		runChat(t, cfg, "tok-ana", "send", "bob", fmt.Sprintf("line %d", i))
@@ -895,7 +1160,7 @@ func TestChat_ConfiguredHistoryLimitBoundsTheRoom(t *testing.T) {
 // all, the way an empty inbox does.
 func TestChat_HistoryOfASilentRoom(t *testing.T) {
 	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 
 	if got := runChat(t, cfg, "tok-ana", "history"); got != "no messages yet\n" {
 		t.Errorf("history of a silent room = %q, want %q", got, "no messages yet\n")
@@ -910,26 +1175,28 @@ func TestChat_JoinIsIdempotent(t *testing.T) {
 	cfg := startChatDaemon(t)
 
 	wantJoined := "joined " + chatRoom + " as alpha/ana\n"
-	if got := runChat(t, cfg, "tok-ana", "join", "--name", "ana"); got != wantJoined {
+	got := runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	if got != wantJoined {
 		t.Errorf("first join = %q, want %q", got, wantJoined)
 	}
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
 	runChat(t, cfg, "tok-bob", "send", "ana", "before the second join")
 
 	// Even a differently spelled name changes nothing: the first join settled
 	// this token's identity.
-	if got := runChat(t, cfg, "tok-ana", "join", "--name", "renamed"); got != wantJoined {
+	got = runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "renamed")
+	if got != wantJoined {
 		t.Errorf("second join = %q, want %q", got, wantJoined)
 	}
 
-	members := lines(runChat(t, cfg, "tok-ana", "members"))
+	members := memberAddresses(runChat(t, cfg, "tok-ana", "members"))
 	slices.Sort(members)
 	if want := []string{"alpha/ana", "alpha/bob"}; !slices.Equal(members, want) {
 		t.Errorf("members = %v, want %v: the re-join must not add a member", members, want)
 	}
 
 	// The inbox survived: nothing waiting was dropped with the re-join.
-	got := runChat(t, cfg, "tok-ana", "read")
+	got = runChat(t, cfg, "tok-ana", "read")
 	if !strings.Contains(got, "alpha/bob: before the second join") {
 		t.Errorf("read = %q, want the message queued before the second join", got)
 	}
@@ -942,11 +1209,11 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 	token := registerChatHuman(t, cfg, identity, chatRoom, "humans", "yuki")
 
 	// Registration is attendance: the room already lists the human.
-	members := lines(runChat(t, cfg, "tok-ana", "members"))
+	members := memberAddresses(runChat(t, cfg, "tok-ana", "members"))
 	slices.Sort(members)
 	if want := []string{"alpha/ana", "humans/yuki"}; !slices.Equal(members, want) {
 		t.Errorf("members = %v, want %v", members, want)
@@ -954,7 +1221,7 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 
 	// Joining as an already-registered human is answered from the store, so the
 	// token the daemon minted needs no provider to back it.
-	got := runChat(t, cfg, token, "join", "--name", "yuki")
+	got := runChat(t, cfg, token, "join", "--kind", "human", "--name", "yuki")
 	if want := "joined " + chatRoom + " as humans/yuki\n"; got != want {
 		t.Errorf("human join = %q, want %q", got, want)
 	}
@@ -987,12 +1254,18 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 		if got := runChat(t, cfg, token, "read"); got != "no pending messages\n" {
 			t.Errorf("human read = %q, want an empty inbox", got)
 		}
-		if got := lines(runChat(t, cfg, token, "members")); !slices.Contains(got, "humans/yuki") {
+		if got := memberAddresses(
+			runChat(t, cfg, token, "members"),
+		); !slices.Contains(
+			got,
+			"humans/yuki",
+		) {
 			t.Errorf("members seen by the human = %v, want it to still list humans/yuki", got)
 		}
 	}
-	if got := lines(runChat(t, cfg, "tok-ana", "members")); !slices.Contains(got, "humans/yuki") {
-		t.Errorf("members = %v, want the human still attending", got)
+	seenByAgent := memberAddresses(runChat(t, cfg, "tok-ana", "members"))
+	if !slices.Contains(seenByAgent, "humans/yuki") {
+		t.Errorf("members = %v, want the human still attending", seenByAgent)
 	}
 }
 
@@ -1004,11 +1277,15 @@ func TestChat_AdminIdentityGatesRoomList(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "agent", "--name", "ana")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
 
+	// The tree names each member's kind beside it, so the operator reading the
+	// topology can tell which members a message reaches on its own.
 	got := runChat(t, cfg, "", "admin", "list", "--identity", identity)
-	for _, want := range []string{"room: " + chatRoom, "team: alpha", "ana", "team: beta", "cid"} {
+	for _, want := range []string{
+		"room: " + chatRoom, "team: alpha", "ana  agent", "team: beta", "cid  human",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("admin list missing %q; got:\n%s", want, got)
 		}
@@ -1047,8 +1324,8 @@ func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
 
 	got := runChat(t, cfg, "", "admin", "move", chatRoom, "alpha/ana", "beta",
 		"--identity", identity)
@@ -1056,7 +1333,7 @@ func TestChat_AdminMovesMemberBetweenTeams(t *testing.T) {
 		t.Errorf("admin move = %q, want %q", got, want)
 	}
 
-	members := lines(runChat(t, cfg, "tok-cid", "members"))
+	members := memberAddresses(runChat(t, cfg, "tok-cid", "members"))
 	slices.Sort(members)
 	if want := []string{"beta/ana", "beta/cid"}; !slices.Equal(members, want) {
 		t.Errorf("members after the move = %v, want %v", members, want)
@@ -1090,9 +1367,9 @@ func TestChat_AdminSendsWithoutAttending(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
 
 	// A named target is addressed the way `chat send` addresses one, and the
 	// count is echoed back so "*" and a name read alike.
@@ -1113,7 +1390,7 @@ func TestChat_AdminSendsWithoutAttending(t *testing.T) {
 	}
 
 	// Speaking into the room did not join it, under any spelling of the name.
-	members := lines(runChat(t, cfg, "tok-bob", "members"))
+	members := memberAddresses(runChat(t, cfg, "tok-bob", "members"))
 	slices.Sort(members)
 	if want := []string{"alpha/ana", "alpha/bob", "beta/cid"}; !slices.Equal(members, want) {
 		t.Errorf("members after the admin send = %v, want %v", members, want)
@@ -1173,8 +1450,8 @@ func TestChat_AdminReadsTheRoomLog(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
 
 	runChat(t, cfg, "", "admin", "send", chatRoom, "alpha/ana",
 		"deploy is frozen", "--identity", identity)
@@ -1275,7 +1552,7 @@ func TestChat_RemovedSpellingsAreRejected(t *testing.T) {
 func TestChat_MirrorsMemberStateOntoCmdmanStatus(t *testing.T) {
 	cfg := startChatDaemon(t)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "agent", "--name", "ana")
 	runChat(t, cfg, "tok-ana", "report-state", "working")
 	runChat(t, cfg, "tok-ana", "report-state", "waiting")
 	runChat(t, cfg, "tok-ana", "leave")
@@ -1293,8 +1570,8 @@ func TestChat_MirrorsMemberStateOntoCmdmanStatus(t *testing.T) {
 	}
 }
 
-// Typing into a terminal is what `--agent` asks for, and the only thing it
-// changes. A member that joined without it is delivered to like anyone else and
+// Typing into a terminal is what `--kind agent` asks for, and the only thing it
+// changes. A member that joined as a human is delivered to like anyone else and
 // simply never typed at: it reads its inbox when it chooses to, which is what a
 // person at a shell wants and what a harness cannot wait for.
 //
@@ -1303,8 +1580,8 @@ func TestChat_MirrorsMemberStateOntoCmdmanStatus(t *testing.T) {
 func TestChat_OnlyAnAgentIsTypedAt(t *testing.T) {
 	cfg := startChatDaemon(t)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "agent", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
 
 	runChat(t, cfg, "tok-bob", "send", "ana", "PR is ready")
 	runChat(t, cfg, "tok-ana", "send", "bob", "looking now")
@@ -1332,13 +1609,13 @@ func TestChat_NeverPublishesAHumanToken(t *testing.T) {
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
 	token := registerChatHuman(t, cfg, identity, chatRoom, "humans", "yuki")
-	runChat(t, cfg, token, "join", "--name", "yuki")
+	runChat(t, cfg, token, "join", "--kind", "human", "--name", "yuki")
 	runChat(t, cfg, token, "report-state", "working")
 	runChat(t, cfg, token, "leave")
 
 	// An agent doing the same thing proves the recording works at all, so the
 	// human half below cannot pass by nothing being recorded.
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana", "--agent")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "agent", "--name", "ana")
 
 	published := stubStatus(t, cfg)
 	if want := []string{
@@ -1381,8 +1658,9 @@ func TestChat_TwoBridgesOnOneTokenAttendOnce(t *testing.T) {
 
 	// Asking both settles both joins, and the room names the member once: the
 	// second was answered from the stored membership rather than attending
-	// again beside it.
-	want := chatBridgeAna + "\n"
+	// again beside it. The bridge declares the agent kind, so the roster says
+	// the member is one a message is typed into.
+	want := chatBridgeAna + "  agent  done\n"
 	for i, session := range bridges {
 		if got := callChatTool(t, session, "chat_members", nil); got != want {
 			t.Errorf("bridge %d chat_members = %q, want %q", i, got, want)
@@ -1407,7 +1685,7 @@ func TestChat_BridgeToolsCarryTheRoom(t *testing.T) {
 	// declares attendance as it starts, but a message that overtook that join
 	// would name a member the daemon does not have yet.
 	callChatTool(t, ana, "chat_members", nil)
-	members := lines(callChatTool(t, bob, "chat_members", nil))
+	members := memberAddresses(callChatTool(t, bob, "chat_members", nil))
 	slices.Sort(members)
 	if want := []string{chatBridgeAna, chatBridgeBob}; !slices.Equal(members, want) {
 		t.Errorf("chat_members = %v, want %v", members, want)
@@ -1441,9 +1719,183 @@ func TestChat_BridgeToolsCarryTheRoom(t *testing.T) {
 	// The attendance the bridges declared is the daemon's, not something the
 	// tools keep between themselves: a member verb typed at the CLI, which the
 	// daemon answers for members alone, reads back the same room.
-	roster := lines(runChat(t, cfg, "tok-ana", "members"))
+	roster := memberAddresses(runChat(t, cfg, "tok-ana", "members"))
 	slices.Sort(roster)
 	if want := []string{chatBridgeAna, chatBridgeBob}; !slices.Equal(roster, want) {
 		t.Errorf("members = %v, want %v", roster, want)
+	}
+}
+
+// A harness starts its MCP subprocesses before the services they talk to, so a
+// bridge regularly comes up against a socket nothing is listening on. It keeps
+// asking, and the room holds the member shortly after the daemon is there —
+// with no tool call to prompt it, since the agent has no reason to make one and
+// its hooks are refused until it does.
+func TestChat_BridgeAttendsOnceTheDaemonComesUp(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+
+	// The handshake is answered by a bridge with no daemon to attend.
+	bridge := startChatBridge(t, cfg, "tok-ana")
+	if got := bridge.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	}
+
+	startChatServe(t, cfg)
+
+	// Watched from another member rather than through the bridge: every tool
+	// declares attendance on its way to answering, so calling one would prove
+	// nothing about the join the bridge makes on its own.
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+}
+
+// A membership can be taken away from under a live bridge. The daemon publishes
+// the departure into the feed the departing member is itself reading, and it
+// authorises a feed once and never again, so the bridge is left holding a stream
+// that still works and a membership that does not — with no call of its own to
+// fail and say so until the agent happens to use a tool, which may be hours
+// away. The departure names it, and that is what it goes on.
+//
+// `crabswarm chat leave` typed by a second process holding the bridge's token is
+// the shortest way into that state. The bridge undoes it within seconds, which
+// is the intended answer: the bridge is the session's membership and keeps
+// attending until the session ends.
+func TestChat_BridgeReattendsAfterItsMembershipIsWithdrawn(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+	startChatServe(t, cfg)
+	startChatBridge(t, cfg, "tok-ana")
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	// The daemon answers a leave for members alone, so this succeeding is itself
+	// the proof that the bridge was attending and is not any more.
+	runChat(t, cfg, "tok-ana", "leave")
+
+	// Attendance read through a member verb, which the daemon also answers for
+	// members alone. Nothing has called a tool on the bridge.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	// The hook path is what this is for: a state report reaches cmdman's status
+	// display again, on the member the bridge attended for a second time.
+	runChat(t, cfg, "tok-ana", "report-state", "working")
+	published := stubStatus(t, cfg)
+	want := "set working tok-ana --detail crabswarm chat"
+	if !slices.Contains(published, want) {
+		t.Errorf("cmdman status invocations = %q, want one of them to be %q", published, want)
+	}
+}
+
+// A daemon can go away and come back under a live bridge — restarted by its
+// operator, and back on a database that has forgotten every member. The bridge
+// attends again on its own, which is what the agent's hooks need: they report
+// harness state through the CLI, and every report is refused for as long as the
+// room is missing the member.
+func TestChat_BridgeReattendsAfterTheDaemonRestarts(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+	serve := startChatServe(t, cfg)
+	startChatBridge(t, cfg, "tok-ana")
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	stopProcess(t, serve)
+	removeChatDatabase(t, cfg)
+	startChatServe(t, cfg)
+
+	// Attendance read through a member verb, which the daemon answers for
+	// members alone. Nothing has called a tool on the bridge.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	// The hook path is what this is for: a state report reaches cmdman's status
+	// display again, on the member the bridge attended for a second time.
+	runChat(t, cfg, "tok-ana", "report-state", "working")
+	published := stubStatus(t, cfg)
+	want := "set working tok-ana --detail crabswarm chat"
+	if !slices.Contains(published, want) {
+		t.Errorf("cmdman status invocations = %q, want one of them to be %q", published, want)
+	}
+}
+
+// A harness that strips the environment leaves the bridge with no identity to
+// resolve: no --token, no $CRABSWARM_CHAT_TOKEN and no $CMDMAN_CMD_ID. It
+// answers the handshake all the same — a subprocess that exits during startup
+// reaches the user as a closed connection with no reason attached — and its
+// tools report what is missing in the words every member verb uses.
+func TestChat_BridgeWithoutAnIdentityStillServes(t *testing.T) {
+	cfg := writeChatConfig(t, 0, defaultStubCommands())
+	startChatServe(t, cfg)
+
+	// What a stripped harness leaves behind: enough to find a home directory
+	// and a binary, and nothing that names a member. No $XDG_RUNTIME_DIR
+	// either, which is why the daemon socket comes from --config.
+	session := startChatBridgeIn(t, cfg, "", []string{
+		"HOME=" + os.Getenv("HOME"),
+		"PATH=" + os.Getenv("PATH"),
+	})
+	if got := session.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	}
+
+	res, err := session.CallTool(t.Context(),
+		&mcp.CallToolParams{Name: "chat_members"})
+	if err != nil {
+		t.Fatalf("call chat_members: %v", err)
+	}
+	text := chatToolText(t, res)
+	if !res.IsError {
+		t.Fatalf("chat_members answered %q, want it to report the missing identity", text)
+	}
+	for _, want := range []string{
+		"no chat identity token", "--token", chatTokenEnvVar, "CMDMAN_CMD_ID",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("chat_members = %q, want it to name %q", text, want)
+		}
+	}
+}
+
+// A harness that spawns the bridge with a fixed environment whitelist forwards
+// only the variables its own MCP configuration names, which is what the apm
+// package's env_vars list is for. Handed those three and nothing else, the
+// bridge resolves both halves of what it needs by itself: an identity token,
+// and — with no --config and no --sock — the daemon socket under
+// $XDG_RUNTIME_DIR. So it attends and its tools answer for the room.
+func TestChat_BridgeFindsTheDaemonThroughTheRuntimeDir(t *testing.T) {
+	// The runtime dir is made short on purpose: a Unix socket path is bounded
+	// at a little over a hundred bytes, and a t.TempDir() spends much of that
+	// on the test's own name before the derived crabswarm/default.sock is
+	// appended.
+	runtimeDir, err := os.MkdirTemp("", "crabswarm-rt")
+	if err != nil {
+		t.Fatalf("make a runtime dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(runtimeDir) })
+
+	// Where the bridge derives the socket from $XDG_RUNTIME_DIR, and therefore
+	// where the daemon has to listen for the derivation to be worth anything.
+	// Its crabswarm/ directory is left for the daemon to create, as on a fresh
+	// boot.
+	sock := filepath.Join(runtimeDir, "crabswarm", "default.sock")
+	cfg := writeChatConfigOn(t, t.TempDir(), sock, 0, defaultStubCommands())
+	startChatServeOn(t, cfg, sock)
+
+	// A home of the test's own rather than the suite's: the bridge reads a
+	// config file out of $HOME when one is there, and a developer's host may
+	// hold one naming a socket of its own — which would answer the question
+	// this case is asking. Everything else is what the harness forwards, with
+	// the token in the spelling an agent under cmdman inherits.
+	session := startChatBridgeIn(t, "", "", []string{
+		"HOME=" + t.TempDir(),
+		"PATH=" + os.Getenv("PATH"),
+		"XDG_RUNTIME_DIR=" + runtimeDir,
+		"CMDMAN_CMD_ID=tok-ana",
+		chatTokenEnvVar + "=",
+	})
+
+	// Attendance is read through a member verb, not a tool: every tool declares
+	// attendance on its way to answering, so calling one would prove nothing
+	// about the join the bridge made out of what the environment told it.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+
+	members := memberAddresses(callChatTool(t, session, "chat_members", nil))
+	if want := []string{chatBridgeAna}; !slices.Equal(members, want) {
+		t.Errorf("chat_members = %v, want %v", members, want)
 	}
 }

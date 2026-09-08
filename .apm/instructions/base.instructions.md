@@ -64,7 +64,7 @@ Tools to swarm claude(, codex and others!)
 │   │   │           store.go/member.go/inbox.go/history.go = SQLite store; delivery.go + notify/ = fan-out and keystroke nudges via cmdman;
 │   │   │           resolver/ = cmdman team-info provider (token -> room/team/name); interceptor.go = per-RPC auth + lazy reaping.
 │   │   ├── cli       Client side: token resolution (token.go), member verbs, admin verbs, and cli/tui = the admin TUI (bubbletea).
-│   │   ├── mcpserver `crabswarm chat mcp`: stdio MCP bridge, one instance per agent; auto-joins on startup; tools + resources over the member plane.
+│   │   ├── mcpserver `crabswarm chat mcp`: stdio MCP bridge, one instance per agent; attends the room for the whole session, retrying until the daemon answers and re-attending after a restart; serves even with no identity token; tools + resources over the member plane.
 │   │   ├── notify    Nudging a harness by typing into its cmdman-tracked terminal (SendKeys, gated on reported state).
 │   │   └── internal  cmdman client, sqlc-generated db/, schema/ddl (schema.sql + room_log.sql) and schema/queries.
 │   ├── hook        Claude Code / Codex hook handlers: exec/ (`hook exec` template runner + its Config), path/, audit.go.
@@ -108,7 +108,7 @@ Tools to swarm claude(, codex and others!)
 
 - Checkout layout: `.bare` is the bare repo; `main/` is the main-branch worktree and every path above is relative to it. Other worktrees (e.g. `web/`) sit beside `main/`. Run `git`, `go`, and `apm` from inside a worktree.
 - Command -> code: `crabswarm a b c` is `cmd/crabswarm/commands/a_b_c.go`, whose RunE calls into `crabswarm/<a>/`. Read the command file first for flags, then follow the call.
-- Runtime state on a dev host: daemon socket `$XDG_RUNTIME_DIR/crabswarm/default.sock`; chat DB `~/.local/state/crabswarm/chat.db` (`crabswarm config` prints the resolved paths). The daemon applies the DDL itself on open — check `crabswarm/chat/store.go` before assuming a migration step exists.
+- Runtime state on a dev host: daemon socket `$XDG_RUNTIME_DIR/crabswarm/default.sock`, and where that variable is unset `/run/user/<uid>/crabswarm/default.sock` when the directory is there, else `/tmp/crabswarm/default.sock`; chat DB `~/.local/state/crabswarm/chat.db` (`crabswarm config` prints the resolved paths). The daemon applies the DDL itself on open — check `crabswarm/chat/store.go` before assuming a migration step exists.
 - The chat member identity is the token: `--token`, else `$CRABSWARM_CHAT_TOKEN`, else `$CMDMAN_CMD_ID` (`crabswarm/chat/cli/token.go`). Anything running outside a cmdman-tracked command — a bare shell, an MCP server launched by a harness that strips env — has no token and cannot join.
 - `AGENTS.md` / `CLAUDE.md` are generated (git-ignored) from `.apm/instructions/*.md`: edit the source, never the generated files. Never run `apm` (compile, install, ...) inside a worktree such as `main/`; the user regenerates them.
 - Backlog / plans: the issue backlog is the beads database (`bd`) under the repo root's `.beads/`, shared by every worktree — one `task` bead per item, labels as tags, `Discussion:`/`Decision:` comments, close reason as conclusion (`bd list`, `bd search <text> --status all`, `bd show <id>`; see the ngplan skill's `reference/beads.md`). Never `bd dolt push` or `bd hooks install`.

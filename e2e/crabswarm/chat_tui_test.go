@@ -26,8 +26,7 @@ import (
 // screen against a live room. The failure paths, which never reach the screen,
 // are asserted through the binary further down.
 
-// chatSock is the socket the daemon config written by startChatDaemonKeeping
-// names.
+// chatSock is the socket the daemon config written by writeChatConfig names.
 func chatSock(cfgPath string) string {
 	return filepath.Join(filepath.Dir(cfgPath), "chat.sock")
 }
@@ -225,8 +224,8 @@ func TestChatTUI_WatchesARoomAndSendsIntoIt(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
 	runChat(t, cfg, "tok-ana", "broadcast", "rebasing onto main")
 
 	s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
@@ -280,10 +279,10 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 		{token: "tok-zed", dir: chatOtherRoom, project: "gamma"},
 	}, recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
-	runChat(t, cfg, "tok-zed", "join", "--name", "zed")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
+	runChat(t, cfg, "tok-zed", "join", "--kind", "human", "--name", "zed")
 	runChat(t, cfg, "tok-ana", "broadcast", "the proj room is talking")
 	runChat(t, cfg, "tok-zed", "broadcast", "the other room is talking")
 
@@ -335,9 +334,9 @@ func TestChatTUI_MembersPaneAddressesTheMessage(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
 	runChat(t, cfg, "tok-ana", "broadcast", "who is awake?")
 
 	t.Run("enter on a member writes @team/name", func(t *testing.T) {
@@ -394,9 +393,9 @@ func TestChatTUI_TabCompletesAnAddress(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--name", "cid")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
 	runChat(t, cfg, "tok-ana", "broadcast", "standup in five")
 
 	t.Run("one match completes in place", func(t *testing.T) {
@@ -467,7 +466,7 @@ func TestChatTUI_EditsTheDraftInAnEditor(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 	runChat(t, cfg, "tok-ana", "broadcast", "a long one is coming")
 
 	const draft = "@alpha/ana the draft"
@@ -536,8 +535,8 @@ func TestChatTUI_EnterWritesALineAndTheSendKeysSend(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--name", "bob")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
 	runChat(t, cfg, "tok-ana", "broadcast", "two lines please")
 
 	s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
@@ -590,7 +589,7 @@ func TestChatTUI_EnterWritesALineAndTheSendKeysSend(t *testing.T) {
 func TestChatTUI_FailuresExitBeforeTheScreen(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
-	runChat(t, cfg, "tok-ana", "join", "--name", "ana")
+	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
 
 	stranger, _ := newChatIdentityFile(t)
 

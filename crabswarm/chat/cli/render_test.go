@@ -15,6 +15,19 @@ func member(team, name, room string) *chatv1.Member {
 	return &chatv1.Member{Team: team, Name: name, Room: room}
 }
 
+// memberWith is member() plus the two things the roster renderers show beside
+// an address: what attends, and what its harness last reported.
+func memberWith(
+	team, name, room string,
+	kind chatv1.MemberKind,
+	state chatv1.HarnessState,
+) *chatv1.Member {
+	m := member(team, name, room)
+	m.Kind = kind
+	m.State = state
+	return m
+}
+
 func render(t *testing.T, f func(w *strings.Builder) error) string {
 	t.Helper()
 	var b strings.Builder
@@ -162,43 +175,62 @@ func TestRenderAdminHistory(t *testing.T) {
 
 func TestRenderMembers(t *testing.T) {
 	members := []*chatv1.Member{
-		member("backend", "alice", "/work"),
-		member("frontend", "bob", "/work"),
+		memberWith("backend", "alice", "/work",
+			chatv1.MemberKind_MEMBER_KIND_AGENT,
+			chatv1.HarnessState_HARNESS_STATE_WORKING),
+		memberWith("frontend", "bob", "/work",
+			chatv1.MemberKind_MEMBER_KIND_HUMAN,
+			chatv1.HarnessState_HARNESS_STATE_DONE),
+		// A member the daemon reported neither for still gets its columns, so
+		// the line a caller splits has the same shape for everyone.
+		member("ops", "carol", "/work"),
 	}
 
 	got := render(t, func(b *strings.Builder) error { return RenderMembers(b, members) })
-	assert.Equal(t, got, "backend/alice\nfrontend/bob\n")
+	assert.Equal(t, got,
+		"backend/alice  agent  working\n"+
+			"frontend/bob  human  done\n"+
+			"ops/carol  unknown  unknown\n")
+
+	// The first column is the address `chat send` takes, undecorated: whoever
+	// reads a line cuts it on whitespace and sends to what comes first.
+	assert.Equal(t, strings.Fields(strings.Split(got, "\n")[0])[0], "backend/alice")
 
 	got = render(t, func(b *strings.Builder) error { return RenderMembers(b, nil) })
 	assert.Equal(t, got, "no members\n")
 }
 
 func TestRenderRooms(t *testing.T) {
+	agent := chatv1.MemberKind_MEMBER_KIND_AGENT
+	human := chatv1.MemberKind_MEMBER_KIND_HUMAN
+	unreported := chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED
 	rooms := []*chatv1.Room{
 		{
 			Name: "/work/proj",
 			Members: []*chatv1.Member{
-				member("backend", "alice", "/work/proj"),
-				member("frontend", "bob", "/work/proj"),
+				memberWith("backend", "alice", "/work/proj", agent, unreported),
+				memberWith("frontend", "bob", "/work/proj", agent, unreported),
 				// A second member of an earlier team joins that team's block
 				// rather than opening a new one.
-				member("backend", "carol", "/work/proj"),
+				memberWith("backend", "carol", "/work/proj", human, unreported),
 			},
 		},
-		{Name: "/work/other", Members: []*chatv1.Member{member("humans", "yuki", "/work/other")}},
+		{Name: "/work/other", Members: []*chatv1.Member{
+			memberWith("humans", "yuki", "/work/other", human, unreported),
+		}},
 	}
 
 	got := render(t, func(b *strings.Builder) error { return RenderRooms(b, rooms) })
 	assert.Equal(t, got,
 		"room: /work/proj\n"+
 			"  team: backend\n"+
-			"    alice\n"+
-			"    carol\n"+
+			"    alice  agent\n"+
+			"    carol  human\n"+
 			"  team: frontend\n"+
-			"    bob\n"+
+			"    bob  agent\n"+
 			"room: /work/other\n"+
 			"  team: humans\n"+
-			"    yuki\n")
+			"    yuki  human\n")
 
 	got = render(t, func(b *strings.Builder) error { return RenderRooms(b, nil) })
 	assert.Equal(t, got, "no rooms\n")

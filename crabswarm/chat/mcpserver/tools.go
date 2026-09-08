@@ -59,44 +59,47 @@ func (s *Server) addTools() {
 	}, s.read)
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name: "chat_members",
-		Description: "List everyone attending your room, one team-qualified " +
-			"member per line. Each line is exactly the address chat_send takes.",
+		Description: "List everyone attending your room, one member per line. " +
+			"The first column is exactly the address chat_send takes; the ones " +
+			"after it are the kind — agent for a harness a message is typed " +
+			"into, human for someone who reads an inbox — and the state that " +
+			"harness last reported.",
 	}, s.members)
 }
 
 func (s *Server) send(
 	ctx context.Context, _ *mcp.CallToolRequest, in sendArgs,
 ) (*mcp.CallToolResult, any, error) {
-	return s.call(ctx, func(w io.Writer) error {
-		return s.client.Send(ctx, w, s.token, in.To, in.Message)
+	return s.call(ctx, func(w io.Writer, token string) error {
+		return s.client.Send(ctx, w, token, in.To, in.Message)
 	})
 }
 
 func (s *Server) broadcast(
 	ctx context.Context, _ *mcp.CallToolRequest, in broadcastArgs,
 ) (*mcp.CallToolResult, any, error) {
-	return s.call(ctx, func(w io.Writer) error {
-		return s.client.Broadcast(ctx, w, s.token, in.Message)
+	return s.call(ctx, func(w io.Writer, token string) error {
+		return s.client.Broadcast(ctx, w, token, in.Message)
 	})
 }
 
 func (s *Server) read(
 	ctx context.Context, _ *mcp.CallToolRequest, _ noArgs,
 ) (*mcp.CallToolResult, any, error) {
-	return s.call(ctx, func(w io.Writer) error {
+	return s.call(ctx, func(w io.Writer, token string) error {
 		// The zero options are the read a human types: an empty inbox says so,
 		// and nothing but the inbox changes. The two flags `chat read` carries
 		// exist for harness hooks deciding whether they have mail to deliver,
 		// which is not a decision the model calling this tool is making.
-		return s.client.Read(ctx, w, s.token, cli.ReadOptions{})
+		return s.client.Read(ctx, w, token, cli.ReadOptions{})
 	})
 }
 
 func (s *Server) members(
 	ctx context.Context, _ *mcp.CallToolRequest, _ noArgs,
 ) (*mcp.CallToolResult, any, error) {
-	return s.call(ctx, func(w io.Writer) error {
-		return s.client.ListMembers(ctx, w, s.token)
+	return s.call(ctx, func(w io.Writer, token string) error {
+		return s.client.ListMembers(ctx, w, token)
 	})
 }
 
@@ -109,19 +112,22 @@ func (s *Server) members(
 // change to how a message reads reaches both at once.
 //
 // Attendance is checked first because none of these calls mean anything from
-// outside the room, and a member whose startup join never landed would
-// otherwise get the daemon's answer to a question it should not have asked.
-// A refusal on the way out re-opens that question, so a bridge whose member
-// the daemon has since forgotten attends again on the next call.
+// outside the room, and a member whose attendance never landed would otherwise
+// get the daemon's answer to a question it should not have asked. A refusal on
+// the way out re-opens that question, so a bridge whose member the daemon has
+// since forgotten attends again on the next call. It also hands the identity
+// token down to the call, which is where a bridge that was configured with
+// none reports what is missing instead of talking to the daemon as nobody.
 func (s *Server) call(
 	ctx context.Context,
-	rpc func(w io.Writer) error,
+	rpc func(w io.Writer, token string) error,
 ) (*mcp.CallToolResult, any, error) {
-	if err := s.ensureJoined(ctx); err != nil {
+	token, err := s.ensureJoined(ctx)
+	if err != nil {
 		return nil, nil, err
 	}
 	var rendered bytes.Buffer
-	if err := rpc(&rendered); err != nil {
+	if err := rpc(&rendered, token); err != nil {
 		return nil, nil, s.forgetJoined(err)
 	}
 	return &mcp.CallToolResult{

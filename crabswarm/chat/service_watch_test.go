@@ -120,7 +120,8 @@ func TestService_WatchRoomStreamsWhatHappensInTheRoom(t *testing.T) {
 	done := watch(svc, stream)
 	waitWatching(t, svc.store, "/work")
 
-	_, err := svc.Join(callCtx(t, "tok-b"), &chatv1.JoinRequest{Name: "bob"})
+	_, err := svc.Join(callCtx(t, "tok-b"),
+		&chatv1.JoinRequest{Name: "bob", Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
 	assert.NilError(t, err)
 	_, err = svc.ReportState(callCtx(t, "tok-b"), &chatv1.ReportStateRequest{
 		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
@@ -152,7 +153,8 @@ func TestService_WatchRoomCarriesTheStateEachMemberIsIn(t *testing.T) {
 	sub := svc.store.events.subscribe("/work")
 	defer svc.store.events.unsubscribe(sub)
 
-	_, err := svc.Join(callCtx(t, "tok-b"), &chatv1.JoinRequest{Name: "bob"})
+	_, err := svc.Join(callCtx(t, "tok-b"),
+		&chatv1.JoinRequest{Name: "bob", Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
 	assert.NilError(t, err)
 	for _, state := range []chatv1.HarnessState{
 		chatv1.HarnessState_HARNESS_STATE_WORKING,
@@ -184,7 +186,8 @@ func TestService_WatchRoomIgnoresARepeatedJoin(t *testing.T) {
 	sub := svc.store.events.subscribe("/work")
 	defer svc.store.events.unsubscribe(sub)
 
-	_, err := svc.Join(callCtx(t, "tok-a"), &chatv1.JoinRequest{Name: "ana"})
+	_, err := svc.Join(callCtx(t, "tok-a"),
+		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
 	assert.NilError(t, err)
 	noMoreEvents(t, sub.events)
 }
@@ -228,7 +231,8 @@ func TestService_WatchRoomIsRoomScoped(t *testing.T) {
 	sub := svc.store.events.subscribe("/work")
 	defer svc.store.events.unsubscribe(sub)
 
-	_, err := svc.Join(callCtx(t, "tok-c"), &chatv1.JoinRequest{Name: "cid"})
+	_, err := svc.Join(callCtx(t, "tok-c"),
+		&chatv1.JoinRequest{Name: "cid", Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
 	assert.NilError(t, err)
 	_, err = svc.ReportState(callCtx(t, "tok-c"), &chatv1.ReportStateRequest{
 		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
@@ -305,7 +309,8 @@ func TestService_WatchRoomOverGRPC(t *testing.T) {
 	waitWatching(t, svc.store, "/work")
 
 	asBob := metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-b")
-	_, err = client.Join(asBob, &chatv1.JoinRequest{Name: "bob"})
+	_, err = client.Join(asBob,
+		&chatv1.JoinRequest{Name: "bob", Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
 	assert.NilError(t, err)
 	_, err = client.ReportState(asBob, &chatv1.ReportStateRequest{
 		State: chatv1.HarnessState_HARNESS_STATE_WAITING,

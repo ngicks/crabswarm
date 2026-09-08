@@ -13,9 +13,14 @@ import (
 // terminal.
 const (
 	// leftWidth is the left column's column count. Fixed rather than
-	// proportional: it holds a room path and a name beside a state word, and
-	// none of them gets more readable for being given half the screen.
-	leftWidth = 22
+	// proportional: it holds a room path and a name beside a kind and a state
+	// word, and none of them gets more readable for being given half the
+	// screen. It is wide enough for a whole member row — a name in
+	// [nameColumn] cells, then "agent" or "human", then the longest state word
+	// — because a state clipped off the end is the one thing the pane is read
+	// for. The daemon refuses a join that declares no kind, so the longer
+	// "unknown" reaches this row only for a member built without one.
+	leftWidth = 27
 	// leftMinWidth is the terminal width below which the two columns no longer
 	// fit side by side. Below it the body holds one column at a time and a
 	// focus move toward the other brings it on screen in place of this one.
@@ -30,7 +35,7 @@ const (
 	messageMinRows = 1
 	messageMaxRows = 6
 	// nameColumn is how much of a member's name the members pane spells before
-	// the state word.
+	// the kind and state words.
 	nameColumn = 10
 )
 

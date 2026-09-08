@@ -92,13 +92,32 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.Equal(t, cfg.ProjectDir, "")
 }
 
-func TestLoadConfig_SockDefaultFallsBackToTmp(t *testing.T) {
-	baseEnv(t)
-	configDir(t) // no XDG_RUNTIME_DIR
+// $XDG_RUNTIME_DIR names the directory when it is set, and nothing on the
+// filesystem is consulted.
+func TestRuntimeDir_TakesTheEnvironmentValue(t *testing.T) {
+	got := runtimeDir("/run/user/1000", 4242, func(path string) bool {
+		t.Errorf("probed %q although the environment named a runtime dir", path)
+		return true
+	})
+	assert.Equal(t, got, "/run/user/1000")
+}
 
-	cfg, err := LoadConfig("")
-	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
+// Without the variable the per-user runtime directory is used when it exists —
+// the path a login session of the same user would have been given.
+func TestRuntimeDir_FallsBackToThePerUserDirectory(t *testing.T) {
+	var probed []string
+	got := runtimeDir("", 4242, func(path string) bool {
+		probed = append(probed, path)
+		return true
+	})
+	assert.Equal(t, got, "/run/user/4242")
+	assert.DeepEqual(t, probed, []string{"/run/user/4242"})
+}
+
+// With neither the variable nor the directory, /tmp is what is left.
+func TestRuntimeDir_FallsBackToTmp(t *testing.T) {
+	got := runtimeDir("", 4242, func(string) bool { return false })
+	assert.Equal(t, got, "/tmp")
 }
 
 func TestLoadConfig_EnvOverridesDefault(t *testing.T) {
@@ -271,11 +290,12 @@ func TestLoadConfig_ConfPathFromUserConfigDir(t *testing.T) {
 func TestLoadConfig_MissingFileTolerated(t *testing.T) {
 	baseEnv(t)
 	configDir(t) // empty dir, no config.json
+	t.Setenv(envXDGRuntime, "/run/user/1000")
 
 	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
 	// Defaults still applied.
-	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
+	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "default.sock"))
 	assert.Equal(t, len(cfg.HookExec.Filetypes), 0)
 }
 
@@ -285,10 +305,11 @@ func TestLoadConfig_MissingFileTolerated(t *testing.T) {
 func TestLoadConfig_ExplicitMissingFileTolerated(t *testing.T) {
 	baseEnv(t)
 	configDir(t)
+	t.Setenv(envXDGRuntime, "/run/user/1000")
 
 	cfg, err := LoadConfig(filepath.Join(t.TempDir(), "absent.json"))
 	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, filepath.Join("/tmp", "crabswarm", "default.sock"))
+	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "default.sock"))
 }
 
 func TestLoadConfig_InvalidJSONErrors(t *testing.T) {

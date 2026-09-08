@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -43,13 +44,31 @@ const maxTokenLen = 128
 // keeps a hostile token from arriving at cmdman as a flag or a path.
 var tokenPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
+// commandStates maps what cmdman's `{{.State}}` prints to whether the command's
+// process is alive. Recorded from cmdman v0.0.24, which reports "created" before
+// a command's first run, "running" while its process lives and "exited" once
+// that process ended or was stopped.
+//
+// A word outside this set draws no verdict at all: it fails the lookup, which
+// keeps the member. The caller reaps on [ErrUnknownToken], so reading anything
+// that is not "running" as gone would let a cmdman that renamed or re-cased its
+// states — "Running" — reap every agent in one sweep, while an unrecognised
+// state reports loudly and costs nothing but a stale member.
+var commandStates = map[string]bool{
+	"created": false,
+	"running": true,
+	"exited":  false,
+}
+
 // notFoundMessage is the fragment cmdman prints on stderr when the ID|NAME it
 // was asked about resolves to nothing.
 //
-// Verified against cmdman v0.0.23: `cmdman inspect ID --format
-// '{{json .Config}}'` prints the command config as JSON and exits 0 for a
-// known command, and exits 1 with
+// Verified against cmdman v0.0.24: `cmdman inspect ID --format
+// '{{.State}} {{json .Config}}'` prints the state and the command config as
+// JSON and exits 0 for a known command, and exits 1 with
 // `error: resolve command: no command found matching "ID"` for an unknown one.
+// cmdman keeps answering for an exited command until `cmdman rm`, so the
+// stderr message alone reports only a removed command, never a dead one.
 //
 // The match is deliberately narrow rather than "any non-zero exit". Reading
 // every failure as unknown would turn a missing cmdman binary or a locked
@@ -83,10 +102,11 @@ func NewCmdmanCompose(bin string) *CmdmanCompose {
 // command that runs under it.
 //
 // It returns an error wrapping [ErrUnknownToken] when the token is malformed,
-// when cmdman knows no such command, or when the command it names has no
-// working directory or no compose project — a command outside a compose
-// project has no team coordination information, so there is nothing to place
-// it against. Every other error means the cmdman lookup itself failed.
+// when cmdman knows no such command, when the command it names is not running,
+// or when that command has no working directory or no compose project — a
+// command outside a compose project has no team coordination information, so
+// there is nothing to place it against. Every other error means the cmdman
+// lookup itself failed.
 func (p *CmdmanCompose) Resolve(ctx context.Context, token string) (TeamInfo, error) {
 	if err := ValidateToken(token); err != nil {
 		return TeamInfo{}, err
@@ -97,6 +117,12 @@ func (p *CmdmanCompose) Resolve(ctx context.Context, token string) (TeamInfo, er
 		return TeamInfo{}, err
 	}
 
+	state, configJSON, ok := splitStatePrefix(out)
+	if !ok {
+		return TeamInfo{}, fmt.Errorf(
+			"cmdman inspect %q: output carries no state followed by a config", token)
+	}
+
 	// Only the two fields that matter are decoded. cmdman's command config
 	// carries a lot more, and mirroring its full shape here would make an
 	// unrelated cmdman field addition a crabswarm change.
@@ -104,8 +130,22 @@ func (p *CmdmanCompose) Resolve(ctx context.Context, token string) (TeamInfo, er
 		Dir    string            `json:"dir"`
 		Labels map[string]string `json:"labels"`
 	}
-	if err := json.Unmarshal(out, &cfg); err != nil {
+	if err := json.Unmarshal(configJSON, &cfg); err != nil {
 		return TeamInfo{}, fmt.Errorf("cmdman inspect %q: decoding config: %w", token, err)
+	}
+
+	// The verdict needs both halves of the output to be the shape this code
+	// knows: the config has parsed by now, and only a state [commandStates]
+	// recognises decides anything. Output cmdman prints differently than it did
+	// therefore fails the lookup, which keeps every member, instead of reading
+	// as a room full of vanished agents.
+	switch running, known := commandStates[state]; {
+	case !known:
+		return TeamInfo{}, fmt.Errorf(
+			"cmdman inspect %q: unrecognised command state %q", token, state)
+	case !running:
+		return TeamInfo{}, fmt.Errorf(
+			"%w: cmdman command %q is %s, not running", ErrUnknownToken, token, state)
 	}
 
 	if cfg.Dir == "" {
@@ -132,14 +172,38 @@ func (p *CmdmanCompose) Resolve(ctx context.Context, token string) (TeamInfo, er
 	return TeamInfo{Room: cfg.Dir, Team: project, Name: name}, nil
 }
 
-// inspectConfig runs `cmdman inspect <token> --format '{{json .Config}}'` and
-// returns its stdout, classifying a failure as either [ErrUnknownToken] or a
-// genuine lookup error.
+// splitStatePrefix cuts `cmdman inspect` output into the leading state word and
+// the config JSON behind it, reporting whether the output had both.
+//
+// Only the first run of whitespace separates the two. The config is a single
+// JSON document that may carry spaces of its own — a working directory or an
+// argv entry containing one — so splitting on every space would tear it apart.
+func splitStatePrefix(out []byte) (state string, config []byte, ok bool) {
+	rest := bytes.TrimLeft(out, " \t\r\n")
+	i := bytes.IndexAny(rest, " \t\r\n")
+	if i < 0 {
+		return "", nil, false
+	}
+	config = bytes.TrimSpace(rest[i:])
+	if len(config) == 0 {
+		return "", nil, false
+	}
+	return string(rest[:i]), config, true
+}
+
+// inspectConfig runs `cmdman inspect <token> --format '{{.State}} {{json
+// .Config}}'` and returns its stdout, classifying a failure as either
+// [ErrUnknownToken] or a genuine lookup error.
+//
+// The state travels with the config because cmdman answers about a command
+// until it is removed: without the state, an exited command looks exactly like
+// a running one and the caller keeps vouching for a session that has ended.
 func (p *CmdmanCompose) inspectConfig(ctx context.Context, token string) ([]byte, error) {
-	// Output, not CombinedOutput: stdout has to stay pure JSON, and only
-	// Output records stderr on the [exec.ExitError] the classification reads.
+	// Output, not CombinedOutput: stdout has to stay the state and the JSON, and
+	// only Output records stderr on the [exec.ExitError] the classification
+	// reads.
 	out, err := exec.CommandContext(
-		ctx, p.bin, "inspect", token, "--format", "{{json .Config}}",
+		ctx, p.bin, "inspect", token, "--format", "{{.State}} {{json .Config}}",
 	).Output()
 	if err == nil {
 		return out, nil

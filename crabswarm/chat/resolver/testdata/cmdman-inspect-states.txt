@@ -1,0 +1,24 @@
+# cmdman version: v0.0.24
+# each line: <phase>: cmdman inspect NAME --format '{{.State}} exit={{deref .ExitCode}} {{json .Config}}'
+# probe: cmdman create / cmdman run with --import-host-env=false -E PROBE=1 and the
+#   cmdman.compose.{project,command,scale-index} labels, inspected again at every phase.
+#   The "removed" phase inspects a command cmdman no longer holds, so it fails on stderr.
+# the resolver asks cmdman for '{{.State}} {{json .Config}}' and never for the exit code,
+#   so the test rebuilds the line the resolver would read: the leading state word, one
+#   space, and the config from its first "{". Everything between the two is this probe's.
+created: created exit=<no value> {"argv":["true"],"dir":"/tmp/tmp.JT9T17P8Xt","env":["PROBE=1","CMDMAN_DATA_DIR=/tmp/tmp.JT9T17P8Xt","CMDMAN_RUNTIME_DIR=/tmp/tmp.JT9T17P8Xt/rt","CMDMAN_CMD_DATA_DIR=/tmp/tmp.JT9T17P8Xt/commands/b55654ea8e757ba7ab38dc99f8762b89","CMDMAN_CMD_ID=b55654ea8e757ba7ab38dc99f8762b89"],"restart_policy":"no","stop_signal":"SIGTERM","tty":false,"scrollback_bytes":1048576,"log_driver":"k8s-file","labels":{"cmdman.compose.command":"c","cmdman.compose.project":"p","cmdman.compose.scale-index":"1"},"command_dir":"/tmp/tmp.JT9T17P8Xt/commands/b55654ea8e757ba7ab38dc99f8762b89"}
+
+running: running exit=<no value> {"argv":["sleep","30"],"dir":"/tmp/tmp.JT9T17P8Xt","env":["PROBE=1","CMDMAN_DATA_DIR=/tmp/tmp.JT9T17P8Xt","CMDMAN_RUNTIME_DIR=/tmp/tmp.JT9T17P8Xt/rt","CMDMAN_CMD_DATA_DIR=/tmp/tmp.JT9T17P8Xt/commands/9f55630079d14261e3285f05b76dc0c3","CMDMAN_CMD_ID=9f55630079d14261e3285f05b76dc0c3"],"restart_policy":"no","stop_signal":"SIGTERM","tty":false,"scrollback_bytes":1048576,"log_driver":"k8s-file","labels":{"cmdman.compose.command":"c","cmdman.compose.project":"p","cmdman.compose.scale-index":"2"},"command_dir":"/tmp/tmp.JT9T17P8Xt/commands/9f55630079d14261e3285f05b76dc0c3"}
+
+status set on running: exit=0
+stopped: exited exit=-1 {"argv":["sleep","30"],"dir":"/tmp/tmp.JT9T17P8Xt","env":["PROBE=1","CMDMAN_DATA_DIR=/tmp/tmp.JT9T17P8Xt","CMDMAN_RUNTIME_DIR=/tmp/tmp.JT9T17P8Xt/rt","CMDMAN_CMD_DATA_DIR=/tmp/tmp.JT9T17P8Xt/commands/9f55630079d14261e3285f05b76dc0c3","CMDMAN_CMD_ID=9f55630079d14261e3285f05b76dc0c3"],"restart_policy":"no","stop_signal":"SIGTERM","tty":false,"scrollback_bytes":1048576,"log_driver":"k8s-file","labels":{"cmdman.compose.command":"c","cmdman.compose.project":"p","cmdman.compose.scale-index":"2"},"command_dir":"/tmp/tmp.JT9T17P8Xt/commands/9f55630079d14261e3285f05b76dc0c3"}
+
+exited: exited exit=0 {"argv":["true"],"dir":"/tmp/tmp.JT9T17P8Xt","env":["PROBE=1","CMDMAN_DATA_DIR=/tmp/tmp.JT9T17P8Xt","CMDMAN_RUNTIME_DIR=/tmp/tmp.JT9T17P8Xt/rt","CMDMAN_CMD_DATA_DIR=/tmp/tmp.JT9T17P8Xt/commands/5f709506b294c60f3f6f0171a852423d","CMDMAN_CMD_ID=5f709506b294c60f3f6f0171a852423d"],"restart_policy":"no","stop_signal":"SIGTERM","tty":false,"scrollback_bytes":1048576,"log_driver":"k8s-file","labels":{"cmdman.compose.command":"c","cmdman.compose.project":"p","cmdman.compose.scale-index":"3"},"command_dir":"/tmp/tmp.JT9T17P8Xt/commands/5f709506b294c60f3f6f0171a852423d"}
+
+status set on exited: error: command "exited" has no running monitor: reported status lives only for the current run
+exit=1
+removed: error: resolve command: no command found matching "exited"
+exit=1
+--- ls
+ID             NAME      STATE     EXIT CODE   STATUS   BELL   DETAIL   TITLE   COMMAND
+b55654ea8e75   created   created   -           -        -      -        -       true

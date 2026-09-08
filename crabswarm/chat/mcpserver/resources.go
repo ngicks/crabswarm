@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,10 +30,11 @@ const (
 )
 
 // The roster is answered as structured data because its reader is the harness
-// rather than the model, and because a member's state is not in the CLI's
-// listing at all. The transcript is answered in the CLI's own words: every line
-// of it already carries everything an entry holds, so a second spelling of the
-// same conversation would be one more thing to keep in step.
+// rather than the model: it gets an address, a team, a name, a kind and a state
+// as fields it can act on, where the CLI's listing would have to be split back
+// into columns first. The transcript is answered in the CLI's own words: every
+// line of it already carries everything an entry holds, so a second spelling of
+// the same conversation would be one more thing to keep in step.
 const (
 	membersMIMEType = "application/json"
 	historyMIMEType = "text/plain"
@@ -48,11 +50,14 @@ type roster struct {
 
 // rosterMember is one attendee. Address is spelled out beside the team and name
 // it is made of, so the reader can hand it straight to chat_send instead of
-// assembling one and getting the collision rule wrong.
+// assembling one and getting the collision rule wrong. Kind says whether a
+// message reaches the member on its own: an agent is typed into when one
+// arrives, a human is only ever handed its inbox when it asks.
 type rosterMember struct {
 	Address string `json:"address"`
 	Team    string `json:"team"`
 	Name    string `json:"name"`
+	Kind    string `json:"kind"`
 	State   string `json:"state"`
 }
 
@@ -66,10 +71,12 @@ func (s *Server) addResources() {
 		URI:      membersURI,
 		MIMEType: membersMIMEType,
 		Description: "Everyone attending your room: the address chat_send " +
-			"takes, the team and name it is made of, and the state each " +
-			"member's harness last reported — working, waiting or done, and " +
-			"unknown where the daemon reported none. Subscribe to be told " +
-			"when someone joins, leaves, or changes state.",
+			"takes, the team and name it is made of, the kind — agent for a " +
+			"harness a message is typed into, human for someone who reads an " +
+			"inbox — and the state each member's harness last reported: " +
+			"working, waiting or done, and unknown where the daemon reported " +
+			"none. Subscribe to be told when someone joins, leaves, or " +
+			"changes state.",
 	}, s.readMembers)
 	s.mcp.AddResource(&mcp.Resource{
 		Name:     "history",
@@ -93,10 +100,11 @@ func (s *Server) addResources() {
 func (s *Server) readMembers(
 	ctx context.Context, _ *mcp.ReadResourceRequest,
 ) (*mcp.ReadResourceResult, error) {
-	if err := s.ensureJoined(ctx); err != nil {
+	token, err := s.ensureJoined(ctx)
+	if err != nil {
 		return nil, err
 	}
-	members, err := s.client.Members(ctx, s.token)
+	members, err := s.client.Members(ctx, token)
 	if err != nil {
 		return nil, s.forgetJoined(err)
 	}
@@ -125,11 +133,12 @@ func (s *Server) readMembers(
 func (s *Server) readHistory(
 	ctx context.Context, _ *mcp.ReadResourceRequest,
 ) (*mcp.ReadResourceResult, error) {
-	if err := s.ensureJoined(ctx); err != nil {
+	token, err := s.ensureJoined(ctx)
+	if err != nil {
 		return nil, err
 	}
 	var rendered bytes.Buffer
-	if err := s.client.History(ctx, &rendered, s.token, 0); err != nil {
+	if err := s.client.History(ctx, &rendered, token, 0); err != nil {
 		return nil, s.forgetJoined(err)
 	}
 	return &mcp.ReadResourceResult{
@@ -152,21 +161,19 @@ func rosterOf(members []*chatv1.Member) roster {
 			Address: cli.Address(m),
 			Team:    m.GetTeam(),
 			Name:    m.GetName(),
+			Kind:    cli.MemberKindName(m.GetKind()),
 			State:   cli.HarnessStateName(m.GetState()),
 		})
 	}
 	return out
 }
 
-// subscribed starts watching the room the first time anything asks to be told
-// about it. Nothing is watched before that: a harness that lists the tools and
-// never subscribes should cost the daemon no stream at all.
+// subscribed accepts a request to be told about the roster. The room's feed is
+// already up — the bridge watches it for the whole session — so there is
+// nothing to start here; what is left is deciding whether the bridge can keep
+// the promise a subscription asks for.
 func (s *Server) subscribed(_ context.Context, req *mcp.SubscribeRequest) error {
-	if err := announceable(req.Params.URI); err != nil {
-		return err
-	}
-	s.watchOnce.Do(func() { close(s.watchWanted) })
-	return nil
+	return announceable(req.Params.URI)
 }
 
 // announceable returns nil when the bridge can tell a harness that uri changed,
@@ -199,12 +206,12 @@ func announceable(uri string) error {
 
 // unsubscribed acknowledges the withdrawal and leaves the feed running.
 //
-// The stream is not torn down with the last subscription because this bridge
-// serves exactly one stdio session, which ends with the process: a harness that
-// stops and starts watching mid-session is cheaper to serve from a feed that is
-// already up than from one that has to be dialled again, and a feed nobody
-// subscribes to announces nothing. The SDK also requires this handler as soon
-// as [Server.subscribed] exists.
+// The feed is not the subscription's to end: it is what tells the bridge its
+// own membership has lapsed, so it runs for as long as the session does
+// whether or not anything is listening. Nothing is announced to a harness that
+// withdrew — the SDK sends a resource update to the sessions that subscribed
+// and to no others. The SDK also requires this handler as soon as
+// [Server.subscribed] exists.
 func (s *Server) unsubscribed(_ context.Context, req *mcp.UnsubscribeRequest) error {
 	return announceable(req.Params.URI)
 }
@@ -212,50 +219,67 @@ func (s *Server) unsubscribed(_ context.Context, req *mcp.UnsubscribeRequest) er
 // How long the bridge waits before watching the room again after its feed
 // ended. The daemon drops a watcher that falls behind, so ending is ordinary
 // enough that the first retry is quick; the ceiling is what keeps a daemon that
-// is down from being asked in a loop.
+// is down from being asked in a loop. [New] seeds a Server with these.
 const (
 	watchBackoffBase = 200 * time.Millisecond
 	watchBackoffMax  = 5 * time.Second
 )
 
-// watchMembers keeps the room's event feed up for as long as the session lasts,
-// once something has subscribed to the roster.
+// watchMembers keeps the room's event feed up for as long as the session lasts.
 //
-// It never gives up the way the startup join does. A feed that ended is the one
-// thing a subscriber cannot notice for itself: the harness is holding a view of
-// the room that would quietly stop being true, with no call of its own to fail
-// and tell it so.
+// It watches whether or not anything has subscribed, and never gives up. A feed
+// that ended is the one thing its readers cannot notice for themselves: a
+// subscribed harness is holding a view of the room that would quietly stop
+// being true, with no call of its own to fail and tell it so. The bridge is in
+// the same position about its own membership — the daemon can forget it between
+// one turn and the next — and the feed is what tells it, since there may be no
+// tool call for hours: a feed the daemon refuses says the membership is already
+// gone, and an event naming this member as having left says it is going now.
+// That is why the feed runs from the start rather than from the first
+// subscription: an unsubscribed session is told nothing either way, so nothing
+// is spent on it but the stream.
 func (s *Server) watchMembers(ctx context.Context) {
-	select {
-	case <-ctx.Done():
-		return
-	case <-s.watchWanted:
-	}
-
-	backoff := watchBackoffBase
-	for attempt := 0; ; attempt++ {
+	backoff := s.watchBackoffBase
+	failures := 0
+	for resumed := false; ; resumed = true {
 		started := time.Now()
-		err := s.streamRoom(ctx, attempt > 0)
+		err := s.streamRoom(ctx, resumed)
 		if ctx.Err() != nil {
 			return
 		}
+		failures++
 		// A feed that stayed up for a while and then broke is not the trouble a
 		// feed that never got going is, so it starts its retries over rather
 		// than inheriting the wait the previous failure had climbed to. Settled
 		// before the log, so the wait it reports is the one it takes.
-		if time.Since(started) >= watchBackoffMax {
-			backoff = watchBackoffBase
+		if time.Since(started) >= s.watchBackoffMax {
+			backoff = s.watchBackoffBase
+			failures = 1
 		}
-		s.logger.Warn("the room event feed ended; watching again",
-			"backoff", backoff, "error", err)
+		// A feed that could not be opened because the bridge is not attending
+		// yet is the attend loop's news to report, and it reports it: saying it
+		// again here would double every line a bridge waiting for its daemon
+		// writes.
+		// A feed the bridge ended itself on its own departure broke nothing
+		// either; the attend loop reports the join that follows.
+		if !errors.Is(err, errNotAttending) && !errors.Is(err, errLeftTheRoom) {
+			s.warnRetry("the room event feed ended; watching again", failures, backoff, err)
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(backoff):
 		}
-		backoff = min(2*backoff, watchBackoffMax)
+		backoff = min(2*backoff, s.watchBackoffMax)
 	}
 }
+
+// errNotAttending marks a feed attempt that never reached the daemon because
+// the bridge has no attendance to watch on behalf of.
+var errNotAttending = errors.New("not attending the chat room")
+
+// errLeftTheRoom ends a feed that carried this bridge's own departure.
+var errLeftTheRoom = errors.New("the room reported this member as having left")
 
 // streamRoom watches the room until the feed ends, announcing the roster as
 // changed for every event that changes it. It returns why the feed ended.
@@ -265,17 +289,31 @@ func (s *Server) watchMembers(ctx context.Context) {
 // Saying so as soon as the new feed is up is what closes that gap — the
 // subscriber reads the resource, and the read lists the room afresh.
 //
-// Attendance is declared first, as it is for a tool call. A subscription can
-// arrive before the startup join has landed, and watching a room on behalf of a
-// member the daemon does not acknowledge only spends the backoff on a refusal
-// the join would have cleared. A feed refused for that reason gives the
-// declared attendance back up, so the next attempt declares it again instead of
-// looping on the same no.
+// Attendance is declared first, as it is for a tool call. The feed starts with
+// the process, so it regularly gets there before the attend loop has landed a
+// join, and watching a room on behalf of a member the daemon does not
+// acknowledge only spends the backoff on a refusal the join would have cleared.
+// A feed refused for that reason gives the declared attendance back up, so the
+// next attempt declares it again instead of looping on the same no.
+//
+// An event announcing this bridge's own departure makes the bridge end the feed
+// too, after the event is announced like any other roster change. The daemon
+// authorises a feed once, so this stream would otherwise run on perfectly well
+// while the membership behind it is gone; ending it puts the next attempt back
+// through the join. See
+// [Server.leftItself] for what counts as this bridge's departure and why the
+// bridge undoes one.
 func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
-	if err := s.ensureJoined(ctx); err != nil {
-		return err
+	token, err := s.ensureJoined(ctx)
+	if err != nil {
+		return fmt.Errorf("%w: %w", errNotAttending, err)
 	}
-	stream, err := s.client.WatchRoom(ctx, s.token)
+	// The stream gets a context of its own: returning on a departure leaves a
+	// stream the daemon still serves, and cancelling is the only way to end
+	// one the daemon has not ended. ctx itself lives as long as the session.
+	sctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stream, err := s.client.WatchRoom(sctx, token)
 	if err != nil {
 		return s.forgetJoined(err)
 	}
@@ -289,6 +327,9 @@ func (s *Server) streamRoom(ctx context.Context, resumed bool) error {
 		}
 		if rosterChanged(ev) {
 			s.membersChanged(ctx)
+		}
+		if s.leftItself(ev) {
+			return errLeftTheRoom
 		}
 	}
 }

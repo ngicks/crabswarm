@@ -69,7 +69,7 @@ func TestChatCmd_Subcommands(t *testing.T) {
 // message names every way to supply one.
 func TestChatMemberVerbs_RequireAToken(t *testing.T) {
 	for _, args := range [][]string{
-		{"join"},
+		{"join", "--kind", "human"},
 		{"read"},
 		{"history"},
 		{"members"},
@@ -162,6 +162,10 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		// An unknown state is rejected by the command itself, so a typo never
 		// reaches the daemon as a report.
 		{"report-state rejects an unknown state", []string{"report-state", "busy"}},
+		// Whether a member is typed into is never defaulted, so a join that
+		// declares nothing is refused before the daemon is dialed.
+		{"join needs a kind", []string{"join"}},
+		{"join rejects an unknown kind", []string{"join", "--kind", "harness"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			chatHermeticEnv(t)

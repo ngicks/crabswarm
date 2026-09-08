@@ -201,16 +201,18 @@ const (
 	// memberUnjudged: the lookup itself failed, so nothing was learned about
 	// the token and its holder stays.
 	memberUnjudged
-	// memberReaped: the provider no longer knows the token, and its holder is
-	// gone from the store.
+	// memberReaped: the provider places the token nowhere any more — it knows no
+	// such command, or the command it names has stopped running — and the
+	// token's holder is gone from the store.
 	memberReaped
 )
 
 // checkLiveness asks the provider about m and drops m from the store when the
-// provider no longer knows its token. It is the one definition of a member
-// being gone, shared by the lazy reap the member half runs before every RPC and
-// by the name-collision paths of both halves: a flaky cmdman must not free
-// names any more than it may empty rooms.
+// provider places its token nowhere any more: it knows no such command, or the
+// command it names is reported as no longer running. It is the one definition of
+// a member being gone, shared by the lazy reap the member half runs before every
+// RPC and by the name-collision paths of both halves: a flaky cmdman must not
+// free names any more than it may empty rooms.
 //
 // Only an agent is asked about: an agent is gone when the session that carried
 // it is, while anyone else stays until they say otherwise, and a name they hold
@@ -242,10 +244,10 @@ func checkLiveness(
 			"member", m.Team+"/"+m.Name, "err", err)
 		return memberUnjudged
 	}
-	// No status is withdrawn here: the member is reaped because the provider
-	// no longer knows its token, which means the command that carried the
-	// display is already gone.
-	logger.Info("chat: reaping member the provider no longer knows",
+	// No status is withdrawn here: the member is reaped because the command
+	// behind its token is gone — forgotten by the provider or exited — so
+	// whatever carried the display went with it.
+	logger.Info("chat: reaping member whose command is gone",
 		"member", m.Team+"/"+m.Name, "room", m.Room, "err", err)
 	if _, err := store.RemoveMember(ctx, m.Token); err != nil {
 		logger.Warn("chat: removing reaped member failed",
@@ -341,13 +343,19 @@ func (s *Service) forgetVerified(token string) {
 	delete(s.verified, token)
 }
 
-// defaultName names a joiner after its token, the last thing left to name it by
-// once neither the join request nor the team-info provider supplied a name.
-func defaultName(token string) string {
+// defaultName names a joiner after its kind and its token, the last things left
+// to name it by once neither the join request nor the team-info provider
+// supplied a name.
+//
+// The kind leads because the name is what everyone else in the room reads: a
+// member that declared itself a human and answers from an inbox must not be
+// addressed as an agent whose terminal is typed into. The stored kind is the
+// word itself, so the prefix is spelled from it rather than mapped again.
+func defaultName(token string, kind MemberKind) string {
 	if len(token) > tokenNamePrefixLen {
 		token = token[:tokenNamePrefixLen]
 	}
-	return "agent-" + token
+	return string(kind) + "-" + token
 }
 
 // memberState maps the reported harness state onto the stored one. The
@@ -366,6 +374,27 @@ func memberState(state chatv1.HarnessState) (MemberState, error) {
 	default:
 		return "", status.Errorf(codes.InvalidArgument,
 			"unknown harness state %q", state)
+	}
+}
+
+// memberKind maps the declared kind onto the stored one. The unspecified kind
+// is rejected rather than defaulted: a member taken for a human is never
+// mirrored to the status display and never nudged, and the store keeps the
+// first join, so a request that filled in nothing would settle the question
+// wrongly and for good.
+//
+// The refusal names the field of the request rather than a flag of any client.
+// The CLI is one caller among several — the MCP bridge is another — and it says
+// which flag to add itself, in words a person typing it can act on.
+func memberKind(kind chatv1.MemberKind) (MemberKind, error) {
+	switch kind {
+	case chatv1.MemberKind_MEMBER_KIND_AGENT:
+		return KindAgent, nil
+	case chatv1.MemberKind_MEMBER_KIND_HUMAN:
+		return KindHuman, nil
+	default:
+		return "", status.Error(codes.InvalidArgument,
+			"join declares no member kind")
 	}
 }
 
@@ -402,12 +431,28 @@ func harnessStateProto(state MemberState) chatv1.HarnessState {
 	}
 }
 
+// memberKindProto maps the stored kind back onto the wire enum. Unlike
+// [memberKind] it refuses nothing: every stored member carries a kind, and a
+// caller reading one that does not is better served by the unspecified value
+// than by an error about a member it only asked to see.
+func memberKindProto(kind MemberKind) chatv1.MemberKind {
+	switch kind {
+	case KindAgent:
+		return chatv1.MemberKind_MEMBER_KIND_AGENT
+	case KindHuman:
+		return chatv1.MemberKind_MEMBER_KIND_HUMAN
+	default:
+		return chatv1.MemberKind_MEMBER_KIND_UNSPECIFIED
+	}
+}
+
 func memberProto(m Member) *chatv1.Member {
 	return &chatv1.Member{
 		Name:  m.Name,
 		Team:  m.Team,
 		Room:  m.Room,
 		State: harnessStateProto(m.State),
+		Kind:  memberKindProto(m.Kind),
 	}
 }
 

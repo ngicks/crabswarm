@@ -105,6 +105,14 @@ enum HarnessState {
   HARNESS_STATE_DONE = 3;
 }
 
+// MemberKind says whether a member runs an agent harness whose terminal a
+// nudge may be typed into, or is anything else and is inbox-only.
+enum MemberKind {
+  MEMBER_KIND_UNSPECIFIED = 0;
+  MEMBER_KIND_AGENT = 1;
+  MEMBER_KIND_HUMAN = 2;
+}
+
 // Member is one participant of a room.
 message Member {
   // Name is unique within Team, but may collide across the teams of a room;
@@ -121,6 +129,9 @@ message Member {
   // state was recorded alongside the member: the sender a delivered message
   // carries is the identity as of send time rather than a live member.
   HarnessState state = 4;
+  // Kind is how the member joined. It is unspecified only on a sender
+  // snapshot, which records who spoke rather than who is attending.
+  MemberKind kind = 5;
 }
 
 // Room is a chat room and its current attendance.
@@ -144,13 +155,15 @@ message Message {
 message JoinRequest {
   // Name is the name to attend under, unique within the caller's team.
   string name = 1;
-  // Reserved for self-reported native notify endpoints, which arrive with the
-  // native notifier adapters.
-  reserved 2, 3;
-  // Agent declares the caller is an agent harness whose terminal may be
-  // nudged by keystroke injection while idle. Without it the member is
-  // inbox-only and is never typed at.
-  bool agent = 4;
+  // 2 and 3 are reserved for self-reported native notify endpoints, which
+  // arrive with the native notifier adapters. 4 was "bool agent", which let a
+  // request that filled in nothing pass as a human.
+  reserved 2, 3, 4;
+  // Kind declares what attends. It is required: a request leaving it
+  // unspecified is refused with InvalidArgument rather than taken for a
+  // human, since nudging the wrong kind types keystrokes into somebody's
+  // shell.
+  MemberKind kind = 5;
 }
 
 message JoinResponse {

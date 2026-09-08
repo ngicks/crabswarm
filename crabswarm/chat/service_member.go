@@ -24,10 +24,11 @@ const ProviderUnavailableMessage = "looking up team information"
 // from the caller's token.
 //
 // What the joiner is, it says itself: a request declaring an agent attends as
-// [KindAgent] and has its terminal typed into when a message arrives, and one
-// that declares nothing attends inbox-only. The daemon does not guess — a
-// harness and the shell a person types in are the same kind of command to the
-// team-info provider, and guessing wrong means keystrokes in somebody's shell.
+// [KindAgent] and has its terminal typed into when a message arrives, one
+// declaring a human attends inbox-only, and one declaring nothing is refused
+// with InvalidArgument. The daemon does not guess — a harness and the shell a
+// person types in are the same kind of command to the team-info provider, and
+// guessing wrong means keystrokes in somebody's shell.
 //
 // A token the provider does not know is NotFound: it carries no team
 // coordination information, so there is nowhere to put its holder. A provider
@@ -36,21 +37,29 @@ const ProviderUnavailableMessage = "looking up team information"
 // happened.
 //
 // Joining again with the same token returns the existing membership unchanged,
-// name and kind included, since the store keeps the first join. An
+// name and kind included, since the store keeps the first join. The re-join
+// must still declare a kind, so a client that stopped filling the field in is
+// caught rather than quietly kept on the attendance it opened with. An
 // admin-registered human may call Join too: they are already a member, and
 // their token is theirs to present, so it is answered from the store without
 // consulting the provider.
 //
 // A name a teammate already carries is AlreadyExists, unless that teammate
-// turns out to be gone — an agent whose token the provider has stopped knowing
-// is dropped here the way the reaper drops it elsewhere, and the joiner takes
-// the name. That is what a recreated command looks like: it derives the exact
-// name its predecessor is still holding, and nobody else would ever free it.
+// turns out to be gone — an agent whose token the provider places nowhere any
+// more, because it knows no such command or reports that command as no longer
+// running, is dropped here the way the reaper drops it elsewhere, and the joiner
+// takes the name. That is what a recreated command looks like: it derives the
+// exact name its predecessor is still holding, and nobody else would ever free
+// it.
 func (s *Service) Join(
 	ctx context.Context,
 	req *chatv1.JoinRequest,
 ) (*chatv1.JoinResponse, error) {
 	token, err := tokenFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	kind, err := memberKind(req.GetKind())
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +94,7 @@ func (s *Service) Join(
 		name = info.Name
 	}
 	if name == "" {
-		name = defaultName(token)
-	}
-	kind := KindHuman
-	if req.GetAgent() {
-		kind = KindAgent
+		name = defaultName(token, kind)
 	}
 	joiner := Member{
 		Token: token,

@@ -54,9 +54,10 @@ func NewCmdmanStatusMirror(bin string, logger *slog.Logger) *CmdmanStatusMirror 
 }
 
 // Set publishes state as the status of m's command. A member cmdman cannot be
-// told about is skipped rather than reported as an error: there is nothing
-// wrong, the member simply has no harness whose state a display would mean
-// anything about.
+// told about is skipped rather than reported as an error: the store already
+// holds the state, and a member with no harness has nothing a display would
+// mean anything about. The skip is logged, since it is also what a
+// misconfigured agent looks like.
 func (m *CmdmanStatusMirror) Set(ctx context.Context, member Member, state MemberState) error {
 	if !m.publishable(member, "publish state for") {
 		return nil
@@ -89,8 +90,14 @@ func (m *CmdmanStatusMirror) publishable(member Member, what string) bool {
 	// harness state to label a command with either. A member that declared no
 	// harness reports none, so its command would only ever show the state it
 	// was admitted in.
+	//
+	// Warn, not Debug: this line is the same for a human who never wanted a
+	// display and for an agent harness that joined as a human — and the second
+	// is a member that never shows up in cmdman and never gets nudged, with
+	// nothing else to say so. A human joining costs a line; an agent wired
+	// wrong costs the operator the only hint they get.
 	if member.Kind != KindAgent {
-		m.logger.Debug("chat: not asked to "+what+" a member that runs no command",
+		m.logger.Warn("chat: not asked to "+what+" a member that runs no command",
 			"member", who, "kind", member.Kind)
 		return false
 	}

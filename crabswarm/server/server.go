@@ -57,28 +57,17 @@ func New(
 	}
 }
 
+// listenUnixDomainSocket binds sockPath. Its directory is [Server.Serve]'s to
+// create, which it has done by the time this runs: the lock file lives in that
+// same directory and is taken first.
 func listenUnixDomainSocket(sockPath string) (net.Listener, error) {
-	// Ensure parent directory exists.
-	err := os.MkdirAll(filepath.Dir(sockPath), 0o700)
-	if err != nil {
-		return nil, err
-	}
-
 	// Remove stale socket file if it exists.
-	err = os.Remove(sockPath)
+	err := os.Remove(sockPath)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 
 	return net.Listen("unix", sockPath)
-}
-
-func (s *Server) listen() (net.Listener, error) {
-	if s.sockPath != "" {
-		return listenUnixDomainSocket(s.sockPath)
-	}
-
-	return nil, fmt.Errorf("server listen target not specified")
 }
 
 // openChatStore opens the SQLite store backing the chat broker, creating its
@@ -113,6 +102,20 @@ func expandHome(path string) (string, error) {
 }
 
 func (s *Server) Serve(ctx context.Context) error {
+	// Refused here rather than left to the listener, because everything below
+	// derives a path from this one: the directory of "" is ".", so a daemon
+	// started without a socket would create the lock file in whatever directory
+	// it happened to be run from and hold a lock nobody else looks for.
+	if s.sockPath == "" {
+		return fmt.Errorf("server listen target not specified")
+	}
+	// The lock file sits beside the socket, so its directory has to exist
+	// before the lock is taken; on a fresh boot the runtime directory holds
+	// no crabswarm/ yet and the first daemon creates it.
+	if err := os.MkdirAll(filepath.Dir(s.sockPath), 0o700); err != nil {
+		return fmt.Errorf("creating the socket directory: %w", err)
+	}
+
 	// Acquire exclusive lock on <sockPath>.lock to prevent duplicate servers.
 	lockPath := s.sockPath + ".lock"
 	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
@@ -132,7 +135,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 	defer chatStore.Close()
 
-	lis, err := s.listen()
+	lis, err := listenUnixDomainSocket(s.sockPath)
 	if err != nil {
 		return err
 	}

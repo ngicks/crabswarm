@@ -184,8 +184,12 @@ func TestClient_ListRoomsDecryptsTheChallenge(t *testing.T) {
 		recipient: recipient,
 		nonce:     "nonce-abc123",
 		rooms: []*chatv1.Room{{
-			Name:    "/work/proj",
-			Members: []*chatv1.Member{member("backend", "alice", "/work/proj")},
+			Name: "/work/proj",
+			Members: []*chatv1.Member{
+				memberWith("backend", "alice", "/work/proj",
+					chatv1.MemberKind_MEMBER_KIND_AGENT,
+					chatv1.HarnessState_HARNESS_STATE_DONE),
+			},
 		}},
 	}
 	d := serveTestDaemon(t, nil, fake)
@@ -194,7 +198,7 @@ func TestClient_ListRoomsDecryptsTheChallenge(t *testing.T) {
 	assert.NilError(t, d.client.ListRooms(t.Context(), &out, path))
 	assert.Equal(t, fake.bearer, "nonce-abc123")
 	assert.Equal(t, out.String(),
-		"room: /work/proj\n  team: backend\n    alice\n")
+		"room: /work/proj\n  team: backend\n    alice  agent\n")
 
 	// Admin calls carry no identity token; the challenge is the credential.
 	assert.DeepEqual(t, d.seenTokens(), []string{"", ""})

@@ -16,26 +16,38 @@ func TestClient_Join(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
-	assert.NilError(t, d.client.Join(t.Context(), &out, "tok-a", "alice", false))
+	self, err := d.client.Join(t.Context(), &out, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
+	assert.NilError(t, err)
 	assert.Equal(t, fake.join.GetName(), "alice")
-	assert.Equal(t, fake.join.GetAgent(), false)
+	assert.Equal(t, fake.join.GetKind(), chatv1.MemberKind_MEMBER_KIND_HUMAN)
 	assert.Equal(t, out.String(), "joined /work/proj as backend/alice\n")
+
+	// The identity is handed back as well as printed: a caller that has to
+	// recognise its own membership on the room's event feed has only the team
+	// and the name to match against.
+	assert.Equal(t, self.GetTeam(), "backend")
+	assert.Equal(t, self.GetName(), "alice")
+	assert.Equal(t, self.GetRoom(), "/work/proj")
 
 	// An unnamed join sends an empty name: naming the member is the daemon's
 	// job when the caller declines to.
-	assert.NilError(t, d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "", false))
+	_, err = d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
+	assert.NilError(t, err)
 	assert.Equal(t, fake.join.GetName(), "")
 }
 
 // Only a caller that says so attends as a harness; the daemon has nothing else
 // to read it off.
-func TestClient_JoinCarriesTheAgentDeclaration(t *testing.T) {
+func TestClient_JoinCarriesTheDeclaredKind(t *testing.T) {
 	fake := &fakeChatService{self: member("backend", "alice", "/work/proj")}
 	d := serveTestDaemon(t, fake, nil)
 
-	assert.NilError(t,
-		d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice", true))
-	assert.Equal(t, fake.join.GetAgent(), true)
+	_, err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.NilError(t, err)
+	assert.Equal(t, fake.join.GetKind(), chatv1.MemberKind_MEMBER_KIND_AGENT)
 }
 
 // The address is handed to the daemon exactly as typed — resolving a bare name
@@ -182,14 +194,19 @@ func TestClient_History(t *testing.T) {
 
 func TestClient_ListMembersAndAddresses(t *testing.T) {
 	fake := &fakeChatService{members: []*chatv1.Member{
-		member("backend", "alice", "/work"),
-		member("frontend", "bob", "/work"),
+		memberWith("backend", "alice", "/work",
+			chatv1.MemberKind_MEMBER_KIND_AGENT,
+			chatv1.HarnessState_HARNESS_STATE_WORKING),
+		memberWith("frontend", "bob", "/work",
+			chatv1.MemberKind_MEMBER_KIND_HUMAN,
+			chatv1.HarnessState_HARNESS_STATE_DONE),
 	}}
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
 	assert.NilError(t, d.client.ListMembers(t.Context(), &out, "tok-a"))
-	assert.Equal(t, out.String(), "backend/alice\nfrontend/bob\n")
+	assert.Equal(t, out.String(),
+		"backend/alice  agent  working\nfrontend/bob  human  done\n")
 
 	// Completion needs the same strings as values rather than as a listing.
 	addresses, err := d.client.MemberAddresses(t.Context(), "tok-a")

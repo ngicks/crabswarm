@@ -11,25 +11,30 @@ import (
 
 // Join declares attendance under name — empty for the default the daemon
 // derives from the compose labels, or from the token when it has none — and
-// reports the identity the daemon settled on, which is
-// where the caller learns its own room and team.
+// reports the identity the daemon settled on, which is where the caller learns
+// its own room, team and name.
 //
-// agent says an agent harness is what attends, which is what lets an arriving
-// message be typed into its terminal. A caller that is anything else — a person
-// at a shell, a script — passes false and is only ever handed its inbox when it
-// asks.
+// That identity is both printed to w and handed back. The line is what a person
+// reads; the member itself is for a caller that has to recognise its own
+// membership later — the room's event feed names a departing member by team and
+// name, so a caller watching the feed has nothing else to match against.
+//
+// kind says what attends. An agent harness is typed into when a message
+// arrives; anything else — a person at a shell, a script — is only ever handed
+// its inbox when it asks. The daemon refuses a kind it was not told, so a
+// caller passes one.
 func (c *Client) Join(
 	ctx context.Context,
 	w io.Writer,
 	token, name string,
-	agent bool,
-) error {
+	kind chatv1.MemberKind,
+) (*chatv1.Member, error) {
 	resp, err := c.chat.Join(withToken(ctx, token),
-		&chatv1.JoinRequest{Name: name, Agent: agent})
+		&chatv1.JoinRequest{Name: name, Kind: kind})
 	if err != nil {
-		return callError(err)
+		return nil, callError(err)
 	}
-	return RenderJoined(w, resp.GetSelf())
+	return resp.GetSelf(), RenderJoined(w, resp.GetSelf())
 }
 
 // Send delivers text to one member of the caller's room, addressed as "name"

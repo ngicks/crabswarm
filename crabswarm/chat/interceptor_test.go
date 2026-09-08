@@ -152,10 +152,12 @@ func TestService_OverGRPC(t *testing.T) {
 	asAna := metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-a")
 	asBob := metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-b")
 
-	joined, err := client.Join(asAna, &chatv1.JoinRequest{Name: "ana"})
+	joined, err := client.Join(asAna,
+		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
 	assert.NilError(t, err)
 	assert.Equal(t, joined.GetSelf().GetRoom(), "/work")
-	_, err = client.Join(asBob, &chatv1.JoinRequest{Name: "bob"})
+	_, err = client.Join(asBob,
+		&chatv1.JoinRequest{Name: "bob", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
 	assert.NilError(t, err)
 
 	_, err = client.Send(asAna, &chatv1.SendRequest{To: "bob", Text: "ping"})

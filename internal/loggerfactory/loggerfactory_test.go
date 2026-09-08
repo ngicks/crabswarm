@@ -1,7 +1,9 @@
 package loggerfactory
 
 import (
+	"encoding/json"
 	"log/slog"
+	"strings"
 	"testing"
 )
 
@@ -101,4 +103,55 @@ func TestReadEnv(t *testing.T) {
 			t.Fatalf("Enabled = false, want true")
 		}
 	})
+}
+
+// A command nobody configured logging for still reports what went wrong: warn
+// and above land on the writer as text, carrying their attributes and no source
+// position, and anything below warn is left out.
+func TestBuildLoggerTo_Unconfigured(t *testing.T) {
+	var buf strings.Builder
+	logger := BuildLoggerTo(&Config{}, &buf)
+
+	logger.Info("routine chatter")
+	if got := buf.String(); got != "" {
+		t.Fatalf("output after an info record = %q, want nothing below warn", got)
+	}
+
+	logger.Warn("mirroring member state failed", "member", "alpha/ana")
+	got := buf.String()
+	for _, want := range []string{
+		"level=WARN",
+		`msg="mirroring member state failed"`,
+		"member=alpha/ana",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("warn record = %q, want it to carry %q", got, want)
+		}
+	}
+	if strings.Contains(got, "source=") {
+		t.Errorf("warn record = %q, want no source position", got)
+	}
+}
+
+// A configured logger replaces the default outright rather than being floored
+// by it: the format is the one asked for, and a level below warn is honored.
+func TestBuildLoggerTo_ConfiguredReplacesTheDefault(t *testing.T) {
+	var buf strings.Builder
+	logger := BuildLoggerTo(&Config{Enabled: true, Format: "json", Level: LevelTrace}, &buf)
+
+	logger.Log(t.Context(), LevelTrace, "dialing", "sock", "/run/crabswarm.sock")
+
+	var rec map[string]any
+	if err := json.Unmarshal([]byte(buf.String()), &rec); err != nil {
+		t.Fatalf("decode %q: %v", buf.String(), err)
+	}
+	if got := rec["msg"]; got != "dialing" {
+		t.Errorf("msg = %v, want %q", got, "dialing")
+	}
+	if got := rec["sock"]; got != "/run/crabswarm.sock" {
+		t.Errorf("sock = %v, want %q", got, "/run/crabswarm.sock")
+	}
+	if _, ok := rec["source"]; !ok {
+		t.Errorf("record = %v, want the source position a configured logger adds", rec)
+	}
 }
