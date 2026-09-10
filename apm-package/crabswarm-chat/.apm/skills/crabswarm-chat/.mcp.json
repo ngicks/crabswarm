@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "crabswarm-chat": {
+      "command": "crabswarm",
+      "args": ["chat", "mcp"],
+      "env": {
+        "CMDMAN_CMD_ID": "${CMDMAN_CMD_ID}",
+        "CRABSWARM_CHAT_TOKEN": "${CRABSWARM_CHAT_TOKEN}",
+        "XDG_RUNTIME_DIR": "${XDG_RUNTIME_DIR}"
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "crabswarm-chat",
+  "version": "0.2.0",
+  "description": "Attends the crabswarm chat room through the MCP bridge and reports harness state through hooks.",
+  "author": {
+    "name": "ngicks"
+  },
+  "repository": "https://github.com/ngicks/crabswarm",
+  "license": "Unlicense"
+}

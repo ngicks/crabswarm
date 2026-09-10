@@ -31,7 +31,7 @@ Tools to swarm claude(, codex and others!)
   mermaid-lint over every `` ```mermaid `` fence in bead text — description,
   design, acceptance criteria, notes and comments — and reports one line per
   refused diagram (`<issue-id> <field>[#<comment-n>]:<line>:<col>: <message>`),
-  exiting 1 when anything was refused. `apm-package/issues-mermaid-lint` (a
+  exiting 1 when anything was refused. `apm-package/crabswarm-issues-lint` (a
   package this repo publishes and consumes back as a git dependency in
   apm.yml) wires it as the Stop hook
   `crabswarm hook exec 'crabswarm issues lint'`, so a broken diagram in a bead
@@ -50,9 +50,11 @@ Tools to swarm claude(, codex and others!)
 │   ├── schema/proto/ngicks/crabswarm/{chat,hook,issues,preview,sdktypes}/v1   *.proto (edit these)
 │   ├── gen/proto                                                              buf output (Go + connect); TS lands in web/src/api/gen
 │   └── buf.gen.yaml, generate.go                                              `go generate ./api/...` regenerates both sides
-├── apm-package     APM packages this repo publishes, and consumes back through git dependencies in its own apm.yml.
-│   ├── crabswarm-chat       wires a harness (claude / codex) into its chat room — hooks + skill + `[mcp_servers.crabswarm-chat]` (`crabswarm chat mcp`).
-│   └── issues-mermaid-lint  the Stop hook above, `.apm/hooks/hook.json` running `crabswarm hook exec 'crabswarm issues lint'`.
+├── apm-package     APM packages this repo publishes, and consumes back through git dependencies in its own apm.yml. Each ships its Claude Code
+│   │               wiring as a skills-directory plugin (`.apm/skills/<name>/` carrying `.claude-plugin/plugin.json`, `hooks/hooks.json`, `.mcp.json`),
+│   │               which apm copies to `~/.claude/skills/<name>/` and Claude Code loads without touching settings.json; Codex gets `.apm/hooks/codex-hooks.json` merged.
+│   ├── crabswarm-chat         wires a harness (claude / codex / opencode) into its chat room — hooks + skill + the `crabswarm chat mcp` bridge; `opencode.ts` in the skill dir is the OpenCode plugin.
+│   └── crabswarm-issues-lint  the Stop hook above running `crabswarm hook exec 'crabswarm issues lint'`, plus a skill on fixing a finding.
 ├── bin             git-ignore'd bin dir.
 ├── cmd
 │   └── crabswarm

@@ -14,20 +14,20 @@ import (
 	"testing"
 )
 
-// The one hook file the package installs into every harness: its stem carries
-// no target token, so apm hands the same wiring to Claude Code and to Codex,
-// and each ignores the events it does not know. The commands inside are
-// `crabswarm hook exec` invocations, so every case below runs the shipped
-// command string verbatim rather than a Go paraphrase of it: the wiring is a
-// text file no compiler ever sees, and a template that renders the wrong thing
-// is exactly the bug that costs a message.
-var chatHooksPath = []string{".apm", "hooks", "report-state.json"}
+// The hook file Claude Code reads out of the skills-directory plugin. The Codex
+// copy under `.apm/hooks/` wires the same events, which
+// TestApmPackages_MergeHooksIntoCodexOnly pins, so the cases here stand for
+// both harnesses; each harness ignores the events it does not know. The
+// commands inside are `crabswarm hook exec` invocations, so every case below
+// runs the shipped command string verbatim rather than a Go paraphrase of it:
+// the wiring is a text file no compiler ever sees, and a template that renders
+// the wrong thing is exactly the bug that costs a message.
+var chatHooksPath = []string{".apm", "skills", "crabswarm-chat", "hooks", "hooks.json"}
 
-// chatHookConfig is the hook file both harnesses read: events, each holding
-// matcher groups, each holding the commands to run.
+// chatHookConfig is the hook file's shape on both harnesses: events, each
+// holding matcher groups, each holding the commands to run.
 type chatHookConfig struct {
-	Version int                          `json:"version"`
-	Hooks   map[string][]chatHookMatcher `json:"hooks"`
+	Hooks map[string][]chatHookMatcher `json:"hooks"`
 }
 
 type chatHookMatcher struct {

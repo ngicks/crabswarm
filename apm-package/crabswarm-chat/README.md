@@ -11,12 +11,20 @@ The agent-facing half is the
 room's verbs and etiquette. The hooks below only move messages; the skill is
 what makes an agent answer them.
 
-Every hook is a `crabswarm hook exec` invocation, so the package is one JSON
-file, one MCP server declaration and a skill — no shell scripts, no `jq`,
-nothing to copy alongside the wiring. Everything here assumes `crabswarm` is on
-`PATH`: the skill assumes it when it tells an agent to type
-`crabswarm chat read`, and the MCP declaration assumes it when it names
-`crabswarm` as the server's command.
+Every hook is a `crabswarm hook exec` invocation, so the package is hook JSON,
+an MCP server declaration and a skill — no shell scripts, no `jq`, nothing to
+copy alongside the wiring. Everything here assumes `crabswarm` is on `PATH`:
+the skill assumes it when it tells an agent to type `crabswarm chat read`, and
+the MCP declaration assumes it when it names `crabswarm` as the server's
+command.
+
+On Claude Code the whole package is a skills-directory plugin: apm copies the
+skill directory, and Claude Code reads the hooks and the MCP server out of that
+directory on every session. Nothing is merged into `settings.json`. On OpenCode
+the same directory carries a plugin file that OpenCode runs in-process; one
+line in `opencode.json` names it once, and apm updates the file from then on.
+Codex still gets its hooks merged into `hooks.json` and its server written to
+`config.toml`, because Codex plugins carry no hooks.
 
 ## Install
 
@@ -35,32 +43,65 @@ then
 apm install
 ```
 
-`apm` compiles the package per target: the hooks merge into
-`.claude/settings.json` (Claude Code) and `.codex/hooks.json` (Codex) with the
-command strings copied through byte for byte, the MCP server is written to the
-project's `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex), and the
-skill materializes at `.claude/skills/crabswarm-chat/` and
-`.agents/skills/crabswarm-chat/`. Both target directories are created if they
-are not there yet. Installing twice changes nothing.
+or `apm install -g` to wire every session on the host.
+
+`apm` deploys the package per target:
+
+- **Claude Code** gets the skill directory at `.claude/skills/crabswarm-chat/`
+  (project scope) or `~/.claude/skills/crabswarm-chat/` (user scope, under
+  `CLAUDE_CONFIG_DIR` when that is set), with every file in it. The directory
+  carries `.claude-plugin/plugin.json`, so Claude Code loads it as the plugin
+  `crabswarm-chat@skills-dir` and reads `hooks/hooks.json` and `.mcp.json` from
+  there. `claude plugin list` shows it as loaded. No hook entry and no server
+  entry is merged into `settings.json`, and a hook a later version stops
+  declaring disappears with its file on the next `apm install`. apm also
+  renders the server declared in `apm.yml` into Claude Code's user-scope
+  config; that entry and the plugin's start the same bridge, and Claude Code
+  keeps the higher-precedence one.
+- **Codex** gets `.apm/hooks/codex-hooks.json` merged into `.codex/hooks.json`
+  with the command strings copied through byte for byte, the server written to
+  `.codex/config.toml`, and the skill at `.agents/skills/crabswarm-chat/`.
+- **OpenCode** gets the skill directory at `~/.config/opencode/skills/crabswarm-chat/`
+  at user scope. At project scope apm deploys no OpenCode skill directory;
+  OpenCode reads the project's `.agents/skills/crabswarm-chat/` instead, and
+  apm writes the bridge into the project's `opencode.json`. apm places no
+  plugin entry at either scope, so add the deployed file to `opencode.json`
+  once, relative to that config file:
+
+  ```json
+  { "plugin": ["./skills/crabswarm-chat/opencode.ts"] }
+  ```
+
+  or, in a project's `opencode.json`,
+  `"plugin": ["./.agents/skills/crabswarm-chat/opencode.ts"]`. See
+  [OpenCode](#opencode) below for what the plugin does.
+
+Both target directories are created if they are not there yet. Installing twice
+changes nothing.
 
 `apm` prints `Hook script not found: .../n/n%s` while it installs. That is its
 heuristic scan for a script path to rewrite, tripping over the `\n\n%s` inside
-the output templates; it rewrites nothing and the commands land intact.
+the Codex file's output templates; it rewrites nothing and the commands land
+intact.
+
+The `codex-` stem is what keeps the merged file away from Claude Code. apm
+calls stem routing deprecated in favor of `targets:` on the consuming
+dependency, but that setting would keep the skill and the server away from
+Claude Code too, so the stem stays. If a future apm stops honoring the stem,
+Claude Code runs every hook twice: once from the plugin and once from
+`settings.json`.
 
 Crabswarm's own `apm.yml` does not depend on this package. Installing the chat
 hooks into crabswarm's own development sessions is available by adding the
 stanza above to the repository root `apm.yml`, and is deliberately not done by
 default.
 
-Installing from source is the route that has been exercised. `apm pack` builds a
-plugin bundle, which used to be the wrong shape for this package outright: back
-when the wiring shipped as two files it skipped the root-level `hooks/`
-directory whenever `.apm/` was present and handed every consumer — Claude Code
-included — the Codex-only file as the bundle's one `hooks.json`. With a single
-universal hook file there is nothing left to pick wrong: a bundle carries the
-same wiring an install from source produces. `apm pack --target` is deprecated
-and recorded as metadata only, so `--target claude` and `--target codex` produce
-the same bundle, which is now the right answer rather than a hazard.
+Installing from source is the route that has been exercised. `apm pack` builds
+a bundle holding the skill directory with its plugin files, the Codex hook file
+renamed to a plain `hooks.json`, and no `apm.yml`. Installing such a bundle has
+not been tried; the renamed hook file has lost its `codex-` stem, so a bundle
+install would merge the hooks into Claude Code's `settings.json` beside the
+plugin's copy.
 
 ### Two ways to end up without the bridge
 
@@ -79,10 +120,10 @@ Transitive package 'crabswarm-chat' declares self-defined MCP server
 Either remedy works, and one of them is needed: without the bridge nothing joins
 the room on its own.
 
-A packed bundle loses the declaration outright. `apm pack` writes `plugin.json`,
-`hooks.json` and `skills/` and nothing else — no `apm.yml`, which is where the
-server is declared — so installing a bundle configures no server, whatever else
-it places. Installing from source is the route that brings all three.
+Codex is the harness these two paths leave without a bridge. On Claude Code the
+plugin's own `.mcp.json` declares the bridge as well, so a Claude Code consumer
+that received the skill directory has the server even when `apm.yml` was never
+read.
 
 ## Layout
 
@@ -90,18 +131,24 @@ it places. Installing from source is the route that brings all three.
 apm-package/crabswarm-chat/
 ├── apm.yml                             package metadata (targets: claude, codex)
 │                                       and the `crabswarm chat mcp` server
-├── .claude-plugin/plugin.json          Claude Code plugin manifest
 └── .apm/
-    ├── hooks/report-state.json         hook wiring for every target
-    └── skills/crabswarm-chat/SKILL.md
+    ├── hooks/codex-hooks.json          Codex: merged into hooks.json by apm
+    └── skills/crabswarm-chat/          Claude Code: a skills-directory plugin
+        ├── SKILL.md
+        ├── .claude-plugin/plugin.json
+        ├── hooks/hooks.json            the same events as codex-hooks.json
+        ├── .mcp.json                   the same bridge as apm.yml declares
+        └── opencode.ts                 OpenCode: the same wiring as a plugin
 ```
 
-One file wires every target. Its stem carries no target token, so `apm` hands
-the same events to Claude Code and to Codex, and what the file declares is the
-union of what the two harnesses announce — each keeps the events it knows and
-drops the rest. Both feed hooks the same snake_case envelope on stdin and read
-the same camelCase decision back, so the commands themselves are shared
-verbatim.
+The two hook files declare the same events, and `e2e/crabswarm` keeps them
+equal. What they declare is the union of what the two harnesses announce — each
+keeps the events it knows and drops the rest. Both feed hooks the same
+snake_case envelope on stdin and read the same camelCase decision back, so the
+commands themselves are shared verbatim. The file under `.apm/hooks/` is
+written twice rather than shared because apm cannot hand one file to Codex's
+merge and keep it out of Claude Code's: a file there with no target in its stem
+is merged into `settings.json` beside the plugin, and every hook runs twice.
 
 Only `Notification` and `PermissionRequest` are not common ground.
 `PermissionRequest` is Codex's approval dialog, and Claude Code implements it
@@ -142,19 +189,27 @@ bridge is the session's membership. Stopping the harness ends it.
 
 ### Stale hooks from older installs
 
+apm's merge never removes an entry for an event a package stopped declaring.
+Two upgrades leave such entries behind, and both need one manual cleanup.
+
 An older version of this package installed a `SessionStart` hook running
-`crabswarm chat join`. apm's merge never removes an entry a package stopped
-declaring, so that hook survives an upgrade and runs on every session start.
-`--kind` is required now, so the join fails. The hook discards that failure and
-exits 0, so nothing reports it. It costs a subprocess on every session start and
-joins nobody.
+`crabswarm chat join`. That hook survives an upgrade and runs on every session
+start. `--kind` is required now, so the join fails; the hook discards that
+failure and exits 0, so nothing reports it. Search for the string
+`crabswarm chat join` in:
 
-Remove it by hand. Search for the string `crabswarm chat join` in:
-
-- `~/.codex/hooks.json`
-- a project's `.codex/hooks.json`
+- `~/.codex/hooks.json` and a project's `.codex/hooks.json`
 - `~/.claude/settings.json` and a project's `.claude/settings.json`, under
   `hooks`
+
+Older versions also merged every hook of this package into Claude Code's
+`settings.json`. Claude Code now gets them from the plugin, and apm no longer
+visits any Claude Code event for this package, so every merged entry stays
+where it is and each hook runs twice: once from the plugin, once from
+`settings.json`. Delete every entry whose command contains `crabswarm chat`
+from `settings.json` at both scopes, and from the `apm-hooks.json` apm keeps
+beside each of them. `settings.json` stays untouched by this package from then
+on.
 
 ### What the harness forwards to the bridge
 
@@ -186,8 +241,10 @@ Pinning `sock` in `~/.config/crabswarm/config.json` settles the same question
 for a harness that forwards nothing.
 
 Codex reads `env_vars` from the server's own `[mcp_servers.crabswarm-chat]`
-table. Whether Claude Code accepts the same key in the `.mcp.json` that `apm`
-renders is **unverified**.
+table. Claude Code has no such key; the plugin's `.mcp.json` names the same
+three variables as `env` entries of the form `"${CMDMAN_CMD_ID}"`, which Claude
+Code expands from its own environment when it starts the server.
+`e2e/crabswarm` keeps the two lists equal.
 
 ## What each hook does
 
@@ -358,11 +415,11 @@ its typed variant and the hook exits 0 silently, which is what
 `e2e/crabswarm/chat_hooks_test.go` runs the shipped commands to prove. An event
 neither harness declares would parse too and simply render nothing.
 
-Codex gets the same file Claude Code does. `apm` does not translate hook event
-names for Codex — it merges whatever events the file declares into
-`.codex/hooks.json` verbatim, unlike the Gemini target, which renames events on
-the way out — so the merged file's `Notification` block reaches Codex's config
-untouched. Codex deserializes that config into a struct of the events it knows
+Codex gets `codex-hooks.json`, which declares the same events the plugin's
+`hooks.json` does. `apm` does not translate hook event names for Codex — it
+merges whatever events the file declares into `.codex/hooks.json` verbatim,
+unlike the Gemini target, which renames events on the way out — so the merged
+file's `Notification` block reaches Codex's config untouched. Codex deserializes that config into a struct of the events it knows
 and ignores the rest, so the block costs a few unread lines and nothing else,
 and `PermissionRequest` is the event that actually covers the case there.
 
@@ -404,12 +461,70 @@ Codex's `notify` program (`agent-turn-complete`) could report `done` redundantly
 but the Stop hook already does it — the only thing this package puts in
 `config.toml` is the bridge's `[mcp_servers]` table.
 
+## OpenCode
+
+OpenCode has no hook file. It loads JavaScript or TypeScript plugins and hands
+them session, permission and tool events, so `opencode.ts` in the skill
+directory is this package's hook wiring for OpenCode: each handler runs one
+`crabswarm chat` verb, quietly, and ignores failure the way the hooks do. The
+delivery wording is the hook file's, and `e2e/crabswarm` keeps it so.
+
+apm does not register plugins with OpenCode, so the operator names the deployed
+file once in `opencode.json`, relative to that config file:
+
+```json
+{ "plugin": ["./skills/crabswarm-chat/opencode.ts"] }
+```
+
+OpenCode installs the plugin's dependency package from npm the first time it
+starts with a plugin configured, which makes that first start slower.
+
+The plugin declares the bridge itself, through the `config` hook, as a local
+MCP server running `crabswarm chat mcp` with `CMDMAN_CMD_ID`,
+`CRABSWARM_CHAT_TOKEN` and `XDG_RUNTIME_DIR` set when the session has them.
+OpenCode hands a local server its whole environment anyway, so the three are
+there either way; naming them keeps the declaration the same on every harness.
+A `crabswarm-chat` server already in the config wins, whether the operator
+wrote it or apm did at project scope. apm's entry carries the `env_vars` key
+Codex reads, which OpenCode accepts and ignores. A headless
+`opencode serve` starts its MCP servers when something first asks for them;
+whether the TUI connects them at startup or at the first tool use has not been
+watched, and it decides whether the member attends before or during its first
+turn.
+
+What the plugin runs:
+
+| OpenCode event | Runs | Purpose |
+| --- | --- | --- |
+| `chat.message` | `report-state working` | A turn began. |
+| `permission.ask` | `report-state waiting` | An approval dialog is open. |
+| `permission.replied` | `report-state working` | The dialog resolved. |
+| `tool.execute.after` | `chat read --quiet`, then `report-state working` | Deliver mid-turn messages appended to the tool's result. |
+| `session.idle` | `chat read --quiet --done-when-empty` | Report done, or hand the messages found to the session as its next prompt. |
+
+Mail found at idle becomes a new user message in the session rather than a
+blocked stop, because OpenCode has no stop to block; the session takes one more
+turn over the messages and reports done when the next idle drains nothing. The
+read consumes before the prompt is sent, so a prompt OpenCode refuses costs the
+drained messages, the same trade the Stop drain makes on the other harnesses. Only
+the session a person drives reports: a subagent's session carries a parent, and
+its events are ignored.
+
+OpenCode reads skills from `~/.config/opencode/skills`, `~/.agents/skills` and
+`~/.claude/skills`, and apm deploys this package's skill to each of those it
+targets, so the skill can be listed more than once there.
+
 ## Verifying a change
 
-The hook file parses with `jq`, and `e2e/crabswarm/chat_hooks_test.go` drives
-the wiring end to end from Go: it reads the file, pulls each `command` string
-out, and runs it **verbatim** through a shell with sample hook envelopes
-on stdin, the real `crabswarm` binary on `PATH` and a real daemon behind it. So
+The hook files parse with `jq`, and `e2e/crabswarm/chat_hooks_test.go` drives
+the wiring end to end from Go: it reads the plugin's `hooks/hooks.json`, pulls
+each `command` string out, and runs it **verbatim** through a shell with sample
+hook envelopes on stdin, the real `crabswarm` binary on `PATH` and a real daemon
+behind it. `apm_package_test.go` pins the Codex file to the same events and the
+plugin's `.mcp.json` to the same bridge `apm.yml` declares.
+`chat_opencode_test.go` runs the `opencode` on `PATH`, when there is one,
+against a daemon and a mock model, and watches the plugin attend, report and
+deliver; without `opencode` the case is skipped. So
 what the suite exercises is the wiring that ships, not a Go paraphrase of it —
 including that every command stays silent and exits 0 when no daemon is
 running, that the delivering hooks consume the inbox exactly when they hand

@@ -2,6 +2,7 @@ package crabswarm_test
 
 import (
 	"bytes"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,6 +114,64 @@ func TestChatPackage_ForwardsTheBridgesEnvironment(t *testing.T) {
 	want := []string{"CMDMAN_CMD_ID", "CRABSWARM_CHAT_TOKEN", "XDG_RUNTIME_DIR"}
 	if !slices.Equal(bridge.EnvVars, want) {
 		t.Errorf("env_vars = %v, want %v", bridge.EnvVars, want)
+	}
+}
+
+// chatPluginMCP is the server shape in the plugin's `.mcp.json`, which Claude
+// Code reads from the skills-directory plugin and never merges anywhere.
+type chatPluginMCP struct {
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
+}
+
+// chatPluginBridge returns the single server the plugin declares.
+func chatPluginBridge(t *testing.T) chatPluginMCP {
+	t.Helper()
+	var file struct {
+		Servers map[string]chatPluginMCP `json:"mcpServers"`
+	}
+	readJSONFile(t, filepath.Join(apmSkillPluginDir("crabswarm-chat"), ".mcp.json"), &file)
+	if len(file.Servers) != 1 {
+		t.Fatalf("plugin declares %d MCP server(s), want exactly the chat bridge: %v",
+			len(file.Servers), file.Servers)
+	}
+	server, ok := file.Servers["crabswarm-chat"]
+	if !ok {
+		t.Fatalf("plugin server is not named crabswarm-chat: %v", file.Servers)
+	}
+	return server
+}
+
+// The plugin's `.mcp.json` is the same bridge apm renders from apm.yml, written
+// in Claude Code's own shape: the command line matches, and every variable
+// apm.yml asks a harness to forward is an `env` entry Claude Code expands from
+// the process environment. One list, two renderings; a variable added to one
+// and not the other is a bridge that finds its token on one harness only.
+func TestChatPackage_PluginDeclaresTheSameBridge(t *testing.T) {
+	declared := chatDeclaredBridge(t)
+	plugin := chatPluginBridge(t)
+
+	if plugin.Command != declared.Command {
+		t.Errorf("plugin command = %q, apm.yml command = %q", plugin.Command, declared.Command)
+	}
+	if !slices.Equal(plugin.Args, declared.Args) {
+		t.Errorf("plugin args = %v, apm.yml args = %v", plugin.Args, declared.Args)
+	}
+	got := slices.Sorted(maps.Keys(plugin.Env))
+	want := slices.Sorted(slices.Values(declared.EnvVars))
+	if !slices.Equal(got, want) {
+		t.Errorf("plugin env keys = %v, apm.yml env_vars = %v", got, want)
+	}
+	for k, v := range plugin.Env {
+		if v != "${"+k+"}" {
+			t.Errorf(
+				"plugin env %s = %q, want %q: the value is expanded from the harness's environment",
+				k,
+				v,
+				"${"+k+"}",
+			)
+		}
 	}
 }
 

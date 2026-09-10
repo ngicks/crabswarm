@@ -1,0 +1,10 @@
+{
+  "name": "crabswarm-issues-lint",
+  "version": "0.2.0",
+  "description": "Stop hook that refuses a turn while an open beads issue holds a mermaid fence mermaid-lint rejects.",
+  "author": {
+    "name": "ngicks"
+  },
+  "repository": "https://github.com/ngicks/crabswarm",
+  "license": "Unlicense"
+}
