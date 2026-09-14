@@ -8,21 +8,18 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-// The cursor stops on team headings and on members alike, and enter writes what
-// it is on in front of the message: a member by name, a whole team by its
-// heading. Either way the operator lands in the message pane, which is where
-// they were going.
+// The cursor stops on team headings and on members alike, and enter on a member
+// writes their address in front of the message, landing the operator in the
+// message pane, which is where they were going.
 func TestMembersPaneEnterAddressesTheRowUnderTheCursor(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		down int
 		want string
 	}{
-		{name: "a team heading is the whole team", down: 0, want: "@backend/* "},
-		{name: "the member under it", down: 1, want: "@backend/alice "},
+		{name: "the member under the first heading", down: 1, want: "@backend/alice "},
 		{name: "the next member", down: 2, want: "@backend/bob "},
-		{name: "the next team's heading", down: 3, want: "@frontend/* "},
-		{name: "its member", down: 4, want: "@frontend/cid "},
+		{name: "the next team's member", down: 4, want: "@frontend/cid "},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := fixtureModel(t, Deps{})
@@ -38,6 +35,25 @@ func TestMembersPaneEnterAddressesTheRowUnderTheCursor(t *testing.T) {
 			assert.Equal(t, m.focus, focusMessage)
 			assert.Assert(t, m.text.Focused())
 		})
+	}
+}
+
+// A team is not something a message can be addressed to, so enter on a heading
+// writes nothing and says why: the operator names the members under it, or the
+// whole room.
+func TestMembersPaneEnterOnATeamHeadingSaysATeamIsNotATarget(t *testing.T) {
+	for _, down := range []int{0, 3} {
+		m := fixtureModel(t, Deps{})
+		m.setFocus(focusMembers)
+		for range down {
+			m = update(t, m, press('j', "j"))
+		}
+
+		m = update(t, m, press(tea.KeyEnter, ""))
+		assert.Equal(t, m.text.Value(), "")
+		assert.Equal(t, m.focus, focusMembers)
+		assert.Assert(t, strings.Contains(m.notice, "a team is not a target"),
+			"the system line = %q", m.notice)
 	}
 }
 

@@ -39,7 +39,7 @@ func newTextarea() textarea.Model {
 	text := textarea.New()
 	text.Prompt = "> "
 	text.ShowLineNumbers = false
-	text.Placeholder = "@team/name addresses one; no @ writes to the room"
+	text.Placeholder = "@everyone or @team/name addresses; no @ is a board post"
 	text.DynamicHeight = true
 	text.MinHeight = messageMinRows
 	text.MaxHeight = messageMaxRows

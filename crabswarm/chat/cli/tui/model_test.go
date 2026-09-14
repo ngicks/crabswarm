@@ -78,19 +78,35 @@ func fixtureDerivedName() []*chatv1.Member {
 }
 
 // fixtureEntries builds n conversation entries, each carrying its own number so
-// a test can tell which stretch of the room is on screen.
-func fixtureEntries(n int) []*chatv1.AdminHistoryEntry {
+// a test can tell which stretch of the room is on screen, and its own seq,
+// which is what the screen pages the log by.
+func fixtureEntries(n int) []*chatv1.Message {
 	sent := time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC)
-	entries := make([]*chatv1.AdminHistoryEntry, 0, n)
+	entries := make([]*chatv1.Message, 0, n)
 	for i := range n {
-		entries = append(entries, &chatv1.AdminHistoryEntry{
-			Id:     int64(i + 1),
+		entries = append(entries, &chatv1.Message{
+			Seq:    int64(i + 1),
 			From:   &chatv1.Member{Team: "backend", Name: "alice", Room: fixtureRoom},
+			Target: everyoneTarget(),
 			Text:   fmt.Sprintf("line %d", i+1),
 			SentAt: timestamppb.New(sent.Add(time.Duration(i) * time.Second)),
 		})
 	}
 	return entries
+}
+
+// everyoneTarget and rolesTarget build the two targets a message can carry; a
+// board post carries none at all, which is the nil target.
+func everyoneTarget() *chatv1.Target {
+	return &chatv1.Target{Target: &chatv1.Target_Everyone{Everyone: &chatv1.Everyone{}}}
+}
+
+func rolesTarget(members ...*chatv1.Member) *chatv1.Target {
+	roles := make([]*chatv1.MemberTarget, 0, len(members))
+	for _, m := range members {
+		roles = append(roles, &chatv1.MemberTarget{Team: m.GetTeam(), Name: m.GetName()})
+	}
+	return &chatv1.Target{Target: &chatv1.Target_Roles{Roles: &chatv1.Roles{Roles: roles}}}
 }
 
 // fixtureListing is what the daemon says it knows: one room, attended by the
@@ -410,28 +426,43 @@ func enterKey(t *testing.T, m *model, key tea.KeyPressMsg) (*model, tea.Cmd) {
 }
 
 // The transcript reads the way the CLI's does — who said it, who to, and what —
-// so an operator comparing the screen with `chat admin log` reads one text.
+// so an operator comparing the screen with `chat admin log` reads one text. The
+// target column carries all three cases a message has: the whole room, the
+// roles it named, and the board post that named nobody.
 func TestConversationSpellsSenderAddressee(t *testing.T) {
 	m := fixtureModel(t, Deps{})
-	m.entries = []*chatv1.AdminHistoryEntry{
+	roster := fixtureRoster()
+	at := func(sec int) *timestamppb.Timestamp {
+		return timestamppb.New(time.Date(2026, 9, 2, 9, 30, sec, 0, time.UTC))
+	}
+	m.entries = []*chatv1.Message{
 		{
-			Id:     1,
-			From:   &chatv1.Member{Team: "admin", Name: "admin", Room: fixtureRoom},
-			To:     &chatv1.Member{Team: "backend", Name: "alice", Room: fixtureRoom},
+			Seq: 1,
+			// The operator is in no team, which is how the daemon spells them.
+			From:   &chatv1.Member{Name: "admin", Room: fixtureRoom},
+			Target: rolesTarget(roster[0], roster[1]),
 			Text:   "ship it",
-			SentAt: timestamppb.New(time.Date(2026, 9, 2, 9, 30, 15, 0, time.UTC)),
+			SentAt: at(15),
 		},
 		{
-			Id:     2,
-			From:   &chatv1.Member{Team: "backend", Name: "alice", Room: fixtureRoom},
+			Seq:    2,
+			From:   roster[0],
+			Target: everyoneTarget(),
 			Text:   "on it",
-			SentAt: timestamppb.New(time.Date(2026, 9, 2, 9, 30, 20, 0, time.UTC)),
+			SentAt: at(20),
+		},
+		{
+			Seq:    3,
+			From:   roster[1],
+			Text:   "the branch is green",
+			SentAt: at(25),
 		},
 	}
 
 	assert.Equal(t, m.conversation(),
-		"09:30:15 admin/admin → backend/alice: ship it\n"+
-			"09:30:20 backend/alice → *: on it\n")
+		"09:30:15 admin → backend/alice,backend/bob: ship it\n"+
+			"09:30:20 backend/alice → everyone: on it\n"+
+			"09:30:25 backend/bob → -: the branch is green\n")
 }
 
 // A message that names the admin is drawn in the mention colour with the token
@@ -441,9 +472,9 @@ func TestConversationSpellsSenderAddressee(t *testing.T) {
 func TestAMessageThatNamesTheAdminIsColoured(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 	from := &chatv1.Member{Team: "backend", Name: "alice", Room: fixtureRoom}
-	m.entries = []*chatv1.AdminHistoryEntry{
-		{Id: 1, From: from, Text: "@admin can you look"},
-		{Id: 2, From: from, Text: "write `@admin` to ask"},
+	m.entries = []*chatv1.Message{
+		{Seq: 1, From: from, Target: everyoneTarget(), Text: "@admin can you look"},
+		{Seq: 2, From: from, Target: everyoneTarget(), Text: "write `@admin` to ask"},
 	}
 
 	lines := strings.Split(strings.TrimSuffix(m.conversation(), "\n"), "\n")
@@ -452,7 +483,8 @@ func TestAMessageThatNamesTheAdminIsColoured(t *testing.T) {
 	assert.Assert(t, strings.Contains(lines[0], mentionStyle.Render(" can you look")),
 		"the rest of the message is not coloured:\n%q", lines[0])
 	// The time and the sender are not the message, and nothing was said there.
-	assert.Assert(t, strings.HasPrefix(lines[0], "--:--:-- backend/alice → *: "))
+	assert.Assert(t, strings.HasPrefix(lines[0], "--:--:-- backend/alice → everyone: "))
 
-	assert.Equal(t, lines[1], "--:--:-- backend/alice → *: write `@admin` to ask")
+	assert.Equal(t, lines[1],
+		"--:--:-- backend/alice → everyone: write `@admin` to ask")
 }

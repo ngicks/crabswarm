@@ -16,24 +16,47 @@ import (
 // for. The commands under test are run by the test itself, one at a time, so
 // nothing here has to be safe for concurrent use.
 
+// logCall is one read of the log as the filter spelled it. The filter is held
+// field by field rather than whole so a call compares with plain equality: two
+// protobuf messages of the same shape are two pointers.
 type logCall struct {
-	room  string
-	since int64
-	limit int32
+	room   string
+	cursor chatv1.ReadCursor
+	span   int32
+	since  int64
+}
+
+// openCall is the read a screen with nothing in hand makes: back from the
+// room's tail. sinceCall is every read after it: forward past what it holds.
+func openCall(room string) logCall {
+	return logCall{room: room, cursor: chatv1.ReadCursor_READ_CURSOR_TAIL, span: -backfill}
+}
+
+func sinceCall(room string, seq int64) logCall {
+	return logCall{
+		room:   room,
+		cursor: chatv1.ReadCursor_READ_CURSOR_HEAD,
+		span:   tailLimit,
+		since:  seq,
+	}
 }
 
 type fakeLog struct {
 	calls []logCall
-	reply func(call logCall) ([]*chatv1.AdminHistoryEntry, error)
+	reply func(call logCall) ([]*chatv1.Message, error)
 }
 
 func (f *fakeLog) RoomLog(
 	_ context.Context,
 	room string,
-	sinceID int64,
-	limit int32,
-) ([]*chatv1.AdminHistoryEntry, error) {
-	call := logCall{room: room, since: sinceID, limit: limit}
+	filter *chatv1.ReadFilter,
+) ([]*chatv1.Message, error) {
+	call := logCall{
+		room:   room,
+		cursor: filter.GetCursor(),
+		span:   filter.GetRange(),
+		since:  filter.GetSince(),
+	}
 	f.calls = append(f.calls, call)
 	if f.reply == nil {
 		return nil, nil
@@ -75,10 +98,11 @@ func step(t *testing.T, m *model, cmd tea.Cmd) (*model, tea.Cmd) {
 
 // The screen opens on the tail of the log and then reads forward from what it
 // already has: an operator arriving an hour late reads the conversation that
-// happened without them, and every read after that asks only for what is new.
+// happened without them, and every read after that asks only for what is new —
+// the messages past the newest seq on screen.
 func TestOpeningReadsTheTailThenFollowsTheCursor(t *testing.T) {
 	log := &fakeLog{
-		reply: func(call logCall) ([]*chatv1.AdminHistoryEntry, error) {
+		reply: func(call logCall) ([]*chatv1.Message, error) {
 			if call.since == 0 {
 				return fixtureEntries(3), nil
 			}
@@ -92,14 +116,14 @@ func TestOpeningReadsTheTailThenFollowsTheCursor(t *testing.T) {
 
 	m, _ = step(t, m, m.Init())
 	assert.Equal(t, len(log.calls), 1)
-	assert.Equal(t, log.calls[0], logCall{room: fixtureRoom, since: 0, limit: backfill})
+	assert.Equal(t, log.calls[0], openCall(fixtureRoom))
 	assert.Equal(t, m.cursor, int64(3))
 	assert.Equal(t, roster.calls, 1)
 	assert.Assert(t, strings.Contains(m.View().Content, "line 3"))
 
 	m, next := step(t, m, tailTick(t, m))
 	assert.Equal(t, len(log.calls), 2)
-	assert.Equal(t, log.calls[1], logCall{room: fixtureRoom, since: 3, limit: tailLimit})
+	assert.Equal(t, log.calls[1], sinceCall(fixtureRoom, 3))
 	assert.Equal(t, m.cursor, int64(4))
 	assert.Assert(t, strings.Contains(m.View().Content, "line 4"))
 	// The loop starts its clock again rather than stopping after one round.
@@ -151,7 +175,7 @@ func TestRosterPollTracksAttendanceAndState(t *testing.T) {
 func TestAFailedReadIsReportedAndRetried(t *testing.T) {
 	failure := errors.New("chat daemon unreachable")
 	log := &fakeLog{
-		reply: func(logCall) ([]*chatv1.AdminHistoryEntry, error) { return nil, failure },
+		reply: func(logCall) ([]*chatv1.Message, error) { return nil, failure },
 	}
 	roster := &fakeRoster{err: failure}
 	m := fixtureModel(t, Deps{Log: log, Roster: roster})
@@ -167,7 +191,7 @@ func TestAFailedReadIsReportedAndRetried(t *testing.T) {
 	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "log unread"))
 	assert.Assert(t, next != nil)
 
-	log.reply = func(logCall) ([]*chatv1.AdminHistoryEntry, error) {
+	log.reply = func(logCall) ([]*chatv1.Message, error) {
 		return fixtureEntries(1), nil
 	}
 	m, _ = step(t, m, m.tail())
@@ -184,7 +208,7 @@ func TestAFailedReadIsReportedAndRetried(t *testing.T) {
 // line: the whole screen would shift down otherwise.
 func TestAMultiLineErrorStaysOnOneLine(t *testing.T) {
 	log := &fakeLog{
-		reply: func(logCall) ([]*chatv1.AdminHistoryEntry, error) {
+		reply: func(logCall) ([]*chatv1.Message, error) {
 			return nil, errors.New(
 				"chat daemon unreachable\nhint: start it by running `crabswarm serve`")
 		},
@@ -208,10 +232,10 @@ func TestScrollbackIsTrimmedOnlyWhileFollowing(t *testing.T) {
 
 	m.applyTail(tailMsg{entries: fixtureEntries(scrollback + 5)[scrollback:]})
 	assert.Equal(t, len(m.entries), scrollback)
-	assert.Equal(t, m.entries[0].GetId(), int64(6))
+	assert.Equal(t, m.entries[0].GetSeq(), int64(6))
 
 	m.following = false
 	m.applyTail(tailMsg{entries: fixtureEntries(scrollback + 10)[scrollback+5:]})
 	assert.Equal(t, len(m.entries), scrollback+5)
-	assert.Equal(t, m.entries[0].GetId(), int64(6))
+	assert.Equal(t, m.entries[0].GetSeq(), int64(6))
 }

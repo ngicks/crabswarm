@@ -30,8 +30,8 @@ panes, and every other key belongs to the pane that has focus. In the three that
 are lists — rooms, members and the conversation — j and k move a line, gg and G
 go to the ends, and ctrl+d and ctrl+u move half a page. enter in the rooms pane
 switches to the room under the cursor; enter in the members pane writes
-` + "`@team/name `" + ` in front of the message — ` + "`@team/* `" + ` on a team
-heading — and moves focus there. Scrolling the conversation up holds the view
+` + "`@team/name `" + ` in front of the message and moves focus there; a team
+heading is not a target, so enter on one only says so. Scrolling the conversation up holds the view
 still while the room talks on, and scrolling back to the bottom follows it
 again.
 
@@ -48,16 +48,17 @@ lists — in the message pane it is a letter — and ctrl+c leaves it from anywh
 Tab after an @ completes the token against the room's members. One match is
 applied outright; two or more open a list above the message, where tab and j
 move the highlight down, shift+tab and k move it up, enter accepts the row it is
-on, and esc closes the list and leaves the token as typed. Each team is offered
-as a ` + "`team/*`" + ` row above its own members, so a whole team is one completion away.
+on, and esc closes the list and leaves the token as typed. ` + "`everyone`" + ` is
+offered above the roles, so the whole room is one completion away.
 
-The message is addressed with an @: the first bare @token in it — ` + "`@name`" + `,
-` + "`@team/name`" + ` or ` + "`@team/*`" + ` — says who it is for, and a message with no @ at all
-goes to everyone in the room. Bare means the @ starts a word — it is the first
-character of the message, or a space or a newline is in front of it — outside a
-backtick span and not written as \@. Anything else is text and addresses nobody,
-so ops@corp.example goes to the whole room. The text is sent whole, that token
-included, so the room reads who was asked.`,
+The message is addressed with @ tokens: ` + "`@everyone`" + ` mentions the whole
+room, ` + "`@name`" + ` or ` + "`@team/name`" + ` mentions one role, and several such
+tokens mention each of them. A message with no @ at all is a board post that
+mentions nobody. Bare means the @ starts a word — it is the first character of
+the message, or a space or a newline is in front of it — outside a backtick span
+and not written as \@. Anything else is text and addresses nobody, so
+ops@corp.example is a post. The text is sent whole, the tokens included, so the
+room reads who was asked.`,
 		Example: `  crabswarm chat admin tui
   crabswarm chat admin tui --room /work/proj \
     --identity ~/.config/crabswarm/chat_admin.key`,

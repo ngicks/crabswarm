@@ -218,48 +218,81 @@ func quitScreen(t *testing.T, s *tuiScreen) {
 
 // The operator opens the screen on a room already talking, reads back what was
 // said before they arrived, watches a message land without touching anything,
-// and sends one of their own — which reaches the pane the way every other
+// and sends messages of their own — which reach the pane the way every other
 // message does, by being in the room's log.
+//
+// The three sends are the three things a message can be for: the whole room, a
+// list of roles, and nobody at all. The pane's target column is where they are
+// told apart.
 func TestChatTUI_WatchesARoomAndSendsIntoIt(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
-	runChat(t, cfg, "tok-ana", "broadcast", "rebasing onto main")
+	one := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "claude-1")
+	two := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "claude-2")
+	runChat(t, cfg, one, "send", "everyone", "rebasing onto main")
 
 	s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
 
 	// What the room said before the screen existed is on it, and so is who is
 	// attending — neither cost a keypress.
-	waitScreen(t, s.drawn, "alpha/ana → *: rebasing onto main")
+	waitScreen(t, s.drawn, "alpha/claude-1 → everyone: rebasing onto main")
 	// The panes are framed and titled, and the members pane's title carries the
 	// attendance the sidebar used to head itself with.
 	waitScreen(t, s.drawn, "members (2)")
 
 	// A message sent while the screen is open arrives on its own.
-	runChat(t, cfg, "tok-bob", "broadcast", "the branch is green")
-	waitScreen(t, s.drawn, "alpha/bob → *: the branch is green")
+	runChat(t, cfg, two, "send", "everyone", "the branch is green")
+	waitScreen(t, s.drawn, "alpha/claude-2 → everyone: the branch is green")
 
-	// The operator steps in, naming the member with an @. The screen opens on
-	// the conversation, so reaching the message pane is a focus move down into
-	// it — ctrl+j, which a terminal sends as a bare line feed. enter is a
-	// newline there, so the message is sent with ctrl+x, which is byte 0x18.
+	// The operator steps in. The screen opens on the conversation, so reaching
+	// the message pane is a focus move down into it — ctrl+j, which a terminal
+	// sends as a bare line feed. enter is a newline there, so each message is
+	// sent with ctrl+x, which is byte 0x18.
 	typeOnScreen(t, s.keys, "\x0a")
-	typeOnScreen(t, s.keys, "@alpha/ana hold the deploy\x18")
 
-	// It is in the room's log, attributed to the host, and it reaches the pane
-	// from there rather than from the screen echoing itself. The token that
-	// addressed it travels with the text: it is also the mention that names who
-	// was asked.
-	waitScreen(t, s.drawn, "admin/admin → alpha/ana: @alpha/ana hold the deploy")
+	// @everyone is the whole room, and the pane says so.
+	typeOnScreen(t, s.keys, "@everyone hi\x18")
+	waitScreen(t, s.drawn, "admin → everyone: @everyone hi")
+
+	// Several tokens are one list of roles, resolved to the members they name.
+	// This is the longest line the room draws, so it is read off a whole frame
+	// rather than out of everything drawn so far: the renderer writes only the
+	// cells that changed, and the message pane shrinking back to one row after
+	// the send redraws part of this line on its own.
+	typeOnScreen(t, s.keys, "@claude-1 @claude-2 hi\x18")
+	waitFrame(t, s,
+		"admin → alpha/claude-1,alpha/claude-2: @claude-1",
+		"sent to alpha/claude-1,alpha/claude-2")
+
+	// No token at all names nobody, which is a board post: the target column is
+	// a dash, and nobody was mentioned.
+	typeOnScreen(t, s.keys, "hi\x18")
+	waitScreen(t, s.drawn, "admin → -: hi")
+	waitFrame(t, s, "sent a post")
+
+	// All three are in the room's log, attributed to the host, and they reached
+	// the pane from there rather than from the screen echoing itself. The
+	// tokens that addressed them travel with the text: they are also the
+	// mentions that name who was asked.
 	logged := runChat(t, cfg, "", "admin", "log", chatRoom, "--identity", identity)
-	if !strings.Contains(logged, "admin/admin → alpha/ana: @alpha/ana hold the deploy") {
-		t.Errorf("the room log = %q, want the admin's message in it", logged)
+	for _, want := range []string{
+		"admin -> everyone: @everyone hi",
+		"admin -> alpha/claude-1,alpha/claude-2: @claude-1 @claude-2 hi",
+		"admin -> -: hi",
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the room log = %q, want %q in it", logged, want)
+		}
 	}
-	if got := runChat(t, cfg, "tok-ana", "read"); !strings.Contains(
-		got, "admin/admin: @alpha/ana hold the deploy") {
-		t.Errorf("ana's inbox = %q, want the admin's message delivered", got)
+	// The roles send reached the member it named; the post mentioned nobody and
+	// so is not waiting in anybody's unread.
+	got := runChat(t, cfg, one, "read")
+	if !strings.Contains(got, "@claude-1 @claude-2 hi") {
+		t.Errorf("claude-1's inbox = %q, want the message that named them", got)
+	}
+	if strings.Contains(got, "admin -> -:") {
+		t.Errorf("claude-1's inbox = %q, want the board post to mention nobody", got)
 	}
 
 	// ctrl-c leaves, and the program says it left rather than being torn down.
@@ -272,25 +305,20 @@ func TestChatTUI_WatchesARoomAndSendsIntoIt(t *testing.T) {
 // whichever room the cursor is on.
 func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
-	cfg := startChatDaemonWith(t, []stubCommand{
-		{token: "tok-ana", dir: chatRoom, project: "alpha"},
-		{token: "tok-bob", dir: chatRoom, project: "alpha"},
-		{token: "tok-cid", dir: chatRoom, project: "beta"},
-		{token: "tok-zed", dir: chatOtherRoom, project: "gamma"},
-	}, recipient)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
-	runChat(t, cfg, "tok-zed", "join", "--kind", "human", "--name", "zed")
-	runChat(t, cfg, "tok-ana", "broadcast", "the proj room is talking")
-	runChat(t, cfg, "tok-zed", "broadcast", "the other room is talking")
+	ana := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "ana")
+	registerChatHuman(t, cfg, identity, chatRoom, "alpha", "bob")
+	registerChatHuman(t, cfg, identity, chatRoom, "beta", "cid")
+	zed := registerChatHuman(t, cfg, identity, chatOtherRoom, "gamma", "zed")
+	runChat(t, cfg, ana, "send", "everyone", "the proj room is talking")
+	runChat(t, cfg, zed, "send", "everyone", "the other room is talking")
 
 	// The daemon lists its rooms by name, so /work/other is the first of the
 	// two and the one a screen that was told no room opens on.
 	t.Run("no --room opens on the first room listed", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{})
-		waitScreen(t, s.drawn, "gamma/zed → *: the other room is talking")
+		waitScreen(t, s.drawn, "gamma/zed → everyone: the other room is talking")
 
 		frame := waitFrame(t, s, "room "+chatOtherRoom, "members (1)")
 		if strings.Contains(frame, "the proj room is talking") {
@@ -301,7 +329,7 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 
 	t.Run("enter in the rooms pane takes the screen to that room", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{Room: chatOtherRoom})
-		waitScreen(t, s.drawn, "gamma/zed → *: the other room is talking")
+		waitScreen(t, s.drawn, "gamma/zed → everyone: the other room is talking")
 
 		// The screen opens on the conversation. ctrl+h lands on the members
 		// pane, which is what lies to its left at this split, and ctrl+k on the
@@ -314,7 +342,7 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 
 		// The room switched: its conversation is on the screen, its attendance
 		// is in the members pane, and the status bar names it.
-		waitScreen(t, s.drawn, "alpha/ana → *: the proj room is talking")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: the proj room is talking")
 		frame := waitFrame(t, s,
 			"room "+chatRoom, "members (3)", "alpha", " ana ", " bob ", "beta", " cid ")
 		for _, left := range []string{"the other room is talking", " zed "} {
@@ -326,22 +354,22 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 	})
 }
 
-// The members pane addresses the message: enter on a row writes that row's
-// address in front of what is written and follows it into the message pane,
-// and a row is a member or the team heading they are filed under — a heading
-// being the whole team.
+// The members pane addresses the message: enter on a member writes that
+// member's address in front of what is written and follows it into the message
+// pane. A team heading is not an address — a team is not something a message
+// can be sent to — and enter on one says so.
 func TestChatTUI_MembersPaneAddressesTheMessage(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
-	runChat(t, cfg, "tok-ana", "broadcast", "who is awake?")
+	ana := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "ana")
+	registerChatHuman(t, cfg, identity, chatRoom, "alpha", "bob")
+	registerChatHuman(t, cfg, identity, chatRoom, "beta", "cid")
+	runChat(t, cfg, ana, "send", "everyone", "who is awake?")
 
 	t.Run("enter on a member writes @team/name", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
-		waitScreen(t, s.drawn, "alpha/ana → *: who is awake?")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: who is awake?")
 
 		// ctrl+h into the members pane, whose cursor opens on the first row —
 		// the heading of the first team — so one j is that team's first member.
@@ -352,55 +380,44 @@ func TestChatTUI_MembersPaneAddressesTheMessage(t *testing.T) {
 
 		// The address the pane wrote is part of the message, so what ana was
 		// delivered is the whole line, mention included.
-		waitFrame(t, s, "sent to alpha/ana (1 delivered)")
-		if got := runChat(t, cfg, "tok-ana", "read"); !strings.Contains(
-			got, "admin/admin: @alpha/ana the deploy is yours") {
+		waitFrame(t, s, "sent to alpha/ana")
+		if got := runChat(t, cfg, ana, "read"); !strings.Contains(
+			got, "admin -> alpha/ana") {
 			t.Errorf("ana's inbox = %q, want the whole addressed line", got)
 		}
 		quitScreen(t, s)
 	})
 
-	t.Run("enter on a team heading writes @team/*", func(t *testing.T) {
+	t.Run("enter on a team heading says a team is not a target", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
-		waitScreen(t, s.drawn, "alpha/ana → *: who is awake?")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: who is awake?")
 
-		// The cursor opens on the alpha heading, which is the whole of alpha.
+		// The cursor opens on the alpha heading, which names a team.
 		typeOnScreen(t, s.keys, "\x08")
 		typeOnScreen(t, s.keys, "\r")
-		typeOnScreen(t, s.keys, "alpha owns the rebase\x18")
 
-		// Both of alpha were delivered it and the count says so; cid, who is in
-		// beta, was not.
-		waitFrame(t, s, "sent to alpha/* (2 delivered)")
-		for _, token := range []string{"tok-ana", "tok-bob"} {
-			if got := runChat(t, cfg, token, "read"); !strings.Contains(
-				got, "admin/admin: @alpha/* alpha owns the rebase") {
-				t.Errorf("read as %s = %q, want the team message", token, got)
-			}
-		}
-		if got := runChat(t, cfg, "tok-cid", "read"); strings.Contains(
-			got, "alpha owns the rebase") {
-			t.Errorf("read as tok-cid = %q, want nothing: cid is in beta, not alpha", got)
-		}
+		// Nothing was written into the message and the focus stayed put; the
+		// system line names what to write instead.
+		waitFrame(t, s, "a team is not a target")
 		quitScreen(t, s)
 	})
 }
 
-// Tab completes the `@token` under the cursor against the room's attendance:
-// one match is the answer and is applied, and more than one is a list to pick
-// from.
+// Tab completes the `@token` under the cursor against the room's attendance and
+// the whole room beside it: one match is the answer and is applied, and more
+// than one is a list to pick from.
 func TestChatTUI_TabCompletesAnAddress(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
-	runChat(t, cfg, "tok-cid", "join", "--kind", "human", "--name", "cid")
-	runChat(t, cfg, "tok-ana", "broadcast", "standup in five")
+	ana := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "ana")
+	registerChatHuman(t, cfg, identity, chatRoom, "alpha", "bob")
+	registerChatHuman(t, cfg, identity, chatRoom, "beta", "cid")
+	runChat(t, cfg, ana, "send", "everyone", "standup in five")
 
 	t.Run("one match completes in place", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
-		waitScreen(t, s.drawn, "alpha/ana → *: standup in five")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: standup in five")
 
 		// ctrl+j into the message pane, then a prefix only ana answers to. Tab
 		// is byte 0x09.
@@ -415,22 +432,34 @@ func TestChatTUI_TabCompletesAnAddress(t *testing.T) {
 		quitScreen(t, s)
 	})
 
+	t.Run("the whole room is offered like any other address", func(t *testing.T) {
+		s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
+		waitScreen(t, s.drawn, "alpha/ana → everyone: standup in five")
+
+		// Nobody in the room answers to a name or an address starting with "e",
+		// so the whole room is the one match.
+		typeOnScreen(t, s.keys, "\x0a")
+		typeOnScreen(t, s.keys, "@e\t")
+		waitFrame(t, s, "> @everyone")
+		quitScreen(t, s)
+	})
+
 	t.Run("an ambiguous prefix opens the dropdown", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
-		waitScreen(t, s.drawn, "alpha/ana → *: standup in five")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: standup in five")
 
-		// "a" is alpha's two members and alpha itself, so the list is offered
-		// instead of one of them being chosen: the team heads its own members.
+		// "a" is both of alpha's members, so the list is offered instead of one
+		// of them being chosen.
 		typeOnScreen(t, s.keys, "\x0a")
 		typeOnScreen(t, s.keys, "@a\t")
-		waitFrame(t, s, "@alpha/*", "@alpha/ana", "@alpha/bob", "> @a")
+		waitFrame(t, s, "@alpha/ana", "@alpha/bob", "> @a")
 
 		// Tab walks the list and enter takes the row the highlight is on, which
-		// is the second of the three.
+		// is the second of the two.
 		typeOnScreen(t, s.keys, "\t")
 		typeOnScreen(t, s.keys, "\r")
-		frame := waitFrame(t, s, "> @alpha/ana")
-		if strings.Contains(frame, "@alpha/bob") {
+		frame := waitFrame(t, s, "> @alpha/bob")
+		if strings.Contains(frame, "@alpha/ana") {
 			t.Errorf("the dropdown is still open after accepting:\n%s", frame)
 		}
 		quitScreen(t, s)
@@ -466,8 +495,8 @@ func TestChatTUI_EditsTheDraftInAnEditor(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
-	runChat(t, cfg, "tok-ana", "broadcast", "a long one is coming")
+	ana := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "ana")
+	runChat(t, cfg, ana, "send", "everyone", "a long one is coming")
 
 	const draft = "@alpha/ana the draft"
 
@@ -475,7 +504,7 @@ func TestChatTUI_EditsTheDraftInAnEditor(t *testing.T) {
 		t.Setenv(chatcli.VisualEnvVar, editorScript(t, 0))
 		s := startTUI(t, cfg, identity, tui.Deps{
 			Room: chatRoom, Editor: chatcli.EditorFromEnv()})
-		waitScreen(t, s.drawn, "alpha/ana → *: a long one is coming")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: a long one is coming")
 
 		typeOnScreen(t, s.keys, "\x0a")
 		typeOnScreen(t, s.keys, draft)
@@ -496,7 +525,7 @@ func TestChatTUI_EditsTheDraftInAnEditor(t *testing.T) {
 		t.Setenv(chatcli.VisualEnvVar, editorScript(t, 1))
 		s := startTUI(t, cfg, identity, tui.Deps{
 			Room: chatRoom, Editor: chatcli.EditorFromEnv()})
-		waitScreen(t, s.drawn, "alpha/ana → *: a long one is coming")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: a long one is coming")
 
 		typeOnScreen(t, s.keys, "\x0a")
 		typeOnScreen(t, s.keys, draft)
@@ -516,7 +545,7 @@ func TestChatTUI_EditsTheDraftInAnEditor(t *testing.T) {
 		t.Setenv(chatcli.EditorEnvVar, "")
 		s := startTUI(t, cfg, identity, tui.Deps{
 			Room: chatRoom, Editor: chatcli.EditorFromEnv()})
-		waitScreen(t, s.drawn, "alpha/ana → *: a long one is coming")
+		waitScreen(t, s.drawn, "alpha/ana → everyone: a long one is coming")
 
 		typeOnScreen(t, s.keys, "\x0a")
 		typeOnScreen(t, s.keys, draft)
@@ -535,12 +564,12 @@ func TestChatTUI_EnterWritesALineAndTheSendKeysSend(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
 
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
-	runChat(t, cfg, "tok-ana", "broadcast", "two lines please")
+	ana := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "ana")
+	bob := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "bob")
+	runChat(t, cfg, ana, "send", "everyone", "two lines please")
 
 	s := startTUI(t, cfg, identity, tui.Deps{Room: chatRoom})
-	waitScreen(t, s.drawn, "alpha/ana → *: two lines please")
+	waitScreen(t, s.drawn, "alpha/ana → everyone: two lines please")
 
 	// ctrl+j into the message pane, and enter — a carriage return from a
 	// terminal — between the two lines.
@@ -561,9 +590,9 @@ func TestChatTUI_EnterWritesALineAndTheSendKeysSend(t *testing.T) {
 	// ctrl+x sends the whole of it, both lines and the address they were
 	// written under.
 	typeOnScreen(t, s.keys, "\x18")
-	waitFrame(t, s, "sent to alpha/ana (1 delivered)")
-	got := runChat(t, cfg, "tok-ana", "read")
-	for _, want := range []string{"admin/admin: @alpha/ana first line", "second line"} {
+	waitFrame(t, s, "sent to alpha/ana")
+	got := runChat(t, cfg, ana, "read")
+	for _, want := range []string{"admin -> alpha/ana", "@alpha/ana first line", "second line"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("ana's inbox = %q, want it to carry %q", got, want)
 		}
@@ -574,9 +603,9 @@ func TestChatTUI_EnterWritesALineAndTheSendKeysSend(t *testing.T) {
 	// that answered the screen's disambiguation request would send.
 	typeOnScreen(t, s.keys, "@alpha/bob and one for bob")
 	typeOnScreen(t, s.keys, "\x1b[13;5u")
-	waitFrame(t, s, "sent to alpha/bob (1 delivered)")
-	if got := runChat(t, cfg, "tok-bob", "read"); !strings.Contains(
-		got, "admin/admin: @alpha/bob and one for bob") {
+	waitFrame(t, s, "sent to alpha/bob")
+	if got := runChat(t, cfg, bob, "read"); !strings.Contains(
+		got, "@alpha/bob and one for bob") {
 		t.Errorf("bob's inbox = %q, want the message ctrl+enter sent", got)
 	}
 
@@ -589,7 +618,7 @@ func TestChatTUI_EnterWritesALineAndTheSendKeysSend(t *testing.T) {
 func TestChatTUI_FailuresExitBeforeTheScreen(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	registerChatHuman(t, cfg, identity, chatRoom, "alpha", "ana")
 
 	stranger, _ := newChatIdentityFile(t)
 

@@ -21,20 +21,19 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
-	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
-// LogReader reads a room's conversation. sinceID is the id of the last entry
-// the caller already has, which asks for what was said after it; zero asks for
-// the tail instead, the newest limit entries, which is where a reader with no
-// cursor starts.
+// LogReader reads a stretch of a room's conversation, oldest first. The filter
+// is the one every read of the schema takes, so the screen asks for its
+// scrollback and for what was said since in the same words a `chat admin log`
+// run does. It moves no read position: the same stretch reads the same way
+// twice, which is what lets the screen poll.
 type LogReader interface {
 	RoomLog(
 		ctx context.Context,
 		room string,
-		sinceID int64,
-		limit int32,
-	) ([]*chatv1.AdminHistoryEntry, error)
+		filter *chatv1.ReadFilter,
+	) ([]*chatv1.Message, error)
 }
 
 // RosterLister reports every room the daemon knows and who attends it. The
@@ -46,15 +45,16 @@ type RosterLister interface {
 }
 
 // AdminSender delivers a message into the room without attending it, addressed
-// to one member, to a whole team, or to everyone there — whichever case the
-// target carries.
+// to everyone there, to the roles the target names, or to nobody at all — a
+// board post, which the nil target is. The answer says which roles the target
+// resolved to and which of them nobody is attending under.
 type AdminSender interface {
 	Send(
 		ctx context.Context,
 		room string,
-		target cli.AdminTarget,
+		target *chatv1.Target,
 		text string,
-	) (delivered int32, err error)
+	) (*chatv1.AdminSendResponse, error)
 }
 
 // Deps is everything the screen needs from outside itself: the room it watches
