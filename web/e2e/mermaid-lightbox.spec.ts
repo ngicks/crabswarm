@@ -28,9 +28,23 @@ test.beforeAll(async () => {
   docUrl = `/roots/${body.root.id}/README.md`;
 });
 
+/** The diagram once mermaid has finished drawing it. `mermaid.run()` puts an
+ *  empty `<svg width="100%"><g/></svg>` in the `<pre>` first and writes the
+ *  viewBox only when the layout is done. That scaffold is already visible and
+ *  clickable, and the lightbox sizes itself from what it can measure: the
+ *  scaffold's 100%-wide box, which fits at 1:1 — so the fit assertions read
+ *  scale 1 — or, mid-swap, nothing at all, which opens no lightbox. */
+async function settledDiagram(page: Page) {
+  await page.waitForFunction(() => {
+    const svg = document.querySelector<SVGSVGElement>("pre.mermaid svg");
+    return svg !== null && svg.viewBox.baseVal.width > 0;
+  });
+  return page.locator("pre.mermaid svg");
+}
+
 async function openLightbox(page: Page) {
   await page.goto(docUrl);
-  const diagram = page.locator("pre.mermaid svg");
+  const diagram = await settledDiagram(page);
   await expect(diagram).toBeVisible();
   await diagram.click();
   const lightbox = page.getByTestId("lightbox");
@@ -38,7 +52,15 @@ async function openLightbox(page: Page) {
   return lightbox;
 }
 
-function readTransform(page: Page) {
+/** The lightbox transform once the mount effect has written one. `fit()` runs in
+ *  an effect, so the content reports `transform: none` for a tick after the
+ *  overlay appears, and `DOMMatrixReadOnly("none")` reads as the identity — a
+ *  read landing in that tick reports scale 1 instead of the fit. */
+async function readTransform(page: Page) {
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="lightbox-content"]');
+    return el !== null && getComputedStyle(el).transform !== "none";
+  });
   return page.getByTestId("lightbox-content").evaluate((el) => {
     const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
     return { scale: m.a, x: m.e, y: m.f };
@@ -48,10 +70,11 @@ function readTransform(page: Page) {
 test("rendered diagram advertises zoom and opens the lightbox fitted", async ({ page }) => {
   await page.goto(docUrl);
   const pre = page.locator("pre.mermaid");
-  await expect(pre.locator("svg")).toBeVisible();
+  const diagram = await settledDiagram(page);
+  await expect(diagram).toBeVisible();
   await expect(pre).toHaveCSS("cursor", "zoom-in");
 
-  await pre.locator("svg").click();
+  await diagram.click();
   await expect(page.getByTestId("lightbox").locator("svg")).toBeVisible();
 
   // The fixture diagram is far wider than the viewport, so fit-to-screen must
@@ -105,6 +128,9 @@ test("toolbar zooms and refits without closing; plain click and Escape close", a
 
 test("plain inline images still open the lightbox", async ({ page }) => {
   await page.goto(docUrl);
+  // The image sits under the diagram, which shrinks from the scaffold's height
+  // to the drawn one: a click aimed before that shift lands below the image.
+  await settledDiagram(page);
   const img = page.locator(".markdown-body img");
   await expect(img).toBeVisible();
   await img.click();
