@@ -19,15 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Join_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatService/Join"
+	ChatService_Attend_FullMethodName      = "/ngicks.crabswarm.chat.v1.ChatService/Attend"
 	ChatService_Send_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatService/Send"
-	ChatService_Broadcast_FullMethodName   = "/ngicks.crabswarm.chat.v1.ChatService/Broadcast"
 	ChatService_Read_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatService/Read"
-	ChatService_History_FullMethodName     = "/ngicks.crabswarm.chat.v1.ChatService/History"
 	ChatService_ListMembers_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
-	ChatService_Leave_FullMethodName       = "/ngicks.crabswarm.chat.v1.ChatService/Leave"
 	ChatService_ReportState_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
-	ChatService_WatchRoom_FullMethodName   = "/ngicks.crabswarm.chat.v1.ChatService/WatchRoom"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -36,43 +32,35 @@ const (
 //
 // ChatService brokers per-room chat between the agents (and humans) attending
 // a room. Every RPC carries the caller's identity token as the gRPC metadata
-// "x-crabswarm-token"; the daemon resolves it to a member through the
-// team-info provider or the admin-registered member table, and rejects a token
-// known to neither. Room and team are never chosen by the caller: they follow
-// from the token.
+// "x-crabswarm-token"; Attend resolves it through the team-info provider, every
+// other RPC resolves it to the member attending under it, and a token nobody
+// attends under is rejected. Room and team are never chosen by the caller: they
+// follow from the token.
 type ChatServiceClient interface {
-	// Join declares attendance under the given name. The server derives the
-	// caller's room and team from the token, so an unknown token is rejected
-	// with NotFound. Joining again with the same token is a no-op success.
-	Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error)
-	// Send delivers a message to one addressed member of the caller's room.
-	Send(ctx context.Context, in *SendRequest, opts ...grpc.CallOption) (*SendResponse, error)
-	// Broadcast delivers a message to every member of the caller's room,
-	// including teams other than the caller's.
-	Broadcast(ctx context.Context, in *BroadcastRequest, opts ...grpc.CallOption) (*BroadcastResponse, error)
-	// Read returns the caller's pending messages and consumes them, so a
-	// message is handed out exactly once.
-	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
-	// History returns the tail of the conversation of the caller's room, oldest
-	// first. It consumes nothing, and it shows the whole room: directed
-	// messages the caller never received included, since a room's transcript is
-	// a shared record of what was said rather than a second copy of an inbox.
-	History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error)
-	// ListMembers lists every member of the caller's room, team-qualified.
-	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
-	// Leave withdraws the caller's attendance.
-	Leave(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*LeaveResponse, error)
-	// ReportState records the state of the harness the caller runs under. It is
-	// driven by harness hooks and gates keystroke-injection nudges, which are
-	// only safe to deliver while the harness is idle.
-	ReportState(ctx context.Context, in *ReportStateRequest, opts ...grpc.CallOption) (*ReportStateResponse, error)
-	// WatchRoom streams events of the caller's room until cancelled.
+	// Attend declares attendance and holds it for as long as the stream is
+	// open. The first event is Attended, carrying the member the token
+	// resolved to; the rest is the room's event feed. Closing the stream is
+	// leaving. A token already attending is refused with AlreadyExists.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to
 	// one RPC would misname it everywhere else.
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	WatchRoom(ctx context.Context, in *WatchRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoomEvent], error)
+	Attend(ctx context.Context, in *AttendRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoomEvent], error)
+	// Send appends a message to the caller's room. A targeted message is a
+	// mention of each role it names, or of everyone; an untargeted one is a
+	// board post.
+	Send(ctx context.Context, in *SendRequest, opts ...grpc.CallOption) (*SendResponse, error)
+	// Read returns messages of the caller's room from a cursor and moves the
+	// caller's read position to the newest one shown. By default the first
+	// ten unread mentions.
+	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
+	// ListMembers lists every member of the caller's room, team-qualified.
+	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
+	// ReportState records the state of the harness the caller runs under. It is
+	// driven by harness hooks and gates keystroke-injection nudges, which are
+	// only safe to deliver while the harness is idle.
+	ReportState(ctx context.Context, in *ReportStateRequest, opts ...grpc.CallOption) (*ReportStateResponse, error)
 }
 
 type chatServiceClient struct {
@@ -83,30 +71,29 @@ func NewChatServiceClient(cc grpc.ClientConnInterface) ChatServiceClient {
 	return &chatServiceClient{cc}
 }
 
-func (c *chatServiceClient) Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error) {
+func (c *chatServiceClient) Attend(ctx context.Context, in *AttendRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoomEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(JoinResponse)
-	err := c.cc.Invoke(ctx, ChatService_Join_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_Attend_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[AttendRequest, RoomEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_AttendClient = grpc.ServerStreamingClient[RoomEvent]
 
 func (c *chatServiceClient) Send(ctx context.Context, in *SendRequest, opts ...grpc.CallOption) (*SendResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SendResponse)
 	err := c.cc.Invoke(ctx, ChatService_Send_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *chatServiceClient) Broadcast(ctx context.Context, in *BroadcastRequest, opts ...grpc.CallOption) (*BroadcastResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(BroadcastResponse)
-	err := c.cc.Invoke(ctx, ChatService_Broadcast_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -123,30 +110,10 @@ func (c *chatServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...g
 	return out, nil
 }
 
-func (c *chatServiceClient) History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(HistoryResponse)
-	err := c.cc.Invoke(ctx, ChatService_History_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *chatServiceClient) ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListMembersResponse)
 	err := c.cc.Invoke(ctx, ChatService_ListMembers_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *chatServiceClient) Leave(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*LeaveResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(LeaveResponse)
-	err := c.cc.Invoke(ctx, ChatService_Leave_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -163,68 +130,41 @@ func (c *chatServiceClient) ReportState(ctx context.Context, in *ReportStateRequ
 	return out, nil
 }
 
-func (c *chatServiceClient) WatchRoom(ctx context.Context, in *WatchRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoomEvent], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_WatchRoom_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[WatchRoomRequest, RoomEvent]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ChatService_WatchRoomClient = grpc.ServerStreamingClient[RoomEvent]
-
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
 //
 // ChatService brokers per-room chat between the agents (and humans) attending
 // a room. Every RPC carries the caller's identity token as the gRPC metadata
-// "x-crabswarm-token"; the daemon resolves it to a member through the
-// team-info provider or the admin-registered member table, and rejects a token
-// known to neither. Room and team are never chosen by the caller: they follow
-// from the token.
+// "x-crabswarm-token"; Attend resolves it through the team-info provider, every
+// other RPC resolves it to the member attending under it, and a token nobody
+// attends under is rejected. Room and team are never chosen by the caller: they
+// follow from the token.
 type ChatServiceServer interface {
-	// Join declares attendance under the given name. The server derives the
-	// caller's room and team from the token, so an unknown token is rejected
-	// with NotFound. Joining again with the same token is a no-op success.
-	Join(context.Context, *JoinRequest) (*JoinResponse, error)
-	// Send delivers a message to one addressed member of the caller's room.
-	Send(context.Context, *SendRequest) (*SendResponse, error)
-	// Broadcast delivers a message to every member of the caller's room,
-	// including teams other than the caller's.
-	Broadcast(context.Context, *BroadcastRequest) (*BroadcastResponse, error)
-	// Read returns the caller's pending messages and consumes them, so a
-	// message is handed out exactly once.
-	Read(context.Context, *ReadRequest) (*ReadResponse, error)
-	// History returns the tail of the conversation of the caller's room, oldest
-	// first. It consumes nothing, and it shows the whole room: directed
-	// messages the caller never received included, since a room's transcript is
-	// a shared record of what was said rather than a second copy of an inbox.
-	History(context.Context, *HistoryRequest) (*HistoryResponse, error)
-	// ListMembers lists every member of the caller's room, team-qualified.
-	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
-	// Leave withdraws the caller's attendance.
-	Leave(context.Context, *LeaveRequest) (*LeaveResponse, error)
-	// ReportState records the state of the harness the caller runs under. It is
-	// driven by harness hooks and gates keystroke-injection nudges, which are
-	// only safe to deliver while the harness is idle.
-	ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error)
-	// WatchRoom streams events of the caller's room until cancelled.
+	// Attend declares attendance and holds it for as long as the stream is
+	// open. The first event is Attended, carrying the member the token
+	// resolved to; the rest is the room's event feed. Closing the stream is
+	// leaving. A token already attending is refused with AlreadyExists.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to
 	// one RPC would misname it everywhere else.
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	WatchRoom(*WatchRoomRequest, grpc.ServerStreamingServer[RoomEvent]) error
+	Attend(*AttendRequest, grpc.ServerStreamingServer[RoomEvent]) error
+	// Send appends a message to the caller's room. A targeted message is a
+	// mention of each role it names, or of everyone; an untargeted one is a
+	// board post.
+	Send(context.Context, *SendRequest) (*SendResponse, error)
+	// Read returns messages of the caller's room from a cursor and moves the
+	// caller's read position to the newest one shown. By default the first
+	// ten unread mentions.
+	Read(context.Context, *ReadRequest) (*ReadResponse, error)
+	// ListMembers lists every member of the caller's room, team-qualified.
+	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
+	// ReportState records the state of the harness the caller runs under. It is
+	// driven by harness hooks and gates keystroke-injection nudges, which are
+	// only safe to deliver while the harness is idle.
+	ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -235,32 +175,20 @@ type ChatServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedChatServiceServer struct{}
 
-func (UnimplementedChatServiceServer) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Join not implemented")
+func (UnimplementedChatServiceServer) Attend(*AttendRequest, grpc.ServerStreamingServer[RoomEvent]) error {
+	return status.Error(codes.Unimplemented, "method Attend not implemented")
 }
 func (UnimplementedChatServiceServer) Send(context.Context, *SendRequest) (*SendResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Send not implemented")
 }
-func (UnimplementedChatServiceServer) Broadcast(context.Context, *BroadcastRequest) (*BroadcastResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Broadcast not implemented")
-}
 func (UnimplementedChatServiceServer) Read(context.Context, *ReadRequest) (*ReadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Read not implemented")
-}
-func (UnimplementedChatServiceServer) History(context.Context, *HistoryRequest) (*HistoryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method History not implemented")
 }
 func (UnimplementedChatServiceServer) ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMembers not implemented")
 }
-func (UnimplementedChatServiceServer) Leave(context.Context, *LeaveRequest) (*LeaveResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Leave not implemented")
-}
 func (UnimplementedChatServiceServer) ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReportState not implemented")
-}
-func (UnimplementedChatServiceServer) WatchRoom(*WatchRoomRequest, grpc.ServerStreamingServer[RoomEvent]) error {
-	return status.Error(codes.Unimplemented, "method WatchRoom not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -283,23 +211,16 @@ func RegisterChatServiceServer(s grpc.ServiceRegistrar, srv ChatServiceServer) {
 	s.RegisterService(&ChatService_ServiceDesc, srv)
 }
 
-func _ChatService_Join_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(JoinRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _ChatService_Attend_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AttendRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(ChatServiceServer).Join(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatService_Join_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).Join(ctx, req.(*JoinRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(ChatServiceServer).Attend(m, &grpc.GenericServerStream[AttendRequest, RoomEvent]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_AttendServer = grpc.ServerStreamingServer[RoomEvent]
 
 func _ChatService_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SendRequest)
@@ -315,24 +236,6 @@ func _ChatService_Send_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).Send(ctx, req.(*SendRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ChatService_Broadcast_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BroadcastRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChatServiceServer).Broadcast(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatService_Broadcast_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).Broadcast(ctx, req.(*BroadcastRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -355,24 +258,6 @@ func _ChatService_Read_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChatService_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HistoryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChatServiceServer).History(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatService_History_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).History(ctx, req.(*HistoryRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ChatService_ListMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListMembersRequest)
 	if err := dec(in); err != nil {
@@ -387,24 +272,6 @@ func _ChatService_ListMembers_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).ListMembers(ctx, req.(*ListMembersRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ChatService_Leave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LeaveRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChatServiceServer).Leave(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatService_Leave_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).Leave(ctx, req.(*LeaveRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -427,17 +294,6 @@ func _ChatService_ReportState_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChatService_WatchRoom_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(WatchRoomRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ChatServiceServer).WatchRoom(m, &grpc.GenericServerStream[WatchRoomRequest, RoomEvent]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ChatService_WatchRoomServer = grpc.ServerStreamingServer[RoomEvent]
-
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -446,32 +302,16 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ChatServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Join",
-			Handler:    _ChatService_Join_Handler,
-		},
-		{
 			MethodName: "Send",
 			Handler:    _ChatService_Send_Handler,
-		},
-		{
-			MethodName: "Broadcast",
-			Handler:    _ChatService_Broadcast_Handler,
 		},
 		{
 			MethodName: "Read",
 			Handler:    _ChatService_Read_Handler,
 		},
 		{
-			MethodName: "History",
-			Handler:    _ChatService_History_Handler,
-		},
-		{
 			MethodName: "ListMembers",
 			Handler:    _ChatService_ListMembers_Handler,
-		},
-		{
-			MethodName: "Leave",
-			Handler:    _ChatService_Leave_Handler,
 		},
 		{
 			MethodName: "ReportState",
@@ -480,8 +320,8 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "WatchRoom",
-			Handler:       _ChatService_WatchRoom_Handler,
+			StreamName:    "Attend",
+			Handler:       _ChatService_Attend_Handler,
 			ServerStreams: true,
 		},
 	},
@@ -491,10 +331,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 const (
 	ChatAdminService_GetNonce_FullMethodName       = "/ngicks.crabswarm.chat.v1.ChatAdminService/GetNonce"
 	ChatAdminService_ListRooms_FullMethodName      = "/ngicks.crabswarm.chat.v1.ChatAdminService/ListRooms"
-	ChatAdminService_MoveMember_FullMethodName     = "/ngicks.crabswarm.chat.v1.ChatAdminService/MoveMember"
 	ChatAdminService_RegisterMember_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatAdminService/RegisterMember"
 	ChatAdminService_Send_FullMethodName           = "/ngicks.crabswarm.chat.v1.ChatAdminService/Send"
 	ChatAdminService_History_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatAdminService/History"
+	ChatAdminService_DeleteRoom_FullMethodName     = "/ngicks.crabswarm.chat.v1.ChatAdminService/DeleteRoom"
 )
 
 // ChatAdminServiceClient is the client API for ChatAdminService service.
@@ -503,8 +343,8 @@ const (
 //
 // ChatAdminService carries the host-side operations that participants must not
 // be able to perform: inspecting every room, sending into any room without
-// attending it, editing team formation, and minting tokens for humans who have
-// no provider entry.
+// attending it, deleting rooms, and minting tokens for humans who have no
+// provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -521,24 +361,21 @@ type ChatAdminServiceClient interface {
 	// GetNonce issues a challenge for the caller to answer, when the daemon
 	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(ctx context.Context, in *GetNonceRequest, opts ...grpc.CallOption) (*GetNonceResponse, error)
-	// ListRooms lists every room the daemon knows and who attends it.
+	// ListRooms lists every room the log or attendance knows, with who attends.
 	ListRooms(ctx context.Context, in *ListRoomsRequest, opts ...grpc.CallOption) (*ListRoomsResponse, error)
-	// MoveMember moves a member to another team within the same room.
-	MoveMember(ctx context.Context, in *MoveMemberRequest, opts ...grpc.CallOption) (*MoveMemberResponse, error)
-	// RegisterMember registers a member that no provider can vouch for -- a
-	// human on the host -- and returns the token they present to ChatService.
+	// RegisterMember mints a token for a person and puts them in attendance
+	// until the daemon restarts: the one attendance not held by a stream.
 	RegisterMember(ctx context.Context, in *RegisterMemberRequest, opts ...grpc.CallOption) (*RegisterMemberResponse, error)
-	// Send delivers a message into a named room, addressed to one member, to one
-	// of its teams or to the whole room, without the caller attending that room.
+	// Send delivers a message into a named room, targeted or as a board post,
+	// without the caller attending that room.
 	Send(ctx context.Context, in *AdminSendRequest, opts ...grpc.CallOption) (*AdminSendResponse, error)
-	// History returns a named room's conversation, oldest first, without the
-	// caller attending that room. It reads the same shared record the members
-	// read, and consumes nothing.
-	//
-	// Unlike the member-facing counterpart it can be paged forward from a
-	// cursor, and every entry carries the id to advance that cursor with, so a
-	// reader following a live room asks only for what it has not seen.
+	// History returns a named room's messages without attending it and moves
+	// no read position; same filter as Read, the unread cursor refused with
+	// InvalidArgument and an unspecified cursor meaning TAIL.
 	History(ctx context.Context, in *AdminHistoryRequest, opts ...grpc.CallOption) (*AdminHistoryResponse, error)
+	// DeleteRoom deletes a room's messages and read positions. Refused with
+	// FailedPrecondition while somebody attends it.
+	DeleteRoom(ctx context.Context, in *DeleteRoomRequest, opts ...grpc.CallOption) (*DeleteRoomResponse, error)
 }
 
 type chatAdminServiceClient struct {
@@ -563,16 +400,6 @@ func (c *chatAdminServiceClient) ListRooms(ctx context.Context, in *ListRoomsReq
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListRoomsResponse)
 	err := c.cc.Invoke(ctx, ChatAdminService_ListRooms_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *chatAdminServiceClient) MoveMember(ctx context.Context, in *MoveMemberRequest, opts ...grpc.CallOption) (*MoveMemberResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MoveMemberResponse)
-	err := c.cc.Invoke(ctx, ChatAdminService_MoveMember_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -609,14 +436,24 @@ func (c *chatAdminServiceClient) History(ctx context.Context, in *AdminHistoryRe
 	return out, nil
 }
 
+func (c *chatAdminServiceClient) DeleteRoom(ctx context.Context, in *DeleteRoomRequest, opts ...grpc.CallOption) (*DeleteRoomResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRoomResponse)
+	err := c.cc.Invoke(ctx, ChatAdminService_DeleteRoom_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatAdminServiceServer is the server API for ChatAdminService service.
 // All implementations must embed UnimplementedChatAdminServiceServer
 // for forward compatibility.
 //
 // ChatAdminService carries the host-side operations that participants must not
 // be able to perform: inspecting every room, sending into any room without
-// attending it, editing team formation, and minting tokens for humans who have
-// no provider entry.
+// attending it, deleting rooms, and minting tokens for humans who have no
+// provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -633,24 +470,21 @@ type ChatAdminServiceServer interface {
 	// GetNonce issues a challenge for the caller to answer, when the daemon
 	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(context.Context, *GetNonceRequest) (*GetNonceResponse, error)
-	// ListRooms lists every room the daemon knows and who attends it.
+	// ListRooms lists every room the log or attendance knows, with who attends.
 	ListRooms(context.Context, *ListRoomsRequest) (*ListRoomsResponse, error)
-	// MoveMember moves a member to another team within the same room.
-	MoveMember(context.Context, *MoveMemberRequest) (*MoveMemberResponse, error)
-	// RegisterMember registers a member that no provider can vouch for -- a
-	// human on the host -- and returns the token they present to ChatService.
+	// RegisterMember mints a token for a person and puts them in attendance
+	// until the daemon restarts: the one attendance not held by a stream.
 	RegisterMember(context.Context, *RegisterMemberRequest) (*RegisterMemberResponse, error)
-	// Send delivers a message into a named room, addressed to one member, to one
-	// of its teams or to the whole room, without the caller attending that room.
+	// Send delivers a message into a named room, targeted or as a board post,
+	// without the caller attending that room.
 	Send(context.Context, *AdminSendRequest) (*AdminSendResponse, error)
-	// History returns a named room's conversation, oldest first, without the
-	// caller attending that room. It reads the same shared record the members
-	// read, and consumes nothing.
-	//
-	// Unlike the member-facing counterpart it can be paged forward from a
-	// cursor, and every entry carries the id to advance that cursor with, so a
-	// reader following a live room asks only for what it has not seen.
+	// History returns a named room's messages without attending it and moves
+	// no read position; same filter as Read, the unread cursor refused with
+	// InvalidArgument and an unspecified cursor meaning TAIL.
 	History(context.Context, *AdminHistoryRequest) (*AdminHistoryResponse, error)
+	// DeleteRoom deletes a room's messages and read positions. Refused with
+	// FailedPrecondition while somebody attends it.
+	DeleteRoom(context.Context, *DeleteRoomRequest) (*DeleteRoomResponse, error)
 	mustEmbedUnimplementedChatAdminServiceServer()
 }
 
@@ -667,9 +501,6 @@ func (UnimplementedChatAdminServiceServer) GetNonce(context.Context, *GetNonceRe
 func (UnimplementedChatAdminServiceServer) ListRooms(context.Context, *ListRoomsRequest) (*ListRoomsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListRooms not implemented")
 }
-func (UnimplementedChatAdminServiceServer) MoveMember(context.Context, *MoveMemberRequest) (*MoveMemberResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method MoveMember not implemented")
-}
 func (UnimplementedChatAdminServiceServer) RegisterMember(context.Context, *RegisterMemberRequest) (*RegisterMemberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RegisterMember not implemented")
 }
@@ -678,6 +509,9 @@ func (UnimplementedChatAdminServiceServer) Send(context.Context, *AdminSendReque
 }
 func (UnimplementedChatAdminServiceServer) History(context.Context, *AdminHistoryRequest) (*AdminHistoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method History not implemented")
+}
+func (UnimplementedChatAdminServiceServer) DeleteRoom(context.Context, *DeleteRoomRequest) (*DeleteRoomResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRoom not implemented")
 }
 func (UnimplementedChatAdminServiceServer) mustEmbedUnimplementedChatAdminServiceServer() {}
 func (UnimplementedChatAdminServiceServer) testEmbeddedByValue()                          {}
@@ -736,24 +570,6 @@ func _ChatAdminService_ListRooms_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChatAdminService_MoveMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveMemberRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChatAdminServiceServer).MoveMember(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatAdminService_MoveMember_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatAdminServiceServer).MoveMember(ctx, req.(*MoveMemberRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ChatAdminService_RegisterMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterMemberRequest)
 	if err := dec(in); err != nil {
@@ -808,6 +624,24 @@ func _ChatAdminService_History_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatAdminService_DeleteRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatAdminServiceServer).DeleteRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatAdminService_DeleteRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatAdminServiceServer).DeleteRoom(ctx, req.(*DeleteRoomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatAdminService_ServiceDesc is the grpc.ServiceDesc for ChatAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -824,10 +658,6 @@ var ChatAdminService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatAdminService_ListRooms_Handler,
 		},
 		{
-			MethodName: "MoveMember",
-			Handler:    _ChatAdminService_MoveMember_Handler,
-		},
-		{
 			MethodName: "RegisterMember",
 			Handler:    _ChatAdminService_RegisterMember_Handler,
 		},
@@ -838,6 +668,10 @@ var ChatAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "History",
 			Handler:    _ChatAdminService_History_Handler,
+		},
+		{
+			MethodName: "DeleteRoom",
+			Handler:    _ChatAdminService_DeleteRoom_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -22,7 +22,7 @@ func twoRooms() []*chatv1.Room {
 // room's; and the status bar says where the operator now is.
 func TestSelectingARoomMovesTheScreenToIt(t *testing.T) {
 	log := &fakeLog{
-		reply: func(call logCall) ([]*chatv1.AdminHistoryEntry, error) {
+		reply: func(call logCall) ([]*chatv1.Message, error) {
 			if call.room == otherRoom {
 				return fixtureEntries(2), nil
 			}
@@ -56,8 +56,7 @@ func TestSelectingARoomMovesTheScreenToIt(t *testing.T) {
 	// The next tail poll reads the new room, from its tail rather than from the
 	// old room's cursor.
 	m, _ = step(t, m, tailTick(t, m))
-	assert.Equal(t, log.calls[len(log.calls)-1],
-		logCall{room: otherRoom, since: 0, limit: backfill})
+	assert.Equal(t, log.calls[len(log.calls)-1], openCall(otherRoom))
 	assert.Assert(t, strings.Contains(m.View().Content, "line 2"))
 
 	// The rooms pane marks the room now on screen, and the cursor is on it.
@@ -73,7 +72,7 @@ func TestSelectingARoomMovesTheScreenToIt(t *testing.T) {
 // read with is not this room's cursor any more.
 func TestAReadInFlightForTheRoomLeftIsDropped(t *testing.T) {
 	log := &fakeLog{
-		reply: func(logCall) ([]*chatv1.AdminHistoryEntry, error) {
+		reply: func(logCall) ([]*chatv1.Message, error) {
 			return fixtureEntries(3), nil
 		},
 	}
@@ -178,6 +177,31 @@ func TestTheCursorsStayOnRowsThatExist(t *testing.T) {
 	assert.Equal(t, len(m.roster), 0)
 }
 
+// A room outlives the sessions that attended it, so the daemon lists rooms
+// nobody is in. They are rooms like any other: listed, markable, and openable —
+// what was said in one is still there to read, and a message sent into it waits
+// for whoever comes back.
+func TestARoomNobodyAttendsIsListedAndCanBeOpened(t *testing.T) {
+	const emptyRoom = "/work/abandoned"
+	m := fixtureModel(t, Deps{Log: &fakeLog{}, Roster: &fakeRoster{}})
+	m.applyRoster(rosterMsg{rooms: append(fixtureListing(), &chatv1.Room{Name: emptyRoom})})
+
+	r := m.rects()
+	pane := m.roomsPane(r.rooms.Dx()-2, r.rooms.Dy()-2)
+	assert.Assert(t, strings.Contains(pane, emptyRoom),
+		"the room nobody attends is not listed:\n%s", pane)
+
+	m.setFocus(focusRooms)
+	m = update(t, m, press('j', "j"))
+	m = update(t, m, press(tea.KeyEnter, ""))
+	assert.Equal(t, m.room, emptyRoom)
+	assert.Equal(t, len(m.roster), 0)
+	assert.Assert(t, strings.Contains(m.View().Content, "members (0)"),
+		"the members pane does not count an empty room:\n%s", m.View().Content)
+	// Nothing about it is a failure the bar has to report.
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "connected"))
+}
+
 // A room path too long for the column is cut at its head: rooms under one tree
 // differ at the end of the path, which is what a cut from the other side takes.
 func TestALongRoomPathKeepsItsTail(t *testing.T) {
@@ -227,7 +251,7 @@ func TestOpeningChoosesTheRoomOrTheFirstListed(t *testing.T) {
 // and the operator picks one there.
 func TestAScreenWithNoRoomWaitsForOne(t *testing.T) {
 	log := &fakeLog{
-		reply: func(logCall) ([]*chatv1.AdminHistoryEntry, error) {
+		reply: func(logCall) ([]*chatv1.Message, error) {
 			return fixtureEntries(1), nil
 		},
 	}
@@ -248,6 +272,6 @@ func TestAScreenWithNoRoomWaitsForOne(t *testing.T) {
 	assert.Equal(t, m.room, otherRoom)
 
 	m, _ = step(t, m, m.tail())
-	assert.Equal(t, log.calls[0], logCall{room: otherRoom, since: 0, limit: backfill})
+	assert.Equal(t, log.calls[0], openCall(otherRoom))
 	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), "room "+otherRoom))
 }

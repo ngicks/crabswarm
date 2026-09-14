@@ -50,15 +50,3 @@ func HarnessStateName(state chatv1.HarnessState) string {
 	}
 	return "unknown"
 }
-
-// ParseQualifiedName splits the "team/name" form the admin verbs address a
-// member by. Admin RPCs carry team and name as separate fields, but a member is
-// written as one word everywhere else — in `chat members` output and in the
-// address `chat send` takes — so the CLI keeps that spelling and splits here.
-func ParseQualifiedName(s string) (team, name string, err error) {
-	team, name, ok := strings.Cut(s, "/")
-	if !ok || team == "" || name == "" || strings.Contains(name, "/") {
-		return "", "", fmt.Errorf("member %q is not in \"team/name\" form", s)
-	}
-	return team, name, nil
-}

@@ -161,15 +161,15 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 	// One notifier for both halves: a recipient is nudged the same way whether
 	// the message came from a peer or from the operator. The team-info provider
-	// is shared for the same kind of reason: both halves have to ask the same
-	// question of whether a member is still out there.
+	// goes to the member half alone, which is the only one that has a token to
+	// place.
 	notifier := notify.NewSendKeys(s.chatCfg.CmdmanBin, s.logger)
 	provider := resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin)
-	adminSvc := chat.NewAdminService(chatStore, provider, adminAuth, notifier, s.logger)
+	adminSvc := chat.NewAdminService(chatStore, adminAuth, notifier, s.logger)
 
 	srv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()),
-		// WatchRoom is a stream, and the unary interceptor never sees one.
+		// Attend is a stream, and the unary interceptor never sees one.
 		grpc.ChainStreamInterceptor(chat.StreamTokenInterceptor()),
 	)
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})
@@ -189,9 +189,9 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// Graceful shutdown when context is cancelled (e.g. SIGINT).
 	//
-	// GracefulStop waits for every in-flight RPC, and WatchRoom is a stream
-	// that ends only when its client does — an attached watcher would hold the
-	// daemon open through SIGINT for as long as it kept watching. Watchers get
+	// GracefulStop waits for every in-flight RPC, and Attend is a stream that
+	// ends only when its client does — an attendee would hold the daemon open
+	// through SIGINT for as long as it kept attending. Attendees get
 	// shutdownGrace to notice the closing connection and hang up; after that
 	// what is left is cut.
 	go func() {

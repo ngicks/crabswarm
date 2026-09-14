@@ -4,33 +4,31 @@
 
 package db
 
-type Member struct {
-	Token           string
-	Name            string
-	Team            string
-	Room            string
-	Kind            string
-	State           string
-	StateReportedAt string
-}
-
 type Message struct {
-	ID        int64
-	Recipient string
-	FromName  string
-	FromTeam  string
-	FromRoom  string
-	Text      string
-	SentAt    string
+	ID         string
+	Room       string
+	Seq        int64
+	FromName   string
+	FromTeam   string
+	TargetKind string
+	Text       string
+	SentAt     string
 }
 
-type RoomLog struct {
-	ID       int64
-	Room     string
-	FromName string
-	FromTeam string
-	ToName   string
-	ToTeam   string
-	Text     string
-	SentAt   string
+type MessageMention struct {
+	MessageID string
+	Team      string
+	Name      string
+}
+
+type ReadPosition struct {
+	Room    string
+	Team    string
+	Name    string
+	LastSeq int64
+}
+
+type Room struct {
+	Name    string
+	LastSeq int64
 }

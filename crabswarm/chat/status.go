@@ -13,7 +13,7 @@ import (
 
 // statusTimeout bounds one status write. [Service] mirrors inside the RPC that
 // changed the state, so a cmdman that hangs would otherwise hang the caller's
-// Join or ReportState.
+// Attend or ReportState.
 const statusTimeout = 3 * time.Second
 
 // statusDetail rides along with every published state to say who published it,
@@ -92,10 +92,10 @@ func (m *CmdmanStatusMirror) publishable(member Member, what string) bool {
 	// was admitted in.
 	//
 	// Warn, not Debug: this line is the same for a human who never wanted a
-	// display and for an agent harness that joined as a human — and the second
-	// is a member that never shows up in cmdman and never gets nudged, with
-	// nothing else to say so. A human joining costs a line; an agent wired
-	// wrong costs the operator the only hint they get.
+	// display and for an agent harness that attended as a human — and the
+	// second is a member that never shows up in cmdman and never gets nudged,
+	// with nothing else to say so. A human attending costs a line; an agent
+	// wired wrong costs the operator the only hint they get.
 	if member.Kind != KindAgent {
 		m.logger.Warn("chat: not asked to "+what+" a member that runs no command",
 			"member", who, "kind", member.Kind)

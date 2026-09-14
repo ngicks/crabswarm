@@ -20,6 +20,7 @@ require (
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886
 	github.com/fsnotify/fsnotify v1.10.1
+	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.19.2
 	github.com/mattn/go-runewidth v0.0.27
 	github.com/mattn/go-shellwords v1.0.13
@@ -63,7 +64,6 @@ require (
 	github.com/google/cel-go v0.28.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect

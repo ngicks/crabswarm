@@ -1,507 +1,299 @@
 package chat
 
 import (
+	"context"
 	"errors"
-	"log/slog"
+	"fmt"
 	"strings"
 	"testing"
 
-	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
-	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gotest.tools/v3/assert"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-func TestService_JoinDerivesRoomAndTeamFromProvider(t *testing.T) {
+// The stream is the attendance: it appears in the room as the stream opens and
+// is gone as the stream closes, while the role it attended under stays behind
+// with its read position.
+func TestService_AttendInsertsOnOpenAndDeletesOnClose(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work/repo", "alpha")
+	provider.vouch("tok-a", testRoom, "alpha")
 
-	res, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "ana")
-	assert.Equal(t, res.GetSelf().GetTeam(), "alpha")
-	assert.Equal(t, res.GetSelf().GetRoom(), "/work/repo")
+	ana := attendStream(t, svc, "tok-a", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Equal(t, ana.self.GetRoom(), testRoom)
+	assert.Equal(t, ana.self.GetTeam(), "alpha")
+	assert.Equal(t, ana.self.GetKind(), chatv1.MemberKind_MEMBER_KIND_AGENT)
 
 	stored, err := svc.store.Member(t.Context(), "tok-a")
 	assert.NilError(t, err)
-	assert.Equal(t, stored.State, StateDone)
+	assert.Equal(t, addressOf(stored), "alpha/ana")
+
+	assert.Assert(t, errors.Is(ana.close(t), context.Canceled))
+
+	_, err = svc.store.Member(t.Context(), "tok-a")
+	assert.ErrorIs(t, err, ErrNotAttending)
+	members, err := svc.store.ListMembers(t.Context(), testRoom)
+	assert.NilError(t, err)
+	assert.Equal(t, len(members), 0)
+
+	// The role outlives the session that declared it: its read position is what
+	// keeps the room's backlog from being handed to it all over again.
+	assert.Equal(t, countRows(t, svc.store, `SELECT COUNT(*) FROM read_positions`), 1)
 }
 
-// The nudge is what a joiner opts into, and the kind is where the opt-in is
-// kept: everything that types into a terminal or labels a command asks it. The
-// joined member carries it back, so a caller reading a roster sees the same
-// answer the daemon acts on.
-func TestService_JoinTakesItsKindFromTheDeclaration(t *testing.T) {
+func TestService_AttendNamesTheAttendee(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		declared chatv1.MemberKind
-		want     MemberKind
+		name      string
+		requested string
+		derived   string
+		want      string
 	}{
-		{
-			name:     "declared agent",
-			declared: chatv1.MemberKind_MEMBER_KIND_AGENT,
-			want:     KindAgent,
-		},
-		{
-			name:     "declared human",
-			declared: chatv1.MemberKind_MEMBER_KIND_HUMAN,
-			want:     KindHuman,
-		},
+		{"what the request asked for", "ana", "compose-1", "ana"},
+		{"what the provider derived", "", "compose-1", "compose-1"},
+		{"its kind and token, as a last resort", "", "", "agent-tok-long"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			svc, provider, _ := newTestService(t)
-			provider.vouch("tok-a", "/work", "alpha")
+			provider.vouchNamed("tok-long-enough", testRoom, "alpha", tc.derived)
 
-			res, err := svc.Join(callCtx(t, "tok-a"),
-				&chatv1.JoinRequest{Name: "ana", Kind: tc.declared})
-			assert.NilError(t, err)
-			assert.Equal(t, res.GetSelf().GetKind(), tc.declared)
-
-			stored, err := svc.store.Member(t.Context(), "tok-a")
-			assert.NilError(t, err)
-			assert.Equal(t, stored.Kind, tc.want)
+			s := attendStream(t, svc, "tok-long-enough", tc.requested,
+				chatv1.MemberKind_MEMBER_KIND_AGENT)
+			assert.Equal(t, s.self.GetName(), tc.want)
 		})
 	}
 }
 
-// A join that declares nothing is refused rather than taken for a human: the
-// store keeps the first join, so the wrong answer would stick for as long as
-// the member attends.
-func TestService_JoinRejectsAnUndeclaredKind(t *testing.T) {
+// The daemon never guesses what attends: a harness and the shell a person types
+// in look the same to the team-info provider, and nudging the wrong one types
+// keystrokes into somebody's session.
+func TestService_AttendRejectsAnUndeclaredKind(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
+	provider.vouch("tok-a", testRoom, "alpha")
 
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana"})
-	assert.Equal(t, status.Code(err), codes.InvalidArgument)
-	// The daemon's refusal names the field of the request. Which flag to add is
-	// the CLI's to say, and it says so before a request is ever built.
-	assert.Equal(t, status.Convert(err).Message(), "join declares no member kind")
+	s := startAttend(t, svc, "tok-a", "ana",
+		chatv1.MemberKind_MEMBER_KIND_UNSPECIFIED)
+	assert.Equal(t, status.Code(s.wait(t)), codes.InvalidArgument)
 
-	_, err = svc.store.Member(t.Context(), "tok-a")
-	assert.ErrorIs(t, err, ErrNotFound)
-	// The refusal costs the provider nothing: the request is turned down before
-	// anyone is asked where its token belongs.
-	assert.Equal(t, provider.callCount(), 0)
+	_, err := svc.store.Member(t.Context(), "tok-a")
+	assert.ErrorIs(t, err, ErrNotAttending)
 }
 
-// A member that declared a human is not reaped when the provider forgets its
-// token: the command the token names is not what its attendance rests on.
-func TestService_JoinAsHumanOutlivesItsToken(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
-	assert.NilError(t, err)
-
-	provider.forget("tok-a")
-	svc.forgetVerified("tok-a")
-
-	res, err := svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, len(res.GetMembers()), 1)
-}
-
-func TestService_JoinRejectsUnknownToken(t *testing.T) {
+func TestService_AttendRejectsAnUnknownToken(t *testing.T) {
 	svc, _, _ := newTestService(t)
 
-	_, err := svc.Join(callCtx(t, "stranger"),
-		&chatv1.JoinRequest{Name: "who", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.Equal(t, status.Code(err), codes.NotFound)
-
-	_, err = svc.store.Member(t.Context(), "stranger")
-	assert.ErrorIs(t, err, ErrNotFound)
+	// Nothing places the token, so there is nowhere to put its holder and no
+	// reason to take the token for an identity.
+	s := startAttend(t, svc, "tok-nobody", "ana",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Equal(t, status.Code(s.wait(t)), codes.Unauthenticated)
 }
 
-// A lookup that merely failed must not read as "you do not belong here".
-func TestService_JoinOnProviderFailureIsUnavailable(t *testing.T) {
+func TestService_AttendOnProviderFailureIsUnavailable(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.err = errors.New("cmdman: connection refused")
 
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
+	// Turning a caller away because cmdman was busy would read as "you do not
+	// belong here", which is not what happened.
+	s := startAttend(t, svc, "tok-a", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	err := s.wait(t)
 	assert.Equal(t, status.Code(err), codes.Unavailable)
-	// The wording is the CLI's only way to tell this apart from the Unavailable
-	// gRPC reports when no daemon is listening at all.
-	assert.Assert(t, strings.Contains(status.Convert(err).Message(),
-		ProviderUnavailableMessage))
+	assert.Assert(t,
+		strings.Contains(status.Convert(err).Message(), ProviderUnavailableMessage))
 }
 
-func TestService_JoinIsIdempotent(t *testing.T) {
+// One token is one session, and one role is one read position: a second stream
+// for either is a client that lost track of the first.
+func TestService_AttendRefusesASecondStream(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
 
-	first, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
-	assert.NilError(t, err)
-	// A second join under another name, now declaring a harness, keeps the
-	// attendance already declared: the kind is no more re-negotiable than the
-	// name, so a token that attended inbox-only cannot start being typed into
-	// by joining again.
-	second, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "renamed", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, second.GetSelf().GetName(), first.GetSelf().GetName())
-	assert.Equal(t, second.GetSelf().GetName(), "ana")
+	again := startAttend(t, svc, "tok-a", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Equal(t, status.Code(again.wait(t)), codes.AlreadyExists)
 
+	// Another session of the same role, refused for the read position it would
+	// have had to share.
+	provider.vouch("tok-a2", testRoom, "alpha")
+	other := startAttend(t, svc, "tok-a2", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Equal(t, status.Code(other.wait(t)), codes.AlreadyExists)
+
+	// The first stream is untouched by either refusal.
 	stored, err := svc.store.Member(t.Context(), "tok-a")
 	assert.NilError(t, err)
-	assert.Equal(t, stored.Kind, KindHuman)
+	assert.Equal(t, stored.Token, "tok-a")
 }
 
-// The name the daemon falls back to says what the member is, so a roster reader
-// addressing it is not told it is typing into a terminal that has no harness
-// behind it.
-func TestService_JoinDefaultsNameToKindAndTokenPrefix(t *testing.T) {
+// The role is free again once the stream that held it closes, so a harness that
+// restarts comes back under the name it left with.
+func TestService_AttendAgainAfterTheStreamClosed(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouch("0123456789abcdef", "/work", "alpha")
-	provider.vouch("fedcba9876543210", "/work", "alpha")
+	ana := agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	assert.Assert(t, ana.close(t) != nil)
 
-	res, err := svc.Join(callCtx(t, "0123456789abcdef"),
-		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "agent-01234567")
-
-	res, err = svc.Join(callCtx(t, "fedcba9876543210"),
-		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_HUMAN})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "human-fedcba98")
+	provider.vouch("tok-a2", testRoom, "alpha")
+	back := attendStream(t, svc, "tok-a2", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Equal(t, back.self.GetName(), "ana")
 }
 
-// A joiner that reported no name is better named by whatever the provider knows
-// it as than by its own token.
-func TestService_JoinDefaultsNameToProviderName(t *testing.T) {
+func TestService_AttendStreamsWhatHappensInTheRoom(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouchNamed("0123456789abcdef", "/work", "alpha", "worker-1")
+	ana := agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
 
-	res, err := svc.Join(callCtx(t, "0123456789abcdef"),
-		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "worker-1")
-}
-
-func TestService_JoinPrefersRequestedNameOverProviderName(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.vouchNamed("tok-a", "/work", "alpha", "worker-1")
-
-	res, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "ana")
-}
-
-func TestService_JoinAnswersRegisteredHumanWithoutProvider(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.err = errors.New("cmdman: connection refused")
-	_, err := svc.store.Join(t.Context(), Member{
-		Token: "human-tok", Name: "hana", Team: "hosts", Room: "/work", Kind: KindHuman,
+	bob := agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+	_, err := svc.ReportState(callCtx(t, "tok-b"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
 	})
 	assert.NilError(t, err)
-
-	// The declaration is ignored along with the name: an operator put this
-	// member in the room inbox-only, and its own join does not overrule that.
-	res, err := svc.Join(callCtx(t, "human-tok"),
-		&chatv1.JoinRequest{Name: "ignored", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "hana")
-	assert.Equal(t, provider.callCount(), 0)
-
-	stored, err := svc.store.Member(t.Context(), "human-tok")
-	assert.NilError(t, err)
-	assert.Equal(t, stored.Kind, KindHuman)
-}
-
-func TestService_JoinRejectsNameTakenInTeam(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	provider.vouch("tok-b", "/work", "alpha")
-
-	_, err := svc.Join(callCtx(t, "tok-b"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.Equal(t, status.Code(err), codes.AlreadyExists)
-
-	// The provider still places the member carrying the name, so it keeps it:
-	// only a name nobody is left to answer for is handed over.
-	stored, err := svc.store.Member(t.Context(), "tok-a")
-	assert.NilError(t, err)
-	assert.Equal(t, stored.Name, "ana")
-}
-
-// A recreated command derives the name its predecessor left behind. Nothing
-// else would ever free it, so the collision does: the predecessor is gone with
-// the token the provider stopped knowing, and the newcomer takes the name.
-func TestService_JoinReclaimsTheNameOfAGoneMember(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	// Seeded straight into the store: what the predecessor left behind is a
-	// member row, not a declaration this service witnessed.
-	join(t, svc.store, "tok-old", "/work", "alpha", "worker-1")
-	provider.vouchNamed("tok-new", "/work", "alpha", "worker-1")
-
-	res, err := svc.Join(callCtx(t, "tok-new"),
-		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "worker-1")
-	assert.Equal(t, res.GetSelf().GetTeam(), "alpha")
-
-	// One member of that name, and it is the one that just joined.
-	_, err = svc.store.Member(t.Context(), "tok-old")
-	assert.ErrorIs(t, err, ErrNotFound)
-	members, err := svc.store.ListMembers(t.Context(), "/work")
-	assert.NilError(t, err)
-	assert.Equal(t, len(members), 1)
-	assert.Equal(t, members[0].Token, "tok-new")
-}
-
-// The holder was vouched for moments ago, by its own join, and that verdict is
-// cached for the TTL. The collision asks the provider again regardless: a
-// recreated replica arrives exactly while its predecessor's verdict is fresh.
-func TestService_JoinReclaimLooksPastTheCachedVerdict(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.vouchNamed("tok-old", "/work", "alpha", "worker-1")
-	_, err := svc.Join(callCtx(t, "tok-old"),
-		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-
-	provider.forget("tok-old")
-	provider.vouchNamed("tok-new", "/work", "alpha", "worker-1")
-
-	res, err := svc.Join(callCtx(t, "tok-new"),
-		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetSelf().GetName(), "worker-1")
-	_, err = svc.store.Member(t.Context(), "tok-old")
-	assert.ErrorIs(t, err, ErrNotFound)
-	// The verdict the reap overrode is gone with the member it vouched for, the
-	// way the lazy reap leaves one: both paths reap on the same terms.
-	assert.Assert(t, !svc.recentlyVerified("tok-old"))
-}
-
-// A member that declared no harness is never reaped, so a collision cannot
-// free its name — the provider is not even asked about it. The name is theirs
-// until they leave or an operator says otherwise.
-func TestService_JoinNeverReclaimsAHumanName(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	_, err := svc.store.Join(t.Context(), Member{
-		Token: "human-tok", Name: "hana", Team: "alpha", Room: "/work", Kind: KindHuman,
+	_, err = svc.Send(callCtx(t, "tok-b"), &chatv1.SendRequest{
+		Target: everyone(), Text: "morning",
 	})
 	assert.NilError(t, err)
-	provider.vouch("tok-a", "/work", "alpha")
+	assert.Assert(t, bob.close(t) != nil)
 
-	_, err = svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "hana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.Equal(t, status.Code(err), codes.AlreadyExists)
-
-	stored, err := svc.store.Member(t.Context(), "human-tok")
-	assert.NilError(t, err)
-	assert.Equal(t, stored.Name, "hana")
-	// The only lookup was the joiner's own admission.
-	assert.Equal(t, provider.callCount(), 1)
+	assert.Equal(t, describeEvent(nextEvent(t, ana.sent)), "joined:alpha/bob")
+	assert.Equal(t, describeEvent(nextEvent(t, ana.sent)),
+		"state:alpha/bob:HARNESS_STATE_WORKING")
+	assert.Equal(t, describeEvent(nextEvent(t, ana.sent)), "message:alpha/bob:morning")
+	assert.Equal(t, describeEvent(nextEvent(t, ana.sent)), "left:alpha/bob")
 }
 
-// A cmdman that could not be asked says nothing about the holder, and nothing
-// is not enough to take a name away from it.
-func TestService_JoinKeepsAHolderTheProviderCouldNotJudge(t *testing.T) {
+// A room's news never leaves it: rooms are what members can see of each other.
+func TestService_AttendIsRoomScoped(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	join(t, svc.store, "tok-old", "/work", "alpha", "worker-1")
-	provider.vouchNamed("tok-new", "/work", "alpha", "worker-1")
-	provider.failLookup("tok-old", errors.New("cmdman: connection refused"))
+	ana := agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-far", "/work/elsewhere", "alpha", "stranger")
 
-	_, err := svc.Join(callCtx(t, "tok-new"),
-		&chatv1.JoinRequest{Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.Equal(t, status.Code(err), codes.AlreadyExists)
-
-	stored, err := svc.store.Member(t.Context(), "tok-old")
-	assert.NilError(t, err)
-	assert.Equal(t, stored.Name, "worker-1")
-	_, err = svc.store.Member(t.Context(), "tok-new")
-	assert.ErrorIs(t, err, ErrNotFound)
+	noMoreEvents(t, ana.sent)
 }
 
-// The holder can be gone before the lookup meant to judge it: it left between
-// the store's refusal and that lookup, and a name nobody holds is free without
-// the provider being asked about anybody. Reporting so is what makes the join
-// retry — the only way the joiner ends up with the name.
-func TestReclaimName_HolderLeftBeforeTheLookup(t *testing.T) {
-	store, _ := newTestStore(t)
-	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
-
-	assert.Assert(t, reclaimName(t.Context(), store, provider,
-		slog.New(slog.DiscardHandler), nil, "/work", "alpha", "worker-1"))
-	assert.Equal(t, provider.callCount(), 0)
-}
-
-func TestService_JoinRejectsNameWithTeamSeparator(t *testing.T) {
+// An attendee that stops reading is dropped rather than served a feed with
+// holes in it, and the mutation that dropped it was never held up.
+func TestService_SlowAttendeeIsDropped(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
+	provider.vouch("tok-a", testRoom, "alpha")
 
-	// "/" separates team from name in an address, so it cannot be part of one.
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "beta/bob", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.Equal(t, status.Code(err), codes.InvalidArgument)
+	stalled := newSession(t, "tok-a")
+	stalled.release = make(chan struct{})
+	stalled.run(svc, "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	// Attending and announced by the time this is on the wire; everything below
+	// is ordered behind it, and the feed is what the stream stops reading.
+	assert.Equal(t, describeEvent(nextEvent(t, stalled.sent)), "attended:alpha/ana")
+
+	// One event past the buffer, published by somebody the stalled stream is
+	// not blocking: every send returns while it sits there.
+	provider.vouch("tok-b", testRoom, "alpha")
+	bob := attendStream(t, svc, "tok-b", "bob", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	for i := range roomEventBuffer + 1 {
+		_, err := svc.Send(callCtx(t, "tok-b"), &chatv1.SendRequest{
+			Target: everyone(), Text: fmt.Sprintf("note-%d", i),
+		})
+		assert.NilError(t, err)
+	}
+	assert.Equal(t, describeEvent(nextEvent(t, bob.sent)), "message:alpha/bob:note-0")
+
+	close(stalled.release)
+	assert.Equal(t, status.Code(stalled.wait(t)), codes.ResourceExhausted)
+
+	// Dropped from the feed is dropped from the room: the stream was the
+	// attendance.
+	_, err := svc.store.Member(t.Context(), "tok-a")
+	assert.ErrorIs(t, err, ErrNotAttending)
 }
 
 func TestService_ListMembersIsRoomScoped(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	seedAgent(t, svc, provider, "tok-b", "/work", "beta", "bob")
-	seedAgent(t, svc, provider, "tok-c", "/elsewhere", "alpha", "cid")
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	human(t, svc, provider, "tok-b", testRoom, "beta", "bob")
+	agent(t, svc, provider, "tok-far", "/work/elsewhere", "alpha", "stranger")
 
 	res, err := svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
 	assert.NilError(t, err)
 	assert.Equal(t, len(res.GetMembers()), 2)
-	assert.Equal(t, res.GetMembers()[0].GetName(), "ana")
-	assert.Equal(t, res.GetMembers()[1].GetTeam(), "beta")
+	assert.Equal(t, address(res.GetMembers()[0]), "alpha/ana")
+	assert.Equal(t, address(res.GetMembers()[1]), "beta/bob")
+	assert.Equal(t, res.GetMembers()[1].GetKind(), chatv1.MemberKind_MEMBER_KIND_HUMAN)
 }
 
-// The listing carries every member's harness state, so a caller holding the
-// roster knows who can be interrupted without asking about them one at a time.
 func TestService_ListMembersCarriesReportedState(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	seedAgent(t, svc, provider, "tok-b", "/work", "alpha", "bob")
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
 
-	_, err := svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+	// Attendance starts done: the stream opens before the session has work.
+	res, err := svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, res.GetMembers()[0].GetState(),
+		chatv1.HarnessState_HARNESS_STATE_DONE)
+
+	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
 		State: chatv1.HarnessState_HARNESS_STATE_WAITING,
 	})
 	assert.NilError(t, err)
-
-	res, err := svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
+	res, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
 	assert.NilError(t, err)
-	assert.Equal(t, len(res.GetMembers()), 2)
-	assert.Equal(t, res.GetMembers()[0].GetName(), "ana")
 	assert.Equal(t, res.GetMembers()[0].GetState(),
 		chatv1.HarnessState_HARNESS_STATE_WAITING)
-	// A member whose harness has reported nothing yet is listed as done, which
-	// is the state the store admits a joiner in: it has taken no turn, so
-	// nothing about it is in the way.
-	assert.Equal(t, res.GetMembers()[1].GetName(), "bob")
-	assert.Equal(t, res.GetMembers()[1].GetState(),
-		chatv1.HarnessState_HARNESS_STATE_DONE)
-}
-
-func TestService_LeaveWithdrawsAttendance(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-
-	_, err := svc.Leave(callCtx(t, "tok-a"), &chatv1.LeaveRequest{})
-	assert.NilError(t, err)
-
-	_, err = svc.store.Member(t.Context(), "tok-a")
-	assert.ErrorIs(t, err, ErrNotFound)
-
-	_, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
-	assert.Equal(t, status.Code(err), codes.Unauthenticated)
 }
 
 func TestService_ReportState(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
+	ana := agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
 
 	_, err := svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
-		State: chatv1.HarnessState_HARNESS_STATE_WAITING,
+		State: chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED,
 	})
-	assert.NilError(t, err)
-	stored, err := svc.store.Member(t.Context(), "tok-a")
-	assert.NilError(t, err)
-	assert.Equal(t, stored.State, StateWaiting)
-
-	// An unfilled state must not silently mark the harness done.
-	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{})
 	assert.Equal(t, status.Code(err), codes.InvalidArgument)
-	stored, err = svc.store.Member(t.Context(), "tok-a")
-	assert.NilError(t, err)
-	assert.Equal(t, stored.State, StateWaiting)
-}
-
-// The state an operator sees on a command follows the state the store holds,
-// so every RPC that changes one publishes the other.
-func TestService_PublishesMemberStateOnJoinReportAndLeave(t *testing.T) {
-	svc, provider, _, mirror := newTestServiceWithMirror(t)
-	provider.vouch("tok-a", "/work", "alpha")
-
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
 
 	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
 		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
 	})
 	assert.NilError(t, err)
+	assert.Equal(t, describeEvent(nextEvent(t, ana.sent)),
+		"state:alpha/ana:HARNESS_STATE_WORKING")
 
-	_, err = svc.Leave(callCtx(t, "tok-a"), &chatv1.LeaveRequest{})
+	// Hooks report working after every tool call. The state is stored again —
+	// it carries when the harness was last seen in it — but the room is not
+	// told a roster it already has.
+	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+	})
 	assert.NilError(t, err)
+	noMoreEvents(t, ana.sent)
+}
+
+func TestService_PublishesMemberStateOnAttendReportAndClose(t *testing.T) {
+	svc, provider, _, mirror := newTestServiceWithMirror(t)
+	provider.vouch("tok-a", testRoom, "alpha")
+
+	ana := attendStream(t, svc, "tok-a", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	_, err := svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+	})
+	assert.NilError(t, err)
+	// Attend withdraws the attendance before it returns, so its return is the
+	// barrier for everything the withdrawal did.
+	assert.Assert(t, ana.close(t) != nil)
 
 	calls := mirror.calls()
-	assert.Equal(t, len(calls), 3, "published: %v", calls)
-	// A fresh member starts done, which is what a session that has not been
-	// given work yet is.
+	assert.Equal(t, len(calls), 3)
 	assert.Equal(t, calls[0].state, StateDone)
-	assert.Equal(t, calls[0].member.Token, "tok-a")
 	assert.Equal(t, calls[1].state, StateWorking)
 	assert.Assert(t, calls[2].cleared)
-	assert.Equal(t, calls[2].member.Team+"/"+calls[2].member.Name, "alpha/ana")
+	assert.Equal(t, addressOf(calls[2].member), "alpha/ana")
 }
 
-// Re-declared attendance republishes what the store already holds: the session
-// starting again is often one whose display was reset under it.
-func TestService_JoinAgainRepublishesTheStoredState(t *testing.T) {
-	svc, provider, _, mirror := newTestServiceWithMirror(t)
-	provider.vouch("tok-a", "/work", "alpha")
-
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
-		State: chatv1.HarnessState_HARNESS_STATE_WAITING,
-	})
-	assert.NilError(t, err)
-
-	_, err = svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-
-	calls := mirror.calls()
-	assert.Equal(t, len(calls), 3, "published: %v", calls)
-	assert.Equal(t, calls[2].state, StateWaiting)
-}
-
-// A reaped member's command is gone with the token the provider stopped
-// knowing, so there is no status left to withdraw.
-func TestService_ReapingPublishesNothing(t *testing.T) {
-	svc, provider, _, mirror := newTestServiceWithMirror(t)
-	provider.vouch("tok-a", "/work", "alpha")
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-
-	provider.forget("tok-a")
-	svc.forgetVerified("tok-a")
-
-	_, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
-	assert.Equal(t, status.Code(err), codes.Unauthenticated)
-
-	// Only the join published; the reap added nothing.
-	calls := mirror.calls()
-	assert.Equal(t, len(calls), 1, "published: %v", calls)
-	assert.Equal(t, calls[0].state, StateDone)
-}
-
-// A mirror that cannot publish never fails the RPC: the store is authoritative
-// and a stale display costs only the display.
+// The store is authoritative by the time the mirror is asked, so a display that
+// cannot be written costs an operator a stale screen and the member nothing.
 func TestService_PublishFailureDoesNotFailTheRPC(t *testing.T) {
 	svc, provider, _, mirror := newTestServiceWithMirror(t)
-	provider.vouch("tok-a", "/work", "alpha")
-	mirror.err = errors.New("cmdman: command is not running")
+	mirror.err = errors.New("cmdman: no such command")
+	provider.vouch("tok-a", testRoom, "alpha")
 
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
-		State: chatv1.HarnessState_HARNESS_STATE_WORKING,
+	ana := attendStream(t, svc, "tok-a", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	_, err := svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_DONE,
 	})
 	assert.NilError(t, err)
-	_, err = svc.Leave(callCtx(t, "tok-a"), &chatv1.LeaveRequest{})
-	assert.NilError(t, err)
+	assert.Assert(t, len(mirror.calls()) > 0)
+	assert.Assert(t, ana.close(t) != nil)
 }

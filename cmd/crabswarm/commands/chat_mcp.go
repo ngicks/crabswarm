@@ -14,8 +14,10 @@ func chatMCPCmd(parent *cobra.Command, flags *chatFlags) {
 		Short: "Serve the chat verbs as MCP tools over stdio",
 		Long: `mcp runs the per-agent bridge a harness starts as its own stdio subprocess,
 offering the chat verbs as tools instead of commands an agent has to remember
-to type. It attends the room as it starts, so a member has an inbox before its
-first turn rather than from whenever it first says something.
+to type. It attends the room as it starts and holds that attendance for the
+whole session, so the room has the member before its first turn rather than
+from whenever it first says something — and has it again once a daemon that
+went away comes back.
 
 It is configured, not typed: the harness spawns it and speaks MCP to it, so
 stdout carries the protocol and nothing else. Logging goes to stderr, warnings

@@ -48,7 +48,7 @@ type model struct {
 
 	// entries is the conversation, oldest first, exactly as the log handed it
 	// over — the log is the only source of what the room said.
-	entries []*chatv1.AdminHistoryEntry
+	entries []*chatv1.Message
 	roster  []*chatv1.Member
 	// rooms is the listing as the daemon last gave it: every room it knows and
 	// who attends it. It rides the roster poll — one reply fills both left
@@ -60,8 +60,9 @@ type model struct {
 	// to the room it was addressed at and lives no longer than the screen.
 	drafts map[string]string
 
-	// cursor is the id of the newest entry the screen holds, which is what the
-	// next read of the log asks to be told about.
+	// cursor is the seq of the newest message the screen holds, which is what
+	// the next read of the log asks to be told about. Seqs are the room's own
+	// dense order, so reading past one is how the log is paged.
 	cursor int64
 	// tailGen counts the rooms this screen has watched, and every read of the
 	// log is stamped with it. A read is in flight when the operator switches

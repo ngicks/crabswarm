@@ -7,15 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
 // Every renderer here writes plain lines with no alignment padding, no color
 // and no terminal control. Most of this output is read by an agent that has to
-// act on it — the address it just learned goes straight back in as the argument
-// of the next `chat send` — so a stable, greppable line beats a pretty table.
+// act on it — the target it just read goes straight back in as the argument of
+// the next `chat send` — so a stable, greppable line beats a pretty table.
 // Each builds its whole output first and writes once, so a renderer either
 // reports the write error or has written everything.
 
@@ -25,137 +23,124 @@ import (
 // clock.
 const messageTimeFormat = time.RFC3339
 
-// qualify writes a member the way every chat command addresses one: "team/name",
-// falling back to the bare name when the daemon reported no team.
-func qualify(m *chatv1.Member) string {
-	if m.GetTeam() == "" {
-		return m.GetName()
-	}
-	return m.GetTeam() + "/" + m.GetName()
-}
+// unknownTime stands in for a message the daemon sent no stamp with. It is one
+// word because a message line is read by cutting it on spaces, and it is not
+// the epoch the timestamp would otherwise decode to, which would read as a real
+// instant in 1970.
+const unknownTime = "unknown-time"
 
-// RenderJoined reports the identity the daemon settled on. The room and team
-// are the caller's news: it chose neither, they follow from its token.
-func RenderJoined(w io.Writer, self *chatv1.Member) error {
-	_, err := fmt.Fprintf(w, "joined %s as %s\n", self.GetRoom(), qualify(self))
-	return err
-}
-
-// RenderSent reports which member an address resolved to, so a bare name that
-// resolved room-wide shows whose inbox it actually landed in.
-func RenderSent(w io.Writer, recipient *chatv1.Member) error {
-	_, err := fmt.Fprintf(w, "sent to %s\n", qualify(recipient))
-	return err
-}
-
-// RenderBroadcast reports how many inboxes the message reached. Zero is worth
-// saying out loud: it means nobody else is attending, not that the send failed.
-func RenderBroadcast(w io.Writer, delivered int32) error {
-	_, err := fmt.Fprintf(w, "broadcast to %d %s\n", delivered, memberNoun(delivered))
-	return err
-}
-
-// memberNoun agrees the noun with a count of recipients.
-func memberNoun(delivered int32) string {
-	if delivered == 1 {
-		return "member"
-	}
-	return "members"
-}
-
-// RenderLeft confirms the withdrawal, which the daemon acknowledges with an
-// empty response.
-func RenderLeft(w io.Writer) error {
-	_, err := fmt.Fprintln(w, "left the room")
-	return err
-}
-
-// RenderMessages prints the messages a read consumed, oldest first, one line
-// each: the instant, the team-qualified sender, then the text. An empty inbox
-// says so on stdout rather than printing nothing, so a caller polling for mail
-// can tell a successful empty read from a command that never ran.
+// RenderRead prints what a read handed over and how much of the caller's unread
+// is left, which is what tells a reader whether to read again.
 //
-// A message whose text spans lines keeps them; only the first line carries the
-// prefix, since chopping a message up would misrepresent what was sent.
-func RenderMessages(w io.Writer, messages []*chatv1.Message) error {
-	if len(messages) == 0 {
-		_, err := fmt.Fprintln(w, "no pending messages")
-		return err
-	}
+// A read that found nothing says so on stdout rather than printing nothing, so
+// a caller polling for messages can tell a successful empty read from a command
+// that never ran. [ReadOptions.Quiet] is what removes that line.
+//
+// The unread trailer follows an empty read too. A narrowed read — a target, a
+// stretch of sequence numbers — answers about what it was asked for and can
+// come back empty while mentions of the caller are still waiting outside it;
+// without the trailer that read would read as an empty room.
+func RenderRead(w io.Writer, resp *chatv1.ReadResponse) error {
 	var b strings.Builder
-	for _, m := range messages {
-		sentAt := "unknown time"
-		if ts := m.GetSentAt(); ts != nil {
-			sentAt = ts.AsTime().UTC().Format(messageTimeFormat)
-		}
-		fmt.Fprintf(&b, "[%s] %s: %s\n", sentAt, qualify(m.GetFrom()), m.GetText())
+	if messages := resp.GetMessages(); len(messages) == 0 {
+		b.WriteString("no pending messages\n")
+	} else {
+		writeMessages(&b, messages)
+	}
+	if remaining := resp.GetRemainingUnread(); remaining > 0 {
+		fmt.Fprintf(&b, "%d more unread\n", remaining)
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
 }
 
-// RenderHistory prints the room's conversation as the member verbs read it.
-func RenderHistory(w io.Writer, entries []*chatv1.HistoryEntry) error {
-	return renderTranscript(w, entries)
-}
-
-// RenderAdminHistory prints a room's conversation as the admin verbs read it,
-// which is the same transcript spelled the same way: an operator comparing what
-// a room shows its members with what it shows the host should be reading one
-// text, not two. The entry ids the admin read also carries are left out — they
-// are a cursor for a program that follows the room, not part of what was said.
-func RenderAdminHistory(w io.Writer, entries []*chatv1.AdminHistoryEntry) error {
-	return renderTranscript(w, entries)
-}
-
-// transcriptEntry is what rendering one logged utterance needs, and all the
-// member-facing and admin-facing entries have in common.
-type transcriptEntry interface {
-	GetFrom() *chatv1.Member
-	GetTo() *chatv1.Member
-	GetText() string
-	GetSentAt() *timestamppb.Timestamp
-}
-
-// renderTranscript prints a room's conversation, oldest first, one line each:
-// the instant, the team-qualified speaker, who it was said to, then the text. A
-// broadcast is addressed to [BroadcastTarget] rather than to a member, and so is
-// a team-wide send: the daemon records one with no recipient for now, so the
-// two read alike here.
+// RenderHistory prints a room's conversation, which is the same transcript a
+// read prints: an operator comparing what a room shows its members with what it
+// shows the host should be reading one text, not two.
 //
-// A room nobody has spoken in says so, the way an empty inbox does: the
-// transcript is a read, and a read that printed nothing at all would be
-// indistinguishable from a command that never ran.
-func renderTranscript[E transcriptEntry](w io.Writer, entries []E) error {
-	if len(entries) == 0 {
+// A room nobody has spoken in says so, the way an empty read does: a listing
+// that printed nothing at all would be indistinguishable from a command that
+// never ran.
+func RenderHistory(w io.Writer, messages []*chatv1.Message) error {
+	if len(messages) == 0 {
 		_, err := fmt.Fprintln(w, "no messages yet")
 		return err
 	}
 	var b strings.Builder
-	for _, e := range entries {
-		sentAt := "unknown time"
-		if ts := e.GetSentAt(); ts != nil {
+	writeMessages(&b, messages)
+	_, err := io.WriteString(w, b.String())
+	return err
+}
+
+// writeMessages writes the transcript itself, oldest first, one line each:
+//
+//	<seq> <time> <from> -> <target> [mentioned you]: <text>
+//
+// The sequence number leads because it is what --since and --until take, so a
+// reader who wants what came after a line can read the argument off it. The
+// target is there because a room is one conversation: a line addressed to
+// somebody else is not a line to answer, and only the target says which is
+// which.
+//
+// A message whose text spans lines keeps them; only the first line carries the
+// prefix, since chopping a message up would misrepresent what was sent.
+func writeMessages(b *strings.Builder, messages []*chatv1.Message) {
+	for _, m := range messages {
+		sentAt := unknownTime
+		if ts := m.GetSentAt(); ts != nil {
 			sentAt = ts.AsTime().UTC().Format(messageTimeFormat)
 		}
-		to := BroadcastTarget
-		if e.GetTo() != nil {
-			to = qualify(e.GetTo())
+		fmt.Fprintf(b, "%d %s %s -> %s",
+			m.GetSeq(), sentAt, Address(m.GetFrom()), TargetString(m.GetTarget()))
+		if m.GetMentionedYou() {
+			b.WriteString(" [mentioned you]")
 		}
-		fmt.Fprintf(&b, "[%s] %s → %s: %s\n", sentAt, qualify(e.GetFrom()), to, e.GetText())
+		fmt.Fprintf(b, ": %s\n", m.GetText())
 	}
-	_, err := io.WriteString(w, b.String())
+}
+
+// sendOutcome is what reporting a send needs, and what the member send and the
+// admin send answer alike: who the target resolved to, and which of them nobody
+// is attending under.
+type sendOutcome interface {
+	GetMentioned() []*chatv1.Member
+	GetAbsent() []*chatv1.Member
+}
+
+// RenderSent reports a send: one line per role it mentioned, and a warning per
+// role nobody is attending under. A send to everyone and a board post name no
+// role in particular and so print nothing, which is the quiet the sender wants
+// — the message is in the room either way.
+//
+// The warnings go to warn rather than to out because they are not the answer to
+// the command: the message was accepted and waits at that role's read position
+// until somebody attends under it. A caller piping the delivery lines wants the
+// warning in front of the person, not in the pipe.
+func RenderSent[R sendOutcome](out, warn io.Writer, resp R) error {
+	var mentioned strings.Builder
+	for _, m := range resp.GetMentioned() {
+		fmt.Fprintf(&mentioned, "mentioned %s\n", Address(m))
+	}
+	if _, err := io.WriteString(out, mentioned.String()); err != nil {
+		return err
+	}
+	var absent strings.Builder
+	for _, m := range resp.GetAbsent() {
+		fmt.Fprintf(&absent, "warning: %s is not attending; the mention waits\n", Address(m))
+	}
+	_, err := io.WriteString(warn, absent.String())
 	return err
 }
 
 // RenderMembers lists the room's attendance, one member per line: the
 // team-qualified address, the kind and the harness state, separated by two
-// spaces. The first column is the point: it is exactly the address argument
-// `chat send` takes, so the reader never has to assemble one, and it stays
-// first and unpadded so a line still cuts cleanly on whitespace.
+// spaces. The first column is the point: it is exactly the role a target names,
+// so the reader never has to assemble one, and it stays first and unpadded so a
+// line still cuts cleanly on whitespace.
 //
 // The kind is there because it says whether a message reaches the member on its
 // own: an agent is typed into when one arrives, a human is only ever handed its
-// inbox when it asks. Whoever is waiting for an answer reads that off the
+// messages when it asks. Whoever is waiting for an answer reads that off the
 // roster rather than guessing from the name.
 func RenderMembers(w io.Writer, members []*chatv1.Member) error {
 	if len(members) == 0 {
@@ -165,7 +150,7 @@ func RenderMembers(w io.Writer, members []*chatv1.Member) error {
 	var b strings.Builder
 	for _, m := range members {
 		fmt.Fprintf(&b, "%s  %s  %s\n",
-			qualify(m), MemberKindName(m.GetKind()), HarnessStateName(m.GetState()))
+			Address(m), MemberKindName(m.GetKind()), HarnessStateName(m.GetState()))
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -178,6 +163,11 @@ func RenderMembers(w io.Writer, members []*chatv1.Member) error {
 // reconstruct; the kind is what tells an operator which of those members a
 // message reaches on its own.
 //
+// A room nobody is in is listed with a note in place of its teams rather than
+// left out: its conversation and its read positions outlive the sessions that
+// made them, and an operator looking for a room to read or to delete is looking
+// for exactly those.
+//
 // Teams appear in the order the daemon first mentions them and members in the
 // order they arrive, so the tree mirrors the listing rather than imposing an
 // order of its own.
@@ -189,6 +179,10 @@ func RenderRooms(w io.Writer, rooms []*chatv1.Room) error {
 	var b strings.Builder
 	for _, r := range rooms {
 		fmt.Fprintf(&b, "room: %s\n", r.GetName())
+		if len(r.GetMembers()) == 0 {
+			b.WriteString("  (nobody attending)\n")
+			continue
+		}
 		for _, t := range groupByTeam(r.GetMembers()) {
 			fmt.Fprintf(&b, "  team: %s\n", t.team)
 			for _, m := range t.members {
@@ -220,30 +214,30 @@ func groupByTeam(members []*chatv1.Member) []teamMembers {
 	return grouped
 }
 
-// RenderMoved reports the member's new placement, read back from the daemon
-// rather than echoed from the request.
-func RenderMoved(w io.Writer, member *chatv1.Member) error {
-	_, err := fmt.Fprintf(w, "moved %s in room %s\n", qualify(member), member.GetRoom())
-	return err
-}
-
-// RenderAdminSent reports an admin delivery, echoing the room and the target it
-// was addressed to. Both come back from the request rather than from the daemon,
-// which answers with a count alone — and an address that resolves to nobody
-// fails the call instead of reporting zero, so a rendered count is at least 1.
-func RenderAdminSent(w io.Writer, room string, target AdminTarget, delivered int32) error {
-	_, err := fmt.Fprintf(w, "sent to %s in room %s: delivered to %d %s\n",
-		target, room, delivered, memberNoun(delivered))
-	return err
-}
-
 // RenderRegistered prints the new member and, on a line of its own, the token
 // it presents from then on. The token is shown once and stored nowhere, so the
 // line is kept bare enough to copy or cut out of a pipe.
 func RenderRegistered(w io.Writer, member *chatv1.Member, token string) error {
 	var b strings.Builder
-	fmt.Fprintf(&b, "registered %s in room %s\n", qualify(member), member.GetRoom())
+	fmt.Fprintf(&b, "registered %s in room %s\n", Address(member), member.GetRoom())
 	fmt.Fprintf(&b, "token: %s\n", token)
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// RenderDeletedRoom reports what the deletion took with it. The count is worth
+// saying: it is the only thing left of a room that is gone, and it tells an
+// operator who deleted the wrong one how much was in it.
+func RenderDeletedRoom(w io.Writer, room string, messages int64) error {
+	_, err := fmt.Fprintf(w, "deleted room %s and %d %s\n",
+		room, messages, messageNoun(messages))
+	return err
+}
+
+// messageNoun agrees the noun with a count of messages.
+func messageNoun(n int64) string {
+	if n == 1 {
+		return "message"
+	}
+	return "messages"
 }

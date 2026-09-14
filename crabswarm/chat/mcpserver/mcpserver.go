@@ -4,9 +4,14 @@
 // A harness starts this as a stdio subprocess of its own, so an agent gets the
 // chat verbs as tools it is offered rather than as commands it has to remember
 // to type — and, because the bridge attends the room the moment it starts and
-// keeps attending for the rest of the session, it is a member before its first
-// turn instead of whenever it first thinks to say something, and a member again
-// once a daemon that went away comes back.
+// holds that attendance for the rest of the session, it is a member before its
+// first turn instead of whenever it first thinks to say something, and a member
+// again once a daemon that went away comes back.
+//
+// Attendance is one open stream, and holding it is the whole of what membership
+// means. The bridge opens it at startup and opens it again every time it ends,
+// so there is nothing for a tool to declare: a tool called while the stream is
+// down reports that instead of acting as somebody the room does not have.
 //
 // No chat logic lives here. Every tool forwards to the same ChatService call
 // the matching `crabswarm chat` subcommand makes, through the same
@@ -14,27 +19,21 @@
 // keeps a tool result and a CLI verb's output the same words: a room reads the
 // same whether a member is wired to it through MCP or through a shell.
 //
-// Beside the tools, the room itself is offered as resources a harness can hold
-// open: its attendance, which is subscribable, so a view of who is around and
-// what each of them is doing costs no turn, and its transcript, for catching up
-// on what the room has been saying. The roster is answered as structured data
-// rather than in the CLI's words, since its reader is the harness; the
-// transcript is answered in them, since every line already carries everything
-// an entry holds.
+// Beside the tools, the room's attendance is offered as a resource a harness
+// can hold open and subscribe to, so a view of who is around and what each of
+// them is doing costs no turn. It is answered as structured data rather than in
+// the CLI's words, since its reader is the harness rather than the model.
 package mcpserver
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
@@ -58,26 +57,26 @@ type Server struct {
 	token string
 	mcp   *mcp.Server
 
-	// joinMu serializes attendance: the attend loop and a tool call that
-	// arrived before it succeeded would otherwise both ask, and the second
-	// answer would tell the first nothing it did not already know.
-	joinMu sync.Mutex
-	joined bool
-	// self is the identity the daemon admitted this bridge under, as the last
-	// accepted join reported it. It is kept because the room's event feed names
-	// a departing member by team and name and by nothing else, so it is the only
-	// thing an event announcing this bridge's own departure can be matched
-	// against. It is guarded by joinMu because it is set and cleared together
-	// with joined.
-	self *chatv1.Member
+	// mu guards what the attendance loop reports about itself, which is what
+	// every tool call reads before acting.
+	mu sync.Mutex
+	// attended says whether the attendance stream is open right now.
+	attended bool
+	// attendErr is why it is not, as the last attempt ended — the daemon's own
+	// refusal where there was one, which is what a failed tool call hands the
+	// agent to read.
+	attendErr error
+	// settled is closed once the first attempt has either landed or failed, so
+	// a tool call that arrived during startup waits for an answer instead of
+	// reporting an attendance that simply has not happened yet.
+	settled    chan struct{}
+	settleOnce sync.Once
 
-	// The two loops' schedules, held here rather than read from the constants
-	// below so a test can drive either at a pace it can wait for. [New] takes
-	// the constants.
-	joinBackoffBase  time.Duration
-	joinBackoffMax   time.Duration
-	watchBackoffBase time.Duration
-	watchBackoffMax  time.Duration
+	// The loop's schedule, held here rather than read from the constants below
+	// so a test can drive it at a pace it can wait for. [New] takes the
+	// constants.
+	attendBackoffBase time.Duration
+	attendBackoffMax  time.Duration
 }
 
 // New dials sockPath and prepares the MCP server. Attendance is declared from
@@ -99,13 +98,12 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		logger:           logger,
-		client:           client,
-		token:            token,
-		joinBackoffBase:  joinBackoffBase,
-		joinBackoffMax:   joinBackoffMax,
-		watchBackoffBase: watchBackoffBase,
-		watchBackoffMax:  watchBackoffMax,
+		logger:            logger,
+		client:            client,
+		token:             token,
+		settled:           make(chan struct{}),
+		attendBackoffBase: attendBackoffBase,
+		attendBackoffMax:  attendBackoffMax,
 	}
 	s.mcp = mcp.NewServer(
 		&mcp.Implementation{Name: serverName, Version: libver.Version},
@@ -141,49 +139,44 @@ func (s *Server) serve(ctx context.Context, transport mcp.Transport) error {
 	g, gctx := errgroup.WithContext(ctx)
 	if _, err := cli.ResolveToken(s.token); err != nil {
 		// Neither the flag nor the environment changes while the process runs,
-		// so a bridge with no identity to resolve has nothing to attend with
-		// and nothing to watch for, and retrying would only say so again. It
-		// still serves: the tools and the resources answer with this same
-		// refusal, which is where the agent reads what is missing.
+		// so a bridge with no identity to resolve has nothing to attend with,
+		// and retrying would only say so again. Recording the refusal as the
+		// answer to attendance is what keeps a tool call from waiting on a
+		// loop that will never run; it still serves, and the tools report this
+		// same refusal, which is where the agent reads what is missing.
+		s.attendanceEnded(err)
 		s.logger.Error("no chat identity; the tools will report it", "error", err)
 	} else {
 		g.Go(func() error {
 			s.attend(gctx)
 			return nil
 		})
-		g.Go(func() error {
-			s.watchMembers(gctx)
-			return nil
-		})
 	}
 	g.Go(func() error {
-		// The session ending ends the attendance loop and the feed too: a
-		// bridge whose harness is gone has nobody left to attend for, and
-		// without this they would hold the session open for the rest of their
-		// backoff.
+		// The session ending ends the attendance too: a bridge whose harness is
+		// gone has nobody left to attend for, and without this the loop would
+		// hold the session open for the rest of its backoff.
 		defer cancel()
 		return s.mcp.Run(gctx, transport)
 	})
 	return g.Wait()
 }
 
-// How long the bridge waits between attempts at attending, and — since asking
-// again costs nothing once it is a member — how often it looks. The first
-// retries are quick, for the ordinary case of a bridge that started while the
-// daemon was still binding its socket; the ceiling is what keeps a daemon that
-// is down from being asked in a loop.
+// How long the bridge waits before opening the attendance stream again. The
+// first retries are quick, for the ordinary case of a bridge that started while
+// the daemon was still binding its socket; the ceiling is what keeps a daemon
+// that is down from being asked in a loop.
 const (
-	joinBackoffBase = 200 * time.Millisecond
-	joinBackoffMax  = 2 * time.Second
+	attendBackoffBase = 200 * time.Millisecond
+	attendBackoffMax  = 2 * time.Second
 )
 
-// How many consecutive failures pass between the lines a retry loop logs. The
+// How many consecutive failures pass between the lines the loop logs. The
 // first of a run is always reported, since that is the one that says what
 // broke; after it a loop that keeps trying for the rest of the session would
 // bury everything else on the harness's stderr, and the second identical line
-// says nothing the first did not. Against the ceilings the two loops retry at,
-// this is a line every half minute from the attend loop and one every minute or
-// so from the feed.
+// says nothing the first did not. Against the ceiling the loop retries at, this
+// is a line every half minute.
 const warnEvery = 15
 
 // warnRetry reports a failed attempt — the first of a run, and every warnEvery
@@ -195,164 +188,168 @@ func (s *Server) warnRetry(msg string, failures int, backoff time.Duration, err 
 	s.logger.Warn(msg, "failures", failures, "backoff", backoff, "error", err)
 }
 
-// joinTimeout bounds one attempt at attending. The lock is held across the
-// call, so a daemon that accepted the connection and then never answered would
-// otherwise wedge every tool call behind it — including the ones whose own
-// deadline has already passed, which would be waiting on an answer nobody is
-// left to read. A local socket answers in microseconds; this is only the point
-// past which no answer is coming.
-const joinTimeout = 10 * time.Second
+// attendTimeout bounds the opening of one attendance. The stream is lazy, so a
+// daemon that accepted the connection and then answered nothing would leave the
+// loop waiting for the rest of the session and every tool call waiting with it.
+// A local socket answers in microseconds; this is only the point past which no
+// answer is coming.
+const attendTimeout = 10 * time.Second
 
-// attend keeps this member attending for the whole session.
+// errNotAttending is what a tool call is refused with when the attendance is
+// down for a reason nothing recorded. Every path that ends an attendance
+// records why, so this stands in for nothing that happens today; it exists so a
+// refusal is never the empty error.
+var errNotAttending = errors.New("not attending the chat room")
+
+// attend keeps this member attending for the whole session: one open stream,
+// opened again every time it ends.
 //
 // It never gives up, because attendance is not something the agent asked for
 // and so not something it will notice missing. A bridge starts with its
 // harness, which is regularly before the daemon is up at all, and the daemon
 // can go away and come back underneath it; either way a message addressed to
-// this member needs an inbox to land in and a hook reporting its state needs a
-// member to report about, both before the agent takes its first turn. A loop
-// that stopped after a handful of tries would leave the room a member short
-// until the agent happened to call a tool, which is exactly the moment it is
-// too late.
-//
-// Attendance is asked for on a cadence rather than only when something clears
-// it: the refusal that says the daemon has forgotten this member arrives on
-// whichever goroutine happened to make a call, and a cadence needs no wiring
-// between them. Asking again costs nothing while the membership stands —
-// [Server.ensureJoined] answers from what it remembers, without a round trip.
+// this member needs a member to be addressed to, and a hook reporting harness
+// state needs one to report about, both before the agent takes its first turn.
+// A loop that stopped after a handful of tries would leave the room a member
+// short until the agent happened to call a tool, which is exactly the moment it
+// is too late.
 func (s *Server) attend(ctx context.Context) {
-	backoff := s.joinBackoffBase
+	backoff := s.attendBackoffBase
 	failures := 0
-	for {
-		wait := s.joinBackoffMax
-		if _, err := s.ensureJoined(ctx); err != nil {
-			// A session ending while the join was in flight fails it, and that
-			// is the shutdown rather than something to report.
-			if ctx.Err() != nil {
-				return
-			}
-			failures++
-			s.warnRetry("attending the chat room failed; retrying", failures, backoff, err)
-			wait = backoff
-			backoff = min(2*backoff, s.joinBackoffMax)
-		} else {
-			backoff = s.joinBackoffBase
+	for reopened := false; ; reopened = true {
+		landed, err := s.holdAttendance(ctx, reopened)
+		if ctx.Err() != nil {
+			return
+		}
+		// An attendance that stood for a while and then ended is not the
+		// trouble one that never opened is, so it starts its retries over
+		// rather than inheriting the wait the previous failure had climbed to.
+		if landed {
+			backoff = s.attendBackoffBase
 			failures = 0
 		}
+		failures++
+		s.warnRetry("the chat attendance ended; attending again", failures, backoff, err)
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(wait):
+		case <-time.After(backoff):
 		}
+		backoff = min(2*backoff, s.attendBackoffMax)
 	}
 }
 
-// ensureJoined makes sure the caller is attending before a tool acts on its
-// behalf, and hands back the identity token it attends with. Join is
-// idempotent for a known token, so asking again costs one round trip — and it
-// is what lets a tool succeed against a daemon that has only just come up.
+// holdAttendance opens one attendance and holds it until it ends, reporting
+// whether it ever opened and why it is over.
 //
-// The token is resolved here rather than held from startup, and its refusal is
-// returned as it stands: it names the flag and the two variables an identity
-// can come from, which is the whole of what the reader of a failed tool call
-// can do about it.
+// reopened says an earlier attendance had already ended, which makes the roster
+// stale by definition: whatever happened while nothing was attending went
+// unannounced. Saying so as soon as the new stream is up closes that gap — the
+// subscriber reads the resource, and the read lists the room afresh.
 //
-// Attendance already declared is remembered rather than re-declared per call,
-// so the round trip is spent once; [Server.forgetJoined] is what puts the
-// memory back when the daemon stops counting this member as one.
-func (s *Server) ensureJoined(ctx context.Context) (string, error) {
+// The stream gets a context of its own so giving up on an opening that never
+// answers ends nothing but that attempt. The parent context lives as long as
+// the session.
+func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error) {
 	token, err := cli.ResolveToken(s.token)
 	if err != nil {
-		return "", err
+		s.attendanceEnded(err)
+		return false, err
 	}
-	s.joinMu.Lock()
-	defer s.joinMu.Unlock()
-	if s.joined {
-		return token, nil
-	}
-	ctx, cancel := context.WithTimeout(ctx, joinTimeout)
+	actx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// A deadline on the context would end the attendance itself ten seconds in,
+	// so the wait is bounded by cancelling the attempt instead and only until
+	// the daemon has answered.
+	opening := time.AfterFunc(attendTimeout, cancel)
 	// The empty name takes the one the daemon derives from the token: an agent
 	// is named by whoever registered it, not by the harness it happens to run.
 	//
 	// Always as an agent: this bridge is started by a harness and serves
 	// nothing else, so the terminal behind it is one a nudge belongs in.
-	var identity strings.Builder
-	self, err := s.client.Join(ctx, &identity, token, "",
-		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	attendance, err := s.client.Attend(actx, token, "", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	if !opening.Stop() && err != nil {
+		err = errors.New("the daemon did not answer the attendance within " +
+			attendTimeout.String())
+	}
 	if err != nil {
-		return "", fmt.Errorf("attending the chat room: %w", err)
+		s.attendanceEnded(err)
+		return false, err
 	}
-	s.joined = true
-	s.self = self
-	s.logger.Info("attending the chat room", "identity", strings.TrimSpace(identity.String()))
-	return token, nil
+	s.attendanceLanded(attendance.Self())
+	if reopened {
+		s.membersChanged(ctx)
+	}
+	// The first event of the feed is this bridge's own arrival, which the
+	// daemon publishes to the room it just joined. It is announced like any
+	// other roster change: the room did gain a member, and every attendee sees
+	// the same feed.
+	err = attendance.Forward(actx, func(ev *chatv1.RoomEvent) error {
+		if rosterChanged(ev) {
+			s.membersChanged(ctx)
+		}
+		return nil
+	})
+	s.attendanceEnded(err)
+	return true, err
 }
 
-// forgetJoined drops the remembered attendance when err is the daemon refusing
-// a caller it does not count as a member, so the next call declares it again.
-// It hands err back unchanged, so the call site returns it in place.
-//
-// A membership the daemon has dropped is news that arrives in one of two ways,
-// and this is the one that arrives as the failure of a call: the daemon reaped
-// a member whose command the team-info provider stopped knowing, a human typed
-// `crabswarm chat leave`, a restarted daemon came back on a fresh database.
-// Without this the bridge would keep acting on a membership that no longer
-// exists — every tool failing the same way forever, and the watch loop spending
-// its backoff on the same refusal — with a join it is already sure it made
-// standing in the way of the one that would fix it. The other way the news
-// arrives is on the room's event feed, which [Server.leftItself] reads.
-//
-// Unauthenticated alone: that is the code the daemon answers a caller it
-// cannot resolve to a member with. NotFound means the member the caller
-// addressed does not exist, which attending again would not change.
-func (s *Server) forgetJoined(err error) error {
-	if status.Code(err) != codes.Unauthenticated {
-		return err
-	}
-	s.joinMu.Lock()
-	defer s.joinMu.Unlock()
-	s.joined = false
-	s.self = nil
-	return err
+// attendanceLanded records an open attendance, which is what lets a tool act on
+// behalf of this member.
+func (s *Server) attendanceLanded(self *chatv1.Member) {
+	s.mu.Lock()
+	s.attended = true
+	s.attendErr = nil
+	s.mu.Unlock()
+	s.settle()
+	s.logger.Info("attending the chat room",
+		"member", cli.Address(self), "room", self.GetRoom())
 }
 
-// leftItself reports whether ev is the room announcing this bridge's own
-// departure, and drops the remembered attendance when it is — the same thing
-// [Server.forgetJoined] does with a refusal, arrived at from the other side.
+// attendanceEnded records that there is no attendance and why, which is what a
+// tool call is refused with until the loop opens the next one.
+func (s *Server) attendanceEnded(err error) {
+	s.mu.Lock()
+	s.attended = false
+	s.attendErr = err
+	s.mu.Unlock()
+	s.settle()
+}
+
+// settle releases the tool calls waiting for the first attempt to finish. Every
+// attempt after that finds the gate already open and answers from what the last
+// one recorded.
+func (s *Server) settle() {
+	s.settleOnce.Do(func() { close(s.settled) })
+}
+
+// awaitAttendance blocks until the bridge has an answer about its attendance
+// and returns nil when it has one.
 //
-// The daemon publishes a member's departure into the feed that member is
-// reading, and it authorises a feed once and never again, so the stream carries
-// on after the membership behind it is gone. Nothing else would tell the bridge:
-// its next call would be refused, but that call may be hours away, and every
-// hook reporting harness state in the meantime fails as an unknown caller.
+// The wait is only ever for the first attempt: a harness starts its MCP
+// subprocesses before the services they talk to, so a tool called in the first
+// moments of a session would otherwise be refused for no better reason than
+// having arrived first.
 //
-// A member is matched by team and name because that is all a departure carries;
-// the identity is the one the daemon itself settled on at the last join, so the
-// comparison is against the daemon's own spelling rather than a guess.
-//
-// This makes a `crabswarm chat leave` typed against a live bridge an instruction
-// the bridge undoes within seconds. That is intended. The bridge is the
-// session's membership, and it keeps attending until the session ends: a room
-// missing a member whose agent is still running is the failure this exists to
-// prevent, and leaving is spelled by stopping the harness.
-//
-// An admin move announces the moved member's departure under its old team and
-// name, so it matches here as well. The join that follows finds the token
-// already attending and returns the moved membership unchanged, so the move
-// stands; the cost is one redundant round trip and a reopened feed.
-func (s *Server) leftItself(ev *chatv1.RoomEvent) bool {
-	left := ev.GetMemberLeft().GetMember()
-	if left == nil {
-		return false
+// After that a call is answered from what the loop last recorded. A tool called
+// in the gap between an attendance ending and the next one opening is refused
+// with why the last one ended — the gap is a backoff wide and the agent can
+// call again, where waiting it out would hand the model a tool that sometimes
+// blocks for seconds with nothing to show for it.
+func (s *Server) awaitAttendance(ctx context.Context) error {
+	select {
+	case <-s.settled:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	s.joinMu.Lock()
-	defer s.joinMu.Unlock()
-	if !s.joined || s.self == nil ||
-		left.GetTeam() != s.self.GetTeam() || left.GetName() != s.self.GetName() {
-		return false
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch {
+	case s.attended:
+		return nil
+	case s.attendErr != nil:
+		return s.attendErr
+	default:
+		return errNotAttending
 	}
-	s.joined = false
-	s.self = nil
-	return true
 }

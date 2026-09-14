@@ -2,11 +2,11 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
@@ -16,18 +16,20 @@ import (
 type sentMsg struct {
 	// room is where the line was addressed, which is not necessarily the room
 	// on screen by the time the answer arrives.
-	room      string
-	target    cli.AdminTarget
-	line      string
-	delivered int32
-	err       error
+	room   string
+	target *chatv1.Target
+	line   string
+	// absent is the roles the target named that nobody is attending under. The
+	// message was accepted either way and waits at their read position.
+	absent []*chatv1.Member
+	err    error
 }
 
 // submit sends what is written in the message pane.
 //
-// Who it is for is read out of the message itself — the first bare `@token`,
-// or the whole room where there is none — and the text goes whole, that token
-// included, so the room reads who was asked.
+// Who it is for is read out of the message itself — its bare `@token`s, or
+// nobody where there are none — and the text goes whole, those tokens included,
+// so the room reads who was asked.
 //
 // The pane is cleared as it goes and nothing is added to the conversation: what
 // the room said is the log's to say, and the message appears in the pane when
@@ -50,7 +52,7 @@ func (m *model) submit() tea.Cmd {
 	}
 	m.text.Reset()
 	m.closeCompletion()
-	m.notice = "sending to " + target.String()
+	m.notice = "sending " + addressed(target)
 	// Sending is asking to be read: whatever the operator had scrolled back to,
 	// their own message and the answer to it are at the bottom.
 	m.following = true
@@ -62,13 +64,30 @@ func (m *model) submit() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, callTimeout)
 		defer cancel()
-		delivered, err := sender.Send(ctx, room, target, text)
+		resp, err := sender.Send(ctx, room, target, text)
 		return sentMsg{
-			room: room, target: target, line: line, delivered: delivered, err: err}
+			room: room, target: target, line: line,
+			absent: resp.GetAbsent(), err: err,
+		}
 	}
 }
 
+// addressed says who a message is for in the words the operator wrote it with,
+// so the system line names what they typed. A post names nobody, and saying so
+// is the point: it interrupts no one.
+func addressed(target *chatv1.Target) string {
+	if target == nil {
+		return "a post"
+	}
+	return "to " + cli.TargetString(target)
+}
+
 // applySent reports how the delivery went on the system line.
+//
+// A role nobody is attending under is worth saying: the daemon took the message
+// and it waits at that role's read position, so an operator expecting an answer
+// is waiting for a session that is not there. The warnings share the one line
+// the system line is, since a second would push the whole screen down.
 func (m *model) applySent(msg sentMsg) {
 	if msg.err != nil {
 		m.notice = "not sent: " + msg.err.Error()
@@ -84,7 +103,12 @@ func (m *model) applySent(msg sentMsg) {
 		m.layout()
 		return
 	}
-	m.notice = fmt.Sprintf("sent to %s (%d delivered)", msg.target, msg.delivered)
+	notice := []string{"sent " + addressed(msg.target)}
+	for _, member := range msg.absent {
+		notice = append(notice,
+			"warning: "+cli.Address(member)+" is not attending; the mention waits")
+	}
+	m.notice = strings.Join(notice, "; ")
 }
 
 // rejoined puts a refused message back in front of whatever has been written

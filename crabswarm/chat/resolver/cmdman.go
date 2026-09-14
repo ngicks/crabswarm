@@ -50,10 +50,11 @@ var tokenPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // that process ended or was stopped.
 //
 // A word outside this set draws no verdict at all: it fails the lookup, which
-// keeps the member. The caller reaps on [ErrUnknownToken], so reading anything
-// that is not "running" as gone would let a cmdman that renamed or re-cased its
-// states — "Running" — reap every agent in one sweep, while an unrecognised
-// state reports loudly and costs nothing but a stale member.
+// the caller reports as something to try again. [ErrUnknownToken] refuses an
+// attendance outright, so reading anything that is not "running" as gone would
+// let a cmdman that renamed or re-cased its states — "Running" — turn away every
+// agent trying to attend, while an unrecognised state reports loudly and costs
+// nothing but a retry.
 var commandStates = map[string]bool{
 	"created": false,
 	"running": true,
@@ -72,8 +73,8 @@ var commandStates = map[string]bool{
 //
 // The match is deliberately narrow rather than "any non-zero exit". Reading
 // every failure as unknown would turn a missing cmdman binary or a locked
-// cmdman store into a mass member reap upstream; if cmdman ever rephrases
-// this message the join fails loudly instead, which is the recoverable
+// cmdman store into a room nobody can attend; if cmdman ever rephrases this
+// message the lookup fails loudly instead, which is the recoverable
 // direction.
 const notFoundMessage = "no command found"
 
@@ -159,7 +160,7 @@ func (p *CmdmanCompose) Resolve(ctx context.Context, token string) (TeamInfo, er
 	}
 	// The label values are used verbatim. Compose authors choose them, and a
 	// name that cannot be addressed — one carrying the "/" that separates team
-	// from name — is rejected when the member joins; sanitizing here would
+	// from name — is rejected when the member attends; sanitizing here would
 	// instead hand out a name nobody wrote. A command label is not required:
 	// without it there is simply no derived name, and the caller falls back to
 	// its own default.

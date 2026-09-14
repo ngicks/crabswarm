@@ -12,7 +12,7 @@ import type { Message as Message$1 } from "@bufbuild/protobuf";
  * Describes the file ngicks/crabswarm/chat/v1/chat_service.proto.
  */
 export const file_ngicks_crabswarm_chat_v1_chat_service: GenFile = /*@__PURE__*/
-  fileDesc("CituZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjEvY2hhdF9zZXJ2aWNlLnByb3RvEhhuZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEinQEKBk1lbWJlchIMCgRuYW1lGAEgASgJEgwKBHRlYW0YAiABKAkSDAoEcm9vbRgDIAEoCRI1CgVzdGF0ZRgEIAEoDjImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5IYXJuZXNzU3RhdGUSMgoEa2luZBgFIAEoDjIkLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJLaW5kIkcKBFJvb20SDAoEbmFtZRgBIAEoCRIxCgdtZW1iZXJzGAIgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJ0CgdNZXNzYWdlEi4KBGZyb20YASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEgwKBHRleHQYAiABKAkSKwoHc2VudF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiYQoLSm9pblJlcXVlc3QSDAoEbmFtZRgBIAEoCRIyCgRraW5kGAUgASgOMiQubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlcktpbmRKBAgCEANKBAgDEARKBAgEEAUiPgoMSm9pblJlc3BvbnNlEi4KBHNlbGYYASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIicKC1NlbmRSZXF1ZXN0EgoKAnRvGAEgASgJEgwKBHRleHQYAiABKAkiQwoMU2VuZFJlc3BvbnNlEjMKCXJlY2lwaWVudBgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiIAoQQnJvYWRjYXN0UmVxdWVzdBIMCgR0ZXh0GAEgASgJIiwKEUJyb2FkY2FzdFJlc3BvbnNlEhcKD2RlbGl2ZXJlZF9jb3VudBgBIAEoBSINCgtSZWFkUmVxdWVzdCJDCgxSZWFkUmVzcG9uc2USMwoIbWVzc2FnZXMYASADKAsyIS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVzc2FnZSIfCg5IaXN0b3J5UmVxdWVzdBINCgVsaW1pdBgBIAEoBSKnAQoMSGlzdG9yeUVudHJ5Ei4KBGZyb20YASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEiwKAnRvGAIgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchIMCgR0ZXh0GAMgASgJEisKB3NlbnRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkoKD0hpc3RvcnlSZXNwb25zZRI3CgdlbnRyaWVzGAEgAygLMiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkhpc3RvcnlFbnRyeSIUChJMaXN0TWVtYmVyc1JlcXVlc3QiSAoTTGlzdE1lbWJlcnNSZXNwb25zZRIxCgdtZW1iZXJzGAEgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciIOCgxMZWF2ZVJlcXVlc3QiDwoNTGVhdmVSZXNwb25zZSJLChJSZXBvcnRTdGF0ZVJlcXVlc3QSNQoFc3RhdGUYASABKA4yJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSGFybmVzc1N0YXRlIhUKE1JlcG9ydFN0YXRlUmVzcG9uc2UiEgoQV2F0Y2hSb29tUmVxdWVzdCJ9ChJNZW1iZXJTdGF0ZUNoYW5nZWQSMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchI1CgVzdGF0ZRgCIAEoDjImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5IYXJuZXNzU3RhdGUiQAoMTWVtYmVySm9pbmVkEjAKBm1lbWJlchgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXIiPgoKTWVtYmVyTGVmdBIwCgZtZW1iZXIYASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIkUKD01lc3NhZ2VBcHBlbmRlZBIyCgdtZXNzYWdlGAEgASgLMiEubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lc3NhZ2UipwIKCVJvb21FdmVudBJMChRtZW1iZXJfc3RhdGVfY2hhbmdlZBgBIAEoCzIsLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJTdGF0ZUNoYW5nZWRIABI/Cg1tZW1iZXJfam9pbmVkGAIgASgLMiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlckpvaW5lZEgAEjsKC21lbWJlcl9sZWZ0GAMgASgLMiQubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlckxlZnRIABJFChBtZXNzYWdlX2FwcGVuZGVkGAQgASgLMikubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lc3NhZ2VBcHBlbmRlZEgAQgcKBWV2ZW50IhEKD0dldE5vbmNlUmVxdWVzdCJbChBHZXROb25jZVJlc3BvbnNlEhcKD2VuY3J5cHRlZF9ub25jZRgBIAEoDBIuCgpleHBpcmVzX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCISChBMaXN0Um9vbXNSZXF1ZXN0IkIKEUxpc3RSb29tc1Jlc3BvbnNlEi0KBXJvb21zGAEgAygLMh4ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJvb20iTgoRTW92ZU1lbWJlclJlcXVlc3QSDAoEcm9vbRgBIAEoCRIMCgR0ZWFtGAIgASgJEgwKBG5hbWUYAyABKAkSDwoHdG9fdGVhbRgEIAEoCSJGChJNb3ZlTWVtYmVyUmVzcG9uc2USMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJBChVSZWdpc3Rlck1lbWJlclJlcXVlc3QSDAoEcm9vbRgBIAEoCRIMCgR0ZWFtGAIgASgJEgwKBG5hbWUYAyABKAkiWQoWUmVnaXN0ZXJNZW1iZXJSZXNwb25zZRIwCgZtZW1iZXIYASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEg0KBXRva2VuGAIgASgJIuYBChBBZG1pblNlbmRSZXF1ZXN0EgwKBHJvb20YASABKAkSDAoEdGV4dBgDIAEoCRI2CghldmVyeW9uZRgEIAEoCzIiLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5FdmVyeW9uZUgAEjQKBHRlYW0YBSABKAsyJC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuVGVhbVRhcmdldEgAEjgKBm1lbWJlchgGIAEoCzImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJUYXJnZXRIAEIICgZ0YXJnZXRKBAgCEAMiCgoIRXZlcnlvbmUiGgoKVGVhbVRhcmdldBIMCgR0ZWFtGAEgASgJIioKDE1lbWJlclRhcmdldBIMCgR0ZWFtGAEgASgJEgwKBG5hbWUYAiABKAkiJgoRQWRtaW5TZW5kUmVzcG9uc2USEQoJZGVsaXZlcmVkGAEgASgFIkQKE0FkbWluSGlzdG9yeVJlcXVlc3QSDAoEcm9vbRgBIAEoCRINCgVsaW1pdBgCIAEoBRIQCghzaW5jZV9pZBgDIAEoAyK4AQoRQWRtaW5IaXN0b3J5RW50cnkSCgoCaWQYASABKAMSLgoEZnJvbRgCIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXISLAoCdG8YAyABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEgwKBHRleHQYBCABKAkSKwoHc2VudF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiVAoUQWRtaW5IaXN0b3J5UmVzcG9uc2USPAoHZW50cmllcxgBIAMoCzIrLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5BZG1pbkhpc3RvcnlFbnRyeSp7CgxIYXJuZXNzU3RhdGUSHQoZSEFSTkVTU19TVEFURV9VTlNQRUNJRklFRBAAEhkKFUhBUk5FU1NfU1RBVEVfV09SS0lORxABEhkKFUhBUk5FU1NfU1RBVEVfV0FJVElORxACEhYKEkhBUk5FU1NfU1RBVEVfRE9ORRADKlcKCk1lbWJlcktpbmQSGwoXTUVNQkVSX0tJTkRfVU5TUEVDSUZJRUQQABIVChFNRU1CRVJfS0lORF9BR0VOVBABEhUKEU1FTUJFUl9LSU5EX0hVTUFOEAIy6gYKC0NoYXRTZXJ2aWNlElUKBEpvaW4SJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSm9pblJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSm9pblJlc3BvbnNlElUKBFNlbmQSJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuU2VuZFJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuU2VuZFJlc3BvbnNlEmQKCUJyb2FkY2FzdBIqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Ccm9hZGNhc3RSZXF1ZXN0GisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkJyb2FkY2FzdFJlc3BvbnNlElUKBFJlYWQSJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVhZFJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVhZFJlc3BvbnNlEl4KB0hpc3RvcnkSKC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSGlzdG9yeVJlcXVlc3QaKS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSGlzdG9yeVJlc3BvbnNlEmoKC0xpc3RNZW1iZXJzEiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RNZW1iZXJzUmVxdWVzdBotLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0TWVtYmVyc1Jlc3BvbnNlElgKBUxlYXZlEiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxlYXZlUmVxdWVzdBonLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MZWF2ZVJlc3BvbnNlEmoKC1JlcG9ydFN0YXRlEiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlcG9ydFN0YXRlUmVxdWVzdBotLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZXBvcnRTdGF0ZVJlc3BvbnNlEl4KCVdhdGNoUm9vbRIqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5XYXRjaFJvb21SZXF1ZXN0GiMubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJvb21FdmVudDABMoQFChBDaGF0QWRtaW5TZXJ2aWNlEmEKCEdldE5vbmNlEikubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkdldE5vbmNlUmVxdWVzdBoqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5HZXROb25jZVJlc3BvbnNlEmQKCUxpc3RSb29tcxIqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0Um9vbXNSZXF1ZXN0GisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RSb29tc1Jlc3BvbnNlEmcKCk1vdmVNZW1iZXISKy5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTW92ZU1lbWJlclJlcXVlc3QaLC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTW92ZU1lbWJlclJlc3BvbnNlEnMKDlJlZ2lzdGVyTWVtYmVyEi8ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlZ2lzdGVyTWVtYmVyUmVxdWVzdBowLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWdpc3Rlck1lbWJlclJlc3BvbnNlEl8KBFNlbmQSKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQWRtaW5TZW5kUmVxdWVzdBorLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5BZG1pblNlbmRSZXNwb25zZRJoCgdIaXN0b3J5Ei0ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkFkbWluSGlzdG9yeVJlcXVlc3QaLi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQWRtaW5IaXN0b3J5UmVzcG9uc2VCgQIKHGNvbS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjFCEENoYXRTZXJ2aWNlUHJvdG9QAVpMZ2l0aHViLmNvbS9uZ2lja3MvY3JhYnN3YXJtL2FwaS9nZW4vcHJvdG8vZ28vbmdpY2tzL2NyYWJzd2FybS9jaGF0L3YxO2NoYXR2MaICA05DQ6oCGE5naWNrcy5DcmFic3dhcm0uQ2hhdC5WMcoCGE5naWNrc1xDcmFic3dhcm1cQ2hhdFxWMeICJE5naWNrc1xDcmFic3dhcm1cQ2hhdFxWMVxHUEJNZXRhZGF0YeoCG05naWNrczo6Q3JhYnN3YXJtOjpDaGF0OjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("CituZ2lja3MvY3JhYnN3YXJtL2NoYXQvdjEvY2hhdF9zZXJ2aWNlLnByb3RvEhhuZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEinQEKBk1lbWJlchIMCgRuYW1lGAEgASgJEgwKBHRlYW0YAiABKAkSDAoEcm9vbRgDIAEoCRI1CgVzdGF0ZRgEIAEoDjImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5IYXJuZXNzU3RhdGUSMgoEa2luZBgFIAEoDjIkLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJLaW5kIkcKBFJvb20SDAoEbmFtZRgBIAEoCRIxCgdtZW1iZXJzGAIgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJ8CgZUYXJnZXQSNgoIZXZlcnlvbmUYASABKAsyIi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuRXZlcnlvbmVIABIwCgVyb2xlcxgCIAEoCzIfLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5Sb2xlc0gAQggKBnRhcmdldCIKCghFdmVyeW9uZSI+CgVSb2xlcxI1CgVyb2xlcxgBIAMoCzImLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJUYXJnZXQiKgoMTWVtYmVyVGFyZ2V0EgwKBHRlYW0YASABKAkSDAoEbmFtZRgCIAEoCSLWAQoHTWVzc2FnZRIKCgJpZBgBIAEoCRILCgNzZXEYByABKAMSLgoEZnJvbRgCIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXISMAoGdGFyZ2V0GAMgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlRhcmdldBIMCgR0ZXh0GAQgASgJEisKB3NlbnRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKDW1lbnRpb25lZF95b3UYBiABKAgiUQoNQXR0ZW5kUmVxdWVzdBIMCgRuYW1lGAEgASgJEjIKBGtpbmQYAiABKA4yJC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyS2luZCI6CghBdHRlbmRlZBIuCgRzZWxmGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJTCgtTZW5kUmVxdWVzdBIwCgZ0YXJnZXQYAyABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuVGFyZ2V0EgwKBHRleHQYAiABKAlKBAgBEAIiewoMU2VuZFJlc3BvbnNlEjMKCW1lbnRpb25lZBgCIAMoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXISMAoGYWJzZW50GAMgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlckoECAEQAiKdAQoKUmVhZEZpbHRlchI0CgZjdXJzb3IYASABKA4yJC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVhZEN1cnNvchINCgVyYW5nZRgCIAEoBRIsCgJ0bxgDIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5UYXJnZXQSDQoFc2luY2UYBCABKAMSDQoFdW50aWwYBSABKAMiQwoLUmVhZFJlcXVlc3QSNAoGZmlsdGVyGAEgASgLMiQubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlYWRGaWx0ZXIiXQoMUmVhZFJlc3BvbnNlEjMKCG1lc3NhZ2VzGAEgAygLMiEubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lc3NhZ2USGAoQcmVtYWluaW5nX3VucmVhZBgCIAEoBSIUChJMaXN0TWVtYmVyc1JlcXVlc3QiSAoTTGlzdE1lbWJlcnNSZXNwb25zZRIxCgdtZW1iZXJzGAEgAygLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJLChJSZXBvcnRTdGF0ZVJlcXVlc3QSNQoFc3RhdGUYASABKA4yJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSGFybmVzc1N0YXRlIhUKE1JlcG9ydFN0YXRlUmVzcG9uc2UifQoSTWVtYmVyU3RhdGVDaGFuZ2VkEjAKBm1lbWJlchgBIAEoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXISNQoFc3RhdGUYAiABKA4yJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuSGFybmVzc1N0YXRlIkAKDE1lbWJlckpvaW5lZBIwCgZtZW1iZXIYASABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyIj4KCk1lbWJlckxlZnQSMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlciJFCg9NZXNzYWdlQXBwZW5kZWQSMgoHbWVzc2FnZRgBIAEoCzIhLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZXNzYWdlIt8CCglSb29tRXZlbnQSNgoIYXR0ZW5kZWQYBSABKAsyIi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQXR0ZW5kZWRIABJMChRtZW1iZXJfc3RhdGVfY2hhbmdlZBgBIAEoCzIsLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJTdGF0ZUNoYW5nZWRIABI/Cg1tZW1iZXJfam9pbmVkGAIgASgLMiYubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlckpvaW5lZEgAEjsKC21lbWJlcl9sZWZ0GAMgASgLMiQubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlckxlZnRIABJFChBtZXNzYWdlX2FwcGVuZGVkGAQgASgLMikubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lc3NhZ2VBcHBlbmRlZEgAQgcKBWV2ZW50IhEKD0dldE5vbmNlUmVxdWVzdCJbChBHZXROb25jZVJlc3BvbnNlEhcKD2VuY3J5cHRlZF9ub25jZRgBIAEoDBIuCgpleHBpcmVzX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCISChBMaXN0Um9vbXNSZXF1ZXN0IkIKEUxpc3RSb29tc1Jlc3BvbnNlEi0KBXJvb21zGAEgAygLMh4ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJvb20iQQoVUmVnaXN0ZXJNZW1iZXJSZXF1ZXN0EgwKBHJvb20YASABKAkSDAoEdGVhbRgCIAEoCRIMCgRuYW1lGAMgASgJIlkKFlJlZ2lzdGVyTWVtYmVyUmVzcG9uc2USMAoGbWVtYmVyGAEgASgLMiAubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lbWJlchINCgV0b2tlbhgCIAEoCSJyChBBZG1pblNlbmRSZXF1ZXN0EgwKBHJvb20YASABKAkSDAoEdGV4dBgDIAEoCRIwCgZ0YXJnZXQYBCABKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuVGFyZ2V0SgQIAhADSgQIBRAGSgQIBhAHIoABChFBZG1pblNlbmRSZXNwb25zZRIzCgltZW50aW9uZWQYAiADKAsyIC5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuTWVtYmVyEjAKBmFic2VudBgDIAMoCzIgLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5NZW1iZXJKBAgBEAIiZQoTQWRtaW5IaXN0b3J5UmVxdWVzdBIMCgRyb29tGAEgASgJEjQKBmZpbHRlchgEIAEoCzIkLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWFkRmlsdGVySgQIAhADSgQIAxAEIlEKFEFkbWluSGlzdG9yeVJlc3BvbnNlEjMKCG1lc3NhZ2VzGAIgAygLMiEubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLk1lc3NhZ2VKBAgBEAIiIQoRRGVsZXRlUm9vbVJlcXVlc3QSDAoEcm9vbRgBIAEoCSIuChJEZWxldGVSb29tUmVzcG9uc2USGAoQZGVsZXRlZF9tZXNzYWdlcxgBIAEoAyp7CgxIYXJuZXNzU3RhdGUSHQoZSEFSTkVTU19TVEFURV9VTlNQRUNJRklFRBAAEhkKFUhBUk5FU1NfU1RBVEVfV09SS0lORxABEhkKFUhBUk5FU1NfU1RBVEVfV0FJVElORxACEhYKEkhBUk5FU1NfU1RBVEVfRE9ORRADKlcKCk1lbWJlcktpbmQSGwoXTUVNQkVSX0tJTkRfVU5TUEVDSUZJRUQQABIVChFNRU1CRVJfS0lORF9BR0VOVBABEhUKEU1FTUJFUl9LSU5EX0hVTUFOEAIqbQoKUmVhZEN1cnNvchIbChdSRUFEX0NVUlNPUl9VTlNQRUNJRklFRBAAEhYKElJFQURfQ1VSU09SX1VOUkVBRBABEhQKEFJFQURfQ1VSU09SX0hFQUQQAhIUChBSRUFEX0NVUlNPUl9UQUlMEAMy7QMKC0NoYXRTZXJ2aWNlElgKBkF0dGVuZBInLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5BdHRlbmRSZXF1ZXN0GiMubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJvb21FdmVudDABElUKBFNlbmQSJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuU2VuZFJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuU2VuZFJlc3BvbnNlElUKBFJlYWQSJS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVhZFJlcXVlc3QaJi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuUmVhZFJlc3BvbnNlEmoKC0xpc3RNZW1iZXJzEiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RNZW1iZXJzUmVxdWVzdBotLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0TWVtYmVyc1Jlc3BvbnNlEmoKC1JlcG9ydFN0YXRlEiwubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlcG9ydFN0YXRlUmVxdWVzdBotLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZXBvcnRTdGF0ZVJlc3BvbnNlMoQFChBDaGF0QWRtaW5TZXJ2aWNlEmEKCEdldE5vbmNlEikubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkdldE5vbmNlUmVxdWVzdBoqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5HZXROb25jZVJlc3BvbnNlEmQKCUxpc3RSb29tcxIqLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5MaXN0Um9vbXNSZXF1ZXN0GisubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkxpc3RSb29tc1Jlc3BvbnNlEnMKDlJlZ2lzdGVyTWVtYmVyEi8ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLlJlZ2lzdGVyTWVtYmVyUmVxdWVzdBowLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5SZWdpc3Rlck1lbWJlclJlc3BvbnNlEl8KBFNlbmQSKi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQWRtaW5TZW5kUmVxdWVzdBorLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5BZG1pblNlbmRSZXNwb25zZRJoCgdIaXN0b3J5Ei0ubmdpY2tzLmNyYWJzd2FybS5jaGF0LnYxLkFkbWluSGlzdG9yeVJlcXVlc3QaLi5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjEuQWRtaW5IaXN0b3J5UmVzcG9uc2USZwoKRGVsZXRlUm9vbRIrLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5EZWxldGVSb29tUmVxdWVzdBosLm5naWNrcy5jcmFic3dhcm0uY2hhdC52MS5EZWxldGVSb29tUmVzcG9uc2VCgQIKHGNvbS5uZ2lja3MuY3JhYnN3YXJtLmNoYXQudjFCEENoYXRTZXJ2aWNlUHJvdG9QAVpMZ2l0aHViLmNvbS9uZ2lja3MvY3JhYnN3YXJtL2FwaS9nZW4vcHJvdG8vZ28vbmdpY2tzL2NyYWJzd2FybS9jaGF0L3YxO2NoYXR2MaICA05DQ6oCGE5naWNrcy5DcmFic3dhcm0uQ2hhdC5WMcoCGE5naWNrc1xDcmFic3dhcm1cQ2hhdFxWMeICJE5naWNrc1xDcmFic3dhcm1cQ2hhdFxWMVxHUEJNZXRhZGF0YeoCG05naWNrczo6Q3JhYnN3YXJtOjpDaGF0OjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * Member is one participant of a room.
@@ -55,8 +55,8 @@ export type Member = Message$1<"ngicks.crabswarm.chat.v1.Member"> & {
   state: HarnessState;
 
   /**
-   * Kind is how the member joined. It is unspecified only on a sender
-   * snapshot, which records who spoke rather than who is attending.
+   * Kind is what attends. It is unspecified only on a sender snapshot, which
+   * records who spoke rather than who is attending.
    *
    * @generated from field: ngicks.crabswarm.chat.v1.MemberKind kind = 5;
    */
@@ -99,31 +99,157 @@ export const RoomSchema: GenMessage<Room> = /*@__PURE__*/
   messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 1);
 
 /**
- * Message is one delivered chat message.
+ * Target is who a message is for. Unset means a board post.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.Target
+ */
+export type Target = Message$1<"ngicks.crabswarm.chat.v1.Target"> & {
+  /**
+   * @generated from oneof ngicks.crabswarm.chat.v1.Target.target
+   */
+  target: {
+    /**
+     * @generated from field: ngicks.crabswarm.chat.v1.Everyone everyone = 1;
+     */
+    value: Everyone;
+    case: "everyone";
+  } | {
+    /**
+     * @generated from field: ngicks.crabswarm.chat.v1.Roles roles = 2;
+     */
+    value: Roles;
+    case: "roles";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.Target.
+ * Use `create(TargetSchema)` to create a new message.
+ */
+export const TargetSchema: GenMessage<Target> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 2);
+
+/**
+ * Everyone is the whole-room target; it carries nothing.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.Everyone
+ */
+export type Everyone = Message$1<"ngicks.crabswarm.chat.v1.Everyone"> & {
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.Everyone.
+ * Use `create(EveryoneSchema)` to create a new message.
+ */
+export const EveryoneSchema: GenMessage<Everyone> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 3);
+
+/**
+ * Roles is an explicit list. A MemberTarget with an empty team is a bare name
+ * the daemon resolves in the sender's own team first, then uniquely across the
+ * room; a name two teams of the room carry is refused as ambiguous.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.Roles
+ */
+export type Roles = Message$1<"ngicks.crabswarm.chat.v1.Roles"> & {
+  /**
+   * @generated from field: repeated ngicks.crabswarm.chat.v1.MemberTarget roles = 1;
+   */
+  roles: MemberTarget[];
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.Roles.
+ * Use `create(RolesSchema)` to create a new message.
+ */
+export const RolesSchema: GenMessage<Roles> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 4);
+
+/**
+ * MemberTarget is one member. An empty Team resolves Name the way a bare
+ * name does for a member send: in the sender's team first -- the admin has
+ * none -- then uniquely across the room; a name carried by two teams is
+ * rejected as ambiguous and the error names them.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.MemberTarget
+ */
+export type MemberTarget = Message$1<"ngicks.crabswarm.chat.v1.MemberTarget"> & {
+  /**
+   * @generated from field: string team = 1;
+   */
+  team: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.MemberTarget.
+ * Use `create(MemberTargetSchema)` to create a new message.
+ */
+export const MemberTargetSchema: GenMessage<MemberTarget> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 5);
+
+/**
+ * Message is one row of a room's conversation.
  *
  * @generated from message ngicks.crabswarm.chat.v1.Message
  */
 export type Message = Message$1<"ngicks.crabswarm.chat.v1.Message"> & {
   /**
+   * Id is a UUID v7, unique everywhere.
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Seq is the message's place in its room: dense, increasing, per room.
+   * Read positions and since/until are seqs.
+   *
+   * @generated from field: int64 seq = 7;
+   */
+  seq: bigint;
+
+  /**
    * From is the sender, as resolved at send time.
    *
-   * @generated from field: ngicks.crabswarm.chat.v1.Member from = 1;
+   * @generated from field: ngicks.crabswarm.chat.v1.Member from = 2;
    */
   from?: Member | undefined;
 
   /**
+   * Target is the written target: the roles as resolved, or everyone.
+   * Unset for a board post.
+   *
+   * @generated from field: ngicks.crabswarm.chat.v1.Target target = 3;
+   */
+  target?: Target | undefined;
+
+  /**
    * Text is the message body.
    *
-   * @generated from field: string text = 2;
+   * @generated from field: string text = 4;
    */
   text: string;
 
   /**
    * SentAt is when the daemon accepted the message.
    *
-   * @generated from field: google.protobuf.Timestamp sent_at = 3;
+   * @generated from field: google.protobuf.Timestamp sent_at = 5;
    */
   sentAt?: Timestamp | undefined;
+
+  /**
+   * MentionedYou is set on a message returned to a member that targets it
+   * or everyone, was not sent by it, and lay past its read position before
+   * this read.
+   *
+   * @generated from field: bool mentioned_you = 6;
+   */
+  mentionedYou: boolean;
 };
 
 /**
@@ -131,12 +257,12 @@ export type Message = Message$1<"ngicks.crabswarm.chat.v1.Message"> & {
  * Use `create(MessageSchema)` to create a new message.
  */
 export const MessageSchema: GenMessage<Message> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 2);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 6);
 
 /**
- * @generated from message ngicks.crabswarm.chat.v1.JoinRequest
+ * @generated from message ngicks.crabswarm.chat.v1.AttendRequest
  */
-export type JoinRequest = Message$1<"ngicks.crabswarm.chat.v1.JoinRequest"> & {
+export type AttendRequest = Message$1<"ngicks.crabswarm.chat.v1.AttendRequest"> & {
   /**
    * Name is the name to attend under, unique within the caller's team.
    *
@@ -150,25 +276,27 @@ export type JoinRequest = Message$1<"ngicks.crabswarm.chat.v1.JoinRequest"> & {
    * human, since nudging the wrong kind types keystrokes into somebody's
    * shell.
    *
-   * @generated from field: ngicks.crabswarm.chat.v1.MemberKind kind = 5;
+   * @generated from field: ngicks.crabswarm.chat.v1.MemberKind kind = 2;
    */
   kind: MemberKind;
 };
 
 /**
- * Describes the message ngicks.crabswarm.chat.v1.JoinRequest.
- * Use `create(JoinRequestSchema)` to create a new message.
+ * Describes the message ngicks.crabswarm.chat.v1.AttendRequest.
+ * Use `create(AttendRequestSchema)` to create a new message.
  */
-export const JoinRequestSchema: GenMessage<JoinRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 3);
+export const AttendRequestSchema: GenMessage<AttendRequest> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 7);
 
 /**
- * @generated from message ngicks.crabswarm.chat.v1.JoinResponse
+ * Attended is the first event of an Attend stream.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.Attended
  */
-export type JoinResponse = Message$1<"ngicks.crabswarm.chat.v1.JoinResponse"> & {
+export type Attended = Message$1<"ngicks.crabswarm.chat.v1.Attended"> & {
   /**
-   * Self is the joined member, carrying the room and team the server derived
-   * from the token.
+   * Self is the attending member, carrying the room and team the server
+   * derived from the token.
    *
    * @generated from field: ngicks.crabswarm.chat.v1.Member self = 1;
    */
@@ -176,25 +304,22 @@ export type JoinResponse = Message$1<"ngicks.crabswarm.chat.v1.JoinResponse"> & 
 };
 
 /**
- * Describes the message ngicks.crabswarm.chat.v1.JoinResponse.
- * Use `create(JoinResponseSchema)` to create a new message.
+ * Describes the message ngicks.crabswarm.chat.v1.Attended.
+ * Use `create(AttendedSchema)` to create a new message.
  */
-export const JoinResponseSchema: GenMessage<JoinResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 4);
+export const AttendedSchema: GenMessage<Attended> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 8);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.SendRequest
  */
 export type SendRequest = Message$1<"ngicks.crabswarm.chat.v1.SendRequest"> & {
   /**
-   * To addresses one member of the caller's room, as "name" or "team/name".
-   * A bare name resolves within the caller's team first, then room-wide if it
-   * is unique there; a name that collides across teams needs the "team/"
-   * prefix.
+   * Target is optional. Unset is a board post.
    *
-   * @generated from field: string to = 1;
+   * @generated from field: ngicks.crabswarm.chat.v1.Target target = 3;
    */
-  to: string;
+  target?: Target | undefined;
 
   /**
    * Text is the message body.
@@ -209,18 +334,28 @@ export type SendRequest = Message$1<"ngicks.crabswarm.chat.v1.SendRequest"> & {
  * Use `create(SendRequestSchema)` to create a new message.
  */
 export const SendRequestSchema: GenMessage<SendRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 5);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 9);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.SendResponse
  */
 export type SendResponse = Message$1<"ngicks.crabswarm.chat.v1.SendResponse"> & {
   /**
-   * Recipient is the member the address resolved to.
+   * Mentioned is every role the target resolved to. Empty for a post and for
+   * everyone, which names no one in particular.
    *
-   * @generated from field: ngicks.crabswarm.chat.v1.Member recipient = 1;
+   * @generated from field: repeated ngicks.crabswarm.chat.v1.Member mentioned = 2;
    */
-  recipient?: Member | undefined;
+  mentioned: Member[];
+
+  /**
+   * Absent lists the mentioned roles nobody is attending under; the mention
+   * waits for them. A client prints a warning per entry. A role that has
+   * never attended is not absent but unknown: the send is refused.
+   *
+   * @generated from field: repeated ngicks.crabswarm.chat.v1.Member absent = 3;
+   */
+  absent: Member[];
 };
 
 /**
@@ -228,51 +363,71 @@ export type SendResponse = Message$1<"ngicks.crabswarm.chat.v1.SendResponse"> & 
  * Use `create(SendResponseSchema)` to create a new message.
  */
 export const SendResponseSchema: GenMessage<SendResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 6);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 10);
 
 /**
- * @generated from message ngicks.crabswarm.chat.v1.BroadcastRequest
+ * ReadFilter is the one read shape, shared by Read and AdminHistory and
+ * mirrored by the CLI flags and the bridge tool arguments.
+ *
+ * @generated from message ngicks.crabswarm.chat.v1.ReadFilter
  */
-export type BroadcastRequest = Message$1<"ngicks.crabswarm.chat.v1.BroadcastRequest"> & {
+export type ReadFilter = Message$1<"ngicks.crabswarm.chat.v1.ReadFilter"> & {
   /**
-   * Text is the message body.
-   *
-   * @generated from field: string text = 1;
+   * @generated from field: ngicks.crabswarm.chat.v1.ReadCursor cursor = 1;
    */
-  text: string;
+  cursor: ReadCursor;
+
+  /**
+   * Range is how many messages from the cursor: forward when positive,
+   * backward when negative. Zero means ten in the cursor's natural
+   * direction: +10 for UNREAD and HEAD, -10 for TAIL. "unread +10" is the
+   * first ten unread; "tail" alone the last ten of the room. A range against
+   * the cursor's direction is refused with InvalidArgument: nothing lies
+   * before HEAD or after TAIL, and UNREAD counts forward only.
+   *
+   * @generated from field: int32 range = 2;
+   */
+  range: number;
+
+  /**
+   * To keeps messages naming any of the given roles, or everyone-kind
+   * messages when it is everyone. Unset keeps every target, posts included.
+   *
+   * @generated from field: ngicks.crabswarm.chat.v1.Target to = 3;
+   */
+  to?: Target | undefined;
+
+  /**
+   * Since and Until bound the set by seq within the room, exclusive.
+   *
+   * @generated from field: int64 since = 4;
+   */
+  since: bigint;
+
+  /**
+   * @generated from field: int64 until = 5;
+   */
+  until: bigint;
 };
 
 /**
- * Describes the message ngicks.crabswarm.chat.v1.BroadcastRequest.
- * Use `create(BroadcastRequestSchema)` to create a new message.
+ * Describes the message ngicks.crabswarm.chat.v1.ReadFilter.
+ * Use `create(ReadFilterSchema)` to create a new message.
  */
-export const BroadcastRequestSchema: GenMessage<BroadcastRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 7);
-
-/**
- * @generated from message ngicks.crabswarm.chat.v1.BroadcastResponse
- */
-export type BroadcastResponse = Message$1<"ngicks.crabswarm.chat.v1.BroadcastResponse"> & {
-  /**
-   * DeliveredCount is how many members the message was queued for, the caller
-   * excluded.
-   *
-   * @generated from field: int32 delivered_count = 1;
-   */
-  deliveredCount: number;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.BroadcastResponse.
- * Use `create(BroadcastResponseSchema)` to create a new message.
- */
-export const BroadcastResponseSchema: GenMessage<BroadcastResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 8);
+export const ReadFilterSchema: GenMessage<ReadFilter> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 11);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.ReadRequest
  */
 export type ReadRequest = Message$1<"ngicks.crabswarm.chat.v1.ReadRequest"> & {
+  /**
+   * A member read moves the caller's read position to the newest message it
+   * shows, whichever cursor and filter were used.
+   *
+   * @generated from field: ngicks.crabswarm.chat.v1.ReadFilter filter = 1;
+   */
+  filter?: ReadFilter | undefined;
 };
 
 /**
@@ -280,19 +435,24 @@ export type ReadRequest = Message$1<"ngicks.crabswarm.chat.v1.ReadRequest"> & {
  * Use `create(ReadRequestSchema)` to create a new message.
  */
 export const ReadRequestSchema: GenMessage<ReadRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 9);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 12);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.ReadResponse
  */
 export type ReadResponse = Message$1<"ngicks.crabswarm.chat.v1.ReadResponse"> & {
   /**
-   * Messages are the caller's pending messages, oldest first. Returning them
-   * consumes them.
-   *
    * @generated from field: repeated ngicks.crabswarm.chat.v1.Message messages = 1;
    */
   messages: Message[];
+
+  /**
+   * RemainingUnread is how many unread mentions of the caller are left after
+   * this read.
+   *
+   * @generated from field: int32 remaining_unread = 2;
+   */
+  remainingUnread: number;
 };
 
 /**
@@ -300,88 +460,6 @@ export type ReadResponse = Message$1<"ngicks.crabswarm.chat.v1.ReadResponse"> & 
  * Use `create(ReadResponseSchema)` to create a new message.
  */
 export const ReadResponseSchema: GenMessage<ReadResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 10);
-
-/**
- * @generated from message ngicks.crabswarm.chat.v1.HistoryRequest
- */
-export type HistoryRequest = Message$1<"ngicks.crabswarm.chat.v1.HistoryRequest"> & {
-  /**
-   * Limit caps how many entries come back, counting from the newest. Zero
-   * means the server's own window.
-   *
-   * @generated from field: int32 limit = 1;
-   */
-  limit: number;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.HistoryRequest.
- * Use `create(HistoryRequestSchema)` to create a new message.
- */
-export const HistoryRequestSchema: GenMessage<HistoryRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 11);
-
-/**
- * HistoryEntry is one utterance of a room's conversation, as it was said.
- *
- * @generated from message ngicks.crabswarm.chat.v1.HistoryEntry
- */
-export type HistoryEntry = Message$1<"ngicks.crabswarm.chat.v1.HistoryEntry"> & {
-  /**
-   * From is who said it, as resolved at send time.
-   *
-   * @generated from field: ngicks.crabswarm.chat.v1.Member from = 1;
-   */
-  from?: Member | undefined;
-
-  /**
-   * To is the member a directed send was addressed to. Unset for a broadcast,
-   * which addressed the room rather than anyone in it.
-   *
-   * @generated from field: ngicks.crabswarm.chat.v1.Member to = 2;
-   */
-  to?: Member | undefined;
-
-  /**
-   * Text is the message body.
-   *
-   * @generated from field: string text = 3;
-   */
-  text: string;
-
-  /**
-   * SentAt is when the daemon accepted the message.
-   *
-   * @generated from field: google.protobuf.Timestamp sent_at = 4;
-   */
-  sentAt?: Timestamp | undefined;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.HistoryEntry.
- * Use `create(HistoryEntrySchema)` to create a new message.
- */
-export const HistoryEntrySchema: GenMessage<HistoryEntry> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 12);
-
-/**
- * @generated from message ngicks.crabswarm.chat.v1.HistoryResponse
- */
-export type HistoryResponse = Message$1<"ngicks.crabswarm.chat.v1.HistoryResponse"> & {
-  /**
-   * Entries are the tail of the room's conversation, oldest first.
-   *
-   * @generated from field: repeated ngicks.crabswarm.chat.v1.HistoryEntry entries = 1;
-   */
-  entries: HistoryEntry[];
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.HistoryResponse.
- * Use `create(HistoryResponseSchema)` to create a new message.
- */
-export const HistoryResponseSchema: GenMessage<HistoryResponse> = /*@__PURE__*/
   messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 13);
 
 /**
@@ -415,32 +493,6 @@ export const ListMembersResponseSchema: GenMessage<ListMembersResponse> = /*@__P
   messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 15);
 
 /**
- * @generated from message ngicks.crabswarm.chat.v1.LeaveRequest
- */
-export type LeaveRequest = Message$1<"ngicks.crabswarm.chat.v1.LeaveRequest"> & {
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.LeaveRequest.
- * Use `create(LeaveRequestSchema)` to create a new message.
- */
-export const LeaveRequestSchema: GenMessage<LeaveRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 16);
-
-/**
- * @generated from message ngicks.crabswarm.chat.v1.LeaveResponse
- */
-export type LeaveResponse = Message$1<"ngicks.crabswarm.chat.v1.LeaveResponse"> & {
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.LeaveResponse.
- * Use `create(LeaveResponseSchema)` to create a new message.
- */
-export const LeaveResponseSchema: GenMessage<LeaveResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 17);
-
-/**
  * @generated from message ngicks.crabswarm.chat.v1.ReportStateRequest
  */
 export type ReportStateRequest = Message$1<"ngicks.crabswarm.chat.v1.ReportStateRequest"> & {
@@ -457,7 +509,7 @@ export type ReportStateRequest = Message$1<"ngicks.crabswarm.chat.v1.ReportState
  * Use `create(ReportStateRequestSchema)` to create a new message.
  */
 export const ReportStateRequestSchema: GenMessage<ReportStateRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 18);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 16);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.ReportStateResponse
@@ -470,20 +522,7 @@ export type ReportStateResponse = Message$1<"ngicks.crabswarm.chat.v1.ReportStat
  * Use `create(ReportStateResponseSchema)` to create a new message.
  */
 export const ReportStateResponseSchema: GenMessage<ReportStateResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 19);
-
-/**
- * @generated from message ngicks.crabswarm.chat.v1.WatchRoomRequest
- */
-export type WatchRoomRequest = Message$1<"ngicks.crabswarm.chat.v1.WatchRoomRequest"> & {
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.WatchRoomRequest.
- * Use `create(WatchRoomRequestSchema)` to create a new message.
- */
-export const WatchRoomRequestSchema: GenMessage<WatchRoomRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 20);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 17);
 
 /**
  * MemberStateChanged signals that a member reported a new harness state.
@@ -511,7 +550,7 @@ export type MemberStateChanged = Message$1<"ngicks.crabswarm.chat.v1.MemberState
  * Use `create(MemberStateChangedSchema)` to create a new message.
  */
 export const MemberStateChangedSchema: GenMessage<MemberStateChanged> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 21);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 18);
 
 /**
  * MemberJoined signals that a member started attending the room.
@@ -530,7 +569,7 @@ export type MemberJoined = Message$1<"ngicks.crabswarm.chat.v1.MemberJoined"> & 
  * Use `create(MemberJoinedSchema)` to create a new message.
  */
 export const MemberJoinedSchema: GenMessage<MemberJoined> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 22);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 19);
 
 /**
  * MemberLeft signals that a member withdrew its attendance.
@@ -549,7 +588,7 @@ export type MemberLeft = Message$1<"ngicks.crabswarm.chat.v1.MemberLeft"> & {
  * Use `create(MemberLeftSchema)` to create a new message.
  */
 export const MemberLeftSchema: GenMessage<MemberLeft> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 23);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 20);
 
 /**
  * MessageAppended signals that a message was appended to the room's history.
@@ -568,10 +607,10 @@ export type MessageAppended = Message$1<"ngicks.crabswarm.chat.v1.MessageAppende
  * Use `create(MessageAppendedSchema)` to create a new message.
  */
 export const MessageAppendedSchema: GenMessage<MessageAppended> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 24);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 21);
 
 /**
- * RoomEvent is a single notification about the watched room.
+ * RoomEvent is a single notification about the attended room.
  *
  * @generated from message ngicks.crabswarm.chat.v1.RoomEvent
  */
@@ -580,6 +619,12 @@ export type RoomEvent = Message$1<"ngicks.crabswarm.chat.v1.RoomEvent"> & {
    * @generated from oneof ngicks.crabswarm.chat.v1.RoomEvent.event
    */
   event: {
+    /**
+     * @generated from field: ngicks.crabswarm.chat.v1.Attended attended = 5;
+     */
+    value: Attended;
+    case: "attended";
+  } | {
     /**
      * @generated from field: ngicks.crabswarm.chat.v1.MemberStateChanged member_state_changed = 1;
      */
@@ -611,7 +656,7 @@ export type RoomEvent = Message$1<"ngicks.crabswarm.chat.v1.RoomEvent"> & {
  * Use `create(RoomEventSchema)` to create a new message.
  */
 export const RoomEventSchema: GenMessage<RoomEvent> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 25);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 22);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.GetNonceRequest
@@ -624,7 +669,7 @@ export type GetNonceRequest = Message$1<"ngicks.crabswarm.chat.v1.GetNonceReques
  * Use `create(GetNonceRequestSchema)` to create a new message.
  */
 export const GetNonceRequestSchema: GenMessage<GetNonceRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 26);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 23);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.GetNonceResponse
@@ -652,7 +697,7 @@ export type GetNonceResponse = Message$1<"ngicks.crabswarm.chat.v1.GetNonceRespo
  * Use `create(GetNonceResponseSchema)` to create a new message.
  */
 export const GetNonceResponseSchema: GenMessage<GetNonceResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 27);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 24);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.ListRoomsRequest
@@ -665,7 +710,7 @@ export type ListRoomsRequest = Message$1<"ngicks.crabswarm.chat.v1.ListRoomsRequ
  * Use `create(ListRoomsRequestSchema)` to create a new message.
  */
 export const ListRoomsRequestSchema: GenMessage<ListRoomsRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 28);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 25);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.ListRoomsResponse
@@ -682,66 +727,7 @@ export type ListRoomsResponse = Message$1<"ngicks.crabswarm.chat.v1.ListRoomsRes
  * Use `create(ListRoomsResponseSchema)` to create a new message.
  */
 export const ListRoomsResponseSchema: GenMessage<ListRoomsResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 29);
-
-/**
- * @generated from message ngicks.crabswarm.chat.v1.MoveMemberRequest
- */
-export type MoveMemberRequest = Message$1<"ngicks.crabswarm.chat.v1.MoveMemberRequest"> & {
-  /**
-   * Room is the room the member attends.
-   *
-   * @generated from field: string room = 1;
-   */
-  room: string;
-
-  /**
-   * Team is the member's current team.
-   *
-   * @generated from field: string team = 2;
-   */
-  team: string;
-
-  /**
-   * Name is the member's name within Team.
-   *
-   * @generated from field: string name = 3;
-   */
-  name: string;
-
-  /**
-   * ToTeam is the team to move the member into, within the same room.
-   *
-   * @generated from field: string to_team = 4;
-   */
-  toTeam: string;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.MoveMemberRequest.
- * Use `create(MoveMemberRequestSchema)` to create a new message.
- */
-export const MoveMemberRequestSchema: GenMessage<MoveMemberRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 30);
-
-/**
- * @generated from message ngicks.crabswarm.chat.v1.MoveMemberResponse
- */
-export type MoveMemberResponse = Message$1<"ngicks.crabswarm.chat.v1.MoveMemberResponse"> & {
-  /**
-   * Member is the moved member, carrying its new team.
-   *
-   * @generated from field: ngicks.crabswarm.chat.v1.Member member = 1;
-   */
-  member?: Member | undefined;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.MoveMemberResponse.
- * Use `create(MoveMemberResponseSchema)` to create a new message.
- */
-export const MoveMemberResponseSchema: GenMessage<MoveMemberResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 31);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 26);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.RegisterMemberRequest
@@ -774,7 +760,7 @@ export type RegisterMemberRequest = Message$1<"ngicks.crabswarm.chat.v1.Register
  * Use `create(RegisterMemberRequestSchema)` to create a new message.
  */
 export const RegisterMemberRequestSchema: GenMessage<RegisterMemberRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 32);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 27);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.RegisterMemberResponse
@@ -801,7 +787,7 @@ export type RegisterMemberResponse = Message$1<"ngicks.crabswarm.chat.v1.Registe
  * Use `create(RegisterMemberResponseSchema)` to create a new message.
  */
 export const RegisterMemberResponseSchema: GenMessage<RegisterMemberResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 33);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 28);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.AdminSendRequest
@@ -822,35 +808,11 @@ export type AdminSendRequest = Message$1<"ngicks.crabswarm.chat.v1.AdminSendRequ
   text: string;
 
   /**
-   * Target says who in Room receives the message. Exactly one case is set.
+   * Target is optional. Unset is a board post.
    *
-   * @generated from oneof ngicks.crabswarm.chat.v1.AdminSendRequest.target
+   * @generated from field: ngicks.crabswarm.chat.v1.Target target = 4;
    */
-  target: {
-    /**
-     * Everyone addresses every member of Room.
-     *
-     * @generated from field: ngicks.crabswarm.chat.v1.Everyone everyone = 4;
-     */
-    value: Everyone;
-    case: "everyone";
-  } | {
-    /**
-     * Team addresses every member of one team of Room.
-     *
-     * @generated from field: ngicks.crabswarm.chat.v1.TeamTarget team = 5;
-     */
-    value: TeamTarget;
-    case: "team";
-  } | {
-    /**
-     * Member addresses one member of Room.
-     *
-     * @generated from field: ngicks.crabswarm.chat.v1.MemberTarget member = 6;
-     */
-    value: MemberTarget;
-    case: "member";
-  } | { case: undefined; value?: undefined };
+  target?: Target | undefined;
 };
 
 /**
@@ -858,79 +820,21 @@ export type AdminSendRequest = Message$1<"ngicks.crabswarm.chat.v1.AdminSendRequ
  * Use `create(AdminSendRequestSchema)` to create a new message.
  */
 export const AdminSendRequestSchema: GenMessage<AdminSendRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 34);
-
-/**
- * Everyone is the whole-room target; it carries nothing.
- *
- * @generated from message ngicks.crabswarm.chat.v1.Everyone
- */
-export type Everyone = Message$1<"ngicks.crabswarm.chat.v1.Everyone"> & {
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.Everyone.
- * Use `create(EveryoneSchema)` to create a new message.
- */
-export const EveryoneSchema: GenMessage<Everyone> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 35);
-
-/**
- * TeamTarget is every current member of Team, counted at send time.
- *
- * @generated from message ngicks.crabswarm.chat.v1.TeamTarget
- */
-export type TeamTarget = Message$1<"ngicks.crabswarm.chat.v1.TeamTarget"> & {
-  /**
-   * @generated from field: string team = 1;
-   */
-  team: string;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.TeamTarget.
- * Use `create(TeamTargetSchema)` to create a new message.
- */
-export const TeamTargetSchema: GenMessage<TeamTarget> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 36);
-
-/**
- * MemberTarget is one member. An empty Team resolves Name the way a bare
- * name does for a member send: in the sender's team first -- the admin has
- * none -- then uniquely across the room; a name carried by two teams is
- * rejected as ambiguous and the error names them.
- *
- * @generated from message ngicks.crabswarm.chat.v1.MemberTarget
- */
-export type MemberTarget = Message$1<"ngicks.crabswarm.chat.v1.MemberTarget"> & {
-  /**
-   * @generated from field: string team = 1;
-   */
-  team: string;
-
-  /**
-   * @generated from field: string name = 2;
-   */
-  name: string;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.MemberTarget.
- * Use `create(MemberTargetSchema)` to create a new message.
- */
-export const MemberTargetSchema: GenMessage<MemberTarget> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 37);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 29);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.AdminSendResponse
  */
 export type AdminSendResponse = Message$1<"ngicks.crabswarm.chat.v1.AdminSendResponse"> & {
   /**
-   * Delivered is how many recipients the message was queued for.
-   *
-   * @generated from field: int32 delivered = 1;
+   * @generated from field: repeated ngicks.crabswarm.chat.v1.Member mentioned = 2;
    */
-  delivered: number;
+  mentioned: Member[];
+
+  /**
+   * @generated from field: repeated ngicks.crabswarm.chat.v1.Member absent = 3;
+   */
+  absent: Member[];
 };
 
 /**
@@ -938,7 +842,7 @@ export type AdminSendResponse = Message$1<"ngicks.crabswarm.chat.v1.AdminSendRes
  * Use `create(AdminSendResponseSchema)` to create a new message.
  */
 export const AdminSendResponseSchema: GenMessage<AdminSendResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 38);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 30);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.AdminHistoryRequest
@@ -952,21 +856,9 @@ export type AdminHistoryRequest = Message$1<"ngicks.crabswarm.chat.v1.AdminHisto
   room: string;
 
   /**
-   * Limit caps how many entries come back. Zero means the server's own window.
-   *
-   * @generated from field: int32 limit = 2;
+   * @generated from field: ngicks.crabswarm.chat.v1.ReadFilter filter = 4;
    */
-  limit: number;
-
-  /**
-   * SinceId pages the conversation forward: entries newer than that id come
-   * back, oldest first, and Limit caps how many of them. Zero reads the tail
-   * instead, counting Limit back from the newest, which is where a reader with
-   * no cursor yet starts.
-   *
-   * @generated from field: int64 since_id = 3;
-   */
-  sinceId: bigint;
+  filter?: ReadFilter | undefined;
 };
 
 /**
@@ -974,71 +866,16 @@ export type AdminHistoryRequest = Message$1<"ngicks.crabswarm.chat.v1.AdminHisto
  * Use `create(AdminHistoryRequestSchema)` to create a new message.
  */
 export const AdminHistoryRequestSchema: GenMessage<AdminHistoryRequest> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 39);
-
-/**
- * AdminHistoryEntry is one utterance of a room's conversation, as it was said.
- * It is the member-facing HistoryEntry plus the id a reader pages by.
- *
- * @generated from message ngicks.crabswarm.chat.v1.AdminHistoryEntry
- */
-export type AdminHistoryEntry = Message$1<"ngicks.crabswarm.chat.v1.AdminHistoryEntry"> & {
-  /**
-   * Id orders the entry within its room and is what the next request sends as
-   * SinceId. Ids grow, but not by one per entry of the room: every room shares
-   * one log, so the ids in between went to what was said elsewhere.
-   *
-   * @generated from field: int64 id = 1;
-   */
-  id: bigint;
-
-  /**
-   * From is who said it, as resolved at send time.
-   *
-   * @generated from field: ngicks.crabswarm.chat.v1.Member from = 2;
-   */
-  from?: Member | undefined;
-
-  /**
-   * To is the member a directed send was addressed to. Unset for a broadcast,
-   * which addressed the room rather than anyone in it.
-   *
-   * @generated from field: ngicks.crabswarm.chat.v1.Member to = 3;
-   */
-  to?: Member | undefined;
-
-  /**
-   * Text is the message body.
-   *
-   * @generated from field: string text = 4;
-   */
-  text: string;
-
-  /**
-   * SentAt is when the daemon accepted the message.
-   *
-   * @generated from field: google.protobuf.Timestamp sent_at = 5;
-   */
-  sentAt?: Timestamp | undefined;
-};
-
-/**
- * Describes the message ngicks.crabswarm.chat.v1.AdminHistoryEntry.
- * Use `create(AdminHistoryEntrySchema)` to create a new message.
- */
-export const AdminHistoryEntrySchema: GenMessage<AdminHistoryEntry> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 40);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 31);
 
 /**
  * @generated from message ngicks.crabswarm.chat.v1.AdminHistoryResponse
  */
 export type AdminHistoryResponse = Message$1<"ngicks.crabswarm.chat.v1.AdminHistoryResponse"> & {
   /**
-   * Entries are the requested slice of the room's conversation, oldest first.
-   *
-   * @generated from field: repeated ngicks.crabswarm.chat.v1.AdminHistoryEntry entries = 1;
+   * @generated from field: repeated ngicks.crabswarm.chat.v1.Message messages = 2;
    */
-  entries: AdminHistoryEntry[];
+  messages: Message[];
 };
 
 /**
@@ -1046,7 +883,41 @@ export type AdminHistoryResponse = Message$1<"ngicks.crabswarm.chat.v1.AdminHist
  * Use `create(AdminHistoryResponseSchema)` to create a new message.
  */
 export const AdminHistoryResponseSchema: GenMessage<AdminHistoryResponse> = /*@__PURE__*/
-  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 41);
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 32);
+
+/**
+ * @generated from message ngicks.crabswarm.chat.v1.DeleteRoomRequest
+ */
+export type DeleteRoomRequest = Message$1<"ngicks.crabswarm.chat.v1.DeleteRoomRequest"> & {
+  /**
+   * @generated from field: string room = 1;
+   */
+  room: string;
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.DeleteRoomRequest.
+ * Use `create(DeleteRoomRequestSchema)` to create a new message.
+ */
+export const DeleteRoomRequestSchema: GenMessage<DeleteRoomRequest> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 33);
+
+/**
+ * @generated from message ngicks.crabswarm.chat.v1.DeleteRoomResponse
+ */
+export type DeleteRoomResponse = Message$1<"ngicks.crabswarm.chat.v1.DeleteRoomResponse"> & {
+  /**
+   * @generated from field: int64 deleted_messages = 1;
+   */
+  deletedMessages: bigint;
+};
+
+/**
+ * Describes the message ngicks.crabswarm.chat.v1.DeleteRoomResponse.
+ * Use `create(DeleteRoomResponseSchema)` to create a new message.
+ */
+export const DeleteRoomResponseSchema: GenMessage<DeleteRoomResponse> = /*@__PURE__*/
+  messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 34);
 
 /**
  * HarnessState is the state of the CLI harness a member runs under, as
@@ -1096,7 +967,8 @@ export const HarnessStateSchema: GenEnum<HarnessState> = /*@__PURE__*/
 
 /**
  * MemberKind says whether a member runs an agent harness whose terminal a
- * nudge may be typed into, or is anything else and is inbox-only.
+ * nudge may be typed into, or is anything else and is only ever handed its
+ * messages when it asks for them.
  *
  * @generated from enum ngicks.crabswarm.chat.v1.MemberKind
  */
@@ -1124,30 +996,80 @@ export const MemberKindSchema: GenEnum<MemberKind> = /*@__PURE__*/
   enumDesc(file_ngicks_crabswarm_chat_v1_chat_service, 1);
 
 /**
+ * ReadCursor is where a read starts. Unspecified means UNREAD on Read and
+ * TAIL on AdminHistory.
+ *
+ * @generated from enum ngicks.crabswarm.chat.v1.ReadCursor
+ */
+export enum ReadCursor {
+  /**
+   * @generated from enum value: READ_CURSOR_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Unread: past the caller's read position, keeping only messages that
+   * target the caller or everyone and were not sent by it. Member reads
+   * only; AdminHistory refuses it.
+   *
+   * @generated from enum value: READ_CURSOR_UNREAD = 1;
+   */
+  UNREAD = 1,
+
+  /**
+   * Head: the room's first message.
+   *
+   * @generated from enum value: READ_CURSOR_HEAD = 2;
+   */
+  HEAD = 2,
+
+  /**
+   * Tail: the room's last message.
+   *
+   * @generated from enum value: READ_CURSOR_TAIL = 3;
+   */
+  TAIL = 3,
+}
+
+/**
+ * Describes the enum ngicks.crabswarm.chat.v1.ReadCursor.
+ */
+export const ReadCursorSchema: GenEnum<ReadCursor> = /*@__PURE__*/
+  enumDesc(file_ngicks_crabswarm_chat_v1_chat_service, 2);
+
+/**
  * ChatService brokers per-room chat between the agents (and humans) attending
  * a room. Every RPC carries the caller's identity token as the gRPC metadata
- * "x-crabswarm-token"; the daemon resolves it to a member through the
- * team-info provider or the admin-registered member table, and rejects a token
- * known to neither. Room and team are never chosen by the caller: they follow
- * from the token.
+ * "x-crabswarm-token"; Attend resolves it through the team-info provider, every
+ * other RPC resolves it to the member attending under it, and a token nobody
+ * attends under is rejected. Room and team are never chosen by the caller: they
+ * follow from the token.
  *
  * @generated from service ngicks.crabswarm.chat.v1.ChatService
  */
 export const ChatService: GenService<{
   /**
-   * Join declares attendance under the given name. The server derives the
-   * caller's room and team from the token, so an unknown token is rejected
-   * with NotFound. Joining again with the same token is a no-op success.
+   * Attend declares attendance and holds it for as long as the stream is
+   * open. The first event is Attended, carrying the member the token
+   * resolved to; the rest is the room's event feed. Closing the stream is
+   * leaving. A token already attending is refused with AlreadyExists.
    *
-   * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.Join
+   * The stream element is named for what it is rather than for this RPC: the
+   * same event feed is what an admin TUI subscribes to, so tying the name to
+   * one RPC would misname it everywhere else.
+   * buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+   *
+   * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.Attend
    */
-  join: {
-    methodKind: "unary";
-    input: typeof JoinRequestSchema;
-    output: typeof JoinResponseSchema;
+  attend: {
+    methodKind: "server_streaming";
+    input: typeof AttendRequestSchema;
+    output: typeof RoomEventSchema;
   },
   /**
-   * Send delivers a message to one addressed member of the caller's room.
+   * Send appends a message to the caller's room. A targeted message is a
+   * mention of each role it names, or of everyone; an untargeted one is a
+   * board post.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.Send
    */
@@ -1157,19 +1079,9 @@ export const ChatService: GenService<{
     output: typeof SendResponseSchema;
   },
   /**
-   * Broadcast delivers a message to every member of the caller's room,
-   * including teams other than the caller's.
-   *
-   * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.Broadcast
-   */
-  broadcast: {
-    methodKind: "unary";
-    input: typeof BroadcastRequestSchema;
-    output: typeof BroadcastResponseSchema;
-  },
-  /**
-   * Read returns the caller's pending messages and consumes them, so a
-   * message is handed out exactly once.
+   * Read returns messages of the caller's room from a cursor and moves the
+   * caller's read position to the newest one shown. By default the first
+   * ten unread mentions.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.Read
    */
@@ -1177,19 +1089,6 @@ export const ChatService: GenService<{
     methodKind: "unary";
     input: typeof ReadRequestSchema;
     output: typeof ReadResponseSchema;
-  },
-  /**
-   * History returns the tail of the conversation of the caller's room, oldest
-   * first. It consumes nothing, and it shows the whole room: directed
-   * messages the caller never received included, since a room's transcript is
-   * a shared record of what was said rather than a second copy of an inbox.
-   *
-   * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.History
-   */
-  history: {
-    methodKind: "unary";
-    input: typeof HistoryRequestSchema;
-    output: typeof HistoryResponseSchema;
   },
   /**
    * ListMembers lists every member of the caller's room, team-qualified.
@@ -1200,16 +1099,6 @@ export const ChatService: GenService<{
     methodKind: "unary";
     input: typeof ListMembersRequestSchema;
     output: typeof ListMembersResponseSchema;
-  },
-  /**
-   * Leave withdraws the caller's attendance.
-   *
-   * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.Leave
-   */
-  leave: {
-    methodKind: "unary";
-    input: typeof LeaveRequestSchema;
-    output: typeof LeaveResponseSchema;
   },
   /**
    * ReportState records the state of the harness the caller runs under. It is
@@ -1223,29 +1112,14 @@ export const ChatService: GenService<{
     input: typeof ReportStateRequestSchema;
     output: typeof ReportStateResponseSchema;
   },
-  /**
-   * WatchRoom streams events of the caller's room until cancelled.
-   *
-   * The stream element is named for what it is rather than for this RPC: the
-   * same event feed is what an admin TUI subscribes to, so tying the name to
-   * one RPC would misname it everywhere else.
-   * buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-   *
-   * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.WatchRoom
-   */
-  watchRoom: {
-    methodKind: "server_streaming";
-    input: typeof WatchRoomRequestSchema;
-    output: typeof RoomEventSchema;
-  },
 }> = /*@__PURE__*/
   serviceDesc(file_ngicks_crabswarm_chat_v1_chat_service, 0);
 
 /**
  * ChatAdminService carries the host-side operations that participants must not
  * be able to perform: inspecting every room, sending into any room without
- * attending it, editing team formation, and minting tokens for humans who have
- * no provider entry.
+ * attending it, deleting rooms, and minting tokens for humans who have no
+ * provider entry.
  *
  * Access is proven per call by a credential the caller sends as the standard
  * "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -1274,7 +1148,7 @@ export const ChatAdminService: GenService<{
     output: typeof GetNonceResponseSchema;
   },
   /**
-   * ListRooms lists every room the daemon knows and who attends it.
+   * ListRooms lists every room the log or attendance knows, with who attends.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms
    */
@@ -1284,18 +1158,8 @@ export const ChatAdminService: GenService<{
     output: typeof ListRoomsResponseSchema;
   },
   /**
-   * MoveMember moves a member to another team within the same room.
-   *
-   * @generated from rpc ngicks.crabswarm.chat.v1.ChatAdminService.MoveMember
-   */
-  moveMember: {
-    methodKind: "unary";
-    input: typeof MoveMemberRequestSchema;
-    output: typeof MoveMemberResponseSchema;
-  },
-  /**
-   * RegisterMember registers a member that no provider can vouch for -- a
-   * human on the host -- and returns the token they present to ChatService.
+   * RegisterMember mints a token for a person and puts them in attendance
+   * until the daemon restarts: the one attendance not held by a stream.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember
    */
@@ -1305,8 +1169,8 @@ export const ChatAdminService: GenService<{
     output: typeof RegisterMemberResponseSchema;
   },
   /**
-   * Send delivers a message into a named room, addressed to one member, to one
-   * of its teams or to the whole room, without the caller attending that room.
+   * Send delivers a message into a named room, targeted or as a board post,
+   * without the caller attending that room.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatAdminService.Send
    */
@@ -1316,13 +1180,9 @@ export const ChatAdminService: GenService<{
     output: typeof AdminSendResponseSchema;
   },
   /**
-   * History returns a named room's conversation, oldest first, without the
-   * caller attending that room. It reads the same shared record the members
-   * read, and consumes nothing.
-   *
-   * Unlike the member-facing counterpart it can be paged forward from a
-   * cursor, and every entry carries the id to advance that cursor with, so a
-   * reader following a live room asks only for what it has not seen.
+   * History returns a named room's messages without attending it and moves
+   * no read position; same filter as Read, the unread cursor refused with
+   * InvalidArgument and an unspecified cursor meaning TAIL.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatAdminService.History
    */
@@ -1330,6 +1190,17 @@ export const ChatAdminService: GenService<{
     methodKind: "unary";
     input: typeof AdminHistoryRequestSchema;
     output: typeof AdminHistoryResponseSchema;
+  },
+  /**
+   * DeleteRoom deletes a room's messages and read positions. Refused with
+   * FailedPrecondition while somebody attends it.
+   *
+   * @generated from rpc ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom
+   */
+  deleteRoom: {
+    methodKind: "unary";
+    input: typeof DeleteRoomRequestSchema;
+    output: typeof DeleteRoomResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_ngicks_crabswarm_chat_v1_chat_service, 1);

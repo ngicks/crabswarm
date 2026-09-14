@@ -327,10 +327,10 @@ func waitFor(t *testing.T, timeout time.Duration, what string, cond func() bool)
 
 // The whole OpenCode story in one session. The plugin's config hook declares
 // the bridge, so the member attends before any turn. A turn reports working
-// when the message lands and done when the session goes idle with an empty
-// inbox. Mail waiting at idle is not left there: the read that finds it hands
-// it to the session as the next prompt, so the model sees it, and the report
-// of done comes only after that second turn drains nothing.
+// when the message lands and done when the session goes idle with nothing
+// unread. A mention waiting at idle is not left there: the read that finds it
+// hands it to the session as the next prompt, so the model sees it, and the
+// report of done comes only after that second read finds nothing.
 func TestChatOpenCode_PluginAttendsReportsAndDelivers(t *testing.T) {
 	opencode, err := exec.LookPath("opencode")
 	if err != nil {
@@ -346,12 +346,16 @@ func TestChatOpenCode_PluginAttendsReportsAndDelivers(t *testing.T) {
 	t.Cleanup(func() { _ = os.RemoveAll(runtimeDir) })
 	sock := filepath.Join(runtimeDir, "crabswarm", "default.sock")
 
+	identity, recipient := newChatIdentityFile(t)
 	cfg := writeChatConfigOn(t, t.TempDir(), sock, 0, []stubCommand{
 		{token: "tok-oc", dir: chatRoom, project: "alpha", command: "opencode", scaleIndex: "1"},
-		{token: "tok-bob", dir: chatRoom, project: "alpha"},
-	})
+	}, recipient)
 	startChatServeOn(t, cfg, sock)
-	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
+
+	// The teammate writing into the room is a person on the host, so cmdman
+	// vouches for nothing: registration is what puts them in attendance, and
+	// the token it prints is what they act with.
+	bob := registerChatHuman(t, cfg, identity, chatRoom, "alpha", "bob")
 
 	host := startOpenCode(t, opencode, cfg, runtimeDir, "tok-oc")
 
@@ -361,13 +365,15 @@ func TestChatOpenCode_PluginAttendsReportsAndDelivers(t *testing.T) {
 
 	// The bridge the plugin declared attends on its own, named after the
 	// command and scale index the stub cmdman reports for the token.
-	waitChatRosterHas(t, cfg, "tok-bob", "alpha/opencode-1", 120*time.Second)
+	waitChatRosterHas(t, cfg, bob, "alpha/opencode-1", 120*time.Second)
 
-	runChat(t, cfg, "tok-bob", "send", "opencode-1", chatSentText)
+	// A bare name, resolved inside the sender's own team: the mention is what
+	// makes the plugin's read hand the message to the session.
+	runChat(t, cfg, bob, "send", "opencode-1", chatSentText)
 
 	host.takeTurn(t, "say hello")
 
-	waitFor(t, 60*time.Second, "the model receiving the delivered mail", func() bool {
+	waitFor(t, 60*time.Second, "the model receiving the delivered messages", func() bool {
 		for _, body := range host.mock.requests() {
 			if strings.Contains(body, "[crabswarm chat] Messages arrived while you were working") &&
 				strings.Contains(body, `say \"hi\"`) {
@@ -387,6 +393,6 @@ func TestChatOpenCode_PluginAttendsReportsAndDelivers(t *testing.T) {
 		t.Errorf("cmdman status invocations = %q, want a working report before the done", log)
 	}
 	if got := runChat(t, cfg, "tok-oc", "read"); got != "no pending messages\n" {
-		t.Errorf("inbox after the turn = %q, want it emptied by the delivery", got)
+		t.Errorf("read after the turn = %q, want the delivery to have moved the read position", got)
 	}
 }

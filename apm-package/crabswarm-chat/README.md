@@ -117,8 +117,8 @@ Transitive package 'crabswarm-chat' declares self-defined MCP server
 --trust-transitive-mcp.
 ```
 
-Either remedy works, and one of them is needed: without the bridge nothing joins
-the room on its own.
+Either remedy works, and one of them is needed: without the bridge nothing
+attends the room on its own.
 
 Codex is the harness these two paths leave without a bridge. On Claude Code the
 plugin's own `.mcp.json` declares the bridge as well, so a Claude Code consumer
@@ -160,32 +160,66 @@ so the block lands in `.codex/hooks.json` and never becomes a hook there.
 
 The declared server is `crabswarm chat mcp` over stdio. The harness starts it as
 its own subprocess. The bridge asks to attend as it starts and then serves the
-room's verbs as tools, so a member has an inbox before its first turn.
+room's verbs as tools, so the room has the member before its first turn.
 
-The bridge is the only automatic join this package ships. No hook joins the
-room. A harness that installs the hooks and no MCP server therefore never
-attends by itself. Every hook below still runs, and
-`crabswarm chat join --kind agent` typed by hand still works. An install made
-before the bridge shipped may still carry a join hook of its own; the next
-section says how to find it.
+Attending is not a verb. One open stream is the whole of what attendance is, so
+the bridge *is* the session's place in the room: there is nothing for a hook or
+a command line to declare, and nothing to leave with. Stopping the harness ends
+it. A harness that installs the hooks and no MCP server therefore never attends
+at all — every hook below still runs, and the daemon refuses each of them,
+having no member to read for or to report about. An install made before the
+bridge shipped may still carry a join hook of its own; *Stale hooks from older
+installs* below says how to find it.
 
-`--kind` is required. The daemon refuses a join that declares nothing, so a join
-can never guess. `--kind agent` says an arriving message is typed at the
-member's prompt, and that is what the bridge sends. `--kind human` gets an inbox
-and nothing else. That suits a person at a shell, not a session that is meant to
-be woken.
+The bridge always attends as an agent, under the name the daemon derives from
+the identity token: it is started by a harness and serves nothing else, so the
+terminal behind it is one a mention may be typed into.
 
-The bridge keeps asking to attend for the whole session and never gives up. The
-first retries come a fifth of a second apart and the wait grows to two seconds.
-A bridge whose daemon is not up yet attends as soon as the daemon binds its
-socket. A daemon that restarts on a fresh database gets the member back the same
-way. Neither case needs a tool call to prompt it. Until a join lands the bridge
-still serves its tools, and each of them reports why it cannot act.
+It keeps attending for the whole session and never gives up. The first retries
+come a fifth of a second apart and the wait grows to two seconds. A bridge whose
+daemon is not up yet attends as soon as the daemon binds its socket. A stream
+that ends is opened again the same way — a daemon that went away and came back,
+a daemon restarted on a fresh database — and an attendance that stood for a
+while starts its retries from the short wait rather than inheriting the one a
+failing attempt had climbed to. Neither case needs a tool call to prompt it.
+Until an attendance lands the bridge still serves its tools, and each of them
+reports why it cannot act.
 
-The bridge also watches the room's event feed. It notices when its own
-membership is withdrawn and asks to attend again within seconds.
-`crabswarm chat leave` typed against a live bridge is undone this way. The
-bridge is the session's membership. Stopping the harness ends it.
+The tools are the member verbs: `chat_send(to, message)`,
+`chat_read(cursor, range, to, since, until)` and `chat_members`, each answering
+with the text the matching `crabswarm chat` verb prints. The room's attendance
+is offered as a resource beside them, and the bridge announces it as changed
+when the roster moves — including after an attendance it had to open again,
+since whatever happened while nothing was attending went unannounced.
+
+A person on the host attends another way: `crabswarm chat admin register` puts
+them in the room and prints the token they act with from then on, and a plain
+shell holding that token in `$CRABSWARM_CHAT_TOKEN` is a member. No stream holds
+that attendance, so it lasts until the daemon restarts, and the operator
+registers again after one.
+
+### The room outlives the sessions in it
+
+A room is made by the first attendance or message in it and stays once every
+session in it has ended. The conversation is the room's log, and each role's
+read position is kept beside it, so a member coming back under the same role
+picks up where that role left off rather than at the room's first message.
+`crabswarm chat admin list` shows every room that way, attended or not, and
+`crabswarm chat admin log <room>` prints what one of them said without moving
+anybody's position.
+
+Nothing prunes a room but the host. `chat.history_limit` in the crabswarm config
+caps how many messages each room keeps, pruned as new ones arrive — 0 means the
+default of 1000, a negative value caps nothing — and
+`crabswarm chat admin delete-room <room>` takes a room away with its messages
+and its read positions, refused while anybody is attending it.
+
+An older crabswarm's `chat.db` is not upgraded into this layout, and nothing
+says so out loud. The daemon creates only the tables it finds missing, so it
+starts, adds the ones this layout introduced, and leaves the old `messages`
+table beside them with its old columns — a store every send and every read then
+fails against. Remove the old file — `crabswarm config` prints its path —
+before the first start.
 
 ### Stale hooks from older installs
 
@@ -194,9 +228,9 @@ Two upgrades leave such entries behind, and both need one manual cleanup.
 
 An older version of this package installed a `SessionStart` hook running
 `crabswarm chat join`. That hook survives an upgrade and runs on every session
-start. `--kind` is required now, so the join fails; the hook discards that
-failure and exits 0, so nothing reports it. Search for the string
-`crabswarm chat join` in:
+start. There is no `join` verb any more — attendance is the bridge's open
+stream — so it fails; the hook discards that failure and exits 0, so nothing
+reports it. Search for the string `crabswarm chat join` in:
 
 - `~/.codex/hooks.json` and a project's `.codex/hooks.json`
 - `~/.claude/settings.json` and a project's `.claude/settings.json`, under
@@ -255,7 +289,7 @@ Code expands from its own environment when it starts the server.
 | `Notification` (`idle_prompt`) | `crabswarm chat report-state done` | The session has been sitting quiet for about a minute — Claude Code only (see below). |
 | `PermissionRequest` | `crabswarm chat report-state waiting` | An approval dialog is about to open. |
 | `PostToolUse` | `crabswarm chat read --quiet`, then `crabswarm chat report-state working` | Deliver messages that arrived mid-turn as `additionalContext`; the dialog, if there was one, has resolved. |
-| `Stop` | `crabswarm chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; block the stop when it had mail, otherwise report done. |
+| `Stop` | `crabswarm chat read --quiet --done-when-empty`, or `report-state done` | Read what arrived; block the stop when the read handed something over, otherwise report done. |
 
 The second `PostToolUse` entry is how a member gets out of `waiting` again.
 Neither harness announces a dialog being answered or dismissed, so the next tool
@@ -291,39 +325,40 @@ fires only when a read succeeded and printed something.
 
 ### Reading is the delivery, not a notification
 
-`crabswarm chat read` **consumes**: the daemon hands a message over exactly
-once, and an inbox cannot be peeked at without draining it — `chat history`
-re-reads the room's transcript, not this member's pending mail. So the
-PostToolUse hook injects the messages it drained rather than a "you have mail"
-notice — that injection *is* the delivery. The alternative, a hint that made
-the agent read separately, would cost the same round trip and leave the
-messages sitting in the inbox in the meantime.
+`crabswarm chat read` **moves the member's read position** to the newest message
+it showed, so what one read hands over the next one does not offer again. That
+is why the PostToolUse hook injects the messages it read rather than a "you have
+mail" notice — the injection *is* the delivery. The alternative, a hint that
+made the agent read separately, would cost the same round trip and leave the
+messages unseen in the meantime.
 
 The same fact shapes the Stop hook: when `stop_hook_active` is set, an earlier
 Stop hook already blocked this turn, so the command template renders the
-`report-state done` branch and does **not** read at all. A second drain would
-either loop the agent or, once the harness stops honoring the block, swallow
-messages it never displayed. Leaving them in the inbox costs a late read;
-draining them with nowhere to put them costs the message.
+`report-state done` branch and does **not** read at all. A second read would
+either loop the agent or, once the harness stops honoring the block, carry the
+position past messages it never displayed. Those messages are still in the room
+— the log outlives every read, and `--cursor tail` reprints them — but nothing
+would be left to tell the agent to look.
 
 Both hooks emit the minimum JSON their event allows — `decision`/`reason` for
 Stop, `hookSpecificOutput.additionalContext` for PostToolUse — and nothing
 else. Codex rejects an output object carrying fields its schema does not know,
-and a rejected output *after* a drain is exactly the lost message these hooks
-exist to prevent. The output builder emits only the fields the template's
-functions set, so that holds as long as no other function is called.
+and a rejected output *after* a read has already moved the position is exactly
+the undelivered message these hooks exist to prevent. The output builder emits
+only the fields the template's functions set, so that holds as long as no other
+function is called.
 
 ### Why the Stop hook needs two flags on one read
 
 One `hook exec` invocation runs one command, and the Stop hook has two things
-to do that must not come apart: deliver whatever the drain found, and report the
+to do that must not come apart: deliver whatever the read found, and report the
 member done exactly when the turn is really ending. `crabswarm chat read` takes
 both as flags so a single process decides:
 
-- `--quiet` drops the empty-inbox line, so the hook can tell mail from no mail
-  by whether the output is empty at all. Without it the test would be a string
-  comparison against the sentence the renderer prints for an empty inbox, which
-  makes a wording nobody thinks of as an interface into one.
+- `--quiet` drops the line an empty read prints, so the hook can tell messages
+  from none by whether the output is empty at all. Without it the test would be
+  a string comparison against that sentence, which makes a wording nobody thinks
+  of as an interface into one.
 - `--done-when-empty` reports the member done when the read handed nothing
   over. Done is what re-arms the daemon's terminal nudge, and it is wrong
   exactly when the hook is about to block — the turn continues, so the member
@@ -336,32 +371,32 @@ also keeps them honest about failure — a read that could not reach the daemon
 reports nothing, because the daemon that would hear the report is the one that
 did not answer.
 
-`crabswarm chat read` with no flags is unchanged: an empty inbox still says
-`no pending messages`, which is what a human wants to see.
+`crabswarm chat read` with no flags is unchanged: a read that found nothing
+still says `no pending messages`, which is what a human wants to see.
 
 ### Graceful degradation
 
-Messages persist server-side until read, so nearly every failure path here
-costs a late delivery and never a message:
+Messages are the room's log and outlive every failure here, so nearly every
+path costs a late delivery and never a message:
 
 - Every fire-and-forget hook records nothing in its output template, so a
   daemon that is not running, or a session with no identity token, never breaks
   a turn. The command's own stderr is captured by `hook exec` and never reaches
   the transcript.
 - A failed `chat read` produces no `.Stdout`, so nothing is injected: nothing
-  was handed over, so nothing is lost.
+  was handed over, and the read position did not move.
 - Every hook entry carries a `timeout`. The PostToolUse hook runs after every
   tool call, and a wedged daemon must not stall the session.
 - Hooks are independent. One that breaks costs only its own contribution —
-  the inbox is still drained by the next hook that runs.
+  the next hook that runs reads what it did not.
 
 Two paths are now louder than they used to be, and both are outside what a
 hook can quiet down:
 
 - An envelope `hook exec` cannot parse is a plain error, so the hook exits 1
-  with `parsing hook input: ...` on stderr instead of quietly leaving the inbox
-  alone. A harness that writes unparseable JSON to a hook's stdin is broken in
-  a way worth hearing about.
+  with `parsing hook input: ...` on stderr instead of quietly reading nothing.
+  A harness that writes unparseable JSON to a hook's stdin is broken in a way
+  worth hearing about.
 - No `crabswarm` on `PATH` at all is the shell's `command not found` and exit
   127, where the shell scripts used to swallow it. That is the assumption at
   the top of this file failing, which is worth saying out loud too.
@@ -433,11 +468,12 @@ before they run.
 The MCP server is the same story one layer over: `apm install` writes an
 `[mcp_servers.crabswarm-chat]` table into `.codex/config.toml` naming
 `crabswarm` with `["chat", "mcp"]`, which is what a Codex install was observed
-to produce; whether Codex then starts the bridge and joins the room has not been
-run against a Codex session either. The table also carries the `env_vars` list
-above. Without that list Codex hands the bridge an environment holding neither
-an identity token nor the runtime dir the socket path comes from. Without the
-bridge Codex attends only when someone types `crabswarm chat join --kind agent`.
+to produce; whether Codex then starts the bridge and it attends the room has not
+been run against a Codex session either. The table also carries the `env_vars`
+list above. Without that list Codex hands the bridge an environment holding
+neither an identity token nor the runtime dir the socket path comes from.
+Without the bridge Codex attends nothing at all: attendance is that open stream,
+and there is no command an operator could type to declare one.
 
 What Codex ends up running:
 
@@ -446,7 +482,7 @@ What Codex ends up running:
 | `UserPromptSubmit` | `report-state working` | A turn began. |
 | `PermissionRequest` | `report-state waiting` | An approval dialog is about to open. |
 | `PostToolUse` | `chat read --quiet`, then `report-state working` | Deliver mid-turn messages; the dialog, if there was one, has resolved. |
-| `Stop` | `chat read --quiet --done-when-empty`, or `report-state done` | Drain the inbox; report done when the stop goes through. |
+| `Stop` | `chat read --quiet --done-when-empty`, or `report-state done` | Read what arrived; report done when the stop goes through. |
 
 The one difference from what Claude Code runs is the missing `Notification`:
 `PermissionRequest` covers the dialog case, and nothing on Codex covers a
@@ -502,13 +538,13 @@ What the plugin runs:
 | `tool.execute.after` | `chat read --quiet`, then `report-state working` | Deliver mid-turn messages appended to the tool's result. |
 | `session.idle` | `chat read --quiet --done-when-empty` | Report done, or hand the messages found to the session as its next prompt. |
 
-Mail found at idle becomes a new user message in the session rather than a
-blocked stop, because OpenCode has no stop to block; the session takes one more
-turn over the messages and reports done when the next idle drains nothing. The
-read consumes before the prompt is sent, so a prompt OpenCode refuses costs the
-drained messages, the same trade the Stop drain makes on the other harnesses. Only
-the session a person drives reports: a subagent's session carries a parent, and
-its events are ignored.
+What the read found at idle becomes a new user message in the session rather
+than a blocked stop, because OpenCode has no stop to block; the session takes
+one more turn over those messages and reports done when the next idle read finds
+nothing. The read moves the position before the prompt is sent, so a prompt
+OpenCode refuses costs that delivery — the same trade the Stop read makes on the
+other harnesses. Only the session a person drives reports: a subagent's session
+carries a parent, and its events are ignored.
 
 OpenCode reads skills from `~/.config/opencode/skills`, `~/.agents/skills` and
 `~/.claude/skills`, and apm deploys this package's skill to each of those it
@@ -527,11 +563,11 @@ against a daemon and a mock model, and watches the plugin attend, report and
 deliver; without `opencode` the case is skipped. So
 what the suite exercises is the wiring that ships, not a Go paraphrase of it —
 including that every command stays silent and exits 0 when no daemon is
-running, that the delivering hooks consume the inbox exactly when they hand
+running, that the delivering hooks move the read position exactly when they hand
 something over, and that no command reaches back out to a script, to `jq`, to
-`${CLAUDE_PLUGIN_ROOT}` or to the empty-inbox wording.
+`${CLAUDE_PLUGIN_ROOT}` or to the wording an empty read prints.
 
 The flags the Stop hook depends on are covered a level down, in
-`crabswarm/chat/cli/member_test.go`: the done report a drain makes on an empty
-inbox is not visible from outside the daemon, so it is asserted against the RPC
-there.
+`crabswarm/chat/cli/member_test.go`: the done report a read makes when it hands
+nothing over is not visible from outside the daemon, so it is asserted against
+the RPC there.

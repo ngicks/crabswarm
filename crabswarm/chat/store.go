@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	// The pure-Go driver keeps the daemon cgo-free.
@@ -19,25 +20,35 @@ import (
 // Sentinel errors the transport layer maps to status codes. Every returned
 // error wraps one of these with context, so match with [errors.Is].
 var (
-	// ErrNotFound reports that no member matches the token or the address.
-	ErrNotFound = errors.New("member not found")
-	// ErrNameTaken reports that another member of the same team already uses
-	// the name. Names are unique per team, not per room.
-	ErrNameTaken = errors.New("name already taken in this team")
-	// ErrAmbiguousName reports that a bare name matches members in more than
-	// one other team of the room, so the address needs the "team/name" form.
-	ErrAmbiguousName = errors.New("ambiguous name")
-	// ErrInvalidName reports a name or team containing "/", which would make
-	// the "team/name" address grammar unparseable.
+	// ErrNotFound reports that no room carries the given name.
+	ErrNotFound = errors.New("room not found")
+	// ErrInvalidName reports a name or team that is empty or contains "/",
+	// which would make the "team/name" address grammar unparseable.
 	ErrInvalidName = errors.New("invalid name")
+	// ErrInvalidArgument reports a request that cannot be carried out as
+	// written: a read range running against its cursor, an unread cursor on a
+	// room read, a roles target naming nobody.
+	ErrInvalidArgument = errors.New("invalid argument")
+	// ErrAlreadyAttending reports a second attendance for a token that is
+	// already attending. One token is one session, and one session attends once.
+	ErrAlreadyAttending = errors.New("already attending")
+	// ErrNotAttending reports that no attendance is held under the token.
+	ErrNotAttending = errors.New("not attending")
+	// ErrUnknownRole reports a target naming a role the room has never seen. A
+	// role exists once it has attended once, and only then can it be addressed.
+	ErrUnknownRole = errors.New("unknown role")
+	// ErrAmbiguousRole reports a bare name carried by two or more teams of the
+	// room, so the target needs the "team/name" form. The error names the teams.
+	ErrAmbiguousRole = errors.New("ambiguous role")
+	// ErrRoomAttended reports a room operation refused because somebody is
+	// attending the room.
+	ErrRoomAttended = errors.New("room is attended")
 )
 
-// MemberKind tells what the daemon may do to a member besides handing it its
-// inbox. An agent said it runs a harness, so its terminal is typed into, its
-// command carries the state display, and its attendance lasts only as long as
-// the team-info provider still places its token. Anything else is left alone:
-// nothing is injected, nothing is published, and no provider verdict takes its
-// membership away.
+// MemberKind tells what the daemon may do to a member besides showing it the
+// room. An agent said it runs a harness, so its terminal is typed into and its
+// command carries the state display. Anything else is left alone: nothing is
+// injected and nothing is published.
 //
 // Which one a joiner is, it declares — the daemon cannot tell a harness from a
 // shell that happens to run under the same command.
@@ -46,8 +57,8 @@ type MemberKind string
 const (
 	// KindAgent is an agent harness; nudgeable by keystroke injection.
 	KindAgent MemberKind = "agent"
-	// KindHuman is any other member (plain shell, admin-registered);
-	// inbox-only.
+	// KindHuman is any other member (plain shell, admin-registered); read-only
+	// as far as nudging goes.
 	KindHuman MemberKind = "human"
 )
 
@@ -66,14 +77,17 @@ const (
 	StateDone MemberState = "done"
 )
 
-// Member is one participant of a room.
+// Member is one participant attending a room right now.
+//
+// Attendance is daemon state, not stored state: it lasts as long as the stream
+// that declared it, and a restart starts the room empty. What survives a
+// restart is the role — the team and name — which the room remembers through
+// its read position.
 type Member struct {
-	// Token identifies the member across the whole store. The store treats it
-	// as opaque: whoever joined from a command the team-info provider knows
+	// Token identifies the attendance across the whole store. The store treats
+	// it as opaque: whoever attends from a command the team-info provider knows
 	// presents the session id it reports, and whoever an admin registered
-	// carries a secret the daemon minted. Which of the two it is follows from
-	// how the member joined, not from the kind it declared — a person joining
-	// by hand from a plain shell presents a provider-reported token too.
+	// carries a secret the daemon minted.
 	Token string
 	// Name is the member's display name, unique within Team.
 	Name string
@@ -82,67 +96,68 @@ type Member struct {
 	// Room is the space whose members can address each other.
 	Room string
 	// Kind is what the joiner declared it is, and so what may be done to the
-	// member besides handing it its inbox — being nudged by keystroke
-	// injection above all. See [MemberKind].
+	// member besides showing it the room — being nudged by keystroke injection
+	// above all. See [MemberKind].
 	Kind MemberKind
 	// State is the last harness state reported for the member.
 	State MemberState
-	// StateReportedAt is when State was reported. A notifier reads it to tell
-	// a member that is genuinely busy from one whose state-reporting hook was
+	// StateReportedAt is when State was reported. A notifier reads it to tell a
+	// member that is genuinely busy from one whose state-reporting hook was
 	// missed — an interrupted session, or a harness that has no idle
 	// notification at all — and would otherwise stay busy forever.
 	StateReportedAt time.Time
 }
 
-// Sender is the identity a message carries: who sent it, as of send time. It
-// is a snapshot rather than a token reference so a delivered message still
-// reads correctly after the sender leaves or moves team.
+// Sender is a role in a room: who speaks or is spoken to, as of the moment it
+// was written down. A message keeps it as a snapshot rather than a reference so
+// the message still reads correctly after the sender stops attending.
+//
+// The host operator sends with an empty Team, having none.
 type Sender struct {
 	Name string
 	Team string
 	Room string
 }
 
-// Message is one delivered message waiting in a member's inbox.
-type Message struct {
-	From   Sender
-	Text   string
-	SentAt time.Time
-}
-
-// Team is a name namespace within a room, with the members that occupy it.
-type Team struct {
-	Name    string
+// Room is a room and who is attending it.
+type Room struct {
+	Name string
+	// Members is everyone attending, ordered by team then name. A room that
+	// exists in the log with nobody in it has none.
 	Members []Member
 }
 
-// Room is a whole room as an admin sees it.
-type Room struct {
-	Name  string
-	Teams []Team
-}
-
-// defaultHistoryLimit is how many conversation rows a room keeps when the
-// configuration names no cap. A thousand utterances is far more than a room
-// re-reads and still a bounded database.
+// defaultHistoryLimit is how many messages a room keeps when the configuration
+// names no cap. A thousand utterances is far more than a room re-reads and
+// still a bounded database.
 const defaultHistoryLimit = 1000
 
-// Store is the persistent room state — its members, their inboxes and the
-// conversation log — backed by SQLite. It is safe for concurrent use.
+// Store is the chat broker's state: the rooms and their conversation in SQLite,
+// and the attendance of the running daemon in memory. It is safe for concurrent
+// use.
 type Store struct {
 	db *sql.DB
 	q  *db.Queries
-	// historyLimit is the per-room row cap of the conversation log, already
-	// resolved: positive is the cap, negative means nothing is logged at all.
+	// historyLimit is the per-room message cap, already resolved: positive is
+	// the cap, negative prunes nothing.
 	historyLimit int
 	// events carries what changed to the watchers of the room it changed in.
 	// It hangs on the store rather than on either service because both of them
-	// mutate the same rooms — a member leaving and an operator moving one are
-	// the same news to a watcher — and the store is where the two meet.
+	// mutate the same rooms, and the store is where the two meet.
 	//
 	// The store itself never publishes: an event must announce a mutation that
 	// has already persisted, which is only known one call up.
 	events *roomBroadcaster
+	// mu guards attending. It may be held across a transaction — attendance
+	// changes are rare and have to settle atomically against the read position
+	// they seed — so nothing may take it from inside one: the store holds a
+	// single connection, and a transaction waiting for the lock while the lock
+	// holder waits for the connection would never resolve.
+	mu sync.Mutex
+	// attending is who is in which room right now, keyed by the token that
+	// declared it. Tokens never reach SQLite: a session is not a fact about the
+	// room, it is a fact about this run of the daemon.
+	attending map[string]Member
 }
 
 // NewStore opens the SQLite database at path, creating it and its schema when
@@ -150,10 +165,14 @@ type Store struct {
 // not expanded, that belongs to the configuration layer — except for
 // ":memory:", which opens a private in-memory database.
 //
-// historyLimit caps how many conversation rows each room keeps: zero means the
-// default, a negative value records no conversation at all. Zero is resolved
-// here rather than by the caller so that every caller of an unconfigured store
-// keeps its history instead of pruning every row it writes.
+// historyLimit caps how many messages each room keeps: zero means the default,
+// a negative value prunes nothing at all. Zero is resolved here rather than by
+// the caller so that every caller of an unconfigured store keeps a bounded
+// history instead of pruning every row it writes.
+//
+// The returned store attends nobody: attendance belongs to the running daemon,
+// so every restart starts every room empty while the rooms themselves, their
+// messages and their read positions come back as they were.
 //
 // The caller must [Store.Close] the returned store.
 func NewStore(ctx context.Context, path string, historyLimit int) (*Store, error) {
@@ -180,6 +199,7 @@ func NewStore(ctx context.Context, path string, historyLimit int) (*Store, error
 		q:            db.New(conn),
 		historyLimit: historyLimit,
 		events:       newRoomBroadcaster(),
+		attending:    make(map[string]Member),
 	}, nil
 }
 
@@ -191,7 +211,8 @@ func (s *Store) Close() error {
 // dsn builds the driver DSN for path. WAL and a busy timeout are set even
 // though a single daemon writes: a stray reader (sqlite3 CLI, a second daemon
 // racing the flock) must not turn into a locked database. Foreign keys are on
-// so removing a member drops their inbox with them.
+// so deleting a room takes its messages, their mentions and its read positions
+// with it.
 func dsn(path string) string {
 	pragmas := url.Values{"_pragma": []string{
 		"busy_timeout(5000)",
@@ -223,15 +244,23 @@ func (s *Store) tx(ctx context.Context, fn func(q *db.Queries) error) error {
 
 // formatTimestamp renders t the way every timestamp column stores one:
 // RFC3339Nano in UTC, which parses back to the same instant. Rows are ordered
-// by id rather than by this text, which would sort wrong — RFC3339Nano drops
+// by seq rather than by this text, which would sort wrong — RFC3339Nano drops
 // trailing zeros from the fraction, so ".5Z" and "Z" do not compare as their
 // instants do.
 func formatTimestamp(t time.Time) string {
 	return t.UTC().Format(time.RFC3339Nano)
 }
 
-// validateName rejects the "/" that separates team from name in an address,
-// and the name the host operator sends under.
+// parseTimestamp reads a stored timestamp back.
+func parseTimestamp(s string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parsing message timestamp %q: %w", s, err)
+	}
+	return t, nil
+}
+
+// validateName rejects the "/" that separates team from name in an address.
 func validateName(team, name string) error {
 	switch {
 	case name == "":
@@ -242,15 +271,11 @@ func validateName(team, name string) error {
 		return fmt.Errorf("name %q contains %q: %w", name, "/", ErrInvalidName)
 	case strings.Contains(team, "/"):
 		return fmt.Errorf("team %q contains %q: %w", team, "/", ErrInvalidName)
-	case name == adminName:
-		return fmt.Errorf("name %q is reserved for the host operator: %w",
-			name, ErrInvalidName)
-	case team == adminName:
-		// A team named admin would win bare-name resolution for admin sends
-		// (the resolver tries the sender's own team first) and render members
-		// as admin/<name>, next door to the reserved attribution.
-		return fmt.Errorf("team %q is reserved for the host operator: %w",
-			team, ErrInvalidName)
 	}
 	return nil
+}
+
+// senderOf is the role an attending member speaks under.
+func senderOf(m Member) Sender {
+	return Sender{Name: m.Name, Team: m.Team, Room: m.Room}
 }

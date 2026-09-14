@@ -84,7 +84,7 @@ func (s fakeStream) Context() context.Context { return s.ctx }
 func TestStreamTokenInterceptor(t *testing.T) {
 	interceptor := StreamTokenInterceptor()
 	chatCall := &grpc.StreamServerInfo{
-		FullMethod: chatv1.ChatService_WatchRoom_FullMethodName,
+		FullMethod: chatv1.ChatService_Attend_FullMethodName,
 	}
 
 	var seen string
@@ -117,7 +117,7 @@ func TestStreamTokenInterceptor(t *testing.T) {
 
 // dialTestService serves svc over an in-memory listener with the interceptors
 // the daemon installs, and returns a client of it. Both interceptors: a stream
-// carries no token without the streaming one, so a WatchRoom test without it
+// carries no token without the streaming one, so an Attend test without it
 // would exercise a server the daemon never runs.
 func dialTestService(t *testing.T, svc *Service) chatv1.ChatServiceClient {
 	t.Helper()
@@ -140,34 +140,73 @@ func dialTestService(t *testing.T, svc *Service) chatv1.ChatServiceClient {
 	return chatv1.NewChatServiceClient(conn)
 }
 
+// attendOverGRPC opens an attendance stream for token and reads the Attended
+// event that opens it, so the caller knows the attendance has landed. The
+// cancel closes the stream the way a client going away does.
+func attendOverGRPC(
+	t *testing.T,
+	client chatv1.ChatServiceClient,
+	token, name string,
+) (chatv1.ChatService_AttendClient, context.CancelFunc) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(
+		metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, token))
+	t.Cleanup(cancel)
+
+	stream, err := client.Attend(ctx, &chatv1.AttendRequest{
+		Name: name, Kind: chatv1.MemberKind_MEMBER_KIND_AGENT,
+	})
+	assert.NilError(t, err)
+	ev, err := stream.Recv()
+	assert.NilError(t, err)
+	assert.Equal(t, describeEvent(ev), "attended:alpha/"+name)
+	return stream, cancel
+}
+
 // TestService_OverGRPC exercises the wiring the daemon uses: request metadata
-// through the interceptor into the service.
+// through the interceptor into the service, over both a unary call and the
+// attendance stream.
 func TestService_OverGRPC(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
-	provider.vouch("tok-b", "/work", "alpha")
+	provider.vouch("tok-a", testRoom, "alpha")
+	provider.vouch("tok-b", testRoom, "alpha")
 
 	client := dialTestService(t, svc)
-
-	asAna := metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-a")
 	asBob := metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-b")
 
-	joined, err := client.Join(asAna,
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, joined.GetSelf().GetRoom(), "/work")
-	_, err = client.Join(asBob,
-		&chatv1.JoinRequest{Name: "bob", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
+	ana, _ := attendOverGRPC(t, client, "tok-a", "ana")
+	_, stopBob := attendOverGRPC(t, client, "tok-b", "bob")
 
-	_, err = client.Send(asAna, &chatv1.SendRequest{To: "bob", Text: "ping"})
+	_, err := client.Send(asBob, &chatv1.SendRequest{Target: to("ana"), Text: "ping"})
 	assert.NilError(t, err)
-	read, err := client.Read(asBob, &chatv1.ReadRequest{})
+	read, err := client.Read(
+		metadata.AppendToOutgoingContext(t.Context(), TokenMetadataKey, "tok-a"),
+		&chatv1.ReadRequest{})
 	assert.NilError(t, err)
 	assert.Equal(t, len(read.GetMessages()), 1)
 	assert.Equal(t, read.GetMessages()[0].GetText(), "ping")
 
-	// A call carrying no token never reaches the service.
-	_, err = client.Join(t.Context(), &chatv1.JoinRequest{Name: "nobody"})
+	// The feed carries what happened after ana's own arrival, which opens it.
+	assert.Equal(t, describeEvent(recvEvent(t, ana)), "joined:alpha/ana")
+	assert.Equal(t, describeEvent(recvEvent(t, ana)), "joined:alpha/bob")
+	assert.Equal(t, describeEvent(recvEvent(t, ana)), "message:alpha/bob:ping")
+
+	// Closing the stream is leaving, and the token means nothing again.
+	stopBob()
+	waitDetached(t, svc.store, "tok-b")
+	_, err = client.Send(asBob, &chatv1.SendRequest{Target: to("ana"), Text: "again"})
 	assert.Equal(t, status.Code(err), codes.Unauthenticated)
+
+	// A call carrying no token never reaches the service.
+	_, err = client.ListMembers(t.Context(), &chatv1.ListMembersRequest{})
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
+}
+
+// recvEvent is the next event of a stream, failing the test on a stream that
+// ended instead of hanging the run on one that went quiet.
+func recvEvent(t *testing.T, stream chatv1.ChatService_AttendClient) *chatv1.RoomEvent {
+	t.Helper()
+	ev, err := stream.Recv()
+	assert.NilError(t, err)
+	return ev
 }

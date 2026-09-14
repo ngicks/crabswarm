@@ -14,10 +14,12 @@ import (
 // it names nothing the resolver knows about, it names something that is no
 // longer running, or what it names carries no team coordination information.
 //
-// It is deliberately distinct from a lookup that merely failed. A caller may
-// reject the join and reap the member behind an unknown token, but must keep
-// the member across a failed lookup — a missing cmdman, a locked store or a
-// cancelled context says nothing about whether the token is still valid.
+// It is deliberately distinct from a lookup that merely failed. A caller
+// resolves a token once, when a stream declares attendance, and refuses an
+// unknown one outright; a failed lookup — a missing cmdman, a locked store, a
+// cancelled context — says nothing about whether the token is valid, so it is
+// reported as something to try again. Neither touches an attendance already
+// held: one of those ends when its stream does.
 var ErrUnknownToken = errors.New("unknown token")
 
 // TeamInfo is where the holder of an identity token belongs in the chat

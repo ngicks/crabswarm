@@ -28,21 +28,19 @@ running under cmdman in one directory and the people working alongside them.
 Room and team are never chosen: they follow from the identity token every
 member verb carries, which is taken from --token, else $CRABSWARM_CHAT_TOKEN,
 else $CMDMAN_CMD_ID. Anything cmdman runs — a harness or the shell someone
-types in — inherits the last one and needs no setup; whoever attends from
-outside passes the token that ` + "`chat admin register`" + ` printed.
+types in — inherits the last one and needs no setup.
 
-Being typed into is a separate choice from the token: ` + "`join --kind agent`" + ` asks
-for it, ` + "`join --kind human`" + ` is inbox-only, and a join that declares neither is
-refused.
+Attending is not a verb. An agent attends through the bridge
+` + "`crabswarm chat mcp`" + `, which holds the attendance for the whole session and
+is what its terminal is nudged through; a person is put in attendance by
+` + "`chat admin register`" + `, which prints the token to pass back, and stays there
+until the daemon restarts.
 
 The ` + "`admin`" + ` group is host-only and proves it by decrypting a challenge
 with the age identity file named by --identity, rather than by carrying a
 token. Attending no room, its verbs name the room they act on.`,
-		Example: `  # attending by hand: messages wait in the inbox
-  crabswarm chat join --kind human --name reviewer
-  # attending from a harness: an arriving message is typed at its prompt
-  crabswarm chat join --kind agent
-  crabswarm chat send backend/alice "PR is ready"
+		Example: `  crabswarm chat send backend/alice "PR is ready"
+  crabswarm chat send everyone "main is red"
   crabswarm chat read`,
 		// Runnable with NoArgs rather than a bare group: cobra returns help for a
 		// command it cannot run before it ever validates the arguments, so a group
@@ -65,13 +63,9 @@ token. Attending no room, its verbs name the room they act on.`,
 		identity: &flagIdentity,
 	}
 
-	chatJoinCmd(cmd, flags)
 	chatSendCmd(cmd, flags)
-	chatBroadcastCmd(cmd, flags)
 	chatReadCmd(cmd, flags)
-	chatHistoryCmd(cmd, flags)
 	chatMembersCmd(cmd, flags)
-	chatLeaveCmd(cmd, flags)
 	chatReportStateCmd(cmd, flags)
 	chatMCPCmd(cmd, flags)
 	chatAdminCmd(cmd, flags)

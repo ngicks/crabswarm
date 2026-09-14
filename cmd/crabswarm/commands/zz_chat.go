@@ -65,11 +65,16 @@ func chatIdentityPath(flags *chatFlags) (string, error) {
 // daemon costs the shell a pause, not a hang.
 const chatCompletionTimeout = time.Second
 
-// completeChatMembers completes the address argument of `chat send` with the
-// members the daemon reports for the caller's room. It is best-effort: a
-// missing token, an unreachable daemon or a caller that has not joined yet all
-// degrade to no suggestions rather than surfacing an error into the shell.
-func completeChatMembers(
+// completeChatTargets completes the target argument of `chat send` with the
+// whole-room word and the roles the daemon reports for the caller's room. A
+// list of several roles is not completed past the first: the shell splits a
+// word on the comma the list is written with, so what a completion would offer
+// is not what the shell would put back.
+//
+// It is best-effort: a missing token, an unreachable daemon or a caller nobody
+// is attending for yet all degrade to no suggestions rather than surfacing an
+// error into the shell.
+func completeChatTargets(
 	cmd *cobra.Command,
 	args []string,
 	flags *chatFlags,
@@ -90,5 +95,6 @@ func completeChatMembers(
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	return members, cobra.ShellCompDirectiveNoFileComp
+	return append([]string{chatcli.EveryoneTarget}, members...),
+		cobra.ShellCompDirectiveNoFileComp
 }

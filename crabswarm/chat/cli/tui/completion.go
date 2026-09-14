@@ -37,7 +37,7 @@ type completionState struct {
 
 // token is the `@token` the cursor sits at the end of: everything back to the
 // last space on the cursor's line, if it starts with an `@`. The prefix may be
-// empty — a bare `@` asks for the whole room.
+// empty — a bare `@` offers everything the room can be addressed by.
 func (m *model) token() (string, bool) {
 	lines := strings.Split(m.text.Value(), "\n")
 	row := m.text.Line()
@@ -139,27 +139,28 @@ func (m *model) replaceToken(tok string, item completionItem) {
 	m.closeCompletion()
 }
 
-// completions lists what `@prefix` could mean: each team as `team/*` above its
-// own members, matched on the whole address or on the bare name, since the
-// operator types whichever of the two they remember.
+// everyoneLabel says what the whole-room row reaches, where a member's row says
+// what the roster reports about them.
+const everyoneLabel = "the whole room"
+
+// completions lists what `@prefix` could mean: the whole room above the roles
+// attending it, each role matched on the whole address or on the bare name,
+// since the operator types whichever of the two they remember.
 //
-// The roster arrives grouped by team, so a team is offered where its first
-// member is met. The admin is never offered: they are the one at the screen.
+// The whole room leads because it is the one target that is not a member and so
+// is nowhere else on the screen to be read off. There is no team row: a team is
+// not a target, and its members are offered one by one. The admin is never
+// offered either: they are the one at the screen.
 func completions(roster []*chatv1.Member, prefix string) []completionItem {
 	var items []completionItem
-	team := ""
-	for i, member := range roster {
-		if i == 0 || member.GetTeam() != team {
-			team = member.GetTeam()
-			addr := cli.AdminTarget{Team: team}.String()
-			if strings.HasPrefix(addr, prefix) || strings.HasPrefix(team, prefix) {
-				items = append(items, completionItem{
-					address: addr,
-					state:   teamSizeLabel(teamSize(roster, team)),
-				})
-			}
-		}
-		addr := member.GetTeam() + "/" + member.GetName()
+	if strings.HasPrefix(cli.EveryoneTarget, prefix) {
+		items = append(items, completionItem{
+			address: cli.EveryoneTarget,
+			state:   everyoneLabel,
+		})
+	}
+	for _, member := range roster {
+		addr := cli.Address(member)
 		if strings.HasPrefix(addr, prefix) || strings.HasPrefix(member.GetName(), prefix) {
 			items = append(items, completionItem{
 				address: addr,
@@ -168,28 +169,6 @@ func completions(roster []*chatv1.Member, prefix string) []completionItem {
 		}
 	}
 	return items
-}
-
-// teamSize is how many of the room's members a `team/*` would reach, which is
-// what its row says instead of a harness state.
-func teamSize(roster []*chatv1.Member, team string) int {
-	var n int
-	for _, member := range roster {
-		if member.GetTeam() == team {
-			n++
-		}
-	}
-	return n
-}
-
-// teamSizeLabel says how many members a `team/*` row would reach, counted so a
-// team of one reads as one: a row saying "1 members" is a row the operator has
-// to look past.
-func teamSizeLabel(n int) string {
-	if n == 1 {
-		return "1 member"
-	}
-	return fmt.Sprintf("%d members", n)
 }
 
 // dropdownLayer draws the completion list over whatever is above the message

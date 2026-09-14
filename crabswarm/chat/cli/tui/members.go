@@ -12,9 +12,9 @@ import (
 )
 
 // rosterRow is one line of the members pane. The cursor stops on team headings
-// and on members alike, because both are addressable — a heading is the whole
-// team — so they are the same kind of row, and a heading is the one with no
-// member.
+// and on members alike, because a heading is where the operator reads which
+// team a name below it belongs to; a heading is the row with no member, and the
+// one enter has nothing to write, since a team is not a target.
 type rosterRow struct {
 	team   string
 	member *chatv1.Member
@@ -23,12 +23,10 @@ type rosterRow struct {
 func (r rosterRow) heading() bool { return r.member == nil }
 
 // address is who enter on this row writes the message to, spelled by the one
-// authority on the spelling so a row and a completion offer the same word.
+// authority on the spelling so a row and a completion offer the same word. A
+// heading has none: its callers ask [rosterRow.heading] first.
 func (r rosterRow) address() string {
-	if r.heading() {
-		return cli.AdminTarget{Team: r.team}.String()
-	}
-	return cli.AdminTarget{Team: r.team, Name: r.member.GetName()}.String()
+	return cli.Address(r.member)
 }
 
 // text is what the row says: a team's name, or a member's beside the kind that
@@ -107,7 +105,15 @@ func (m *model) membersKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 //
 // In front of it rather than over it: what was already written is the message,
 // and the cursor lands between the two, where the next word goes.
+//
+// A heading names a team, and a team is not something a message can be
+// addressed to: the operator is told so rather than left pressing a key that
+// does nothing.
 func (m *model) mention(row rosterRow) tea.Cmd {
+	if row.heading() {
+		m.notice = "a team is not a target: name the members under it, or everyone"
+		return nil
+	}
 	m.text.MoveToBegin()
 	m.text.InsertString("@" + row.address() + " ")
 	cmd := m.setFocus(focusMessage)

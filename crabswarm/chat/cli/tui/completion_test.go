@@ -21,35 +21,40 @@ func addresses(items []completionItem) []string {
 }
 
 // `@prefix` is matched against the whole address and against the bare name,
-// since the operator types whichever of the two they remember, and each team is
-// offered whole above its own members.
-func TestCompletionsOfferTeamsAboveTheirMembers(t *testing.T) {
+// since the operator types whichever of the two they remember, and the whole
+// room is offered above the roles attending it.
+func TestCompletionsOfferEveryoneAboveTheRoles(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		prefix string
 		want   []string
 	}{
 		{
-			name:   "an empty prefix is the whole room",
+			name:   "an empty prefix is everything the room can be addressed by",
 			prefix: "",
 			want: []string{
-				"backend/*", "backend/alice", "backend/bob", "frontend/*", "frontend/cid",
+				"everyone", "backend/alice", "backend/bob", "frontend/cid",
 			},
 		},
 		{
-			name:   "a team narrows to it",
+			name:   "a team narrows to its members",
 			prefix: "backend",
-			want:   []string{"backend/*", "backend/alice", "backend/bob"},
+			want:   []string{"backend/alice", "backend/bob"},
 		},
 		{
 			name:   "a qualified prefix narrows further",
 			prefix: "frontend/",
-			want:   []string{"frontend/*", "frontend/cid"},
+			want:   []string{"frontend/cid"},
 		},
 		{
 			name:   "a bare name matches without its team",
 			prefix: "al",
 			want:   []string{"backend/alice"},
+		},
+		{
+			name:   "the whole room is a word like any other",
+			prefix: "ev",
+			want:   []string{"everyone"},
 		},
 		{
 			name:   "nobody",
@@ -64,16 +69,20 @@ func TestCompletionsOfferTeamsAboveTheirMembers(t *testing.T) {
 }
 
 // Each row says who it is and what the roster says about them: a member's
-// harness state, and how many a whole team would reach — counted, so a team of
-// one is not offered as "1 members".
+// harness state, and for the whole room what it reaches, since no roster row
+// says it.
 func TestCompletionRowsCarryTheRosterState(t *testing.T) {
-	items := completions(fixtureRoster(), "backend")
-	assert.Equal(t, items[0], completionItem{address: "backend/*", state: "2 members"})
+	items := completions(fixtureRoster(), "")
+	assert.Equal(t, items[0], completionItem{address: "everyone", state: everyoneLabel})
 	assert.Equal(t, items[1], completionItem{address: "backend/alice", state: "working"})
 	assert.Equal(t, items[2], completionItem{address: "backend/bob", state: "waiting"})
+	assert.Equal(t, items[3], completionItem{address: "frontend/cid", state: "done"})
+}
 
-	items = completions(fixtureRoster(), "frontend")
-	assert.Equal(t, items[0], completionItem{address: "frontend/*", state: "1 member"})
+// A room nobody is attending still has the whole room to offer: the message
+// waits at the read positions of whoever comes back to it.
+func TestCompletionsOfAnEmptyRoomStillOfferEveryone(t *testing.T) {
+	assert.DeepEqual(t, addresses(completions(nil, "")), []string{"everyone"})
 }
 
 // One match is not a list — it is the answer — so the first tab applies it,
@@ -97,7 +106,7 @@ func TestTabOpensAListAndEnterTakesTheHighlightedRow(t *testing.T) {
 	m = update(t, m, tab())
 	assert.Assert(t, m.completion.open)
 	assert.DeepEqual(t, addresses(m.completion.items),
-		[]string{"backend/*", "backend/alice", "backend/bob"})
+		[]string{"backend/alice", "backend/bob"})
 	assert.Equal(t, m.completion.index, 0)
 
 	m = update(t, m, press('j', "j"))
@@ -110,7 +119,7 @@ func TestTabOpensAListAndEnterTakesTheHighlightedRow(t *testing.T) {
 
 	m = update(t, m, press('j', "j"))
 	m = update(t, m, press(tea.KeyEnter, ""))
-	assert.Equal(t, m.text.Value(), "hold it @backend/alice ")
+	assert.Equal(t, m.text.Value(), "hold it @backend/bob ")
 	assert.Assert(t, !m.completion.open)
 }
 
@@ -122,8 +131,7 @@ func TestTabOnTheLastRowAccepts(t *testing.T) {
 
 	m = update(t, m, tab())
 	m = update(t, m, tab())
-	m = update(t, m, tab())
-	assert.Equal(t, m.completion.index, 2)
+	assert.Equal(t, m.completion.index, 1)
 	m = update(t, m, tab())
 
 	assert.Equal(t, m.text.Value(), "@backend/bob ")
@@ -179,8 +187,8 @@ func TestTheDropdownIsDrawnAndClosesWithTheFocus(t *testing.T) {
 	view := m.View().Content
 	assert.Assert(t, strings.Contains(view, "@backend/alice"),
 		"the dropdown is not on the screen:\n%s", view)
-	assert.Assert(t, strings.Contains(view, "2 members"),
-		"the team row is not on the screen:\n%s", view)
+	assert.Assert(t, strings.Contains(view, "waiting"),
+		"a row's harness state is not on the screen:\n%s", view)
 
 	m = update(t, m, ctrlPress('k'))
 	assert.Equal(t, m.focus, focusConversation)

@@ -23,10 +23,8 @@ const (
 	// says the connection is gone.
 	callTimeout = 3 * time.Second
 	// backfill is how many entries the screen opens with: the scrollback the
-	// operator arriving late reads back through. The daemon clamps it to what
-	// its retention actually kept, and there is no reading further back than
-	// that — the log is read forward from a cursor or from its tail, never
-	// backwards past one.
+	// operator arriving late reads back through, counted backward from the
+	// room's tail. The daemon clamps it to what its retention actually kept.
 	backfill = 500
 	// tailLimit caps one poll of what was said since the last one. Generous
 	// for a second of a busy room, and a room busier than that catches up over
@@ -49,7 +47,7 @@ type tailMsg struct {
 	// gen stamps the read with the room it was started for, counted rather than
 	// named: see [model.tailGen].
 	gen     int
-	entries []*chatv1.AdminHistoryEntry
+	entries []*chatv1.Message
 	err     error
 }
 
@@ -72,16 +70,34 @@ func (m *model) tail() tea.Cmd {
 	if m.room == "" {
 		return tickTail()
 	}
-	ctx, log, room, since, gen := m.ctx, m.deps.Log, m.room, m.cursor, m.tailGen
-	limit := int32(tailLimit)
-	if since == 0 {
-		limit = backfill
-	}
+	ctx, log, room, gen := m.ctx, m.deps.Log, m.room, m.tailGen
+	filter := tailFilter(m.cursor)
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, callTimeout)
 		defer cancel()
-		entries, err := log.RoomLog(ctx, room, since, limit)
+		entries, err := log.RoomLog(ctx, room, filter)
 		return tailMsg{gen: gen, entries: entries, err: err}
+	}
+}
+
+// tailFilter is the read one poll makes. With nothing in hand it counts back
+// from the room's tail, which is the scrollback the screen opens on; from then
+// on it reads forward from the head of what is left past the newest seq the
+// screen holds, which is exactly what was said since the last poll.
+//
+// The direction is not a preference: a tail read counts backward and a head
+// read forward, and the daemon refuses a range that runs the other way.
+func tailFilter(since int64) *chatv1.ReadFilter {
+	if since == 0 {
+		return &chatv1.ReadFilter{
+			Cursor: chatv1.ReadCursor_READ_CURSOR_TAIL,
+			Range:  -backfill,
+		}
+	}
+	return &chatv1.ReadFilter{
+		Cursor: chatv1.ReadCursor_READ_CURSOR_HEAD,
+		Range:  tailLimit,
+		Since:  since,
 	}
 }
 
@@ -121,7 +137,7 @@ func (m *model) applyTail(msg tailMsg) {
 	}
 	if len(msg.entries) > 0 {
 		m.entries = append(m.entries, msg.entries...)
-		m.cursor = msg.entries[len(msg.entries)-1].GetId()
+		m.cursor = msg.entries[len(msg.entries)-1].GetSeq()
 		// Dropped only while the view is following: taking the oldest lines
 		// out from under a reader scrolled into them would move what they are
 		// reading mid-sentence.

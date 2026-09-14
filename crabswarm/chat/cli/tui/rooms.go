@@ -45,8 +45,8 @@ func (m *model) roomsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // is right at once rather than after the next roster poll.
 //
 // The half-written message stays with the room it was addressed at — an
-// `@team/name` belongs to the room that team is in — and the room's own draft
-// takes its place, cursor at the end of it, where the operator left off.
+// `@team/name` names a role in that room — and the room's own draft takes its
+// place, cursor at the end of it, where the operator left off.
 func (m *model) selectRoom(name string) {
 	if name == m.room {
 		return
@@ -76,6 +76,11 @@ func (m *model) selectRoom(name string) {
 // marked and the one under the cursor picked out. The list is the roster
 // poll's, so a room that appears while the screen is open appears here on the
 // next poll.
+//
+// A room nobody is attending is listed like any other, since a room outlives
+// the sessions that attended it: its conversation is still there to read, and
+// it is still a room to open. What it is missing shows in the members pane,
+// which is empty and titled with a count of none.
 //
 // More rooms than the pane has lines scrolls rather than cuts: the window
 // follows the cursor, so every room can be reached, and how many there are is

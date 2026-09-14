@@ -12,9 +12,9 @@
 // loading must not wait for that install.
 
 const DELIVERED_MID_TURN =
-  "[crabswarm chat] Messages just arrived. Reply with `crabswarm chat send <name|team/name> <text>` if any is addressed to you; otherwise carry on."
+  "[crabswarm chat] Messages just arrived. Reply with `crabswarm chat send <everyone|role[,role...]> <text>` to any line marked [mentioned you]; otherwise carry on."
 const DELIVERED_AT_IDLE =
-  "[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, reply with `crabswarm chat send <name|team/name> <text>`, then finish."
+  "[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, which is every line marked [mentioned you], reply with `crabswarm chat send <everyone|role[,role...]> <text>`, then finish."
 
 // The variables the bridge cannot work without, forwarded to the MCP server
 // the same way the Codex declaration's env_vars and the Claude Code plugin's
@@ -89,13 +89,13 @@ export const CrabswarmChat = async ({ client, $ }: { client: Client; $: Shell })
       if (await isTopLevel(permission.sessionID)) await report("waiting")
     },
 
-    // Mid-turn delivery: the messages a read drained ride on the tool's
+    // Mid-turn delivery: the messages a read handed over ride on the tool's
     // result, which is the closest OpenCode has to a hook's additionalContext.
     // A tool call completing is also the signal that a dialog resolved.
     "tool.execute.after": async (input: { sessionID: string }, output: { output: string }) => {
       if (!(await isTopLevel(input.sessionID))) return
-      const mail = await chat("read", "--quiet")
-      if (mail) output.output += `\n\n${DELIVERED_MID_TURN}\n\n${mail}`
+      const messages = await chat("read", "--quiet")
+      if (messages) output.output += `\n\n${DELIVERED_MID_TURN}\n\n${messages}`
       await report("working")
     },
 
@@ -108,16 +108,16 @@ export const CrabswarmChat = async ({ client, $ }: { client: Client; $: Shell })
           const sessionID = event.properties.sessionID
           if (!(await isTopLevel(sessionID))) return
           // The read reports the member done exactly when it hands nothing
-          // over. Mail found at idle becomes the next prompt, which is what a
-          // blocked Stop is on the other harnesses. The prompt is not awaited:
-          // the call returns after the whole reply, and the event bus must not
-          // wait for a turn.
-          const mail = await chat("read", "--quiet", "--done-when-empty")
-          if (!mail) return
+          // over. What it found at idle becomes the next prompt, which is what
+          // a blocked Stop is on the other harnesses. The prompt is not
+          // awaited: the call returns after the whole reply, and the event bus
+          // must not wait for a turn.
+          const messages = await chat("read", "--quiet", "--done-when-empty")
+          if (!messages) return
           void client.session
             .prompt({
               path: { id: sessionID },
-              body: { parts: [{ type: "text", text: `${DELIVERED_AT_IDLE}\n\n${mail}` }] },
+              body: { parts: [{ type: "text", text: `${DELIVERED_AT_IDLE}\n\n${messages}` }] },
             })
             .catch(() => {})
         }

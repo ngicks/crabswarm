@@ -1,6 +1,6 @@
 // Package notify wakes a member whose harness has finished its turn, so a
-// message that just reached their inbox is read now rather than whenever they
-// next happen to look.
+// message that just mentioned them is read now rather than whenever they next
+// happen to look.
 //
 // It holds the implementors of the chat broker's notification hook, and nothing
 // else: the interface itself is declared at its consumer, in the chat package,
@@ -20,7 +20,7 @@ import (
 )
 
 // maxNudgeAddrLen caps the sender address the injected line carries. A member
-// name comes from the agent that joined and nothing upstream bounds it, so the
+// name comes from the agent that attends and nothing upstream bounds it, so the
 // cap is what keeps one line one line; a longer address is cut short.
 const maxNudgeAddrLen = 64
 
@@ -41,8 +41,8 @@ const staleStateAfter = 10 * time.Minute
 // command, so a nudge passes three guards — the member is an agent, its last
 // reported harness state invites one (see [nudgeable]), and a snapshot of its
 // screen shows no dialog. A guard that declines drops the nudge and reports
-// success: the message is already in the inbox, so the recipient reads it at
-// the end of its current turn instead of a moment from now.
+// success: the message is already in the room and unread for the recipient, so
+// it reads it at the end of its current turn instead of a moment from now.
 type SendKeys struct {
 	terminal *cmdman.Terminal
 	logger   *slog.Logger
@@ -74,7 +74,8 @@ func (n *SendKeys) Notify(
 ) error {
 	// The state guard is nudge policy rather than a property of typing, so it
 	// stays here: a member mid-turn has a terminal that could be typed into,
-	// and the reason not to is that its inbox already holds the message.
+	// and the reason not to is that the message already waits past its read
+	// position.
 	if !nudgeable(recipient) {
 		n.logger.Debug("chat: not nudging a busy member",
 			"recipient", recipient.Team+"/"+recipient.Name,
@@ -86,8 +87,8 @@ func (n *SendKeys) Notify(
 	err := n.terminal.SendCommand(ctx, recipient, nudgeLine(from))
 	if errors.Is(err, cmdman.ErrDeclined) {
 		// A declined nudge is reported as success: the message is already in
-		// the inbox, so the recipient reads it at the end of its current turn
-		// instead of a moment from now.
+		// the room and unread for the recipient, so it reads it at the end of
+		// its current turn instead of a moment from now.
 		return nil
 	}
 	return err
@@ -117,15 +118,26 @@ func nudgeable(m chat.Member) bool {
 // and the command that hands the message over.
 func nudgeLine(from chat.Sender) string {
 	return "[crabswarm chat] new message from " +
-		sanitizeLine(from.Team+"/"+from.Name) +
+		sanitizeLine(senderAddr(from)) +
 		" — run: crabswarm chat read"
+}
+
+// senderAddr spells the sender the way every chat verb addresses one. A sender
+// with no team is the host operator, whose messages read as coming from "admin"
+// rather than from "/admin": nobody can attend a room without a team, so there
+// is no other unteamed sender to confuse it with.
+func senderAddr(from chat.Sender) string {
+	if from.Team == "" {
+		return from.Name
+	}
+	return from.Team + "/" + from.Name
 }
 
 // sanitizeLine makes s safe to type into a terminal as part of one line. It
 // drops control characters — a carriage return would submit the line early and
 // leave the rest of it running as a command of its own — and truncates at
 // [maxNudgeAddrLen]. Neither bound is guaranteed upstream: a name is whatever
-// the joining agent asked to be called.
+// the attending agent asked to be called.
 func sanitizeLine(s string) string {
 	cleaned := make([]rune, 0, len(s))
 	for _, r := range s {

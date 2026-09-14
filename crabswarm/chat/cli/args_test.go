@@ -8,35 +8,6 @@ import (
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-func TestParseQualifiedName(t *testing.T) {
-	for _, tc := range []struct {
-		in         string
-		team, name string
-		wantErr    bool
-	}{
-		{in: "backend/alice", team: "backend", name: "alice"},
-		{in: "a/b", team: "a", name: "b"},
-		{in: "alice", wantErr: true},
-		{in: "/alice", wantErr: true},
-		{in: "backend/", wantErr: true},
-		{in: "", wantErr: true},
-		// Three segments are ambiguous rather than "team plus a name with a
-		// slash": a name cannot hold one, so this is a typo, not an address.
-		{in: "a/b/c", wantErr: true},
-	} {
-		t.Run(tc.in, func(t *testing.T) {
-			team, name, err := ParseQualifiedName(tc.in)
-			if tc.wantErr {
-				assert.Assert(t, err != nil)
-				return
-			}
-			assert.NilError(t, err)
-			assert.Equal(t, team, tc.team)
-			assert.Equal(t, name, tc.name)
-		})
-	}
-}
-
 func TestParseHarnessState(t *testing.T) {
 	for _, tc := range []struct {
 		in   string

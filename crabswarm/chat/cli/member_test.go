@@ -1,108 +1,265 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-func TestClient_Join(t *testing.T) {
+// Attendance lands before the feed is read: the caller learns its own room,
+// team and name from the first event, which is what it matches later events
+// against.
+func TestClient_Attend(t *testing.T) {
 	fake := &fakeChatService{self: member("backend", "alice", "/work/proj")}
 	d := serveTestDaemon(t, fake, nil)
 
-	var out strings.Builder
-	self, err := d.client.Join(t.Context(), &out, "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_HUMAN)
-	assert.NilError(t, err)
-	assert.Equal(t, fake.join.GetName(), "alice")
-	assert.Equal(t, fake.join.GetKind(), chatv1.MemberKind_MEMBER_KIND_HUMAN)
-	assert.Equal(t, out.String(), "joined /work/proj as backend/alice\n")
-
-	// The identity is handed back as well as printed: a caller that has to
-	// recognise its own membership on the room's event feed has only the team
-	// and the name to match against.
-	assert.Equal(t, self.GetTeam(), "backend")
-	assert.Equal(t, self.GetName(), "alice")
-	assert.Equal(t, self.GetRoom(), "/work/proj")
-
-	// An unnamed join sends an empty name: naming the member is the daemon's
-	// job when the caller declines to.
-	_, err = d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "",
-		chatv1.MemberKind_MEMBER_KIND_HUMAN)
-	assert.NilError(t, err)
-	assert.Equal(t, fake.join.GetName(), "")
-}
-
-// Only a caller that says so attends as a harness; the daemon has nothing else
-// to read it off.
-func TestClient_JoinCarriesTheDeclaredKind(t *testing.T) {
-	fake := &fakeChatService{self: member("backend", "alice", "/work/proj")}
-	d := serveTestDaemon(t, fake, nil)
-
-	_, err := d.client.Join(t.Context(), &strings.Builder{}, "tok-a", "alice",
+	att, err := d.client.Attend(t.Context(), "tok-a", "alice",
 		chatv1.MemberKind_MEMBER_KIND_AGENT)
 	assert.NilError(t, err)
-	assert.Equal(t, fake.join.GetKind(), chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Equal(t, fake.attendRequest().GetName(), "alice")
+	assert.Equal(t, fake.attendRequest().GetKind(), chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a"})
+
+	assert.Equal(t, att.Self().GetTeam(), "backend")
+	assert.Equal(t, att.Self().GetName(), "alice")
+	assert.Equal(t, att.Self().GetRoom(), "/work/proj")
 }
 
-// The address is handed to the daemon exactly as typed — resolving a bare name
-// against the caller's team, then the room, is a decision only the daemon can
-// make.
-func TestClient_SendPassesTheAddressThrough(t *testing.T) {
-	fake := &fakeChatService{recipient: member("frontend", "bob", "/work/proj")}
+// An unnamed attendance sends an empty name: naming the member is the daemon's
+// job when the caller declines to.
+func TestClient_AttendUnnamed(t *testing.T) {
+	fake := &fakeChatService{self: member("backend", "alice", "/work/proj")}
 	d := serveTestDaemon(t, fake, nil)
 
-	var out strings.Builder
-	assert.NilError(t, d.client.Send(t.Context(), &out, "tok-a", "bob", "ping"))
-	assert.Equal(t, fake.send.GetTo(), "bob")
-	assert.Equal(t, fake.send.GetText(), "ping")
-	assert.Equal(t, out.String(), "sent to frontend/bob\n")
-
-	assert.NilError(t,
-		d.client.Send(t.Context(), &strings.Builder{}, "tok-a", "frontend/bob", "ping"))
-	assert.Equal(t, fake.send.GetTo(), "frontend/bob")
+	_, err := d.client.Attend(t.Context(), "tok-a", "",
+		chatv1.MemberKind_MEMBER_KIND_HUMAN)
+	assert.NilError(t, err)
+	assert.Equal(t, fake.attendRequest().GetName(), "")
+	assert.Equal(t, fake.attendRequest().GetKind(), chatv1.MemberKind_MEMBER_KIND_HUMAN)
 }
 
-func TestClient_Broadcast(t *testing.T) {
-	fake := &fakeChatService{delivered: 2}
+// The stream is lazy, so a refusal arrives at the first event rather than at the
+// call that opened it. It still has to reach the caller as the daemon's own
+// words, since that is where "somebody is already attending as this role" is
+// said.
+func TestClient_AttendSurfacesTheRefusal(t *testing.T) {
+	const msg = `"backend/alice" is already attending`
+	fake := &fakeChatService{err: status.Error(codes.AlreadyExists, msg)}
 	d := serveTestDaemon(t, fake, nil)
 
-	var out strings.Builder
-	assert.NilError(t, d.client.Broadcast(t.Context(), &out, "tok-a", "standup in 5"))
-	assert.Equal(t, fake.broadcast.GetText(), "standup in 5")
-	assert.Equal(t, out.String(), "broadcast to 2 members\n")
+	_, err := d.client.Attend(t.Context(), "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Assert(t, err != nil)
+	assert.Equal(t, err.Error(), msg)
+}
+
+// A caller that gave up while attending was in flight hears its own
+// cancellation: a bridge shutting down would otherwise read its exit as a
+// refusal to attend, and try again on the way out.
+func TestClient_AttendReportsTheCancellation(t *testing.T) {
+	fake := &fakeChatService{self: member("backend", "alice", "/work")}
+	d := serveTestDaemon(t, fake, nil)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, err := d.client.Attend(ctx, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// The first event is what says the attendance landed; anything else means the
+// caller holds no membership it could act on, and saying so beats handing back
+// a member nobody named.
+func TestClient_AttendRejectsAnOpeningThatNamesNoMember(t *testing.T) {
+	fake := &fakeChatService{openWith: &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MemberJoined{
+			MemberJoined: &chatv1.MemberJoined{
+				Member: member("backend", "bob", "/work/proj"),
+			},
+		},
+	}}
+	d := serveTestDaemon(t, fake, nil)
+
+	_, err := d.client.Attend(t.Context(), "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "MemberJoined"))
+}
+
+// Forward hands the room's feed over event by event and stops when the caller
+// says so, which is how a bridge ends a feed it is still being served.
+func TestAttendance_ForwardStopsOnTheCallersError(t *testing.T) {
+	joined := &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MemberJoined{
+			MemberJoined: &chatv1.MemberJoined{Member: member("frontend", "bob", "/work")},
+		},
+	}
+	appended := &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MessageAppended{
+			MessageAppended: &chatv1.MessageAppended{Message: &chatv1.Message{Seq: 4}},
+		},
+	}
+	fake := &fakeChatService{
+		self:   member("backend", "alice", "/work"),
+		events: []*chatv1.RoomEvent{joined, appended},
+	}
+	d := serveTestDaemon(t, fake, nil)
+
+	att, err := d.client.Attend(t.Context(), "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.NilError(t, err)
+
+	enough := errors.New("seen enough")
+	var seen []string
+	err = att.Forward(t.Context(), func(ev *chatv1.RoomEvent) error {
+		switch ev.GetEvent().(type) {
+		case *chatv1.RoomEvent_MemberJoined:
+			seen = append(seen, "joined")
+		case *chatv1.RoomEvent_MessageAppended:
+			seen = append(seen, "appended")
+			return enough
+		}
+		return nil
+	})
+	assert.ErrorIs(t, err, enough)
+	assert.DeepEqual(t, seen, []string{"joined", "appended"})
+}
+
+// A feed the caller ended itself reports the cancellation rather than the
+// transport failure the stream raises on the way down: a caller that retries a
+// dropped attendance must not retry its own shutdown.
+func TestAttendance_ForwardReportsTheCancellation(t *testing.T) {
+	fake := &fakeChatService{self: member("backend", "alice", "/work")}
+	d := serveTestDaemon(t, fake, nil)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	att, err := d.client.Attend(ctx, "tok-a", "alice",
+		chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.NilError(t, err)
+
+	cancel()
+	err = att.Forward(ctx, func(*chatv1.RoomEvent) error { return nil })
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// The target reaches the daemon as it was written, and the answer says who it
+// resolved to — which the caller needs whole, since a role nobody attends is in
+// it as well.
+func TestClient_Send(t *testing.T) {
+	fake := &fakeChatService{
+		mentioned: []*chatv1.Member{
+			member("frontend", "bob", "/work"),
+			member("ops", "carol", "/work"),
+		},
+		absent: []*chatv1.Member{member("ops", "carol", "/work")},
+	}
+	d := serveTestDaemon(t, fake, nil)
+
+	target, err := ParseTarget("frontend/bob,ops/carol")
+	assert.NilError(t, err)
+	resp, err := d.client.Send(t.Context(), "tok-a", target, "please review")
+	assert.NilError(t, err)
+	assert.Equal(t, fake.send.GetText(), "please review")
+	assert.Equal(t, TargetString(fake.send.GetTarget()), "frontend/bob,ops/carol")
+	assert.Equal(t, len(resp.GetMentioned()), 2)
+	assert.Equal(t, Address(resp.GetAbsent()[0]), "ops/carol")
+}
+
+// A board post carries no target at all, which is how the wire spells "for
+// nobody": the message is in the room and mentions no one.
+func TestClient_SendPostCarriesNoTarget(t *testing.T) {
+	fake := &fakeChatService{}
+	d := serveTestDaemon(t, fake, nil)
+
+	target, err := ParseTarget("")
+	assert.NilError(t, err)
+	_, err = d.client.Send(t.Context(), "tok-a", target, "fyi: rebased main")
+	assert.NilError(t, err)
+	assert.Assert(t, fake.send.GetTarget() == nil)
 }
 
 // pendingMessage is the one message the read cases below hand over.
 func pendingMessage() *chatv1.Message {
 	return &chatv1.Message{
-		From:   member("backend", "alice", "/work"),
-		Text:   "ping",
-		SentAt: timestamppb.New(time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)),
+		Seq:  7,
+		From: member("backend", "alice", "/work"),
+		Target: &chatv1.Target{
+			Target: &chatv1.Target_Everyone{Everyone: &chatv1.Everyone{}},
+		},
+		Text:         "ping",
+		SentAt:       timestamppb.New(time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)),
+		MentionedYou: true,
 	}
 }
 
-const pendingMessageLine = "[2026-08-27T09:30:00Z] backend/alice: ping\n"
+const pendingMessageLine = "7 2026-08-27T09:30:00Z backend/alice -> everyone " +
+	"[mentioned you]: ping\n"
 
-func TestClient_Read(t *testing.T) {
+func TestClient_ReadInto(t *testing.T) {
 	fake := &fakeChatService{messages: []*chatv1.Message{pendingMessage()}}
 	d := serveTestDaemon(t, fake, nil)
 
 	var out strings.Builder
-	assert.NilError(t, d.client.Read(t.Context(), &out, "tok-b", ReadOptions{}))
+	assert.NilError(t, d.client.ReadInto(t.Context(), &out, "tok-b", ReadOptions{}))
 	assert.Equal(t, out.String(), pendingMessageLine)
 	assert.DeepEqual(t, d.seenTokens(), []string{"tok-b"})
+	// No filter is no filter: the daemon's own default is the first ten unread.
+	assert.Assert(t, fake.read.GetFilter() == nil)
 }
 
-// The empty-inbox line is what a human wants and what a hook has to tell apart
-// from mail, so --quiet is the only thing that removes it: output that is empty
-// at all then means nothing arrived, with no wording to compare against.
-func TestClient_ReadQuietPrintsNothingOnAnEmptyInbox(t *testing.T) {
+// The written flags reach the daemon as the one read shape it takes, so a read
+// asks for what was typed rather than for what the client thought it meant.
+func TestClient_ReadCarriesTheFilter(t *testing.T) {
+	fake := &fakeChatService{}
+	d := serveTestDaemon(t, fake, nil)
+
+	filter, err := ReadFlags{
+		Cursor: "head",
+		Range:  20,
+		To:     "everyone",
+		Since:  120,
+		Until:  180,
+	}.Filter()
+	assert.NilError(t, err)
+
+	_, err = d.client.Read(t.Context(), "tok-b", filter)
+	assert.NilError(t, err)
+	sent := fake.read.GetFilter()
+	assert.Equal(t, sent.GetCursor(), chatv1.ReadCursor_READ_CURSOR_HEAD)
+	assert.Equal(t, sent.GetRange(), int32(20))
+	assert.Equal(t, TargetString(sent.GetTo()), "everyone")
+	assert.Equal(t, sent.GetSince(), int64(120))
+	assert.Equal(t, sent.GetUntil(), int64(180))
+}
+
+// What a read left behind is worth a line: it is the only thing telling the
+// reader that another read would hand over more.
+func TestClient_ReadIntoReportsTheRemainingUnread(t *testing.T) {
+	fake := &fakeChatService{
+		messages:  []*chatv1.Message{pendingMessage()},
+		remaining: 3,
+	}
+	d := serveTestDaemon(t, fake, nil)
+
+	var out strings.Builder
+	assert.NilError(t, d.client.ReadInto(t.Context(), &out, "tok-b", ReadOptions{}))
+	assert.Equal(t, out.String(), pendingMessageLine+"3 more unread\n")
+}
+
+// The empty-read line is what a human wants and what a hook has to tell apart
+// from messages, so --quiet is the only thing that removes it: output that is
+// empty at all then means nothing arrived, with no wording to compare against.
+func TestClient_ReadIntoQuietPrintsNothingOnAnEmptyRead(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		quiet bool
@@ -116,8 +273,8 @@ func TestClient_ReadQuietPrintsNothingOnAnEmptyInbox(t *testing.T) {
 			d := serveTestDaemon(t, fake, nil)
 
 			var out strings.Builder
-			assert.NilError(t,
-				d.client.Read(t.Context(), &out, "tok-b", ReadOptions{Quiet: tc.quiet}))
+			assert.NilError(t, d.client.ReadInto(t.Context(), &out, "tok-b",
+				ReadOptions{Quiet: tc.quiet}))
 			assert.Equal(t, out.String(), tc.want)
 			assert.Assert(t, fake.state == nil, "a read alone reports no state")
 		})
@@ -127,14 +284,14 @@ func TestClient_ReadQuietPrintsNothingOnAnEmptyInbox(t *testing.T) {
 // A drain that found nothing ends the turn, so the same process reports the
 // member done — the state that lets the daemon nudge it when the next message
 // arrives. Messages in hand mean the opposite: the turn is about to continue.
-func TestClient_ReadDoneWhenEmpty(t *testing.T) {
+func TestClient_ReadIntoDoneWhenEmpty(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		messages []*chatv1.Message
 		want     string
 		wantDone bool
 	}{
-		{"an empty inbox reports done", nil, "", true},
+		{"an empty read reports done", nil, "", true},
 		{
 			"messages report nothing",
 			[]*chatv1.Message{pendingMessage()},
@@ -147,7 +304,7 @@ func TestClient_ReadDoneWhenEmpty(t *testing.T) {
 			d := serveTestDaemon(t, fake, nil)
 
 			var out strings.Builder
-			assert.NilError(t, d.client.Read(t.Context(), &out, "tok-b",
+			assert.NilError(t, d.client.ReadInto(t.Context(), &out, "tok-b",
 				ReadOptions{Quiet: true, DoneWhenEmpty: true}))
 			assert.Equal(t, out.String(), tc.want)
 
@@ -161,35 +318,6 @@ func TestClient_ReadDoneWhenEmpty(t *testing.T) {
 			assert.DeepEqual(t, d.seenTokens(), []string{"tok-b", "tok-b"})
 		})
 	}
-}
-
-func TestClient_History(t *testing.T) {
-	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
-	fake := &fakeChatService{entries: []*chatv1.HistoryEntry{
-		{
-			From:   member("backend", "alice", "/work"),
-			To:     member("frontend", "bob", "/work"),
-			Text:   "ping",
-			SentAt: timestamppb.New(sent),
-		},
-		{
-			From:   member("frontend", "bob", "/work"),
-			Text:   "standup in 5",
-			SentAt: timestamppb.New(sent.Add(time.Minute)),
-		},
-	}}
-	d := serveTestDaemon(t, fake, nil)
-
-	var out strings.Builder
-	assert.NilError(t, d.client.History(t.Context(), &out, "tok-a", 0))
-	assert.Equal(t, out.String(),
-		"[2026-08-27T09:30:00Z] backend/alice → frontend/bob: ping\n"+
-			"[2026-08-27T09:31:00Z] frontend/bob → *: standup in 5\n")
-	// An unasked-for window is left to the daemon rather than guessed at here.
-	assert.Equal(t, fake.history.GetLimit(), int32(0))
-
-	assert.NilError(t, d.client.History(t.Context(), &strings.Builder{}, "tok-a", 20))
-	assert.Equal(t, fake.history.GetLimit(), int32(20))
 }
 
 func TestClient_ListMembersAndAddresses(t *testing.T) {
@@ -212,16 +340,6 @@ func TestClient_ListMembersAndAddresses(t *testing.T) {
 	addresses, err := d.client.MemberAddresses(t.Context(), "tok-a")
 	assert.NilError(t, err)
 	assert.DeepEqual(t, addresses, []string{"backend/alice", "frontend/bob"})
-}
-
-func TestClient_Leave(t *testing.T) {
-	fake := &fakeChatService{}
-	d := serveTestDaemon(t, fake, nil)
-
-	var out strings.Builder
-	assert.NilError(t, d.client.Leave(t.Context(), &out, "tok-a"))
-	assert.Equal(t, fake.leaveCalls, 1)
-	assert.Equal(t, out.String(), "left the room\n")
 }
 
 // ReportState is driven by harness hooks whose stdout the harness reads back,

@@ -52,11 +52,16 @@ func noMoreEvents(t *testing.T, events <-chan *chatv1.RoomEvent) {
 	}
 }
 
-// describeEvent renders an event as "kind:team/name[:state]", which is what the
-// tests assert on: one comparison covers the kind and who it is about, and an
-// event of the wrong kind fails as a wrong kind rather than as an empty name.
+// describeEvent renders an event as "kind:team/name[:detail]", which is what
+// the tests assert on: one comparison covers the kind and who it is about, and
+// an event of the wrong kind fails as a wrong kind rather than as an empty name.
 func describeEvent(ev *chatv1.RoomEvent) string {
 	switch e := ev.GetEvent().(type) {
+	case *chatv1.RoomEvent_Attended:
+		return "attended:" + address(e.Attended.GetSelf())
+	case *chatv1.RoomEvent_MessageAppended:
+		msg := e.MessageAppended.GetMessage()
+		return "message:" + address(msg.GetFrom()) + ":" + msg.GetText()
 	case *chatv1.RoomEvent_MemberJoined:
 		return "joined:" + address(e.MemberJoined.GetMember())
 	case *chatv1.RoomEvent_MemberLeft:

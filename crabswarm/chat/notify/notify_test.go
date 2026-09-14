@@ -274,6 +274,22 @@ func TestSendKeys_SanitizesSenderAddress(t *testing.T) {
 	}
 }
 
+// The host operator sends under a name with no team, and the line says "admin"
+// rather than "/admin": the address is what the reader would answer to, and a
+// leading slash is not one.
+func TestSendKeys_UnteamedSenderCarriesTheBareName(t *testing.T) {
+	bin := stubCmdmanScreen(t, idlePrompt)
+
+	err := NewSendKeys(bin, nil).Notify(
+		t.Context(), doneAgent(), chat.Sender{Name: "admin"}, "hi")
+	assert.NilError(t, err)
+
+	args := stubArgs(t, bin)
+	assert.Equal(t, len(args), 3, "invocations: %v", args)
+	assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
+		"[crabswarm chat] new message from admin — run: crabswarm chat read")
+}
+
 func TestSendKeys_RejectsMalformedTokenWithoutExec(t *testing.T) {
 	for _, token := range []string{"", "--start-line", "tok id", "tok\nid"} {
 		t.Run(token, func(t *testing.T) {

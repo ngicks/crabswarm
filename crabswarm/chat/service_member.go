@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -20,106 +21,143 @@ import (
 // this wording rather than by the code alone.
 const ProviderUnavailableMessage = "looking up team information"
 
-// Join declares attendance under the requested name, deriving room and team
-// from the caller's token.
+// Attend declares attendance and holds it open for as long as the stream is,
+// deriving room and team from the caller's token. Closing the stream is
+// leaving: the attendance is the stream, so there is no second call to make and
+// nothing to clean up after a client that vanished.
 //
-// What the joiner is, it says itself: a request declaring an agent attends as
-// [KindAgent] and has its terminal typed into when a message arrives, one
-// declaring a human attends inbox-only, and one declaring nothing is refused
+// What attends, the request says itself: one declaring an agent attends as
+// [KindAgent] and has its terminal typed into when it is mentioned, one
+// declaring a human attends read-only, and one declaring nothing is refused
 // with InvalidArgument. The daemon does not guess — a harness and the shell a
 // person types in are the same kind of command to the team-info provider, and
 // guessing wrong means keystrokes in somebody's shell.
 //
-// A token the provider does not know is NotFound: it carries no team
-// coordination information, so there is nowhere to put its holder. A provider
-// lookup that merely fails is Unavailable instead — refusing a joiner because
-// cmdman was busy would read as "you do not belong here", which is not what
-// happened.
+// A token the provider does not know is Unauthenticated: nothing places its
+// holder, so there is nowhere to put them and no reason to believe the token.
+// A provider lookup that merely fails is Unavailable instead — turning a caller
+// away because cmdman was busy would read as "you do not belong here", which is
+// not what happened.
 //
-// Joining again with the same token returns the existing membership unchanged,
-// name and kind included, since the store keeps the first join. The re-join
-// must still declare a kind, so a client that stopped filling the field in is
-// caught rather than quietly kept on the attendance it opened with. An
-// admin-registered human may call Join too: they are already a member, and
-// their token is theirs to present, so it is answered from the store without
-// consulting the provider.
+// A token already attending is AlreadyExists, and so is a second session for a
+// role somebody is already attending under: the role has one read position, and
+// two streams sharing it would each hide messages from the other.
 //
-// A name a teammate already carries is AlreadyExists, unless that teammate
-// turns out to be gone — an agent whose token the provider places nowhere any
-// more, because it knows no such command or reports that command as no longer
-// running, is dropped here the way the reaper drops it elsewhere, and the joiner
-// takes the name. That is what a recreated command looks like: it derives the
-// exact name its predecessor is still holding, and nobody else would ever free
-// it.
-func (s *Service) Join(
-	ctx context.Context,
-	req *chatv1.JoinRequest,
-) (*chatv1.JoinResponse, error) {
+// The first event is Attended, carrying the member the token resolved to. The
+// rest is the room's feed from the moment the stream opened; nothing said
+// before it is replayed, so a client that wants the room as it stands reads it
+// once the stream is up.
+func (s *Service) Attend(
+	req *chatv1.AttendRequest,
+	stream grpc.ServerStreamingServer[chatv1.RoomEvent],
+) error {
+	ctx := stream.Context()
 	token, err := tokenFromContext(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	kind, err := memberKind(req.GetKind())
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	switch existing, err := s.store.Member(ctx, token); {
-	case err == nil:
-		if !s.stillKnown(ctx, existing) {
-			return nil, status.Errorf(codes.NotFound,
-				"token is no longer known to the team-info provider")
-		}
-		// Re-declared attendance re-publishes the stored state: a session that
-		// starts again is often one whose display was reset under it.
-		s.mirrorState(ctx, existing, existing.State)
-		return &chatv1.JoinResponse{Self: memberProto(existing)}, nil
-	case !errors.Is(err, ErrNotFound):
-		return nil, storeStatus(err)
-	}
-
 	info, err := s.provider.Resolve(ctx, token)
 	switch {
 	case errors.Is(err, resolver.ErrUnknownToken):
-		return nil, status.Errorf(codes.NotFound,
+		return status.Errorf(codes.Unauthenticated,
 			"no team information for this token: %s", err)
 	case err != nil:
-		return nil, status.Errorf(codes.Unavailable,
+		return status.Errorf(codes.Unavailable,
 			"%s: %s", ProviderUnavailableMessage, err)
 	}
-	s.recordVerified(token)
 
-	name := req.GetName()
-	if name == "" {
-		name = info.Name
-	}
-	if name == "" {
-		name = defaultName(token, kind)
-	}
-	joiner := Member{
+	// Subscribed before the attendance lands rather than after: an event
+	// published in the gap between the two would reach this stream's client
+	// never, and the stream is the only thing telling it what happens while it
+	// is here. Its own arrival comes back down the feed, which is right — every
+	// attendee sees the same room.
+	sub := s.store.events.subscribe(info.Room)
+	defer s.store.events.unsubscribe(sub)
+
+	self, err := s.store.Attend(ctx, Member{
 		Token: token,
-		Name:  name,
+		Name:  s.attendName(req.GetName(), info, token, kind),
 		Team:  info.Team,
 		Room:  info.Room,
 		Kind:  kind,
-	}
-	joined, err := s.store.Join(ctx, joiner)
-	if errors.Is(err, ErrNameTaken) &&
-		reclaimName(ctx, s.store, s.provider, s.logger, s.forgetVerified,
-			info.Room, info.Team, name) {
-		// Retried once and no further: a name taken again in between is another
-		// joiner that won the race, which is a refusal to report rather than a
-		// reason to keep trying.
-		joined, err = s.store.Join(ctx, joiner)
-	}
+	})
 	if err != nil {
-		return nil, storeStatus(err)
+		return storeStatus(err)
 	}
-	s.mirrorState(ctx, joined, joined.State)
-	// Only a first join is news: re-declared attendance returns above, having
-	// changed nothing a watcher of the room can see.
-	s.store.events.publish(joined.Room, memberJoinedEvent(joined))
-	return &chatv1.JoinResponse{Self: memberProto(joined)}, nil
+	defer s.detach(ctx, self)
+
+	s.mirrorState(ctx, self, self.State)
+	s.store.events.publish(self.Room, memberJoinedEvent(self))
+	if err := stream.Send(attendedEvent(self)); err != nil {
+		return err
+	}
+	return forwardRoomEvents(ctx, stream, sub)
+}
+
+// attendName picks what to call the attendee: what it asked to be called, else
+// what the provider derives from its command, else its kind and token.
+func (s *Service) attendName(
+	requested string,
+	info resolver.TeamInfo,
+	token string,
+	kind MemberKind,
+) string {
+	switch {
+	case requested != "":
+		return requested
+	case info.Name != "":
+		return info.Name
+	default:
+		return defaultName(token, kind)
+	}
+}
+
+// detach withdraws the attendance a stream declared, which is what the stream
+// ending means however it ended. The room hears about it: the other attendees
+// are sessions that are still running, and they would otherwise keep a member
+// that is gone on their list forever.
+func (s *Service) detach(ctx context.Context, m Member) {
+	if _, err := s.store.Detach(ctx, m.Token); err != nil {
+		s.logger.Warn("chat: withdrawing attendance failed",
+			"member", m.Team+"/"+m.Name, "err", err)
+		return
+	}
+	s.mirrorGone(ctx, m)
+	s.store.events.publish(m.Room, memberLeftEvent(m))
+}
+
+// forwardRoomEvents writes room's feed to the stream until the client stops
+// listening.
+//
+// An attendee that stops reading for [roomEventBuffer] events is dropped with
+// ResourceExhausted rather than served the rest of the feed with holes in it,
+// and since the feed is the attendance it stops attending with it. The answer
+// is to attend again: a feed missing a member-left leaves the client wrong with
+// nothing to notice.
+func forwardRoomEvents(
+	ctx context.Context,
+	stream grpc.ServerStreamingServer[chatv1.RoomEvent],
+	sub *roomSubscription,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ev, ok := <-sub.events:
+			if !ok {
+				return status.Errorf(codes.ResourceExhausted,
+					"attendee fell more than %d events behind; attend again",
+					roomEventBuffer)
+			}
+			if err := stream.Send(ev); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // ListMembers lists everyone attending the caller's room, teams included.
@@ -135,30 +173,7 @@ func (s *Service) ListMembers(
 	if err != nil {
 		return nil, storeStatus(err)
 	}
-	out := make([]*chatv1.Member, len(members))
-	for i, m := range members {
-		out[i] = memberProto(m)
-	}
-	return &chatv1.ListMembersResponse{Members: out}, nil
-}
-
-// Leave withdraws the caller's attendance, discarding whatever is still in
-// their inbox.
-func (s *Service) Leave(
-	ctx context.Context,
-	_ *chatv1.LeaveRequest,
-) (*chatv1.LeaveResponse, error) {
-	caller, err := s.caller(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := s.store.RemoveMember(ctx, caller.Token); err != nil {
-		return nil, storeStatus(err)
-	}
-	s.forgetVerified(caller.Token)
-	s.mirrorGone(ctx, caller)
-	s.store.events.publish(caller.Room, memberLeftEvent(caller))
-	return &chatv1.LeaveResponse{}, nil
+	return &chatv1.ListMembersResponse{Members: membersProto(members)}, nil
 }
 
 // ReportState records the harness state the caller's hooks report.
@@ -169,7 +184,7 @@ func (s *Service) Leave(
 //
 // The room only hears about it when the state actually changed. Hooks report
 // working after every tool call, so a room of busy agents would otherwise spend
-// its event feed telling every watcher to re-read a roster that says exactly
+// its event feed telling every attendee to re-read a roster that says exactly
 // what it said before.
 func (s *Service) ReportState(
 	ctx context.Context,

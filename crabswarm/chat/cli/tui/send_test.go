@@ -13,26 +13,36 @@ import (
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 )
 
+// sendCall is one delivery as it was asked for. The target is held as the
+// written form the one authority spells it in — "everyone", the roles separated
+// by commas, or "-" for the board post that names nobody — so a call compares
+// with plain equality and reads as what the operator typed.
 type sendCall struct {
 	room   string
-	target cli.AdminTarget
+	target string
 	text   string
 }
 
 type fakeSender struct {
-	calls     []sendCall
-	delivered int32
-	err       error
+	calls []sendCall
+	// absent is the roles the daemon says nobody is attending under, which is
+	// what the screen turns into a warning.
+	absent []*chatv1.Member
+	err    error
 }
 
 func (f *fakeSender) Send(
 	_ context.Context,
 	room string,
-	target cli.AdminTarget,
+	target *chatv1.Target,
 	text string,
-) (int32, error) {
-	f.calls = append(f.calls, sendCall{room: room, target: target, text: text})
-	return f.delivered, f.err
+) (*chatv1.AdminSendResponse, error) {
+	f.calls = append(f.calls,
+		sendCall{room: room, target: cli.TargetString(target), text: text})
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &chatv1.AdminSendResponse{Absent: f.absent}, nil
 }
 
 // typeLine moves the focus down into the message pane and types line into it,
@@ -77,28 +87,43 @@ func TestTheSendKeysAreSpelledTheWayTheRouterReadsThem(t *testing.T) {
 	assert.Equal(t, ctrlX().String(), sendFallbackKey)
 }
 
-// The message says who it is for: the first bare `@token` in it, or the whole
-// room where there is none. The target reaches the sender as the case it means,
-// and the text goes whole — the token included, since it is also the mention.
-func TestSendingAddressesTheFirstTokenAndSendsTheTextWhole(t *testing.T) {
+// The message says who it is for: every bare `@token` in it, or nobody at all
+// where there is none, which is a board post. The target reaches the sender as
+// the case it means, and the text goes whole — the tokens included, since they
+// are also the mentions.
+func TestSendingAddressesEveryTokenAndSendsTheTextWhole(t *testing.T) {
 	for _, tc := range []struct {
-		line   string
+		line string
+		// target is how the target reads back, and notice the whole of what the
+		// system line says about a send that nobody was missing from.
 		target string
+		notice string
 		text   string
 	}{
-		{"@backend/alice rebase onto main", "backend/alice", "@backend/alice rebase onto main"},
-		{"@alice rebase onto main", "alice", "@alice rebase onto main"},
-		{"@backend/* rebase onto main", "backend/*", "@backend/* rebase onto main"},
-		{"standup in five", "*", "standup in five"},
-		{"ask `@here` who owns it", "*", "ask `@here` who owns it"},
-		{"@backend/alice ping @backend/bob too", "backend/alice",
-			"@backend/alice ping @backend/bob too"},
+		{
+			"@backend/alice rebase onto main",
+			"backend/alice", "sent to backend/alice",
+			"@backend/alice rebase onto main",
+		},
+		{"@alice rebase onto main", "alice", "sent to alice", "@alice rebase onto main"},
+		{"@everyone standup in five", "everyone", "sent to everyone", "@everyone standup in five"},
+		{"standup in five", "-", "sent a post", "standup in five"},
+		{"ask `@here` who owns it", "-", "sent a post", "ask `@here` who owns it"},
+		{
+			// Several tokens are one list, in the order they were written.
+			"@backend/alice ping @backend/bob too",
+			"backend/alice,backend/bob", "sent to backend/alice,backend/bob",
+			"@backend/alice ping @backend/bob too",
+		},
+		{
+			// The same role named twice is named once: a mention is not a count.
+			"@alice and @alice again",
+			"alice", "sent to alice",
+			"@alice and @alice again",
+		},
 	} {
 		t.Run(tc.line, func(t *testing.T) {
-			target, err := cli.ParseAdminTarget(tc.target)
-			assert.NilError(t, err)
-
-			sender := &fakeSender{delivered: 1}
+			sender := &fakeSender{}
 			m := fixtureModel(t, Deps{Sender: sender})
 			m = typeLine(t, m, tc.line)
 
@@ -107,12 +132,35 @@ func TestSendingAddressesTheFirstTokenAndSendsTheTextWhole(t *testing.T) {
 
 			assert.Equal(t, len(sender.calls), 1)
 			assert.Equal(t, sender.calls[0],
-				sendCall{room: fixtureRoom, target: target, text: tc.text})
+				sendCall{room: fixtureRoom, target: tc.target, text: tc.text})
 			assert.Equal(t, m.text.Value(), "")
-			assert.Assert(t, strings.Contains(m.systemLine(80),
-				"sent to "+tc.target+" (1 delivered)"))
+			assert.Assert(t, strings.Contains(m.systemLine(200), tc.notice),
+				"the system line = %q", m.systemLine(200))
 		})
 	}
+}
+
+// A role the message named that nobody is attending under is reported: the
+// daemon took the message and it waits at that role's read position, so an
+// operator expecting an answer is waiting for a session that is not there.
+func TestASendWarnsAboutTheRolesNobodyIsAttending(t *testing.T) {
+	sender := &fakeSender{absent: []*chatv1.Member{
+		{Team: "backend", Name: "bob", Room: fixtureRoom},
+	}}
+	m := fixtureModel(t, Deps{Sender: sender})
+	m = typeLine(t, m, "@backend/alice @backend/bob the branch is green")
+
+	m, cmd := sendOn(t, m)
+	m = runCmd(t, m, cmd)
+
+	line := m.systemLine(200)
+	assert.Assert(t, strings.Contains(line, "sent to backend/alice,backend/bob"),
+		"the system line = %q", line)
+	assert.Assert(t, strings.Contains(line,
+		"warning: backend/bob is not attending; the mention waits"),
+		"the system line = %q", line)
+	// The whole report is one line: a second would push the screen down.
+	assert.Assert(t, !strings.Contains(m.notice, "\n"), "the notice = %q", m.notice)
 }
 
 // enter is a newline and never a send: the operator asked for that in so many
@@ -127,7 +175,7 @@ func TestEnterWritesANewlineAndTheTwoSendKeysSend(t *testing.T) {
 		{name: "ctrl+x", key: ctrlX()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			sender := &fakeSender{delivered: 1}
+			sender := &fakeSender{}
 			m := fixtureModel(t, Deps{Sender: sender})
 			m = typeLine(t, m, "@backend/alice first")
 
@@ -153,9 +201,9 @@ func TestEnterWritesANewlineAndTheTwoSendKeysSend(t *testing.T) {
 // What the room said is the log's to say: a sent message reaches the pane when
 // the next read brings it back, not because the screen put it there.
 func TestASentMessageAppearsOnlyWhenTheLogSaysSo(t *testing.T) {
-	sender := &fakeSender{delivered: 2}
+	sender := &fakeSender{}
 	log := &fakeLog{
-		reply: func(logCall) ([]*chatv1.AdminHistoryEntry, error) { return nil, nil },
+		reply: func(logCall) ([]*chatv1.Message, error) { return nil, nil },
 	}
 	m := fixtureModel(t, Deps{Log: log, Sender: sender})
 	m = typeLine(t, m, "standup in five")
@@ -164,10 +212,10 @@ func TestASentMessageAppearsOnlyWhenTheLogSaysSo(t *testing.T) {
 	m = runCmd(t, m, cmd)
 	assert.Assert(t, !strings.Contains(m.conversation(), "standup in five"))
 
-	log.reply = func(logCall) ([]*chatv1.AdminHistoryEntry, error) {
-		return []*chatv1.AdminHistoryEntry{{
-			Id:   9,
-			From: &chatv1.Member{Team: "admin", Name: "admin", Room: fixtureRoom},
+	log.reply = func(logCall) ([]*chatv1.Message, error) {
+		return []*chatv1.Message{{
+			Seq:  9,
+			From: &chatv1.Member{Name: "admin", Room: fixtureRoom},
 			Text: "standup in five",
 		}}, nil
 	}

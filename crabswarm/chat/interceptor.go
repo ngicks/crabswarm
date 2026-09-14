@@ -80,8 +80,7 @@ func UnaryTokenInterceptor() grpc.UnaryServerInterceptor {
 
 // StreamTokenInterceptor is [UnaryTokenInterceptor] for the streaming half of
 // ChatService. A unary interceptor never sees a stream, so without this one
-// WatchRoom would reach the service with no token at all and refuse every
-// caller.
+// Attend would reach the service with no token at all and refuse every caller.
 func StreamTokenInterceptor() grpc.StreamServerInterceptor {
 	prefix := chatServicePrefix()
 	return func(

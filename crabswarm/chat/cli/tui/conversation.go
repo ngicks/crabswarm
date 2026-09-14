@@ -59,15 +59,17 @@ func (m *model) conversationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// conversation renders the room's log as the pane's content: one entry per
+// conversation renders the room's log as the pane's content: one message per
 // line, naming who said it and who to the way the CLI transcript names them, so
 // an operator reading both reads one text. The stamp is where the two part, and
 // deliberately — the pane spells the time of day where the transcript spells
 // the whole date, for the reason [entryTimeFormat] gives.
 //
-// An entry with no recipient is addressed to [cli.BroadcastTarget]. That "*"
-// spells a team-wide send as well as a room-wide one: the daemon records a team
-// send with no recipient for now, so the pane cannot tell the two apart.
+// The target column is the one the CLI writes: [cli.EveryoneTarget] for the
+// whole room, the roles a message names separated by commas, and
+// [cli.PostTarget] for a board post, which names nobody at all. A line
+// addressed to somebody else is not a line to answer, and only that column says
+// which is which.
 //
 // A message that names the admin is coloured, which the transcript does not do:
 // the screen is where the operator is watching for exactly that.
@@ -78,12 +80,9 @@ func (m *model) conversation() string {
 		if ts := e.GetSentAt(); ts != nil {
 			at = ts.AsTime().UTC().Format(entryTimeFormat)
 		}
-		to := cli.BroadcastTarget
-		if e.GetTo() != nil {
-			to = cli.Address(e.GetTo())
-		}
 		fmt.Fprintf(&b, "%s %s → %s: %s\n",
-			at, cli.Address(e.GetFrom()), to, mentioned(e.GetText()))
+			at, cli.Address(e.GetFrom()), cli.TargetString(e.GetTarget()),
+			mentioned(e.GetText()))
 	}
 	return b.String()
 }

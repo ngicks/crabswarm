@@ -7,7 +7,12 @@ func chatAdminRegisterCmd(parent *cobra.Command, flags *chatFlags) {
 		Use:   "register <room> <team> <name>",
 		Short: "Register a member the team-info provider cannot vouch for (admin)",
 		Long: `register mints an identity token for a member no provider knows — a human on
-the host, who runs under no cmdman command to be recognized by.
+the host, who runs under no cmdman command to be recognized by — and puts them
+in attendance with it.
+
+That attendance is the one no stream holds: it lasts until the daemon restarts,
+because a person reads their room from a terminal they open and close as they
+please and would otherwise stop existing between two of their commands.
 
 The token is printed once and stored nowhere else in readable form: pass it to
 the member verbs as --token or $CRABSWARM_CHAT_TOKEN. Being an admin verb, this

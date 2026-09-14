@@ -89,6 +89,31 @@ func (b *roomBroadcaster) remove(sub *roomSubscription) {
 	}
 }
 
+// attendedEvent is the first event of an attendance stream, telling the client
+// which member its token turned out to be. It is sent to that one stream rather
+// than published: nobody else in the room is waiting to be told who the caller
+// is.
+func attendedEvent(m Member) *chatv1.RoomEvent {
+	return &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_Attended{
+			Attended: &chatv1.Attended{Self: memberProto(m)},
+		},
+	}
+}
+
+// messageAppendedEvent announces a message appended to the room.
+//
+// MentionedYou is false on it, as it is on every message the store hands back
+// outside a role's own read: one event goes to the whole room, and whether a
+// message was waiting for a particular reader is a fact about that reader.
+func messageAppendedEvent(m Message) *chatv1.RoomEvent {
+	return &chatv1.RoomEvent{
+		Event: &chatv1.RoomEvent_MessageAppended{
+			MessageAppended: &chatv1.MessageAppended{Message: messageProto(m)},
+		},
+	}
+}
+
 // memberJoinedEvent announces that m now attends its room.
 func memberJoinedEvent(m Member) *chatv1.RoomEvent {
 	return &chatv1.RoomEvent{

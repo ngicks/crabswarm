@@ -35,33 +35,22 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// ChatServiceJoinProcedure is the fully-qualified name of the ChatService's Join RPC.
-	ChatServiceJoinProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Join"
+	// ChatServiceAttendProcedure is the fully-qualified name of the ChatService's Attend RPC.
+	ChatServiceAttendProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Attend"
 	// ChatServiceSendProcedure is the fully-qualified name of the ChatService's Send RPC.
 	ChatServiceSendProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Send"
-	// ChatServiceBroadcastProcedure is the fully-qualified name of the ChatService's Broadcast RPC.
-	ChatServiceBroadcastProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Broadcast"
 	// ChatServiceReadProcedure is the fully-qualified name of the ChatService's Read RPC.
 	ChatServiceReadProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Read"
-	// ChatServiceHistoryProcedure is the fully-qualified name of the ChatService's History RPC.
-	ChatServiceHistoryProcedure = "/ngicks.crabswarm.chat.v1.ChatService/History"
 	// ChatServiceListMembersProcedure is the fully-qualified name of the ChatService's ListMembers RPC.
 	ChatServiceListMembersProcedure = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
-	// ChatServiceLeaveProcedure is the fully-qualified name of the ChatService's Leave RPC.
-	ChatServiceLeaveProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Leave"
 	// ChatServiceReportStateProcedure is the fully-qualified name of the ChatService's ReportState RPC.
 	ChatServiceReportStateProcedure = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
-	// ChatServiceWatchRoomProcedure is the fully-qualified name of the ChatService's WatchRoom RPC.
-	ChatServiceWatchRoomProcedure = "/ngicks.crabswarm.chat.v1.ChatService/WatchRoom"
 	// ChatAdminServiceGetNonceProcedure is the fully-qualified name of the ChatAdminService's GetNonce
 	// RPC.
 	ChatAdminServiceGetNonceProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/GetNonce"
 	// ChatAdminServiceListRoomsProcedure is the fully-qualified name of the ChatAdminService's
 	// ListRooms RPC.
 	ChatAdminServiceListRoomsProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/ListRooms"
-	// ChatAdminServiceMoveMemberProcedure is the fully-qualified name of the ChatAdminService's
-	// MoveMember RPC.
-	ChatAdminServiceMoveMemberProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/MoveMember"
 	// ChatAdminServiceRegisterMemberProcedure is the fully-qualified name of the ChatAdminService's
 	// RegisterMember RPC.
 	ChatAdminServiceRegisterMemberProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/RegisterMember"
@@ -70,42 +59,37 @@ const (
 	// ChatAdminServiceHistoryProcedure is the fully-qualified name of the ChatAdminService's History
 	// RPC.
 	ChatAdminServiceHistoryProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/History"
+	// ChatAdminServiceDeleteRoomProcedure is the fully-qualified name of the ChatAdminService's
+	// DeleteRoom RPC.
+	ChatAdminServiceDeleteRoomProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/DeleteRoom"
 )
 
 // ChatServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatService service.
 type ChatServiceClient interface {
-	// Join declares attendance under the given name. The server derives the
-	// caller's room and team from the token, so an unknown token is rejected
-	// with NotFound. Joining again with the same token is a no-op success.
-	Join(context.Context, *connect.Request[v1.JoinRequest]) (*connect.Response[v1.JoinResponse], error)
-	// Send delivers a message to one addressed member of the caller's room.
-	Send(context.Context, *connect.Request[v1.SendRequest]) (*connect.Response[v1.SendResponse], error)
-	// Broadcast delivers a message to every member of the caller's room,
-	// including teams other than the caller's.
-	Broadcast(context.Context, *connect.Request[v1.BroadcastRequest]) (*connect.Response[v1.BroadcastResponse], error)
-	// Read returns the caller's pending messages and consumes them, so a
-	// message is handed out exactly once.
-	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
-	// History returns the tail of the conversation of the caller's room, oldest
-	// first. It consumes nothing, and it shows the whole room: directed
-	// messages the caller never received included, since a room's transcript is
-	// a shared record of what was said rather than a second copy of an inbox.
-	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
-	// ListMembers lists every member of the caller's room, team-qualified.
-	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
-	// Leave withdraws the caller's attendance.
-	Leave(context.Context, *connect.Request[v1.LeaveRequest]) (*connect.Response[v1.LeaveResponse], error)
-	// ReportState records the state of the harness the caller runs under. It is
-	// driven by harness hooks and gates keystroke-injection nudges, which are
-	// only safe to deliver while the harness is idle.
-	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
-	// WatchRoom streams events of the caller's room until cancelled.
+	// Attend declares attendance and holds it for as long as the stream is
+	// open. The first event is Attended, carrying the member the token
+	// resolved to; the rest is the room's event feed. Closing the stream is
+	// leaving. A token already attending is refused with AlreadyExists.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to
 	// one RPC would misname it everywhere else.
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	WatchRoom(context.Context, *connect.Request[v1.WatchRoomRequest]) (*connect.ServerStreamForClient[v1.RoomEvent], error)
+	Attend(context.Context, *connect.Request[v1.AttendRequest]) (*connect.ServerStreamForClient[v1.RoomEvent], error)
+	// Send appends a message to the caller's room. A targeted message is a
+	// mention of each role it names, or of everyone; an untargeted one is a
+	// board post.
+	Send(context.Context, *connect.Request[v1.SendRequest]) (*connect.Response[v1.SendResponse], error)
+	// Read returns messages of the caller's room from a cursor and moves the
+	// caller's read position to the newest one shown. By default the first
+	// ten unread mentions.
+	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
+	// ListMembers lists every member of the caller's room, team-qualified.
+	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
+	// ReportState records the state of the harness the caller runs under. It is
+	// driven by harness hooks and gates keystroke-injection nudges, which are
+	// only safe to deliver while the harness is idle.
+	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
 }
 
 // NewChatServiceClient constructs a client for the ngicks.crabswarm.chat.v1.ChatService service. By
@@ -119,10 +103,10 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 	baseURL = strings.TrimRight(baseURL, "/")
 	chatServiceMethods := v1.File_ngicks_crabswarm_chat_v1_chat_service_proto.Services().ByName("ChatService").Methods()
 	return &chatServiceClient{
-		join: connect.NewClient[v1.JoinRequest, v1.JoinResponse](
+		attend: connect.NewClient[v1.AttendRequest, v1.RoomEvent](
 			httpClient,
-			baseURL+ChatServiceJoinProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("Join")),
+			baseURL+ChatServiceAttendProcedure,
+			connect.WithSchema(chatServiceMethods.ByName("Attend")),
 			connect.WithClientOptions(opts...),
 		),
 		send: connect.NewClient[v1.SendRequest, v1.SendResponse](
@@ -131,22 +115,10 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(chatServiceMethods.ByName("Send")),
 			connect.WithClientOptions(opts...),
 		),
-		broadcast: connect.NewClient[v1.BroadcastRequest, v1.BroadcastResponse](
-			httpClient,
-			baseURL+ChatServiceBroadcastProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("Broadcast")),
-			connect.WithClientOptions(opts...),
-		),
 		read: connect.NewClient[v1.ReadRequest, v1.ReadResponse](
 			httpClient,
 			baseURL+ChatServiceReadProcedure,
 			connect.WithSchema(chatServiceMethods.ByName("Read")),
-			connect.WithClientOptions(opts...),
-		),
-		history: connect.NewClient[v1.HistoryRequest, v1.HistoryResponse](
-			httpClient,
-			baseURL+ChatServiceHistoryProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("History")),
 			connect.WithClientOptions(opts...),
 		),
 		listMembers: connect.NewClient[v1.ListMembersRequest, v1.ListMembersResponse](
@@ -155,22 +127,10 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(chatServiceMethods.ByName("ListMembers")),
 			connect.WithClientOptions(opts...),
 		),
-		leave: connect.NewClient[v1.LeaveRequest, v1.LeaveResponse](
-			httpClient,
-			baseURL+ChatServiceLeaveProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("Leave")),
-			connect.WithClientOptions(opts...),
-		),
 		reportState: connect.NewClient[v1.ReportStateRequest, v1.ReportStateResponse](
 			httpClient,
 			baseURL+ChatServiceReportStateProcedure,
 			connect.WithSchema(chatServiceMethods.ByName("ReportState")),
-			connect.WithClientOptions(opts...),
-		),
-		watchRoom: connect.NewClient[v1.WatchRoomRequest, v1.RoomEvent](
-			httpClient,
-			baseURL+ChatServiceWatchRoomProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("WatchRoom")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -178,20 +138,16 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // chatServiceClient implements ChatServiceClient.
 type chatServiceClient struct {
-	join        *connect.Client[v1.JoinRequest, v1.JoinResponse]
+	attend      *connect.Client[v1.AttendRequest, v1.RoomEvent]
 	send        *connect.Client[v1.SendRequest, v1.SendResponse]
-	broadcast   *connect.Client[v1.BroadcastRequest, v1.BroadcastResponse]
 	read        *connect.Client[v1.ReadRequest, v1.ReadResponse]
-	history     *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
 	listMembers *connect.Client[v1.ListMembersRequest, v1.ListMembersResponse]
-	leave       *connect.Client[v1.LeaveRequest, v1.LeaveResponse]
 	reportState *connect.Client[v1.ReportStateRequest, v1.ReportStateResponse]
-	watchRoom   *connect.Client[v1.WatchRoomRequest, v1.RoomEvent]
 }
 
-// Join calls ngicks.crabswarm.chat.v1.ChatService.Join.
-func (c *chatServiceClient) Join(ctx context.Context, req *connect.Request[v1.JoinRequest]) (*connect.Response[v1.JoinResponse], error) {
-	return c.join.CallUnary(ctx, req)
+// Attend calls ngicks.crabswarm.chat.v1.ChatService.Attend.
+func (c *chatServiceClient) Attend(ctx context.Context, req *connect.Request[v1.AttendRequest]) (*connect.ServerStreamForClient[v1.RoomEvent], error) {
+	return c.attend.CallServerStream(ctx, req)
 }
 
 // Send calls ngicks.crabswarm.chat.v1.ChatService.Send.
@@ -199,19 +155,9 @@ func (c *chatServiceClient) Send(ctx context.Context, req *connect.Request[v1.Se
 	return c.send.CallUnary(ctx, req)
 }
 
-// Broadcast calls ngicks.crabswarm.chat.v1.ChatService.Broadcast.
-func (c *chatServiceClient) Broadcast(ctx context.Context, req *connect.Request[v1.BroadcastRequest]) (*connect.Response[v1.BroadcastResponse], error) {
-	return c.broadcast.CallUnary(ctx, req)
-}
-
 // Read calls ngicks.crabswarm.chat.v1.ChatService.Read.
 func (c *chatServiceClient) Read(ctx context.Context, req *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error) {
 	return c.read.CallUnary(ctx, req)
-}
-
-// History calls ngicks.crabswarm.chat.v1.ChatService.History.
-func (c *chatServiceClient) History(ctx context.Context, req *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error) {
-	return c.history.CallUnary(ctx, req)
 }
 
 // ListMembers calls ngicks.crabswarm.chat.v1.ChatService.ListMembers.
@@ -219,55 +165,37 @@ func (c *chatServiceClient) ListMembers(ctx context.Context, req *connect.Reques
 	return c.listMembers.CallUnary(ctx, req)
 }
 
-// Leave calls ngicks.crabswarm.chat.v1.ChatService.Leave.
-func (c *chatServiceClient) Leave(ctx context.Context, req *connect.Request[v1.LeaveRequest]) (*connect.Response[v1.LeaveResponse], error) {
-	return c.leave.CallUnary(ctx, req)
-}
-
 // ReportState calls ngicks.crabswarm.chat.v1.ChatService.ReportState.
 func (c *chatServiceClient) ReportState(ctx context.Context, req *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error) {
 	return c.reportState.CallUnary(ctx, req)
 }
 
-// WatchRoom calls ngicks.crabswarm.chat.v1.ChatService.WatchRoom.
-func (c *chatServiceClient) WatchRoom(ctx context.Context, req *connect.Request[v1.WatchRoomRequest]) (*connect.ServerStreamForClient[v1.RoomEvent], error) {
-	return c.watchRoom.CallServerStream(ctx, req)
-}
-
 // ChatServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatService service.
 type ChatServiceHandler interface {
-	// Join declares attendance under the given name. The server derives the
-	// caller's room and team from the token, so an unknown token is rejected
-	// with NotFound. Joining again with the same token is a no-op success.
-	Join(context.Context, *connect.Request[v1.JoinRequest]) (*connect.Response[v1.JoinResponse], error)
-	// Send delivers a message to one addressed member of the caller's room.
-	Send(context.Context, *connect.Request[v1.SendRequest]) (*connect.Response[v1.SendResponse], error)
-	// Broadcast delivers a message to every member of the caller's room,
-	// including teams other than the caller's.
-	Broadcast(context.Context, *connect.Request[v1.BroadcastRequest]) (*connect.Response[v1.BroadcastResponse], error)
-	// Read returns the caller's pending messages and consumes them, so a
-	// message is handed out exactly once.
-	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
-	// History returns the tail of the conversation of the caller's room, oldest
-	// first. It consumes nothing, and it shows the whole room: directed
-	// messages the caller never received included, since a room's transcript is
-	// a shared record of what was said rather than a second copy of an inbox.
-	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
-	// ListMembers lists every member of the caller's room, team-qualified.
-	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
-	// Leave withdraws the caller's attendance.
-	Leave(context.Context, *connect.Request[v1.LeaveRequest]) (*connect.Response[v1.LeaveResponse], error)
-	// ReportState records the state of the harness the caller runs under. It is
-	// driven by harness hooks and gates keystroke-injection nudges, which are
-	// only safe to deliver while the harness is idle.
-	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
-	// WatchRoom streams events of the caller's room until cancelled.
+	// Attend declares attendance and holds it for as long as the stream is
+	// open. The first event is Attended, carrying the member the token
+	// resolved to; the rest is the room's event feed. Closing the stream is
+	// leaving. A token already attending is refused with AlreadyExists.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to
 	// one RPC would misname it everywhere else.
 	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
-	WatchRoom(context.Context, *connect.Request[v1.WatchRoomRequest], *connect.ServerStream[v1.RoomEvent]) error
+	Attend(context.Context, *connect.Request[v1.AttendRequest], *connect.ServerStream[v1.RoomEvent]) error
+	// Send appends a message to the caller's room. A targeted message is a
+	// mention of each role it names, or of everyone; an untargeted one is a
+	// board post.
+	Send(context.Context, *connect.Request[v1.SendRequest]) (*connect.Response[v1.SendResponse], error)
+	// Read returns messages of the caller's room from a cursor and moves the
+	// caller's read position to the newest one shown. By default the first
+	// ten unread mentions.
+	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
+	// ListMembers lists every member of the caller's room, team-qualified.
+	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
+	// ReportState records the state of the harness the caller runs under. It is
+	// driven by harness hooks and gates keystroke-injection nudges, which are
+	// only safe to deliver while the harness is idle.
+	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
 }
 
 // NewChatServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -277,10 +205,10 @@ type ChatServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	chatServiceMethods := v1.File_ngicks_crabswarm_chat_v1_chat_service_proto.Services().ByName("ChatService").Methods()
-	chatServiceJoinHandler := connect.NewUnaryHandler(
-		ChatServiceJoinProcedure,
-		svc.Join,
-		connect.WithSchema(chatServiceMethods.ByName("Join")),
+	chatServiceAttendHandler := connect.NewServerStreamHandler(
+		ChatServiceAttendProcedure,
+		svc.Attend,
+		connect.WithSchema(chatServiceMethods.ByName("Attend")),
 		connect.WithHandlerOptions(opts...),
 	)
 	chatServiceSendHandler := connect.NewUnaryHandler(
@@ -289,22 +217,10 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(chatServiceMethods.ByName("Send")),
 		connect.WithHandlerOptions(opts...),
 	)
-	chatServiceBroadcastHandler := connect.NewUnaryHandler(
-		ChatServiceBroadcastProcedure,
-		svc.Broadcast,
-		connect.WithSchema(chatServiceMethods.ByName("Broadcast")),
-		connect.WithHandlerOptions(opts...),
-	)
 	chatServiceReadHandler := connect.NewUnaryHandler(
 		ChatServiceReadProcedure,
 		svc.Read,
 		connect.WithSchema(chatServiceMethods.ByName("Read")),
-		connect.WithHandlerOptions(opts...),
-	)
-	chatServiceHistoryHandler := connect.NewUnaryHandler(
-		ChatServiceHistoryProcedure,
-		svc.History,
-		connect.WithSchema(chatServiceMethods.ByName("History")),
 		connect.WithHandlerOptions(opts...),
 	)
 	chatServiceListMembersHandler := connect.NewUnaryHandler(
@@ -313,44 +229,24 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(chatServiceMethods.ByName("ListMembers")),
 		connect.WithHandlerOptions(opts...),
 	)
-	chatServiceLeaveHandler := connect.NewUnaryHandler(
-		ChatServiceLeaveProcedure,
-		svc.Leave,
-		connect.WithSchema(chatServiceMethods.ByName("Leave")),
-		connect.WithHandlerOptions(opts...),
-	)
 	chatServiceReportStateHandler := connect.NewUnaryHandler(
 		ChatServiceReportStateProcedure,
 		svc.ReportState,
 		connect.WithSchema(chatServiceMethods.ByName("ReportState")),
 		connect.WithHandlerOptions(opts...),
 	)
-	chatServiceWatchRoomHandler := connect.NewServerStreamHandler(
-		ChatServiceWatchRoomProcedure,
-		svc.WatchRoom,
-		connect.WithSchema(chatServiceMethods.ByName("WatchRoom")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/ngicks.crabswarm.chat.v1.ChatService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case ChatServiceJoinProcedure:
-			chatServiceJoinHandler.ServeHTTP(w, r)
+		case ChatServiceAttendProcedure:
+			chatServiceAttendHandler.ServeHTTP(w, r)
 		case ChatServiceSendProcedure:
 			chatServiceSendHandler.ServeHTTP(w, r)
-		case ChatServiceBroadcastProcedure:
-			chatServiceBroadcastHandler.ServeHTTP(w, r)
 		case ChatServiceReadProcedure:
 			chatServiceReadHandler.ServeHTTP(w, r)
-		case ChatServiceHistoryProcedure:
-			chatServiceHistoryHandler.ServeHTTP(w, r)
 		case ChatServiceListMembersProcedure:
 			chatServiceListMembersHandler.ServeHTTP(w, r)
-		case ChatServiceLeaveProcedure:
-			chatServiceLeaveHandler.ServeHTTP(w, r)
 		case ChatServiceReportStateProcedure:
 			chatServiceReportStateHandler.ServeHTTP(w, r)
-		case ChatServiceWatchRoomProcedure:
-			chatServiceWatchRoomHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -360,40 +256,24 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 // UnimplementedChatServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedChatServiceHandler struct{}
 
-func (UnimplementedChatServiceHandler) Join(context.Context, *connect.Request[v1.JoinRequest]) (*connect.Response[v1.JoinResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Join is not implemented"))
+func (UnimplementedChatServiceHandler) Attend(context.Context, *connect.Request[v1.AttendRequest], *connect.ServerStream[v1.RoomEvent]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Attend is not implemented"))
 }
 
 func (UnimplementedChatServiceHandler) Send(context.Context, *connect.Request[v1.SendRequest]) (*connect.Response[v1.SendResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Send is not implemented"))
 }
 
-func (UnimplementedChatServiceHandler) Broadcast(context.Context, *connect.Request[v1.BroadcastRequest]) (*connect.Response[v1.BroadcastResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Broadcast is not implemented"))
-}
-
 func (UnimplementedChatServiceHandler) Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Read is not implemented"))
-}
-
-func (UnimplementedChatServiceHandler) History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.History is not implemented"))
 }
 
 func (UnimplementedChatServiceHandler) ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.ListMembers is not implemented"))
 }
 
-func (UnimplementedChatServiceHandler) Leave(context.Context, *connect.Request[v1.LeaveRequest]) (*connect.Response[v1.LeaveResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Leave is not implemented"))
-}
-
 func (UnimplementedChatServiceHandler) ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.ReportState is not implemented"))
-}
-
-func (UnimplementedChatServiceHandler) WatchRoom(context.Context, *connect.Request[v1.WatchRoomRequest], *connect.ServerStream[v1.RoomEvent]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.WatchRoom is not implemented"))
 }
 
 // ChatAdminServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatAdminService service.
@@ -401,24 +281,21 @@ type ChatAdminServiceClient interface {
 	// GetNonce issues a challenge for the caller to answer, when the daemon
 	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(context.Context, *connect.Request[v1.GetNonceRequest]) (*connect.Response[v1.GetNonceResponse], error)
-	// ListRooms lists every room the daemon knows and who attends it.
+	// ListRooms lists every room the log or attendance knows, with who attends.
 	ListRooms(context.Context, *connect.Request[v1.ListRoomsRequest]) (*connect.Response[v1.ListRoomsResponse], error)
-	// MoveMember moves a member to another team within the same room.
-	MoveMember(context.Context, *connect.Request[v1.MoveMemberRequest]) (*connect.Response[v1.MoveMemberResponse], error)
-	// RegisterMember registers a member that no provider can vouch for -- a
-	// human on the host -- and returns the token they present to ChatService.
+	// RegisterMember mints a token for a person and puts them in attendance
+	// until the daemon restarts: the one attendance not held by a stream.
 	RegisterMember(context.Context, *connect.Request[v1.RegisterMemberRequest]) (*connect.Response[v1.RegisterMemberResponse], error)
-	// Send delivers a message into a named room, addressed to one member, to one
-	// of its teams or to the whole room, without the caller attending that room.
+	// Send delivers a message into a named room, targeted or as a board post,
+	// without the caller attending that room.
 	Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error)
-	// History returns a named room's conversation, oldest first, without the
-	// caller attending that room. It reads the same shared record the members
-	// read, and consumes nothing.
-	//
-	// Unlike the member-facing counterpart it can be paged forward from a
-	// cursor, and every entry carries the id to advance that cursor with, so a
-	// reader following a live room asks only for what it has not seen.
+	// History returns a named room's messages without attending it and moves
+	// no read position; same filter as Read, the unread cursor refused with
+	// InvalidArgument and an unspecified cursor meaning TAIL.
 	History(context.Context, *connect.Request[v1.AdminHistoryRequest]) (*connect.Response[v1.AdminHistoryResponse], error)
+	// DeleteRoom deletes a room's messages and read positions. Refused with
+	// FailedPrecondition while somebody attends it.
+	DeleteRoom(context.Context, *connect.Request[v1.DeleteRoomRequest]) (*connect.Response[v1.DeleteRoomResponse], error)
 }
 
 // NewChatAdminServiceClient constructs a client for the ngicks.crabswarm.chat.v1.ChatAdminService
@@ -444,12 +321,6 @@ func NewChatAdminServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(chatAdminServiceMethods.ByName("ListRooms")),
 			connect.WithClientOptions(opts...),
 		),
-		moveMember: connect.NewClient[v1.MoveMemberRequest, v1.MoveMemberResponse](
-			httpClient,
-			baseURL+ChatAdminServiceMoveMemberProcedure,
-			connect.WithSchema(chatAdminServiceMethods.ByName("MoveMember")),
-			connect.WithClientOptions(opts...),
-		),
 		registerMember: connect.NewClient[v1.RegisterMemberRequest, v1.RegisterMemberResponse](
 			httpClient,
 			baseURL+ChatAdminServiceRegisterMemberProcedure,
@@ -468,6 +339,12 @@ func NewChatAdminServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(chatAdminServiceMethods.ByName("History")),
 			connect.WithClientOptions(opts...),
 		),
+		deleteRoom: connect.NewClient[v1.DeleteRoomRequest, v1.DeleteRoomResponse](
+			httpClient,
+			baseURL+ChatAdminServiceDeleteRoomProcedure,
+			connect.WithSchema(chatAdminServiceMethods.ByName("DeleteRoom")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -475,10 +352,10 @@ func NewChatAdminServiceClient(httpClient connect.HTTPClient, baseURL string, op
 type chatAdminServiceClient struct {
 	getNonce       *connect.Client[v1.GetNonceRequest, v1.GetNonceResponse]
 	listRooms      *connect.Client[v1.ListRoomsRequest, v1.ListRoomsResponse]
-	moveMember     *connect.Client[v1.MoveMemberRequest, v1.MoveMemberResponse]
 	registerMember *connect.Client[v1.RegisterMemberRequest, v1.RegisterMemberResponse]
 	send           *connect.Client[v1.AdminSendRequest, v1.AdminSendResponse]
 	history        *connect.Client[v1.AdminHistoryRequest, v1.AdminHistoryResponse]
+	deleteRoom     *connect.Client[v1.DeleteRoomRequest, v1.DeleteRoomResponse]
 }
 
 // GetNonce calls ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce.
@@ -489,11 +366,6 @@ func (c *chatAdminServiceClient) GetNonce(ctx context.Context, req *connect.Requ
 // ListRooms calls ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms.
 func (c *chatAdminServiceClient) ListRooms(ctx context.Context, req *connect.Request[v1.ListRoomsRequest]) (*connect.Response[v1.ListRoomsResponse], error) {
 	return c.listRooms.CallUnary(ctx, req)
-}
-
-// MoveMember calls ngicks.crabswarm.chat.v1.ChatAdminService.MoveMember.
-func (c *chatAdminServiceClient) MoveMember(ctx context.Context, req *connect.Request[v1.MoveMemberRequest]) (*connect.Response[v1.MoveMemberResponse], error) {
-	return c.moveMember.CallUnary(ctx, req)
 }
 
 // RegisterMember calls ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember.
@@ -511,30 +383,32 @@ func (c *chatAdminServiceClient) History(ctx context.Context, req *connect.Reque
 	return c.history.CallUnary(ctx, req)
 }
 
+// DeleteRoom calls ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom.
+func (c *chatAdminServiceClient) DeleteRoom(ctx context.Context, req *connect.Request[v1.DeleteRoomRequest]) (*connect.Response[v1.DeleteRoomResponse], error) {
+	return c.deleteRoom.CallUnary(ctx, req)
+}
+
 // ChatAdminServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatAdminService
 // service.
 type ChatAdminServiceHandler interface {
 	// GetNonce issues a challenge for the caller to answer, when the daemon
 	// authenticates in a way that has one. UNIMPLEMENTED means it does not.
 	GetNonce(context.Context, *connect.Request[v1.GetNonceRequest]) (*connect.Response[v1.GetNonceResponse], error)
-	// ListRooms lists every room the daemon knows and who attends it.
+	// ListRooms lists every room the log or attendance knows, with who attends.
 	ListRooms(context.Context, *connect.Request[v1.ListRoomsRequest]) (*connect.Response[v1.ListRoomsResponse], error)
-	// MoveMember moves a member to another team within the same room.
-	MoveMember(context.Context, *connect.Request[v1.MoveMemberRequest]) (*connect.Response[v1.MoveMemberResponse], error)
-	// RegisterMember registers a member that no provider can vouch for -- a
-	// human on the host -- and returns the token they present to ChatService.
+	// RegisterMember mints a token for a person and puts them in attendance
+	// until the daemon restarts: the one attendance not held by a stream.
 	RegisterMember(context.Context, *connect.Request[v1.RegisterMemberRequest]) (*connect.Response[v1.RegisterMemberResponse], error)
-	// Send delivers a message into a named room, addressed to one member, to one
-	// of its teams or to the whole room, without the caller attending that room.
+	// Send delivers a message into a named room, targeted or as a board post,
+	// without the caller attending that room.
 	Send(context.Context, *connect.Request[v1.AdminSendRequest]) (*connect.Response[v1.AdminSendResponse], error)
-	// History returns a named room's conversation, oldest first, without the
-	// caller attending that room. It reads the same shared record the members
-	// read, and consumes nothing.
-	//
-	// Unlike the member-facing counterpart it can be paged forward from a
-	// cursor, and every entry carries the id to advance that cursor with, so a
-	// reader following a live room asks only for what it has not seen.
+	// History returns a named room's messages without attending it and moves
+	// no read position; same filter as Read, the unread cursor refused with
+	// InvalidArgument and an unspecified cursor meaning TAIL.
 	History(context.Context, *connect.Request[v1.AdminHistoryRequest]) (*connect.Response[v1.AdminHistoryResponse], error)
+	// DeleteRoom deletes a room's messages and read positions. Refused with
+	// FailedPrecondition while somebody attends it.
+	DeleteRoom(context.Context, *connect.Request[v1.DeleteRoomRequest]) (*connect.Response[v1.DeleteRoomResponse], error)
 }
 
 // NewChatAdminServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -556,12 +430,6 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 		connect.WithSchema(chatAdminServiceMethods.ByName("ListRooms")),
 		connect.WithHandlerOptions(opts...),
 	)
-	chatAdminServiceMoveMemberHandler := connect.NewUnaryHandler(
-		ChatAdminServiceMoveMemberProcedure,
-		svc.MoveMember,
-		connect.WithSchema(chatAdminServiceMethods.ByName("MoveMember")),
-		connect.WithHandlerOptions(opts...),
-	)
 	chatAdminServiceRegisterMemberHandler := connect.NewUnaryHandler(
 		ChatAdminServiceRegisterMemberProcedure,
 		svc.RegisterMember,
@@ -580,20 +448,26 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 		connect.WithSchema(chatAdminServiceMethods.ByName("History")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatAdminServiceDeleteRoomHandler := connect.NewUnaryHandler(
+		ChatAdminServiceDeleteRoomProcedure,
+		svc.DeleteRoom,
+		connect.WithSchema(chatAdminServiceMethods.ByName("DeleteRoom")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ngicks.crabswarm.chat.v1.ChatAdminService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChatAdminServiceGetNonceProcedure:
 			chatAdminServiceGetNonceHandler.ServeHTTP(w, r)
 		case ChatAdminServiceListRoomsProcedure:
 			chatAdminServiceListRoomsHandler.ServeHTTP(w, r)
-		case ChatAdminServiceMoveMemberProcedure:
-			chatAdminServiceMoveMemberHandler.ServeHTTP(w, r)
 		case ChatAdminServiceRegisterMemberProcedure:
 			chatAdminServiceRegisterMemberHandler.ServeHTTP(w, r)
 		case ChatAdminServiceSendProcedure:
 			chatAdminServiceSendHandler.ServeHTTP(w, r)
 		case ChatAdminServiceHistoryProcedure:
 			chatAdminServiceHistoryHandler.ServeHTTP(w, r)
+		case ChatAdminServiceDeleteRoomProcedure:
+			chatAdminServiceDeleteRoomHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -611,10 +485,6 @@ func (UnimplementedChatAdminServiceHandler) ListRooms(context.Context, *connect.
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms is not implemented"))
 }
 
-func (UnimplementedChatAdminServiceHandler) MoveMember(context.Context, *connect.Request[v1.MoveMemberRequest]) (*connect.Response[v1.MoveMemberResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.MoveMember is not implemented"))
-}
-
 func (UnimplementedChatAdminServiceHandler) RegisterMember(context.Context, *connect.Request[v1.RegisterMemberRequest]) (*connect.Response[v1.RegisterMemberResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember is not implemented"))
 }
@@ -625,4 +495,8 @@ func (UnimplementedChatAdminServiceHandler) Send(context.Context, *connect.Reque
 
 func (UnimplementedChatAdminServiceHandler) History(context.Context, *connect.Request[v1.AdminHistoryRequest]) (*connect.Response[v1.AdminHistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.History is not implemented"))
+}
+
+func (UnimplementedChatAdminServiceHandler) DeleteRoom(context.Context, *connect.Request[v1.DeleteRoomRequest]) (*connect.Response[v1.DeleteRoomResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom is not implemented"))
 }
