@@ -1,12 +1,14 @@
 import { signal } from "@preact/signals";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { attachGestures } from "@/lib/gesture.js";
 
 // App-level lightbox with pan/zoom (mirrors OpenRawDialog's module-signal
 // pattern). Two content kinds: plain images (DocumentView inline images, the
 // standalone ImageView) and rendered mermaid SVGs (DocumentView diagrams), which are
 // re-injected at their natural viewBox size so oversized diagrams can be read
-// at 100% instead of squeezed into the article column. Wheel/buttons zoom,
-// drag pans; a plain click (no drag), Escape, or the ✕ button closes.
+// at 100% instead of squeezed into the article column. Wheel/buttons zoom, a
+// two-finger pinch zooms, drag pans; a tap or click that neither moved nor saw
+// a second finger, Escape, or the ✕ button closes.
 type LightboxContent =
   | { kind: "image"; src: string }
   | { kind: "svg"; markup: string; width: number; height: number };
@@ -63,7 +65,6 @@ function Viewer({ c }: { c: LightboxContent }) {
   // re-rendering on every pointermove/wheel event would be wasted work.
   const view = useRef({ scale: 1, tx: 0, ty: 0, fitScale: 1 });
   const dims = useRef<{ w: number; h: number } | null>(null);
-  const drag = useRef<{ x: number; y: number; startX: number; startY: number; moved: boolean } | null>(null);
 
   const apply = (): void => {
     const el = contentRef.current;
@@ -128,6 +129,28 @@ function Viewer({ c }: { c: LightboxContent }) {
     return () => window.removeEventListener("resize", fit);
   }, []);
 
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    // The overlay is `fixed inset-0`, so the gesture's client coordinates are
+    // already the overlay-space coordinates zoomAt expects.
+    return attachGestures(
+      overlay,
+      {
+        onPan: (dx, dy) => {
+          view.current.tx += dx;
+          view.current.ty += dy;
+          apply();
+        },
+        onZoom: zoomAt,
+        onTap: () => {
+          content.value = null;
+        },
+      },
+      { captureOn: "down" },
+    );
+  }, []);
+
   return (
     <div
       ref={overlayRef}
@@ -137,35 +160,6 @@ function Viewer({ c }: { c: LightboxContent }) {
       onWheel={(e) => {
         e.preventDefault();
         zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.002));
-      }}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        e.preventDefault();
-        overlayRef.current?.setPointerCapture(e.pointerId);
-        drag.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false };
-      }}
-      onPointerMove={(e) => {
-        const d = drag.current;
-        if (!d) return;
-        const dx = e.clientX - d.x;
-        const dy = e.clientY - d.y;
-        if (Math.abs(e.clientX - d.startX) + Math.abs(e.clientY - d.startY) > 3) d.moved = true;
-        d.x = e.clientX;
-        d.y = e.clientY;
-        view.current.tx += dx;
-        view.current.ty += dy;
-        apply();
-      }}
-      onPointerUp={() => {
-        // Close only for a click the overlay tracked from pointerdown: toolbar
-        // clicks stopPropagation on pointerdown but their pointerup still
-        // bubbles here, and a drag is not a click.
-        const d = drag.current;
-        drag.current = null;
-        if (d && !d.moved) content.value = null;
-      }}
-      onPointerCancel={() => {
-        drag.current = null;
       }}
     >
       <div
@@ -224,7 +218,11 @@ function Viewer({ c }: { c: LightboxContent }) {
         </button>
       </div>
       <div class="pointer-events-none absolute inset-x-0 bottom-3 text-center text-xs text-white/60">
-        scroll to zoom · drag to pan · click to close
+        {/* A touch device has no wheel and no hover, so it gets the gesture
+            wording instead; `hover: none` is the closest media query to
+            "this pointer is a finger". */}
+        <span class="[@media(hover:none)]:hidden">scroll to zoom · drag to pan · click to close</span>
+        <span class="hidden [@media(hover:none)]:inline">pinch to zoom · drag to pan · tap to close</span>
       </div>
     </div>
   );
