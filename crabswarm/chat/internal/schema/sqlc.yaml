@@ -1,4 +1,9 @@
 version: "2"
+# Keep queries/*.sql plain ASCII, comments included. sqlc rewrites
+# sqlc.arg(name) into a positional parameter by cutting the query text at an
+# offset it counted in characters, so one multi-byte character anywhere earlier
+# in the file shifts every later cut: generation then fails with "edited query
+# syntax is invalid" on queries that are perfectly valid.
 sql:
   # Both inputs are directories rather than files: adding a DDL or query file
   # is then a drop-in, with no config edit to forget.

@@ -2,178 +2,280 @@ package chat
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
-	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gotest.tools/v3/assert"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-func TestService_SendDeliversAndNotifies(t *testing.T) {
-	svc, provider, notifier := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	seedAgent(t, svc, provider, "tok-b", "/work", "alpha", "bob")
-
-	sent, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "bob", Text: "ping"})
+// sendAs is [Service.Send] for token, failing the test on error.
+func sendAs(
+	t *testing.T,
+	svc *Service,
+	token string,
+	target *chatv1.Target,
+	text string,
+) *chatv1.SendResponse {
+	t.Helper()
+	res, err := svc.Send(callCtx(t, token), &chatv1.SendRequest{Target: target, Text: text})
 	assert.NilError(t, err)
-	assert.Equal(t, sent.GetRecipient().GetName(), "bob")
+	return res
+}
 
-	got := notifier.notified()
-	assert.Equal(t, len(got), 1)
-	assert.Equal(t, got[0].recipient.Name, "bob")
-	assert.Equal(t, got[0].from.Name, "ana")
-	assert.Equal(t, got[0].text, "ping")
+// addresses renders a list of members the way the tests name them.
+func addresses(members []*chatv1.Member) []string {
+	out := make([]string, len(members))
+	for i, m := range members {
+		out[i] = address(m)
+	}
+	return out
+}
 
+// targetAddresses renders the roles a message was written to.
+func targetAddresses(t *chatv1.Target) []string {
+	roles := t.GetRoles().GetRoles()
+	out := make([]string, len(roles))
+	for i, r := range roles {
+		out[i] = r.GetTeam() + "/" + r.GetName()
+	}
+	return out
+}
+
+// messageTexts is what a read returned, for comparing a whole window at once.
+func messageTexts(messages []*chatv1.Message) []string {
+	out := make([]string, len(messages))
+	for i, m := range messages {
+		out[i] = m.GetText()
+	}
+	return out
+}
+
+// Only the named roles are mentioned, and only the ones that are attending
+// agents are worth interrupting: a person reads at their own pace, and a role
+// nobody is attending under has no terminal to type into.
+func TestService_SendToRolesNudgesTheAttendingAgents(t *testing.T) {
+	svc, provider, notifier := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+	human(t, svc, provider, "tok-h", testRoom, "alpha", "hana")
+	// Attended once and gone: the role exists, so it can be addressed, and the
+	// mention waits at its read position.
+	carl := agent(t, svc, provider, "tok-c", testRoom, "alpha", "carl")
+	assert.Assert(t, carl.close(t) != nil)
+
+	res := sendAs(t, svc, "tok-a", to("bob", "hana", "carl"), "standup")
+	assert.DeepEqual(t, addresses(res.GetMentioned()),
+		[]string{"alpha/bob", "alpha/hana", "alpha/carl"})
+	assert.DeepEqual(t, addresses(res.GetAbsent()), []string{"alpha/carl"})
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob"})
+
+	got := notifier.notified()[0]
+	assert.Equal(t, got.from.Name, "ana")
+	assert.Equal(t, got.text, "standup")
+}
+
+func TestService_SendToEveryoneNudgesEveryAgentButTheSender(t *testing.T) {
+	svc, provider, notifier := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+	agent(t, svc, provider, "tok-d", testRoom, "alpha", "dave")
+	human(t, svc, provider, "tok-h", testRoom, "alpha", "hana")
+	agent(t, svc, provider, "tok-far", "/work/elsewhere", "alpha", "stranger")
+
+	// Nobody in particular is named, so nobody is mentioned or absent; the
+	// wake-up still goes out, minus the sender, who already knows.
+	res := sendAs(t, svc, "tok-a", everyone(), "deploying")
+	assert.Equal(t, len(res.GetMentioned()), 0)
+	assert.Equal(t, len(res.GetAbsent()), 0)
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob", "alpha/dave"})
+}
+
+// A board post is addressed to nobody: it sits in the room for whoever comes
+// looking, and interrupts no one on the way.
+func TestService_SendPostNudgesNobody(t *testing.T) {
+	svc, provider, notifier := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+
+	res := sendAs(t, svc, "tok-a", nil, "notes are in the wiki")
+	assert.Equal(t, len(res.GetMentioned()), 0)
+	assert.Equal(t, len(notifier.nudged()), 0)
+
+	// In the room all the same, and nobody's unread.
 	read, err := svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
 	assert.NilError(t, err)
-	assert.Equal(t, len(read.GetMessages()), 1)
-	assert.Equal(t, read.GetMessages()[0].GetText(), "ping")
-	assert.Equal(t, read.GetMessages()[0].GetFrom().GetName(), "ana")
-	assert.Equal(t, read.GetMessages()[0].GetFrom().GetTeam(), "alpha")
-	assert.Assert(t, read.GetMessages()[0].GetSentAt() != nil)
+	assert.Equal(t, len(read.GetMessages()), 0)
 
-	// Reading drains: nothing is handed out twice.
+	posted, err := svc.store.ReadRoom(t.Context(), testRoom, ReadFilter{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, texts(posted), []string{"notes are in the wiki"})
+}
+
+func TestService_SendMapsTargetErrors(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "gamma", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+	agent(t, svc, provider, "tok-b2", testRoom, "beta", "bob")
+
+	_, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{
+		Target: to("nobody"), Text: "hi",
+	})
+	assert.Equal(t, status.Code(err), codes.NotFound)
+
+	// The sender is in neither team that carries the name, so nothing breaks
+	// the tie and the caller is told to write it as "team/name".
+	_, err = svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{
+		Target: to("bob"), Text: "hi",
+	})
+	assert.Equal(t, status.Code(err), codes.InvalidArgument)
+
+	_, err = svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{
+		Target: to("alpha/bob"), Text: "",
+	})
+	assert.Equal(t, status.Code(err), codes.InvalidArgument)
+
+	// A roles target naming nobody is the address that was left half written.
+	_, err = svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{
+		Target: &chatv1.Target{
+			Target: &chatv1.Target_Roles{Roles: &chatv1.Roles{}},
+		},
+		Text: "hi",
+	})
+	assert.Equal(t, status.Code(err), codes.InvalidArgument)
+
+	// Nothing was recorded by any of them.
+	said, err := svc.store.ReadRoom(t.Context(), testRoom, ReadFilter{})
+	assert.NilError(t, err)
+	assert.Equal(t, len(said), 0)
+}
+
+func TestService_ReadDefaultsToWhatTheCallerHasNotSeen(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+
+	sendAs(t, svc, "tok-a", to("bob"), "one")
+	sendAs(t, svc, "tok-a", everyone(), "two")
+	sendAs(t, svc, "tok-a", nil, "three")
+	sendAs(t, svc, "tok-b", everyone(), "four")
+
+	// Addressed to bob or to everyone, not sent by bob, and not a post.
+	read, err := svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, messageTexts(read.GetMessages()), []string{"one", "two"})
+	assert.Equal(t, read.GetRemainingUnread(), int32(0))
+
+	first := read.GetMessages()[0]
+	assert.Assert(t, first.GetId() != "")
+	assert.Equal(t, first.GetSeq(), int64(1))
+	assert.Equal(t, address(first.GetFrom()), "alpha/ana")
+	assert.Assert(t, first.GetMentionedYou())
+	assert.DeepEqual(t, targetAddresses(first.GetTarget()), []string{"alpha/bob"})
+	assert.Assert(t, read.GetMessages()[1].GetTarget().GetEveryone() != nil)
+
+	// Having been shown, they are not shown again.
 	read, err = svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
 	assert.NilError(t, err)
 	assert.Equal(t, len(read.GetMessages()), 0)
 }
 
-func TestService_SendMapsAddressErrors(t *testing.T) {
+func TestService_ReadHonoursTheFilter(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	seedAgent(t, svc, provider, "tok-b", "/work", "beta", "bob")
-	seedAgent(t, svc, provider, "tok-c", "/work", "gamma", "bob")
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
 
-	_, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "nobody", Text: "hi"})
-	assert.Equal(t, status.Code(err), codes.NotFound)
+	sendAs(t, svc, "tok-a", to("bob"), "one")
+	sendAs(t, svc, "tok-a", everyone(), "two")
+	sendAs(t, svc, "tok-a", nil, "three")
+	sendAs(t, svc, "tok-a", to("bob"), "four")
 
-	// "bob" exists in two other teams, so the bare name needs a team prefix.
-	_, err = svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "bob", Text: "hi"})
-	assert.Equal(t, status.Code(err), codes.InvalidArgument)
+	for _, tc := range []struct {
+		name   string
+		filter *chatv1.ReadFilter
+		want   []string
+	}{
+		{
+			// The tail reads the room rather than an inbox: posts and all.
+			"the tail counts backward",
+			&chatv1.ReadFilter{
+				Cursor: chatv1.ReadCursor_READ_CURSOR_TAIL, Range: -2,
+			},
+			[]string{"three", "four"},
+		},
+		{
+			"the head counts forward",
+			&chatv1.ReadFilter{
+				Cursor: chatv1.ReadCursor_READ_CURSOR_HEAD, Range: 2,
+			},
+			[]string{"one", "two"},
+		},
+		{
+			"a target narrows to what named it",
+			&chatv1.ReadFilter{
+				Cursor: chatv1.ReadCursor_READ_CURSOR_HEAD, To: to("alpha/bob"),
+			},
+			[]string{"one", "four"},
+		},
+		{
+			"since and until bound the seqs, both exclusive",
+			&chatv1.ReadFilter{
+				Cursor: chatv1.ReadCursor_READ_CURSOR_HEAD, Since: 1, Until: 4,
+			},
+			[]string{"two", "three"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// A fresh reader per case: a read moves the position, so cases
+			// sharing one would read what the case before it left behind.
+			svc, provider, _ := newTestService(t)
+			agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+			agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+			sendAs(t, svc, "tok-a", to("bob"), "one")
+			sendAs(t, svc, "tok-a", everyone(), "two")
+			sendAs(t, svc, "tok-a", nil, "three")
+			sendAs(t, svc, "tok-a", to("bob"), "four")
 
-	res, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "beta/bob", Text: "hi"})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetRecipient().GetTeam(), "beta")
-
-	_, err = svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "beta/bob", Text: ""})
-	assert.Equal(t, status.Code(err), codes.InvalidArgument)
-}
-
-func TestService_BroadcastExcludesSender(t *testing.T) {
-	svc, provider, notifier := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	seedAgent(t, svc, provider, "tok-b", "/work", "alpha", "bob")
-	seedAgent(t, svc, provider, "tok-c", "/work", "beta", "cid")
-	seedAgent(t, svc, provider, "tok-d", "/elsewhere", "alpha", "dee")
-
-	res, err := svc.Broadcast(callCtx(t, "tok-a"), &chatv1.BroadcastRequest{Text: "standup"})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetDeliveredCount(), int32(2))
-	assert.Equal(t, len(notifier.notified()), 2)
-
-	// The sender keeps an empty inbox; the other room hears nothing.
-	own, err := svc.Read(callCtx(t, "tok-a"), &chatv1.ReadRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, len(own.GetMessages()), 0)
-	other, err := svc.Read(callCtx(t, "tok-d"), &chatv1.ReadRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, len(other.GetMessages()), 0)
-}
-
-func TestService_HistoryShowsTheWholeRoom(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	seedAgent(t, svc, provider, "tok-b", "/work", "alpha", "bob")
-	seedAgent(t, svc, provider, "tok-c", "/work", "beta", "cid")
-
-	_, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "bob", Text: "ping"})
-	assert.NilError(t, err)
-	_, err = svc.Broadcast(callCtx(t, "tok-a"), &chatv1.BroadcastRequest{Text: "standup"})
-	assert.NilError(t, err)
-	// Draining an inbox is not supposed to change what the room remembers.
-	_, err = svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
-	assert.NilError(t, err)
-
-	// cid was never addressed by the send, and still reads it: the transcript
-	// belongs to the room rather than to a recipient.
-	res, err := svc.History(callCtx(t, "tok-c"), &chatv1.HistoryRequest{})
-	assert.NilError(t, err)
-	entries := res.GetEntries()
-	assert.Equal(t, len(entries), 2)
-	assert.Equal(t, entries[0].GetText(), "ping")
-	assert.Equal(t, entries[0].GetFrom().GetName(), "ana")
-	assert.Equal(t, entries[0].GetTo().GetName(), "bob")
-	assert.Equal(t, entries[0].GetTo().GetTeam(), "alpha")
-	assert.Assert(t, entries[0].GetSentAt() != nil)
-	assert.Equal(t, entries[1].GetText(), "standup")
-	assert.Assert(t, entries[1].GetTo() == nil)
-
-	// Asking again returns the same window: nothing was consumed.
-	again, err := svc.History(callCtx(t, "tok-c"), &chatv1.HistoryRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, len(again.GetEntries()), 2)
-}
-
-func TestService_HistoryWindowIsBounded(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-
-	for i := range defaultHistoryWindow + 2 {
-		_, err := svc.Broadcast(callCtx(t, "tok-a"),
-			&chatv1.BroadcastRequest{Text: fmt.Sprintf("line %d", i)})
-		assert.NilError(t, err)
+			read, err := svc.Read(callCtx(t, "tok-b"),
+				&chatv1.ReadRequest{Filter: tc.filter})
+			assert.NilError(t, err)
+			assert.DeepEqual(t, messageTexts(read.GetMessages()), tc.want)
+		})
 	}
-
-	// No limit asked for: the server's own window, ending at the newest line.
-	res, err := svc.History(callCtx(t, "tok-a"), &chatv1.HistoryRequest{})
-	assert.NilError(t, err)
-	entries := res.GetEntries()
-	assert.Equal(t, len(entries), defaultHistoryWindow)
-	assert.Equal(t, entries[len(entries)-1].GetText(),
-		fmt.Sprintf("line %d", defaultHistoryWindow+1))
-
-	// A smaller window is honoured, a larger one answers with what the room
-	// keeps rather than failing.
-	res, err = svc.History(callCtx(t, "tok-a"), &chatv1.HistoryRequest{Limit: 3})
-	assert.NilError(t, err)
-	assert.Equal(t, len(res.GetEntries()), 3)
-	res, err = svc.History(callCtx(t, "tok-a"), &chatv1.HistoryRequest{Limit: 100_000})
-	assert.NilError(t, err)
-	assert.Equal(t, len(res.GetEntries()), defaultHistoryWindow+2)
 }
 
-func TestService_HistoryRequiresMembership(t *testing.T) {
+// Nothing lies before the head or after the tail, and unread counts forward
+// only, so a range running against its cursor asks for what cannot exist.
+func TestService_ReadRejectsARangeAgainstItsCursor(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
 
-	// No token at all, and a token the provider vouches for but that never
-	// joined: neither has a room to read.
-	_, err := svc.History(t.Context(), &chatv1.HistoryRequest{})
-	assert.Equal(t, status.Code(err), codes.Unauthenticated)
-	provider.vouch("tok-outsider", "/work", "alpha")
-	_, err = svc.History(callCtx(t, "tok-outsider"), &chatv1.HistoryRequest{})
-	assert.Equal(t, status.Code(err), codes.Unauthenticated)
-
-	// A member of a room where nothing was said reads an empty transcript.
-	res, err := svc.History(callCtx(t, "tok-a"), &chatv1.HistoryRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, len(res.GetEntries()), 0)
+	for _, filter := range []*chatv1.ReadFilter{
+		{Cursor: chatv1.ReadCursor_READ_CURSOR_HEAD, Range: -1},
+		{Cursor: chatv1.ReadCursor_READ_CURSOR_TAIL, Range: 1},
+		{Cursor: chatv1.ReadCursor_READ_CURSOR_UNREAD, Range: -1},
+	} {
+		_, err := svc.Read(callCtx(t, "tok-a"), &chatv1.ReadRequest{Filter: filter})
+		assert.Equal(t, status.Code(err), codes.InvalidArgument,
+			"cursor %s range %d", filter.GetCursor(), filter.GetRange())
+	}
 }
 
+// The message is already in the room by the time the nudge is attempted, so a
+// terminal that could not be typed into costs its reader a late read.
 func TestService_NotifierFailureDoesNotFailSend(t *testing.T) {
 	svc, provider, notifier := newTestService(t)
-	seedAgent(t, svc, provider, "tok-a", "/work", "alpha", "ana")
-	seedAgent(t, svc, provider, "tok-b", "/work", "alpha", "bob")
 	notifier.fail = true
-	notifier.err = errors.New("send-keys: no such command")
+	notifier.err = errors.New("cmdman: send-keys declined")
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
 
-	_, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "bob", Text: "ping"})
-	assert.NilError(t, err)
+	sendAs(t, svc, "tok-a", to("bob"), "hi")
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob"})
 
-	// The message is stored regardless of the failed nudge.
 	read, err := svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
 	assert.NilError(t, err)
-	assert.Equal(t, len(read.GetMessages()), 1)
+	assert.DeepEqual(t, messageTexts(read.GetMessages()), []string{"hi"})
 }

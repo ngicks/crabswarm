@@ -14,9 +14,9 @@ import (
 
 // AdminService is the host-facing half of the chat broker: the ChatAdminService
 // gRPC implementation over the [Store]. It carries the operations a participant
-// must not be able to perform — reading every room, editing team formation,
-// minting tokens for humans no provider vouches for, and sending into any room
-// without attending it.
+// must not be able to perform — reading every room, deleting one, minting
+// tokens for people no provider vouches for, and sending into any room without
+// attending it.
 //
 // Its caller is not identified by a token: an agent holds one of those. It is
 // identified per call by the credential its [AdminAuthenticator] accepts, which
@@ -64,11 +64,13 @@ var _ chatv1.ChatAdminServiceServer = (*AdminService)(nil)
 // notifier. A nil notifier means [NopNotifier]; a nil logger discards logs.
 //
 // The notifier is the same seam the member half is given, and normally the same
-// instance: a recipient is nudged for an operator's message the way it is for a
-// peer's, since from where it sits both are mail. The provider is the same one
-// too, and is consulted for one thing only: whether the member holding a name
-// an operator's move collides with is still there. A nil provider leaves every
-// such collision a refusal, since nothing can then show the name to be free.
+// instance: a mentioned agent is nudged for an operator's message the way it is
+// for a peer's, since from where it sits both are somebody writing to it.
+//
+// The provider is taken and not used. Nothing on this half asks where a token
+// belongs: an operator holds none, and the person [AdminService.RegisterMember]
+// puts in a room holds one the daemon minted, which no provider could place.
+// The parameter stays so the daemon wires both halves the same way.
 //
 // A nil authenticator is not an error: it is a daemon that was never given a
 // way to recognise its operator, and it leaves every admin RPC failing with

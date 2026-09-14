@@ -34,9 +34,10 @@ type Config struct {
 	// the reader.
 	AdminIdentityFile string `json:"admin_identity_file" yaml:"admin_identity_file"`
 	// HistoryLimit is how many messages each room keeps of its conversation,
-	// pruned as new ones arrive. Zero means the default, which is what keeps
-	// this block meaningful when empty; a negative value records no
-	// conversation at all, for a host that would rather keep none.
+	// pruned as new ones arrive. Zero means the default of 1000, which is what
+	// keeps this block meaningful when empty; a negative value caps nothing, so
+	// a room keeps everything ever said in it — for a host whose rooms are
+	// theirs to keep and to clear by hand.
 	HistoryLimit int `json:"history_limit" yaml:"history_limit"`
 }
 

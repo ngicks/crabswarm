@@ -2,37 +2,31 @@ package chat
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"sync"
-	"time"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
-// Notifier is told that a member has mail, so a harness that has finished its
-// turn can be woken instead of waiting for its agent to poll. It is the seam
-// the keystroke injector plugs into; the service only reports deliveries.
+// Notifier is told that a member was mentioned, so a harness that has finished
+// its turn can be woken instead of waiting for its agent to poll. It is the
+// seam the keystroke injector plugs into; the service only reports mentions.
 //
-// Notify is called once per recipient, inside the RPC that delivered the
-// message, with that RPC's context. An implementation that needs to outlive
-// the call — queueing, retrying, shelling out to a terminal — detaches on its
-// own (context.WithoutCancel); putting a queue in the seam would force one on
+// Notify is called once per nudged member, inside the RPC that recorded the
+// message, with that RPC's context. An implementation that needs to outlive the
+// call — queueing, retrying, shelling out to a terminal — detaches on its own
+// (context.WithoutCancel); putting a queue in the seam would force one on
 // implementations that push synchronously.
 //
-// A returned error never fails the delivery: the message is already in the
-// recipient's inbox by then, and the service only logs it.
+// A returned error never fails the send: the message is already in the room by
+// then, waiting at the recipient's read position, and the service only logs it.
 type Notifier interface {
 	Notify(ctx context.Context, recipient Member, from Sender, text string) error
 }
 
 // NopNotifier drops every notification. It is what a [Service] runs with until
-// a real notifier is configured: messages then wait in the inbox until the
-// recipient reads them.
+// a real notifier is configured: messages then wait in the room until the
+// mentioned role reads them.
 type NopNotifier struct{}
 
 var _ Notifier = NopNotifier{}
@@ -68,13 +62,6 @@ func (NopStatusMirror) Set(context.Context, Member, MemberState) error { return 
 // Clear does nothing and never fails.
 func (NopStatusMirror) Clear(context.Context, Member) error { return nil }
 
-// providerCheckTTL is how long a successful team-info lookup vouches for an
-// agent's token. Re-checking on every RPC would put a cmdman process launch in
-// front of every message; re-checking never would keep vanished agents in the
-// room forever. Not configurable: it trades reap latency against RPC latency,
-// and neither side of that trade is worth a config key yet.
-const providerCheckTTL = 30 * time.Second
-
 // tokenNamePrefixLen is how much of a token a generated member name carries.
 // Long enough to stay unique among the handful of agents in a room, short
 // enough for another agent to type as an address.
@@ -108,17 +95,12 @@ type Service struct {
 	deliver  deliverer
 	mirror   StatusMirror
 	logger   *slog.Logger
-
-	mu sync.Mutex
-	// verified holds, per token, when the provider last vouched for it. See
-	// [providerCheckTTL].
-	verified map[string]time.Time
 }
 
 var _ chatv1.ChatServiceServer = (*Service)(nil)
 
 // NewService returns the ChatService implementation over store, admitting the
-// members provider knows, reporting deliveries to notifier and member state to
+// members provider knows, reporting mentions to notifier and member state to
 // mirror. A nil notifier means [NopNotifier], a nil mirror [NopStatusMirror];
 // a nil logger discards logs.
 func NewService(
@@ -140,15 +122,20 @@ func NewService(
 		deliver:  newDeliverer(store, notifier, logger),
 		mirror:   mirror,
 		logger:   logger,
-		verified: make(map[string]time.Time),
 	}
 }
 
 // caller resolves the member behind the request's token for every RPC but
-// Join, which has no membership to require yet.
+// [Service.Attend], which has no attendance to require yet because it is what
+// establishes one.
 //
-// A token the store does not hold is Unauthenticated, not NotFound: NotFound on
-// these RPCs means the member the caller addressed does not exist, and the two
+// Attendance is the whole of the check: it lasts exactly as long as the stream
+// that declared it, so a token the store still holds is a token whose session
+// is still running, and nothing has to be asked of the team-info provider on
+// the way through.
+//
+// A token nobody attends under is Unauthenticated, not NotFound: NotFound on
+// these RPCs means the role the caller addressed does not exist, and the two
 // must not read alike.
 func (s *Service) caller(ctx context.Context) (Member, error) {
 	token, err := tokenFromContext(ctx)
@@ -156,142 +143,10 @@ func (s *Service) caller(ctx context.Context) (Member, error) {
 		return Member{}, err
 	}
 	m, err := s.store.Member(ctx, token)
-	if errors.Is(err, ErrNotFound) {
-		return Member{}, status.Error(codes.Unauthenticated,
-			"token is not attending any room; join first")
-	}
 	if err != nil {
 		return Member{}, storeStatus(err)
 	}
-	if !s.stillKnown(ctx, m) {
-		return Member{}, status.Error(codes.Unauthenticated,
-			"token is no longer known to the team-info provider")
-	}
 	return m, nil
-}
-
-// stillKnown reports whether m may keep attending, dropping it from the store
-// when it may not.
-//
-// Only an agent is checked, and only past [providerCheckTTL]: a member that
-// declared no harness stays until it leaves, whatever the provider makes of
-// its token. A lookup that carried no verdict is not remembered either, so the
-// next RPC asks again instead of riding an answer nobody gave.
-func (s *Service) stillKnown(ctx context.Context, m Member) bool {
-	if m.Kind != KindAgent || s.recentlyVerified(m.Token) {
-		return true
-	}
-	switch checkLiveness(ctx, s.store, s.provider, s.logger, s.forgetVerified, m) {
-	case memberVouchedFor:
-		s.recordVerified(m.Token)
-	case memberReaped:
-		return false
-	}
-	return true
-}
-
-// livenessVerdict is what the team-info provider had to say about a member,
-// as [checkLiveness] reports it.
-type livenessVerdict int
-
-const (
-	// memberVouchedFor: the provider placed the token, so whoever holds it is
-	// still running.
-	memberVouchedFor livenessVerdict = iota
-	// memberUnjudged: the lookup itself failed, so nothing was learned about
-	// the token and its holder stays.
-	memberUnjudged
-	// memberReaped: the provider places the token nowhere any more — it knows no
-	// such command, or the command it names has stopped running — and the
-	// token's holder is gone from the store.
-	memberReaped
-)
-
-// checkLiveness asks the provider about m and drops m from the store when the
-// provider places its token nowhere any more: it knows no such command, or the
-// command it names is reported as no longer running. It is the one definition of
-// a member being gone, shared by the lazy reap the member half runs before every
-// RPC and by the name-collision paths of both halves: a flaky cmdman must not
-// free names any more than it may empty rooms.
-//
-// Only an agent is asked about: an agent is gone when the session that carried
-// it is, while anyone else stays until they say otherwise, and a name they hold
-// is theirs until an operator moves them. A lookup that fails without a verdict
-// keeps the member — a missing cmdman binary or a locked cmdman store would
-// otherwise empty every room at once, and a stale member costs far less than
-// that.
-//
-// forget is handed the token of a member that is reaped, so no cached verdict
-// outlives the member it vouched for. It is nil for a caller holding no such
-// cache, which the admin half is.
-func checkLiveness(
-	ctx context.Context,
-	store *Store,
-	provider TeamInfoProvider,
-	logger *slog.Logger,
-	forget func(token string),
-	m Member,
-) livenessVerdict {
-	if m.Kind != KindAgent {
-		return memberVouchedFor
-	}
-	_, err := provider.Resolve(ctx, m.Token)
-	switch {
-	case err == nil:
-		return memberVouchedFor
-	case !errors.Is(err, resolver.ErrUnknownToken):
-		logger.Warn("chat: team-info lookup failed, keeping member",
-			"member", m.Team+"/"+m.Name, "err", err)
-		return memberUnjudged
-	}
-	// No status is withdrawn here: the member is reaped because the command
-	// behind its token is gone — forgotten by the provider or exited — so
-	// whatever carried the display went with it.
-	logger.Info("chat: reaping member whose command is gone",
-		"member", m.Team+"/"+m.Name, "room", m.Room, "err", err)
-	if _, err := store.RemoveMember(ctx, m.Token); err != nil {
-		logger.Warn("chat: removing reaped member failed",
-			"member", m.Team+"/"+m.Name, "err", err)
-	} else {
-		// Unlike the status display, the room hears about a reap: the watchers
-		// are the other members' sessions, which are still running and would
-		// otherwise keep a vanished member on their list forever.
-		store.events.publish(m.Room, memberLeftEvent(m))
-	}
-	// The verdict is what the cache holds, so it goes even when the removal
-	// did not: a token this call has judged gone must not be vouched for by
-	// what an earlier call cached about it.
-	if forget != nil {
-		forget(m.Token)
-	}
-	return memberReaped
-}
-
-// reclaimName frees name within team of room when the member holding it has
-// vanished, and reports whether the name is there for the taking. It is what
-// tells the ghost of a command that no longer exists from a member that is
-// still in the room: a recreated compose replica derives the exact name its
-// predecessor left behind, and nothing else would ever free it.
-//
-// The provider is asked afresh rather than through the member half's cached
-// verdicts: a collision is rare enough to be worth a lookup, the answer decides
-// whether the caller gets in at all, and a verdict cached moments ago would
-// vouch for precisely the holder a recreated replica has just replaced.
-func reclaimName(
-	ctx context.Context,
-	store *Store,
-	provider TeamInfoProvider,
-	logger *slog.Logger,
-	forget func(token string),
-	room, team, name string,
-) bool {
-	holder, err := store.memberNamed(ctx, room, team, name)
-	if err != nil {
-		// Nobody holds the name any more: whoever did left between the refusal
-		// and this lookup. Any other failure leaves the refusal standing.
-		return errors.Is(err, ErrNotFound)
-	}
-	return checkLiveness(ctx, store, provider, logger, forget, holder) == memberReaped
 }
 
 // mirrorState publishes m's state, logging what the mirror could not do. The
@@ -305,8 +160,8 @@ func (s *Service) mirrorState(ctx context.Context, m Member, state MemberState) 
 }
 
 // mirrorGone withdraws m's published state. Failing is ordinary rather than
-// notable: a member leaves because its session is ending, so whatever held the
-// display is often gone before the withdrawal reaches it.
+// notable: a member stops attending because its session is ending, so whatever
+// held the display is often gone before the withdrawal reaches it.
 func (s *Service) mirrorGone(ctx context.Context, m Member) {
 	if err := s.mirror.Clear(ctx, m); err != nil {
 		s.logger.Debug("chat: withdrawing member state failed",
@@ -314,41 +169,12 @@ func (s *Service) mirrorGone(ctx context.Context, m Member) {
 	}
 }
 
-func (s *Service) recentlyVerified(token string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	at, ok := s.verified[token]
-	return ok && time.Since(at) < providerCheckTTL
-}
-
-// recordVerified stamps token as vouched for, dropping the entries that have
-// expired. Without that sweep the map would keep every token the daemon ever
-// admitted: a member removed by an admin RPC passes through neither Leave nor
-// the reap path.
-func (s *Service) recordVerified(token string) {
-	now := time.Now()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for t, at := range s.verified {
-		if now.Sub(at) >= providerCheckTTL {
-			delete(s.verified, t)
-		}
-	}
-	s.verified[token] = now
-}
-
-func (s *Service) forgetVerified(token string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.verified, token)
-}
-
-// defaultName names a joiner after its kind and its token, the last things left
-// to name it by once neither the join request nor the team-info provider
+// defaultName names an attendee after its kind and its token, the last things
+// left to name it by once neither the request nor the team-info provider
 // supplied a name.
 //
 // The kind leads because the name is what everyone else in the room reads: a
-// member that declared itself a human and answers from an inbox must not be
+// member that declared itself a human and answers at its own pace must not be
 // addressed as an agent whose terminal is typed into. The stored kind is the
 // word itself, so the prefix is spelled from it rather than mapped again.
 func defaultName(token string, kind MemberKind) string {
@@ -356,106 +182,4 @@ func defaultName(token string, kind MemberKind) string {
 		token = token[:tokenNamePrefixLen]
 	}
 	return string(kind) + "-" + token
-}
-
-// memberState maps the reported harness state onto the stored one. The
-// unspecified state is rejected rather than defaulted: a hook that failed to
-// fill it in must not silently mark its agent done, which is the one state a
-// keystroke nudge is sent to on sight rather than only once the report has
-// gone stale.
-func memberState(state chatv1.HarnessState) (MemberState, error) {
-	switch state {
-	case chatv1.HarnessState_HARNESS_STATE_DONE:
-		return StateDone, nil
-	case chatv1.HarnessState_HARNESS_STATE_WORKING:
-		return StateWorking, nil
-	case chatv1.HarnessState_HARNESS_STATE_WAITING:
-		return StateWaiting, nil
-	default:
-		return "", status.Errorf(codes.InvalidArgument,
-			"unknown harness state %q", state)
-	}
-}
-
-// memberKind maps the declared kind onto the stored one. The unspecified kind
-// is rejected rather than defaulted: a member taken for a human is never
-// mirrored to the status display and never nudged, and the store keeps the
-// first join, so a request that filled in nothing would settle the question
-// wrongly and for good.
-//
-// The refusal names the field of the request rather than a flag of any client.
-// The CLI is one caller among several — the MCP bridge is another — and it says
-// which flag to add itself, in words a person typing it can act on.
-func memberKind(kind chatv1.MemberKind) (MemberKind, error) {
-	switch kind {
-	case chatv1.MemberKind_MEMBER_KIND_AGENT:
-		return KindAgent, nil
-	case chatv1.MemberKind_MEMBER_KIND_HUMAN:
-		return KindHuman, nil
-	default:
-		return "", status.Error(codes.InvalidArgument,
-			"join declares no member kind")
-	}
-}
-
-// storeStatus maps a store error onto the status code its sentinel means. The
-// store's message is kept: it names the address, the room and the colliding
-// teams, which is exactly what the caller has to act on.
-func storeStatus(err error) error {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, ErrAmbiguousName), errors.Is(err, ErrInvalidName):
-		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, ErrNameTaken):
-		return status.Error(codes.AlreadyExists, err.Error())
-	default:
-		return status.Error(codes.Internal, err.Error())
-	}
-}
-
-// harnessStateProto maps the stored state back onto the wire enum. Unlike
-// [memberState] it refuses nothing: a [Member] carrying no state is one nobody
-// recorded a state for, which is a member to describe rather than a request to
-// turn down.
-func harnessStateProto(state MemberState) chatv1.HarnessState {
-	switch state {
-	case StateWorking:
-		return chatv1.HarnessState_HARNESS_STATE_WORKING
-	case StateWaiting:
-		return chatv1.HarnessState_HARNESS_STATE_WAITING
-	case StateDone:
-		return chatv1.HarnessState_HARNESS_STATE_DONE
-	default:
-		return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED
-	}
-}
-
-// memberKindProto maps the stored kind back onto the wire enum. Unlike
-// [memberKind] it refuses nothing: every stored member carries a kind, and a
-// caller reading one that does not is better served by the unspecified value
-// than by an error about a member it only asked to see.
-func memberKindProto(kind MemberKind) chatv1.MemberKind {
-	switch kind {
-	case KindAgent:
-		return chatv1.MemberKind_MEMBER_KIND_AGENT
-	case KindHuman:
-		return chatv1.MemberKind_MEMBER_KIND_HUMAN
-	default:
-		return chatv1.MemberKind_MEMBER_KIND_UNSPECIFIED
-	}
-}
-
-func memberProto(m Member) *chatv1.Member {
-	return &chatv1.Member{
-		Name:  m.Name,
-		Team:  m.Team,
-		Room:  m.Room,
-		State: harnessStateProto(m.State),
-		Kind:  memberKindProto(m.Kind),
-	}
-}
-
-func senderProto(s Sender) *chatv1.Member {
-	return &chatv1.Member{Name: s.Name, Team: s.Team, Room: s.Room}
 }

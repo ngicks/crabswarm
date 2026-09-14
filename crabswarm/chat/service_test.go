@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,25 +20,18 @@ import (
 
 // fakeProvider resolves tokens from a table. A token missing from it is
 // unknown — permanently unresolvable; err, when set, is returned for every
-// token instead and stands in for a cmdman that could not be asked at all, and
-// errs does the same for one token only.
+// token instead and stands in for a cmdman that could not be asked at all.
 type fakeProvider struct {
 	mu    sync.Mutex
 	infos map[string]resolver.TeamInfo
-	errs  map[string]error
 	err   error
-	calls int
 }
 
 func (p *fakeProvider) Resolve(_ context.Context, token string) (resolver.TeamInfo, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.calls++
 	if p.err != nil {
 		return resolver.TeamInfo{}, p.err
-	}
-	if err := p.errs[token]; err != nil {
-		return resolver.TeamInfo{}, err
 	}
 	info, ok := p.infos[token]
 	if !ok {
@@ -59,31 +53,6 @@ func (p *fakeProvider) vouchNamed(token, room, team, name string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.infos[token] = resolver.TeamInfo{Room: room, Team: team, Name: name}
-}
-
-// failLookup makes the provider fail for token alone, carrying no verdict about
-// it, while every other token is still answered.
-func (p *fakeProvider) failLookup(token string, err error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.errs == nil {
-		p.errs = map[string]error{}
-	}
-	p.errs[token] = err
-}
-
-// forget makes the provider stop knowing token, the way cmdman stops knowing a
-// command once it is gone.
-func (p *fakeProvider) forget(token string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	delete(p.infos, token)
-}
-
-func (p *fakeProvider) callCount() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.calls
 }
 
 // notification is one recorded [Notifier] call.
@@ -116,25 +85,13 @@ func (n *fakeNotifier) notified() []notification {
 	return slices.Clone(n.got)
 }
 
-// newTestService wires a service over a fresh store, a table-driven provider
-// and a recording notifier.
-func newTestService(t *testing.T) (*Service, *fakeProvider, *fakeNotifier) {
-	t.Helper()
-	svc, provider, notifier, _ := newTestServiceWithMirror(t)
-	return svc, provider, notifier
-}
-
-// newTestServiceWithMirror is [newTestService] with the recording status mirror
-// handed back too, for the cases that assert on what the service published.
-func newTestServiceWithMirror(
-	t *testing.T,
-) (*Service, *fakeProvider, *fakeNotifier, *fakeStatusMirror) {
-	t.Helper()
-	store, _ := newTestStore(t)
-	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
-	notifier := &fakeNotifier{}
-	mirror := &fakeStatusMirror{}
-	return NewService(store, provider, notifier, mirror, nil), provider, notifier, mirror
+// nudged is who the notifier was asked to wake, by address, in order.
+func (n *fakeNotifier) nudged() []string {
+	var out []string
+	for _, got := range n.notified() {
+		out = append(out, got.recipient.Team+"/"+got.recipient.Name)
+	}
+	return out
 }
 
 // published is one call the service made on its [StatusMirror]. A cleared
@@ -174,26 +131,25 @@ func (m *fakeStatusMirror) calls() []published {
 	return slices.Clone(m.got)
 }
 
-// seedAgent puts an agent in the store the way a past join left it, with the
-// provider still vouching for its token.
-func seedAgent(
-	t *testing.T,
-	svc *Service,
-	provider *fakeProvider,
-	token, room, team, name string,
-) Member {
+// newTestService wires a service over a fresh store, a table-driven provider
+// and a recording notifier.
+func newTestService(t *testing.T) (*Service, *fakeProvider, *fakeNotifier) {
 	t.Helper()
-	provider.vouch(token, room, team)
-	return join(t, svc.store, token, room, team, name)
+	svc, provider, notifier, _ := newTestServiceWithMirror(t)
+	return svc, provider, notifier
 }
 
-// expireVerified back-dates the provider's verdict on token, which is how a
-// test reaches [providerCheckTTL] without waiting it out.
-func expireVerified(t *testing.T, svc *Service, token string) {
+// newTestServiceWithMirror is [newTestService] with the recording status mirror
+// handed back too, for the cases that assert on what the service published.
+func newTestServiceWithMirror(
+	t *testing.T,
+) (*Service, *fakeProvider, *fakeNotifier, *fakeStatusMirror) {
 	t.Helper()
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	svc.verified[token] = time.Now().Add(-providerCheckTTL - time.Second)
+	store, _ := newTestStore(t)
+	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
+	notifier := &fakeNotifier{}
+	mirror := &fakeStatusMirror{}
+	return NewService(store, provider, notifier, mirror, nil), provider, notifier, mirror
 }
 
 // callCtx is a request context carrying token, as the interceptor would leave
@@ -203,118 +159,94 @@ func callCtx(t *testing.T, token string) context.Context {
 	return ContextWithToken(t.Context(), token)
 }
 
+// addressOf renders a member the way the tests name one.
+func addressOf(m Member) string { return m.Team + "/" + m.Name }
+
+// everyone is the whole-room target.
+func everyone() *chatv1.Target {
+	return &chatv1.Target{Target: &chatv1.Target_Everyone{Everyone: &chatv1.Everyone{}}}
+}
+
+// to is the explicit-list target, each role written the way a caller writes
+// one: "team/name", or a bare "name" for the daemon to resolve.
+func to(addrs ...string) *chatv1.Target {
+	roles := make([]*chatv1.MemberTarget, len(addrs))
+	for i, a := range addrs {
+		team, name, qualified := strings.Cut(a, "/")
+		if !qualified {
+			team, name = "", a
+		}
+		roles[i] = &chatv1.MemberTarget{Team: team, Name: name}
+	}
+	return &chatv1.Target{Target: &chatv1.Target_Roles{Roles: &chatv1.Roles{Roles: roles}}}
+}
+
+// waitDetached waits until token is attending nothing, for a stream closed by a
+// client over a connection: the cancellation reaches the handler some moments
+// after the client asked for it, so a call made straight away would race it.
+// A stream closed by the handler returning needs no such wait — the withdrawal
+// is done before Attend returns.
+func waitDetached(t *testing.T, store *Store, token string) {
+	t.Helper()
+	deadline := time.Now().Add(eventTimeout)
+	for {
+		if _, err := store.Member(t.Context(), token); errors.Is(err, ErrNotAttending) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("token %q is still attending", token)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestService_MissingTokenIsUnauthenticated(t *testing.T) {
 	svc, _, _ := newTestService(t)
 
-	_, err := svc.Join(t.Context(), &chatv1.JoinRequest{Name: "ana"})
+	_, err := svc.Send(t.Context(), &chatv1.SendRequest{Text: "hi"})
 	assert.Equal(t, status.Code(err), codes.Unauthenticated)
 
-	_, err = svc.Send(t.Context(), &chatv1.SendRequest{To: "bob", Text: "hi"})
+	_, err = svc.ListMembers(t.Context(), &chatv1.ListMembersRequest{})
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
+
+	// Attend establishes the attendance rather than requiring one, but it still
+	// needs to know who is attending.
+	stream := &session{ctx: t.Context(), sent: make(chan *chatv1.RoomEvent, 1)}
+	err = svc.Attend(&chatv1.AttendRequest{
+		Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT,
+	}, stream)
 	assert.Equal(t, status.Code(err), codes.Unauthenticated)
 }
 
-func TestService_NonMemberIsUnauthenticated(t *testing.T) {
+func TestService_NotAttendingIsUnauthenticated(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
+	// Known to the provider, but holding no stream: the provider says where the
+	// token would go, not that anybody took it there.
+	provider.vouch("tok-a", testRoom, "alpha")
 
-	// A token the provider knows but that never joined is still not a member.
-	_, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "bob", Text: "hi"})
+	_, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{Text: "hi"})
 	assert.Equal(t, status.Code(err), codes.Unauthenticated)
-	assert.Equal(t, provider.callCount(), 0)
 }
 
-func TestService_ReapsMemberTheProviderForgot(t *testing.T) {
-	svc, _, _ := newTestService(t)
-	// Seeded straight into the store: joining through the service would vouch
-	// for the token and the reap check would be skipped for the TTL.
-	join(t, svc.store, "gone", "/work", "alpha", "ghost")
-	join(t, svc.store, "tok-b", "/work", "alpha", "bob")
-
-	_, err := svc.Send(callCtx(t, "gone"), &chatv1.SendRequest{To: "bob", Text: "hi"})
-	assert.Equal(t, status.Code(err), codes.Unauthenticated)
-
-	_, err = svc.store.Member(t.Context(), "gone")
-	assert.ErrorIs(t, err, ErrNotFound)
-}
-
-func TestService_TransientProviderFailureKeepsMember(t *testing.T) {
+// A member RPC is answered for exactly as long as the stream that declared the
+// attendance: once it closes, the token means nothing again.
+func TestService_MemberRPCAfterTheStreamClosedIsUnauthenticated(t *testing.T) {
 	svc, provider, _ := newTestService(t)
-	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
-	join(t, svc.store, "tok-b", "/work", "alpha", "bob")
-	provider.err = errors.New("cmdman: connection refused")
+	ana := agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
 
-	res, err := svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{To: "bob", Text: "hi"})
-	assert.NilError(t, err)
-	assert.Equal(t, res.GetRecipient().GetName(), "bob")
-
-	_, err = svc.store.Member(t.Context(), "tok-a")
-	assert.NilError(t, err)
-}
-
-func TestService_HumanMemberIsNeverProviderChecked(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.err = errors.New("cmdman: connection refused")
-	_, err := svc.store.Join(t.Context(), Member{
-		Token: "human-tok", Name: "hana", Team: "hosts", Room: "/work", Kind: KindHuman,
-	})
+	_, err := svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
 	assert.NilError(t, err)
 
-	res, err := svc.ListMembers(callCtx(t, "human-tok"), &chatv1.ListMembersRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, len(res.GetMembers()), 1)
-	assert.Equal(t, provider.callCount(), 0)
-}
+	assert.Assert(t, ana.close(t) != nil)
 
-func TestService_ProviderCheckIsCachedAcrossCalls(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
-
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, provider.callCount(), 1)
-
-	// Within the TTL the following calls ride the join's verification. Only an
-	// agent is checked at all, so only an agent can show the cache working.
 	_, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
-	assert.NilError(t, err)
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
+	_, err = svc.Send(callCtx(t, "tok-a"), &chatv1.SendRequest{Text: "hi"})
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
 	_, err = svc.Read(callCtx(t, "tok-a"), &chatv1.ReadRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, provider.callCount(), 1)
-}
-
-// Past the TTL the cached verdict no longer answers for anyone: the provider is
-// asked again, and its current answer decides. An agent it has forgotten is
-// reaped; one it still vouches for keeps its place.
-func TestService_ProviderCheckIsRedoneAfterTTL(t *testing.T) {
-	svc, provider, _ := newTestService(t)
-	provider.vouch("tok-a", "/work", "alpha")
-	provider.vouch("tok-b", "/work", "alpha")
-
-	_, err := svc.Join(callCtx(t, "tok-a"),
-		&chatv1.JoinRequest{Name: "ana", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	_, err = svc.Join(callCtx(t, "tok-b"),
-		&chatv1.JoinRequest{Name: "bob", Kind: chatv1.MemberKind_MEMBER_KIND_AGENT})
-	assert.NilError(t, err)
-	assert.Equal(t, provider.callCount(), 2)
-
-	expireVerified(t, svc, "tok-a")
-	expireVerified(t, svc, "tok-b")
-	provider.forget("tok-a")
-
-	// ana's command is gone: the call is refused and the attendance goes with
-	// it, rather than being answered from the verdict the join cached.
-	_, err = svc.ListMembers(callCtx(t, "tok-a"), &chatv1.ListMembersRequest{})
 	assert.Equal(t, status.Code(err), codes.Unauthenticated)
-	assert.Equal(t, provider.callCount(), 3)
-	_, err = svc.store.Member(t.Context(), "tok-a")
-	assert.ErrorIs(t, err, ErrNotFound)
-
-	// bob's is still running, so the re-check costs it nothing but the lookup.
-	res, err := svc.ListMembers(callCtx(t, "tok-b"), &chatv1.ListMembersRequest{})
-	assert.NilError(t, err)
-	assert.Equal(t, provider.callCount(), 4)
-	assert.Equal(t, len(res.GetMembers()), 1)
-	assert.Equal(t, res.GetMembers()[0].GetName(), "bob")
+	_, err = svc.ReportState(callCtx(t, "tok-a"), &chatv1.ReportStateRequest{
+		State: chatv1.HarnessState_HARNESS_STATE_DONE,
+	})
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
 }

@@ -17,68 +17,33 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/auth"
-	"github.com/ngicks/crabswarm/crabswarm/chat/resolver"
 )
 
 // newTestAdminService wires an admin service over a fresh store, gated by a
 // throwaway age identity standing in for the operator's identity file.
 func newTestAdminService(t *testing.T) (*AdminService, *age.X25519Identity) {
 	t.Helper()
-	svc, id, _, _ := newTestAdminServiceWith(t)
+	svc, id, _ := newTestAdminServiceWithNotifier(t)
 	return svc, id
 }
 
 // newTestAdminServiceWithNotifier is [newTestAdminService] with the recording
-// notifier handed back too, for the cases that assert on what a delivery
-// reported.
+// notifier handed back too, for the cases that assert on who a send woke.
+//
+// The team-info provider is nil, as an untyped nil: this half asks nothing of
+// one, and a daemon configured without a provider must not behave differently
+// here.
 func newTestAdminServiceWithNotifier(
 	t *testing.T,
 ) (*AdminService, *age.X25519Identity, *fakeNotifier) {
 	t.Helper()
-	svc, id, notifier, _ := newTestAdminServiceWith(t)
-	return svc, id, notifier
-}
-
-// newTestAdminServiceWith is [newTestAdminService] with the seams handed back
-// too: the notifier for what a delivery reported, the provider for which tokens
-// it still places.
-func newTestAdminServiceWith(
-	t *testing.T,
-) (*AdminService, *age.X25519Identity, *fakeNotifier, *fakeProvider) {
-	t.Helper()
-	provider := &fakeProvider{infos: map[string]resolver.TeamInfo{}}
-	svc, id, notifier := newTestAdminServiceOver(t, provider)
-	return svc, id, notifier, provider
-}
-
-// newTestAdminServiceOver is [newTestAdminServiceWith] over a provider the
-// caller supplies. A nil one is the daemon that was given no team-info provider
-// at all, and it must be passed as an untyped nil: a typed nil would still be a
-// provider to ask.
-func newTestAdminServiceOver(
-	t *testing.T,
-	provider TeamInfoProvider,
-) (*AdminService, *age.X25519Identity, *fakeNotifier) {
-	t.Helper()
 	store, _ := newTestStore(t)
-	return newTestAdminServiceOn(t, store, provider)
-}
-
-// newTestAdminServiceOn is [newTestAdminServiceOver] over a store the caller
-// opened, for the cases that pick the conversation cap or hand the service a
-// database an earlier run recorded into.
-func newTestAdminServiceOn(
-	t *testing.T,
-	store *Store,
-	provider TeamInfoProvider,
-) (*AdminService, *age.X25519Identity, *fakeNotifier) {
-	t.Helper()
 	id, err := age.GenerateX25519Identity()
 	assert.NilError(t, err)
 	ageAuth, err := auth.NewAgeNonce(id.Recipient().String())
 	assert.NilError(t, err)
 	notifier := &fakeNotifier{}
-	return NewAdminService(store, provider, ageAuth, notifier, nil), id, notifier
+	return NewAdminService(store, nil, ageAuth, notifier, nil), id, notifier
 }
 
 // adminCtx is the context an admin RPC sees when the caller sent credential as
@@ -170,8 +135,8 @@ func TestAdminService_RejectsSpentNonce(t *testing.T) {
 	t.Run("a nonce is refused by the RPC that consumed it", func(t *testing.T) {
 		// A failed RPC still spends its nonce.
 		nonce := adminNonce(t, svc, id)
-		_, err := svc.MoveMember(adminCtx(t, nonce), &chatv1.MoveMemberRequest{
-			Room: "/work", Team: "alpha", Name: "nobody", ToTeam: "beta",
+		_, err := svc.DeleteRoom(adminCtx(t, nonce), &chatv1.DeleteRoomRequest{
+			Room: "/work/nowhere",
 		})
 		assert.Equal(t, status.Code(err), codes.NotFound)
 
@@ -192,23 +157,23 @@ func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 	_, err = svc.ListRooms(adminCtx(t, "anything"), &chatv1.ListRoomsRequest{})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 
-	_, err = svc.MoveMember(adminCtx(t, "anything"), &chatv1.MoveMemberRequest{
-		Room: "/work", Team: "alpha", Name: "ana", ToTeam: "beta",
-	})
-	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
-
 	_, err = svc.RegisterMember(adminCtx(t, "anything"), &chatv1.RegisterMemberRequest{
-		Room: "/work", Team: "hosts", Name: "hana",
+		Room: testRoom, Team: "hosts", Name: "hana",
 	})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 
 	_, err = svc.Send(adminCtx(t, "anything"), &chatv1.AdminSendRequest{
-		Room: "/work", Target: memberTarget("alpha", "ana"), Text: "hi",
+		Room: testRoom, Target: to("alpha/ana"), Text: "hi",
 	})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 
 	_, err = svc.History(adminCtx(t, "anything"), &chatv1.AdminHistoryRequest{
-		Room: "/work",
+		Room: testRoom,
+	})
+	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
+
+	_, err = svc.DeleteRoom(adminCtx(t, "anything"), &chatv1.DeleteRoomRequest{
+		Room: testRoom,
 	})
 	assert.Equal(t, status.Code(err), codes.FailedPrecondition)
 }
@@ -218,7 +183,7 @@ func TestAdminService_WithoutRecipientEveryRPCIsRefused(t *testing.T) {
 // no token — the bearer credential in the call's metadata is the whole of it.
 func TestAdminService_OverGRPC(t *testing.T) {
 	svc, id := newTestAdminService(t)
-	join(t, svc.store, "tok-a", "/work", "alpha", "ana")
+	attend(t, svc.store, "tok-a", testRoom, "alpha", "ana")
 
 	lis := bufconn.Listen(1 << 16)
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(UnaryTokenInterceptor()))
@@ -244,7 +209,7 @@ func TestAdminService_OverGRPC(t *testing.T) {
 		auth.ContextWithBearer(t.Context(), nonce), &chatv1.ListRoomsRequest{})
 	assert.NilError(t, err)
 	assert.Equal(t, len(rooms.GetRooms()), 1)
-	assert.Equal(t, rooms.GetRooms()[0].GetName(), "/work")
+	assert.Equal(t, rooms.GetRooms()[0].GetName(), testRoom)
 }
 
 // noChallengeAuth stands in for an authenticator whose credentials are minted
