@@ -130,6 +130,16 @@ func TestRenderRead_Empty(t *testing.T) {
 	assert.Equal(t, got, "no pending messages\n")
 }
 
+// A narrowed read answers about what it was asked for, so it can come back
+// empty while mentions of the caller wait outside it. The trailer is what keeps
+// that from reading as an empty room.
+func TestRenderRead_EmptyWithRemainingUnread(t *testing.T) {
+	got := render(t, func(b *strings.Builder) error {
+		return RenderRead(b, &chatv1.ReadResponse{RemainingUnread: 2})
+	})
+	assert.Equal(t, got, "no pending messages\n2 more unread\n")
+}
+
 // A message with no stamp still fills the field, in one word: a reader cutting
 // the line on spaces would otherwise find the sender where the time should be.
 func TestRenderRead_MissingTimestamp(t *testing.T) {

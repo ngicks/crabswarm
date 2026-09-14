@@ -189,9 +189,9 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// Graceful shutdown when context is cancelled (e.g. SIGINT).
 	//
-	// GracefulStop waits for every in-flight RPC, and WatchRoom is a stream
-	// that ends only when its client does — an attached watcher would hold the
-	// daemon open through SIGINT for as long as it kept watching. Watchers get
+	// GracefulStop waits for every in-flight RPC, and Attend is a stream that
+	// ends only when its client does — an attendee would hold the daemon open
+	// through SIGINT for as long as it kept attending. Attendees get
 	// shutdownGrace to notice the closing connection and hang up; after that
 	// what is left is cut.
 	go func() {

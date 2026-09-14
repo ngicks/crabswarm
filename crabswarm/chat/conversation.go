@@ -10,8 +10,9 @@ const (
 	// is nobody's unread.
 	TargetNone TargetKind = "none"
 	// TargetEveryone addresses the whole room. It names no role, so it is
-	// unread for every role of the room past its position, the sender excepted,
-	// including roles that first attend afterwards.
+	// unread for every role the room already has whose read position it lies
+	// past, the sender excepted. A role attending for the first time afterwards
+	// seeds its position at the room's newest message and so starts past it.
 	TargetEveryone TargetKind = "everyone"
 	// TargetRoles addresses the listed roles and nobody else.
 	TargetRoles TargetKind = "roles"

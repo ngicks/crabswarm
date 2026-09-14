@@ -35,14 +35,18 @@ const unknownTime = "unknown-time"
 // A read that found nothing says so on stdout rather than printing nothing, so
 // a caller polling for messages can tell a successful empty read from a command
 // that never ran. [ReadOptions.Quiet] is what removes that line.
+//
+// The unread trailer follows an empty read too. A narrowed read — a target, a
+// stretch of sequence numbers — answers about what it was asked for and can
+// come back empty while mentions of the caller are still waiting outside it;
+// without the trailer that read would read as an empty room.
 func RenderRead(w io.Writer, resp *chatv1.ReadResponse) error {
-	messages := resp.GetMessages()
-	if len(messages) == 0 {
-		_, err := fmt.Fprintln(w, "no pending messages")
-		return err
-	}
 	var b strings.Builder
-	writeMessages(&b, messages)
+	if messages := resp.GetMessages(); len(messages) == 0 {
+		b.WriteString("no pending messages\n")
+	} else {
+		writeMessages(&b, messages)
+	}
 	if remaining := resp.GetRemainingUnread(); remaining > 0 {
 		fmt.Fprintf(&b, "%d more unread\n", remaining)
 	}

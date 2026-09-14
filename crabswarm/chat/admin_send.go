@@ -52,12 +52,12 @@ func (a *AdminService) Send(
 }
 
 // targetAddr renders a written target for the log line, in the grammar an
-// operator writes one in: "*" for the whole room, the roles by address, and "-"
-// for a board post, which names nobody to render.
+// operator writes one in: "everyone" for the whole room, the roles by address,
+// and "-" for a board post, which names nobody to render.
 func targetAddr(t Target) string {
 	switch t.Kind {
 	case TargetEveryone:
-		return "*"
+		return "everyone"
 	case TargetRoles:
 		addrs := make([]string, len(t.Roles))
 		for i, r := range t.Roles {

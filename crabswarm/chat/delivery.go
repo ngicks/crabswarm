@@ -69,9 +69,15 @@ func (d deliverer) nudged(ctx context.Context, from Sender, sent Sent) []Member 
 			// The absent need no filtering of their own: a role nobody attends
 			// under comes back carrying no kind at all, so it is not an agent and
 			// falls out here. Their mention waits at their read position.
-			if m.Kind == KindAgent {
-				nudged = append(nudged, m)
+			if m.Kind != KindAgent {
+				continue
 			}
+			// A sender that named its own role is left out: its own message is
+			// never unread for it, so the nudge would buy it an empty read.
+			if m.Team == from.Team && m.Name == from.Name {
+				continue
+			}
+			nudged = append(nudged, m)
 		}
 		return nudged
 	case TargetEveryone:

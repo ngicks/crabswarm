@@ -65,8 +65,10 @@ func selectMessages(
 		case TargetNone, TargetEveryone:
 			w.kind = string(kind)
 		case TargetRoles:
-			// Unresolvable names match nothing rather than failing: filtering
-			// by a role the room never had is an answer, not a mistake.
+			// A name the room never had matches nothing rather than failing:
+			// filtering by a role that was never there is an answer, not a
+			// mistake. An ambiguous one is still refused — see
+			// [resolveTargets].
 			roles, err := resolveTargets(ctx, q, viewer, f.To.Roles, false)
 			if err != nil {
 				return nil, err

@@ -70,7 +70,6 @@ type ChatServiceClient interface {
 	// open. The first event is Attended, carrying the member the token
 	// resolved to; the rest is the room's event feed. Closing the stream is
 	// leaving. A token already attending is refused with AlreadyExists.
-	// Replaces Join, WatchRoom and Leave.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to
@@ -177,7 +176,6 @@ type ChatServiceHandler interface {
 	// open. The first event is Attended, carrying the member the token
 	// resolved to; the rest is the room's event feed. Closing the stream is
 	// leaving. A token already attending is refused with AlreadyExists.
-	// Replaces Join, WatchRoom and Leave.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to

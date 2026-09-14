@@ -12,7 +12,7 @@ address, the kind and the harness state. The first column is exactly the
 address ` + "`chat send`" + ` takes.
 
 The kind says whether a message reaches that member on its own — an agent is
-woken by an arriving message, a human reads its inbox when it asks — so it is
+woken by an arriving message, a human reads the room when it asks — so it is
 what tells the sender who to expect an answer from.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,

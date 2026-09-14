@@ -32,16 +32,15 @@ const (
 //
 // ChatService brokers per-room chat between the agents (and humans) attending
 // a room. Every RPC carries the caller's identity token as the gRPC metadata
-// "x-crabswarm-token"; the daemon resolves it to a member through the
-// team-info provider or the admin-registered member table, and rejects a token
-// known to neither. Room and team are never chosen by the caller: they follow
-// from the token.
+// "x-crabswarm-token"; Attend resolves it through the team-info provider, every
+// other RPC resolves it to the member attending under it, and a token nobody
+// attends under is rejected. Room and team are never chosen by the caller: they
+// follow from the token.
 type ChatServiceClient interface {
 	// Attend declares attendance and holds it for as long as the stream is
 	// open. The first event is Attended, carrying the member the token
 	// resolved to; the rest is the room's event feed. Closing the stream is
 	// leaving. A token already attending is refused with AlreadyExists.
-	// Replaces Join, WatchRoom and Leave.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to
@@ -137,16 +136,15 @@ func (c *chatServiceClient) ReportState(ctx context.Context, in *ReportStateRequ
 //
 // ChatService brokers per-room chat between the agents (and humans) attending
 // a room. Every RPC carries the caller's identity token as the gRPC metadata
-// "x-crabswarm-token"; the daemon resolves it to a member through the
-// team-info provider or the admin-registered member table, and rejects a token
-// known to neither. Room and team are never chosen by the caller: they follow
-// from the token.
+// "x-crabswarm-token"; Attend resolves it through the team-info provider, every
+// other RPC resolves it to the member attending under it, and a token nobody
+// attends under is rejected. Room and team are never chosen by the caller: they
+// follow from the token.
 type ChatServiceServer interface {
 	// Attend declares attendance and holds it for as long as the stream is
 	// open. The first event is Attended, carrying the member the token
 	// resolved to; the rest is the room's event feed. Closing the stream is
 	// leaving. A token already attending is refused with AlreadyExists.
-	// Replaces Join, WatchRoom and Leave.
 	//
 	// The stream element is named for what it is rather than for this RPC: the
 	// same event feed is what an admin TUI subscribes to, so tying the name to

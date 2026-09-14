@@ -98,12 +98,12 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 	who := member.Team + "/" + member.Name
 
 	// Not "== KindHuman": a member kind this package has never heard of has no
-	// terminal it may type into either. Only a joiner that declared itself a
-	// harness is typed at — anything else reads its inbox when it chooses to,
+	// terminal it may type into either. Only an attendee that declared itself a
+	// harness is typed at — anything else reads the room when it chooses to,
 	// and a line typed into it would land wherever its shell happens to be.
 	if member.Kind != chat.KindAgent {
 		// Warn, not Debug: this member will never be nudged, and without the
-		// line the operator sees only a message that sits in an inbox.
+		// line the operator sees only a message waiting unread.
 		t.logger.Warn("chat: not typing into a member that runs no harness",
 			"member", who, "kind", member.Kind)
 		return fmt.Errorf("member runs no harness: %w", ErrDeclined)

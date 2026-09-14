@@ -153,6 +153,32 @@ func TestStore_ReadFilterByTarget(t *testing.T) {
 	}
 }
 
+// A role the room never had is an answer; a role the caller did not write
+// unambiguously is not. A bare name two teams carry is turned down the way the
+// same name is turned down as a send target, so a reader never gets one team's
+// messages in place of the other's.
+func TestStore_ReadFilterRefusesAnUnanswerableTarget(t *testing.T) {
+	s, _ := newTestStore(t)
+	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
+	attend(t, s, "tok-b", testRoom, "beta", "bob")
+	attend(t, s, "tok-g", testRoom, "gamma", "bob")
+
+	// The host reads with no team of its own, so a bare name is only ever
+	// resolved across the room.
+	ambiguous := toRoles(role("", "bob"))
+	_, err := s.ReadRoom(t.Context(), testRoom, ReadFilter{Cursor: CursorHead, To: &ambiguous})
+	assert.ErrorIs(t, err, ErrAmbiguousRole)
+
+	// A member whose own team carries neither is in the same position.
+	_, _, err = s.Read(t.Context(), senderOf(alice), ReadFilter{Cursor: CursorHead, To: &ambiguous})
+	assert.ErrorIs(t, err, ErrAmbiguousRole)
+
+	// A target naming no role at all says nothing about which messages to keep.
+	nameless := toRoles(role("beta", ""))
+	_, err = s.ReadRoom(t.Context(), testRoom, ReadFilter{Cursor: CursorHead, To: &nameless})
+	assert.ErrorIs(t, err, ErrInvalidArgument)
+}
+
 func TestStore_ReadBoundsBySeq(t *testing.T) {
 	s, _ := newTestStore(t)
 	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")

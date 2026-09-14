@@ -145,8 +145,9 @@ export const EveryoneSchema: GenMessage<Everyone> = /*@__PURE__*/
   messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 3);
 
 /**
- * Roles is an explicit list. A MemberTarget with an empty team is a bare
- * name the daemon resolves; see the target resolution table.
+ * Roles is an explicit list. A MemberTarget with an empty team is a bare name
+ * the daemon resolves in the sender's own team first, then uniquely across the
+ * room; a name two teams of the room carry is refused as ambiguous.
  *
  * @generated from message ngicks.crabswarm.chat.v1.Roles
  */
@@ -966,7 +967,8 @@ export const HarnessStateSchema: GenEnum<HarnessState> = /*@__PURE__*/
 
 /**
  * MemberKind says whether a member runs an agent harness whose terminal a
- * nudge may be typed into, or is anything else and is inbox-only.
+ * nudge may be typed into, or is anything else and is only ever handed its
+ * messages when it asks for them.
  *
  * @generated from enum ngicks.crabswarm.chat.v1.MemberKind
  */
@@ -1038,10 +1040,10 @@ export const ReadCursorSchema: GenEnum<ReadCursor> = /*@__PURE__*/
 /**
  * ChatService brokers per-room chat between the agents (and humans) attending
  * a room. Every RPC carries the caller's identity token as the gRPC metadata
- * "x-crabswarm-token"; the daemon resolves it to a member through the
- * team-info provider or the admin-registered member table, and rejects a token
- * known to neither. Room and team are never chosen by the caller: they follow
- * from the token.
+ * "x-crabswarm-token"; Attend resolves it through the team-info provider, every
+ * other RPC resolves it to the member attending under it, and a token nobody
+ * attends under is rejected. Room and team are never chosen by the caller: they
+ * follow from the token.
  *
  * @generated from service ngicks.crabswarm.chat.v1.ChatService
  */
@@ -1051,7 +1053,6 @@ export const ChatService: GenService<{
    * open. The first event is Attended, carrying the member the token
    * resolved to; the rest is the room's event feed. Closing the stream is
    * leaving. A token already attending is refused with AlreadyExists.
-   * Replaces Join, WatchRoom and Leave.
    *
    * The stream element is named for what it is rather than for this RPC: the
    * same event feed is what an admin TUI subscribes to, so tying the name to

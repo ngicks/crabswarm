@@ -77,6 +77,19 @@ func TestService_SendToRolesNudgesTheAttendingAgents(t *testing.T) {
 	assert.Equal(t, got.text, "standup")
 }
 
+// A sender that names its own role is mentioned, since that is what it wrote,
+// but not nudged: its own message is never unread for it, so the wake-up would
+// buy it an empty read.
+func TestService_SendToRolesSkipsTheSender(t *testing.T) {
+	svc, provider, notifier := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+
+	res := sendAs(t, svc, "tok-a", to("ana", "bob"), "ana and bob, both")
+	assert.DeepEqual(t, addresses(res.GetMentioned()), []string{"alpha/ana", "alpha/bob"})
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob"})
+}
+
 func TestService_SendToEveryoneNudgesEveryAgentButTheSender(t *testing.T) {
 	svc, provider, notifier := newTestService(t)
 	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")

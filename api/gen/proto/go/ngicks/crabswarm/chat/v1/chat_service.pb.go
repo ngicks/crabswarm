@@ -86,7 +86,8 @@ func (HarnessState) EnumDescriptor() ([]byte, []int) {
 }
 
 // MemberKind says whether a member runs an agent harness whose terminal a
-// nudge may be typed into, or is anything else and is inbox-only.
+// nudge may be typed into, or is anything else and is only ever handed its
+// messages when it asks for them.
 type MemberKind int32
 
 const (
@@ -459,8 +460,9 @@ func (*Everyone) Descriptor() ([]byte, []int) {
 	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{3}
 }
 
-// Roles is an explicit list. A MemberTarget with an empty team is a bare
-// name the daemon resolves; see the target resolution table.
+// Roles is an explicit list. A MemberTarget with an empty team is a bare name
+// the daemon resolves in the sender's own team first, then uniquely across the
+// room; a name two teams of the room carry is refused as ambiguous.
 type Roles struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Roles         []*MemberTarget        `protobuf:"bytes,1,rep,name=roles,proto3" json:"roles,omitempty"`

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -179,8 +180,13 @@ func (s *Store) prune(ctx context.Context, q *db.Queries, room string, lastSeq i
 //
 // strict decides what an unresolvable target is. A send refuses one, since a
 // message addressed to nobody is a message the sender meant to go somewhere. A
-// read filter takes it as matching nothing: filtering by a role that the room
-// has never had is an answer, not a mistake.
+// read filter forgives the one case it can still answer: a role the room has
+// never had matches nothing, which is an answer rather than a mistake.
+//
+// A bare name two teams carry, and a target naming no role at all, are refused
+// either way. Neither says which messages the caller meant, so a read is turned
+// down exactly as a send is, rather than quietly filtering by whichever role the
+// caller did not write.
 func resolveTargets(
 	ctx context.Context,
 	q *db.Queries,
@@ -204,7 +210,7 @@ func resolveTargets(
 	for _, t := range targets {
 		r, err := resolveTarget(known, from, t)
 		if err != nil {
-			if strict {
+			if strict || !errors.Is(err, ErrUnknownRole) {
 				return nil, err
 			}
 			continue

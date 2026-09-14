@@ -66,7 +66,7 @@ Tools to swarm claude(, codex and others!)
 │   │   │           service.go + service_member.go (Attend/ListMembers/ReportState) + service_inbox.go (Send/Read) = member plane RPCs;
 │   │   │           admin.go (age challenge) + admin_rooms.go (list/register/delete-room)/admin_send.go/admin_history.go = admin plane; convert.go = proto <-> domain;
 │   │   │           store.go + attendance.go/conversation.go/messages.go/read.go/window.go/rooms.go = SQLite store; delivery.go + notify/ = fan-out and keystroke nudges via cmdman;
-│   │   │           resolver/ = cmdman team-info provider (token -> room/team/name); interceptor.go = per-RPC auth + lazy reaping.
+│   │   │           resolver/ = cmdman team-info provider (token -> room/team/name); interceptor.go = per-RPC token auth.
 │   │   ├── cli       Client side: token resolution (token.go), member verbs, admin verbs, and cli/tui = the admin TUI (bubbletea).
 │   │   ├── mcpserver `crabswarm chat mcp`: stdio MCP bridge, one instance per agent; holds the Attend stream for the whole session, retrying until the daemon answers and reopening it after a restart; serves even with no identity token; chat_send/chat_read/chat_members plus the attendance resource over the member plane.
 │   │   ├── notify    Nudging a harness by typing into its cmdman-tracked terminal (SendKeys, gated on reported state).

@@ -199,6 +199,28 @@ func TestStore_SendPrunesPastTheCap(t *testing.T) {
 	assert.Equal(t, sent.Message.Seq, int64(5))
 }
 
+// A store nobody configured prunes at the default cap, so a room left to itself
+// keeps a bounded conversation rather than growing for as long as the daemon
+// runs.
+func TestStore_DefaultHistoryLimitPrunesAtAThousand(t *testing.T) {
+	// ":memory:" rather than the file-backed helper: this is a thousand
+	// transactions and none of them has to survive a reopen.
+	s, err := NewStore(t.Context(), ":memory:", 0)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = s.Close() })
+	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
+
+	// Board posts: the cap counts messages, and a mention row apiece would only
+	// make the same point more slowly.
+	for range defaultHistoryLimit + 1 {
+		send(t, s, senderOf(alice), Target{}, "one more")
+	}
+
+	// The room is one over the cap, so exactly the first message went.
+	assert.Equal(t, countRows(t, s, `SELECT COUNT(*) FROM messages`), defaultHistoryLimit)
+	assert.Equal(t, countRows(t, s, `SELECT MIN(seq) FROM messages`), 2)
+}
+
 func TestStore_NegativeHistoryLimitPrunesNothing(t *testing.T) {
 	s, _ := newTestStoreWithHistory(t, -1)
 	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
