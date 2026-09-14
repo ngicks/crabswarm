@@ -161,15 +161,15 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 	// One notifier for both halves: a recipient is nudged the same way whether
 	// the message came from a peer or from the operator. The team-info provider
-	// is shared for the same kind of reason: both halves have to ask the same
-	// question of whether a member is still out there.
+	// goes to the member half alone, which is the only one that has a token to
+	// place.
 	notifier := notify.NewSendKeys(s.chatCfg.CmdmanBin, s.logger)
 	provider := resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin)
-	adminSvc := chat.NewAdminService(chatStore, provider, adminAuth, notifier, s.logger)
+	adminSvc := chat.NewAdminService(chatStore, adminAuth, notifier, s.logger)
 
 	srv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()),
-		// WatchRoom is a stream, and the unary interceptor never sees one.
+		// Attend is a stream, and the unary interceptor never sees one.
 		grpc.ChainStreamInterceptor(chat.StreamTokenInterceptor()),
 	)
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})

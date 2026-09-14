@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The hook file Claude Code reads out of the skills-directory plugin. The Codex
@@ -283,16 +284,22 @@ func assertHookIsSilent(t *testing.T, res hookResult) {
 }
 
 // startChatRoomWithMail brings up a daemon, attends as ana and bob, and leaves
-// one message from bob waiting in ana's inbox. It returns the config path the
-// hooks run against; every case acts as ana, the member whose turn is ending.
+// one message from bob unread for ana. It returns the config path the hooks run
+// against; every case acts as ana, the member whose turn is ending.
 func startChatRoomWithMail(t *testing.T) string {
 	t.Helper()
 	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
-	runChat(t, cfg, "tok-bob", "join", "--kind", "human", "--name", "bob")
-	runChat(t, cfg, "tok-bob", "send", "ana", chatSentText)
+	attendChatBridges(t, cfg, "tok-ana", "tok-bob")
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, chatSentText)
 	return cfg
 }
+
+// chatMailLine is how the message [startChatRoomWithMail] leaves reads once a
+// hook has handed it over: the sender, the role it named and the mention
+// marker, with the sequence number and the stamp in front of them left out
+// because neither is the same twice.
+const chatMailLine = chatBridgeBob + " -> " + chatBridgeAna + ` [mentioned you]: say "hi"`
 
 // assertInboxStillHoldsTheMail reads ana's inbox directly and reports an inbox
 // a hook was supposed to leave alone.
@@ -338,7 +345,7 @@ func TestChatHooks_StopBlocksWithTheMessages(t *testing.T) {
 	}
 	reason := hookString(t, obj, "reason")
 	for _, want := range []string{
-		"alpha/bob: say \"hi\"",
+		chatMailLine,
 		"and a second line",
 		"crabswarm chat send",
 	} {
@@ -368,7 +375,7 @@ func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 // asserted here is the half a harness sees.
 func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
 	cfg := startChatDaemon(t)
-	runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+	attendChatBridges(t, cfg, "tok-ana")
 	hooks := readChatHooks(t)
 
 	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
@@ -402,7 +409,7 @@ func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
 	}
 	injected := hookString(t, inner, "additionalContext")
 	for _, want := range []string{
-		"alpha/bob: say \"hi\"",
+		chatMailLine,
 		"and a second line",
 		"crabswarm chat send",
 	} {
@@ -425,7 +432,7 @@ func TestChatHooks_PostToolUseIsSilentWithoutMessages(t *testing.T) {
 
 	t.Run("the inbox is empty", func(t *testing.T) {
 		cfg := startChatDaemon(t)
-		runChat(t, cfg, "tok-ana", "join", "--kind", "human", "--name", "ana")
+		attendChatBridges(t, cfg, "tok-ana")
 		assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", command, postToolUseEnvelope))
 	})
 
@@ -495,7 +502,7 @@ func TestChatHooks_IdleNotificationRecoversAnInterruptedTurn(t *testing.T) {
 	for _, stuck := range []string{"working", "waiting"} {
 		t.Run("interrupted while "+stuck, func(t *testing.T) {
 			cfg := startChatDaemon(t)
-			runChat(t, cfg, "tok-ana", "join", "--kind", "agent", "--name", "ana")
+			attendChatBridges(t, cfg, "tok-ana")
 			runChat(t, cfg, "tok-ana", "report-state", stuck)
 
 			assertHookIsSilent(t,

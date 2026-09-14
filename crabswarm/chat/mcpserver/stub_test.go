@@ -18,49 +18,56 @@ func member(team, name, room string) *chatv1.Member {
 	return &chatv1.Member{Team: team, Name: name, Room: room}
 }
 
+// rolesTarget is a message addressed to the given members, which is the shape a
+// mention arrives in.
+func rolesTarget(members ...*chatv1.Member) *chatv1.Target {
+	roles := make([]*chatv1.MemberTarget, len(members))
+	for i, m := range members {
+		roles[i] = &chatv1.MemberTarget{Team: m.GetTeam(), Name: m.GetName()}
+	}
+	return &chatv1.Target{
+		Target: &chatv1.Target_Roles{Roles: &chatv1.Roles{Roles: roles}},
+	}
+}
+
 // fakeChatService answers the member RPCs with canned data and keeps the
 // requests it received, so a test can assert what the bridge put on the wire.
 //
 // It is the stub crabswarm/chat/cli's tests drive, with a mutex added: the
-// bridge attends from its startup goroutine while tool calls run, so two
-// goroutines reach these fields at once. Copied rather than shared, because
-// sharing would mean exporting a test double from non-test code.
+// bridge holds its attendance on a goroutine of its own while tool calls run,
+// so two goroutines reach these fields at once. Copied rather than shared,
+// because sharing would mean exporting a test double from non-test code.
 type fakeChatService struct {
 	chatv1.UnimplementedChatServiceServer
 
 	self      *chatv1.Member
-	recipient *chatv1.Member
-	delivered int32
+	mentioned []*chatv1.Member
+	absent    []*chatv1.Member
 	messages  []*chatv1.Message
-	entries   []*chatv1.HistoryEntry
+	remaining int32
 	members   []*chatv1.Member
 
-	// events is the room feed a served WatchRoom forwards. Unbuffered on
+	// events is the room feed a held attendance forwards. Unbuffered on
 	// purpose: a test that handed over an event knows the stub took it, which
 	// is the only synchronisation either side needs.
 	events chan *chatv1.RoomEvent
-	// drops carries the error a served WatchRoom ends with, which is how a test
-	// plays a feed the daemon cut while the bridge was reading it. Unbuffered
-	// for the reason events is.
+	// drops carries the error a held attendance ends with, which is how a test
+	// plays a daemon that closed the stream while the bridge was reading it.
+	// Unbuffered for the reason events is.
 	drops chan error
 
 	mu sync.Mutex
-	// err, when set, fails every unary RPC — the daemon rejecting what the
-	// caller asked for rather than being unreachable. It is guarded because a
-	// test may flip it mid-session with [fakeChatService.setErr], which is how
-	// a daemon that forgot a member it had admitted is played.
-	err   error
-	join  *chatv1.JoinRequest
-	joins int
-	// attended is how many of those joins the stub admitted, which is what a
-	// test asking whether the bridge is a member counts. joins alone counts the
-	// asking, refusals included.
-	attended  int
-	send      *chatv1.SendRequest
-	broadcast *chatv1.BroadcastRequest
-	history   *chatv1.HistoryRequest
-	reads     int
-	watches   int
+	// err, when set, fails every RPC — the daemon rejecting what the caller
+	// asked for rather than being unreachable. It is guarded because a test may
+	// flip it mid-session with [fakeChatService.setErr], which is how a daemon
+	// that refuses a bridge until it is ready is played.
+	err     error
+	attend  *chatv1.AttendRequest
+	opens   int
+	attends int
+	send    *chatv1.SendRequest
+	read    *chatv1.ReadRequest
+	reads   int
 }
 
 // failure is the canned error as it stands, read under the lock so a test that
@@ -71,13 +78,35 @@ func (f *fakeChatService) failure() error {
 	return f.err
 }
 
-func (f *fakeChatService) WatchRoom(
-	_ *chatv1.WatchRoomRequest,
+// Attend opens the attendance the way the daemon does: the Attended event
+// naming the member, then the room's own feed — which carries this attendance's
+// arrival as its first entry, since every attendee sees the same room.
+func (f *fakeChatService) Attend(
+	req *chatv1.AttendRequest,
 	stream grpc.ServerStreamingServer[chatv1.RoomEvent],
 ) error {
 	f.mu.Lock()
-	f.watches++
+	f.attend = req
+	f.opens++
+	err := f.err
+	if err == nil {
+		f.attends++
+	}
 	f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	opening := []*chatv1.RoomEvent{
+		{Event: &chatv1.RoomEvent_Attended{Attended: &chatv1.Attended{Self: f.self}}},
+		{Event: &chatv1.RoomEvent_MemberJoined{
+			MemberJoined: &chatv1.MemberJoined{Member: f.self},
+		}},
+	}
+	for _, ev := range opening {
+		if err := stream.Send(ev); err != nil {
+			return err
+		}
+	}
 	ctx := stream.Context()
 	for {
 		select {
@@ -93,23 +122,6 @@ func (f *fakeChatService) WatchRoom(
 	}
 }
 
-func (f *fakeChatService) Join(
-	_ context.Context, req *chatv1.JoinRequest,
-) (*chatv1.JoinResponse, error) {
-	f.mu.Lock()
-	f.join = req
-	f.joins++
-	err := f.err
-	if err == nil {
-		f.attended++
-	}
-	f.mu.Unlock()
-	if err != nil {
-		return nil, err
-	}
-	return &chatv1.JoinResponse{Self: f.self}, nil
-}
-
 func (f *fakeChatService) Send(
 	_ context.Context, req *chatv1.SendRequest,
 ) (*chatv1.SendResponse, error) {
@@ -119,47 +131,20 @@ func (f *fakeChatService) Send(
 	if err := f.failure(); err != nil {
 		return nil, err
 	}
-	return &chatv1.SendResponse{Recipient: f.recipient}, nil
-}
-
-func (f *fakeChatService) Broadcast(
-	_ context.Context, req *chatv1.BroadcastRequest,
-) (*chatv1.BroadcastResponse, error) {
-	f.mu.Lock()
-	f.broadcast = req
-	f.mu.Unlock()
-	if err := f.failure(); err != nil {
-		return nil, err
-	}
-	return &chatv1.BroadcastResponse{DeliveredCount: f.delivered}, nil
+	return &chatv1.SendResponse{Mentioned: f.mentioned, Absent: f.absent}, nil
 }
 
 func (f *fakeChatService) Read(
-	_ context.Context, _ *chatv1.ReadRequest,
+	_ context.Context, req *chatv1.ReadRequest,
 ) (*chatv1.ReadResponse, error) {
 	f.mu.Lock()
+	f.read = req
 	f.reads++
 	f.mu.Unlock()
 	if err := f.failure(); err != nil {
 		return nil, err
 	}
-	return &chatv1.ReadResponse{Messages: f.messages}, nil
-}
-
-// History answers with the canned transcript whatever window was asked for.
-// The daemon's own limit handling is [chat.Service]'s to get right; what the
-// bridge owes is the request it sends, which [fakeChatService.lastHistory]
-// keeps.
-func (f *fakeChatService) History(
-	_ context.Context, req *chatv1.HistoryRequest,
-) (*chatv1.HistoryResponse, error) {
-	f.mu.Lock()
-	f.history = req
-	f.mu.Unlock()
-	if err := f.failure(); err != nil {
-		return nil, err
-	}
-	return &chatv1.HistoryResponse{Entries: f.entries}, nil
+	return &chatv1.ReadResponse{Messages: f.messages, RemainingUnread: f.remaining}, nil
 }
 
 func (f *fakeChatService) ListMembers(
@@ -171,35 +156,34 @@ func (f *fakeChatService) ListMembers(
 	return &chatv1.ListMembersResponse{Members: f.members}, nil
 }
 
-// setErr changes what every unary RPC answers with from here on, so a test can
-// play a daemon that stops recognising a member it had already admitted — and
-// then recognises it again once the bridge attends afresh.
+// setErr changes what every RPC answers with from here on, so a test can play a
+// daemon that refuses a bridge and then admits it.
 func (f *fakeChatService) setErr(err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.err = err
 }
 
-func (f *fakeChatService) lastJoin() *chatv1.JoinRequest {
+func (f *fakeChatService) lastAttend() *chatv1.AttendRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.join
+	return f.attend
 }
 
-// joinCount is how many times attendance was declared, which is what pins the
-// bridge asking once per session rather than once per call.
-func (f *fakeChatService) joinCount() int {
+// openCount is how many times attendance was asked for, refusals included,
+// which is what pins a bridge that keeps asking.
+func (f *fakeChatService) openCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.joins
+	return f.opens
 }
 
-// attendCount is how many of those declarations were admitted, which is what
-// pins the bridge being a member rather than trying to become one.
+// attendCount is how many of those were admitted, which is what pins the bridge
+// being a member rather than trying to become one.
 func (f *fakeChatService) attendCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.attended
+	return f.attends
 }
 
 func (f *fakeChatService) lastSend() *chatv1.SendRequest {
@@ -208,16 +192,10 @@ func (f *fakeChatService) lastSend() *chatv1.SendRequest {
 	return f.send
 }
 
-func (f *fakeChatService) lastBroadcast() *chatv1.BroadcastRequest {
+func (f *fakeChatService) lastRead() *chatv1.ReadRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.broadcast
-}
-
-func (f *fakeChatService) lastHistory() *chatv1.HistoryRequest {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.history
+	return f.read
 }
 
 func (f *fakeChatService) readCount() int {
@@ -226,17 +204,11 @@ func (f *fakeChatService) readCount() int {
 	return f.reads
 }
 
-func (f *fakeChatService) watchCount() int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.watches
-}
-
 // serveTestDaemon starts the stub on a Unix socket behind the daemon's own
 // token interceptors and returns the socket path. A real socket rather than a
 // bufconn because [New] takes a path and dials it itself, which is the half of
-// startup worth exercising. Both interceptors, because the bridge watches the
-// room over the streaming half as well.
+// startup worth exercising. Both interceptors, because attendance is a stream
+// and a unary interceptor never sees one.
 func serveTestDaemon(t *testing.T, svc chatv1.ChatServiceServer) string {
 	t.Helper()
 
