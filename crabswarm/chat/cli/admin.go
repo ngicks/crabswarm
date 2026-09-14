@@ -122,71 +122,60 @@ func (a *AdminClient) Rooms(ctx context.Context) ([]*chatv1.Room, error) {
 	return resp.GetRooms(), nil
 }
 
-// RoomLog reads a room's conversation, oldest first. sinceID is the id of the
-// newest entry the caller already holds, which asks for what was said after it;
-// zero asks for the tail instead. limit caps how many entries come back, zero
-// leaving the window to the daemon, which also clamps a limit larger than the
-// room keeps.
+// RoomLog reads a room's conversation, oldest first, through the same filter a
+// member read takes — minus its unread cursor, which is measured from a read
+// position an operator has none of. It moves no position, so the same stretch
+// reads the same way twice.
 func (a *AdminClient) RoomLog(
 	ctx context.Context,
 	room string,
-	sinceID int64,
-	limit int32,
-) ([]*chatv1.AdminHistoryEntry, error) {
+	filter *chatv1.ReadFilter,
+) ([]*chatv1.Message, error) {
 	nonce, err := a.client.nonce(ctx, a.identity)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := a.client.admin.History(auth.ContextWithBearer(ctx, nonce),
-		&chatv1.AdminHistoryRequest{
-			Room:    room,
-			Limit:   limit,
-			SinceId: sinceID,
-		})
+		&chatv1.AdminHistoryRequest{Room: room, Filter: filter})
 	if err != nil {
 		return nil, callError(err)
 	}
-	return resp.GetEntries(), nil
+	return resp.GetMessages(), nil
 }
 
-// Send delivers text into room addressed to target and reports how many
-// inboxes it reached.
+// Send delivers text into room addressed to target — nil for a board post — and
+// hands back who it mentioned and which of them is absent.
 func (a *AdminClient) Send(
 	ctx context.Context,
 	room string,
-	target AdminTarget,
+	target *chatv1.Target,
 	text string,
-) (delivered int32, err error) {
+) (*chatv1.AdminSendResponse, error) {
+	nonce, err := a.client.nonce(ctx, a.identity)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := a.client.admin.Send(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.AdminSendRequest{Room: room, Target: target, Text: text})
+	if err != nil {
+		return nil, callError(err)
+	}
+	return resp, nil
+}
+
+// DeleteRoom removes a room's messages and read positions and reports how many
+// messages went with it. The daemon refuses while anybody attends the room.
+func (a *AdminClient) DeleteRoom(ctx context.Context, room string) (int64, error) {
 	nonce, err := a.client.nonce(ctx, a.identity)
 	if err != nil {
 		return 0, err
 	}
-	resp, err := a.client.admin.Send(auth.ContextWithBearer(ctx, nonce),
-		adminSendRequest(room, target, text))
+	resp, err := a.client.admin.DeleteRoom(auth.ContextWithBearer(ctx, nonce),
+		&chatv1.DeleteRoomRequest{Room: room})
 	if err != nil {
 		return 0, callError(err)
 	}
-	return resp.GetDelivered(), nil
-}
-
-// adminSendRequest puts the target in the case of the request that carries it.
-// The zero target has no case of its own: it arrives as a team target naming no
-// team, which the daemon refuses rather than guessing at.
-func adminSendRequest(room string, target AdminTarget, text string) *chatv1.AdminSendRequest {
-	req := &chatv1.AdminSendRequest{Room: room, Text: text}
-	switch {
-	case target.Everyone:
-		req.Target = &chatv1.AdminSendRequest_Everyone{Everyone: &chatv1.Everyone{}}
-	case target.Name == "":
-		req.Target = &chatv1.AdminSendRequest_Team{
-			Team: &chatv1.TeamTarget{Team: target.Team},
-		}
-	default:
-		req.Target = &chatv1.AdminSendRequest_Member{
-			Member: &chatv1.MemberTarget{Team: target.Team, Name: target.Name},
-		}
-	}
-	return req
+	return resp.GetDeletedMessages(), nil
 }
 
 // ListRooms prints every room the daemon knows and who attends it.
@@ -196,33 +185,6 @@ func (c *Client) ListRooms(ctx context.Context, w io.Writer, identityPath string
 		return err
 	}
 	return RenderRooms(w, rooms)
-}
-
-// MoveMember moves the member addressed as "team/name" in room into toTeam.
-func (c *Client) MoveMember(
-	ctx context.Context,
-	w io.Writer,
-	identityPath, room, member, toTeam string,
-) error {
-	team, name, err := ParseQualifiedName(member)
-	if err != nil {
-		return err
-	}
-	nonce, err := c.nonce(ctx, identityPath)
-	if err != nil {
-		return err
-	}
-	resp, err := c.admin.MoveMember(auth.ContextWithBearer(ctx, nonce),
-		&chatv1.MoveMemberRequest{
-			Room:   room,
-			Team:   team,
-			Name:   name,
-			ToTeam: toTeam,
-		})
-	if err != nil {
-		return callError(err)
-	}
-	return RenderMoved(w, resp.GetMember())
 }
 
 // RegisterMember registers a member no provider can vouch for — a human on the
@@ -249,41 +211,52 @@ func (c *Client) RegisterMember(
 }
 
 // AdminSend delivers text into a room the operator does not attend, addressed
-// to whoever target names — [ParseAdminTarget] turns the written form into one.
+// to whoever target names — [ParseTarget] turns the written form into one, in
+// the same grammar `chat send` takes.
 //
-// Unlike the member address [Client.MoveMember] takes, the name half is left
-// for the daemon to resolve: the target only says which case of the request the
-// operator meant, which is what keeps the grammar the same as the one `chat
-// send` takes.
+// The roles are left for the daemon to resolve. The operator is in no team, so
+// a bare name is looked for across the whole room and a name two teams carry is
+// refused as ambiguous rather than guessed at.
 func (c *Client) AdminSend(
 	ctx context.Context,
-	w io.Writer,
+	out, warn io.Writer,
 	identityPath, room string,
-	target AdminTarget,
+	target *chatv1.Target,
 	text string,
 ) error {
-	delivered, err := c.Admin(identityPath).Send(ctx, room, target, text)
+	resp, err := c.Admin(identityPath).Send(ctx, room, target, text)
 	if err != nil {
 		return err
 	}
-	return RenderAdminSent(w, room, target, delivered)
+	return RenderSent(out, warn, resp)
 }
 
 // AdminLog prints the conversation of a room the operator does not attend, the
-// tail of it that limit asks for — zero meaning the daemon's own window.
-//
-// It reads the tail rather than paging: the cursor the RPC takes is there for a
-// caller that keeps following the room, and a command run once has nothing to
-// carry between runs.
+// stretch of it the filter asks for.
 func (c *Client) AdminLog(
 	ctx context.Context,
 	w io.Writer,
 	identityPath, room string,
-	limit int32,
+	filter *chatv1.ReadFilter,
 ) error {
-	entries, err := c.Admin(identityPath).RoomLog(ctx, room, 0, limit)
+	messages, err := c.Admin(identityPath).RoomLog(ctx, room, filter)
 	if err != nil {
 		return err
 	}
-	return RenderAdminHistory(w, entries)
+	return RenderHistory(w, messages)
+}
+
+// DeleteRoom removes a room and everything it holds, and reports how much that
+// was. The daemon refuses while anybody attends it: ending those sessions is
+// the operator's move, not the daemon's.
+func (c *Client) DeleteRoom(
+	ctx context.Context,
+	w io.Writer,
+	identityPath, room string,
+) error {
+	deleted, err := c.Admin(identityPath).DeleteRoom(ctx, room)
+	if err != nil {
+		return err
+	}
+	return RenderDeletedRoom(w, room, deleted)
 }

@@ -28,6 +28,15 @@ func memberWith(
 	return m
 }
 
+// targeting builds the target a message carries, written the way a sender
+// writes one.
+func targeting(t *testing.T, written string) *chatv1.Target {
+	t.Helper()
+	target, err := ParseTarget(written)
+	assert.NilError(t, err)
+	return target
+}
+
 func render(t *testing.T, f func(w *strings.Builder) error) string {
 	t.Helper()
 	var b strings.Builder
@@ -35,142 +44,170 @@ func render(t *testing.T, f func(w *strings.Builder) error) string {
 	return b.String()
 }
 
-func TestRenderJoinedSentBroadcastLeft(t *testing.T) {
-	self := member("backend", "alice", "/work/proj")
-
-	got := render(t, func(b *strings.Builder) error { return RenderJoined(b, self) })
-	assert.Equal(t, got, "joined /work/proj as backend/alice\n")
-
-	got = render(t, func(b *strings.Builder) error { return RenderSent(b, self) })
-	assert.Equal(t, got, "sent to backend/alice\n")
-
-	got = render(t, func(b *strings.Builder) error { return RenderLeft(b) })
-	assert.Equal(t, got, "left the room\n")
-
-	got = render(t, func(b *strings.Builder) error { return RenderBroadcast(b, 3) })
-	assert.Equal(t, got, "broadcast to 3 members\n")
-
-	got = render(t, func(b *strings.Builder) error { return RenderBroadcast(b, 1) })
-	assert.Equal(t, got, "broadcast to 1 member\n")
-
-	// Nobody else attending is a successful broadcast, and has to read like one.
-	got = render(t, func(b *strings.Builder) error { return RenderBroadcast(b, 0) })
-	assert.Equal(t, got, "broadcast to 0 members\n")
-}
-
-func TestRenderMessages(t *testing.T) {
+// A transcript line names the sequence number the reader would page from, who
+// spoke, and who it was for, so a line addressed to somebody else is not read
+// as one to answer.
+func TestRenderRead(t *testing.T) {
 	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
-	messages := []*chatv1.Message{
+	resp := &chatv1.ReadResponse{Messages: []*chatv1.Message{
 		{
-			From:   member("backend", "alice", "/work"),
-			Text:   "rebased onto main",
-			SentAt: timestamppb.New(sent),
+			Seq:          11,
+			From:         member("backend", "alice", "/work"),
+			Target:       targeting(t, "frontend/bob,ops/carol"),
+			Text:         "rebased onto main",
+			SentAt:       timestamppb.New(sent),
+			MentionedYou: true,
 		},
 		{
+			Seq:    12,
 			From:   member("frontend", "bob", "/work"),
-			Text:   "ack",
+			Target: targeting(t, "everyone"),
+			Text:   "standup in 5",
 			SentAt: timestamppb.New(sent.Add(time.Minute)),
 		},
-	}
+		{
+			Seq:    13,
+			From:   member("", "admin", "/work"),
+			Text:   "deploy is frozen",
+			SentAt: timestamppb.New(sent.Add(2 * time.Minute)),
+		},
+	}}
 
-	got := render(t, func(b *strings.Builder) error { return RenderMessages(b, messages) })
+	got := render(t, func(b *strings.Builder) error { return RenderRead(b, resp) })
 	assert.Equal(t, got,
-		"[2026-08-27T09:30:00Z] backend/alice: rebased onto main\n"+
-			"[2026-08-27T09:31:00Z] frontend/bob: ack\n")
+		"11 2026-08-27T09:30:00Z backend/alice -> frontend/bob,ops/carol "+
+			"[mentioned you]: rebased onto main\n"+
+			"12 2026-08-27T09:31:00Z frontend/bob -> everyone: standup in 5\n"+
+			"13 2026-08-27T09:32:00Z admin -> -: deploy is frozen\n")
+}
+
+// What the read left behind is the only thing telling the reader that another
+// read would hand over more; a read that left none says nothing about it.
+func TestRenderRead_RemainingUnread(t *testing.T) {
+	messages := []*chatv1.Message{{
+		Seq:    4,
+		From:   member("backend", "alice", "/work"),
+		Target: targeting(t, "everyone"),
+		Text:   "ping",
+		SentAt: timestamppb.New(time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)),
+	}}
+	const line = "4 2026-08-27T09:30:00Z backend/alice -> everyone: ping\n"
+
+	got := render(t, func(b *strings.Builder) error {
+		return RenderRead(b, &chatv1.ReadResponse{Messages: messages, RemainingUnread: 12})
+	})
+	assert.Equal(t, got, line+"12 more unread\n")
+
+	got = render(t, func(b *strings.Builder) error {
+		return RenderRead(b, &chatv1.ReadResponse{Messages: messages})
+	})
+	assert.Equal(t, got, line)
 }
 
 // A stamp is rendered in UTC whatever the reader's zone is, so two agents in
 // different containers order the same conversation the same way.
-func TestRenderMessages_StampIsUTC(t *testing.T) {
+func TestRenderRead_StampIsUTC(t *testing.T) {
 	zone := time.FixedZone("UTC+9", 9*60*60)
-	messages := []*chatv1.Message{{
+	resp := &chatv1.ReadResponse{Messages: []*chatv1.Message{{
+		Seq:    1,
 		From:   member("backend", "alice", "/work"),
+		Target: targeting(t, "everyone"),
 		Text:   "hi",
 		SentAt: timestamppb.New(time.Date(2026, 8, 27, 18, 30, 0, 0, zone)),
-	}}
+	}}}
 
-	got := render(t, func(b *strings.Builder) error { return RenderMessages(b, messages) })
-	assert.Equal(t, got, "[2026-08-27T09:30:00Z] backend/alice: hi\n")
+	got := render(t, func(b *strings.Builder) error { return RenderRead(b, resp) })
+	assert.Equal(t, got, "1 2026-08-27T09:30:00Z backend/alice -> everyone: hi\n")
 }
 
-// An empty inbox reports itself: a caller polling for mail must be able to tell
-// a successful empty read from a command that produced no output at all.
-func TestRenderMessages_Empty(t *testing.T) {
-	got := render(t, func(b *strings.Builder) error { return RenderMessages(b, nil) })
+// A read that found nothing reports itself: a caller polling for messages must
+// be able to tell a successful empty read from a command that produced no
+// output at all.
+func TestRenderRead_Empty(t *testing.T) {
+	got := render(t, func(b *strings.Builder) error {
+		return RenderRead(b, &chatv1.ReadResponse{})
+	})
 	assert.Equal(t, got, "no pending messages\n")
 }
 
-func TestRenderMessages_MissingTimestamp(t *testing.T) {
-	messages := []*chatv1.Message{{From: member("backend", "alice", "/work"), Text: "hi"}}
+// A message with no stamp still fills the field, in one word: a reader cutting
+// the line on spaces would otherwise find the sender where the time should be.
+func TestRenderRead_MissingTimestamp(t *testing.T) {
+	resp := &chatv1.ReadResponse{Messages: []*chatv1.Message{{
+		Seq:    2,
+		From:   member("backend", "alice", "/work"),
+		Target: targeting(t, "everyone"),
+		Text:   "hi",
+	}}}
 
-	got := render(t, func(b *strings.Builder) error { return RenderMessages(b, messages) })
-	assert.Equal(t, got, "[unknown time] backend/alice: hi\n")
-}
-
-// A transcript line names who was addressed, so a directed message is not read
-// as something said to the whole room. A broadcast is addressed to "*", the
-// same target the admin send verb takes for "everyone here".
-func TestRenderHistory(t *testing.T) {
-	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
-	entries := []*chatv1.HistoryEntry{
-		{
-			From:   member("backend", "alice", "/work"),
-			To:     member("frontend", "bob", "/work"),
-			Text:   "rebased onto main",
-			SentAt: timestamppb.New(sent),
-		},
-		{
-			From:   member("frontend", "bob", "/work"),
-			Text:   "standup in 5",
-			SentAt: timestamppb.New(sent.Add(time.Minute)),
-		},
-		{From: member("backend", "alice", "/work"), Text: "when?"},
-	}
-
-	got := render(t, func(b *strings.Builder) error { return RenderHistory(b, entries) })
-	assert.Equal(t, got,
-		"[2026-08-27T09:30:00Z] backend/alice → frontend/bob: rebased onto main\n"+
-			"[2026-08-27T09:31:00Z] frontend/bob → *: standup in 5\n"+
-			"[unknown time] backend/alice → *: when?\n")
-}
-
-// A room nobody has spoken in says so, the way an empty inbox does.
-func TestRenderHistory_Empty(t *testing.T) {
-	got := render(t, func(b *strings.Builder) error { return RenderHistory(b, nil) })
-	assert.Equal(t, got, "no messages yet\n")
+	got := render(t, func(b *strings.Builder) error { return RenderRead(b, resp) })
+	assert.Equal(t, got, "2 unknown-time backend/alice -> everyone: hi\n")
+	assert.Equal(t, len(strings.Fields(strings.Split(got, "\n")[0])), 6)
 }
 
 // The admin reads the transcript the members read: the same lines, down to the
-// wording of a silent room. The entry ids the admin read also carries are a
-// cursor for a program that follows the room, not part of what was said, so no
-// line mentions them.
-func TestRenderAdminHistory(t *testing.T) {
+// wording of a silent room.
+func TestRenderHistory(t *testing.T) {
 	sent := time.Date(2026, 8, 27, 9, 30, 0, 0, time.UTC)
-	entries := []*chatv1.AdminHistoryEntry{
-		{
-			Id:     41,
-			From:   member("admin", "admin", "/work"),
-			To:     member("frontend", "bob", "/work"),
-			Text:   "deploy is frozen",
-			SentAt: timestamppb.New(sent),
+	messages := []*chatv1.Message{{
+		Seq:    41,
+		From:   member("", "admin", "/work"),
+		Target: targeting(t, "frontend/bob"),
+		Text:   "deploy is frozen",
+		SentAt: timestamppb.New(sent),
+	}}
+
+	got := render(t, func(b *strings.Builder) error { return RenderHistory(b, messages) })
+	assert.Equal(t, got,
+		"41 2026-08-27T09:30:00Z admin -> frontend/bob: deploy is frozen\n")
+
+	got = render(t, func(b *strings.Builder) error { return RenderHistory(b, nil) })
+	assert.Equal(t, got, "no messages yet\n")
+}
+
+// A send says who it mentioned, and warns about the ones nobody is attending
+// under — on stderr, since the message was accepted either way and the warning
+// is for the person rather than for the pipe.
+func TestRenderSent(t *testing.T) {
+	resp := &chatv1.SendResponse{
+		Mentioned: []*chatv1.Member{
+			member("devenv", "claude-1", "/work"),
+			member("devenv", "claude-3", "/work"),
 		},
-		{
-			Id:     42,
-			From:   member("frontend", "bob", "/work"),
-			Text:   "standup in 5",
-			SentAt: timestamppb.New(sent.Add(time.Minute)),
-		},
-		{Id: 43, From: member("backend", "alice", "/work"), Text: "when?"},
+		Absent: []*chatv1.Member{member("devenv", "claude-3", "/work")},
 	}
 
-	got := render(t, func(b *strings.Builder) error { return RenderAdminHistory(b, entries) })
-	assert.Equal(t, got,
-		"[2026-08-27T09:30:00Z] admin/admin → frontend/bob: deploy is frozen\n"+
-			"[2026-08-27T09:31:00Z] frontend/bob → *: standup in 5\n"+
-			"[unknown time] backend/alice → *: when?\n")
+	var out, warn strings.Builder
+	assert.NilError(t, RenderSent(&out, &warn, resp))
+	assert.Equal(t, out.String(),
+		"mentioned devenv/claude-1\nmentioned devenv/claude-3\n")
+	assert.Equal(t, warn.String(),
+		"warning: devenv/claude-3 is not attending; the mention waits\n")
+}
 
-	got = render(t, func(b *strings.Builder) error { return RenderAdminHistory(b, nil) })
-	assert.Equal(t, got, "no messages yet\n")
+// Everyone and a board post name no role in particular, so there is nothing to
+// report: the message is in the room, and a line saying so would be noise in
+// front of the agent reading it.
+func TestRenderSent_NamesNobody(t *testing.T) {
+	var out, warn strings.Builder
+	assert.NilError(t, RenderSent(&out, &warn, &chatv1.SendResponse{}))
+	assert.Equal(t, out.String(), "")
+	assert.Equal(t, warn.String(), "")
+}
+
+// The admin send answers in the same two lists and reads the same way: an
+// operator and a member comparing notes are reading one text.
+func TestRenderSent_Admin(t *testing.T) {
+	resp := &chatv1.AdminSendResponse{
+		Mentioned: []*chatv1.Member{member("backend", "alice", "/work")},
+		Absent:    []*chatv1.Member{member("backend", "alice", "/work")},
+	}
+
+	var out, warn strings.Builder
+	assert.NilError(t, RenderSent(&out, &warn, resp))
+	assert.Equal(t, out.String(), "mentioned backend/alice\n")
+	assert.Equal(t, warn.String(),
+		"warning: backend/alice is not attending; the mention waits\n")
 }
 
 func TestRenderMembers(t *testing.T) {
@@ -192,8 +229,8 @@ func TestRenderMembers(t *testing.T) {
 			"frontend/bob  human  done\n"+
 			"ops/carol  unknown  unknown\n")
 
-	// The first column is the address `chat send` takes, undecorated: whoever
-	// reads a line cuts it on whitespace and sends to what comes first.
+	// The first column is the role a target names, undecorated: whoever reads a
+	// line cuts it on whitespace and sends to what comes first.
 	assert.Equal(t, strings.Fields(strings.Split(got, "\n")[0])[0], "backend/alice")
 
 	got = render(t, func(b *strings.Builder) error { return RenderMembers(b, nil) })
@@ -215,9 +252,9 @@ func TestRenderRooms(t *testing.T) {
 				memberWith("backend", "carol", "/work/proj", human, unreported),
 			},
 		},
-		{Name: "/work/other", Members: []*chatv1.Member{
-			memberWith("humans", "yuki", "/work/other", human, unreported),
-		}},
+		// A room outlives the sessions that spoke in it, and an operator looking
+		// for one to read or to delete is looking for exactly this one.
+		{Name: "/work/done"},
 	}
 
 	got := render(t, func(b *strings.Builder) error { return RenderRooms(b, rooms) })
@@ -228,46 +265,32 @@ func TestRenderRooms(t *testing.T) {
 			"    carol  human\n"+
 			"  team: frontend\n"+
 			"    bob  agent\n"+
-			"room: /work/other\n"+
-			"  team: humans\n"+
-			"    yuki  human\n")
+			"room: /work/done\n"+
+			"  (nobody attending)\n")
 
 	got = render(t, func(b *strings.Builder) error { return RenderRooms(b, nil) })
 	assert.Equal(t, got, "no rooms\n")
 }
 
-func TestRenderMovedAndRegistered(t *testing.T) {
-	moved := member("frontend", "alice", "/work/proj")
-	got := render(t, func(b *strings.Builder) error { return RenderMoved(b, moved) })
-	assert.Equal(t, got, "moved frontend/alice in room /work/proj\n")
-
+func TestRenderRegistered(t *testing.T) {
 	registered := member("humans", "yuki", "/work/proj")
-	got = render(t, func(b *strings.Builder) error {
+	got := render(t, func(b *strings.Builder) error {
 		return RenderRegistered(b, registered, "tok-secret")
 	})
 	assert.Equal(t, got,
 		"registered humans/yuki in room /work/proj\ntoken: tok-secret\n")
 }
 
-func TestRenderAdminSent(t *testing.T) {
+// The count is the only thing left of a room that is gone, which is what tells
+// an operator who deleted the wrong one how much was in it.
+func TestRenderDeletedRoom(t *testing.T) {
 	got := render(t, func(b *strings.Builder) error {
-		return RenderAdminSent(
-			b, "/work/proj", AdminTarget{Team: "backend", Name: "alice"}, 1)
+		return RenderDeletedRoom(b, "/work/proj", 42)
 	})
-	assert.Equal(t, got, "sent to backend/alice in room /work/proj: delivered to 1 member\n")
+	assert.Equal(t, got, "deleted room /work/proj and 42 messages\n")
 
 	got = render(t, func(b *strings.Builder) error {
-		return RenderAdminSent(b, "/work/proj", AdminTarget{Team: "backend"}, 2)
+		return RenderDeletedRoom(b, "/work/proj", 1)
 	})
-	assert.Equal(t, got, "sent to backend/* in room /work/proj: delivered to 2 members\n")
-
-	got = render(t, func(b *strings.Builder) error {
-		return RenderAdminSent(b, "/work/proj", AdminTarget{Name: "alice"}, 1)
-	})
-	assert.Equal(t, got, "sent to alice in room /work/proj: delivered to 1 member\n")
-
-	got = render(t, func(b *strings.Builder) error {
-		return RenderAdminSent(b, "/work/proj", AdminTarget{Everyone: true}, 3)
-	})
-	assert.Equal(t, got, "sent to * in room /work/proj: delivered to 3 members\n")
+	assert.Equal(t, got, "deleted room /work/proj and 1 message\n")
 }

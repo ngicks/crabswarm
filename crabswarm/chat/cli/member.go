@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"google.golang.org/grpc"
@@ -9,66 +10,158 @@ import (
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-// Join declares attendance under name — empty for the default the daemon
-// derives from the compose labels, or from the token when it has none — and
-// reports the identity the daemon settled on, which is where the caller learns
-// its own room, team and name.
+// Attendance is an open Attend stream: the caller's membership of the room for
+// as long as it lasts, and the room's event feed while it does.
 //
-// That identity is both printed to w and handed back. The line is what a person
-// reads; the member itself is for a caller that has to recognise its own
-// membership later — the room's event feed names a departing member by team and
-// name, so a caller watching the feed has nothing else to match against.
+// Cancelling the context [Client.Attend] was given is what ends it — there is
+// nothing else to close, and the daemon serves the stream until the client goes
+// away. A caller that stops reading the feed without cancelling keeps attending,
+// so one that means to attend again gives each attendance a context of its own.
+//
+// It is handed back rather than rendered because attendance has no verb of its
+// own any more. What holds one is a session: the MCP bridge for an agent, the
+// daemon's own registration for a person.
+type Attendance struct {
+	self   *chatv1.Member
+	stream grpc.ServerStreamingClient[chatv1.RoomEvent]
+}
+
+// Attend declares attendance under name — empty for the default the daemon
+// derives from the compose labels, or from the token when it has none — and
+// returns once the daemon has acknowledged it, so a caller knows the attendance
+// landed before it starts reading the feed.
 //
 // kind says what attends. An agent harness is typed into when a message
 // arrives; anything else — a person at a shell, a script — is only ever handed
-// its inbox when it asks. The daemon refuses a kind it was not told, so a
+// its messages when it asks. The daemon refuses a kind it was not told, so a
 // caller passes one.
-func (c *Client) Join(
+//
+// The stream is lazy: nothing is sent until the first event is waited for, so a
+// refusal — an unknown token, a role already attending — surfaces here rather
+// than at the call above.
+func (c *Client) Attend(
 	ctx context.Context,
-	w io.Writer,
 	token, name string,
 	kind chatv1.MemberKind,
-) (*chatv1.Member, error) {
-	resp, err := c.chat.Join(withToken(ctx, token),
-		&chatv1.JoinRequest{Name: name, Kind: kind})
+) (*Attendance, error) {
+	stream, err := c.chat.Attend(withToken(ctx, token),
+		&chatv1.AttendRequest{Name: name, Kind: kind})
+	if err != nil {
+		return nil, attendError(ctx, err)
+	}
+	ev, err := stream.Recv()
+	if err != nil {
+		return nil, attendError(ctx, err)
+	}
+	self := ev.GetAttended().GetSelf()
+	if self == nil {
+		return nil, fmt.Errorf(
+			"the daemon opened the attendance with %T instead of naming the member",
+			ev.GetEvent())
+	}
+	return &Attendance{self: self, stream: stream}, nil
+}
+
+// attendError reports a caller's own cancellation as itself rather than as the
+// transport failure the stream raises on the way down. A caller that gave up
+// would otherwise read its exit as a refusal worth retrying, which is the one
+// thing a bridge shutting down must not do.
+func attendError(ctx context.Context, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	return callError(err)
+}
+
+// Self is the member the token resolved to, which is where the caller learns
+// its own room, team and name. It is also what a caller matches the feed
+// against: an event names a member by team and name and nothing else.
+func (a *Attendance) Self() *chatv1.Member {
+	return a.self
+}
+
+// Recv hands over the next event of the room, for a caller that drives the feed
+// itself — one that acts on some events and stops on others.
+func (a *Attendance) Recv() (*chatv1.RoomEvent, error) {
+	ev, err := a.stream.Recv()
 	if err != nil {
 		return nil, callError(err)
 	}
-	return resp.GetSelf(), RenderJoined(w, resp.GetSelf())
+	return ev, nil
 }
 
-// Send delivers text to one member of the caller's room, addressed as "name"
-// or "team/name". The address is passed through untouched: resolving it is the
-// daemon's job, and its error names the qualified form to retry a colliding
-// bare name with.
-func (c *Client) Send(ctx context.Context, w io.Writer, token, to, text string) error {
-	resp, err := c.chat.Send(withToken(ctx, token), &chatv1.SendRequest{To: to, Text: text})
-	if err != nil {
-		return callError(err)
+// Forward hands every event to onEvent until the stream ends, an event is
+// refused by onEvent — whose error is returned as it stands, so a caller can
+// stop the feed by returning a sentinel of its own — or ctx is done.
+//
+// ctx is the one the attendance was opened with, or one derived from it:
+// returning on a sentinel leaves the stream open, and cancelling that context
+// is the only thing that ends it.
+//
+// A context that ended is reported as its own error rather than as the
+// transport failure the stream raises on the way down, so a caller retrying a
+// dropped attendance can tell that from its own shutdown.
+func (a *Attendance) Forward(ctx context.Context, onEvent func(*chatv1.RoomEvent) error) error {
+	for {
+		ev, err := a.stream.Recv()
+		if err != nil {
+			return attendError(ctx, err)
+		}
+		if err := onEvent(ev); err != nil {
+			return err
+		}
 	}
-	return RenderSent(w, resp.GetRecipient())
 }
 
-// Broadcast delivers text to every other member of the caller's room.
-func (c *Client) Broadcast(ctx context.Context, w io.Writer, token, text string) error {
-	resp, err := c.chat.Broadcast(withToken(ctx, token), &chatv1.BroadcastRequest{Text: text})
+// Send appends text to the caller's room, addressed to target — nil for a board
+// post, which mentions nobody.
+//
+// It hands the answer back instead of printing it: the answer says which roles
+// were mentioned and which of them nobody is attending, and a caller that is
+// not a command line acts on that rather than rendering it. [RenderSent] is
+// what prints one.
+func (c *Client) Send(
+	ctx context.Context,
+	token string,
+	target *chatv1.Target,
+	text string,
+) (*chatv1.SendResponse, error) {
+	resp, err := c.chat.Send(withToken(ctx, token),
+		&chatv1.SendRequest{Target: target, Text: text})
 	if err != nil {
-		return callError(err)
+		return nil, callError(err)
 	}
-	return RenderBroadcast(w, resp.GetDeliveredCount())
+	return resp, nil
 }
 
-// ReadOptions tunes a read for the caller driving it. The zero value is the
-// read a human types: an empty inbox says so, and the read changes nothing but
-// the inbox.
+// Read hands back messages of the caller's room from the filter's cursor and
+// moves the caller's read position to the newest one shown, whichever cursor
+// was used. A nil filter is the daemon's default: the first ten unread
+// mentions.
+func (c *Client) Read(
+	ctx context.Context,
+	token string,
+	filter *chatv1.ReadFilter,
+) (*chatv1.ReadResponse, error) {
+	resp, err := c.chat.Read(withToken(ctx, token), &chatv1.ReadRequest{Filter: filter})
+	if err != nil {
+		return nil, callError(err)
+	}
+	return resp, nil
+}
+
+// ReadOptions is a read as a command line makes one: which messages, and what
+// to do about having found none. The zero value is the read a human types.
 type ReadOptions struct {
-	// Quiet drops the empty-inbox line, so the output is non-empty exactly
-	// when messages were handed over.
+	// Filter says which messages to show. Nil leaves it to the daemon.
+	Filter *chatv1.ReadFilter
+	// Quiet drops the empty-read line, so the output is non-empty exactly when
+	// messages were handed over.
 	//
 	// It exists for harness hooks, which have to decide whether they have
 	// anything to deliver. Without it the decision is a comparison against the
-	// sentence [RenderMessages] prints, which puts a wording nobody thinks of
-	// as an interface between the renderer and every hook that reads it.
+	// sentence [RenderRead] prints, which puts a wording nobody thinks of as an
+	// interface between the renderer and every hook that reads it.
 	Quiet bool
 	// DoneWhenEmpty reports the caller done when the read handed nothing over.
 	//
@@ -85,17 +178,24 @@ type ReadOptions struct {
 	DoneWhenEmpty bool
 }
 
-// Read prints the caller's pending messages and consumes them. A failure to
-// write them is returned, but the daemon has already handed them over by then:
-// they are gone either way, which is why the rendering is kept simple enough
-// not to fail on its own.
-func (c *Client) Read(ctx context.Context, w io.Writer, token string, opts ReadOptions) error {
-	resp, err := c.chat.Read(withToken(ctx, token), &chatv1.ReadRequest{})
+// ReadInto reads and prints, which is what the `chat read` verb and the bridge
+// tool behind it both do.
+//
+// A failure to write the messages is returned, but the read has already moved
+// the caller's position by then: the same messages will not come back as
+// unread, which is why the rendering is kept simple enough not to fail on its
+// own.
+func (c *Client) ReadInto(
+	ctx context.Context,
+	w io.Writer,
+	token string,
+	opts ReadOptions,
+) error {
+	resp, err := c.Read(ctx, token, opts.Filter)
 	if err != nil {
-		return callError(err)
+		return err
 	}
-	messages := resp.GetMessages()
-	if len(messages) == 0 {
+	if len(resp.GetMessages()) == 0 {
 		if opts.DoneWhenEmpty {
 			done := chatv1.HarnessState_HARNESS_STATE_DONE
 			if err := c.reportState(ctx, token, done); err != nil {
@@ -106,32 +206,16 @@ func (c *Client) Read(ctx context.Context, w io.Writer, token string, opts ReadO
 			return nil
 		}
 	}
-	return RenderMessages(w, messages)
-}
-
-// History prints the tail of the caller's room's conversation, oldest first,
-// and consumes nothing: the same window can be printed again, and a message
-// another member already read is still in it.
-//
-// limit is how many entries to ask for; zero leaves the window to the daemon,
-// which also caps a limit larger than the room keeps. It is an int32 because
-// that is what the request carries — a window nobody could scroll is not worth
-// a conversion that could silently wrap.
-func (c *Client) History(ctx context.Context, w io.Writer, token string, limit int32) error {
-	resp, err := c.chat.History(withToken(ctx, token), &chatv1.HistoryRequest{Limit: limit})
-	if err != nil {
-		return callError(err)
-	}
-	return RenderHistory(w, resp.GetEntries())
+	return RenderRead(w, resp)
 }
 
 // ListMembers prints everyone attending the caller's room.
 func (c *Client) ListMembers(ctx context.Context, w io.Writer, token string) error {
-	resp, err := c.chat.ListMembers(withToken(ctx, token), &chatv1.ListMembersRequest{})
+	members, err := c.Members(ctx, token)
 	if err != nil {
-		return callError(err)
+		return err
 	}
-	return RenderMembers(w, resp.GetMembers())
+	return RenderMembers(w, members)
 }
 
 // Members returns the room's attendance as the daemon reports it, states
@@ -146,19 +230,9 @@ func (c *Client) Members(ctx context.Context, token string) ([]*chatv1.Member, e
 	return resp.GetMembers(), nil
 }
 
-// Address spells a member the way every chat verb addresses one — "team/name",
-// or the bare name when the daemon reported no team.
-//
-// It is exported for the callers that present the roster themselves instead of
-// printing [RenderMembers]'s lines: they owe their reader the same address, and
-// assembling a second one would be a second spelling to keep in step.
-func Address(m *chatv1.Member) string {
-	return qualify(m)
-}
-
-// MemberAddresses returns the room's attendance as the addresses `chat send`
-// takes. It backs shell completion, which needs the values themselves rather
-// than the listing [Client.ListMembers] prints.
+// MemberAddresses returns the room's attendance as the addresses a target names
+// a role by. It backs shell completion, which needs the values themselves
+// rather than the listing [Client.ListMembers] prints.
 func (c *Client) MemberAddresses(ctx context.Context, token string) ([]string, error) {
 	members, err := c.Members(ctx, token)
 	if err != nil {
@@ -166,36 +240,9 @@ func (c *Client) MemberAddresses(ctx context.Context, token string) ([]string, e
 	}
 	addresses := make([]string, 0, len(members))
 	for _, m := range members {
-		addresses = append(addresses, qualify(m))
+		addresses = append(addresses, Address(m))
 	}
 	return addresses, nil
-}
-
-// WatchRoom opens the caller's feed of what happens in its room. The stream
-// runs until ctx is cancelled or the daemon ends it; a caller that falls behind
-// is dropped with an error, and the answer to that is to list the room again
-// and watch anew.
-//
-// It hands back the stream rather than rendering it: an event feed has no CLI
-// verb of its own, and the callers that have one — a bridge keeping a view of
-// the room current — act on the events instead of printing them.
-func (c *Client) WatchRoom(
-	ctx context.Context,
-	token string,
-) (grpc.ServerStreamingClient[chatv1.RoomEvent], error) {
-	stream, err := c.chat.WatchRoom(withToken(ctx, token), &chatv1.WatchRoomRequest{})
-	if err != nil {
-		return nil, callError(err)
-	}
-	return stream, nil
-}
-
-// Leave withdraws the caller's attendance.
-func (c *Client) Leave(ctx context.Context, w io.Writer, token string) error {
-	if _, err := c.chat.Leave(withToken(ctx, token), &chatv1.LeaveRequest{}); err != nil {
-		return callError(err)
-	}
-	return RenderLeft(w)
 }
 
 // ReportState records the state of the harness the caller runs under, naming it

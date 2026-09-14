@@ -35,7 +35,9 @@ func runChatCmd(t *testing.T, args ...string) (stdout, stderr string, err error)
 }
 
 // The chat tree is wired: every member verb, and the admin group with its own
-// six children.
+// six children. Attendance has no verb of its own — the bridge holds it for an
+// agent and `admin register` for a person — so the spellings that used to
+// declare or withdraw one are gone, and so are the two reads they framed.
 func TestChatCmd_Subcommands(t *testing.T) {
 	root := rootCmd()
 	chat, _, err := root.Find([]string{"chat"})
@@ -47,10 +49,12 @@ func TestChatCmd_Subcommands(t *testing.T) {
 		names[c.Name()] = true
 	}
 	for _, want := range []string{
-		"join", "send", "broadcast", "read", "history", "members", "leave",
-		"report-state", "admin",
+		"send", "read", "members", "report-state", "mcp", "admin",
 	} {
 		assert.Assert(t, names[want], "chat has no %q subcommand", want)
+	}
+	for _, gone := range []string{"join", "leave", "broadcast", "history"} {
+		assert.Assert(t, !names[gone], "chat still has a %q subcommand", gone)
 	}
 
 	admin, _, err := root.Find([]string{"chat", "admin"})
@@ -60,22 +64,21 @@ func TestChatCmd_Subcommands(t *testing.T) {
 	for _, c := range admin.Commands() {
 		adminNames[c.Name()] = true
 	}
-	for _, want := range []string{"list", "register", "move", "send", "log", "tui"} {
+	for _, want := range []string{
+		"list", "register", "send", "log", "delete-room", "tui",
+	} {
 		assert.Assert(t, adminNames[want], "chat admin has no %q subcommand", want)
 	}
+	assert.Assert(t, !adminNames["move"], "chat admin still has a \"move\" subcommand")
 }
 
 // Without a token a member verb fails before it touches the network, and the
 // message names every way to supply one.
 func TestChatMemberVerbs_RequireAToken(t *testing.T) {
 	for _, args := range [][]string{
-		{"join", "--kind", "human"},
 		{"read"},
-		{"history"},
 		{"members"},
-		{"leave"},
 		{"send", "alice", "hi"},
-		{"broadcast", "hi"},
 		{"report-state", "done"},
 	} {
 		t.Run(args[0], func(t *testing.T) {
@@ -109,10 +112,10 @@ func TestChatCmd_TokenFlagOutranksEnv(t *testing.T) {
 func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
 	for _, args := range [][]string{
 		{"admin", "list"},
-		{"admin", "move", "/work", "backend/alice", "frontend"},
 		{"admin", "register", "/work", "humans", "yuki"},
 		{"admin", "send", "/work", "backend/alice", "hello"},
 		{"admin", "log", "/work"},
+		{"admin", "delete-room", "/work"},
 		{"admin", "tui", "--room", "/work"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -142,15 +145,28 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"send needs an address and a text", []string{"send", "alice"}},
-		{"send takes no third argument", []string{"send", "alice", "hi", "extra"}},
-		{"broadcast needs a text", []string{"broadcast"}},
+		{"send needs a target and a text", []string{"send", "alice"}},
+		// The star grammar is gone, and the refusal is local: the target is
+		// parsed before the daemon is dialed.
+		{"send rejects the old star target", []string{"send", "*", "hi"}},
+		{"send rejects a half-written role", []string{"send", "backend/", "hi"}},
 		{"read takes no arguments", []string{"read", "extra"}},
-		{"history takes no arguments", []string{"history", "extra"}},
-		{"admin move needs three arguments", []string{"admin", "move", "/work", "backend/alice"}},
+		{"read rejects an unknown cursor", []string{"read", "--cursor", "newest"}},
+		{"read rejects a malformed --to", []string{"read", "--to", "backend/"}},
 		{"admin send needs three arguments", []string{"admin", "send", "/work", "backend/alice"}},
 		{"admin log needs a room", []string{"admin", "log"}},
 		{"admin log takes no second argument", []string{"admin", "log", "/work", "extra"}},
+		// An admin read attends no room, so it has no read position to count
+		// unread from, and the refusal comes before a challenge is spent.
+		{
+			"admin log refuses the unread cursor",
+			[]string{"admin", "log", "/work", "--cursor", "unread"},
+		},
+		{"admin delete-room needs a room", []string{"admin", "delete-room"}},
+		{
+			"admin delete-room takes no second argument",
+			[]string{"admin", "delete-room", "/work", "extra"},
+		},
 		// The admin attends no room, so the screen has none to fall back on and
 		// says so instead of picking one.
 		{"admin tui needs a room", []string{"admin", "tui", "--identity", "/dev/null"}},
@@ -162,10 +178,16 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		// An unknown state is rejected by the command itself, so a typo never
 		// reaches the daemon as a report.
 		{"report-state rejects an unknown state", []string{"report-state", "busy"}},
-		// Whether a member is typed into is never defaulted, so a join that
-		// declares nothing is refused before the daemon is dialed.
-		{"join needs a kind", []string{"join"}},
-		{"join rejects an unknown kind", []string{"join", "--kind", "harness"}},
+		// The verbs that framed attendance are gone rather than renamed, so
+		// typing one is an error instead of quiet help and a success exit.
+		{"join is gone", []string{"join", "--kind", "agent"}},
+		{"leave is gone", []string{"leave"}},
+		{"broadcast is gone", []string{"broadcast", "hi"}},
+		{"history is gone", []string{"history"}},
+		{
+			"moving a member is gone",
+			[]string{"admin", "move", "/work", "backend/alice", "frontend"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			chatHermeticEnv(t)

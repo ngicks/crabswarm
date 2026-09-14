@@ -117,8 +117,19 @@ func nudgeable(m chat.Member) bool {
 // and the command that hands the message over.
 func nudgeLine(from chat.Sender) string {
 	return "[crabswarm chat] new message from " +
-		sanitizeLine(from.Team+"/"+from.Name) +
+		sanitizeLine(senderAddr(from)) +
 		" — run: crabswarm chat read"
+}
+
+// senderAddr spells the sender the way every chat verb addresses one. A sender
+// with no team is the host operator, whose messages read as coming from "admin"
+// rather than from "/admin": nobody can attend a room without a team, so there
+// is no other unteamed sender to confuse it with.
+func senderAddr(from chat.Sender) string {
+	if from.Team == "" {
+		return from.Name
+	}
+	return from.Team + "/" + from.Name
 }
 
 // sanitizeLine makes s safe to type into a terminal as part of one line. It
