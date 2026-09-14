@@ -217,7 +217,7 @@ export function IssueGraph({
   useEffect(() => {
     const box = viewport.current;
     if (!box) return;
-    return attachGestures(
+    const detach = attachGestures(
       box,
       {
         onPan: (dx, dy) => {
@@ -251,6 +251,13 @@ export function IssueGraph({
       // find under the finger.
       { slop: CLICK_SLOP, captureOn: "drag" },
     );
+    return () => {
+      detach();
+      // A live issue update redraws the chart and re-runs this effect; a drag
+      // in flight at that moment never reaches onGestureEnd, so the cursor
+      // would stay "grabbing" until the next full gesture.
+      box.style.cursor = "";
+    };
   }, [apply, chart, loc, search, sourceId, zoomAtClient]);
 
   const onDblClick = (e: MouseEvent) => {

@@ -52,6 +52,11 @@ export function attachGestures(el: HTMLElement, h: GestureHandlers, opts?: Gestu
 
   const onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0) return;
+    // Without capture (captureOn "drag" before the slop is crossed) a pointer
+    // released outside `el` never reports its pointerup here, so its id can
+    // still be on the map when it presses again. Forget it first, or that
+    // press would count as a second finger and lose its tap.
+    pointers.delete(e.pointerId);
     // A third finger neither joins the pair nor disturbs it, so it must not
     // take capture or swallow the default action either.
     if (pointers.size >= 2) return;
@@ -92,7 +97,9 @@ export function attachGestures(el: HTMLElement, h: GestureHandlers, opts?: Gestu
       const dy = e.clientY - p.y;
       p.x = e.clientX;
       p.y = e.clientY;
-      h.onPan(dx, dy);
+      // Jitter within the slop is still a tap in the making; panning on it
+      // would nudge the content under a click that then navigates anyway.
+      if (moved) h.onPan(dx, dy);
       return;
     }
 
