@@ -10,8 +10,8 @@ package chat
 // database path), or already meaningful when empty — "cmdman, resolved on
 // PATH", and "no admin key, so no admin RPCs".
 type Config struct {
-	// Db is the path of the SQLite database holding rooms, members, inboxes
-	// and the rooms' conversation logs. A leading "~" is expanded when the
+	// Db is the path of the SQLite database holding rooms, messages, mentions
+	// and read positions. A leading "~" is expanded when the
 	// daemon opens the store, so the path stays as written wherever the config
 	// is printed back.
 	Db string `json:"db" yaml:"db"`
