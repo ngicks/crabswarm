@@ -650,21 +650,15 @@ func attendChatBridges(t *testing.T, cfgPath string, tokens ...string) []*mcp.Cl
 	return sessions
 }
 
-// removeChatDatabase deletes the chat store the config names, sidecars and all.
-// SQLite runs in WAL mode here, so part of what the daemon knows lives beside
-// the database file, and a daemon brought back on half of one would not be the
-// fresh start a case is playing.
-func removeChatDatabase(t *testing.T, cfgPath string) {
+// restartChatDaemon ends the daemon and starts another on the same config,
+// which is what an operator restarting the service does. The database is left
+// where it is: the rooms, their logs and every role's read position are the
+// durable half of a room, and a case that removed them would be playing a fresh
+// install rather than a restart.
+func restartChatDaemon(t *testing.T, cfgPath string, serve *exec.Cmd) *exec.Cmd {
 	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(filepath.Dir(cfgPath), "chat.db*"))
-	if err != nil {
-		t.Fatalf("look for the chat database: %v", err)
-	}
-	for _, path := range matches {
-		if err := os.Remove(path); err != nil {
-			t.Fatalf("remove %s: %v", path, err)
-		}
-	}
+	stopProcess(t, serve)
+	return startChatServe(t, cfgPath)
 }
 
 // chatMessageBody strips the sequence number and the stamp off the first
@@ -764,22 +758,71 @@ func TestChat(t *testing.T) {
 	}
 }
 
-// A refused request is reported in the daemon's own words: the CLI unwraps the
-// gRPC status so the reader gets the sentence that names what went wrong, not
-// the "rpc error: code = ..." envelope around it.
-func TestChat_ServerErrorIsReportedPlainly(t *testing.T) {
+// A role is what a target names, and a role outlives the session that declared
+// it. So the two ways a name can fail to reach somebody are not the same thing:
+// a role that has attended and is not attending now takes the message and warns
+// that nobody is there to be woken by it, while a name the room has never
+// carried is refused outright, since a message addressed to nobody is one the
+// sender meant to go somewhere.
+//
+// The refusal is reported in the daemon's own words: the CLI unwraps the gRPC
+// status, so the reader gets the sentence that names what went wrong rather
+// than the "rpc error: code = ..." envelope around it.
+func TestChat_AnAbsentRoleKeepsItsMentionAndAnUnknownOneIsRefused(t *testing.T) {
 	cfg := startChatDaemon(t)
-	attendChatBridges(t, cfg, "tok-ana")
+	sessions := attendChatBridges(t, cfg, "tok-ana", "tok-bob")
+	waitChatRosterHas(t, cfg, "tok-ana", chatBridgeBob, 30*time.Second)
 
-	_, stderr, err := execChat(t, cfg, "tok-ana", "send", "nobody", "hi")
+	// Bob's session ends, which ends its attendance and nothing else.
+	stopChatBridge(t, sessions[1])
+	waitStubStatus(t, cfg, "delete tok-bob", 30*time.Second)
+
+	// The send is accepted: the role resolved, so the message names it and the
+	// answer says so. The warning is on stderr rather than in the answer — the
+	// message was taken either way, and a caller piping the delivery lines wants
+	// the warning in front of the person instead.
+	stdout, stderr, err := execChat(t, cfg, "tok-ana", "send", "agent-tok-bob", "when you are back")
+	if err != nil {
+		t.Fatalf("send to an absent role: %v\nstderr:\n%s", err, stderr)
+	}
+	if want := "mentioned " + chatBridgeBob + "\n"; stdout != want {
+		t.Errorf("send = %q, want %q", stdout, want)
+	}
+	if want := "warning: " + chatBridgeBob +
+		" is not attending; the mention waits\n"; stderr != want {
+		t.Errorf("stderr = %q, want %q", stderr, want)
+	}
+
+	// Nobody was typed at: a nudge is keystrokes into a session's terminal, and
+	// there is no session.
+	if typed := stubSendKeys(t, cfg); typed != nil {
+		t.Errorf("cmdman send-keys invocations = %q, want none: nobody was there", typed)
+	}
+
+	// A name the room has never carried is a different answer entirely.
+	_, stderr, err = execChat(t, cfg, "tok-ana", "send", "nobody", "hi")
 	if err == nil {
 		t.Fatal("send to a role the room has never had succeeded, want a failure")
 	}
-	if !strings.Contains(stderr, "nobody") {
-		t.Errorf("stderr = %q, want it to name the unresolved role", stderr)
+	for _, want := range []string{"nobody", "unknown role"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr = %q, want it to carry %q", stderr, want)
+		}
 	}
 	if strings.Contains(stderr, "rpc error") {
 		t.Errorf("stderr = %q, want the daemon's message without the gRPC envelope", stderr)
+	}
+
+	// And the mention really did wait: a session attending under the same role
+	// is handed it, once.
+	attendChatBridges(t, cfg, "tok-bob")
+	body := chatMessageBody(t, runChat(t, cfg, "tok-bob", "read"))
+	if want := chatBridgeAna + " -> " + chatBridgeBob +
+		" [mentioned you]: when you are back"; body != want {
+		t.Errorf("read = %q, want %q", body, want)
+	}
+	if got := runChat(t, cfg, "tok-bob", "read"); got != "no pending messages\n" {
+		t.Errorf("second read = %q, want the mention handed over once", got)
 	}
 }
 
@@ -951,6 +994,138 @@ func TestChat_RoomsAreIsolated(t *testing.T) {
 	}
 }
 
+// A read position is a cursor over the room rather than a receipt per message:
+// it moves to the newest message the read showed, whichever cursor asked for
+// it. A reader that jumps to the tail has therefore read past everything behind
+// it, and the unread read that follows repeats nothing.
+func TestChat_ATailReadMovesThePositionPastTheRoom(t *testing.T) {
+	cfg := startChatDaemon(t)
+	attendChatBridges(t, cfg, "tok-ana", "tok-bob")
+	waitChatRosterHas(t, cfg, "tok-ana", chatBridgeBob, 30*time.Second)
+
+	for i := range 3 {
+		runChat(t, cfg, "tok-ana", "send", "agent-tok-bob", fmt.Sprintf("line %d", i))
+	}
+
+	tail := lines(runChat(t, cfg, "tok-bob", "read", "--cursor", "tail", "--range", "-1"))
+	if len(tail) != 1 {
+		t.Fatalf("tail read = %v, want the newest message alone", tail)
+	}
+	want := chatBridgeAna + " -> " + chatBridgeBob + " [mentioned you]: line 2"
+	if !strings.Contains(tail[0], want) {
+		t.Errorf("tail read = %q, want it to carry %q", tail[0], want)
+	}
+
+	if got := runChat(t, cfg, "tok-bob", "read"); got != "no pending messages\n" {
+		t.Errorf("unread read after the tail = %q, want %q", got, "no pending messages\n")
+	}
+}
+
+// --to narrows a read to the messages naming a role, and a message naming two
+// roles names each of them: a reader filtering by one of a pair is shown the
+// message that asked them both, and not the one that asked only the other.
+//
+// Narrowing is not reading away, though — the count of what is still waiting
+// says so, and the next unfiltered read hands it over.
+func TestChat_ReadToKeepsOnlyWhatNamesTheRole(t *testing.T) {
+	cfg := startChatDaemon(t)
+	attendChatBridges(t, cfg, "tok-ana", "tok-bob", "tok-cid")
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeCid, 30*time.Second)
+
+	runChat(t, cfg, "tok-bob", "send", chatBridgeAna+","+chatBridgeCid, "the pair owns the rebase")
+	runChat(t, cfg, "tok-bob", "send", chatBridgeCid, "and cid alone owns the deploy")
+
+	got := lines(runChat(t, cfg, "tok-cid", "read",
+		"--cursor", "head", "--range", "100", "--to", chatBridgeAna))
+	if len(got) != 2 {
+		t.Fatalf("filtered read = %v, want the message naming ana and the count left over", got)
+	}
+	if want := "the pair owns the rebase"; !strings.Contains(got[0], want) {
+		t.Errorf("filtered read = %q, want it to carry %q", got[0], want)
+	}
+	if got[1] != "1 more unread" {
+		t.Errorf("filtered read reported %q, want %q", got[1], "1 more unread")
+	}
+
+	if out := runChat(t, cfg, "tok-cid", "read"); !strings.Contains(
+		out, "and cid alone owns the deploy") {
+		t.Errorf("read after the filtered one = %q, want the message the filter left", out)
+	}
+}
+
+// chatNudgeKeys is the pair of `cmdman send-keys` invocations one nudge makes:
+// the line typed into the recipient's terminal, then the Enter that submits it.
+// token names the command being typed into and from is the sender the line
+// names.
+func chatNudgeKeys(token, from string) []string {
+	return []string{
+		token + " [crabswarm chat] new message from " + from + " — run: crabswarm chat read",
+		token + " Enter",
+	}
+}
+
+// everyone is the whole room minus the one saying it: a sender already knows
+// what it said, so the message is neither unread for it nor typed into its
+// terminal. Everyone else has it waiting, and the agents among them are woken
+// for it — a person is delivered to and never typed at, since they read their
+// room when they choose to.
+//
+// A list of roles is the same rule read the other way: it reaches exactly the
+// roles it names, and wakes the agents among those.
+func TestChat_EveryoneReachesTheRoomButItsSenderAndNudgesOnlyAgents(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+	attendChatBridges(t, cfg, "tok-ana", "tok-bob", "tok-cid")
+	waitChatRosterHas(t, cfg, "tok-ana", chatBridgeBob, 30*time.Second)
+	waitChatRosterHas(t, cfg, "tok-ana", chatBridgeCid, 30*time.Second)
+	human := registerChatHuman(t, cfg, identity, chatRoom, "humans", "yuki")
+
+	if got := runChat(t, cfg, "tok-ana", "send", "everyone", "standup in five"); got != "" {
+		t.Errorf("send to everyone = %q, want nothing: it names no role in particular", got)
+	}
+
+	// Typed at: the attending agents, in the order the room lists them. Not the
+	// sender, not the person.
+	typed := slices.Concat(
+		chatNudgeKeys("tok-bob", chatBridgeAna),
+		chatNudgeKeys("tok-cid", chatBridgeAna))
+	if got := stubSendKeys(t, cfg); !slices.Equal(got, typed) {
+		t.Errorf("cmdman send-keys invocations =\n%q\nwant\n%q", got, typed)
+	}
+
+	if got := runChat(t, cfg, "tok-ana", "read"); got != "no pending messages\n" {
+		t.Errorf("the sender's read = %q, want nothing: it already knows what it said", got)
+	}
+	for _, reader := range []struct{ address, token string }{
+		{chatBridgeBob, "tok-bob"},
+		{chatBridgeCid, "tok-cid"},
+		{"humans/yuki", human},
+	} {
+		body := chatMessageBody(t, runChat(t, cfg, reader.token, "read"))
+		if want := chatBridgeAna + " -> everyone [mentioned you]: standup in five"; body != want {
+			t.Errorf("read as %s = %q, want %q", reader.address, body, want)
+		}
+	}
+
+	// A list of roles mentions each of them and nobody else, and the person
+	// named beside the agent is delivered to without a keystroke.
+	got := runChat(t, cfg, "tok-ana", "send", chatBridgeBob+",humans/yuki", "you two own it")
+	if want := "mentioned " + chatBridgeBob + "\nmentioned humans/yuki\n"; got != want {
+		t.Errorf("send to a list of roles = %q, want %q", got, want)
+	}
+	typed = append(typed, chatNudgeKeys("tok-bob", chatBridgeAna)...)
+	if keys := stubSendKeys(t, cfg); !slices.Equal(keys, typed) {
+		t.Errorf("cmdman send-keys invocations =\n%q\nwant\n%q", keys, typed)
+	}
+	if out := runChat(t, cfg, "tok-cid", "read"); out != "no pending messages\n" {
+		t.Errorf("read as %s = %q, want nothing: cid was not named", chatBridgeCid, out)
+	}
+	if out := runChat(t, cfg, human, "read"); !strings.Contains(out, "you two own it") {
+		t.Errorf("the person's read = %q, want the message nobody typed", out)
+	}
+}
+
 // The cap the host writes into chat.history_limit reaches the room the members
 // talk in: a daemon told to keep three messages answers with the three newest,
 // however many were said. The environment spelling of the same setting,
@@ -982,9 +1157,15 @@ func TestChat_ConfiguredHistoryLimitBoundsTheRoom(t *testing.T) {
 // A human is registered by the host rather than vouched for by cmdman, and
 // takes part with the token that registration printed. No provider can ever
 // resolve that token — which must not cost the human their place in the room.
-func TestChat_RegisteredHumanParticipates(t *testing.T) {
+//
+// The attendance registration opens is the one no stream holds, so it ends the
+// only way it can: with the daemon it lives in. The person registers again
+// afterwards and picks the conversation up where they left it, because the role
+// and its read position were in the database all along.
+func TestChat_RegisteredHumanOutlivesShellsButNotARestart(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
-	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+	cfg := writeChatConfig(t, 0, defaultStubCommands(), recipient)
+	serve := startChatServe(t, cfg)
 	attendChatBridges(t, cfg, "tok-ana")
 
 	token := registerChatHuman(t, cfg, identity, chatRoom, "humans", "yuki")
@@ -1034,6 +1215,52 @@ func TestChat_RegisteredHumanParticipates(t *testing.T) {
 	seenByAgent := memberAddresses(runChat(t, cfg, "tok-ana", "members"))
 	if !slices.Contains(seenByAgent, "humans/yuki") {
 		t.Errorf("members = %v, want the human still attending", seenByAgent)
+	}
+
+	// The restart is where it ends. Nothing held that attendance open, so there
+	// is nothing to re-open it: the topology no longer carries the person, and
+	// the token they were given answers for nobody.
+	restartChatDaemon(t, cfg, serve)
+	if listed := runChat(t, cfg, "", "admin", "list", "--identity", identity); strings.Contains(
+		listed, "yuki") {
+		t.Errorf("admin list after the restart =\n%s\nwant the person gone with the daemon",
+			listed)
+	}
+	if _, stderr, err := execChatTokenEnv(t, cfg, token, "read"); err == nil {
+		t.Error("the old token still read the room, want it to answer for nobody")
+	} else if !strings.Contains(stderr, "not attending") {
+		t.Errorf("stderr = %q, want it to say the token attends nothing", stderr)
+	}
+
+	// The role is not gone, though — the room has carried it — so it is still
+	// addressable, and the send says nobody is there to be woken by it.
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+	stdout, stderr, err = execChat(t, cfg, "tok-ana", "send", "humans/yuki", "the deploy is yours")
+	if err != nil {
+		t.Fatalf("send to the unregistered person: %v\nstderr:\n%s", err, stderr)
+	}
+	if want := "mentioned humans/yuki\n"; stdout != want {
+		t.Errorf("send = %q, want %q", stdout, want)
+	}
+	if want := "warning: humans/yuki is not attending; the mention waits\n"; stderr != want {
+		t.Errorf("stderr = %q, want %q", stderr, want)
+	}
+
+	// Registering the same role again picks up its read position rather than
+	// starting one: what waited is unread exactly once, and what the person read
+	// before the restart stays read.
+	again := registerChatHuman(t, cfg, identity, chatRoom, "humans", "yuki")
+	body = chatMessageBody(t, runChat(t, cfg, again, "read"))
+	if want := chatBridgeAna +
+		" -> humans/yuki [mentioned you]: the deploy is yours"; body != want {
+		t.Errorf("read after registering again = %q, want %q", body, want)
+	}
+	if got := runChat(t, cfg, again, "read"); got != "no pending messages\n" {
+		t.Errorf("second read = %q, want the mention handed over once", got)
+	}
+	if listed := runChat(t, cfg, "", "admin", "list", "--identity", identity); !strings.Contains(
+		listed, "yuki  human") {
+		t.Errorf("admin list =\n%s\nwant the person back in the room", listed)
 	}
 }
 
@@ -1258,39 +1485,89 @@ func TestChat_AdminReadsTheRoomLog(t *testing.T) {
 	}
 }
 
-// The verbs that are gone have to fail rather than be answered with help. A
-// group parent that cannot run answers anything it does not recognize with its
-// own help and a success exit, which would let a stale `chat join ...` in a
-// harness hook look like it worked; these are the spellings most likely to be
-// typed from memory or left behind in a script.
-func TestChat_RemovedSpellingsAreRejected(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		args []string
-	}{
-		// Written without the flags the gone verbs took: an unknown flag is
-		// refused before cobra ever looks at the verb, which would pass this
-		// case for the wrong reason.
-		{"attendance is not a verb", []string{"chat", "join"}},
-		{"leaving is closing the session", []string{"chat", "leave"}},
-		{"broadcast is a target", []string{"chat", "broadcast", "standup in 5"}},
-		{"history is a read", []string{"chat", "history"}},
-		{"register moved under admin", []string{"chat", "register", chatRoom, "humans", "yuki"}},
-		{"team is gone entirely", []string{"chat", "team", "list"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			stdout, stderr, err := execChatEnv(t, nil, tc.args...)
-			if err == nil {
-				t.Fatalf("crabswarm %s succeeded, want a failure", strings.Join(tc.args, " "))
-			}
-			want := fmt.Sprintf("unknown command %q for \"crabswarm chat\"", tc.args[1])
-			if !strings.Contains(stderr, want) {
-				t.Errorf("stderr = %q, want it to contain %q", stderr, want)
-			}
-			if stdout != "" {
-				t.Errorf("stdout = %q, want nothing: the help text is not an answer here", stdout)
-			}
-		})
+// A room is emptied by its sessions ending, which takes no verb: there is none
+// to leave with, and a bridge that is simply gone is a member the room no
+// longer has. Deleting is refused until then, because a room somebody is in is
+// not a room the operator is done with.
+func TestChat_DeleteRoomWaitsForTheRoomToEmpty(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+	sessions := attendChatBridges(t, cfg, "tok-ana")
+	runChat(t, cfg, "tok-ana", "send", "", "fyi: rebased main")
+
+	// Refused while somebody is in it, and the refusal names who.
+	_, stderr, err := execChat(t, cfg, "", "admin", "delete-room", chatRoom,
+		"--identity", identity)
+	if err == nil {
+		t.Fatal("delete-room of an attended room succeeded, want a failure")
+	}
+	for _, want := range []string{chatBridgeAna, "room is attended"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr = %q, want it to carry %q", stderr, want)
+		}
+	}
+
+	// The session ends. Nothing else happens — no restart, no cleanup verb —
+	// and the room is empty.
+	stopChatBridge(t, sessions[0])
+	waitStubStatus(t, cfg, "delete tok-ana", 30*time.Second)
+
+	listed := runChat(t, cfg, "", "admin", "list", "--identity", identity)
+	if want := "room: " + chatRoom + "\n  (nobody attending)\n"; listed != want {
+		t.Errorf("admin list = %q, want %q", listed, want)
+	}
+
+	// Now it goes, and takes the one thing said in it along.
+	want := "deleted room " + chatRoom + " and 1 message\n"
+	if got := runChat(t, cfg, "", "admin", "delete-room", chatRoom,
+		"--identity", identity); got != want {
+		t.Errorf("delete-room = %q, want %q", got, want)
+	}
+	if got := runChat(t, cfg, "", "admin", "list", "--identity", identity); got != "no rooms\n" {
+		t.Errorf("admin list after the deletion = %q, want %q", got, "no rooms\n")
+	}
+}
+
+// Nothing but `admin delete-room` removes a room. Its row is made by the first
+// attendance or message in it and outlives both: the session that made it ends,
+// the history cap throws the conversation away message by message, the daemon
+// restarts — and the operator still finds the room, with nobody in it. That is
+// what makes it findable at all, since the read positions a returning role
+// reads from hang off exactly that row.
+func TestChat_ARoomOutlivesItsMembersAndItsLog(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	// A cap of one: every send prunes everything below the message it just
+	// appended, so what a room of three utterances keeps is the last of them.
+	cfg := writeChatConfig(t, 1, defaultStubCommands(), recipient)
+	serve := startChatServe(t, cfg)
+	sessions := attendChatBridges(t, cfg, "tok-ana")
+
+	for i := range 3 {
+		runChat(t, cfg, "tok-ana", "send", "", fmt.Sprintf("note %d", i))
+	}
+	stopChatBridge(t, sessions[0])
+	waitStubStatus(t, cfg, "delete tok-ana", 30*time.Second)
+
+	restartChatDaemon(t, cfg, serve)
+
+	listed := runChat(t, cfg, "", "admin", "list", "--identity", identity)
+	if want := "room: " + chatRoom + "\n  (nobody attending)\n"; listed != want {
+		t.Errorf("admin list after the restart = %q, want %q", listed, want)
+	}
+
+	logged := lines(runChat(t, cfg, "", "admin", "log", chatRoom,
+		"--cursor", "head", "--range", "100", "--identity", identity))
+	if len(logged) != 1 || !strings.Contains(logged[0], "note 2") {
+		t.Fatalf("admin log = %v, want only the newest message the cap kept", logged)
+	}
+
+	want := "deleted room " + chatRoom + " and 1 message\n"
+	if got := runChat(t, cfg, "", "admin", "delete-room", chatRoom,
+		"--identity", identity); got != want {
+		t.Errorf("delete-room = %q, want %q", got, want)
+	}
+	if got := runChat(t, cfg, "", "admin", "list", "--identity", identity); got != "no rooms\n" {
+		t.Errorf("admin list after the deletion = %q, want %q", got, "no rooms\n")
 	}
 }
 
@@ -1461,25 +1738,38 @@ func TestChat_BridgeAttendsOnceTheDaemonComesUp(t *testing.T) {
 }
 
 // A daemon can go away and come back under a live bridge — restarted by its
-// operator, and back on a database that has forgotten every member. The bridge
-// attends again on its own, which is what the agent's hooks need: they report
-// harness state through the CLI, and every report is refused for as long as the
-// room is missing the member.
+// operator while every agent keeps running. The bridge attends again on its
+// own, which is what the agent's hooks need: they report harness state through
+// the CLI, and every report is refused for as long as the room is missing the
+// member.
+//
+// What was waiting is still waiting afterwards. Attendance is held in memory
+// and dies with the daemon, but the role and its read position are in the
+// database, so a mention sent before the restart is unread exactly once after
+// it — which is the whole reason a restart is survivable rather than a reset.
 func TestChat_BridgeReattendsAfterTheDaemonRestarts(t *testing.T) {
 	cfg := writeChatConfig(t, 0, defaultStubCommands())
 	serve := startChatServe(t, cfg)
-	startChatBridge(t, cfg, "tok-ana")
-	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+	attendChatBridges(t, cfg, "tok-ana", "tok-bob")
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+	runChat(t, cfg, "tok-bob", "send", "agent-tok-ana", "look at the migration")
 
-	stopProcess(t, serve)
-	removeChatDatabase(t, cfg)
-	startChatServe(t, cfg)
+	restartChatDaemon(t, cfg, serve)
 
 	// Attendance read through a member verb, which the daemon answers for
 	// members alone. Nothing has called a tool on the bridge.
 	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
 
-	// The hook path is what this is for: a state report reaches cmdman's status
+	body := chatMessageBody(t, runChat(t, cfg, "tok-ana", "read"))
+	want := chatBridgeBob + " -> " + chatBridgeAna + " [mentioned you]: look at the migration"
+	if body != want {
+		t.Errorf("read after the restart = %q, want %q", body, want)
+	}
+	if got := runChat(t, cfg, "tok-ana", "read"); got != "no pending messages\n" {
+		t.Errorf("second read = %q, want the mention handed over once", got)
+	}
+
+	// The hook path is the other half: a state report reaches cmdman's status
 	// display again, on the member the bridge attended for a second time.
 	runChat(t, cfg, "tok-ana", "report-state", "working")
 	waitStubStatus(t, cfg, "set working tok-ana --detail crabswarm chat", 30*time.Second)

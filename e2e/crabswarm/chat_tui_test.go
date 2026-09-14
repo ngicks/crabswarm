@@ -130,24 +130,46 @@ const framePause = 300 * time.Millisecond
 // cell the shorter name freed. Repainting is what puts the whole line there.
 func waitFrame(t *testing.T, s *tuiScreen, want ...string) string {
 	t.Helper()
+	return waitFrameWithout(t, s, nil, want...)
+}
+
+// waitFrameWithout is [waitFrame] for the questions that are half about what
+// the screen no longer says.
+//
+// A repaint asked for while the screen is still catching up on the keystrokes
+// before it lands in the same stretch of output as the frame those keystrokes
+// were still being drawn into, so a line that has just been taken off the
+// screen is in that stretch all the same. Waiting for one stretch that carries
+// every want and none of absent is what tells "gone" from "not gone yet".
+func waitFrameWithout(t *testing.T, s *tuiScreen, absent []string, want ...string) string {
+	t.Helper()
 	deadline := time.Now().Add(screenTimeout)
-	var frame, missing string
+	var frame, missing, lingering string
 	for time.Now().Before(deadline) {
 		mark := s.drawn.mark()
 		typeOnScreen(t, s.keys, sizeReport)
 		time.Sleep(framePause)
-		frame, missing = s.drawn.since(mark), ""
+		frame, missing, lingering = s.drawn.since(mark), "", ""
 		for _, w := range want {
 			if !strings.Contains(frame, w) {
 				missing = w
 				break
 			}
 		}
-		if missing == "" {
+		for _, a := range absent {
+			if strings.Contains(frame, a) {
+				lingering = a
+				break
+			}
+		}
+		if missing == "" && lingering == "" {
 			return frame
 		}
 	}
-	t.Fatalf("%q was never on the screen; the last frame drawn:\n%s", missing, frame)
+	if missing != "" {
+		t.Fatalf("%q was never on the screen; the last frame drawn:\n%s", missing, frame)
+	}
+	t.Fatalf("%q never left the screen; the last frame drawn:\n%s", lingering, frame)
 	return ""
 }
 
@@ -260,10 +282,14 @@ func TestChatTUI_WatchesARoomAndSendsIntoIt(t *testing.T) {
 	// rather than out of everything drawn so far: the renderer writes only the
 	// cells that changed, and the message pane shrinking back to one row after
 	// the send redraws part of this line on its own.
+	//
+	// The conversation names the roles the daemon resolved the bare tokens to,
+	// while the system line answers in the words the operator typed — they wrote
+	// two names, so that is what the screen says back.
 	typeOnScreen(t, s.keys, "@claude-1 @claude-2 hi\x18")
 	waitFrame(t, s,
 		"admin → alpha/claude-1,alpha/claude-2: @claude-1",
-		"sent to alpha/claude-1,alpha/claude-2")
+		"sent to claude-1,claude-2")
 
 	// No token at all names nobody, which is a board post: the target column is
 	// a dash, and nobody was mentioned.
@@ -320,10 +346,8 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{})
 		waitScreen(t, s.drawn, "gamma/zed → everyone: the other room is talking")
 
-		frame := waitFrame(t, s, "room "+chatOtherRoom, "members (1)")
-		if strings.Contains(frame, "the proj room is talking") {
-			t.Errorf("the screen carries the other room's conversation:\n%s", frame)
-		}
+		waitFrameWithout(t, s, []string{"the proj room is talking"},
+			"room "+chatOtherRoom, "members (1)")
 		quitScreen(t, s)
 	})
 
@@ -341,15 +365,11 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 		typeOnScreen(t, s.keys, "\r")
 
 		// The room switched: its conversation is on the screen, its attendance
-		// is in the members pane, and the status bar names it.
+		// is in the members pane, and the status bar names it — and nothing of
+		// the room it left is still there.
 		waitScreen(t, s.drawn, "alpha/ana → everyone: the proj room is talking")
-		frame := waitFrame(t, s,
+		waitFrameWithout(t, s, []string{"the other room is talking", " zed "},
 			"room "+chatRoom, "members (3)", "alpha", " ana ", " bob ", "beta", " cid ")
-		for _, left := range []string{"the other room is talking", " zed "} {
-			if strings.Contains(frame, left) {
-				t.Errorf("the screen still carries %q of the room it left:\n%s", left, frame)
-			}
-		}
 		quitScreen(t, s)
 	})
 }
@@ -455,13 +475,13 @@ func TestChatTUI_TabCompletesAnAddress(t *testing.T) {
 		waitFrame(t, s, "@alpha/ana", "@alpha/bob", "> @a")
 
 		// Tab walks the list and enter takes the row the highlight is on, which
-		// is the second of the two.
+		// is the second of the two. Accepting closes the list, which is asserted
+		// as part of the same wait: the row that is gone and the token that
+		// replaced it are one change, and reading them apart would ask about the
+		// dropdown while the screen is still drawing its own disappearance.
 		typeOnScreen(t, s.keys, "\t")
 		typeOnScreen(t, s.keys, "\r")
-		frame := waitFrame(t, s, "> @alpha/bob")
-		if strings.Contains(frame, "@alpha/ana") {
-			t.Errorf("the dropdown is still open after accepting:\n%s", frame)
-		}
+		waitFrameWithout(t, s, []string{"@alpha/ana"}, "> @alpha/bob")
 		quitScreen(t, s)
 	})
 }
@@ -533,10 +553,7 @@ func TestChatTUI_EditsTheDraftInAnEditor(t *testing.T) {
 
 		// The hand-off did not happen, so the draft is exactly as it was typed
 		// — the file the editor wrote before failing is not taken.
-		frame := waitFrame(t, s, "editor exited:", "> "+draft)
-		if strings.Contains(frame, editorLine) {
-			t.Errorf("what the failed editor wrote reached the pane:\n%s", frame)
-		}
+		waitFrameWithout(t, s, []string{editorLine}, "editor exited:", "> "+draft)
 		quitScreen(t, s)
 	})
 

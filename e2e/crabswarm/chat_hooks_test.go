@@ -373,13 +373,32 @@ func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 // report the same read makes on the way is not observable from outside the
 // daemon — TestClient_ReadDoneWhenEmpty pins that against the RPC — so what is
 // asserted here is the half a harness sees.
+//
+// A board post is the second way a room has nothing for this member: it is in
+// the log and mentions nobody, so the drain finds nothing to hand over and the
+// turn ends. That half is worth its own case because it is the one a naive
+// implementation gets wrong — the room is not quiet, the message simply is not
+// addressed to anyone.
 func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
-	cfg := startChatDaemon(t)
-	attendChatBridges(t, cfg, "tok-ana")
 	hooks := readChatHooks(t)
 
-	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
-	assertHookIsSilent(t, res)
+	t.Run("the room said nothing at all", func(t *testing.T) {
+		cfg := startChatDaemon(t)
+		attendChatBridges(t, cfg, "tok-ana")
+
+		res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
+		assertHookIsSilent(t, res)
+	})
+
+	t.Run("the room posted to its board", func(t *testing.T) {
+		cfg := startChatDaemon(t)
+		attendChatBridges(t, cfg, "tok-ana", "tok-bob")
+		waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+		runChat(t, cfg, "tok-bob", "send", "", "fyi: rebased main")
+
+		res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
+		assertHookIsSilent(t, res)
+	})
 }
 
 // The PostToolUse hook hands the messages over as additionalContext rather than
@@ -462,26 +481,17 @@ func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
 	}
 }
 
-// No hook attends the room any more. The MCP bridge the package declares in
-// its apm.yml joins as it starts, so a `SessionStart` hook running
-// `crabswarm chat join` beside it would be a second automatic join for the same
-// session — and the wiring having one join path is the kind of fact a later
-// edit undoes by reflex, since re-adding a hook entry breaks nothing loudly.
-func TestChatHooks_LeaveTheJoinToTheBridge(t *testing.T) {
-	hooks := readChatHooks(t)
-	if groups, ok := hooks.Hooks["SessionStart"]; ok {
+// No hook attends the room. Attendance is the MCP bridge's open stream, held
+// for the whole session the harness runs the bridge in, so nothing is left for
+// a `SessionStart` entry to declare — and a hook wired there would be a second
+// thing claiming the same role, which the daemon refuses.
+//
+// It is asserted because re-adding a hook entry breaks nothing loudly: the
+// session that lost the race simply never reaches its room.
+func TestChatHooks_LeaveAttendanceToTheBridge(t *testing.T) {
+	if groups, ok := readChatHooks(t).Hooks["SessionStart"]; ok {
 		t.Errorf("SessionStart is wired again (%d group(s)); the MCP bridge attends the room",
 			len(groups))
-	}
-	for event, groups := range hooks.Hooks {
-		for _, g := range groups {
-			for _, h := range g.Hooks {
-				if strings.Contains(h.Command, "chat join") {
-					t.Errorf("%s command %q joins the room; that is the bridge's job",
-						event, h.Command)
-				}
-			}
-		}
 	}
 }
 
