@@ -118,6 +118,12 @@ export function attachGestures(el: HTMLElement, h: GestureHandlers, opts?: Gestu
   };
 
   const release = (e: PointerEvent): void => {
+    // A touch pointer is implicitly captured by the descendant it landed on.
+    // When the drag-time setPointerCapture moves that capture up to `el`, the
+    // browser fires lostpointercapture on the descendant, and it bubbles here
+    // with a finger that is still down. A genuine loss — the pointer lifted or
+    // cancelled while `el` held it — fires on `el` itself.
+    if (e.type === "lostpointercapture" && e.target !== el) return;
     // An untracked id is a full no-op — no tap, no gesture end. Two ways in:
     // lostpointercapture trails the pointerup that already dropped the id, and
     // a child that stopped propagation on pointerdown (a toolbar button) still
