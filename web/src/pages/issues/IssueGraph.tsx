@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "preact/hooks";
 import { useLocation } from "preact-iso";
 import type { IssueEdge } from "@/api/gen/ngicks/crabswarm/issues/v1/issues_service_pb.js";
+import { attachGestures } from "@/lib/gesture.js";
 import { type GraphNode, flowchart } from "@/lib/graph.js";
 import { runMermaid } from "@/lib/mermaid.js";
 import { issueHref } from "@/lib/paths.js";
@@ -11,12 +12,15 @@ import { Section } from "./Section.js";
 // from ListDependencies edges and drawn by the same bundled mermaid documents
 // use, at natural size inside a zoom / pan viewport. Nodes are coloured by
 // status, the current issue in the primary pair, edges styled and labelled by
-// type, and a click on a node opens the issue — through the rendered SVG's
-// node ids, not mermaid's `click` directive, so securityLevel stays strict.
+// type, and a tap or click on a node opens the issue — through the rendered
+// SVG's node ids, not mermaid's `click` directive, so securityLevel stays
+// strict.
 //
-// The zoom / pan transform is hand-rolled. mermaid bundles d3-zoom, but
-// reaching it means declaring d3-zoom and d3-selection as dependencies for
-// forty lines of arithmetic.
+// The transform maths is hand-rolled. mermaid bundles d3-zoom, but reaching it
+// means declaring d3-zoom and d3-selection as dependencies for forty lines of
+// arithmetic. The pointers on top of it come from lib/gesture: one finger or
+// the mouse pans, two fingers pinch, and the pinch lands on the same
+// pin-the-point zoom the wheel and the buttons use.
 //
 // The transform lives in a ref and is written straight to `style`. Keeping it
 // in state would re-render the component on every wheel tick and every
@@ -60,10 +64,9 @@ export function IssueGraph({
   const level = useRef<HTMLSpanElement>(null);
   const tf = useRef<Transform>({ x: 0, y: 0, k: 1 });
   // The scale the last fit asked for. Fit itself is never floored — a wide
-  // epic must stay whole — and the floor the wheel and the buttons clamp to
-  // follows it, so zooming out can always reach the overview and no further.
+  // epic must stay whole — and the floor every other zoom clamps to follows
+  // it, so zooming out can always reach the overview and no further.
   const fitK = useRef(1);
-  const dragged = useRef(false);
   // Redraws are queued: replacing the nodes while mermaid is still measuring
   // the previous drawing (a node click navigates mid-render) makes it lay
   // out detached elements and log NaN transforms.
@@ -134,20 +137,40 @@ export function IssueGraph({
     return true;
   }, [apply, chart, currentId]);
 
+  /** Scales by `factor` with the box-local point (px, py) pinned: whatever sits
+   *  there stays there. Every zoom goes through here, so the maths has one
+   *  home and only the pin differs. */
+  const zoomAt = useCallback(
+    (px: number, py: number, factor: number) => {
+      const { x, y, k } = tf.current;
+      const next = clampK(k * factor);
+      tf.current = { k: next, x: px - ((px - x) / k) * next, y: py - ((py - y) / k) * next };
+      apply();
+    },
+    [apply, clampK],
+  );
+
+  /** The same pinned at a point in client coordinates, which is what a wheel
+   *  event and the gesture helper both report. */
+  const zoomAtClient = useCallback(
+    (cx: number, cy: number, factor: number) => {
+      const box = viewport.current;
+      if (!box) return;
+      const rect = box.getBoundingClientRect();
+      zoomAt(cx - rect.left, cy - rect.top, factor);
+    },
+    [zoomAt],
+  );
+
   const zoomBy = useCallback(
     (factor: number) => {
       const box = viewport.current;
       if (!box) return;
-      const { x, y, k } = tf.current;
-      const next = clampK(k * factor);
       // Zoom about the viewport's centre so the buttons keep what you are
       // looking at in view.
-      const cx = box.clientWidth / 2;
-      const cy = box.clientHeight / 2;
-      tf.current = { k: next, x: cx - ((cx - x) / k) * next, y: cy - ((cy - y) / k) * next };
-      apply();
+      zoomAt(box.clientWidth / 2, box.clientHeight / 2, factor);
     },
-    [apply, clampK],
+    [zoomAt],
   );
 
   useEffect(() => {
@@ -185,61 +208,57 @@ export function IssueGraph({
     if (!box) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const { x, y, k } = tf.current;
-      const next = clampK(k * Math.exp(-e.deltaY * 0.002));
-      const rect = box.getBoundingClientRect();
-      // Keep the point under the cursor pinned.
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      tf.current = { k: next, x: px - ((px - x) / k) * next, y: py - ((py - y) / k) * next };
-      apply();
+      zoomAtClient(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.002));
     };
     box.addEventListener("wheel", onWheel, { passive: false });
     return () => box.removeEventListener("wheel", onWheel);
-  }, [apply, clampK]);
+  }, [zoomAtClient]);
 
-  const start = useRef({ x: 0, y: 0, panning: false });
-
-  const onPointerDown = (e: PointerEvent) => {
-    if (e.button !== 0) return;
-    dragged.current = false;
-    start.current = { x: e.clientX, y: e.clientY, panning: true };
-  };
-
-  const onPointerMove = (e: PointerEvent) => {
-    const s = start.current;
-    if (!s.panning) return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (!dragged.current) {
-      if (Math.hypot(dx, dy) < CLICK_SLOP) return;
-      dragged.current = true;
-      // Captured only once this is a drag: capturing on pointerdown would
-      // retarget the click to the viewport and break node navigation.
-      viewport.current?.setPointerCapture(e.pointerId);
-      // Inline rather than a class: `cursor-grab` and `cursor-grabbing` have
-      // the same specificity, so which one wins would depend on sheet order.
-      if (viewport.current) viewport.current.style.cursor = "grabbing";
-    }
-    tf.current = { ...tf.current, x: tf.current.x + dx, y: tf.current.y + dy };
-    start.current = { x: e.clientX, y: e.clientY, panning: true };
-    apply();
-  };
-
-  const endPan = () => {
-    start.current = { ...start.current, panning: false };
-    if (viewport.current) viewport.current.style.cursor = "";
-  };
-
-  const onClick = (e: MouseEvent) => {
-    if (dragged.current) return;
-    const node = (e.target as Element).closest<SVGGElement>("g.node");
-    if (!node) return;
-    const id = chart.issueIdOf(node.id);
-    if (id === undefined) return;
-    e.preventDefault();
-    loc.route(issueHref(sourceId, id, search));
-  };
+  useEffect(() => {
+    const box = viewport.current;
+    if (!box) return;
+    const detach = attachGestures(
+      box,
+      {
+        onPan: (dx, dy) => {
+          tf.current = { ...tf.current, x: tf.current.x + dx, y: tf.current.y + dy };
+          apply();
+        },
+        onZoom: zoomAtClient,
+        onTap: (e) => {
+          // Navigation rides on the tap rather than on a click. The gesture
+          // ends on pointerup, before the browser fires the click, so a "was
+          // dragging" flag cleared there would already read false when the
+          // click that follows a pan arrives — and that pan would navigate. A
+          // tap is by definition neither a drag nor a pinch.
+          const node = (e.target as Element).closest<SVGGElement>("g.node");
+          if (!node) return;
+          const id = chart.issueIdOf(node.id);
+          if (id === undefined) return;
+          loc.route(issueHref(sourceId, id, search));
+        },
+        onDragStart: () => {
+          // Inline rather than a class: `cursor-grab` and `cursor-grabbing` have
+          // the same specificity, so which one wins would depend on sheet order.
+          box.style.cursor = "grabbing";
+        },
+        onGestureEnd: () => {
+          box.style.cursor = "";
+        },
+      },
+      // Capture only once a drag starts: taking the pointer on pointerdown
+      // would retarget the pointerup at the box, leaving onTap no g.node to
+      // find under the finger.
+      { slop: CLICK_SLOP, captureOn: "drag" },
+    );
+    return () => {
+      detach();
+      // A live issue update redraws the chart and re-runs this effect; a drag
+      // in flight at that moment never reaches onGestureEnd, so the cursor
+      // would stay "grabbing" until the next full gesture.
+      box.style.cursor = "";
+    };
+  }, [apply, chart, loc, search, sourceId, zoomAtClient]);
 
   const onDblClick = (e: MouseEvent) => {
     if ((e.target as Element).closest("g.node")) return;
@@ -290,13 +309,7 @@ export function IssueGraph({
       <div
         ref={viewport}
         class="relative h-[22rem] min-h-40 cursor-grab touch-none select-none resize-y overflow-hidden [&_g.node]:cursor-pointer [&_pre.mermaid]:m-0 [&_pre.mermaid]:bg-transparent"
-        onClick={onClick}
         onDblClick={onDblClick}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endPan}
-        onPointerCancel={endPan}
-        onLostPointerCapture={endPan}
       >
         <div ref={ref} class="w-max origin-top-left" data-testid="graph-canvas" />
       </div>
