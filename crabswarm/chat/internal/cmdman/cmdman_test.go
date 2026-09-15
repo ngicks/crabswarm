@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"gotest.tools/v3/assert"
@@ -84,8 +85,13 @@ func doneAgent() chat.Member {
 func TestTerminal_SendCommandTypesThenSubmits(t *testing.T) {
 	bin := stubCmdmanScreen(t, idlePrompt)
 
+	start := time.Now()
 	err := NewTerminal(bin, nil).SendCommand(t.Context(), doneAgent(), "/new")
 	assert.NilError(t, err)
+	// The Enter waits out the recipient's paste-burst window: sent straight
+	// after the text, Codex inserts a newline for it instead of submitting.
+	assert.Assert(t, time.Since(start) >= submitDelay,
+		"send took %v, want at least %v", time.Since(start), submitDelay)
 
 	// The text and the Enter are separate invocations on purpose: cmdman hands
 	// a trailing key name in the same invocation to the terminal as pasted
