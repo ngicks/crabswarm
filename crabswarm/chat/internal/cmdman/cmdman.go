@@ -25,6 +25,19 @@ import (
 // occasioned it, so a cmdman that hangs would otherwise hang that request.
 const sendTimeout = 3 * time.Second
 
+// submitDelay is how long [Terminal.SendCommand] waits between typing the line
+// and pressing Enter.
+//
+// Codex's TUI classifies characters that arrive within 8ms of each other as a
+// paste once three of them have, and for 120ms after such a burst it inserts a
+// newline for Enter instead of submitting (codex-rs/tui/src/bottom_pane/
+// paste_burst.rs: PASTE_BURST_CHAR_INTERVAL, PASTE_ENTER_SUPPRESS_WINDOW). A
+// line handed to cmdman lands in one write, so it always reads as a paste, and
+// an Enter sent straight after it left the nudge sitting in the composer with a
+// trailing newline. The delay outlasts that window with room for scheduling
+// jitter; Claude Code has no such heuristic and is unaffected by the wait.
+const submitDelay = 200 * time.Millisecond
+
 // ErrDeclined reports that a guard stopped the send before cmdman typed
 // anything: the member has no terminal to type into, or its terminal is in no
 // state to be typed into. Callers that treat a declined send as an ordinary
@@ -138,15 +151,20 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 		return fmt.Errorf("terminal is showing a dialog: %w", ErrDeclined)
 	}
 
-	// Text and submit go in separate invocations. A terminal handed the line
-	// and the Enter key in one send-keys treats the trailing key as part of the
-	// pasted text rather than as a keypress, and the line is never submitted.
+	// Text and submit go in separate invocations, with [submitDelay] between
+	// them. A terminal handed the line and the Enter key in one send-keys
+	// treats the trailing key as part of the pasted text rather than as a
+	// keypress, and one handed the Enter too soon after the line may do the
+	// same; either way the line is never submitted.
 	if err := t.sendKeys(ctx, member.Token, line); err != nil {
 		return err
 	}
 	// Not swallowed: a line typed but never submitted sits in the recipient's
 	// prompt, where the next thing typed runs it. That is worth an error even
 	// though the text did land.
+	if err := t.waitBeforeSubmit(ctx); err != nil {
+		return err
+	}
 	return t.sendKeys(ctx, member.Token, "Enter")
 }
 
@@ -171,6 +189,17 @@ func (t *Terminal) captureScreen(ctx context.Context, token string) (string, err
 			token, err, strings.TrimSpace(string(out)))
 	}
 	return string(out), nil
+}
+
+// waitBeforeSubmit sleeps [submitDelay], or less when ctx ends first. Running
+// out of time here leaves the line typed and unsubmitted, which the error says.
+func (t *Terminal) waitBeforeSubmit(ctx context.Context) error {
+	select {
+	case <-time.After(submitDelay):
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("line typed but not submitted: %w", ctx.Err())
+	}
 }
 
 // sendKeys hands cmdman one argument to deliver to the member's terminal.
