@@ -1,10 +1,11 @@
-// hk hooks for a repository whose plan lives in beads. Copy to `.hk/beads.pkl`
-// at the worktree root and reference it from `hk.pkl`:
-//   new repo:       amends ".hk/beads.pkl"          (the whole hk.pkl)
-//   existing repo:  import ".hk/beads.pkl" as beads
-//                   hooks = (beads.hooks) { ...existing hooks body... }
-// then run `hk install`. Bump the version in the amends line to your hk.
-amends "package://github.com/jdx/hk/releases/download/v1.58.1/hk@1.58.1#/Config.pkl"
+// hk hooks for a repository whose plan lives in beads.
+//
+// Installed by `scripts/hk-init.sh`, which copies this file to
+// `.hk/beads.pkl` at the worktree root, makes `hk.pkl` amend it, and runs
+// `hk install`. The script also rewrites the version below to match the
+// project's hk pin, so do not edit the copy by hand: rerun the script.
+// Add project steps in `hk.pkl`, never here.
+amends "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Config.pkl"
 
 // Stamp `Executed-By: <agent>` on commits made by a coding agent (claude,
 // codex, opencode). Nothing is stamped for a human at a plain shell.
