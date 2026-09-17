@@ -28,6 +28,18 @@ func memberWith(
 	return m
 }
 
+// runningOn is what an attendee declared about itself: the CLI it runs, and the
+// route a mention takes to it.
+func runningOn(
+	m *chatv1.Member,
+	harness chatv1.Harness,
+	nudge chatv1.NudgeDelivery,
+) *chatv1.Member {
+	m.Harness = harness
+	m.Nudge = nudge
+	return m
+}
+
 // targeting builds the target a message carries, written the way a sender
 // writes one.
 func targeting(t *testing.T, written string) *chatv1.Target {
@@ -222,22 +234,34 @@ func TestRenderSent_Admin(t *testing.T) {
 
 func TestRenderMembers(t *testing.T) {
 	members := []*chatv1.Member{
-		memberWith("backend", "alice", "/work",
+		runningOn(memberWith("backend", "alice", "/work",
 			chatv1.MemberKind_MEMBER_KIND_AGENT,
 			chatv1.HarnessState_HARNESS_STATE_WORKING),
+			chatv1.Harness_HARNESS_CLAUDE_CODE,
+			chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE),
+		// An agent whose server could not name its harness still says how it
+		// wants to be reached: the two are declared separately for this.
+		runningOn(memberWith("backend", "dave", "/work",
+			chatv1.MemberKind_MEMBER_KIND_AGENT,
+			chatv1.HarnessState_HARNESS_STATE_DONE),
+			chatv1.Harness_HARNESS_UNSPECIFIED,
+			chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL),
+		// A person runs no harness and is never nudged, so both columns say
+		// nothing was declared rather than naming something they are not.
 		memberWith("frontend", "bob", "/work",
 			chatv1.MemberKind_MEMBER_KIND_HUMAN,
 			chatv1.HarnessState_HARNESS_STATE_DONE),
-		// A member the daemon reported neither for still gets its columns, so
+		// A member the daemon reported none of it for still gets its columns, so
 		// the line a caller splits has the same shape for everyone.
 		member("ops", "carol", "/work"),
 	}
 
 	got := render(t, func(b *strings.Builder) error { return RenderMembers(b, members) })
 	assert.Equal(t, got,
-		"backend/alice  agent  working\n"+
-			"frontend/bob  human  done\n"+
-			"ops/carol  unknown  unknown\n")
+		"backend/alice  agent  working  claude-code  native\n"+
+			"backend/dave  agent  done  -  terminal\n"+
+			"frontend/bob  human  done  -  -\n"+
+			"ops/carol  unknown  unknown  -  -\n")
 
 	// The first column is the role a target names, undecorated: whoever reads a
 	// line cuts it on whitespace and sends to what comes first.
@@ -255,7 +279,9 @@ func TestRenderRooms(t *testing.T) {
 		{
 			Name: "/work/proj",
 			Members: []*chatv1.Member{
-				memberWith("backend", "alice", "/work/proj", agent, unreported),
+				runningOn(memberWith("backend", "alice", "/work/proj", agent, unreported),
+					chatv1.Harness_HARNESS_CODEX,
+					chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL),
 				memberWith("frontend", "bob", "/work/proj", agent, unreported),
 				// A second member of an earlier team joins that team's block
 				// rather than opening a new one.
@@ -271,10 +297,10 @@ func TestRenderRooms(t *testing.T) {
 	assert.Equal(t, got,
 		"room: /work/proj\n"+
 			"  team: backend\n"+
-			"    alice  agent\n"+
-			"    carol  human\n"+
+			"    alice  agent  codex  terminal\n"+
+			"    carol  human  -  -\n"+
 			"  team: frontend\n"+
-			"    bob  agent\n"+
+			"    bob  agent  -  -\n"+
 			"room: /work/done\n"+
 			"  (nobody attending)\n")
 

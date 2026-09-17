@@ -65,6 +65,60 @@ func TestService_AttendNamesTheAttendee(t *testing.T) {
 	}
 }
 
+// What the attendance declared about its harness reaches the room: the member
+// it opened with says it, and so does every roster drawn afterwards. Both
+// values stand for the life of the attendance, so a reader deciding whether to
+// wait for an answer reads them off the roster rather than asking.
+func TestService_AttendCarriesTheHarnessAndDeliveryOntoTheRoster(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	nina := nativeAgent(t, svc, provider, "tok-n", testRoom, "alpha", "nina")
+	assert.Equal(t, nina.self.GetHarness(), chatv1.Harness_HARNESS_CLAUDE_CODE)
+	assert.Equal(t, nina.self.GetNudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
+
+	// An agent that declared no delivery is typed at through its terminal, and
+	// the roster says so rather than leaving the column blank.
+	agent(t, svc, provider, "tok-s", testRoom, "alpha", "sam")
+	human(t, svc, provider, "tok-h", testRoom, "alpha", "hana")
+
+	res, err := svc.ListMembers(callCtx(t, "tok-n"), &chatv1.ListMembersRequest{})
+	assert.NilError(t, err)
+	got := map[string][2]string{}
+	for _, m := range res.GetMembers() {
+		got[address(m)] = [2]string{m.GetHarness().String(), m.GetNudge().String()}
+	}
+	assert.DeepEqual(t, got, map[string][2]string{
+		"alpha/nina": {"HARNESS_CLAUDE_CODE", "NUDGE_DELIVERY_NATIVE"},
+		"alpha/sam":  {"HARNESS_UNSPECIFIED", "NUDGE_DELIVERY_TERMINAL"},
+		"alpha/hana": {"HARNESS_UNSPECIFIED", "NUDGE_DELIVERY_UNSPECIFIED"},
+	})
+}
+
+// A value outside the schema is a client speaking one this daemon does not
+// have, which is worth refusing rather than recording as something else.
+func TestService_AttendRejectsAnUnknownHarnessOrDelivery(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		harness chatv1.Harness
+		nudge   chatv1.NudgeDelivery
+	}{
+		{"harness", chatv1.Harness(99), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL},
+		{"delivery", chatv1.Harness_HARNESS_CODEX, chatv1.NudgeDelivery(99)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, provider, _ := newTestService(t)
+			provider.vouch("tok-a", testRoom, "alpha")
+
+			s := newSession(t, "tok-a")
+			s.harness, s.nudge = tc.harness, tc.nudge
+			s.run(svc, "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+			assert.Equal(t, status.Code(s.wait(t)), codes.InvalidArgument)
+
+			_, err := svc.store.Member(t.Context(), "tok-a")
+			assert.ErrorIs(t, err, ErrNotAttending)
+		})
+	}
+}
+
 // The daemon never guesses what attends: a harness and the shell a person types
 // in look the same to the team-info provider, and nudging the wrong one types
 // keystrokes into somebody's session.

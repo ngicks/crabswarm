@@ -46,7 +46,9 @@ func TestClient_EmptyTokenIsRejected(t *testing.T) {
 		}},
 		{"stream", func(c *Client) error {
 			_, err := c.Attend(t.Context(), "", "alice",
-				chatv1.MemberKind_MEMBER_KIND_HUMAN)
+				chatv1.MemberKind_MEMBER_KIND_HUMAN,
+				chatv1.Harness_HARNESS_UNSPECIFIED,
+				chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 			return err
 		}},
 	} {

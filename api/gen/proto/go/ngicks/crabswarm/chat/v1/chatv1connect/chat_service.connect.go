@@ -41,6 +41,8 @@ const (
 	ChatServiceSendProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Send"
 	// ChatServiceReadProcedure is the fully-qualified name of the ChatService's Read RPC.
 	ChatServiceReadProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Read"
+	// ChatServiceCountUnreadProcedure is the fully-qualified name of the ChatService's CountUnread RPC.
+	ChatServiceCountUnreadProcedure = "/ngicks.crabswarm.chat.v1.ChatService/CountUnread"
 	// ChatServiceListMembersProcedure is the fully-qualified name of the ChatService's ListMembers RPC.
 	ChatServiceListMembersProcedure = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
 	// ChatServiceReportStateProcedure is the fully-qualified name of the ChatService's ReportState RPC.
@@ -84,6 +86,9 @@ type ChatServiceClient interface {
 	// caller's read position to the newest one shown. By default the first
 	// ten unread mentions.
 	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
+	// CountUnread reports how many unread messages mention the caller. It
+	// moves nothing; the caller asks before it wakes its agent.
+	CountUnread(context.Context, *connect.Request[v1.CountUnreadRequest]) (*connect.Response[v1.CountUnreadResponse], error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
 	// ReportState records the state of the harness the caller runs under. It is
@@ -121,6 +126,12 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(chatServiceMethods.ByName("Read")),
 			connect.WithClientOptions(opts...),
 		),
+		countUnread: connect.NewClient[v1.CountUnreadRequest, v1.CountUnreadResponse](
+			httpClient,
+			baseURL+ChatServiceCountUnreadProcedure,
+			connect.WithSchema(chatServiceMethods.ByName("CountUnread")),
+			connect.WithClientOptions(opts...),
+		),
 		listMembers: connect.NewClient[v1.ListMembersRequest, v1.ListMembersResponse](
 			httpClient,
 			baseURL+ChatServiceListMembersProcedure,
@@ -141,6 +152,7 @@ type chatServiceClient struct {
 	attend      *connect.Client[v1.AttendRequest, v1.RoomEvent]
 	send        *connect.Client[v1.SendRequest, v1.SendResponse]
 	read        *connect.Client[v1.ReadRequest, v1.ReadResponse]
+	countUnread *connect.Client[v1.CountUnreadRequest, v1.CountUnreadResponse]
 	listMembers *connect.Client[v1.ListMembersRequest, v1.ListMembersResponse]
 	reportState *connect.Client[v1.ReportStateRequest, v1.ReportStateResponse]
 }
@@ -158,6 +170,11 @@ func (c *chatServiceClient) Send(ctx context.Context, req *connect.Request[v1.Se
 // Read calls ngicks.crabswarm.chat.v1.ChatService.Read.
 func (c *chatServiceClient) Read(ctx context.Context, req *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error) {
 	return c.read.CallUnary(ctx, req)
+}
+
+// CountUnread calls ngicks.crabswarm.chat.v1.ChatService.CountUnread.
+func (c *chatServiceClient) CountUnread(ctx context.Context, req *connect.Request[v1.CountUnreadRequest]) (*connect.Response[v1.CountUnreadResponse], error) {
+	return c.countUnread.CallUnary(ctx, req)
 }
 
 // ListMembers calls ngicks.crabswarm.chat.v1.ChatService.ListMembers.
@@ -190,6 +207,9 @@ type ChatServiceHandler interface {
 	// caller's read position to the newest one shown. By default the first
 	// ten unread mentions.
 	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
+	// CountUnread reports how many unread messages mention the caller. It
+	// moves nothing; the caller asks before it wakes its agent.
+	CountUnread(context.Context, *connect.Request[v1.CountUnreadRequest]) (*connect.Response[v1.CountUnreadResponse], error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error)
 	// ReportState records the state of the harness the caller runs under. It is
@@ -223,6 +243,12 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(chatServiceMethods.ByName("Read")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatServiceCountUnreadHandler := connect.NewUnaryHandler(
+		ChatServiceCountUnreadProcedure,
+		svc.CountUnread,
+		connect.WithSchema(chatServiceMethods.ByName("CountUnread")),
+		connect.WithHandlerOptions(opts...),
+	)
 	chatServiceListMembersHandler := connect.NewUnaryHandler(
 		ChatServiceListMembersProcedure,
 		svc.ListMembers,
@@ -243,6 +269,8 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 			chatServiceSendHandler.ServeHTTP(w, r)
 		case ChatServiceReadProcedure:
 			chatServiceReadHandler.ServeHTTP(w, r)
+		case ChatServiceCountUnreadProcedure:
+			chatServiceCountUnreadHandler.ServeHTTP(w, r)
 		case ChatServiceListMembersProcedure:
 			chatServiceListMembersHandler.ServeHTTP(w, r)
 		case ChatServiceReportStateProcedure:
@@ -266,6 +294,10 @@ func (UnimplementedChatServiceHandler) Send(context.Context, *connect.Request[v1
 
 func (UnimplementedChatServiceHandler) Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Read is not implemented"))
+}
+
+func (UnimplementedChatServiceHandler) CountUnread(context.Context, *connect.Request[v1.CountUnreadRequest]) (*connect.Response[v1.CountUnreadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.CountUnread is not implemented"))
 }
 
 func (UnimplementedChatServiceHandler) ListMembers(context.Context, *connect.Request[v1.ListMembersRequest]) (*connect.Response[v1.ListMembersResponse], error) {

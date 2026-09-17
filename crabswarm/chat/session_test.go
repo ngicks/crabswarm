@@ -28,6 +28,11 @@ type session struct {
 	// handshaken records that the opening Attended event is through. Written by
 	// the Attend goroutine alone, which is the only caller of Send.
 	handshaken bool
+	// harness and nudge are what the attendance declares about itself. Both are
+	// left unspecified by every case but the ones about who gets typed at, since
+	// that is what a caller declaring nothing sends.
+	harness chatv1.Harness
+	nudge   chatv1.NudgeDelivery
 }
 
 var _ grpc.ServerStreamingServer[chatv1.RoomEvent] = (*session)(nil)
@@ -70,10 +75,16 @@ func newSession(t *testing.T, token string) *session {
 	return s
 }
 
-// run starts Attend on the stream and returns it, still running.
+// run starts Attend on the stream and returns it, still running. What the
+// session declares about its harness goes out with the request.
 func (s *session) run(svc *Service, name string, kind chatv1.MemberKind) *session {
 	go func() {
-		s.done <- svc.Attend(&chatv1.AttendRequest{Name: name, Kind: kind}, s)
+		s.done <- svc.Attend(&chatv1.AttendRequest{
+			Name:    name,
+			Kind:    kind,
+			Harness: s.harness,
+			Nudge:   s.nudge,
+		}, s)
 	}()
 	return s
 }
@@ -99,7 +110,13 @@ func attendStream(
 	kind chatv1.MemberKind,
 ) *session {
 	t.Helper()
-	s := startAttend(t, svc, token, name, kind)
+	return awaitAttended(t, startAttend(t, svc, token, name, kind))
+}
+
+// awaitAttended waits for the two events that open an attendance, so what the
+// caller does next runs against a room that already has the member.
+func awaitAttended(t *testing.T, s *session) *session {
+	t.Helper()
 	ev := nextEvent(t, s.sent)
 	self := ev.GetAttended().GetSelf()
 	assert.Assert(t, self != nil, "the first event was %s", describeEvent(ev))
@@ -122,6 +139,23 @@ func agent(
 	t.Helper()
 	provider.vouch(token, room, team)
 	return attendStream(t, svc, token, name, chatv1.MemberKind_MEMBER_KIND_AGENT)
+}
+
+// nativeAgent is [agent] for one whose own MCP server delivers its mentions
+// through the harness. It declares the harness too, since a server that can
+// deliver a mention is one that read which client it is talking to.
+func nativeAgent(
+	t *testing.T,
+	svc *Service,
+	provider *fakeProvider,
+	token, room, team, name string,
+) *session {
+	t.Helper()
+	provider.vouch(token, room, team)
+	s := newSession(t, token)
+	s.harness = chatv1.Harness_HARNESS_CLAUDE_CODE
+	s.nudge = chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
+	return awaitAttended(t, s.run(svc, name, chatv1.MemberKind_MEMBER_KIND_AGENT))
 }
 
 // human is [agent] for someone whose terminal is never typed into.

@@ -33,6 +33,13 @@ const ProviderUnavailableMessage = "looking up team information"
 // person types in are the same kind of command to the team-info provider, and
 // guessing wrong means keystrokes in somebody's shell.
 //
+// The request also says which harness the attendee runs and how a mention
+// should reach it, and both stand for the life of the attendance. Neither is
+// required: a harness nothing named stays unspecified, and an agent that named
+// no delivery is typed at through its terminal, which is what every agent was
+// before a harness could deliver a mention itself. An agent declaring native
+// delivery is never typed at — its own server is watching the same feed.
+//
 // A token the provider does not know is Unauthenticated: nothing places its
 // holder, so there is nowhere to put them and no reason to believe the token.
 // A provider lookup that merely fails is Unavailable instead — turning a caller
@@ -60,6 +67,14 @@ func (s *Service) Attend(
 	if err != nil {
 		return err
 	}
+	harness, err := harnessOf(req.GetHarness())
+	if err != nil {
+		return err
+	}
+	nudge, err := nudgeOf(req.GetNudge())
+	if err != nil {
+		return err
+	}
 	info, err := s.provider.Resolve(ctx, token)
 	switch {
 	case errors.Is(err, resolver.ErrUnknownToken):
@@ -79,11 +94,13 @@ func (s *Service) Attend(
 	defer s.store.events.unsubscribe(sub)
 
 	self, err := s.store.Attend(ctx, Member{
-		Token: token,
-		Name:  s.attendName(req.GetName(), info, token, kind),
-		Team:  info.Team,
-		Room:  info.Room,
-		Kind:  kind,
+		Token:   token,
+		Name:    s.attendName(req.GetName(), info, token, kind),
+		Team:    info.Team,
+		Room:    info.Room,
+		Kind:    kind,
+		Harness: harness,
+		Nudge:   nudge,
 	})
 	if err != nil {
 		return storeStatus(err)

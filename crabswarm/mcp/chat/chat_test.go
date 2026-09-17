@@ -199,7 +199,8 @@ func TestServer_ToolsAnswerWithTheCLIWording(t *testing.T) {
 		},
 		{
 			name: "chat_members",
-			want: "backend/alice  agent  working\nfrontend/bob  human  done\n",
+			want: "backend/alice  agent  working  -  -\n" +
+				"frontend/bob  human  done  -  -\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -106,6 +106,31 @@ func TestService_SendToEveryoneNudgesEveryAgentButTheSender(t *testing.T) {
 	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob", "alpha/dave"})
 }
 
+// An agent whose own server delivers its mentions is mentioned like any other
+// and typed at like none: the message reaches it down the room's feed, and a
+// keystroke on top of that would wake it twice. It holds for a named role and
+// for the whole room alike, since the two walk different lists.
+func TestService_SendSkipsTheAgentsDeliveringTheirOwnMentions(t *testing.T) {
+	svc, provider, notifier := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+	nativeAgent(t, svc, provider, "tok-n", testRoom, "alpha", "nina")
+
+	res := sendAs(t, svc, "tok-a", to("bob", "nina"), "both of you")
+	assert.DeepEqual(t, addresses(res.GetMentioned()), []string{"alpha/bob", "alpha/nina"})
+	assert.Equal(t, len(res.GetAbsent()), 0)
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob"})
+
+	sendAs(t, svc, "tok-a", everyone(), "deploying")
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob", "alpha/bob"})
+
+	// Not delivered is not the same as not mentioned: the message is waiting to
+	// be read, which is what the member's own server hands it.
+	read, err := svc.Read(callCtx(t, "tok-n"), &chatv1.ReadRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, len(read.GetMessages()), 2)
+}
+
 // A board post is addressed to nobody: it sits in the room for whoever comes
 // looking, and interrupts no one on the way.
 func TestService_SendPostNudgesNobody(t *testing.T) {
@@ -193,6 +218,45 @@ func TestService_ReadDefaultsToWhatTheCallerHasNotSeen(t *testing.T) {
 	read, err = svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
 	assert.NilError(t, err)
 	assert.Equal(t, len(read.GetMessages()), 0)
+}
+
+// CountUnread answers the question a read cannot be used to ask: how much is
+// waiting, without consuming it. A caller deciding whether to wake its agent
+// asks this and reads afterwards.
+func TestService_CountUnreadShowsNothingAndConsumesNothing(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+
+	count, err := svc.CountUnread(callCtx(t, "tok-b"), &chatv1.CountUnreadRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, count.GetUnreadMentions(), int32(0))
+
+	sendAs(t, svc, "tok-a", to("bob"), "one")
+	sendAs(t, svc, "tok-a", everyone(), "two")
+	// Neither of these is bob's unread, so neither is counted.
+	sendAs(t, svc, "tok-a", nil, "three")
+	sendAs(t, svc, "tok-b", everyone(), "four")
+
+	for range 2 {
+		count, err = svc.CountUnread(callCtx(t, "tok-b"), &chatv1.CountUnreadRequest{})
+		assert.NilError(t, err)
+		assert.Equal(t, count.GetUnreadMentions(), int32(2))
+	}
+
+	// Both are still there afterwards, which is the whole point of asking.
+	read, err := svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, messageTexts(read.GetMessages()), []string{"one", "two"})
+
+	count, err = svc.CountUnread(callCtx(t, "tok-b"), &chatv1.CountUnreadRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, count.GetUnreadMentions(), int32(0))
+
+	// It is a member verb like any other: a token nobody attends under is
+	// refused rather than answered with a count of nothing.
+	_, err = svc.CountUnread(callCtx(t, "tok-stranger"), &chatv1.CountUnreadRequest{})
+	assert.Equal(t, status.Code(err), codes.Unauthenticated)
 }
 
 func TestService_ReadHonoursTheFilter(t *testing.T) {

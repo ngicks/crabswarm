@@ -44,6 +44,43 @@ func TestStore_AttendRecordsAndRefusesASecondStream(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+// The harness and the delivery are kept as declared, and an agent that declared
+// no delivery is typed at through its terminal — which is how every agent was
+// reached before a harness could deliver a mention itself, so a client still
+// speaking the older schema keeps working. A human declares neither and is
+// given neither: nothing is ever pushed at one.
+func TestStore_AttendKeepsTheHarnessAndDefaultsTheDelivery(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	native, err := s.Attend(t.Context(), Member{
+		Token: "tok-n", Name: "nina", Team: "alpha", Room: testRoom,
+		Kind: KindAgent, Harness: HarnessCodex, Nudge: NudgeNative,
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, native.Harness, HarnessCodex)
+	assert.Equal(t, native.Nudge, NudgeNative)
+
+	silent, err := s.Attend(t.Context(), Member{
+		Token: "tok-s", Name: "sam", Team: "alpha", Room: testRoom, Kind: KindAgent,
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, silent.Harness, Harness(""))
+	assert.Equal(t, silent.Nudge, NudgeTerminal)
+
+	person, err := s.Attend(t.Context(), Member{
+		Token: "tok-h", Name: "hana", Team: "alpha", Room: testRoom, Kind: KindHuman,
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, person.Harness, Harness(""))
+	assert.Equal(t, person.Nudge, NudgeDelivery(""))
+
+	// And what was recorded is what comes back, since the attendance is read
+	// from the same map the roster is drawn from.
+	got, err := s.Member(t.Context(), "tok-n")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, got, native)
+}
+
 func TestStore_AttendValidates(t *testing.T) {
 	s, _ := newTestStore(t)
 

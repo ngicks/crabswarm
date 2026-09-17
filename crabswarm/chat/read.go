@@ -95,6 +95,57 @@ func (s *Store) Read(ctx context.Context, role Sender, f ReadFilter) ([]Message,
 	return messages, int(remaining), nil
 }
 
+// CountUnread reports how many messages past role's read position mention it:
+// the same count [Store.Read] leaves behind, asked for on its own.
+//
+// It moves nothing. A caller that only wants to know whether there is anything
+// waiting — before waking an agent that has just reattended, or one that
+// reported itself done — would otherwise have to read, which consumes the very
+// mentions it was asking about.
+//
+// A role that has never attended the room has no position to count from and is
+// [ErrUnknownRole].
+func (s *Store) CountUnread(ctx context.Context, role Sender) (int, error) {
+	if role.Room == "" {
+		return 0, fmt.Errorf("counting unread: empty room")
+	}
+	if err := validateName(role.Team, role.Name); err != nil {
+		return 0, fmt.Errorf("counting unread: %w", err)
+	}
+
+	var unread int64
+	err := s.tx(ctx, func(q *db.Queries) error {
+		position, err := q.ReadPosition(ctx, db.ReadPositionParams{
+			Room: role.Room,
+			Team: role.Team,
+			Name: role.Name,
+		})
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("counting unread of %q in room %q: %w",
+				role.Team+"/"+role.Name, role.Room, ErrUnknownRole)
+		}
+		if err != nil {
+			return fmt.Errorf("reading position of %q in room %q: %w",
+				role.Team+"/"+role.Name, role.Room, err)
+		}
+		unread, err = q.CountUnreadMentions(ctx, db.CountUnreadMentionsParams{
+			Room:     role.Room,
+			After:    position,
+			RoleTeam: role.Team,
+			RoleName: role.Name,
+		})
+		if err != nil {
+			return fmt.Errorf("counting unread of %q in room %q: %w",
+				role.Team+"/"+role.Name, role.Room, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(unread), nil
+}
+
 // ReadRoom is [Store.Read] on nobody's behalf: the same filter over a named
 // room, for the host operator who reads a room without attending it. It moves
 // no read position and marks nothing as mentioning the reader.

@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"gotest.tools/v3/assert"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
 // The cursor stops on team headings and on members alike, and enter on a member
@@ -105,10 +107,50 @@ func TestTheMembersCursorMoves(t *testing.T) {
 	assert.Equal(t, m.text.Value(), "")
 }
 
-// A name wider than its column is cut, and the row still reads to the end. The
-// state word is the last thing on the line and the thing the pane is read for —
-// whether the member can be interrupted right now — so a name allowed to push
-// the row wider would take exactly that off the screen when the pane clips.
+// A member's row says what it runs and by what route a mention gets to it,
+// beside what it is and what it is doing. An operator watching a room reads off
+// one line whether the member is even typed at, which is what tells a nudge
+// that never arrived from one that was never sent.
+func TestARosterRowSpellsTheHarnessAndTheDelivery(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		member *chatv1.Member
+		want   string
+	}{
+		{
+			name: "an agent its server delivers to",
+			member: &chatv1.Member{
+				Team: "backend", Name: "nina", Room: fixtureRoom,
+				Kind:    chatv1.MemberKind_MEMBER_KIND_AGENT,
+				State:   chatv1.HarnessState_HARNESS_STATE_DONE,
+				Harness: chatv1.Harness_HARNESS_CLAUDE_CODE,
+				Nudge:   chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE,
+			},
+			want: " nina       agent done claude-code native",
+		},
+		{
+			// A person runs no harness and is never pushed to, so both columns
+			// say nothing was declared rather than naming something they are not.
+			name: "a person",
+			member: &chatv1.Member{
+				Team: "humans", Name: "yuki", Room: fixtureRoom,
+				Kind:  chatv1.MemberKind_MEMBER_KIND_HUMAN,
+				State: chatv1.HarnessState_HARNESS_STATE_DONE,
+			},
+			want: " yuki       human done - -",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			row := rosterRow{team: tc.member.GetTeam(), member: tc.member}
+			assert.Equal(t, row.text(), tc.want)
+		})
+	}
+}
+
+// A name wider than its column is cut, and what the pane is read for still
+// makes the row: whether the member can be interrupted right now. A name
+// allowed to push the row wider would take exactly that off the screen when the
+// pane clips, since what follows the state is what a narrow pane drops first.
 func TestALongNameDoesNotPushTheStateOffTheRow(t *testing.T) {
 	m := fixtureModel(t, Deps{})
 	m.roster = fixtureDerivedName()

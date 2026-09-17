@@ -312,7 +312,16 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	//
 	// Always as an agent: this server is started by a harness and serves
 	// nothing else, so the terminal behind it is one a nudge belongs in.
-	attendance, err := s.client.Attend(actx, token, "", chatv1.MemberKind_MEMBER_KIND_AGENT)
+	//
+	// The harness goes unnamed and the delivery is the terminal one, which is
+	// how every agent has been reached so far. Reading the harness off the MCP
+	// handshake and delivering a mention through its own channel is work this
+	// server does not do yet, and declaring either before it does would have the
+	// daemon stop typing at a member nothing else would reach.
+	attendance, err := s.client.Attend(actx, token, "",
+		chatv1.MemberKind_MEMBER_KIND_AGENT,
+		chatv1.Harness_HARNESS_UNSPECIFIED,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 	if !opening.Stop() && err != nil {
 		err = errors.New("the daemon did not answer the attendance within " +
 			attendTimeout.String())

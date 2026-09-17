@@ -701,13 +701,15 @@ func TestChat(t *testing.T) {
 	// Members: everyone in the room, across teams. The first column is the role
 	// a target names, and the kind and the state follow it — the kind says
 	// whether a message reaches that member on its own, which is what the sender
-	// wants to know before waiting for an answer.
+	// wants to know before waiting for an answer. The last two say which CLI the
+	// member runs and how a mention gets to it: a bridge names no harness, and
+	// it is typed at through its terminal.
 	roster := lines(runChat(t, cfg, "tok-ana", "members"))
 	slices.Sort(roster)
 	want := []string{
-		chatBridgeAna + "  agent  done",
-		chatBridgeBob + "  agent  done",
-		chatBridgeCid + "  agent  done",
+		chatBridgeAna + "  agent  done  -  terminal",
+		chatBridgeBob + "  agent  done  -  terminal",
+		chatBridgeCid + "  agent  done  -  terminal",
 	}
 	if !slices.Equal(roster, want) {
 		t.Errorf("members = %v, want %v", roster, want)

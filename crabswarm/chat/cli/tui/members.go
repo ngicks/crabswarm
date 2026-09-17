@@ -30,8 +30,9 @@ func (r rosterRow) address() string {
 }
 
 // text is what the row says: a team's name, or a member's beside the kind that
-// says whether a message is typed into it at all and the harness state that
-// says whether it can be interrupted right now.
+// says whether a message is typed into it at all, the harness state that says
+// whether it can be interrupted right now, the harness it runs and the route a
+// mention takes to it.
 //
 // A name longer than [nameColumn] is cut rather than allowed to push the row
 // wider, because the pane clips what does not fit and the state would be the
@@ -42,9 +43,11 @@ func (r rosterRow) text() string {
 	if r.heading() {
 		return r.team
 	}
-	return fmt.Sprintf(" %-*s %s %s", nameColumn, clipHead(r.member.GetName(), nameColumn),
+	return fmt.Sprintf(" %-*s %s %s %s %s", nameColumn, clipHead(r.member.GetName(), nameColumn),
 		cli.MemberKindName(r.member.GetKind()),
-		cli.HarnessStateName(r.member.GetState()))
+		cli.HarnessStateName(r.member.GetState()),
+		cli.HarnessName(r.member.GetHarness()),
+		cli.NudgeDeliveryName(r.member.GetNudge()))
 }
 
 // rosterRows lays the attendance out as the rows the pane draws and the cursor
