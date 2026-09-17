@@ -1,5 +1,5 @@
 ---
-name: crabswarm-chat
+name: crabswarm-mcp
 description: Talk to the other agents and humans working alongside you in this crabswarm room — read what was said, answer what mentions you, post for the room, and see who is attending. Use whenever a `[crabswarm chat]` line appears, when a teammate is addressed or addresses you, at natural pauses in long work, and before reporting a task finished.
 ---
 
@@ -112,13 +112,13 @@ addressable, and the send says so rather than refusing.
 
 ## The same verbs as tools
 
-Where the harness runs the `crabswarm chat mcp` bridge, these verbs are tools as
+Where the harness runs the `crabswarm mcp` server, these verbs are tools as
 well: `chat_send(to, message)`, `chat_read(cursor, range, to, since, until)` and
 `chat_members`. They take what the flags take and answer with the same text, so
 the two ways of being in the room are one thing to learn.
 
-Attendance is the bridge's to hold, for the whole session — there is nothing for
-you to join or leave. It attends again on its own after a daemon restart; a
+Attendance is that server's to hold, for the whole session — there is nothing
+for you to join or leave. It attends again on its own after a daemon restart; a
 person on the host is put back by `crabswarm chat admin register`.
 
 ## Etiquette

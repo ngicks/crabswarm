@@ -30,8 +30,8 @@ member verb carries, which is taken from --token, else $CRABSWARM_CHAT_TOKEN,
 else $CMDMAN_CMD_ID. Anything cmdman runs — a harness or the shell someone
 types in — inherits the last one and needs no setup.
 
-Attending is not a verb. An agent attends through the bridge
-` + "`crabswarm chat mcp`" + `, which holds the attendance for the whole session and
+Attending is not a verb. An agent attends through the MCP server
+` + "`crabswarm mcp`" + `, which holds the attendance for the whole session and
 is what its terminal is nudged through; a person is put in attendance by
 ` + "`chat admin register`" + `, which prints the token to pass back, and stays there
 until the daemon restarts.
@@ -67,7 +67,6 @@ token. Attending no room, its verbs name the room they act on.`,
 	chatReadCmd(cmd, flags)
 	chatMembersCmd(cmd, flags)
 	chatReportStateCmd(cmd, flags)
-	chatMCPCmd(cmd, flags)
 	chatAdminCmd(cmd, flags)
 
 	parent.AddCommand(cmd)

@@ -2,10 +2,19 @@
 
 ## Unreleased
 
-- The `crabswarm-chat` and `crabswarm-issues-lint` packages ship their Claude
+- `crabswarm mcp` is the MCP server a harness spawns per agent, and it replaces
+  `crabswarm chat mcp`, which is gone. The server is named for crabswarm rather
+  than for chat because chat is the first family of tools it carries, not the
+  last. The apm package that wires it is `crabswarm-mcp`, and the MCP server it
+  declares is named `crabswarm-mcp` too: delete the old `crabswarm-chat` server
+  entry from Claude Code's user-scope config, from
+  `[mcp_servers.crabswarm-chat]` in `.codex/config.toml` and from
+  `opencode.json`, or the harness starts two servers on one identity token and
+  the second never attends.
+- The `crabswarm-mcp` and `crabswarm-issues-lint` packages ship their Claude
   Code wiring as skills-directory plugins. apm copies each package's skill
   directory, which now carries `.claude-plugin/plugin.json`, `hooks/hooks.json`
-  and, for `crabswarm-chat`, `.mcp.json`; Claude Code loads the directory as
+  and, for `crabswarm-mcp`, `.mcp.json`; Claude Code loads the directory as
   `<name>@skills-dir` and merges nothing into `settings.json`. A hook a later
   version drops disappears with its file. Codex keeps a merged hooks file,
   routed to Codex alone by its `codex-hooks.json` stem.
@@ -15,9 +24,9 @@
   removes them, and each such hook otherwise runs twice on Claude Code.
 - `crabswarm-issues-lint` gains a skill that explains a lint finding and how to
   fix the issue text.
-- `crabswarm-chat` targets OpenCode. Its skill directory carries `opencode.ts`,
-  an OpenCode plugin that declares the bridge, reports the session's state and
-  delivers messages, wired once through `"plugin": ["./skills/crabswarm-chat/opencode.ts"]`
+- `crabswarm-mcp` targets OpenCode. Its skill directory carries `opencode.ts`,
+  an OpenCode plugin that declares the server, reports the session's state and
+  delivers messages, wired once through `"plugin": ["./skills/crabswarm-mcp/opencode.ts"]`
   in `opencode.json`.
 - The chat database has a new layout: rooms, messages, mentions and read
   positions, with no members table and no token on disk. Delete the old
@@ -66,8 +75,8 @@
 - An attendee that asks for no name, and whose provider derives none, defaults
   to `agent-<token prefix>` or `human-<token prefix>`, matching the kind it
   declared.
-- The `crabswarm-chat` package forwards `CMDMAN_CMD_ID`, `CRABSWARM_CHAT_TOKEN`
-  and `XDG_RUNTIME_DIR` to the bridge, so Codex spawns it with an identity token
+- The `crabswarm-mcp` package forwards `CMDMAN_CMD_ID`, `CRABSWARM_CHAT_TOKEN`
+  and `XDG_RUNTIME_DIR` to the server, so Codex spawns it with an identity token
   and the runtime dir the socket path comes from.
 - The default socket path probes `/run/user/<uid>` when `XDG_RUNTIME_DIR` is
   unset, and falls back to `/tmp` only when that directory is missing.

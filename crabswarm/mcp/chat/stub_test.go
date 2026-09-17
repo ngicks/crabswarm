@@ -1,4 +1,4 @@
-package mcpserver
+package chat
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
-	"github.com/ngicks/crabswarm/crabswarm/chat"
+	chatsvc "github.com/ngicks/crabswarm/crabswarm/chat"
 )
 
 func member(team, name, room string) *chatv1.Member {
@@ -31,10 +31,10 @@ func rolesTarget(members ...*chatv1.Member) *chatv1.Target {
 }
 
 // fakeChatService answers the member RPCs with canned data and keeps the
-// requests it received, so a test can assert what the bridge put on the wire.
+// requests it received, so a test can assert what the tools put on the wire.
 //
 // It is the stub crabswarm/chat/cli's tests drive, with a mutex added: the
-// bridge holds its attendance on a goroutine of its own while tool calls run,
+// server holds its attendance on a goroutine of its own while tool calls run,
 // so two goroutines reach these fields at once. Copied rather than shared,
 // because sharing would mean exporting a test double from non-test code.
 type fakeChatService struct {
@@ -52,15 +52,15 @@ type fakeChatService struct {
 	// is the only synchronisation either side needs.
 	events chan *chatv1.RoomEvent
 	// drops carries the error a held attendance ends with, which is how a test
-	// plays a daemon that closed the stream while the bridge was reading it.
+	// plays a daemon that closed the stream while the server was reading it.
 	// Unbuffered for the reason events is.
 	drops chan error
 
 	mu sync.Mutex
 	// err, when set, fails every RPC — the daemon rejecting what the caller
 	// asked for rather than being unreachable. It is guarded because a test may
-	// flip it mid-session with [fakeChatService.setErr], which is how a daemon
-	// that refuses a bridge until it is ready is played.
+	// flip it mid-session, which is how a daemon that refuses a caller until it
+	// is ready is played.
 	err     error
 	attend  *chatv1.AttendRequest
 	opens   int
@@ -156,30 +156,21 @@ func (f *fakeChatService) ListMembers(
 	return &chatv1.ListMembersResponse{Members: f.members}, nil
 }
 
-// setErr changes what every RPC answers with from here on, so a test can play a
-// daemon that refuses a bridge and then admits it.
-func (f *fakeChatService) setErr(err error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.err = err
-}
-
 func (f *fakeChatService) lastAttend() *chatv1.AttendRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.attend
 }
 
-// openCount is how many times attendance was asked for, refusals included,
-// which is what pins a bridge that keeps asking.
+// openCount is how many times attendance was asked for, refusals included.
 func (f *fakeChatService) openCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.opens
 }
 
-// attendCount is how many of those were admitted, which is what pins the bridge
-// being a member rather than trying to become one.
+// attendCount is how many of those were admitted, which is what pins the tools
+// acting as a member rather than as somebody trying to become one.
 func (f *fakeChatService) attendCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -206,9 +197,9 @@ func (f *fakeChatService) readCount() int {
 
 // serveTestDaemon starts the stub on a Unix socket behind the daemon's own
 // token interceptors and returns the socket path. A real socket rather than a
-// bufconn because [New] takes a path and dials it itself, which is the half of
-// startup worth exercising. Both interceptors, because attendance is a stream
-// and a unary interceptor never sees one.
+// bufconn because the server takes a path and dials it itself, which is the
+// half of startup worth exercising. Both interceptors, because attendance is a
+// stream and a unary interceptor never sees one.
 func serveTestDaemon(t *testing.T, svc chatv1.ChatServiceServer) string {
 	t.Helper()
 
@@ -217,8 +208,8 @@ func serveTestDaemon(t *testing.T, svc chatv1.ChatServiceServer) string {
 	assert.NilError(t, err)
 
 	srv := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()),
-		grpc.ChainStreamInterceptor(chat.StreamTokenInterceptor()),
+		grpc.ChainUnaryInterceptor(chatsvc.UnaryTokenInterceptor()),
+		grpc.ChainStreamInterceptor(chatsvc.StreamTokenInterceptor()),
 	)
 	chatv1.RegisterChatServiceServer(srv, svc)
 	go func() { _ = srv.Serve(lis) }()

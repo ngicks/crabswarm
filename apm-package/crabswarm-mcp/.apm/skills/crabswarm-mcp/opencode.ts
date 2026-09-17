@@ -1,4 +1,4 @@
-// OpenCode plugin: the crabswarm-chat wiring for a harness that has no hook
+// OpenCode plugin: the crabswarm-mcp wiring for a harness that has no hook
 // file. OpenCode loads JavaScript or TypeScript plugins and delivers session,
 // permission and tool events to them, so this file is the counterpart of
 // hooks/hooks.json: every handler maps one OpenCode event onto one
@@ -16,7 +16,7 @@ const DELIVERED_MID_TURN =
 const DELIVERED_AT_IDLE =
   "[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, which is every line marked [mentioned you], reply with `crabswarm chat send <everyone|role[,role...]> <text>`, then finish."
 
-// The variables the bridge cannot work without, forwarded to the MCP server
+// The variables the server cannot work without, forwarded to the MCP server
 // the same way the Codex declaration's env_vars and the Claude Code plugin's
 // env entries forward them.
 const FORWARDED = ["CMDMAN_CMD_ID", "CRABSWARM_CHAT_TOKEN", "XDG_RUNTIME_DIR"]
@@ -62,20 +62,20 @@ export const CrabswarmChat = async ({ client, $ }: { client: Client; $: Shell })
   }
 
   return {
-    // The bridge is what attends the room; declaring it here is what makes
+    // The MCP server is what attends the room; declaring it here is what makes
     // the plugin the whole install. A server the operator declared by hand
     // wins over this one.
     config: async (cfg: { mcp?: Record<string, unknown> }) => {
       cfg.mcp ??= {}
-      if (cfg.mcp["crabswarm-chat"]) return
+      if (cfg.mcp["crabswarm-mcp"]) return
       const environment: Record<string, string> = {}
       for (const name of FORWARDED) {
         const value = process.env[name]
         if (value) environment[name] = value
       }
-      cfg.mcp["crabswarm-chat"] = {
+      cfg.mcp["crabswarm-mcp"] = {
         type: "local",
-        command: ["crabswarm", "chat", "mcp"],
+        command: ["crabswarm", "mcp"],
         enabled: true,
         environment,
       }

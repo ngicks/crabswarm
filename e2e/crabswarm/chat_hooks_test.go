@@ -23,7 +23,7 @@ import (
 // runs the shipped command string verbatim rather than a Go paraphrase of it:
 // the wiring is a text file no compiler ever sees, and a template that renders
 // the wrong thing is exactly the bug that costs a message.
-var chatHooksPath = []string{".apm", "skills", "crabswarm-chat", "hooks", "hooks.json"}
+var chatHooksPath = []string{".apm", "skills", "crabswarm-mcp", "hooks", "hooks.json"}
 
 // chatHookConfig is the hook file's shape on both harnesses: events, each
 // holding matcher groups, each holding the commands to run.
@@ -47,7 +47,7 @@ type chatHookEntry struct {
 func readChatHooks(t *testing.T) chatHookConfig {
 	t.Helper()
 	path := filepath.Join(append(
-		[]string{repoRoot(), "apm-package", "crabswarm-chat"}, chatHooksPath...)...)
+		[]string{repoRoot(), "apm-package", "crabswarm-mcp"}, chatHooksPath...)...)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read hook file %s: %v", path, err)
@@ -561,8 +561,8 @@ func TestChatHooks_UnparseableEnvelopeFailsWithoutBlocking(t *testing.T) {
 // breaks on every consumer that installed only the hook file.
 func TestChatHooks_AreSelfContained(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(
-		repoRoot(), "apm-package", "crabswarm-chat", "scripts")); err == nil {
-		t.Error("apm-package/crabswarm-chat/scripts exists again; the hooks ship no scripts")
+		repoRoot(), "apm-package", "crabswarm-mcp", "scripts")); err == nil {
+		t.Error("apm-package/crabswarm-mcp/scripts exists again; the hooks ship no scripts")
 	}
 	for event, groups := range readChatHooks(t).Hooks {
 		for _, g := range groups {

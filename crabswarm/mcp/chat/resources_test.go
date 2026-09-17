@@ -1,9 +1,7 @@
-package mcpserver
+package chat
 
 import (
 	"context"
-	"errors"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -13,11 +11,12 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+	crabmcp "github.com/ngicks/crabswarm/crabswarm/mcp"
 )
 
-// eventTimeout bounds how long a test waits on something the bridge does off
+// eventTimeout bounds how long a test waits on something the server does off
 // its own goroutines — announcing a change, attending again. Generous enough to
-// ride out a loaded machine and the retry backoff, short enough that a bridge
+// ride out a loaded machine and the retry backoff, short enough that a server
 // that never does it fails instead of hanging the suite.
 const eventTimeout = 5 * time.Second
 
@@ -58,17 +57,15 @@ func messageAppendedEvent(from *chatv1.Member, text string) *chatv1.RoomEvent {
 	}
 }
 
-// watchedUpdates runs bridge under a harness that records what it announces,
-// and returns the session beside the URIs as they arrive. The bridge is the
-// caller's to build, since a case about attending again has to set the pace it
-// retries at.
+// watchedUpdates runs server under a harness that records what it announces,
+// and returns the session beside the URIs as they arrive.
 func watchedUpdates(
-	t *testing.T, bridge *Server,
+	t *testing.T, server *crabmcp.Server,
 ) (*mcp.ClientSession, <-chan string) {
 	t.Helper()
 
 	updated := make(chan string, 8)
-	session := serveBridge(t, bridge, &mcp.ClientOptions{
+	session := serveBridge(t, server, &mcp.ClientOptions{
 		ResourceUpdatedHandler: func(
 			_ context.Context, req *mcp.ResourceUpdatedNotificationRequest,
 		) {
@@ -91,12 +88,12 @@ func pushEvent(t *testing.T, svc *fakeChatService, ev *chatv1.RoomEvent) {
 	}
 }
 
-// subscribeToRoster subscribes to the roster and returns once the bridge is
+// subscribeToRoster subscribes to the roster and returns once the server is
 // announcing to the subscription.
 //
 // Waiting is what makes the cases below deterministic. The SDK's Subscribe
 // returns before the server has recorded the subscription, and the feed runs
-// from the moment the bridge attends, so an event pushed straight after
+// from the moment the server attends, so an event pushed straight after
 // subscribing is regularly announced to nobody. The helper keeps pushing until
 // one lands, then waits for the channel to go quiet, so the case that follows
 // starts from a subscription that works and an inbox with nothing left in it.
@@ -129,7 +126,7 @@ func subscribeToRoster(
 	}
 }
 
-// dropFeed ends the attendance the bridge is holding, the way the daemon does
+// dropFeed ends the attendance the server is holding, the way the daemon does
 // when it goes away or drops a reader that fell behind. It returns once the
 // stub has taken the error, so the attendance the next assertion is about is
 // the one that comes after this.
@@ -150,13 +147,13 @@ func nextUpdate(t *testing.T, updated <-chan string) string {
 	case uri := <-updated:
 		return uri
 	case <-time.After(eventTimeout):
-		t.Fatal("the bridge announced nothing")
+		t.Fatal("the server announced nothing")
 		return ""
 	}
 }
 
 // noMoreUpdates asserts that nothing further is announced. The wait is short:
-// it is bounding a notification the bridge would already have sent, not one it
+// it is bounding a notification the server would already have sent, not one it
 // is expected to get around to.
 func noMoreUpdates(t *testing.T, updated <-chan string) {
 	t.Helper()
@@ -272,7 +269,7 @@ func TestServer_AnnouncesTheRosterWhenTheRoomChanges(t *testing.T) {
 	noMoreUpdates(t, updated)
 }
 
-// The feed runs from the moment the bridge attends, because it is the
+// The feed runs from the moment the server attends, because it is the
 // attendance: holding the stream is what makes this member one. A session that
 // has not subscribed is told nothing about it, which is the SDK's business, and
 // it does not.
@@ -285,7 +282,7 @@ func TestServer_HoldsTheFeedBeforeAnythingSubscribes(t *testing.T) {
 	session, updated := watchedUpdates(t, newTestBridge(t, fake))
 
 	// The feed is up once it can carry an event, and nothing was subscribed to
-	// carry it to. One attendance, not several: the bridge attends from the
+	// carry it to. One attendance, not several: the server attends from the
 	// start and the stream it opened is still the one it is reading.
 	pushEvent(t, fake, joinedEvent(member("ops", "carol", testRoom)))
 	assert.Equal(t, fake.attendCount(), 1)
@@ -298,67 +295,9 @@ func TestServer_HoldsTheFeedBeforeAnythingSubscribes(t *testing.T) {
 	assert.Equal(t, nextUpdate(t, updated), membersURI)
 }
 
-// unwatchable is a URI the bridge does not serve, spelled as one a harness
-// might plausibly have reached for.
-const unwatchable = "crabswarm://chat/history"
-
-// assertNotFound asserts uri was refused as the missing resource the SDK
-// spells. Pinned as that error rather than as any error at all: it is what
-// tells a harness the URI is not one this bridge has, so it stops waiting on
-// news that could never come.
-func assertNotFound(t *testing.T, uri string, err error) {
-	t.Helper()
-
-	assert.Assert(t, errors.Is(err, mcp.ResourceNotFoundError(uri)),
-		"%s was not refused as a missing resource: %v", uri, err)
-}
-
-// Only the roster may be subscribed to. A URI the bridge does not serve is
-// refused because the SDK would otherwise record a subscription for whatever it
-// was handed and leave the harness waiting.
-//
-// The handler is exercised directly because the protocol the SDK negotiates
-// here opens a subscription without waiting for the answer, so a refusal never
-// reaches the client as the error of a call.
-func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
-	bridge, err := New(slog.New(slog.DiscardHandler),
-		serveTestDaemon(t, &fakeChatService{}), testToken)
-	assert.NilError(t, err)
-	t.Cleanup(func() { _ = bridge.client.Close() })
-
-	assertNotFound(t, unwatchable, bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
-		Params: &mcp.SubscribeParams{URI: unwatchable},
-	}))
-	assert.NilError(t, bridge.subscribed(t.Context(), &mcp.SubscribeRequest{
-		Params: &mcp.SubscribeParams{URI: membersURI},
-	}))
-}
-
-// Withdrawing is answered by the same gate as asking: a harness that was
-// refused a subscription has none to withdraw, so telling it the withdrawal
-// succeeded would say it had had one.
-//
-// Exercised directly for the reason the subscribe side is: the SDK does not
-// hand either refusal back as the error of a client call.
-func TestServer_RefusesToUnwatchWhatItCannotAnnounce(t *testing.T) {
-	bridge, err := New(slog.New(slog.DiscardHandler),
-		serveTestDaemon(t, &fakeChatService{}), testToken)
-	assert.NilError(t, err)
-	t.Cleanup(func() { _ = bridge.client.Close() })
-
-	unsubscribe := func(uri string) error {
-		return bridge.unsubscribed(t.Context(), &mcp.UnsubscribeRequest{
-			Params: &mcp.UnsubscribeParams{URI: uri},
-		})
-	}
-
-	assert.NilError(t, unsubscribe(membersURI))
-	assertNotFound(t, unwatchable, unsubscribe(unwatchable))
-}
-
 // A daemon that ended the attendance is answered by attending again — and by
 // saying the roster changed as soon as it is back, because whatever happened
-// while the bridge was away went unannounced and only a re-read can find it.
+// while the server was away went unannounced and only a re-read can find it.
 func TestServer_AnnouncesTheRosterAfterAttendingAgain(t *testing.T) {
 	fake := &fakeChatService{
 		self:    member("backend", "alice", testRoom),
@@ -366,11 +305,7 @@ func TestServer_AnnouncesTheRosterAfterAttendingAgain(t *testing.T) {
 		events:  make(chan *chatv1.RoomEvent),
 		drops:   make(chan error),
 	}
-	// The case is about the attendance coming back, so the loop that brings it
-	// back runs at a pace the case can wait for.
-	bridge := newTestBridge(t, fake)
-	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
-	session, updated := watchedUpdates(t, bridge)
+	session, updated := watchedUpdates(t, newTestBridge(t, fake))
 
 	subscribeToRoster(t, session, fake, updated)
 

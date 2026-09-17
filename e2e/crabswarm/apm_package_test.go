@@ -19,7 +19,7 @@ import (
 // The Codex wiring stays a merged hooks file, routed to Codex alone by its
 // `codex-` stem. Both are text apm copies as written, so their shape is pinned
 // here rather than discovered on a consumer's machine.
-var apmPackages = []string{"crabswarm-chat", "crabswarm-issues-lint"}
+var apmPackages = []string{"crabswarm-mcp", "crabswarm-issues-lint"}
 
 func apmPackageDir(name string) string {
 	return filepath.Join(repoRoot(), "apm-package", name)
@@ -102,7 +102,7 @@ func TestApmPackages_ShipAClaudePlugin(t *testing.T) {
 // the wrong words. The wording is pinned by its opening, which is what an
 // agent recognises.
 func TestApmPackages_OpenCodePluginSpeaksLikeTheHooks(t *testing.T) {
-	plugin, err := os.ReadFile(filepath.Join(apmSkillPluginDir("crabswarm-chat"), "opencode.ts"))
+	plugin, err := os.ReadFile(filepath.Join(apmSkillPluginDir("crabswarm-mcp"), "opencode.ts"))
 	if err != nil {
 		t.Fatalf("read the OpenCode plugin: %v", err)
 	}

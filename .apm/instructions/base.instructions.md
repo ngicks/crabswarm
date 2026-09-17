@@ -53,7 +53,7 @@ Tools to swarm claude(, codex and others!)
 ├── apm-package     APM packages this repo publishes, and consumes back through git dependencies in its own apm.yml. Each ships its Claude Code
 │   │               wiring as a skills-directory plugin (`.apm/skills/<name>/` carrying `.claude-plugin/plugin.json`, `hooks/hooks.json`, `.mcp.json`),
 │   │               which apm copies to `~/.claude/skills/<name>/` and Claude Code loads without touching settings.json; Codex gets `.apm/hooks/codex-hooks.json` merged.
-│   ├── crabswarm-chat         wires a harness (claude / codex / opencode) into its chat room — hooks + skill + the `crabswarm chat mcp` bridge; `opencode.ts` in the skill dir is the OpenCode plugin.
+│   ├── crabswarm-mcp          wires a harness (claude / codex / opencode) into its chat room — hooks + skill + the `crabswarm mcp` server; `opencode.ts` in the skill dir is the OpenCode plugin.
 │   └── crabswarm-issues-lint  the Stop hook above running `crabswarm hook exec 'crabswarm issues lint'`, plus a skill on fixing a finding.
 ├── bin             git-ignore'd bin dir.
 ├── cmd
@@ -68,9 +68,10 @@ Tools to swarm claude(, codex and others!)
 │   │   │           store.go + attendance.go/conversation.go/messages.go/read.go/window.go/rooms.go = SQLite store; delivery.go + notify/ = fan-out and keystroke nudges via cmdman;
 │   │   │           resolver/ = cmdman team-info provider (token -> room/team/name); interceptor.go = per-RPC token auth.
 │   │   ├── cli       Client side: token resolution (token.go), member verbs, admin verbs, and cli/tui = the admin TUI (bubbletea).
-│   │   ├── mcpserver `crabswarm chat mcp`: stdio MCP bridge, one instance per agent; holds the Attend stream for the whole session, retrying until the daemon answers and reopening it after a restart; serves even with no identity token; chat_send/chat_read/chat_members plus the attendance resource over the member plane.
 │   │   ├── notify    Nudging a harness by typing into its cmdman-tracked terminal (SendKeys, gated on reported state).
 │   │   └── internal  cmdman client, sqlc-generated db/, schema/ddl (schema.sql) and schema/queries (rooms.sql, messages.sql, read_positions.sql).
+│   ├── mcp         `crabswarm mcp`: the stdio MCP server, one instance per agent; holds the Attend stream for the whole session, retrying until the daemon answers and reopening it after a restart; serves even with no identity token. Tool families register onto it before it runs.
+│   │   └── chat      The first family: chat_send/chat_read/chat_members plus the `crabswarm://chat/members` resource, all over the member plane.
 │   ├── hook        Claude Code / Codex hook handlers: exec/ (`hook exec` template runner + its Config), path/, audit.go.
 │   ├── issues      Beads backlog reader: every call shells out to `bd ... --json`, nothing opens the database.
 │   │   │           client.go/types.go/convert.go = the bd client; it collapses identical concurrent invocations into one run and
@@ -93,7 +94,7 @@ Tools to swarm claude(, codex and others!)
 │   ├── rules       Some rule guidance sits here.
 │   └── plan        The file-authored ngplan directories (<date>-<NN>-<slug>/), kept as history; new plans are beads epics (see below).
 ├── e2e
-│   └── crabswarm   Process-level tests: TestMain builds the binary once; chat_*.go cover daemon + CLI + hooks + MCP + TUI end to end.
+│   └── crabswarm   Process-level tests: TestMain builds the binary once; chat_*.go and mcp_package_test.go cover daemon + CLI + hooks + MCP + TUI end to end.
 ├── internal        internal helper packages (libver, loggerfactory, templateutil, stdiopipe, cmdsignals, versioninfo).
 ├── pkg
 │   ├── claudehook  helper for claude code hook. Same code can be resued for codex.
@@ -113,7 +114,7 @@ Tools to swarm claude(, codex and others!)
 - Checkout layout: `.bare` is the bare repo; `main/` is the main-branch worktree and every path above is relative to it. Other worktrees (e.g. `web/`) sit beside `main/`. Run `git`, `go`, and `apm` from inside a worktree.
 - Command -> code: `crabswarm a b c` is `cmd/crabswarm/commands/a_b_c.go`, whose RunE calls into `crabswarm/<a>/`. Read the command file first for flags, then follow the call.
 - Runtime state on a dev host: daemon socket `$XDG_RUNTIME_DIR/crabswarm/default.sock`, and where that variable is unset `/run/user/<uid>/crabswarm/default.sock` when the directory is there, else `/tmp/crabswarm/default.sock`; chat DB `~/.local/state/crabswarm/chat.db` (`crabswarm config` prints the resolved paths). The daemon applies the DDL itself on open (`crabswarm/chat/store.go`), creating only the tables that are missing — there is no migration, so a chat.db written before the log-and-read-position layout still starts a daemon and then fails every send and read; remove it before the first start. `chat.history_limit` caps each room's log (0 = the default 1000, negative = no cap).
-- The chat member identity is the token: `--token`, else `$CRABSWARM_CHAT_TOKEN`, else `$CMDMAN_CMD_ID` (`crabswarm/chat/cli/token.go`). Anything running outside a cmdman-tracked command — a bare shell, an MCP server launched by a harness that strips env — resolves no token and is refused by every member verb. Attending is not a verb either: an agent's attendance is the `chat mcp` bridge's open stream, a person's comes from `crabswarm chat admin register`, which mints a token that works from a plain shell and keeps them in attendance until the daemon restarts.
+- The chat member identity is the token: `--token`, else `$CRABSWARM_CHAT_TOKEN`, else `$CMDMAN_CMD_ID` (`crabswarm/chat/cli/token.go`). Anything running outside a cmdman-tracked command — a bare shell, an MCP server launched by a harness that strips env — resolves no token and is refused by every member verb. Attending is not a verb either: an agent's attendance is the open stream `crabswarm mcp` holds, a person's comes from `crabswarm chat admin register`, which mints a token that works from a plain shell and keeps them in attendance until the daemon restarts.
 - `AGENTS.md` / `CLAUDE.md` are generated (git-ignored) from `.apm/instructions/*.md`: edit the source, never the generated files. Never run `apm` (compile, install, ...) inside a worktree such as `main/`; the user regenerates them.
 - Backlog / plans: the issue backlog is the beads database (`bd`) under the repo root's `.beads/`, shared by every worktree — one `task` bead per item, labels as tags, `Discussion:`/`Decision:` comments, close reason as conclusion (`bd list`, `bd search <text> --status all`, `bd show <id>`; see the ngplan skill's `reference/beads.md`). Never `bd dolt push` or `bd hooks install`.
 - Plans live in beads too, one epic labelled `plan` per plan: `description` carries the idea, `design` the plan, `acceptance_criteria` the success criteria, `notes` (`bd update --append-notes`) the status narrative. Steps are child `task`s labelled `step`, ordered by `blocks` so `bd ready` drives execution; a sub-plan is a child epic labelled `plan`; a handoff item is a `task` with `discovered-from:<id>`. Decisions and open questions are `Decision:` / `Discussion:` comments, the idea gate is metadata `idea_gate_passed=YYYY-MM-DD` (absent means the gate was never confirmed), and a finished plan is `bd close --reason`. `doc/plan/<date>-<NN>-<slug>/` holds the file-authored plans (IDEA/PLAN/STATUS/DECISION, + HANDOFF) as history.

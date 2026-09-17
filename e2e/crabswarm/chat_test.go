@@ -494,7 +494,7 @@ const (
 	chatBridgeCid = "beta/agent-tok-cid"
 )
 
-// startChatBridge starts `crabswarm chat mcp` the way a configured harness
+// startChatBridge starts `crabswarm mcp` the way a configured harness
 // does — as a stdio subprocess spoken to over MCP — and returns the session
 // that harness would hold. Connecting is the handshake, so a bridge that failed
 // to serve one fails the test here.
@@ -514,7 +514,7 @@ func startChatBridgeIn(
 	t *testing.T, cfgPath, token string, env []string,
 ) *mcp.ClientSession {
 	t.Helper()
-	args := []string{"chat", "mcp"}
+	args := []string{"mcp"}
 	if cfgPath != "" {
 		args = append(args, "--config", cfgPath)
 	}
@@ -1725,8 +1725,8 @@ func TestChat_BridgeAttendsOnceTheDaemonComesUp(t *testing.T) {
 
 	// The handshake is answered by a bridge with no daemon to attend.
 	bridge := startChatBridge(t, cfg, "tok-ana")
-	if got := bridge.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
-		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	if got := bridge.InitializeResult().ServerInfo.Name; got != "crabswarm-mcp" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-mcp")
 	}
 
 	startChatServe(t, cfg)
@@ -1791,8 +1791,8 @@ func TestChat_BridgeWithoutAnIdentityStillServes(t *testing.T) {
 		"HOME=" + os.Getenv("HOME"),
 		"PATH=" + os.Getenv("PATH"),
 	})
-	if got := session.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
-		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	if got := session.InitializeResult().ServerInfo.Name; got != "crabswarm-mcp" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-mcp")
 	}
 
 	text, failed := chatToolResult(t, session, "chat_members", nil)

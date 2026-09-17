@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "crabswarm-chat": {
+    "crabswarm-mcp": {
       "command": "crabswarm",
-      "args": ["chat", "mcp"],
+      "args": ["mcp"],
       "env": {
         "CMDMAN_CMD_ID": "${CMDMAN_CMD_ID}",
         "CRABSWARM_CHAT_TOKEN": "${CRABSWARM_CHAT_TOKEN}",

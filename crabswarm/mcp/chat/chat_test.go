@@ -1,4 +1,4 @@
-package mcpserver
+package chat
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
+	crabmcp "github.com/ngicks/crabswarm/crabswarm/mcp"
 )
 
 // testToken is spelled out at every call site rather than left to resolution:
@@ -28,9 +29,9 @@ const testToken = "tok-a"
 
 const testRoom = "/work/proj"
 
-// startSession builds a bridge onto the stub and drives it over an in-memory
+// startSession builds a server onto the stub and drives it over an in-memory
 // pipe, returning the session a harness would hold. The transport is the only
-// thing swapped out: the bridge runs its real startup, so every test here sees
+// thing swapped out: the server runs its real startup, so every test here sees
 // the attendance it holds.
 func startSession(t *testing.T, svc *fakeChatService) *mcp.ClientSession {
 	t.Helper()
@@ -38,47 +39,35 @@ func startSession(t *testing.T, svc *fakeChatService) *mcp.ClientSession {
 	return serveBridge(t, newTestBridge(t, svc), nil)
 }
 
-// heldPace is the retry loop's wait for a case that is not about the loop: the
-// first attempt happens as it does in production and the next is due long after
-// the case has finished, so what the stub recorded is what the case itself
-// asked for. The cases about the loop set their own pace.
-const heldPace = time.Hour
-
-// newTestBridge builds a bridge onto the stub with its retry loop held at
-// [heldPace].
-func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
+// newTestBridge builds a server onto the stub with the chat family registered,
+// which is the whole of what a harness gets.
+func newTestBridge(t *testing.T, svc *fakeChatService) *crabmcp.Server {
 	t.Helper()
 
-	bridge, err := New(slog.New(slog.DiscardHandler), serveTestDaemon(t, svc), testToken)
+	server, err := crabmcp.New(
+		slog.New(slog.DiscardHandler), serveTestDaemon(t, svc), testToken)
 	assert.NilError(t, err)
-	runsAt(bridge, heldPace, heldPace)
-	return bridge
+	Register(server)
+	return server
 }
 
-// runsAt sets the loop going at a pace a case can wait for, for the cases that
-// are about it attending again rather than about what one attendance did.
-func runsAt(bridge *Server, base, max time.Duration) {
-	bridge.attendBackoffBase = base
-	bridge.attendBackoffMax = max
-}
-
-// serveBridge runs bridge over an in-memory pipe and returns the session a
+// serveBridge runs server over an in-memory pipe and returns the session a
 // harness would hold.
 func serveBridge(
-	t *testing.T, bridge *Server, opts *mcp.ClientOptions,
+	t *testing.T, server *crabmcp.Server, opts *mcp.ClientOptions,
 ) *mcp.ClientSession {
 	t.Helper()
 
 	serverSide, clientSide := mcp.NewInMemoryTransports()
 	ctx, cancel := context.WithCancel(t.Context())
 	var served errgroup.Group
-	served.Go(func() error { return bridge.serve(ctx, serverSide) })
+	served.Go(func() error { return server.Serve(ctx, serverSide) })
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-harness", Version: "v0"}, opts)
 	session, err := client.Connect(t.Context(), clientSide, nil)
 	assert.NilError(t, err)
 
-	// Waiting for serve to return keeps the bridge's own goroutines from
+	// Waiting for Serve to return keeps the server's own goroutines from
 	// outliving the test that owns the stub they are calling.
 	t.Cleanup(func() {
 		_ = session.Close()
@@ -86,22 +75,6 @@ func serveBridge(
 		_ = served.Wait()
 	})
 	return session
-}
-
-// waitFor blocks until want reports true, failing with why when it never does.
-// The wait is what a case spends on something the bridge does off its own
-// goroutines; the poll is short because everything here is local.
-func waitFor(t *testing.T, why string, want func() bool) {
-	t.Helper()
-
-	deadline := time.Now().Add(eventTimeout)
-	for time.Now().Before(deadline) {
-		if want() {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatalf("%s within %s", why, eventTimeout)
 }
 
 // textOf unwraps the one text block a chat tool answers with.
@@ -178,7 +151,7 @@ func TestServer_ServesTheMemberVerbsAsTools(t *testing.T) {
 }
 
 // A tool answers with exactly what the matching `crabswarm chat` verb prints,
-// down to the trailing newline. That is the promise the bridge makes: a member
+// down to the trailing newline. That is the promise the family makes: a member
 // wired through MCP reads its room in the same words as one typing commands.
 func TestServer_ToolsAnswerWithTheCLIWording(t *testing.T) {
 	fake := &fakeChatService{
@@ -239,10 +212,10 @@ func TestServer_ToolsAnswerWithTheCLIWording(t *testing.T) {
 		})
 	}
 
-	// The bridge attends before it acts, under the name the daemon derives
+	// The server attends before a tool acts, under the name the daemon derives
 	// from the token, and always as an agent: a harness is the only thing that
-	// starts a bridge, and a message reaching it should be typed into the
-	// terminal it runs in.
+	// starts one, and a message reaching it should be typed into the terminal
+	// it runs in.
 	assert.Assert(t, fake.lastAttend() != nil)
 	assert.Equal(t, fake.lastAttend().GetName(), "")
 	assert.Equal(t, fake.lastAttend().GetKind(), chatv1.MemberKind_MEMBER_KIND_AGENT)
@@ -321,7 +294,7 @@ func TestServer_RefusesAnUnknownCursorWithoutReading(t *testing.T) {
 	assert.Equal(t, fake.readCount(), 0)
 }
 
-// A daemon that refuses the token leaves the bridge running: the harness keeps
+// A daemon that refuses the token leaves the server running: the harness keeps
 // a live MCP server that says why every call fails, rather than a subprocess
 // that died during startup with nothing to read about it.
 func TestServer_RefusedAttendanceDegradesToErroringTools(t *testing.T) {
@@ -364,58 +337,7 @@ func TestServer_AttendsOnceForTheWholeSession(t *testing.T) {
 	assert.Equal(t, fake.openCount(), 1)
 }
 
-// A bridge whose daemon refuses it keeps asking, past any handful of attempts.
-// A harness starts its MCP subprocesses before the services they talk to, so
-// the daemon regularly arrives late; a bridge that stopped asking would leave
-// the room a member short until the agent happened to call a tool.
-func TestServer_KeepsAttendingUntilTheDaemonAdmitsIt(t *testing.T) {
-	fake := &fakeChatService{
-		self: member("backend", "alice", testRoom),
-		err:  status.Error(codes.Unauthenticated, "unknown identity token"),
-	}
-	bridge := newTestBridge(t, fake)
-	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
-	serveBridge(t, bridge, nil)
-
-	// More attempts than a bounded retry would have made.
-	waitFor(t, "the bridge stopped asking to attend", func() bool {
-		return fake.openCount() > 5
-	})
-
-	fake.setErr(nil)
-	waitFor(t, "the bridge never attended once the daemon admitted it", func() bool {
-		return fake.attendCount() == 1
-	})
-}
-
-// The attendance is the stream, so a daemon that closes it has taken the
-// membership with it — a restart, a reaped command, a watcher dropped for
-// falling behind. The bridge opens it again with nothing asking it to, which is
-// what the agent's hooks need: they report harness state through the CLI and
-// are refused for as long as the room is missing the member.
-func TestServer_AttendsAgainAfterTheDaemonEndsTheStream(t *testing.T) {
-	fake := &fakeChatService{
-		self:   member("backend", "alice", testRoom),
-		events: make(chan *chatv1.RoomEvent),
-		drops:  make(chan error),
-	}
-	bridge := newTestBridge(t, fake)
-	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
-	serveBridge(t, bridge, nil)
-
-	waitFor(t, "the bridge never attended", func() bool {
-		return fake.attendCount() == 1
-	})
-
-	dropFeed(t, fake, status.Error(codes.Unavailable, "the daemon is going away"))
-
-	waitFor(t, "the bridge never attended again", func() bool {
-		return fake.attendCount() == 2
-	})
-	assert.Equal(t, fake.readCount(), 0, "no tool call was made")
-}
-
-// A bridge whose harness handed it no identity at all — no --token, and an
+// A server whose harness handed it no identity at all — no --token, and an
 // environment stripped of both variables one could arrive in — still serves.
 // The alternative is a subprocess that exits before the handshake, which the
 // harness reports as a closed connection and nobody can read a reason out of.
@@ -426,9 +348,10 @@ func TestServer_WithoutATokenServesToolsThatSayWhatIsMissing(t *testing.T) {
 	t.Setenv("CMDMAN_CMD_ID", "")
 
 	fake := &fakeChatService{self: member("backend", "alice", testRoom)}
-	bridge, err := New(slog.New(slog.DiscardHandler), serveTestDaemon(t, fake), "")
+	server, err := crabmcp.New(slog.New(slog.DiscardHandler), serveTestDaemon(t, fake), "")
 	assert.NilError(t, err)
-	session := serveBridge(t, bridge, nil)
+	Register(server)
+	session := serveBridge(t, server, nil)
 
 	res, err := session.CallTool(t.Context(), &mcp.CallToolParams{Name: "chat_members"})
 	assert.NilError(t, err)
@@ -444,25 +367,4 @@ func TestServer_WithoutATokenServesToolsThatSayWhatIsMissing(t *testing.T) {
 
 	// Nothing was asked of the daemon on behalf of nobody.
 	assert.Equal(t, fake.openCount(), 0)
-}
-
-func TestNew_RejectsEmptySocketPath(t *testing.T) {
-	_, err := New(nil, "", testToken)
-	assert.Assert(t, err != nil)
-}
-
-// The retry loop comes out of New with a pace of its own. The fields exist so a
-// test can slow it down or hold it still, and a bridge nobody tuned would
-// otherwise run it at a zero wait — asking the daemon as fast as it can answer
-// for the whole session.
-func TestNew_SeedsTheRetryPace(t *testing.T) {
-	bridge, err := New(nil, serveTestDaemon(t, &fakeChatService{}), testToken)
-	assert.NilError(t, err)
-	t.Cleanup(func() { _ = bridge.client.Close() })
-
-	assert.Assert(t, bridge.attendBackoffBase > 0,
-		"attending starts at %s", bridge.attendBackoffBase)
-	assert.Assert(t, bridge.attendBackoffMax >= bridge.attendBackoffBase,
-		"attending climbs to %s, below its first wait of %s",
-		bridge.attendBackoffMax, bridge.attendBackoffBase)
 }

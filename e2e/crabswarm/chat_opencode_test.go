@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// The OpenCode half of the crabswarm-chat package is a plugin file rather
+// The OpenCode half of the crabswarm-mcp package is a plugin file rather
 // than a hook file, and OpenCode runs it inside its own process, so the only
 // way to see what it does is to run OpenCode. These cases do, against the
 // `opencode` on PATH, with a mock model behind it: OpenCode needs a provider to
@@ -32,7 +32,7 @@ import (
 // opencodePluginPath is where the package keeps the plugin: inside the skill
 // directory, so apm carries it to every harness beside the Claude Code plugin
 // files, and the operator points OpenCode at the deployed copy once.
-var opencodePluginPath = []string{".apm", "skills", "crabswarm-chat", "opencode.ts"}
+var opencodePluginPath = []string{".apm", "skills", "crabswarm-mcp", "opencode.ts"}
 
 // mockProvider is an OpenAI-compatible chat completions endpoint that answers
 // every request with one short assistant turn and keeps the request bodies, so
@@ -107,7 +107,7 @@ func (m *mockProvider) requests() []string {
 func opencodeConfig(baseURL string) string {
 	return fmt.Sprintf(`{
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["./skills/crabswarm-chat/opencode.ts"],
+  "plugin": ["./skills/crabswarm-mcp/opencode.ts"],
   "model": "mock/mock",
   "provider": {
     "mock": {
@@ -160,12 +160,12 @@ func startOpenCode(t *testing.T, opencode, cfgPath, runtimeDir, token string) *o
 
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "opencode")
-	pluginDir := filepath.Join(configDir, "skills", "crabswarm-chat")
+	pluginDir := filepath.Join(configDir, "skills", "crabswarm-mcp")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("make plugin dir: %v", err)
 	}
 	plugin, err := os.ReadFile(filepath.Join(append(
-		[]string{repoRoot(), "apm-package", "crabswarm-chat"}, opencodePluginPath...)...))
+		[]string{repoRoot(), "apm-package", "crabswarm-mcp"}, opencodePluginPath...)...))
 	if err != nil {
 		t.Fatalf("read the shipped plugin: %v", err)
 	}

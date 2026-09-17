@@ -1,4 +1,4 @@
-package mcpserver
+package chat
 
 import (
 	"context"
@@ -50,11 +50,10 @@ type rosterMember struct {
 	State   string `json:"state"`
 }
 
-// addResources registers the room's resources before the first session, so the
-// resources capability is advertised during the handshake rather than announced
-// as a change the harness has to notice.
-func (s *Server) addResources() {
-	s.mcp.AddResource(&mcp.Resource{
+// addResources registers the room's resources and asks the server to announce
+// the roster whenever the attendance it holds says the room changed.
+func (f *family) addResources() {
+	f.server.AddResource(&mcp.Resource{
 		Name:     "members",
 		Title:    "Room members",
 		URI:      membersURI,
@@ -66,24 +65,25 @@ func (s *Server) addResources() {
 			"reported: working, waiting or done, and unknown where the daemon " +
 			"reported none. Subscribe to be told when somebody starts or " +
 			"stops attending, or changes state.",
-	}, s.readMembers)
+	}, f.readMembers)
+	f.server.AnnounceOnRosterChange(membersURI)
 }
 
 // readMembers answers with the room as it stands. Every read lists the room
 // again rather than replaying what the event feed said: the feed is a nudge to
 // look, not a record to accumulate, so a reader that missed an event still gets
 // the truth here.
-func (s *Server) readMembers(
+func (f *family) readMembers(
 	ctx context.Context, _ *mcp.ReadResourceRequest,
 ) (*mcp.ReadResourceResult, error) {
-	token, err := cli.ResolveToken(s.token)
+	token, err := f.server.ResolveToken()
 	if err != nil {
 		return nil, err
 	}
-	if err := s.awaitAttendance(ctx); err != nil {
+	if err := f.server.AwaitAttendance(ctx); err != nil {
 		return nil, err
 	}
-	members, err := s.client.Members(ctx, token)
+	members, err := f.server.Client().Members(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -116,60 +116,4 @@ func rosterOf(members []*chatv1.Member) roster {
 		})
 	}
 	return out
-}
-
-// subscribed accepts a request to be told about the roster. The room's feed is
-// already up — it is the attendance the bridge holds for the whole session — so
-// there is nothing to start here; what is left is deciding whether the bridge
-// can keep the promise a subscription asks for.
-func (s *Server) subscribed(_ context.Context, req *mcp.SubscribeRequest) error {
-	return announceable(req.Params.URI)
-}
-
-// announceable returns nil when the bridge can tell a harness that uri changed,
-// and the refusal otherwise.
-//
-// A URI this bridge does not serve is refused rather than accepted quietly. The
-// SDK records a subscription for whatever URI it is handed, so accepting a typo
-// would leave the harness waiting on news that could never come.
-func announceable(uri string) error {
-	if uri == membersURI {
-		return nil
-	}
-	return mcp.ResourceNotFoundError(uri)
-}
-
-// unsubscribed acknowledges the withdrawal and leaves the feed running.
-//
-// The feed is not the subscription's to end: it is the attendance itself, which
-// runs for as long as the session does whether or not anything is listening.
-// Nothing is announced to a harness that withdrew — the SDK sends a resource
-// update to the sessions that subscribed and to no others. The SDK also
-// requires this handler as soon as [Server.subscribed] exists.
-func (s *Server) unsubscribed(_ context.Context, req *mcp.UnsubscribeRequest) error {
-	return announceable(req.Params.URI)
-}
-
-// membersChanged tells the subscribed sessions to read the roster again.
-func (s *Server) membersChanged(ctx context.Context) {
-	err := s.mcp.ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{URI: membersURI})
-	if err != nil {
-		s.logger.Warn("announcing the changed room roster failed", "error", err)
-	}
-}
-
-// rosterChanged reports whether ev changes who attends the room or what state
-// they are in. A message being appended does not: the same members are there in
-// the same states. It changes the room's conversation, but nothing subscribes
-// to that — chat_read is what a member reads its messages with, and a
-// subscription the bridge accepted would be one it could not serve.
-func rosterChanged(ev *chatv1.RoomEvent) bool {
-	switch ev.GetEvent().(type) {
-	case *chatv1.RoomEvent_MemberStateChanged,
-		*chatv1.RoomEvent_MemberJoined,
-		*chatv1.RoomEvent_MemberLeft:
-		return true
-	default:
-		return false
-	}
 }

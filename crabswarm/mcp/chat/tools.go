@@ -1,4 +1,4 @@
-package mcpserver
+package chat
 
 import (
 	"bytes"
@@ -38,24 +38,30 @@ type sendArgs struct {
 // takes. Every field is optional: each one left out is the daemon's default for
 // the read being made, which is the read an agent catching up wants.
 //
+// The omitempty on every field is what the SDK reads as "the model may leave
+// this out": a field without it lands in the schema's required list.
+//
 //nolint:lll // a struct tag cannot be wrapped, and the descriptions are what the model reads
 type readArgs struct {
+	//ngignore:noomitempty it is what makes the argument optional in the tool's schema
 	Cursor string `json:"cursor,omitempty" jsonschema:"where to read from: unread (default), head or tail. Whatever is shown counts as read"`
-	Range  int32  `json:"range,omitempty" jsonschema:"how many messages from the cursor, forward when positive, backward when negative; default ten in the cursor's direction"`
-	To     string `json:"to,omitempty" jsonschema:"only messages naming any of these roles, or everyone"`
-	Since  int64  `json:"since,omitempty" jsonschema:"only messages after this seq"`
-	Until  int64  `json:"until,omitempty" jsonschema:"only messages before this seq"`
+	//ngignore:noomitempty it is what makes the argument optional in the tool's schema
+	Range int32 `json:"range,omitempty" jsonschema:"how many messages from the cursor, forward when positive, backward when negative; default ten in the cursor's direction"`
+	//ngignore:noomitempty it is what makes the argument optional in the tool's schema
+	To string `json:"to,omitempty" jsonschema:"only messages naming any of these roles, or everyone"`
+	//ngignore:noomitempty it is what makes the argument optional in the tool's schema
+	Since int64 `json:"since,omitempty" jsonschema:"only messages after this seq"`
+	//ngignore:noomitempty it is what makes the argument optional in the tool's schema
+	Until int64 `json:"until,omitempty" jsonschema:"only messages before this seq"`
 }
 
 // noArgs is the input of the tool that acts on the caller alone. The schema has
 // to be an object, so it is an empty struct rather than nothing.
 type noArgs struct{}
 
-// addTools registers the three verbs on the MCP server. They are added before
-// the first session so the tools capability is advertised during the
-// handshake, rather than announced as a change the harness has to notice.
-func (s *Server) addTools() {
-	mcp.AddTool(s.mcp, &mcp.Tool{
+// addTools registers the three verbs on the MCP server.
+func (f *family) addTools() {
+	mcp.AddTool(f.server.MCP(), &mcp.Tool{
 		Name: "chat_send",
 		Description: "Send a message into your room, to somebody or to nobody. " +
 			`"everyone" is the whole room; a comma-separated list of roles ` +
@@ -65,8 +71,8 @@ func (s *Server) addTools() {
 			"room and mentions nobody. The answer names every role the target " +
 			"resolved to, and warns about any of them nobody is attending " +
 			"under — that mention waits until somebody does.",
-	}, s.send)
-	mcp.AddTool(s.mcp, &mcp.Tool{
+	}, f.send)
+	mcp.AddTool(f.server.MCP(), &mcp.Tool{
 		Name: "chat_read",
 		Description: "Read messages of your room, oldest first, and move your " +
 			"read position to the newest one shown — whichever cursor was " +
@@ -75,26 +81,26 @@ func (s *Server) addTools() {
 			"first ten unread: the messages naming you or everyone that you " +
 			"have not been shown. A line marked [mentioned you] is addressed " +
 			"to you; a trailing count says how much unread is left.",
-	}, s.read)
-	mcp.AddTool(s.mcp, &mcp.Tool{
+	}, f.read)
+	mcp.AddTool(f.server.MCP(), &mcp.Tool{
 		Name: "chat_members",
 		Description: "List everyone attending your room, one member per line. " +
 			"The first column is exactly the role chat_send addresses; the " +
 			"ones after it are the kind — agent for a harness a message is " +
 			"typed into, human for someone who reads when it asks — and the " +
 			"state that harness last reported.",
-	}, s.members)
+	}, f.members)
 }
 
-func (s *Server) send(
+func (f *family) send(
 	ctx context.Context, _ *mcp.CallToolRequest, in sendArgs,
 ) (*mcp.CallToolResult, any, error) {
 	target, err := cli.ParseTarget(in.To)
 	if err != nil {
 		return nil, nil, err
 	}
-	return s.call(ctx, func(w io.Writer, token string) error {
-		resp, err := s.client.Send(ctx, token, target, in.Message)
+	return f.call(ctx, func(w io.Writer, token string) error {
+		resp, err := f.server.Client().Send(ctx, token, target, in.Message)
 		if err != nil {
 			return err
 		}
@@ -107,7 +113,7 @@ func (s *Server) send(
 	})
 }
 
-func (s *Server) read(
+func (f *family) read(
 	ctx context.Context, _ *mcp.CallToolRequest, in readArgs,
 ) (*mcp.CallToolResult, any, error) {
 	filter, err := cli.ReadFlags{
@@ -120,19 +126,19 @@ func (s *Server) read(
 	if err != nil {
 		return nil, nil, err
 	}
-	return s.call(ctx, func(w io.Writer, token string) error {
+	return f.call(ctx, func(w io.Writer, token string) error {
 		// The two options `chat read` carries beside the filter exist for
 		// harness hooks deciding whether they have mail to deliver, which is
 		// not a decision the model calling this tool is making.
-		return s.client.ReadInto(ctx, w, token, cli.ReadOptions{Filter: filter})
+		return f.server.Client().ReadInto(ctx, w, token, cli.ReadOptions{Filter: filter})
 	})
 }
 
-func (s *Server) members(
+func (f *family) members(
 	ctx context.Context, _ *mcp.CallToolRequest, _ noArgs,
 ) (*mcp.CallToolResult, any, error) {
-	return s.call(ctx, func(w io.Writer, token string) error {
-		return s.client.ListMembers(ctx, w, token)
+	return f.call(ctx, func(w io.Writer, token string) error {
+		return f.server.Client().ListMembers(ctx, w, token)
 	})
 }
 
@@ -147,17 +153,17 @@ func (s *Server) members(
 // Attendance is waited on first because none of these calls mean anything from
 // outside the room, and a member whose attendance never landed would otherwise
 // get the daemon's answer to a question it should not have asked. The token is
-// resolved before that, so a bridge configured with none reports what is
+// resolved before that, so a server configured with none reports what is
 // missing rather than waiting on an attendance that was never going to happen.
-func (s *Server) call(
+func (f *family) call(
 	ctx context.Context,
 	rpc func(w io.Writer, token string) error,
 ) (*mcp.CallToolResult, any, error) {
-	token, err := cli.ResolveToken(s.token)
+	token, err := f.server.ResolveToken()
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := s.awaitAttendance(ctx); err != nil {
+	if err := f.server.AwaitAttendance(ctx); err != nil {
 		return nil, nil, err
 	}
 	var rendered bytes.Buffer

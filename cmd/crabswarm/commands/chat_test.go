@@ -35,9 +35,11 @@ func runChatCmd(t *testing.T, args ...string) (stdout, stderr string, err error)
 }
 
 // The chat tree is wired: every member verb, and the admin group with its own
-// six children. Attendance has no verb of its own — the bridge holds it for an
-// agent and `admin register` for a person — so the spellings that used to
-// declare or withdraw one are gone, and so are the two reads they framed.
+// six children. Attendance has no verb of its own — `crabswarm mcp` holds it
+// for an agent and `admin register` for a person — so the spellings that used
+// to declare or withdraw one are gone, and so are the two reads they framed.
+// The MCP server moved out from under `chat` with them: it carries the chat
+// tools today and other families later, so it hangs off the root.
 func TestChatCmd_Subcommands(t *testing.T) {
 	root := rootCmd()
 	chat, _, err := root.Find([]string{"chat"})
@@ -49,13 +51,19 @@ func TestChatCmd_Subcommands(t *testing.T) {
 		names[c.Name()] = true
 	}
 	for _, want := range []string{
-		"send", "read", "members", "report-state", "mcp", "admin",
+		"send", "read", "members", "report-state", "admin",
 	} {
 		assert.Assert(t, names[want], "chat has no %q subcommand", want)
 	}
-	for _, gone := range []string{"join", "leave", "broadcast", "history"} {
+	for _, gone := range []string{"join", "leave", "broadcast", "history", "mcp"} {
 		assert.Assert(t, !names[gone], "chat still has a %q subcommand", gone)
 	}
+
+	// The server it moved to answers from the root, under the name the apm
+	// package's declaration spells.
+	mcp, _, err := root.Find([]string{"mcp"})
+	assert.NilError(t, err)
+	assert.Equal(t, mcp.Name(), "mcp")
 
 	admin, _, err := root.Find([]string{"chat", "admin"})
 	assert.NilError(t, err)
@@ -184,6 +192,9 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		{"leave is gone", []string{"leave"}},
 		{"broadcast is gone", []string{"broadcast", "hi"}},
 		{"history is gone", []string{"history"}},
+		// The MCP server hangs off the root now, so the old spelling is an
+		// error rather than a second way to reach it.
+		{"mcp is gone", []string{"mcp"}},
 		{
 			"moving a member is gone",
 			[]string{"admin", "move", "/work", "backend/alice", "frontend"},

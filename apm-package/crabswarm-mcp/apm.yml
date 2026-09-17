@@ -1,4 +1,4 @@
-name: crabswarm-chat
+name: crabswarm-mcp
 version: 0.2.0
 description: Wires an agent harness into its crabswarm chat room — an MCP bridge attends the room and serves the chat verbs as tools, and hooks deliver teammates' messages mid-turn and at turn end and report harness state.
 author: ngicks
@@ -7,16 +7,15 @@ repository: https://github.com/ngicks/crabswarm
 dependencies:
   apm: []
   mcp:
-  - name: crabswarm-chat
+  - name: crabswarm-mcp
     registry: false
     transport: stdio
     command: crabswarm
     args:
-    - chat
     - mcp
     # Codex spawns a stdio MCP server with a fixed environment whitelist and
     # forwards nothing else unless the server's own table names it. Without
-    # these three the bridge has no identity to attend with and derives a
+    # these three the server has no identity to attend with and derives a
     # different socket path than the daemon listens on.
     env_vars:
     - CMDMAN_CMD_ID
