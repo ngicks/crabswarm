@@ -57,6 +57,14 @@ type Harness interface {
 // this member a native one whatever it runs.
 const SinkEnv = "CRABSWARM_HARNESS_SINK"
 
+// Session is the MCP session the server holds with its harness, as far as a
+// channel needs it: a way to send the harness a notification of its own. The
+// server supplies it; a channel that pushes through the session itself (Claude
+// Code's) is the reason it exists, and the others ignore it.
+type Session interface {
+	Notify(ctx context.Context, method string, params any) error
+}
+
 // Detect maps the name a client gave itself in the MCP handshake onto the
 // harness behind it, reading what that harness needs from getenv — the process
 // environment the harness started the server in, [os.Getenv] outside a test.
@@ -64,7 +72,7 @@ const SinkEnv = "CRABSWARM_HARNESS_SINK"
 // A name nothing recognises, the empty one included, is [chatv1.Harness]'s
 // other: the server is serving something, and saying so is more use to whoever
 // reads a roster than leaving the field blank.
-func Detect(clientName string, getenv func(string) string) Harness {
+func Detect(clientName string, getenv func(string) string, session Session) Harness {
 	kind := kindOf(clientName)
 	if getenv == nil {
 		getenv = os.Getenv
@@ -73,7 +81,7 @@ func Detect(clientName string, getenv func(string) string) Harness {
 		return sink{kind: kind, path: path}
 	}
 	if newNative := natives[kind]; newNative != nil {
-		if h := newNative(getenv); h != nil {
+		if h := newNative(getenv, session); h != nil {
 			return h
 		}
 	}
@@ -84,11 +92,13 @@ func Detect(clientName string, getenv func(string) string) Harness {
 // harness it belongs to. A constructor answers nil when the environment does
 // not carry what its channel needs — the harness was started without the
 // variable that points at it — and the member then attends as a terminal one,
-// which is always a working way to be woken.
-//
-// It is empty for now: every deliverer is a channel of its own, and each lands
-// with the protocol work it needs.
-var natives = map[chatv1.Harness]func(getenv func(string) string) Harness{}
+// which is always a working way to be woken. Each constructor lives in the
+// file of its harness.
+var natives = map[chatv1.Harness]func(getenv func(string) string, session Session) Harness{
+	chatv1.Harness_HARNESS_CLAUDE_CODE: newClaudeCode,
+	chatv1.Harness_HARNESS_CODEX:       newCodex,
+	chatv1.Harness_HARNESS_OPENCODE:    newOpenCode,
+}
 
 // The names the harnesses give themselves, as they wrote them in the first
 // frame of a real MCP session. e2e/crabswarm/testdata/harness holds those

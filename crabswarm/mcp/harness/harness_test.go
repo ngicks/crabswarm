@@ -53,7 +53,7 @@ func TestDetect_ReadsTheHarnessOffTheHandshake(t *testing.T) {
 		{"initialize-opencode.json", chatv1.Harness_HARNESS_OPENCODE},
 	} {
 		t.Run(tc.fixture, func(t *testing.T) {
-			h := Detect(clientNameOf(t, tc.fixture), noEnv)
+			h := Detect(clientNameOf(t, tc.fixture), noEnv, nil)
 			assert.Equal(t, h.Kind(), tc.want)
 			// Until each harness's own channel is wired up, knowing which one it
 			// is changes nothing about how it is woken.
@@ -69,7 +69,7 @@ func TestDetect_ReadsTheHarnessOffTheHandshake(t *testing.T) {
 func TestDetect_CallsAnUnknownClientOther(t *testing.T) {
 	for _, name := range []string{"", "some-other-agent", "Claude-Code"} {
 		t.Run(name, func(t *testing.T) {
-			h := Detect(name, noEnv)
+			h := Detect(name, noEnv, nil)
 			assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_OTHER)
 			assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 		})
@@ -80,7 +80,7 @@ func TestDetect_CallsAnUnknownClientOther(t *testing.T) {
 // that asked believed this member reaches its own agent, and the daemon is
 // typing at it on the understanding that it does not.
 func TestDetect_ATerminalHarnessDeliversNothing(t *testing.T) {
-	err := Detect("claude-code", noEnv).Deliver(t.Context(), Notice{Text: "hi"})
+	err := Detect("claude-code", noEnv, nil).Deliver(t.Context(), Notice{Text: "hi"})
 	assert.ErrorContains(t, err, "no channel")
 }
 
@@ -94,7 +94,7 @@ func TestDetect_TheSinkTakesTheDelivery(t *testing.T) {
 			return path
 		}
 		return ""
-	})
+	}, nil)
 
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CLAUDE_CODE)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
@@ -114,7 +114,7 @@ func TestDetect_TheSinkTakesTheDelivery(t *testing.T) {
 // logs it and the member's mentions wait for the next chance to be delivered.
 func TestDetect_TheSinkReportsAFileItCannotOpen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing-dir", "notices.log")
-	err := Detect("opencode", func(string) string { return path }).
+	err := Detect("opencode", func(string) string { return path }, nil).
 		Deliver(t.Context(), Notice{Text: "hi"})
 	assert.ErrorContains(t, err, path)
 }

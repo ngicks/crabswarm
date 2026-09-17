@@ -200,7 +200,7 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 		if params.ClientInfo != nil {
 			client = params.ClientInfo.Name
 		}
-		s.harness = harness.Detect(client, s.getenv)
+		s.harness = harness.Detect(client, s.getenv, noSession{})
 		close(s.initialized)
 		s.logger.Info("the harness named itself",
 			"client", client,
@@ -572,4 +572,12 @@ func (s *Server) AwaitAttendance(ctx context.Context) error {
 	default:
 		return errNotAttending
 	}
+}
+
+// noSession is the session a channel gets until the server can hand out a
+// real one: a notification has nowhere to go, and the error says so.
+type noSession struct{}
+
+func (noSession) Notify(context.Context, string, any) error {
+	return errors.New("the server cannot send its harness a notification yet")
 }
