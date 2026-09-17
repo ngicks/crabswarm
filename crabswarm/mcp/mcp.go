@@ -66,6 +66,11 @@ type Server struct {
 	// variable on the process running it. [New] takes the real one.
 	getenv func(string) string
 
+	// session is the channel a harness deliverer pushes its notifications
+	// through, which is the MCP transport the session runs on. [Server.Serve]
+	// sets it before the session starts, so a handshake never reads it unset.
+	session harness.Session
+
 	// initialized is closed once the harness has finished the MCP handshake and
 	// [Server.harness] names what it runs. Attendance waits on it: what the
 	// member declares about itself is read off that handshake, and attending
@@ -151,17 +156,60 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		attendBackoffBase: attendBackoffBase,
 		attendBackoffMax:  attendBackoffMax,
 	}
+	opts := &mcpsdk.ServerOptions{
+		Logger:             logger,
+		SubscribeHandler:   s.subscribed,
+		UnsubscribeHandler: s.unsubscribed,
+	}
+	// What the server declares about itself is settled here, because the
+	// handshake carries it and the handshake is what tells the server which
+	// harness it is serving — the answer arrives after the question.
+	if harness.ClaudeChannelEnabled(s.getenv) {
+		opts.Capabilities = claudeChannelCapabilities()
+		opts.Instructions = claudeChannelInstructions
+	}
 	s.mcp = mcpsdk.NewServer(
 		&mcpsdk.Implementation{Name: serverName, Version: libver.Version},
-		&mcpsdk.ServerOptions{
-			Logger:             logger,
-			SubscribeHandler:   s.subscribed,
-			UnsubscribeHandler: s.unsubscribed,
-		},
+		opts,
 	)
-	s.mcp.AddReceivingMiddleware(s.readsHandshake)
+	s.mcp.AddReceivingMiddleware(s.readsHandshake, refusesTheNewerHandshake)
 	return s, nil
 }
+
+// claudeChannelCapabilities declares the channel Claude Code registers a
+// listener for.
+//
+// It is declared only for a session that was launched as a channel: the
+// capability is what makes Claude Code listen, and a listener on a server that
+// was never registered would be one nothing ever reaches.
+//
+// Logging is spelled out because setting any capability at all replaces the
+// SDK's default set, and the default is logging alone; leaving it out would
+// quietly take logging away from a channel session and no other. Everything
+// else the server offers is inferred from what the families registered.
+func claudeChannelCapabilities() *mcpsdk.ServerCapabilities {
+	return &mcpsdk.ServerCapabilities{
+		//nolint:staticcheck // deprecated only from the revision above the cap this server offers
+		Logging: &mcpsdk.LoggingCapabilities{},
+		Experimental: map[string]any{
+			harness.ClaudeChannelCapability: map[string]any{},
+		},
+	}
+}
+
+// claudeChannelInstructions tells the model what a channel event from this
+// server is and what to do about it.
+//
+// The harness shows the model an event and nothing else — no tool call, no
+// transcript entry saying where it came from — so without this the first one
+// reads as a line that appeared from nowhere. It also says not to answer down
+// the channel: the channel carries one direction, and a reply written into it
+// would go nowhere while the room waited.
+const claudeChannelInstructions = "Events from " + serverName +
+	` arrive as <channel source="` + serverName +
+	`" from="<team/name>" room="<room>">. Each one says a chat message is ` +
+	"waiting for you: read it with the chat_read tool and answer with " +
+	"chat_send. Do not reply through the channel."
 
 // readsHandshake watches what the harness sends for the point at which it has
 // said who it is.
@@ -200,7 +248,7 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 		if params.ClientInfo != nil {
 			client = params.ClientInfo.Name
 		}
-		s.harness = harness.Detect(client, s.getenv, noSession{})
+		s.harness = harness.Detect(client, s.getenv, s.session)
 		close(s.initialized)
 		s.logger.Info("the harness named itself",
 			"client", client,
@@ -263,6 +311,16 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 	defer func() { _ = s.client.Close() }()
 
+	// Whatever the session runs on is wrapped, stdio and injected alike: the
+	// wrapper is both the notification channel a deliverer pushes through and
+	// the cap on what protocol revision the server offers, and neither is
+	// something one transport should have and another go without.
+	//
+	// Set before anything can read it: the harness names itself on the session
+	// started below, and naming itself is what hands this to its deliverer.
+	harnessChannel := newChannel(transport)
+	s.session = harnessChannel
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -287,7 +345,7 @@ func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 		// gone has nobody left to attend for, and without this the loop would
 		// hold the session open for the rest of its backoff.
 		defer cancel()
-		return s.mcp.Run(gctx, transport)
+		return s.mcp.Run(gctx, harnessChannel)
 	})
 	return g.Wait()
 }
@@ -572,12 +630,4 @@ func (s *Server) AwaitAttendance(ctx context.Context) error {
 	default:
 		return errNotAttending
 	}
-}
-
-// noSession is the session a channel gets until the server can hand out a
-// real one: a notification has nowhere to go, and the error says so.
-type noSession struct{}
-
-func (noSession) Notify(context.Context, string, any) error {
-	return errors.New("the server cannot send its harness a notification yet")
 }

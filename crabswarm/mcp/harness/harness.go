@@ -28,9 +28,12 @@ import (
 // [github.com/ngicks/crabswarm/crabswarm/chat/nudge] so that a mention reads
 // the same however it arrives. From is who wrote, for the deliverers whose
 // channel carries a sender beside the text; it is empty where the notice is
-// about the room rather than about one message.
+// about the room rather than about one message. Room is the room this member
+// attends, for the channels that label an event with where it came from — an
+// agent can be looking at more than one crabswarm at a time.
 type Notice struct {
 	From string
+	Room string
 	Text string
 }
 

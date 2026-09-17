@@ -200,9 +200,8 @@ func assertNotFound(t *testing.T, uri string, err error) {
 // is refused because the SDK would otherwise record a subscription for whatever
 // it was handed and leave the harness waiting.
 //
-// The handler is exercised directly because the protocol the SDK negotiates
-// here opens a subscription without waiting for the answer, so a refusal never
-// reaches the client as the error of a call.
+// The handler is exercised directly because the case is about the gate rather
+// than about how a refusal travels back to whoever asked.
 func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
 	bridge, err := New(slog.New(slog.DiscardHandler),
 		serveTestDaemon(t, &fakeChatService{}), testToken)
@@ -222,8 +221,7 @@ func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
 // refused a subscription has none to withdraw, so telling it the withdrawal
 // succeeded would say it had had one.
 //
-// Exercised directly for the reason the subscribe side is: the SDK does not
-// hand either refusal back as the error of a client call.
+// Exercised directly for the reason the subscribe side is.
 func TestServer_RefusesToUnwatchWhatItCannotAnnounce(t *testing.T) {
 	bridge, err := New(slog.New(slog.DiscardHandler),
 		serveTestDaemon(t, &fakeChatService{}), testToken)
@@ -461,6 +459,68 @@ func TestServer_AttendsAsTheHarnessThatNamedItself(t *testing.T) {
 	// Nothing is asked of a member the daemon wakes: the count is what a
 	// delivery is decided on, and there is no delivery to decide.
 	assert.Equal(t, fake.countCount(), 0)
+}
+
+// declaresChannel reports whether the handshake res carries the capability
+// Claude Code registers a channel listener on.
+func declaresChannel(res *mcpsdk.InitializeResult) bool {
+	if res.Capabilities == nil {
+		return false
+	}
+	_, declared := res.Capabilities.Experimental[harness.ClaudeChannelCapability]
+	return declared
+}
+
+// A server its launcher registered as a channel says so in the handshake, since
+// the capability is what makes Claude Code listen — and then attends as a
+// member the daemon leaves to its own server.
+//
+// The environment is read before the handshake rather than after: the
+// capability has to be in the answer the server gives, and the answer is what
+// tells the server which harness it was serving all along.
+func TestServer_DeclaresTheChannelItsLauncherRegistered(t *testing.T) {
+	t.Setenv(harness.ClaudeChannelEnv, "1")
+	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
+	bridge := newTestBridge(t, fake)
+	session := serveBridgeAs(t, bridge, "claude-code")
+
+	res := session.InitializeResult()
+	assert.Assert(t, declaresChannel(res), "the handshake declares no channel")
+	// The model is shown a channel event and nothing else, so the instructions
+	// are where it reads what to do with one.
+	for _, want := range []string{serverName, "chat_read", "chat_send"} {
+		assert.Assert(t, strings.Contains(res.Instructions, want),
+			"the instructions do not name %q:\n%s", want, res.Instructions)
+	}
+	// Above this revision the events would be dropped unseen, so the server
+	// offers nothing above it.
+	assert.Equal(t, res.ProtocolVersion, maxProtocolVersion)
+
+	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+	assert.Equal(t, fake.lastAttend().GetHarness(), chatv1.Harness_HARNESS_CLAUDE_CODE)
+	assert.Equal(t, fake.lastAttend().GetNudge(),
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
+}
+
+// A Claude Code nobody registered the server with declares nothing, and is
+// woken through its terminal like any harness with no channel.
+//
+// Declaring the capability anyway would have Claude Code listening on a channel
+// its session never registered, and every notice pushed at it would be dropped
+// unseen while the daemon typed at nobody.
+func TestServer_LeavesTheChannelOutUntilItIsRegistered(t *testing.T) {
+	t.Setenv(harness.ClaudeChannelEnv, "")
+	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
+	bridge := newTestBridge(t, fake)
+	session := serveBridgeAs(t, bridge, "claude-code")
+
+	res := session.InitializeResult()
+	assert.Assert(t, !declaresChannel(res), "the handshake declares a channel nobody registered")
+	assert.Equal(t, res.Instructions, "")
+
+	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+	assert.Equal(t, fake.lastAttend().GetNudge(),
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 }
 
 func TestNew_RejectsEmptySocketPath(t *testing.T) {

@@ -91,6 +91,12 @@ func (s *Server) deliverWaiting(ctx context.Context) {
 // unlikely to take the same notice a moment later. The next report ending a
 // turn and the next attendance both try again, which is retry enough.
 func (s *Server) deliver(ctx context.Context, n harness.Notice) bool {
+	// The room is filled in here rather than by the callers: every notice
+	// belongs to the one room this member attends, and it is only known once the
+	// attendance has landed — the harness was chosen before that, off the
+	// handshake. Sanitized like the sender for the same reason, since a name is
+	// whatever the attending agent asked to be called.
+	n.Room = nudge.Sanitize(s.selfMember().GetRoom())
 	if err := s.harness.Deliver(ctx, n); err != nil {
 		s.logger.Warn("delivering a chat notice through the harness failed",
 			"from", n.From, "error", err)
