@@ -1,9 +1,10 @@
 // Package cmdman types lines into a member's terminal through the cmdman CLI.
 //
-// It is the terminal-injection machinery the chat notifiers are built on, kept
-// here rather than beside them so ../../notify holds only implementors of the
-// broker's notification hook. The chat package is consumed, never the other way
-// round: a notifier composes a [Terminal], and nothing in chat knows this
+// It is the terminal machinery ../../notify is built on — the injection a
+// nudge needs, and the snapshots the screen poller reads a member's state off —
+// kept here rather than beside them so that package holds only what acts on a
+// member. The chat package is consumed, never the other way round: the notifier
+// and the poller each compose a [Terminal], and nothing in chat knows this
 // package exists.
 package cmdman
 
@@ -45,23 +46,6 @@ const submitDelay = 200 * time.Millisecond
 // failed.
 var ErrDeclined = errors.New("declined to type into the member's terminal")
 
-// DialogMarkers are the strings that mean the recipient's terminal is showing a
-// dialog rather than an idle prompt: injecting there would answer the dialog
-// instead of typing the line. They are heuristics read off Claude Code's
-// permission and question UI plus the classic yes/no prompt, matched
-// case-insensitively as substrings — updating the set is a one-line edit here.
-//
-// Exported only so sibling packages' tests can build a snapshot that trips the
-// guard without copying a marker; this is an internal package, so the set is
-// not public API and stays free to change.
-var DialogMarkers = []string{
-	"Do you want",
-	"❯ 1. Yes",
-	"Esc to cancel",
-	"esc to interrupt)",
-	"(y/n)",
-}
-
 // Terminal types a line into a member's terminal through the cmdman CLI. Agents
 // run in containers where nothing watches them, and keystrokes are the one
 // channel every harness accepts.
@@ -99,11 +83,11 @@ func (t *Terminal) Bin() string { return t.bin }
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so the send passes three guards — the member is an agent, its token
-// is one cmdman can take, and a snapshot of its screen shows no dialog.
-// That last one is a best-effort text scan: what a dialog looks like is
-// whatever the harness happens to paint today, so the scan catches the obvious
-// cases and is revised as those UIs change. It is not a guarantee that the
-// terminal is idle.
+// is one cmdman can take, and a snapshot of its screen shows neither a dialog
+// nor a running turn. That last one is a best-effort text scan against
+// [ScreenMarkers]: what a busy screen looks like is whatever the harness
+// happens to paint today, so the scan catches the obvious cases and is revised
+// as those UIs change. It is not a guarantee that the terminal is idle.
 //
 // A guard that declines logs why and returns an error wrapping [ErrDeclined],
 // leaving the terminal untouched. Any other error means cmdman itself failed.
@@ -134,7 +118,7 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sendTimeout)
 	defer cancel()
 
-	snapshot, err := t.captureScreen(ctx, member.Token)
+	snapshot, err := t.CaptureScreen(ctx, member.Token)
 	if err != nil {
 		// Fail safe: with no snapshot there is no evidence the terminal is at a
 		// prompt, and a dropped line costs the caller a retry while a wrong one
@@ -146,9 +130,9 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 		return fmt.Errorf("terminal snapshot unavailable: %w", ErrDeclined)
 	}
 	if marker, found := dialogMarker(snapshot); found {
-		t.logger.Info("chat: not typing, terminal is showing a dialog",
+		t.logger.Info("chat: not typing, terminal is busy",
 			"member", who, "marker", marker)
-		return fmt.Errorf("terminal is showing a dialog: %w", ErrDeclined)
+		return fmt.Errorf("terminal is busy: %w", ErrDeclined)
 	}
 
 	// Text and submit go in separate invocations, with [submitDelay] between
@@ -168,14 +152,19 @@ func (t *Terminal) SendCommand(ctx context.Context, member chat.Member, line str
 	return t.sendKeys(ctx, member.Token, "Enter")
 }
 
-// captureScreen snapshots what the member's terminal is showing.
+// CaptureScreen snapshots what the terminal of the command named by token is
+// showing.
 //
 // The visible screen with no line range, not the scrollback: it is what a
 // dialog is painting right now, so a marker from some long-finished dialog
 // cannot linger in the scan the way it could in a log replay. Only a command
 // running under a TTY has a screen; for one without, cmdman errors here and the
 // caller reads that as any other unavailable snapshot and declines.
-func (t *Terminal) captureScreen(ctx context.Context, token string) (string, error) {
+//
+// It bounds nothing itself: [Terminal.SendCommand] has already put its send
+// under one deadline by the time it gets here, and a watcher polling screens of
+// its own accord bounds each capture the way its interval asks for.
+func (t *Terminal) CaptureScreen(ctx context.Context, token string) (string, error) {
 	// Plain text, no --escapes: attribute sequences would sit inside the strings
 	// the scan looks for and split a marker the terminal is showing whole.
 	//
@@ -214,17 +203,4 @@ func (t *Terminal) sendKeys(ctx context.Context, token, arg string) error {
 			token, arg, err, strings.TrimSpace(string(out)))
 	}
 	return nil
-}
-
-// dialogMarker returns the first of [DialogMarkers] that snapshot contains.
-func dialogMarker(snapshot string) (string, bool) {
-	lower := strings.ToLower(snapshot)
-	for _, m := range DialogMarkers {
-		// Both sides are lowered here rather than keeping the list lowered, so
-		// adding a marker stays a copy of what the harness actually prints.
-		if strings.Contains(lower, strings.ToLower(m)) {
-			return m, true
-		}
-	}
-	return "", false
 }

@@ -336,6 +336,36 @@ func TestService_PublishesMemberStateOnAttendReportAndClose(t *testing.T) {
 	assert.Equal(t, addressOf(calls[2].member), "alpha/ana")
 }
 
+// A watcher recording what it read off a terminal goes through the same path as
+// a hook's report: the store keeps it, the display follows it, the room hears
+// about the change and hears nothing about a repeat.
+func TestService_RecordStateFollowsTheReportPath(t *testing.T) {
+	svc, provider, _, mirror := newTestServiceWithMirror(t)
+	provider.vouch("tok-a", testRoom, "alpha")
+
+	ana := attendStream(t, svc, "tok-a", "ana", chatv1.MemberKind_MEMBER_KIND_AGENT)
+
+	assert.NilError(t, svc.RecordState(t.Context(), "tok-a", StateWaiting))
+	assert.Equal(t, describeEvent(nextEvent(t, ana.sent)),
+		"state:alpha/ana:HARNESS_STATE_WAITING")
+
+	assert.NilError(t, svc.RecordState(t.Context(), "tok-a", StateWaiting))
+	noMoreEvents(t, ana.sent)
+
+	m, err := svc.store.Member(t.Context(), "tok-a")
+	assert.NilError(t, err)
+	assert.Equal(t, m.State, StateWaiting)
+
+	calls := mirror.calls()
+	assert.Equal(t, len(calls), 3)
+	assert.Equal(t, calls[2].state, StateWaiting)
+
+	// A session that ended between the listing and the reading is refused rather
+	// than recorded against nobody.
+	assert.Assert(t, errors.Is(svc.RecordState(t.Context(), "tok-z", StateDone), ErrNotAttending))
+	assert.Assert(t, ana.close(t) != nil)
+}
+
 // The store is authoritative by the time the mirror is asked, so a display that
 // cannot be written costs an operator a stale screen and the member nothing.
 func TestService_PublishFailureDoesNotFailTheRPC(t *testing.T) {

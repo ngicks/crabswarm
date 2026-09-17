@@ -215,12 +215,45 @@ func (s *Service) ReportState(
 	if err != nil {
 		return nil, err
 	}
-	if err := s.store.SetState(ctx, caller.Token, state, time.Now()); err != nil {
+	if err := s.recordState(ctx, caller, state); err != nil {
 		return nil, storeStatus(err)
 	}
-	s.mirrorState(ctx, caller, state)
-	if state != caller.State {
-		s.store.events.publish(caller.Room, memberStateChangedEvent(caller, req.GetState()))
-	}
 	return &chatv1.ReportStateResponse{}, nil
+}
+
+// RecordState records the state a watcher observed for the member attending
+// under token, through the very path [Service.ReportState] records a hook's
+// report through — so a reading of the terminal overrides a report that never
+// came, and an operator's status display and the room's feed say the same thing
+// either way.
+//
+// It is the seam for a watcher outside the RPC surface: the screen poller,
+// which reads the state off the terminal because an interrupted Claude Code
+// turn fires no hook. An unknown token is [ErrNotAttending] — the session ended
+// between the listing and the reading, which is ordinary.
+func (s *Service) RecordState(ctx context.Context, token string, state MemberState) error {
+	m, err := s.store.Member(ctx, token)
+	if err != nil {
+		return err
+	}
+	return s.recordState(ctx, m, state)
+}
+
+// recordState is the one path a member's state is written through: the store
+// first, then the status display, then the room — and the room only when the
+// state actually changed. Hooks report working after every tool call, so a room
+// of busy agents would otherwise spend its event feed telling every attendee to
+// re-read a roster that says exactly what it said before.
+//
+// m is the member as it stood before the write, which is what the change is
+// measured against and what the event carries.
+func (s *Service) recordState(ctx context.Context, m Member, state MemberState) error {
+	if err := s.store.SetState(ctx, m.Token, state, time.Now()); err != nil {
+		return err
+	}
+	s.mirrorState(ctx, m, state)
+	if state != m.State {
+		s.store.events.publish(m.Room, memberStateChangedEvent(m, harnessStateProto(state)))
+	}
+	return nil
 }

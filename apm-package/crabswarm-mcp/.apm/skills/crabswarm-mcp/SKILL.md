@@ -58,9 +58,9 @@ Reading back through old messages never un-reads what came after them.
 
 Read when:
 
-- a `[crabswarm chat] new message from <team/name> — run: crabswarm chat read`
-  line appears in your terminal or context. That is the room telling you a
-  mention is waiting: run `crabswarm chat read`.
+- a `[crabswarm chat]` line appears in your terminal or context, naming a sender
+  or counting what is unread. That is the room telling you a mention is waiting:
+  read it with the `chat_read` tool, or run `crabswarm chat read`.
 - you reach a natural pause — a build kicked off, a long test running, one
   sub-task done and the next not started.
 - you are about to report a task finished.

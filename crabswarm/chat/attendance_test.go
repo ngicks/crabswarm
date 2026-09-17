@@ -169,6 +169,35 @@ func TestStore_ListMembersIsPerRoomAndOrdered(t *testing.T) {
 	assert.Equal(t, len(members), 0)
 }
 
+// Attending crosses the rooms ListMembers stays inside, for a watcher that
+// belongs to none of them.
+func TestStore_AttendingSpansEveryRoom(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	members, err := s.Attending(t.Context())
+	assert.NilError(t, err)
+	assert.Equal(t, len(members), 0)
+
+	attend(t, s, "tok-c", testRoom, "beta", "carl")
+	attend(t, s, "tok-a", testRoom, "alpha", "zoe")
+	attend(t, s, "tok-far", "/work/elsewhere", "alpha", "stranger")
+
+	members, err = s.Attending(t.Context())
+	assert.NilError(t, err)
+	assert.Equal(t, len(members), 3)
+	assert.Equal(t, members[0].Name, "stranger") // alpha, by name
+	assert.Equal(t, members[1].Name, "zoe")      // alpha, by name
+	assert.Equal(t, members[2].Name, "carl")     // beta
+
+	// A member that stopped attending is gone from it, the way it is gone from
+	// the room: attendance is the stream, not a record that outlives one.
+	_, err = s.Detach(t.Context(), "tok-far")
+	assert.NilError(t, err)
+	members, err = s.Attending(t.Context())
+	assert.NilError(t, err)
+	assert.Equal(t, len(members), 2)
+}
+
 func TestStore_AttendSeedsPositionOnceAtTheRoomsEnd(t *testing.T) {
 	s, path := newTestStore(t)
 	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")

@@ -185,28 +185,6 @@ func TestTerminal_SendCommandReportsExecFailure(t *testing.T) {
 	}
 }
 
-func TestDialogMarker(t *testing.T) {
-	// Every marker must match whatever casing the harness prints it in, and an
-	// idle prompt must match none of them — the guard declining forever would
-	// be as silent a failure as it never declining.
-	for _, marker := range DialogMarkers {
-		t.Run(marker, func(t *testing.T) {
-			for _, snapshot := range []string{
-				"noise\n" + marker + "\nnoise",
-				"noise\n" + strings.ToUpper(marker) + "\nnoise",
-				"noise\n" + strings.ToLower(marker) + "\nnoise",
-			} {
-				got, found := dialogMarker(snapshot)
-				assert.Assert(t, found, "no marker found in %q", snapshot)
-				assert.Equal(t, got, marker)
-			}
-		})
-	}
-
-	_, found := dialogMarker("$ echo hello\nhello\n" + idlePrompt)
-	assert.Assert(t, !found, "an idle prompt must not read as a dialog")
-}
-
 func TestNewTerminal_DefaultsToPathLookup(t *testing.T) {
 	assert.Equal(t, NewTerminal("", nil).bin, "cmdman")
 	assert.Equal(t, NewTerminal("/opt/bin/cmdman", nil).bin, "/opt/bin/cmdman")
