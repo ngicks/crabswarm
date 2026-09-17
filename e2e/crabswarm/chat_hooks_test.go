@@ -15,14 +15,14 @@ import (
 	"time"
 )
 
-// The hook file Claude Code reads out of the skills-directory plugin. The Codex
-// copy under `.apm/hooks/` wires the same events, which
-// TestApmPackages_MergeHooksIntoCodexOnly pins, so the cases here stand for
-// both harnesses; each harness ignores the events it does not know. The
-// commands inside are `crabswarm hook exec` invocations, so every case below
-// runs the shipped command string verbatim rather than a Go paraphrase of it:
-// the wiring is a text file no compiler ever sees, and a template that renders
-// the wrong thing is exactly the bug that costs a message.
+// The hook file Claude Code reads out of the skills-directory plugin. The cases
+// here are about that file; the Codex copy under `.apm/hooks/` wires fewer
+// events, since Codex reports its state on its app server rather than through
+// hooks, and chat_codex_test.go is what pins it. The commands inside are
+// `crabswarm hook exec` invocations, so every case below runs the shipped
+// command string verbatim rather than a Go paraphrase of it: the wiring is a
+// text file no compiler ever sees, and a template that renders the wrong thing
+// is exactly the bug that costs a message.
 var chatHooksPath = []string{".apm", "skills", "crabswarm-mcp", "hooks", "hooks.json"}
 
 // chatHookConfig is the hook file's shape on both harnesses: events, each
@@ -603,19 +603,17 @@ func assertSelfContainedHookEntry(t *testing.T, event string, h chatHookEntry) {
 	}
 }
 
-// One file wires the union of what the two harnesses announce, and each drops
-// what it does not know: Codex's config loader ignores `Notification`, Claude
-// Code runs `PermissionRequest` natively. So both waiting events carry the same
-// report — byte for byte, since a waiting report reworded in one place and not
-// the other is a member stuck in the wrong state on one harness — and
-// `PostToolUse` reports working again after the delivery, which is Codex's only
-// signal that a dialog resolved and Claude Code's way back out of `waiting`
-// once a permission is granted.
+// Claude Code announces a dialog two ways — as a `Notification` and, since it
+// implements Codex's event too, as a `PermissionRequest` — so both carry the
+// same report, byte for byte: a waiting report reworded in one place and not
+// the other is a member stuck in the wrong state depending on which event
+// arrived. `PostToolUse` reports working again after the delivery, which is the
+// way back out of `waiting` once a permission is granted.
 //
 // `Notification` is split by `notification_type`: the permission prompt is the
 // half that pairs with `PermissionRequest`, and the idle prompt is the opposite
 // report, so a catch-all group would race the two.
-func TestChatHooks_WireTheUnionOfBothHarnesses(t *testing.T) {
+func TestChatHooks_WireBothWaysADialogIsAnnounced(t *testing.T) {
 	hooks := readChatHooks(t)
 
 	notification := hooks.commandForMatcher(t, "Notification", "permission_prompt")

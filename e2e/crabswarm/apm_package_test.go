@@ -119,12 +119,10 @@ func TestApmPackages_OpenCodePluginSpeaksLikeTheHooks(t *testing.T) {
 	}
 }
 
-// The plugin's hooks file and the Codex hooks file are the same wiring written
-// twice, because apm cannot hand one file to Codex's merge and keep it out of
-// Claude Code's. A universal file under `.apm/hooks/` would be merged into
-// settings.json beside the plugin, and every Claude Code hook would run twice;
-// a Codex file that drifts from the plugin's is a member reporting differently
-// on the two harnesses.
+// Each package ships Codex one file and one file only, under a `codex-` stem.
+// apm cannot hand a file to Codex's merge and keep it out of Claude Code's: a
+// universal file under `.apm/hooks/` would be merged into settings.json beside
+// the plugin, and every Claude Code hook would then run twice.
 func TestApmPackages_MergeHooksIntoCodexOnly(t *testing.T) {
 	for _, name := range apmPackages {
 		t.Run(name, func(t *testing.T) {
@@ -141,8 +139,27 @@ func TestApmPackages_MergeHooksIntoCodexOnly(t *testing.T) {
 				t.Fatalf(".apm/hooks holds %v, want exactly [codex-hooks.json]: "+
 					"any other stem is merged into Claude Code's settings.json too", names)
 			}
+			hooksObject(t, filepath.Join(hooksDir, "codex-hooks.json"))
+		})
+	}
+}
 
-			codex := hooksObject(t, filepath.Join(hooksDir, "codex-hooks.json"))
+// apmMirroredHookPackages are the packages whose two hook files are the same
+// wiring written twice, which is every package that asks the two harnesses for
+// the same thing. crabswarm-mcp is not one of them: Codex reports its state on
+// the app server the MCP server is already listening to, so its file wires
+// fewer events than the plugin's. TestChatCodex_HooksLeaveTheStateToTheAppServer
+// is what pins that file instead.
+var apmMirroredHookPackages = []string{"crabswarm-issues-lint"}
+
+// The two copies of a mirrored package's wiring are compared whole: a Codex
+// file that drifts from the plugin's is a check that runs on one harness and
+// silently not on the other.
+func TestApmPackages_MirrorTheHooksOntoCodex(t *testing.T) {
+	for _, name := range apmMirroredHookPackages {
+		t.Run(name, func(t *testing.T) {
+			codex := hooksObject(t, filepath.Join(
+				apmPackageDir(name), ".apm", "hooks", "codex-hooks.json"))
 			plugin := hooksObject(t, filepath.Join(apmSkillPluginDir(name), "hooks", "hooks.json"))
 			if !reflect.DeepEqual(codex, plugin) {
 				t.Errorf("codex-hooks.json and the plugin's hooks.json wire different hooks:"+

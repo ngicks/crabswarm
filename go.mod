@@ -19,6 +19,8 @@ require (
 	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886
+	github.com/coder/websocket v1.8.15
+	github.com/creachadair/jrpc2 v1.3.5
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.19.2
@@ -55,6 +57,7 @@ require (
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
+	github.com/creachadair/mds v0.26.1 // indirect
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
