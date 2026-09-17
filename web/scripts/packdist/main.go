@@ -92,7 +92,11 @@ func buildTar(dir string) ([]byte, error) {
 			_, err = tw.Write(data)
 			return err
 		default:
-			return fmt.Errorf("%s: mode %s: only directories and regular files can be packed", path, d.Type())
+			return fmt.Errorf(
+				"%s: mode %s: only directories and regular files can be packed",
+				path,
+				d.Type(),
+			)
 		}
 	})
 	if err != nil {
