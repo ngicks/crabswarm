@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"notifications/claude/channel","params":{"content":"Reply with exactly the word BANANA and stop.","meta":{"from":"probe_room"}}}

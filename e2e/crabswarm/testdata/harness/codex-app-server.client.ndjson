@@ -1,0 +1,9 @@
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"clientInfo":{"name":"crabswarm-probe","title":"crabswarm probe","version":"0.0.0"}}}
+{"jsonrpc":"2.0","method":"initialized"}
+{"id":2,"jsonrpc":"2.0","method":"thread/loaded/list","params":{}}
+{"id":3,"jsonrpc":"2.0","method":"thread/list","params":{"limit":1}}
+{"id":4,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":true,"threadId":"01a0afbe-2c74-7452-a0fd-6858a3d7a885"}}
+{"id":5,"jsonrpc":"2.0","method":"thread/resume","params":{"threadId":"01a0afbe-2c74-7452-a0fd-6858a3d7a885"}}
+{"id":6,"jsonrpc":"2.0","method":"turn/start","params":{"input":[{"text":"Reply with the single word ok.","type":"text"}],"threadId":"01a0afbe-2c74-7452-a0fd-6858a3d7a885"}}
+{"id":7,"jsonrpc":"2.0","method":"turn/start","params":{"input":[{"text":"Run sleep 20 with the shell tool then say done.","type":"text"}],"threadId":"01a0afbe-2c74-7452-a0fd-6858a3d7a885"}}
+{"id":8,"jsonrpc":"2.0","method":"turn/interrupt","params":{"threadId":"01a0afbe-2c74-7452-a0fd-6858a3d7a885","turnId":"01a0afbe-ea53-75d3-8e93-e804e0c61a86"}}
