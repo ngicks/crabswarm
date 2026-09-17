@@ -22,6 +22,7 @@ const (
 	ChatService_Attend_FullMethodName      = "/ngicks.crabswarm.chat.v1.ChatService/Attend"
 	ChatService_Send_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatService/Send"
 	ChatService_Read_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatService/Read"
+	ChatService_CountUnread_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/CountUnread"
 	ChatService_ListMembers_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
 	ChatService_ReportState_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
 )
@@ -55,6 +56,9 @@ type ChatServiceClient interface {
 	// caller's read position to the newest one shown. By default the first
 	// ten unread mentions.
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
+	// CountUnread reports how many unread messages mention the caller. It
+	// moves nothing; the caller asks before it wakes its agent.
+	CountUnread(ctx context.Context, in *CountUnreadRequest, opts ...grpc.CallOption) (*CountUnreadResponse, error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	// ReportState records the state of the harness the caller runs under. It is
@@ -110,6 +114,16 @@ func (c *chatServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...g
 	return out, nil
 }
 
+func (c *chatServiceClient) CountUnread(ctx context.Context, in *CountUnreadRequest, opts ...grpc.CallOption) (*CountUnreadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CountUnreadResponse)
+	err := c.cc.Invoke(ctx, ChatService_CountUnread_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListMembersResponse)
@@ -159,6 +173,9 @@ type ChatServiceServer interface {
 	// caller's read position to the newest one shown. By default the first
 	// ten unread mentions.
 	Read(context.Context, *ReadRequest) (*ReadResponse, error)
+	// CountUnread reports how many unread messages mention the caller. It
+	// moves nothing; the caller asks before it wakes its agent.
+	CountUnread(context.Context, *CountUnreadRequest) (*CountUnreadResponse, error)
 	// ListMembers lists every member of the caller's room, team-qualified.
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	// ReportState records the state of the harness the caller runs under. It is
@@ -183,6 +200,9 @@ func (UnimplementedChatServiceServer) Send(context.Context, *SendRequest) (*Send
 }
 func (UnimplementedChatServiceServer) Read(context.Context, *ReadRequest) (*ReadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Read not implemented")
+}
+func (UnimplementedChatServiceServer) CountUnread(context.Context, *CountUnreadRequest) (*CountUnreadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CountUnread not implemented")
 }
 func (UnimplementedChatServiceServer) ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMembers not implemented")
@@ -258,6 +278,24 @@ func _ChatService_Read_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_CountUnread_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CountUnreadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).CountUnread(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_CountUnread_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).CountUnread(ctx, req.(*CountUnreadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_ListMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListMembersRequest)
 	if err := dec(in); err != nil {
@@ -308,6 +346,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Read",
 			Handler:    _ChatService_Read_Handler,
+		},
+		{
+			MethodName: "CountUnread",
+			Handler:    _ChatService_CountUnread_Handler,
 		},
 		{
 			MethodName: "ListMembers",

@@ -17,16 +17,23 @@ import (
 
 // Attendance lands before the feed is read: the caller learns its own room,
 // team and name from the first event, which is what it matches later events
-// against.
+// against. What the caller declared about itself goes out with the request —
+// the harness it runs and the route a mention should take to it, which stand
+// for the life of the attendance and cannot be corrected later.
 func TestClient_Attend(t *testing.T) {
 	fake := &fakeChatService{self: member("backend", "alice", "/work/proj")}
 	d := serveTestDaemon(t, fake, nil)
 
 	att, err := d.client.Attend(t.Context(), "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_AGENT)
+		chatv1.MemberKind_MEMBER_KIND_AGENT,
+		chatv1.Harness_HARNESS_CLAUDE_CODE,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 	assert.NilError(t, err)
 	assert.Equal(t, fake.attendRequest().GetName(), "alice")
 	assert.Equal(t, fake.attendRequest().GetKind(), chatv1.MemberKind_MEMBER_KIND_AGENT)
+	assert.Equal(t, fake.attendRequest().GetHarness(), chatv1.Harness_HARNESS_CLAUDE_CODE)
+	assert.Equal(t, fake.attendRequest().GetNudge(),
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a"})
 
 	assert.Equal(t, att.Self().GetTeam(), "backend")
@@ -41,7 +48,9 @@ func TestClient_AttendUnnamed(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	_, err := d.client.Attend(t.Context(), "tok-a", "",
-		chatv1.MemberKind_MEMBER_KIND_HUMAN)
+		chatv1.MemberKind_MEMBER_KIND_HUMAN,
+		chatv1.Harness_HARNESS_UNSPECIFIED,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 	assert.NilError(t, err)
 	assert.Equal(t, fake.attendRequest().GetName(), "")
 	assert.Equal(t, fake.attendRequest().GetKind(), chatv1.MemberKind_MEMBER_KIND_HUMAN)
@@ -57,7 +66,9 @@ func TestClient_AttendSurfacesTheRefusal(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	_, err := d.client.Attend(t.Context(), "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_AGENT)
+		chatv1.MemberKind_MEMBER_KIND_AGENT,
+		chatv1.Harness_HARNESS_UNSPECIFIED,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 	assert.Assert(t, err != nil)
 	assert.Equal(t, err.Error(), msg)
 }
@@ -73,7 +84,9 @@ func TestClient_AttendReportsTheCancellation(t *testing.T) {
 	cancel()
 
 	_, err := d.client.Attend(ctx, "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_AGENT)
+		chatv1.MemberKind_MEMBER_KIND_AGENT,
+		chatv1.Harness_HARNESS_UNSPECIFIED,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
@@ -91,7 +104,9 @@ func TestClient_AttendRejectsAnOpeningThatNamesNoMember(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	_, err := d.client.Attend(t.Context(), "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_AGENT)
+		chatv1.MemberKind_MEMBER_KIND_AGENT,
+		chatv1.Harness_HARNESS_UNSPECIFIED,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 	assert.Assert(t, err != nil)
 	assert.Assert(t, strings.Contains(err.Error(), "MemberJoined"))
 }
@@ -116,7 +131,9 @@ func TestAttendance_ForwardStopsOnTheCallersError(t *testing.T) {
 	d := serveTestDaemon(t, fake, nil)
 
 	att, err := d.client.Attend(t.Context(), "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_AGENT)
+		chatv1.MemberKind_MEMBER_KIND_AGENT,
+		chatv1.Harness_HARNESS_UNSPECIFIED,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 	assert.NilError(t, err)
 
 	enough := errors.New("seen enough")
@@ -144,7 +161,9 @@ func TestAttendance_ForwardReportsTheCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	att, err := d.client.Attend(ctx, "tok-a", "alice",
-		chatv1.MemberKind_MEMBER_KIND_AGENT)
+		chatv1.MemberKind_MEMBER_KIND_AGENT,
+		chatv1.Harness_HARNESS_UNSPECIFIED,
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 	assert.NilError(t, err)
 
 	cancel()
@@ -322,9 +341,11 @@ func TestClient_ReadIntoDoneWhenEmpty(t *testing.T) {
 
 func TestClient_ListMembersAndAddresses(t *testing.T) {
 	fake := &fakeChatService{members: []*chatv1.Member{
-		memberWith("backend", "alice", "/work",
+		runningOn(memberWith("backend", "alice", "/work",
 			chatv1.MemberKind_MEMBER_KIND_AGENT,
 			chatv1.HarnessState_HARNESS_STATE_WORKING),
+			chatv1.Harness_HARNESS_OPENCODE,
+			chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL),
 		memberWith("frontend", "bob", "/work",
 			chatv1.MemberKind_MEMBER_KIND_HUMAN,
 			chatv1.HarnessState_HARNESS_STATE_DONE),
@@ -334,7 +355,8 @@ func TestClient_ListMembersAndAddresses(t *testing.T) {
 	var out strings.Builder
 	assert.NilError(t, d.client.ListMembers(t.Context(), &out, "tok-a"))
 	assert.Equal(t, out.String(),
-		"backend/alice  agent  working\nfrontend/bob  human  done\n")
+		"backend/alice  agent  working  opencode  terminal\n"+
+			"frontend/bob  human  done  -  -\n")
 
 	// Completion needs the same strings as values rather than as a listing.
 	addresses, err := d.client.MemberAddresses(t.Context(), "tok-a")
@@ -350,6 +372,33 @@ func TestClient_ReportStateIsSilent(t *testing.T) {
 
 	assert.NilError(t, d.client.ReportState(t.Context(), "tok-a", "waiting"))
 	assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_WAITING)
+}
+
+// The same report for a caller holding the state as a value rather than as a
+// word somebody typed — a harness feed saying what its agent is doing. Nothing
+// is parsed on the way, so there is no word to get wrong.
+func TestClient_ReportHarnessState(t *testing.T) {
+	fake := &fakeChatService{}
+	d := serveTestDaemon(t, fake, nil)
+
+	assert.NilError(t, d.client.ReportHarnessState(t.Context(), "tok-a",
+		chatv1.HarnessState_HARNESS_STATE_WORKING))
+	assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_WORKING)
+	// It reports under the credential it was handed, like every other member
+	// verb.
+	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a"})
+}
+
+// A daemon that refused the report says so to the caller, which is what lets a
+// feed log the refusal rather than believing the room heard it.
+func TestClient_ReportHarnessStateSurfacesTheRefusal(t *testing.T) {
+	fake := &fakeChatService{err: status.Error(codes.NotFound, "not attending")}
+	d := serveTestDaemon(t, fake, nil)
+
+	err := d.client.ReportHarnessState(t.Context(), "tok-a",
+		chatv1.HarnessState_HARNESS_STATE_DONE)
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "not attending"))
 }
 
 // An unknown state word never reaches the daemon: reporting the wrong state is

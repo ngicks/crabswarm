@@ -53,6 +53,45 @@ func memberKind(kind chatv1.MemberKind) (MemberKind, error) {
 	}
 }
 
+// harnessOf maps the declared harness onto the stored one. Unlike the kind, the
+// unspecified value is taken as written: nothing the daemon does turns on which
+// CLI a member runs, and a server whose handshake named no client it recognises
+// has nothing truthful to put there. A value outside the enum is still refused,
+// since that is a client speaking a schema this daemon does not have.
+func harnessOf(h chatv1.Harness) (Harness, error) {
+	switch h {
+	case chatv1.Harness_HARNESS_UNSPECIFIED:
+		return "", nil
+	case chatv1.Harness_HARNESS_CLAUDE_CODE:
+		return HarnessClaudeCode, nil
+	case chatv1.Harness_HARNESS_CODEX:
+		return HarnessCodex, nil
+	case chatv1.Harness_HARNESS_OPENCODE:
+		return HarnessOpenCode, nil
+	case chatv1.Harness_HARNESS_OTHER:
+		return HarnessOther, nil
+	default:
+		return "", status.Errorf(codes.InvalidArgument, "unknown harness %q", h)
+	}
+}
+
+// nudgeOf maps the declared delivery onto the stored one. The unspecified value
+// is left empty rather than filled in here: what an agent that named no
+// delivery gets is the store's business, since the same default has to hold for
+// a member the daemon builds itself.
+func nudgeOf(n chatv1.NudgeDelivery) (NudgeDelivery, error) {
+	switch n {
+	case chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED:
+		return "", nil
+	case chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL:
+		return NudgeTerminal, nil
+	case chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE:
+		return NudgeNative, nil
+	default:
+		return "", status.Errorf(codes.InvalidArgument, "unknown nudge delivery %q", n)
+	}
+}
+
 // harnessStateProto maps the stored state back onto the wire enum. Unlike
 // [memberState] it refuses nothing: a [Member] carrying no state is one nobody
 // recorded a state for, which is a member to describe rather than a request to
@@ -86,13 +125,47 @@ func memberKindProto(kind MemberKind) chatv1.MemberKind {
 	}
 }
 
+// harnessProto maps the stored harness back onto the wire enum. Like
+// [memberKindProto] it refuses nothing: a member carrying no harness is one
+// nobody named a harness for, which every human and every sender snapshot is.
+func harnessProto(h Harness) chatv1.Harness {
+	switch h {
+	case HarnessClaudeCode:
+		return chatv1.Harness_HARNESS_CLAUDE_CODE
+	case HarnessCodex:
+		return chatv1.Harness_HARNESS_CODEX
+	case HarnessOpenCode:
+		return chatv1.Harness_HARNESS_OPENCODE
+	case HarnessOther:
+		return chatv1.Harness_HARNESS_OTHER
+	default:
+		return chatv1.Harness_HARNESS_UNSPECIFIED
+	}
+}
+
+// nudgeProto maps the stored delivery back onto the wire enum. The unspecified
+// value is a member nothing is ever delivered to by itself, which is what a
+// human and a sender snapshot both are.
+func nudgeProto(n NudgeDelivery) chatv1.NudgeDelivery {
+	switch n {
+	case NudgeTerminal:
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL
+	case NudgeNative:
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
+	default:
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED
+	}
+}
+
 func memberProto(m Member) *chatv1.Member {
 	return &chatv1.Member{
-		Name:  m.Name,
-		Team:  m.Team,
-		Room:  m.Room,
-		State: harnessStateProto(m.State),
-		Kind:  memberKindProto(m.Kind),
+		Name:    m.Name,
+		Team:    m.Team,
+		Room:    m.Room,
+		State:   harnessStateProto(m.State),
+		Kind:    memberKindProto(m.Kind),
+		Harness: harnessProto(m.Harness),
+		Nudge:   nudgeProto(m.Nudge),
 	}
 }
 

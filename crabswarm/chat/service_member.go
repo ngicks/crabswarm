@@ -33,6 +33,13 @@ const ProviderUnavailableMessage = "looking up team information"
 // person types in are the same kind of command to the team-info provider, and
 // guessing wrong means keystrokes in somebody's shell.
 //
+// The request also says which harness the attendee runs and how a mention
+// should reach it, and both stand for the life of the attendance. Neither is
+// required: a harness nothing named stays unspecified, and an agent that named
+// no delivery is typed at through its terminal, which is what every agent was
+// before a harness could deliver a mention itself. An agent declaring native
+// delivery is never typed at — its own server is watching the same feed.
+//
 // A token the provider does not know is Unauthenticated: nothing places its
 // holder, so there is nowhere to put them and no reason to believe the token.
 // A provider lookup that merely fails is Unavailable instead — turning a caller
@@ -60,6 +67,14 @@ func (s *Service) Attend(
 	if err != nil {
 		return err
 	}
+	harness, err := harnessOf(req.GetHarness())
+	if err != nil {
+		return err
+	}
+	nudge, err := nudgeOf(req.GetNudge())
+	if err != nil {
+		return err
+	}
 	info, err := s.provider.Resolve(ctx, token)
 	switch {
 	case errors.Is(err, resolver.ErrUnknownToken):
@@ -79,11 +94,13 @@ func (s *Service) Attend(
 	defer s.store.events.unsubscribe(sub)
 
 	self, err := s.store.Attend(ctx, Member{
-		Token: token,
-		Name:  s.attendName(req.GetName(), info, token, kind),
-		Team:  info.Team,
-		Room:  info.Room,
-		Kind:  kind,
+		Token:   token,
+		Name:    s.attendName(req.GetName(), info, token, kind),
+		Team:    info.Team,
+		Room:    info.Room,
+		Kind:    kind,
+		Harness: harness,
+		Nudge:   nudge,
 	})
 	if err != nil {
 		return storeStatus(err)
@@ -198,12 +215,45 @@ func (s *Service) ReportState(
 	if err != nil {
 		return nil, err
 	}
-	if err := s.store.SetState(ctx, caller.Token, state, time.Now()); err != nil {
+	if err := s.recordState(ctx, caller, state); err != nil {
 		return nil, storeStatus(err)
 	}
-	s.mirrorState(ctx, caller, state)
-	if state != caller.State {
-		s.store.events.publish(caller.Room, memberStateChangedEvent(caller, req.GetState()))
-	}
 	return &chatv1.ReportStateResponse{}, nil
+}
+
+// RecordState records the state a watcher observed for the member attending
+// under token, through the very path [Service.ReportState] records a hook's
+// report through — so a reading of the terminal overrides a report that never
+// came, and an operator's status display and the room's feed say the same thing
+// either way.
+//
+// It is the seam for a watcher outside the RPC surface: the screen poller,
+// which reads the state off the terminal because an interrupted Claude Code
+// turn fires no hook. An unknown token is [ErrNotAttending] — the session ended
+// between the listing and the reading, which is ordinary.
+func (s *Service) RecordState(ctx context.Context, token string, state MemberState) error {
+	m, err := s.store.Member(ctx, token)
+	if err != nil {
+		return err
+	}
+	return s.recordState(ctx, m, state)
+}
+
+// recordState is the one path a member's state is written through: the store
+// first, then the status display, then the room — and the room only when the
+// state actually changed. Hooks report working after every tool call, so a room
+// of busy agents would otherwise spend its event feed telling every attendee to
+// re-read a roster that says exactly what it said before.
+//
+// m is the member as it stood before the write, which is what the change is
+// measured against and what the event carries.
+func (s *Service) recordState(ctx context.Context, m Member, state MemberState) error {
+	if err := s.store.SetState(ctx, m.Token, state, time.Now()); err != nil {
+		return err
+	}
+	s.mirrorState(ctx, m, state)
+	if state != m.State {
+		s.store.events.publish(m.Room, memberStateChangedEvent(m, harnessStateProto(state)))
+	}
+	return nil
 }

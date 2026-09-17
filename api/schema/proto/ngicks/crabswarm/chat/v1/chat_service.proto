@@ -31,6 +31,9 @@ service ChatService {
   // caller's read position to the newest one shown. By default the first
   // ten unread mentions.
   rpc Read(ReadRequest) returns (ReadResponse);
+  // CountUnread reports how many unread messages mention the caller. It
+  // moves nothing; the caller asks before it wakes its agent.
+  rpc CountUnread(CountUnreadRequest) returns (CountUnreadResponse);
   // ListMembers lists every member of the caller's room, team-qualified.
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   // ReportState records the state of the harness the caller runs under. It is
@@ -103,6 +106,26 @@ enum MemberKind {
   MEMBER_KIND_HUMAN = 2;
 }
 
+// Harness names the CLI a member runs, as its MCP server reads it from the
+// MCP handshake. Unspecified is a human or a server that could not tell.
+enum Harness {
+  HARNESS_UNSPECIFIED = 0;
+  HARNESS_CLAUDE_CODE = 1;
+  HARNESS_CODEX = 2;
+  HARNESS_OPENCODE = 3;
+  HARNESS_OTHER = 4;
+}
+
+// NudgeDelivery says how a mention reaches the member.
+enum NudgeDelivery {
+  NUDGE_DELIVERY_UNSPECIFIED = 0;
+  // Terminal: the daemon types into the member's terminal (cmdman send-keys).
+  NUDGE_DELIVERY_TERMINAL = 1;
+  // Native: the member's MCP server delivers through the harness's own
+  // channel; the daemon never types at it.
+  NUDGE_DELIVERY_NATIVE = 2;
+}
+
 // Member is one participant of a room.
 message Member {
   // Name is unique within Team, but may collide across the teams of a room;
@@ -122,6 +145,12 @@ message Member {
   // Kind is what attends. It is unspecified only on a sender snapshot, which
   // records who spoke rather than who is attending.
   MemberKind kind = 5;
+  // Harness is the CLI the member runs, as it declared on attending. It is
+  // unspecified for a human and for an agent whose server could not tell.
+  Harness harness = 6;
+  // Nudge is how a mention reaches the member. An agent that declared none
+  // attends as terminal; a human carries none at all, being never nudged.
+  NudgeDelivery nudge = 7;
 }
 
 // Room is a chat room and its current attendance.
@@ -189,6 +218,14 @@ message AttendRequest {
   // human, since nudging the wrong kind types keystrokes into somebody's
   // shell.
   MemberKind kind = 2;
+  // Harness is the CLI the attendee runs. Leaving it unspecified is allowed:
+  // nothing the daemon does depends on it, and a server that cannot read the
+  // harness off its handshake has nothing truthful to put here.
+  Harness harness = 3;
+  // Nudge is how a mention should reach the attendee. An agent leaving it
+  // unspecified is nudged through its terminal, which is what every agent was
+  // before a harness could deliver its own.
+  NudgeDelivery nudge = 4;
 }
 
 // Attended is the first event of an Attend stream.
@@ -261,6 +298,15 @@ message ReadResponse {
   // RemainingUnread is how many unread mentions of the caller are left after
   // this read.
   int32 remaining_unread = 2;
+}
+
+message CountUnreadRequest {}
+
+message CountUnreadResponse {
+  // UnreadMentions is how many messages past the caller's read position
+  // mention it. The read position does not move, so asking again gives the
+  // same answer until the caller reads or somebody writes.
+  int32 unread_mentions = 1;
 }
 
 message ListMembersRequest {}

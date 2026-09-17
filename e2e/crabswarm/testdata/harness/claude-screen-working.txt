@@ -1,0 +1,24 @@
+  intentionally blocked to prevent unnecessary delays. If you need to wait for
+  something, the recommended approach is to use run_in_background: true (which
+  we already did) or to use Monitor with a condition-checking loop.
+
+  Done.
+
+✻ Cogitated for 7s · done 11:09 PM
+
+❯ Run this with the Bash tool in the foreground and wait for it: python3 -c     
+  'import time; time.sleep(30)' then say done.                                  
+
+  Running Python sleep for 30 seconds · 1m 0s
+  ⎿  $ python3 -c 'import time; time.sleep(30)' (16s)
+     (ctrl+b to run in background)
+
+* Generating… (19s · ↓ 193 tokens)
+  ⎿  Tip: Run /ultrareview for a cloud-based multi-agent review that finds and 
+     verifies bugs in your branch — 3 free reviews left
+
+────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────
+   Haiku 4.5 | 16% used | /tmp/claude-0/-home-watage-gitrepo-github-com-ngic…
+  ⏸ manual mode on · ← for agents

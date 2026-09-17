@@ -46,16 +46,21 @@ var (
 )
 
 // MemberKind tells what the daemon may do to a member besides showing it the
-// room. An agent said it runs a harness, so its terminal is typed into and its
-// command carries the state display. Anything else is left alone: nothing is
-// injected and nothing is published.
+// room. An agent said it runs a harness, so it is nudged when it is mentioned
+// and its command carries the state display. Anything else is left alone:
+// nothing is delivered to it and nothing is published.
+//
+// By what route an agent is nudged is [NudgeDelivery], declared separately: a
+// keystroke into its terminal, or its own server pushing the mention through
+// the harness.
 //
 // Which one a joiner is, it declares — the daemon cannot tell a harness from a
 // shell that happens to run under the same command.
 type MemberKind string
 
 const (
-	// KindAgent is an agent harness; nudgeable by keystroke injection.
+	// KindAgent is an agent harness; nudgeable, by whichever route its
+	// [NudgeDelivery] names.
 	KindAgent MemberKind = "agent"
 	// KindHuman is any other member (plain shell, admin-registered); read-only
 	// as far as nudging goes.
@@ -99,6 +104,10 @@ type Member struct {
 	// member besides showing it the room — being nudged by keystroke injection
 	// above all. See [MemberKind].
 	Kind MemberKind
+	// Harness is the CLI the member declared it runs. See [Harness].
+	Harness Harness
+	// Nudge is how a mention is delivered to the member. See [NudgeDelivery].
+	Nudge NudgeDelivery
 	// State is the last harness state reported for the member.
 	State MemberState
 	// StateReportedAt is when State was reported. A notifier reads it to tell a

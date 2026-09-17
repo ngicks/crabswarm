@@ -12,6 +12,7 @@ import (
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/chat/internal/cmdman"
+	"github.com/ngicks/crabswarm/crabswarm/chat/nudge"
 	"gotest.tools/v3/assert"
 )
 
@@ -108,7 +109,7 @@ func TestSendKeys_NudgesDoneAgent(t *testing.T) {
 	assert.Equal(t, len(args), 3, "invocations: %v", args)
 	assert.Equal(t, args[0], "capture-screen 0123456789abcdef")
 	assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
-		"[crabswarm chat] new message from beta/bob — run: crabswarm chat read")
+		"[crabswarm chat] new message from beta/bob — read it with the chat_read tool")
 	assert.Equal(t, args[2], "send-keys 0123456789abcdef Enter")
 }
 
@@ -254,7 +255,7 @@ func TestSendKeys_SanitizesSenderAddress(t *testing.T) {
 		{
 			"over-long name is cut",
 			chat.Sender{Name: strings.Repeat("n", 200), Team: "beta"},
-			"beta/" + strings.Repeat("n", maxNudgeAddrLen-len("beta/")),
+			"beta/" + strings.Repeat("n", nudge.MaxAddrLen-len("beta/")),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -269,7 +270,7 @@ func TestSendKeys_SanitizesSenderAddress(t *testing.T) {
 			assert.Equal(t, len(args), 3, "invocations: %v", args)
 			assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
 				"[crabswarm chat] new message from "+tc.want+
-				" — run: crabswarm chat read")
+				" — read it with the chat_read tool")
 		})
 	}
 }
@@ -287,7 +288,7 @@ func TestSendKeys_UnteamedSenderCarriesTheBareName(t *testing.T) {
 	args := stubArgs(t, bin)
 	assert.Equal(t, len(args), 3, "invocations: %v", args)
 	assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
-		"[crabswarm chat] new message from admin — run: crabswarm chat read")
+		"[crabswarm chat] new message from admin — read it with the chat_read tool")
 }
 
 func TestSendKeys_RejectsMalformedTokenWithoutExec(t *testing.T) {

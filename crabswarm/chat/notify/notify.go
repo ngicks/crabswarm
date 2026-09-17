@@ -2,10 +2,17 @@
 // message that just mentioned them is read now rather than whenever they next
 // happen to look.
 //
-// It holds the implementors of the chat broker's notification hook, and nothing
-// else: the interface itself is declared at its consumer, in the chat package,
-// and the terminal-injection machinery they are built on lives in
-// ../internal/cmdman. Today the only implementor is [SendKeys].
+// It holds the daemon's two halves of that: [SendKeys], the implementor of the
+// chat broker's notification hook, which types a notice into an agent's
+// terminal; and [ScreenPoller], which reads the terminal of every attending
+// Claude Code session and records the state it shows. The poller is what keeps
+// the guard [SendKeys] nudges behind honest — Claude Code reports through hooks,
+// and a hook goes missing the moment a turn is interrupted. Every other harness
+// says what it is doing on a feed of its own, so nothing here polls it.
+//
+// The notification interface itself is declared at its consumer, in the chat
+// package, and the terminal machinery both halves are built on lives in
+// ../internal/cmdman.
 package notify
 
 import (
@@ -13,16 +20,11 @@ import (
 	"errors"
 	"log/slog"
 	"time"
-	"unicode"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/chat/internal/cmdman"
+	"github.com/ngicks/crabswarm/crabswarm/chat/nudge"
 )
-
-// maxNudgeAddrLen caps the sender address the injected line carries. A member
-// name comes from the agent that attends and nothing upstream bounds it, so the
-// cap is what keeps one line one line; a longer address is cut short.
-const maxNudgeAddrLen = 64
 
 // staleStateAfter is how long a reported working or waiting state is believed.
 // A state only changes when a harness hook reports the change, and a hook can
@@ -115,39 +117,9 @@ func nudgeable(m chat.Member) bool {
 }
 
 // nudgeLine is the line typed into the recipient's terminal: who has written,
-// and the command that hands the message over.
+// and what hands the message over. The words are the room's own, shared with
+// the servers that deliver a mention through a harness's notification channel
+// instead of through a terminal.
 func nudgeLine(from chat.Sender) string {
-	return "[crabswarm chat] new message from " +
-		sanitizeLine(senderAddr(from)) +
-		" — run: crabswarm chat read"
-}
-
-// senderAddr spells the sender the way every chat verb addresses one. A sender
-// with no team is the host operator, whose messages read as coming from "admin"
-// rather than from "/admin": nobody can attend a room without a team, so there
-// is no other unteamed sender to confuse it with.
-func senderAddr(from chat.Sender) string {
-	if from.Team == "" {
-		return from.Name
-	}
-	return from.Team + "/" + from.Name
-}
-
-// sanitizeLine makes s safe to type into a terminal as part of one line. It
-// drops control characters — a carriage return would submit the line early and
-// leave the rest of it running as a command of its own — and truncates at
-// [maxNudgeAddrLen]. Neither bound is guaranteed upstream: a name is whatever
-// the attending agent asked to be called.
-func sanitizeLine(s string) string {
-	cleaned := make([]rune, 0, len(s))
-	for _, r := range s {
-		if unicode.IsControl(r) {
-			continue
-		}
-		cleaned = append(cleaned, r)
-		if len(cleaned) == maxNudgeAddrLen {
-			break
-		}
-	}
-	return string(cleaned)
+	return nudge.NewMessage(nudge.Sanitize(nudge.Address(from.Team, from.Name)))
 }

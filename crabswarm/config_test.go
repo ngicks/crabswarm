@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/hook/exec"
@@ -27,6 +28,7 @@ const (
 	envChatAdminRecipients   = "CRABSWARM_CHAT_ADMIN_RECIPIENTS"
 	envChatAdminIdentityFile = "CRABSWARM_CHAT_ADMIN_IDENTITY_FILE"
 	envChatHistoryLimit      = "CRABSWARM_CHAT_HISTORY_LIMIT"
+	envChatScreenPoll        = "CRABSWARM_CHAT_SCREEN_POLL_INTERVAL"
 	envPreviewAddr           = "CRABSWARM_PREVIEW_ADDR"
 	envPreviewDaemonName     = "CRABSWARM_PREVIEW_DAEMON_NAME"
 	envXDGRuntime            = "XDG_RUNTIME_DIR"
@@ -49,6 +51,7 @@ func baseEnv(t *testing.T) {
 		envChatAdminRecipients,
 		envChatAdminIdentityFile,
 		envChatHistoryLimit,
+		envChatScreenPoll,
 		envPreviewAddr,
 		envPreviewDaemonName,
 		envXDGRuntime,
@@ -604,6 +607,9 @@ func TestLoadConfig_ChatDbDefault(t *testing.T) {
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "")
 	// No opinion on retention either: the store reads zero as its own default.
 	assert.Equal(t, cfg.Chat.HistoryLimit, 0)
+	// Nor on how often a screen is read: the poller reads zero as its own
+	// default, so an unconfigured host still polls.
+	assert.Equal(t, cfg.Chat.ScreenPollInterval, time.Duration(0))
 }
 
 // Without XDG_STATE_HOME the default follows the XDG fallback under $HOME.
@@ -634,7 +640,10 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 			[]byte(`{"chat":{"db":"/file/chat.db","cmdman_bin":"/opt/bin/cmdman",`+
 				`"admin_recipients":["age1recipient","age1second"],`+
 				`"admin_identity_file":"~/keys/chat.key",`+
-				`"history_limit":250}}`),
+				`"history_limit":250,`+
+				// A time.Duration marshals as nanoseconds, so that is what the
+				// file form carries: five seconds.
+				`"screen_poll_interval":5000000000}}`),
 			0o644,
 		),
 	)
@@ -646,6 +655,7 @@ func TestLoadConfig_ChatFromFile(t *testing.T) {
 	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string{"age1recipient", "age1second"})
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "~/keys/chat.key")
 	assert.Equal(t, cfg.Chat.HistoryLimit, 250)
+	assert.Equal(t, cfg.Chat.ScreenPollInterval, 5*time.Second)
 }
 
 // The chat sub-config is env-settable: caarlos0/env composes the global
@@ -664,6 +674,10 @@ func TestLoadConfig_ChatFromEnv(t *testing.T) {
 	// Negative is the spelling of "keep no transcript", so it has to survive
 	// the env layer as written rather than being read as absent.
 	t.Setenv(envChatHistoryLimit, "-1")
+	// The env layer takes a duration string, which is what caarlos0/env parses a
+	// time.Duration from — the one place the two file forms and the variable
+	// spell the same value differently.
+	t.Setenv(envChatScreenPoll, "750ms")
 
 	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
@@ -672,6 +686,30 @@ func TestLoadConfig_ChatFromEnv(t *testing.T) {
 	assert.DeepEqual(t, cfg.Chat.AdminRecipients, []string{"age1envrecipient", "age1envsecond"})
 	assert.Equal(t, cfg.Chat.AdminIdentityFile, "/env/keys/chat.key")
 	assert.Equal(t, cfg.Chat.HistoryLimit, -1)
+	assert.Equal(t, cfg.Chat.ScreenPollInterval, 750*time.Millisecond)
+}
+
+// A negative interval is the spelling of "do not poll screens at all", so it has
+// to survive both layers as written rather than being read as absent.
+func TestLoadConfig_ChatScreenPollTurnedOff(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv(envChatScreenPoll, "-1s")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Chat.ScreenPollInterval, -1*time.Second)
+
+	tmp := t.TempDir()
+	confPath := filepath.Join(tmp, "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(confPath, []byte(`{"chat":{"screen_poll_interval":-1}}`), 0o644),
+	)
+	baseEnv(t)
+	cfg, err = LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Chat.ScreenPollInterval, -1*time.Nanosecond)
 }
 
 // The nested env layer sits above the file layer: a set db wins, while the
@@ -750,6 +788,17 @@ func TestApply_ChatOverlay(t *testing.T) {
 	off := PartialConfig{Chat: chat.PartialConfig{AdminRecipients: []string{}}}
 	got = off.Apply(base)
 	assert.DeepEqual(t, got.Chat.AdminRecipients, []string{})
+
+	// An explicit zero applies too, which is how a layer puts the screen poll
+	// back on the built-in interval after a lower one turned it off.
+	got = PartialConfig{
+		Chat: chat.PartialConfig{ScreenPollInterval: new(-1 * time.Second)},
+	}.Apply(base)
+	assert.Equal(t, got.Chat.ScreenPollInterval, -1*time.Second)
+	got = PartialConfig{
+		Chat: chat.PartialConfig{ScreenPollInterval: new(time.Duration(0))},
+	}.Apply(got)
+	assert.Equal(t, got.Chat.ScreenPollInterval, time.Duration(0))
 
 	// The base is unchanged.
 	assert.Equal(t, base.Chat.Db, "/state/crabswarm/chat.db")

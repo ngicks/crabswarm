@@ -43,6 +43,46 @@ func TestStore_ReadUnreadMovesThePosition(t *testing.T) {
 	assert.Equal(t, readPosition(t, s, testRoom, "beta", "bob"), 3)
 }
 
+// Counting is asking without taking: it answers what a read would leave behind
+// and moves the position nowhere, so the same question asked twice answers
+// twice the same and the messages are still there to be read.
+func TestStore_CountUnreadMovesNothing(t *testing.T) {
+	s, _ := newTestStore(t)
+	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
+	bob := attend(t, s, "tok-b", testRoom, "beta", "bob")
+
+	unread, err := s.CountUnread(t.Context(), senderOf(bob))
+	assert.NilError(t, err)
+	assert.Equal(t, unread, 0)
+
+	send(t, s, senderOf(alice), toRoles(role("beta", "bob")), "for you")
+	send(t, s, senderOf(alice), Target{Kind: TargetEveryone}, "for the room")
+	// Neither of these is bob's unread: a post names nobody, and a role does not
+	// count itself.
+	send(t, s, senderOf(alice), Target{}, "a board post")
+	send(t, s, senderOf(bob), Target{Kind: TargetEveryone}, "my own announcement")
+
+	for range 2 {
+		unread, err = s.CountUnread(t.Context(), senderOf(bob))
+		assert.NilError(t, err)
+		assert.Equal(t, unread, 2)
+	}
+	assert.Equal(t, readPosition(t, s, testRoom, "beta", "bob"), 0)
+
+	// The read that follows still has both to hand over, and counting after it
+	// reports what it left.
+	msgs, _, err := s.Read(t.Context(), senderOf(bob), ReadFilter{Range: 1})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, texts(msgs), []string{"for you"})
+	unread, err = s.CountUnread(t.Context(), senderOf(bob))
+	assert.NilError(t, err)
+	assert.Equal(t, unread, 1)
+
+	// A role the room has never carried has no position to count from.
+	_, err = s.CountUnread(t.Context(), Sender{Room: testRoom, Team: "beta", Name: "nobody"})
+	assert.ErrorIs(t, err, ErrUnknownRole)
+}
+
 func TestStore_ReadUnreadSkipsPostsAndOwnMessages(t *testing.T) {
 	s, _ := newTestStore(t)
 	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")

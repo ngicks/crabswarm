@@ -166,6 +166,13 @@ func (s *Server) Serve(ctx context.Context) error {
 	notifier := notify.NewSendKeys(s.chatCfg.CmdmanBin, s.logger)
 	provider := resolver.NewCmdmanCompose(s.chatCfg.CmdmanBin)
 	adminSvc := chat.NewAdminService(chatStore, adminAuth, notifier, s.logger)
+	chatSvc := chat.NewService(
+		chatStore,
+		provider,
+		notifier,
+		chat.NewCmdmanStatusMirror(s.chatCfg.CmdmanBin, s.logger),
+		s.logger,
+	)
 
 	srv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(chat.UnaryTokenInterceptor()),
@@ -173,19 +180,34 @@ func (s *Server) Serve(ctx context.Context) error {
 		grpc.ChainStreamInterceptor(chat.StreamTokenInterceptor()),
 	)
 	pb.RegisterAuditServiceServer(srv, &auditServiceServer{logger: s.logger})
-	chatv1.RegisterChatServiceServer(srv, chat.NewService(
-		chatStore,
-		provider,
-		notifier,
-		chat.NewCmdmanStatusMirror(s.chatCfg.CmdmanBin, s.logger),
-		s.logger,
-	))
+	chatv1.RegisterChatServiceServer(srv, chatSvc)
 	// The admin half shares the socket with the member half: it is gated by the
 	// credential its own calls carry, not by the token interceptor. With no
 	// admin recipient configured it registers anyway and refuses every call,
 	// which tells an operator that they have a key to configure — an
 	// Unimplemented would read as "this daemon is too old".
 	chatv1.RegisterChatAdminServiceServer(srv, adminSvc)
+
+	// Claude Code has no state API for an interactive session, and its hooks go
+	// missing the moment a turn is interrupted, so the daemon reads the state off
+	// the terminal itself and lets that reading override the last hook report. It
+	// runs for as long as the server does; a negative interval is the operator
+	// saying not to run it at all.
+	if s.chatCfg.ScreenPollInterval >= 0 {
+		// Derived from the server's context rather than being it: a daemon that
+		// stopped because its listener failed never cancels that context, and the
+		// poller would keep exec'ing cmdman for a server that is gone.
+		pollCtx, stopPolling := context.WithCancel(ctx)
+		defer stopPolling()
+		poller := notify.NewScreenPoller(
+			s.chatCfg.CmdmanBin,
+			s.chatCfg.ScreenPollInterval,
+			chatStore,
+			chatSvc,
+			s.logger,
+		)
+		go poller.Run(pollCtx)
+	}
 
 	// Graceful shutdown when context is cancelled (e.g. SIGINT).
 	//

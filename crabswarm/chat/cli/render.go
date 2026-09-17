@@ -133,15 +133,20 @@ func RenderSent[R sendOutcome](out, warn io.Writer, resp R) error {
 }
 
 // RenderMembers lists the room's attendance, one member per line: the
-// team-qualified address, the kind and the harness state, separated by two
-// spaces. The first column is the point: it is exactly the role a target names,
-// so the reader never has to assemble one, and it stays first and unpadded so a
-// line still cuts cleanly on whitespace.
+// team-qualified address, the kind, the harness state, the harness and how a
+// mention is delivered to it, separated by two spaces. The first column is the
+// point: it is exactly the role a target names, so the reader never has to
+// assemble one, and it stays first and unpadded so a line still cuts cleanly on
+// whitespace.
 //
 // The kind is there because it says whether a message reaches the member on its
 // own: an agent is typed into when one arrives, a human is only ever handed its
 // messages when it asks. Whoever is waiting for an answer reads that off the
 // roster rather than guessing from the name.
+//
+// The last two say which CLI the member runs and by what route a mention gets
+// to it — the daemon typing into its terminal, or its own server pushing it
+// through the harness. Both read as "-" where nobody declared one.
 func RenderMembers(w io.Writer, members []*chatv1.Member) error {
 	if len(members) == 0 {
 		_, err := fmt.Fprintln(w, "no members")
@@ -149,19 +154,21 @@ func RenderMembers(w io.Writer, members []*chatv1.Member) error {
 	}
 	var b strings.Builder
 	for _, m := range members {
-		fmt.Fprintf(&b, "%s  %s  %s\n",
-			Address(m), MemberKindName(m.GetKind()), HarnessStateName(m.GetState()))
+		fmt.Fprintf(&b, "%s  %s  %s  %s  %s\n",
+			Address(m), MemberKindName(m.GetKind()), HarnessStateName(m.GetState()),
+			HarnessName(m.GetHarness()), NudgeDeliveryName(m.GetNudge()))
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
 }
 
 // RenderRooms prints the whole topology as an indented room → team → member
-// tree, each member followed by its kind. The admin listing is the one place
-// where a member's three coordinates are all in play, and nesting shows the
-// grouping that a flat "room/team/name" column would make the reader
-// reconstruct; the kind is what tells an operator which of those members a
-// message reaches on its own.
+// tree, each member followed by its kind, the harness it runs and how a mention
+// is delivered to it. The admin listing is the one place where a member's three
+// coordinates are all in play, and nesting shows the grouping that a flat
+// "room/team/name" column would make the reader reconstruct; the kind is what
+// tells an operator which of those members a message reaches on its own, and
+// the delivery by what route it gets there.
 //
 // A room nobody is in is listed with a note in place of its teams rather than
 // left out: its conversation and its read positions outlive the sessions that
@@ -186,7 +193,9 @@ func RenderRooms(w io.Writer, rooms []*chatv1.Room) error {
 		for _, t := range groupByTeam(r.GetMembers()) {
 			fmt.Fprintf(&b, "  team: %s\n", t.team)
 			for _, m := range t.members {
-				fmt.Fprintf(&b, "    %s  %s\n", m.GetName(), MemberKindName(m.GetKind()))
+				fmt.Fprintf(&b, "    %s  %s  %s  %s\n", m.GetName(),
+					MemberKindName(m.GetKind()), HarnessName(m.GetHarness()),
+					NudgeDeliveryName(m.GetNudge()))
 			}
 		}
 	}

@@ -25,8 +25,14 @@ import (
 // with, so what arrived while it was away is waiting for it.
 //
 // An empty State defaults to [StateDone]: attendance is declared as the
-// member's bridge to the room opens, before the session has work to do. A zero
-// StateReportedAt defaults to now, the moment that state was declared.
+// member's MCP server opens its stream to the room, before the session has work
+// to do. A zero StateReportedAt defaults to now, the moment that state was
+// declared.
+//
+// An agent with an empty Nudge defaults to [NudgeTerminal], which is how every
+// agent was reached before a harness could deliver a mention itself. A member
+// of any other kind keeps the empty value: nothing is ever typed at it, so
+// there is no delivery to name.
 func (s *Store) Attend(ctx context.Context, m Member) (Member, error) {
 	if m.Token == "" {
 		return Member{}, fmt.Errorf("attending chat: empty token")
@@ -39,6 +45,9 @@ func (s *Store) Attend(ctx context.Context, m Member) (Member, error) {
 	}
 	if err := validateName(m.Team, m.Name); err != nil {
 		return Member{}, fmt.Errorf("attending chat: %w", err)
+	}
+	if m.Kind == KindAgent && m.Nudge == "" {
+		m.Nudge = NudgeTerminal
 	}
 	if m.State == "" {
 		m.State = StateDone
@@ -133,6 +142,23 @@ func (s *Store) SetState(
 	m.StateReportedAt = reportedAt
 	s.attending[token] = m
 	return nil
+}
+
+// Attending returns everyone attending the daemon right now, every room
+// together, ordered by team then name.
+//
+// It is what a watcher with no room of its own walks — the screen poller, which
+// reads terminals rather than serving a caller who is in one. A watcher that
+// listed the rooms first would have to ask the log for names nobody attends.
+func (s *Store) Attending(_ context.Context) ([]Member, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	members := make([]Member, 0, len(s.attending))
+	for _, m := range s.attending {
+		members = append(members, m)
+	}
+	sortMembers(members)
+	return members, nil
 }
 
 // ListMembers returns everyone attending room, ordered by team then name.

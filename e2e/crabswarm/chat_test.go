@@ -494,7 +494,7 @@ const (
 	chatBridgeCid = "beta/agent-tok-cid"
 )
 
-// startChatBridge starts `crabswarm chat mcp` the way a configured harness
+// startChatBridge starts `crabswarm mcp` the way a configured harness
 // does — as a stdio subprocess spoken to over MCP — and returns the session
 // that harness would hold. Connecting is the handshake, so a bridge that failed
 // to serve one fails the test here.
@@ -514,7 +514,18 @@ func startChatBridgeIn(
 	t *testing.T, cfgPath, token string, env []string,
 ) *mcp.ClientSession {
 	t.Helper()
-	args := []string{"chat", "mcp"}
+	return startChatBridgeAs(t, cfgPath, token, "crabswarm-e2e", env)
+}
+
+// startChatBridgeAs is [startChatBridgeIn] under the name the harness gives
+// itself in the MCP handshake, which is all the bridge has to go on when it
+// decides which harness it is serving and whether it can deliver a mention
+// itself.
+func startChatBridgeAs(
+	t *testing.T, cfgPath, token, clientName string, env []string,
+) *mcp.ClientSession {
+	t.Helper()
+	args := []string{"mcp"}
 	if cfgPath != "" {
 		args = append(args, "--config", cfgPath)
 	}
@@ -527,7 +538,7 @@ func startChatBridgeIn(
 	// the protocol; forwarding it is what makes a failing case readable.
 	cmd.Stderr = os.Stderr
 
-	client := mcp.NewClient(&mcp.Implementation{Name: "crabswarm-e2e", Version: "v0"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: clientName, Version: "v0"}, nil)
 	session, err := client.Connect(t.Context(), &mcp.CommandTransport{Command: cmd}, nil)
 	if err != nil {
 		t.Fatalf("connect to the chat bridge for %q: %v", token, err)
@@ -701,13 +712,16 @@ func TestChat(t *testing.T) {
 	// Members: everyone in the room, across teams. The first column is the role
 	// a target names, and the kind and the state follow it — the kind says
 	// whether a message reaches that member on its own, which is what the sender
-	// wants to know before waiting for an answer.
+	// wants to know before waiting for an answer. The last two say which CLI the
+	// member runs and how a mention gets to it: this suite's own client is no
+	// harness the bridge recognises, so it is other, and a harness with no
+	// channel of its own is typed at through its terminal.
 	roster := lines(runChat(t, cfg, "tok-ana", "members"))
 	slices.Sort(roster)
 	want := []string{
-		chatBridgeAna + "  agent  done",
-		chatBridgeBob + "  agent  done",
-		chatBridgeCid + "  agent  done",
+		chatBridgeAna + "  agent  done  other  terminal",
+		chatBridgeBob + "  agent  done  other  terminal",
+		chatBridgeCid + "  agent  done  other  terminal",
 	}
 	if !slices.Equal(roster, want) {
 		t.Errorf("members = %v, want %v", roster, want)
@@ -1060,7 +1074,8 @@ func TestChat_ReadToKeepsOnlyWhatNamesTheRole(t *testing.T) {
 // names.
 func chatNudgeKeys(token, from string) []string {
 	return []string{
-		token + " [crabswarm chat] new message from " + from + " — run: crabswarm chat read",
+		token + " [crabswarm chat] new message from " + from +
+			" — read it with the chat_read tool",
 		token + " Enter",
 	}
 }
@@ -1622,7 +1637,8 @@ func TestChat_OnlyAnAgentIsTypedAt(t *testing.T) {
 
 	got := stubSendKeys(t, cfg)
 	want := []string{
-		"tok-ana [crabswarm chat] new message from humans/yuki — run: crabswarm chat read",
+		"tok-ana [crabswarm chat] new message from humans/yuki" +
+			" — read it with the chat_read tool",
 		"tok-ana Enter",
 	}
 	if !slices.Equal(got, want) {
@@ -1725,8 +1741,8 @@ func TestChat_BridgeAttendsOnceTheDaemonComesUp(t *testing.T) {
 
 	// The handshake is answered by a bridge with no daemon to attend.
 	bridge := startChatBridge(t, cfg, "tok-ana")
-	if got := bridge.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
-		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	if got := bridge.InitializeResult().ServerInfo.Name; got != "crabswarm-mcp" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-mcp")
 	}
 
 	startChatServe(t, cfg)
@@ -1791,8 +1807,8 @@ func TestChat_BridgeWithoutAnIdentityStillServes(t *testing.T) {
 		"HOME=" + os.Getenv("HOME"),
 		"PATH=" + os.Getenv("PATH"),
 	})
-	if got := session.InitializeResult().ServerInfo.Name; got != "crabswarm-chat" {
-		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-chat")
+	if got := session.InitializeResult().ServerInfo.Name; got != "crabswarm-mcp" {
+		t.Errorf("bridge announced itself as %q, want %q", got, "crabswarm-mcp")
 	}
 
 	text, failed := chatToolResult(t, session, "chat_members", nil)

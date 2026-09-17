@@ -74,3 +74,26 @@ func (s *Service) Read(
 		RemainingUnread: int32(remaining),
 	}, nil
 }
+
+// CountUnread reports how many unread messages mention the caller, without
+// showing any of them and without moving the caller's read position.
+//
+// It is the question a caller asks before it interrupts somebody: an agent's
+// own MCP server, deciding whether a session that just reattended or just
+// reported itself done has anything waiting. Reading to find out would hand the
+// messages over, and the wake-up that followed would have nothing left to
+// deliver.
+func (s *Service) CountUnread(
+	ctx context.Context,
+	_ *chatv1.CountUnreadRequest,
+) (*chatv1.CountUnreadResponse, error) {
+	caller, err := s.caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	unread, err := s.store.CountUnread(ctx, senderOf(caller))
+	if err != nil {
+		return nil, storeStatus(err)
+	}
+	return &chatv1.CountUnreadResponse{UnreadMentions: int32(unread)}, nil
+}

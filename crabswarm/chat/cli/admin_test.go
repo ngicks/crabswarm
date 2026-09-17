@@ -203,7 +203,7 @@ func TestClient_ListRoomsDecryptsTheChallenge(t *testing.T) {
 	assert.NilError(t, d.client.ListRooms(t.Context(), &out, path))
 	assert.Equal(t, fake.bearer, "nonce-abc123")
 	assert.Equal(t, out.String(),
-		"room: /work/proj\n  team: backend\n    alice  agent\n"+
+		"room: /work/proj\n  team: backend\n    alice  agent  -  -\n"+
 			"room: /work/done\n  (nobody attending)\n")
 
 	// Admin calls carry no identity token; the challenge is the credential.

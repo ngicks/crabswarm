@@ -1,5 +1,7 @@
 package chat
 
+import "time"
+
 // Config is the persistent configuration of the chat broker — the `chat` block
 // of the crabswarm global config. Its fields are value types carrying both json
 // and yaml tags so the `config` subcommand can marshal it and a project can
@@ -39,6 +41,23 @@ type Config struct {
 	// a room keeps everything ever said in it — for a host whose rooms are
 	// theirs to keep and to clear by hand.
 	HistoryLimit int `json:"history_limit" yaml:"history_limit"`
+	// ScreenPollInterval is how often the daemon reads the terminal of every
+	// attending Claude Code session and records the state that screen shows.
+	//
+	// Claude Code offers no state API for an interactive session, and its hooks
+	// go missing the moment a turn is interrupted — Esc fires no Stop hook — so
+	// a member would stay marked working with nothing left to correct it. The
+	// screen still says which of working, waiting on a dialog and back at the
+	// prompt the session is in, so the daemon reads it and lets that reading
+	// override the last hook report.
+	//
+	// Zero means the default of 3s. A negative value stops the polling
+	// altogether, leaving the hooks as the only report there is.
+	//
+	// The file forms carry nanoseconds, which is how a [time.Duration]
+	// marshals; CRABSWARM_CHAT_SCREEN_POLL_INTERVAL takes a duration string
+	// ("3s", "500ms").
+	ScreenPollInterval time.Duration `json:"screen_poll_interval" yaml:"screen_poll_interval"`
 }
 
 // PartialConfig is the sparse mirror of [Config], used by the parent crabswarm
@@ -60,11 +79,12 @@ type Config struct {
 //
 //nolint:lll // triple json/yaml/env tags; one field per line, never wrap tags
 type PartialConfig struct {
-	Db                *string  `json:"db,omitzero" yaml:"db,omitempty" env:"DB"`
-	CmdmanBin         *string  `json:"cmdman_bin,omitzero" yaml:"cmdman_bin,omitempty" env:"CMDMAN_BIN"`
-	AdminRecipients   []string `json:"admin_recipients,omitzero" yaml:"admin_recipients,omitempty" env:"ADMIN_RECIPIENTS"`
-	AdminIdentityFile *string  `json:"admin_identity_file,omitzero" yaml:"admin_identity_file,omitempty" env:"ADMIN_IDENTITY_FILE"`
-	HistoryLimit      *int     `json:"history_limit,omitzero" yaml:"history_limit,omitempty" env:"HISTORY_LIMIT"`
+	Db                 *string        `json:"db,omitzero" yaml:"db,omitempty" env:"DB"`
+	CmdmanBin          *string        `json:"cmdman_bin,omitzero" yaml:"cmdman_bin,omitempty" env:"CMDMAN_BIN"`
+	AdminRecipients    []string       `json:"admin_recipients,omitzero" yaml:"admin_recipients,omitempty" env:"ADMIN_RECIPIENTS"`
+	AdminIdentityFile  *string        `json:"admin_identity_file,omitzero" yaml:"admin_identity_file,omitempty" env:"ADMIN_IDENTITY_FILE"`
+	HistoryLimit       *int           `json:"history_limit,omitzero" yaml:"history_limit,omitempty" env:"HISTORY_LIMIT"`
+	ScreenPollInterval *time.Duration `json:"screen_poll_interval,omitzero" yaml:"screen_poll_interval,omitempty" env:"SCREEN_POLL_INTERVAL"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged [Config].
@@ -86,6 +106,9 @@ func (p PartialConfig) Apply(base Config) Config {
 	}
 	if p.HistoryLimit != nil {
 		base.HistoryLimit = *p.HistoryLimit
+	}
+	if p.ScreenPollInterval != nil {
+		base.ScreenPollInterval = *p.ScreenPollInterval
 	}
 	return base
 }

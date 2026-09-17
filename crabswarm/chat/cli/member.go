@@ -36,6 +36,13 @@ type Attendance struct {
 // its messages when it asks. The daemon refuses a kind it was not told, so a
 // caller passes one.
 //
+// harness names the CLI the caller runs and nudge how a mention should reach
+// it. Both may be left unspecified: nothing the daemon does turns on the
+// harness, and an agent that names no delivery is typed at through its
+// terminal. A caller whose own server delivers its mentions says so with
+// [chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE], and the daemon then types
+// nothing at it.
+//
 // The stream is lazy: nothing is sent until the first event is waited for, so a
 // refusal — an unknown token, a role already attending — surfaces here rather
 // than at the call above.
@@ -43,9 +50,11 @@ func (c *Client) Attend(
 	ctx context.Context,
 	token, name string,
 	kind chatv1.MemberKind,
+	harness chatv1.Harness,
+	nudge chatv1.NudgeDelivery,
 ) (*Attendance, error) {
 	stream, err := c.chat.Attend(withToken(ctx, token),
-		&chatv1.AttendRequest{Name: name, Kind: kind})
+		&chatv1.AttendRequest{Name: name, Kind: kind, Harness: harness, Nudge: nudge})
 	if err != nil {
 		return nil, attendError(ctx, err)
 	}
@@ -150,6 +159,21 @@ func (c *Client) Read(
 	return resp, nil
 }
 
+// CountUnread reports how many unread messages mention the caller. It shows
+// none of them and moves the caller's read position nowhere, so a caller may
+// ask as often as it likes and get the same answer until it reads.
+//
+// It answers the question a caller asks before it interrupts somebody, which a
+// read cannot: a read hands the mentions over, leaving the wake-up that was
+// meant to follow with nothing to deliver.
+func (c *Client) CountUnread(ctx context.Context, token string) (int, error) {
+	resp, err := c.chat.CountUnread(withToken(ctx, token), &chatv1.CountUnreadRequest{})
+	if err != nil {
+		return 0, callError(err)
+	}
+	return int(resp.GetUnreadMentions()), nil
+}
+
 // ReadOptions is a read as a command line makes one: which messages, and what
 // to do about having found none. The zero value is the read a human types.
 type ReadOptions struct {
@@ -198,7 +222,7 @@ func (c *Client) ReadInto(
 	if len(resp.GetMessages()) == 0 {
 		if opts.DoneWhenEmpty {
 			done := chatv1.HarnessState_HARNESS_STATE_DONE
-			if err := c.reportState(ctx, token, done); err != nil {
+			if err := c.ReportHarnessState(ctx, token, done); err != nil {
 				return err
 			}
 		}
@@ -256,13 +280,14 @@ func (c *Client) ReportState(ctx context.Context, token, state string) error {
 	if err != nil {
 		return err
 	}
-	return c.reportState(ctx, token, parsed)
+	return c.ReportHarnessState(ctx, token, parsed)
 }
 
-// reportState is [Client.ReportState] past the word-to-enum step, for the
-// callers that already hold the state as a value rather than as something a
-// user typed.
-func (c *Client) reportState(
+// ReportHarnessState is [Client.ReportState] past the word-to-enum step, for
+// the callers that already hold the state as a value rather than as something a
+// user typed — a harness feed saying what its agent is doing, a drain that found
+// the inbox empty.
+func (c *Client) ReportHarnessState(
 	ctx context.Context,
 	token string,
 	state chatv1.HarnessState,
