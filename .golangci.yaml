@@ -52,6 +52,15 @@ linters:
       # Tab width in spaces.
       # Default: 1
       tab-width: 2
+  exclusions:
+    rules:
+      # pkg/claudehook/types mirrors the Claude Code SDK schema: its constant
+      # names and struct tags follow the upstream identifiers verbatim, and the
+      # round-trip test keeps the JSON samples on one line so they match what
+      # the harness writes. Wrapping either would only obscure the mirror.
+      - path: pkg/claudehook/types/
+        linters:
+          - lll
 formatters:
   enable:
     - goimports

@@ -60,7 +60,12 @@ func TestDistFS_concurrentReadsAreConsistent(t *testing.T) {
 						return fmt.Errorf("reading %s: %w", p, err)
 					}
 					if !bytes.Equal(got, want[p]) {
-						return fmt.Errorf("reading %s: got %d bytes, want %d", p, len(got), len(want[p]))
+						return fmt.Errorf(
+							"reading %s: got %d bytes, want %d",
+							p,
+							len(got),
+							len(want[p]),
+						)
 					}
 				}
 			}

@@ -86,8 +86,7 @@ func TestAudit_ReadError(t *testing.T) {
 	mock := &mockAuditClient{}
 	err := Audit(context.Background(), errReader{}, mock)
 
-	var he *handler.HandlerError
-	if errors.As(err, &he) {
+	if _, ok := errors.AsType[*handler.HandlerError](err); ok {
 		t.Fatal("expected regular error, got HandlerError")
 	}
 	if err == nil {
@@ -99,8 +98,7 @@ func TestAudit_SendError(t *testing.T) {
 	mock := &mockAuditClient{err: io.ErrUnexpectedEOF}
 	err := Audit(context.Background(), strings.NewReader(validInput), mock)
 
-	var he *handler.HandlerError
-	if errors.As(err, &he) {
+	if _, ok := errors.AsType[*handler.HandlerError](err); ok {
 		t.Fatal("expected regular error, got HandlerError")
 	}
 	if err == nil {
