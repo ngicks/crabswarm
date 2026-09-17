@@ -66,6 +66,14 @@ type Server struct {
 	// variable on the process running it. [New] takes the real one.
 	getenv func(string) string
 
+	// detect names the harness behind the client that handshook. It is a field
+	// for the reason getenv is one: a harness that carries a channel or a state
+	// feed of its own speaks to a CLI this process cannot start, so a test hands
+	// the server one that plays the part. [New] takes [harness.Detect].
+	detect func(
+		clientName string, getenv func(string) string, session harness.Session,
+	) harness.Harness
+
 	// session is the channel a harness deliverer pushes its notifications
 	// through, which is the MCP transport the session runs on. [Server.Serve]
 	// sets it before the session starts, so a handshake never reads it unset.
@@ -150,6 +158,7 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		client:            client,
 		token:             token,
 		getenv:            os.Getenv,
+		detect:            harness.Detect,
 		subscribable:      map[string]struct{}{},
 		initialized:       make(chan struct{}),
 		settled:           make(chan struct{}),
@@ -248,7 +257,7 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 		if params.ClientInfo != nil {
 			client = params.ClientInfo.Name
 		}
-		s.harness = harness.Detect(client, s.getenv, s.session)
+		s.harness = s.detect(client, s.getenv, s.session)
 		close(s.initialized)
 		s.logger.Info("the harness named itself",
 			"client", client,
@@ -337,6 +346,14 @@ func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 	} else {
 		g.Go(func() error {
 			s.attend(gctx)
+			return nil
+		})
+		// The feed is followed under the same identity the attendance uses: a
+		// state is reported about the member this server attends as, so a
+		// server with none to resolve has nobody to report about and would hold
+		// a feed open for nothing.
+		g.Go(func() error {
+			s.watchHarnessState(gctx)
 			return nil
 		})
 	}
@@ -530,6 +547,52 @@ func rosterChanged(ev *chatv1.RoomEvent) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// watchHarnessState reports what this member's harness says it is doing for as
+// long as the session runs, for a harness that says it without being asked.
+//
+// It is the whole of such a member's state: its CLI carries a feed of its own,
+// its hooks report nothing beside it, and a room hearing neither would never
+// learn when the agent's turn is over — which is the moment a mention waiting
+// for it may be delivered. A harness with no feed leaves the reporting to its
+// hooks, and there is nothing to run here.
+func (s *Server) watchHarnessState(ctx context.Context) {
+	// Nothing before the handshake, for the reason attendance waits on it: the
+	// harness is what the handshake names, and there is nothing to ask for a
+	// feed until it has.
+	select {
+	case <-s.initialized:
+	case <-ctx.Done():
+		return
+	}
+	source, ok := s.harness.(harness.StateSource)
+	if !ok {
+		return
+	}
+	source.Watch(ctx, func(state chatv1.HarnessState) {
+		s.reportHarnessState(ctx, state)
+	})
+}
+
+// reportHarnessState hands the daemon one state the feed carried, which the
+// daemon publishes to the room — this server included, where it is what decides
+// whether a mention may be delivered now.
+//
+// A report that failed is said once and left. The next state the feed carries
+// replaces it whatever became of this one, and the member meanwhile keeps
+// whatever it last reported, which is the answer that interrupts nobody
+// mid-turn. A session on its way out says nothing at all: what the feed had
+// queued is drained as it closes, against a daemon connection closing with it.
+func (s *Server) reportHarnessState(ctx context.Context, state chatv1.HarnessState) {
+	token, err := s.ResolveToken()
+	if err == nil {
+		err = s.client.ReportHarnessState(ctx, token, state)
+	}
+	if err != nil && ctx.Err() == nil {
+		s.logger.Warn("reporting what the harness says it is doing failed",
+			"state", cli.HarnessStateName(state), "error", err)
 	}
 }
 

@@ -374,6 +374,33 @@ func TestClient_ReportStateIsSilent(t *testing.T) {
 	assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_WAITING)
 }
 
+// The same report for a caller holding the state as a value rather than as a
+// word somebody typed — a harness feed saying what its agent is doing. Nothing
+// is parsed on the way, so there is no word to get wrong.
+func TestClient_ReportHarnessState(t *testing.T) {
+	fake := &fakeChatService{}
+	d := serveTestDaemon(t, fake, nil)
+
+	assert.NilError(t, d.client.ReportHarnessState(t.Context(), "tok-a",
+		chatv1.HarnessState_HARNESS_STATE_WORKING))
+	assert.Equal(t, fake.state.GetState(), chatv1.HarnessState_HARNESS_STATE_WORKING)
+	// It reports under the credential it was handed, like every other member
+	// verb.
+	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a"})
+}
+
+// A daemon that refused the report says so to the caller, which is what lets a
+// feed log the refusal rather than believing the room heard it.
+func TestClient_ReportHarnessStateSurfacesTheRefusal(t *testing.T) {
+	fake := &fakeChatService{err: status.Error(codes.NotFound, "not attending")}
+	d := serveTestDaemon(t, fake, nil)
+
+	err := d.client.ReportHarnessState(t.Context(), "tok-a",
+		chatv1.HarnessState_HARNESS_STATE_DONE)
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "not attending"))
+}
+
 // An unknown state word never reaches the daemon: reporting the wrong state is
 // worse than reporting none, since done is the one state that invites a
 // keystroke nudge.

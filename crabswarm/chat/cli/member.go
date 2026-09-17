@@ -222,7 +222,7 @@ func (c *Client) ReadInto(
 	if len(resp.GetMessages()) == 0 {
 		if opts.DoneWhenEmpty {
 			done := chatv1.HarnessState_HARNESS_STATE_DONE
-			if err := c.reportState(ctx, token, done); err != nil {
+			if err := c.ReportHarnessState(ctx, token, done); err != nil {
 				return err
 			}
 		}
@@ -280,13 +280,14 @@ func (c *Client) ReportState(ctx context.Context, token, state string) error {
 	if err != nil {
 		return err
 	}
-	return c.reportState(ctx, token, parsed)
+	return c.ReportHarnessState(ctx, token, parsed)
 }
 
-// reportState is [Client.ReportState] past the word-to-enum step, for the
-// callers that already hold the state as a value rather than as something a
-// user typed.
-func (c *Client) reportState(
+// ReportHarnessState is [Client.ReportState] past the word-to-enum step, for
+// the callers that already hold the state as a value rather than as something a
+// user typed — a harness feed saying what its agent is doing, a drain that found
+// the inbox empty.
+func (c *Client) ReportHarnessState(
 	ctx context.Context,
 	token string,
 	state chatv1.HarnessState,

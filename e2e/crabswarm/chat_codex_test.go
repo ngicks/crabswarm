@@ -45,6 +45,11 @@ type codexAppServer struct {
 	turns  []string
 	loaded []string
 	conns  []*websocket.Conn
+	// accepted is every connection the fake has taken since it started, the
+	// closed ones included. Counted rather than measured off the live ones: a
+	// delivery that dialled a connection of its own closes it again, and by the
+	// time a case looked there would be nothing left to see.
+	accepted int
 }
 
 // startCodexAppServer listens on a socket of its own until the test ends.
@@ -90,6 +95,7 @@ func (f *codexAppServer) serve(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(32 << 20)
 	f.mu.Lock()
 	f.conns = append(f.conns, conn)
+	f.accepted++
 	f.mu.Unlock()
 	defer func() {
 		f.mu.Lock()
@@ -169,6 +175,28 @@ func (f *codexAppServer) pushStatus(status string) {
 	}
 }
 
+// connections is how many connections the fake has taken in all.
+func (f *codexAppServer) connections() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.accepted
+}
+
+// waitCodexConnection blocks until the bridge has connected, which is what a
+// status push needs: the fake pushes to the connections it holds, and one
+// pushed before the bridge arrived reaches nobody.
+func waitCodexConnection(t *testing.T, f *codexAppServer) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if f.connections() > 0 {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("the bridge never connected to the app server")
+}
+
 // waitCodexTurns blocks until the fake has been asked to start exactly want,
 // so a case pins both what reached the agent and that nothing else did.
 func waitCodexTurns(t *testing.T, f *codexAppServer, want ...string) {
@@ -246,14 +274,13 @@ func TestChatCodex_BridgeStartsATurnForEveryMention(t *testing.T) {
 }
 
 // The app server is also where Codex says what it is doing, so a session going
-// busy and quiet again reaches the room without a hook reporting anything.
+// busy and quiet again reaches the room without a hook reporting anything — and
+// what the room hears is what decides when the next mention may be delivered.
 //
 // The half of that inside the bridge — the connection, the subscription and the
 // mapping onto harness states — is pinned by the unit tests in
 // crabswarm/mcp/harness. What is asserted here is the other half: the bridge
-// passing what it heard on to the daemon. Until the server wires the feed to a
-// report there is nothing to observe, and the case says so rather than failing
-// for a wiring nobody has written yet.
+// passing what it heard on to the daemon.
 func TestChatCodex_TheAppServerFeedBecomesTheMemberState(t *testing.T) {
 	requireCodexStateWiring(t)
 
@@ -262,33 +289,64 @@ func TestChatCodex_TheAppServerFeedBecomesTheMemberState(t *testing.T) {
 	startChatBridgeAs(t, cfg, "tok-ana", "codex-mcp-client",
 		append(chatEnviron(), harness.CodexAppServerEnv+"=unix://"+app.addr))
 	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
-
-	for _, status := range []string{
-		`{"type":"idle"}`,
-		`{"type":"active","activeFlags":[]}`,
-		`{"type":"idle"}`,
-	} {
-		app.pushStatus(status)
-	}
+	// A status pushed before the bridge connected reaches nobody.
+	waitCodexConnection(t, app)
 
 	// The daemon publishes every report onto the stub cmdman's status log, so
-	// the whole trail is visible rather than just the last state.
-	want := []string{
-		"set done tok-ana --detail crabswarm chat",
-		"set done tok-ana --detail crabswarm chat",
-		"set working tok-ana --detail crabswarm chat",
-		"set done tok-ana --detail crabswarm chat",
+	// the whole trail is visible rather than only the state it ended on. The
+	// first line is the attendance itself; each one after it is a status below.
+	trail := []string{codexStatusLine("done")}
+	for _, step := range []struct{ status, state string }{
+		{`{"type":"idle"}`, "done"},
+		{`{"type":"active","activeFlags":[]}`, "working"},
+		{`{"type":"idle"}`, "done"},
+	} {
+		app.pushStatus(step.status)
+		trail = append(trail, codexStatusLine(step.state))
+		// One at a time: a real session's statuses are a turn apart, and two
+		// frames arriving in the same instant reach the bridge in whichever
+		// order their handlers win the JSON-RPC client's lock, so three pushed
+		// together would make this a case about that race.
+		waitCodexStatusTrail(t, cfg, trail)
 	}
+
+	// The session said it was idle again, so a mention arriving now is delivered
+	// on the spot — as a turn over the connection the feed is already holding,
+	// rather than over one dialled for the delivery alone.
+	//
+	// Bob attends only here: his own attendance publishes a status of its own,
+	// and the trail above is ana's.
+	attendChatBridges(t, cfg, "tok-bob")
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "the migration needs you")
+	waitCodexTurns(t, app, "[crabswarm chat] new message from "+chatBridgeBob+
+		" — read it with the chat_read tool")
+	if conns := app.connections(); conns != 1 {
+		t.Errorf("the app server took %d connections, want the watched one alone", conns)
+	}
+}
+
+// codexStatusLine is one `cmdman status` invocation as the stub records it, for
+// the member this case watches.
+func codexStatusLine(state string) string {
+	return "set " + state + " tok-ana --detail crabswarm chat"
+}
+
+// waitCodexStatusTrail blocks until the daemon has published exactly want
+// through the stub cmdman, oldest first, so a case pins the order of the states
+// as much as the states themselves.
+func waitCodexStatusTrail(t *testing.T, cfgPath string, want []string) {
+	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
-	var got []string
+	var published []string
 	for time.Now().Before(deadline) {
-		got = stubStatus(t, cfg)
-		if slices.Equal(got, want) {
+		published = stubStatus(t, cfgPath)
+		if slices.Equal(published, want) {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Errorf("cmdman status invocations =\n%q\nwant\n%q", got, want)
+	t.Fatalf("cmdman status invocations =\n%q\nwant\n%q", published, want)
 }
 
 // requireCodexStateWiring skips when the MCP server does not yet ask its

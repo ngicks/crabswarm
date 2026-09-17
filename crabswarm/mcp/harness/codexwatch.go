@@ -13,25 +13,6 @@ import (
 // where that session says what it is doing. Everything here is that half — the
 // connection held open for the feed, and the states it forwards.
 
-// StateSource is a harness that says what its agent is doing without being
-// asked, which is a harness whose CLI has a feed of its own to say it on.
-//
-// Every other harness reports through its hooks: a hook runs on each event the
-// harness announces and tells the daemon what changed. A harness with a feed
-// needs none of them, and hooks reporting alongside it would race it with a
-// slower, coarser answer.
-//
-// The server is what joins the two ends: it holds one harness per session, and
-// a harness that implements this gets watched for as long as that session runs.
-// See [Harness] for the other half of what a harness does.
-type StateSource interface {
-	// Watch follows the harness until ctx is done, handing each state it
-	// reports to report. It blocks, and it does not give up: a feed that
-	// dropped is opened again, since an agent nobody hears about is one the
-	// room stops delivering to.
-	Watch(ctx context.Context, report func(chatv1.HarnessState))
-}
-
 // How long the harness waits before opening the app server connection again.
 // The first retries are quick, for the app server still binding its socket as
 // the session starts; the ceiling keeps one that is gone from being dialled in

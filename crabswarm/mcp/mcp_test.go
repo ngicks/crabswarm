@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -459,6 +460,120 @@ func TestServer_AttendsAsTheHarnessThatNamedItself(t *testing.T) {
 	// Nothing is asked of a member the daemon wakes: the count is what a
 	// delivery is decided on, and there is no delivery to decide.
 	assert.Equal(t, fake.countCount(), 0)
+}
+
+// feedingHarness is a harness whose CLI says what its agent is doing without
+// being asked, which is what makes the server watch it. It stands in for Codex,
+// whose app server this process cannot start; what the case is about is the
+// server's half of that — the watch it runs, and the report it makes of every
+// state the watch carries.
+//
+// It is woken through its terminal, so nothing it reports turns into a delivery
+// and the trail below is the reporting alone.
+type feedingHarness struct {
+	// states is what the watch reports. Unbuffered: a case that handed a state
+	// over knows the watch took it.
+	states chan chatv1.HarnessState
+	// watches counts the watches started, which is what pins one for the
+	// session rather than one per state.
+	watches atomic.Int64
+}
+
+func (*feedingHarness) Kind() chatv1.Harness { return chatv1.Harness_HARNESS_CODEX }
+
+func (*feedingHarness) Nudge() chatv1.NudgeDelivery {
+	return chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL
+}
+
+func (*feedingHarness) Deliver(context.Context, harness.Notice) error {
+	return errors.New("this harness delivers nothing")
+}
+
+func (h *feedingHarness) Watch(ctx context.Context, report func(chatv1.HarnessState)) {
+	h.watches.Add(1)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case state := <-h.states:
+			report(state)
+		}
+	}
+}
+
+// says hands one state to the watch, and fails rather than hanging when nothing
+// is watching.
+func (h *feedingHarness) says(t *testing.T, state chatv1.HarnessState) {
+	t.Helper()
+
+	select {
+	case h.states <- state:
+	case <-time.After(eventTimeout):
+		t.Fatalf("nothing is watching the harness to hear %s", state)
+	}
+}
+
+// runsOn has the server serve h whatever name the client handshakes under,
+// which is how a case plays a CLI this process cannot start.
+func runsOn(bridge *Server, h harness.Harness) {
+	bridge.detect = func(string, func(string) string, harness.Session) harness.Harness {
+		return h
+	}
+}
+
+// waitReported blocks until the member has reported exactly want, so a case
+// pins both the states that reached the daemon and that nothing else did.
+func waitReported(t *testing.T, svc *fakeChatService, want ...chatv1.HarnessState) {
+	t.Helper()
+
+	var got []chatv1.HarnessState
+	deadline := time.Now().Add(eventTimeout)
+	for time.Now().Before(deadline) {
+		got = svc.reportedStates()
+		if slices.Equal(got, want) {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("the member reported\n%v\nwant\n%v", got, want)
+}
+
+// A harness that carries a feed of its own is where its member's state comes
+// from: the server watches it for the whole session and hands the daemon every
+// state it hears, so the room follows the agent's turns with no hook reporting
+// anything.
+func TestServer_ReportsWhatTheHarnessFeedSays(t *testing.T) {
+	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
+	bridge := newTestBridge(t, fake)
+	feed := &feedingHarness{states: make(chan chatv1.HarnessState)}
+	runsOn(bridge, feed)
+	serveBridge(t, bridge)
+
+	// The watch is started once the handshake has named the harness, which is
+	// also what the attendance waits for.
+	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+
+	feed.says(t, chatv1.HarnessState_HARNESS_STATE_WORKING)
+	feed.says(t, chatv1.HarnessState_HARNESS_STATE_DONE)
+	waitReported(t, fake,
+		chatv1.HarnessState_HARNESS_STATE_WORKING,
+		chatv1.HarnessState_HARNESS_STATE_DONE)
+	assert.Equal(t, feed.watches.Load(), int64(1))
+}
+
+// A harness with no feed is left to its hooks: nothing is watched, and the
+// member's state is what those hooks report. Watching one that says nothing
+// would hold a connection open for a feed that does not exist.
+func TestServer_WatchesNothingForAHarnessWithoutAFeed(t *testing.T) {
+	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
+	bridge := newTestBridge(t, fake)
+	serveBridgeAs(t, bridge, "codex-mcp-client")
+
+	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+	assert.Assert(t, bridge.harness != nil)
+	_, watchable := bridge.harness.(harness.StateSource)
+	assert.Assert(t, !watchable, "a Codex with no app server carries a state feed")
+	assert.Equal(t, len(fake.reportedStates()), 0)
 }
 
 // declaresChannel reports whether the handshake res carries the capability

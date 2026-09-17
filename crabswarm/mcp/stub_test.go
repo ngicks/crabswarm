@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 
@@ -57,6 +58,34 @@ type fakeChatService struct {
 	// "it was told afterwards" an ordering a case can rely on.
 	unread int32
 	counts int
+	// reported is every state the member said it was in, oldest first. The whole
+	// trail rather than the last of it: what a harness feed says is a sequence,
+	// and a member that went working and came back is not one that never moved.
+	reported []chatv1.HarnessState
+}
+
+// ReportState records what the member says it is doing, the way the daemon does
+// before publishing it to the room.
+func (f *fakeChatService) ReportState(
+	_ context.Context, req *chatv1.ReportStateRequest,
+) (*chatv1.ReportStateResponse, error) {
+	f.mu.Lock()
+	err := f.err
+	if err == nil {
+		f.reported = append(f.reported, req.GetState())
+	}
+	f.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	return &chatv1.ReportStateResponse{}, nil
+}
+
+// reportedStates is what the member reported about itself, oldest first.
+func (f *fakeChatService) reportedStates() []chatv1.HarnessState {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.reported)
 }
 
 // CountUnread answers with the canned count and moves nothing, the way the
