@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"net"
 	"path/filepath"
 	"sync"
@@ -50,11 +51,59 @@ type fakeChatService struct {
 	attend  *chatv1.AttendRequest
 	opens   int
 	attends int
+	// unread is what CountUnread answers with, and counts how many times it was
+	// asked. A test moves the first with [fakeChatService.setUnread] and reads
+	// the second to know the server has asked once already, which is what makes
+	// "it was told afterwards" an ordering a case can rely on.
+	unread int32
+	counts int
+}
+
+// CountUnread answers with the canned count and moves nothing, the way the
+// daemon's does: a caller may ask as often as it likes.
+func (f *fakeChatService) CountUnread(
+	_ context.Context, _ *chatv1.CountUnreadRequest,
+) (*chatv1.CountUnreadResponse, error) {
+	f.mu.Lock()
+	f.counts++
+	unread, err := f.unread, f.err
+	f.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	return &chatv1.CountUnreadResponse{UnreadMentions: unread}, nil
+}
+
+// setUnread changes what the room has waiting for the caller from here on.
+func (f *fakeChatService) setUnread(n int32) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.unread = n
+}
+
+// countCount is how many times the server asked what was waiting.
+func (f *fakeChatService) countCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.counts
+}
+
+// lastAttend is the attendance request as the server put it on the wire, which
+// is where a case reads what the member declared about itself.
+func (f *fakeChatService) lastAttend() *chatv1.AttendRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.attend
 }
 
 // Attend opens the attendance the way the daemon does: the Attended event
 // naming the member, then the room's own feed — which carries this attendance's
 // arrival as its first entry, since every attendee sees the same room.
+//
+// The state on that member is the daemon's answer rather than the caller's
+// claim, and every attendance it admits — the first and each one after a stream
+// it dropped — reports the member done, because the daemon records an
+// attendance it has no state for as one whose turn is over.
 func (f *fakeChatService) Attend(
 	req *chatv1.AttendRequest,
 	stream grpc.ServerStreamingServer[chatv1.RoomEvent],

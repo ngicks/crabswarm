@@ -2,6 +2,10 @@ package crabswarm_test
 
 import (
 	"context"
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -9,17 +13,18 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	chatcli "github.com/ngicks/crabswarm/crabswarm/chat/cli"
+	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
 )
 
 // attendNative puts an agent in the room that delivers its own mentions, and
 // holds that attendance until the test ends.
 //
 // It attends through the client the verbs dial with rather than through
-// `crabswarm mcp`, because the bridge declares the terminal delivery for every
-// session it opens: reading the harness off the MCP handshake and pushing a
-// mention through it is work the bridge does not do yet, so there is no process
-// the suite could start that would attend this way. Everything under it is the
-// real thing — the daemon the other members talk to, over its own socket.
+// `crabswarm mcp`, which keeps the case below about what the daemon does with a
+// declared delivery and nothing else: a bridge would bring its own deliverer
+// along, and what is asserted here is who is typed at. The case that drives a
+// bridge's own delivery is below it. Everything under this is the real thing —
+// the daemon the other members talk to, over its own socket.
 func attendNative(t *testing.T, cfgPath, token string) *chatcli.Attendance {
 	t.Helper()
 
@@ -62,8 +67,8 @@ func TestChat_ANativeAgentIsMentionedButNeverTypedAt(t *testing.T) {
 	roster := lines(runChat(t, cfg, "tok-ana", "members"))
 	slices.Sort(roster)
 	want := []string{
-		chatBridgeAna + "  agent  done  -  terminal",
-		chatBridgeBob + "  agent  done  -  terminal",
+		chatBridgeAna + "  agent  done  other  terminal",
+		chatBridgeBob + "  agent  done  other  terminal",
 		chatBridgeCid + "  agent  done  claude-code  native",
 	}
 	if !slices.Equal(roster, want) {
@@ -96,6 +101,108 @@ func TestChat_ANativeAgentIsMentionedButNeverTypedAt(t *testing.T) {
 	for _, want := range []string{"you two own it", "standup in five"} {
 		if !strings.Contains(read, want) {
 			t.Errorf("read as %s = %q, want it to carry %q", chatBridgeCid, read, want)
+		}
+	}
+}
+
+// chatNoticeSink is where a bridge writes what it delivered, one line per
+// notice. The real channels talk to a running Claude Code, Codex or OpenCode,
+// none of which this suite can start, so the sink is what makes the delivery
+// path something a process-level test can watch.
+func chatNoticeSink(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "notices.log")
+}
+
+// chatSinkNotices is what the bridge delivered, oldest first. A file that is not
+// there is one nothing was delivered to.
+func chatSinkNotices(t *testing.T, path string) []string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		t.Fatalf("reading the harness sink: %v", err)
+	}
+	return lines(string(b))
+}
+
+// waitChatSinkNotices blocks until the bridge has delivered exactly want, so a
+// case pins both what reached the agent and that nothing else did.
+func waitChatSinkNotices(t *testing.T, path string, want ...string) {
+	t.Helper()
+	var got []string
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		got = chatSinkNotices(t, path)
+		if slices.Equal(got, want) {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("the harness was handed\n%q\nwant\n%q", got, want)
+}
+
+// A bridge whose harness carries a channel of its own attends as a member the
+// daemon never types at, and hands that member its mentions itself — while the
+// harness is idle, never mid-turn, and once the turn ends as a count of what
+// piled up meanwhile.
+func TestChat_ABridgeDeliversTheMentionsItsDaemonNoLongerTypes(t *testing.T) {
+	cfg := startChatDaemon(t)
+	sink := chatNoticeSink(t)
+	// Appended after the scrubbed environment, which drops every CRABSWARM_
+	// variable the suite is itself running with.
+	startChatBridgeAs(t, cfg, "tok-ana", "claude-code",
+		append(chatEnviron(), harness.SinkEnv+"="+sink))
+	attendChatBridges(t, cfg, "tok-bob")
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
+
+	// The daemon has it from the handshake: which CLI the member runs, and that
+	// its mentions are its own server's to deliver.
+	roster := lines(runChat(t, cfg, "tok-bob", "members"))
+	slices.Sort(roster)
+	want := []string{
+		chatBridgeAna + "  agent  done  claude-code  native",
+		chatBridgeBob + "  agent  done  other  terminal",
+	}
+	if !slices.Equal(roster, want) {
+		t.Errorf("members = %v, want %v", roster, want)
+	}
+
+	// Mentioned while idle: the notice reaches it through its own harness, and
+	// no keystroke is typed anywhere.
+	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "the migration needs you")
+	arrival := "[crabswarm chat] new message from " + chatBridgeBob +
+		" — read it with the chat_read tool"
+	waitChatSinkNotices(t, sink, arrival)
+	// A nudge is typed while the send is being served, so by now there would be
+	// one to read.
+	if keys := stubSendKeys(t, cfg); keys != nil {
+		t.Errorf("cmdman send-keys invocations = %q, want none", keys)
+	}
+
+	// Mentioned mid-turn: nothing is pushed at a harness that is working, and
+	// the mention waits in the room where it already is.
+	runChat(t, cfg, "tok-ana", "report-state", "working")
+	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "and the rebase after it")
+
+	// The turn ends and what waited is delivered as one line. Both messages are
+	// still unread — a notice is not a read — so the count is two.
+	runChat(t, cfg, "tok-ana", "report-state", "done")
+	waitChatSinkNotices(t, sink, arrival,
+		"[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool")
+	if keys := stubSendKeys(t, cfg); keys != nil {
+		t.Errorf("cmdman send-keys invocations = %q, want none", keys)
+	}
+
+	// Delivered is not read: both messages are waiting where the agent's own
+	// read finds them.
+	read := runChat(t, cfg, "tok-ana", "read")
+	for _, want := range []string{"the migration needs you", "and the rebase after it"} {
+		if !strings.Contains(read, want) {
+			t.Errorf("read as %s = %q, want it to carry %q", chatBridgeAna, read, want)
 		}
 	}
 }

@@ -41,13 +41,16 @@ type roster struct {
 // it is made of, so the reader can hand it straight to chat_send instead of
 // assembling one and getting the collision rule wrong. Kind says whether a
 // message reaches the member on its own: an agent is typed into when one
-// arrives, a human reads its room when it asks.
+// arrives, a human reads its room when it asks. Harness and Nudge say which CLI
+// that agent runs and by which route a mention gets to it.
 type rosterMember struct {
 	Address string `json:"address"`
 	Team    string `json:"team"`
 	Name    string `json:"name"`
 	Kind    string `json:"kind"`
 	State   string `json:"state"`
+	Harness string `json:"harness"`
+	Nudge   string `json:"nudge"`
 }
 
 // addResources registers the room's resources and asks the server to announce
@@ -60,10 +63,12 @@ func (f *family) addResources() {
 		MIMEType: membersMIMEType,
 		Description: "Everyone attending your room: the role chat_send " +
 			"addresses, the team and name it is made of, the kind — agent for " +
-			"a harness a message is typed into, human for someone who reads " +
-			"when it asks — and the state each member's harness last " +
+			"a harness a message reaches on its own, human for someone who " +
+			"reads when it asks — the state each member's harness last " +
 			"reported: working, waiting or done, and unknown where the daemon " +
-			"reported none. Subscribe to be told when somebody starts or " +
+			"reported none, the harness it runs, and how a mention reaches it: " +
+			"terminal for one the daemon types at, native for one its own " +
+			"server delivers to. Subscribe to be told when somebody starts or " +
 			"stops attending, or changes state.",
 	}, f.readMembers)
 	f.server.AnnounceOnRosterChange(membersURI)
@@ -113,6 +118,8 @@ func rosterOf(members []*chatv1.Member) roster {
 			Name:    m.GetName(),
 			Kind:    cli.MemberKindName(m.GetKind()),
 			State:   cli.HarnessStateName(m.GetState()),
+			Harness: cli.HarnessName(m.GetHarness()),
+			Nudge:   cli.NudgeDeliveryName(m.GetNudge()),
 		})
 	}
 	return out

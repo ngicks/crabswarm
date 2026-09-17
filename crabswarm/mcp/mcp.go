@@ -13,6 +13,12 @@
 // so there is nothing for a tool to declare: a tool called while the stream is
 // down reports that instead of acting as somebody the room does not have.
 //
+// Reading that stream is also how a mention reaches the agent. The server knows
+// which harness it serves, because the harness names itself in the MCP
+// handshake; where that harness has a channel of its own, the member attends as
+// one the daemon never types at and the server pushes the notice through the
+// channel instead, off the same feed everything else is read from.
+//
 // What the server offers is not its own. A tool family is a sub-package that
 // registers its tools and its resources onto a [Server] before it runs, so this
 // package knows the room it attends and the harness it answers, and each family
@@ -23,6 +29,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -31,6 +38,7 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
+	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
 	"github.com/ngicks/crabswarm/internal/libver"
 )
 
@@ -51,6 +59,23 @@ type Server struct {
 	// handshake.
 	token string
 	mcp   *mcpsdk.Server
+
+	// getenv reads the environment the harness started this server in, which is
+	// where a deliverer finds what its channel needs. It is a field rather than
+	// a call to [os.Getenv] so a test can play a harness without setting a
+	// variable on the process running it. [New] takes the real one.
+	getenv func(string) string
+
+	// initialized is closed once the harness has finished the MCP handshake and
+	// [Server.harness] names what it runs. Attendance waits on it: what the
+	// member declares about itself is read off that handshake, and attending
+	// before it landed would put the wrong answer in the room for the rest of
+	// the session.
+	initialized chan struct{}
+	initOnce    sync.Once
+	// harness is the CLI this server serves and the channel a mention takes to
+	// it. Written once, before initialized is closed, and read only after.
+	harness harness.Harness
 
 	// subscribable are the resource URIs a family registered, which are the ones
 	// a harness may ask to be told about. Written while the families register
@@ -74,6 +99,17 @@ type Server struct {
 	// reporting an attendance that simply has not happened yet.
 	settled    chan struct{}
 	settleOnce sync.Once
+	// self is the member the daemon attended as, which is what an event of the
+	// room is matched against: a member is named by room, team and name.
+	self *chatv1.Member
+	// state is what this member's harness last reported about itself, as the
+	// attendance said it and every report since has changed it. A mention is
+	// only ever delivered while it is done.
+	state chatv1.HarnessState
+	// pending says a mention arrived that nothing delivered — the agent was
+	// mid-turn, or the delivery failed. It is what the next done report and the
+	// next attendance answer by counting the unread and saying how much waits.
+	pending bool
 
 	// The loop's schedule, held here rather than read from the constants below
 	// so a test can drive it at a pace it can wait for. [New] takes the
@@ -108,7 +144,9 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		logger:            logger,
 		client:            client,
 		token:             token,
+		getenv:            os.Getenv,
 		subscribable:      map[string]struct{}{},
+		initialized:       make(chan struct{}),
 		settled:           make(chan struct{}),
 		attendBackoffBase: attendBackoffBase,
 		attendBackoffMax:  attendBackoffMax,
@@ -121,7 +159,54 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 			UnsubscribeHandler: s.unsubscribed,
 		},
 	)
+	s.mcp.AddReceivingMiddleware(s.readsHandshake)
 	return s, nil
+}
+
+// readsHandshake watches what the harness sends for the point at which it has
+// said who it is.
+//
+// The middleware runs after the handler rather than on one named method,
+// because which frame carries the client's name depends on the protocol the two
+// sides settled on: the handshake a harness opens with today names it in the
+// initialize request, and the newer one that replaces that handshake carries the
+// same name in the metadata of whatever the client asks first. Reading it off
+// the session afterwards covers both, where waiting for the initialized
+// notification would leave a member on the newer protocol attending nothing at
+// all — it never sends one.
+func (s *Server) readsHandshake(next mcpsdk.MethodHandler) mcpsdk.MethodHandler {
+	return func(
+		ctx context.Context, method string, req mcpsdk.Request,
+	) (mcpsdk.Result, error) {
+		res, err := next(ctx, method, req)
+		if session, ok := req.GetSession().(*mcpsdk.ServerSession); ok {
+			s.handshook(session)
+		}
+		return res, err
+	}
+}
+
+// handshook reads the harness off session once it names a client, which is
+// where the member learns what it runs and how a mention can reach it. It is
+// the first naming that counts: a session names one client for its whole life,
+// and a member cannot change what it attends as without attending again.
+func (s *Server) handshook(session *mcpsdk.ServerSession) {
+	params := session.InitializeParams()
+	if params == nil {
+		return
+	}
+	s.initOnce.Do(func() {
+		var client string
+		if params.ClientInfo != nil {
+			client = params.ClientInfo.Name
+		}
+		s.harness = harness.Detect(client, s.getenv)
+		close(s.initialized)
+		s.logger.Info("the harness named itself",
+			"client", client,
+			"harness", cli.HarnessName(s.harness.Kind()),
+			"nudge", cli.NudgeDeliveryName(s.harness.Nudge()))
+	})
 }
 
 // MCP is the SDK server a family adds its tools to. It is handed over rather
@@ -259,6 +344,14 @@ var errNotAttending = errors.New("not attending the chat room")
 // short until the agent happened to call a tool, which is exactly the moment it
 // is too late.
 func (s *Server) attend(ctx context.Context) {
+	// Nothing is declared before the harness has said what it is: the kind and
+	// the delivery an attendance carries stand for its whole life, and the
+	// daemon stops typing at a member that claimed to deliver its own mentions.
+	select {
+	case <-s.initialized:
+	case <-ctx.Done():
+		return
+	}
 	backoff := s.attendBackoffBase
 	failures := 0
 	for reopened := false; ; reopened = true {
@@ -313,15 +406,14 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// Always as an agent: this server is started by a harness and serves
 	// nothing else, so the terminal behind it is one a nudge belongs in.
 	//
-	// The harness goes unnamed and the delivery is the terminal one, which is
-	// how every agent has been reached so far. Reading the harness off the MCP
-	// handshake and delivering a mention through its own channel is work this
-	// server does not do yet, and declaring either before it does would have the
-	// daemon stop typing at a member nothing else would reach.
+	// The harness and the delivery are what the handshake said: a harness whose
+	// channel this server can push a mention through attends as native, and the
+	// daemon then types nothing at it, leaving the waking to the deliverer
+	// below.
 	attendance, err := s.client.Attend(actx, token, "",
 		chatv1.MemberKind_MEMBER_KIND_AGENT,
-		chatv1.Harness_HARNESS_UNSPECIFIED,
-		chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
+		s.harness.Kind(),
+		s.harness.Nudge())
 	if !opening.Stop() && err != nil {
 		err = errors.New("the daemon did not answer the attendance within " +
 			attendTimeout.String())
@@ -334,6 +426,11 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	if reopened {
 		s.announceRoster(ctx)
 	}
+	// Whatever was said while nothing was attending was said to nobody here, so
+	// every attendance asks what is waiting rather than only the ones that
+	// followed a dropped stream: a server that started after its agent was
+	// mentioned has the same gap to close.
+	s.deliverWaiting(ctx)
 	// The first event of the feed is this member's own arrival, which the
 	// daemon publishes to the room it just joined. It is announced like any
 	// other roster change: the room did gain a member, and every attendee sees
@@ -342,6 +439,7 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 		if rosterChanged(ev) {
 			s.announceRoster(ctx)
 		}
+		s.observe(ctx, ev)
 		return nil
 	})
 	s.attendanceEnded(err)
@@ -411,10 +509,16 @@ func (s *Server) announceable(uri string) error {
 
 // attendanceLanded records an open attendance, which is what lets a tool act on
 // behalf of this member.
+//
+// The member comes back with the state the daemon holds for it, which is what
+// decides whether a mention may be delivered: a fresh attendance is done, and
+// one taken up again carries whatever the agent's hooks last reported.
 func (s *Server) attendanceLanded(self *chatv1.Member) {
 	s.mu.Lock()
 	s.attended = true
 	s.attendErr = nil
+	s.self = self
+	s.state = self.GetState()
 	s.mu.Unlock()
 	s.settle()
 	s.logger.Info("attending the chat room",

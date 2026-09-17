@@ -20,7 +20,7 @@ import (
 // that never does it fails instead of hanging the suite.
 const eventTimeout = 5 * time.Second
 
-// memberOnRoster is member() with the two things the roster carries beside an
+// memberOnRoster is member() with the things the roster carries beside an
 // address: what attends, and what its harness last reported.
 func memberOnRoster(
 	team, name, room string, kind chatv1.MemberKind, state chatv1.HarnessState,
@@ -28,6 +28,20 @@ func memberOnRoster(
 	m := member(team, name, room)
 	m.Kind = kind
 	m.State = state
+	return m
+}
+
+// runningAgent is memberOnRoster for an agent that declared what it runs and
+// how it is reached, which is what an MCP server attends as.
+func runningAgent(
+	team, name, room string,
+	state chatv1.HarnessState,
+	harness chatv1.Harness,
+	nudge chatv1.NudgeDelivery,
+) *chatv1.Member {
+	m := memberOnRoster(team, name, room, chatv1.MemberKind_MEMBER_KIND_AGENT, state)
+	m.Harness = harness
+	m.Nudge = nudge
 	return m
 }
 
@@ -186,9 +200,12 @@ func TestServer_ServesTheRoster(t *testing.T) {
 	fake := &fakeChatService{
 		self: member("backend", "alice", testRoom),
 		members: []*chatv1.Member{
-			memberOnRoster("backend", "alice", testRoom,
-				chatv1.MemberKind_MEMBER_KIND_AGENT,
-				chatv1.HarnessState_HARNESS_STATE_WORKING),
+			runningAgent("backend", "alice", testRoom,
+				chatv1.HarnessState_HARNESS_STATE_WORKING,
+				chatv1.Harness_HARNESS_CLAUDE_CODE,
+				chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE),
+			// A human runs no harness and is never nudged, so both columns are
+			// the dash that means nobody said.
 			memberOnRoster("frontend", "bob", testRoom,
 				chatv1.MemberKind_MEMBER_KIND_HUMAN,
 				chatv1.HarnessState_HARNESS_STATE_WAITING),
@@ -217,21 +234,27 @@ func TestServer_ServesTheRoster(t *testing.T) {
       "team": "backend",
       "name": "alice",
       "kind": "agent",
-      "state": "working"
+      "state": "working",
+      "harness": "claude-code",
+      "nudge": "native"
     },
     {
       "address": "frontend/bob",
       "team": "frontend",
       "name": "bob",
       "kind": "human",
-      "state": "waiting"
+      "state": "waiting",
+      "harness": "-",
+      "nudge": "-"
     },
     {
       "address": "ops/carol",
       "team": "ops",
       "name": "carol",
       "kind": "unknown",
-      "state": "unknown"
+      "state": "unknown",
+      "harness": "-",
+      "nudge": "-"
     }
   ]
 }`)
