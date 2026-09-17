@@ -11,11 +11,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
 )
 
 // The OpenCode half of the crabswarm-mcp package is a plugin file rather
@@ -258,6 +261,35 @@ func (h *opencodeHost) get(t *testing.T, path string) string {
 	return string(b)
 }
 
+// relayAddress is the loopback address of a plugin's relay, as the plugin
+// writes it into the environment of the MCP server it declares.
+var relayAddress = regexp.MustCompile(`^http://127\.0\.0\.1:\d+/nudge$`)
+
+// declaredRelay reads that address back off the running server's own config,
+// which is where the config hook's work becomes visible.
+func (h *opencodeHost) declaredRelay(t *testing.T) string {
+	t.Helper()
+	var config struct {
+		MCP map[string]struct {
+			Environment map[string]string `json:"environment"`
+		} `json:"mcp"`
+	}
+	body := h.get(t, "/config")
+	if err := json.Unmarshal([]byte(body), &config); err != nil {
+		t.Fatalf("decode the opencode config %q: %v", body, err)
+	}
+	server, ok := config.MCP["crabswarm-mcp"]
+	if !ok {
+		t.Fatalf("opencode declares no crabswarm-mcp server: %v", config.MCP)
+	}
+	relay := server.Environment[harness.OpenCodeRelayEnv]
+	if !relayAddress.MatchString(relay) {
+		t.Fatalf("the declared %s = %q, want the address of the plugin's own listener",
+			harness.OpenCodeRelayEnv, relay)
+	}
+	return relay
+}
+
 // post sends body as JSON to path and decodes the JSON answer into out.
 func (h *opencodeHost) post(t *testing.T, path string, body string, out any) {
 	t.Helper()
@@ -367,6 +399,22 @@ func TestChatOpenCode_PluginAttendsReportsAndDelivers(t *testing.T) {
 	// command and scale index the stub cmdman reports for the token.
 	waitChatRosterHas(t, cfg, bob, "alpha/opencode-1", 120*time.Second)
 
+	// The plugin opened the relay before it declared that bridge, so the bridge
+	// started with the relay's address and attends as a member the daemon never
+	// types at.
+	relay := host.declaredRelay(t)
+	roster := lines(runChat(t, cfg, bob, "members"))
+	index := slices.IndexFunc(roster, func(line string) bool {
+		return strings.HasPrefix(line, "alpha/opencode-1 ")
+	})
+	if index < 0 {
+		t.Fatalf("members = %q, want a line for alpha/opencode-1", roster)
+	}
+	if !strings.HasSuffix(roster[index], "opencode  native") {
+		t.Errorf("roster line = %q, want the member to deliver its own mentions "+
+			"through the relay at %s", roster[index], relay)
+	}
+
 	// A bare name, resolved inside the sender's own team: the mention is what
 	// makes the plugin's read hand the message to the session.
 	runChat(t, cfg, bob, "send", "opencode-1", chatSentText)
@@ -395,4 +443,24 @@ func TestChatOpenCode_PluginAttendsReportsAndDelivers(t *testing.T) {
 	if got := runChat(t, cfg, "tok-oc", "read"); got != "no pending messages\n" {
 		t.Errorf("read after the turn = %q, want the delivery to have moved the read position", got)
 	}
+
+	// Mentioned with the agent idle, which is the half the relay exists for: the
+	// bridge posts the notice to the plugin rather than waiting for a hook, and
+	// the plugin prompts it into the session it last saw a message in. The model
+	// reads it as that session's next user message.
+	//
+	// What the person had half-written in the composer is left alone by
+	// construction — the notice becomes a prompt of its own rather than text
+	// appended to the composer — and a headless server has no composer to read
+	// back, so there is nothing here to assert it against.
+	runChat(t, cfg, bob, "send", "opencode-1", "the relay should wake you")
+
+	waitFor(t, 120*time.Second, "the model reading the notice the relay delivered", func() bool {
+		for _, body := range host.mock.requests() {
+			if strings.Contains(body, "new message from alpha/bob") {
+				return true
+			}
+		}
+		return false
+	})
 }
