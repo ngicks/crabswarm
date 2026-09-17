@@ -53,10 +53,15 @@ func (openCode) Nudge() chatv1.NudgeDelivery {
 	return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
 }
 
-// openCodeNotice is what the relay is handed, as the plugin reads it.
+// openCodeNotice is what the relay is handed, as the plugin reads it. The room
+// rides along for a plugin that labels a notice with where it came from; the
+// one this package ships prompts the session with the content alone and ignores
+// the rest, which costs nothing and leaves the field there for one that does
+// not.
 type openCodeNotice struct {
 	Content string `json:"content"`
 	From    string `json:"from"`
+	Room    string `json:"room"`
 }
 
 // Deliver posts one notice to the relay.
@@ -66,7 +71,7 @@ type openCodeNotice struct {
 // that leaves the mention waiting for the next report that ends a turn instead
 // of counting it as delivered to nobody.
 func (o openCode) Deliver(ctx context.Context, n Notice) error {
-	body, err := json.Marshal(openCodeNotice{Content: n.Text, From: n.From})
+	body, err := json.Marshal(openCodeNotice{Content: n.Text, From: n.From, Room: n.Room})
 	if err != nil {
 		return fmt.Errorf("encoding a chat notice for the opencode relay: %w", err)
 	}

@@ -347,7 +347,10 @@ func TestChatHooks_StopBlocksWithTheMessages(t *testing.T) {
 	for _, want := range []string{
 		chatMailLine,
 		"and a second line",
-		"crabswarm chat send",
+		// The reply is a tool call, not a command line: every harness the room
+		// reaches is served by the MCP server, and some of them decline to run a
+		// command nobody asked them to run.
+		"chat_send",
 	} {
 		if !strings.Contains(reason, want) {
 			t.Errorf("reason = %q, want it to carry %q", reason, want)
@@ -430,7 +433,7 @@ func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
 	for _, want := range []string{
 		chatMailLine,
 		"and a second line",
-		"crabswarm chat send",
+		"chat_send",
 	} {
 		if !strings.Contains(injected, want) {
 			t.Errorf("additionalContext = %q, want it to carry %q", injected, want)

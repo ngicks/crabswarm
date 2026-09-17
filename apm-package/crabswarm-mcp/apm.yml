@@ -14,12 +14,17 @@ dependencies:
     args:
     - mcp
     # Codex spawns a stdio MCP server with a fixed environment whitelist and
-    # forwards nothing else unless the server's own table names it. Without
-    # these three the server has no identity to attend with and derives a
-    # different socket path than the daemon listens on.
+    # forwards nothing else unless the server's own table names it. Without the
+    # first two and the last the server has no identity to attend with and
+    # derives a different socket path than the daemon listens on. The two in the
+    # middle are how a session says it can be woken without the daemon typing at
+    # its terminal: the launcher sets the one belonging to the harness it
+    # started, and a server that receives neither attends as a terminal member.
     env_vars:
     - CMDMAN_CMD_ID
     - CRABSWARM_CHAT_TOKEN
+    - CRABSWARM_CLAUDE_CHANNEL
+    - CRABSWARM_CODEX_APP_SERVER
     - XDG_RUNTIME_DIR
 targets:
 - claude

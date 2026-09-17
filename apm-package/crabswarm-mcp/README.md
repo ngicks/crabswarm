@@ -2,21 +2,21 @@
 
 Wires an agent harness into its `crabswarm chat` room, packaged for
 [apm](https://github.com/microsoft/apm): the crabswarm MCP server attends the
-room and serves the chat verbs as tools, hooks deliver teammates' messages
-mid-turn and again at turn end, and those same hooks report what the harness is
-doing so the daemon knows when a terminal nudge is safe.
+room, serves the chat verbs as tools and hands a mention to the harness it is
+serving, and hooks deliver teammates' messages mid-turn and again at turn end.
+Where a harness has a feed of its own, that feed is also where the member's
+state comes from.
 
 The agent-facing half is the
 [`crabswarm-mcp`](.apm/skills/crabswarm-mcp/SKILL.md) skill, which teaches the
-room's verbs and etiquette. The hooks below only move messages; the skill is
-what makes an agent answer them.
+tools and the etiquette. The hooks below only move messages; the skill is what
+makes an agent answer them.
 
 Every hook is a `crabswarm hook exec` invocation, so the package is hook JSON,
 an MCP server declaration and a skill — no shell scripts, no `jq`, nothing to
 copy alongside the wiring. Everything here assumes `crabswarm` is on `PATH`:
-the skill assumes it when it tells an agent to type `crabswarm chat read`, and
 the MCP declaration assumes it when it names `crabswarm` as the server's
-command.
+command, and every hook command assumes it the same way.
 
 On Claude Code the whole package is a skills-directory plugin: apm copies the
 skill directory, and Claude Code reads the hooks and the MCP server out of that
@@ -128,32 +128,35 @@ that received the skill directory has it even when `apm.yml` was never read.
 
 ```
 apm-package/crabswarm-mcp/
-├── apm.yml                             package metadata (targets: claude, codex)
-│                                       and the `crabswarm mcp` server
+├── apm.yml                             package metadata (targets: claude, codex,
+│                                       opencode) and the `crabswarm mcp` server
 └── .apm/
     ├── hooks/codex-hooks.json          Codex: merged into hooks.json by apm
     └── skills/crabswarm-mcp/           Claude Code: a skills-directory plugin
         ├── SKILL.md
         ├── .claude-plugin/plugin.json
-        ├── hooks/hooks.json            the same events as codex-hooks.json
+        ├── hooks/hooks.json            delivery, and Claude Code's state reports
         ├── .mcp.json                   the same server as apm.yml declares
         └── opencode.ts                 OpenCode: the same wiring as a plugin
 ```
 
-The two hook files declare the same events, and `e2e/crabswarm` keeps them
-equal. What they declare is the union of what the two harnesses announce — each
-keeps the events it knows and drops the rest. Both feed hooks the same
-snake_case envelope on stdin and read the same camelCase decision back, so the
-commands themselves are shared verbatim. The file under `.apm/hooks/` is
-written twice rather than shared because apm cannot hand one file to Codex's
-merge and keep it out of Claude Code's: a file there with no target in its stem
-is merged into `settings.json` beside the plugin, and every hook runs twice.
+The two hook files share the `PostToolUse` read byte for byte, and
+`e2e/crabswarm` keeps them so; the `Stop` drain carries the same delivery
+wording without the `report-state done` branch Claude Code's needs. They do not
+declare the same events either: Codex says what it is doing on the app server
+the MCP server is already listening to, so its file wires the delivery and
+nothing else, while the plugin's file also carries the state reports Claude Code
+has no other way to make. Both harnesses
+feed hooks the same snake_case envelope on stdin and read the same camelCase
+decision back, which is what lets the commands they do share be shared verbatim.
+The file under `.apm/hooks/` is written separately rather than shared because
+apm cannot hand one file to Codex's merge and keep it out of Claude Code's: a
+file there with no target in its stem is merged into `settings.json` beside the
+plugin, and every hook runs twice.
 
-Only `Notification` and `PermissionRequest` are not common ground.
 `PermissionRequest` is Codex's approval dialog, and Claude Code implements it
-too, so it runs on both. `Notification` is Claude Code's alone; Codex parses
-`hooks.json` into a struct of the events it knows and ignores every other key,
-so the block lands in `.codex/hooks.json` and never becomes a hook there.
+too; only Claude Code's file wires it, since a Codex state report would race the
+app server with a slower, coarser answer. `Notification` is Claude Code's alone.
 
 ## The MCP server is what attends the room
 
@@ -173,8 +176,10 @@ server shipped may still carry a join hook of its own; *Stale hooks from older
 installs* below says how to find it.
 
 It always attends as an agent, under the name the daemon derives from the
-identity token: it is started by a harness and serves nothing else, so the
-terminal behind it is one a mention may be typed into.
+identity token: it is started by a harness and serves nothing else. It also says
+which harness that is, read off the name the client gives itself in the MCP
+handshake, and how a mention reaches this member — *How a mention reaches the
+agent* below is that half.
 
 It keeps attending for the whole session and never gives up. The first retries
 come a fifth of a second apart and the wait grows to two seconds. A server whose
@@ -198,6 +203,95 @@ them in the room and prints the token they act with from then on, and a plain
 shell holding that token in `$CRABSWARM_CHAT_TOKEN` is a member. No stream holds
 that attendance, so it lasts until the daemon restarts, and the operator
 registers again after one.
+
+### How a mention reaches the agent
+
+A mention wakes its agent one of two ways, and which one is settled per member
+at attendance. The server delivers it **natively** when it recognises its
+harness *and* the environment carries the variable that harness's channel needs;
+otherwise the daemon types a line into the agent's **terminal** through cmdman,
+the way every agent was reached before a harness could take a delivery. Both
+carry the same notice, which says who wrote and names the `chat_read` tool — the
+tool rather than a command line, since every harness the room reaches is served
+by this server, and some of them decline to run a command nobody asked them to
+run. The message itself is never in the notice: it is sender-controlled content,
+and a line pushed at a session is the last place to repeat it.
+
+`crabswarm chat members` prints which one each member got. A line is
+`<address> <kind> <state> <harness> <nudge>`, and the last two columns are this:
+
+```
+backend/alice  agent  working  claude-code  native
+backend/dave   agent  done     -            terminal
+frontend/bob   human  done     -            -
+```
+
+A `-` is a column nothing was declared for — an agent whose server did not
+recognise its harness, or a person, who runs no harness and is never nudged.
+
+The variable is set by whoever launches the session, in the environment the
+harness starts the server in, beside the flag that makes the channel exist.
+Nothing in an MCP session reports that the flag was passed, so the variable is
+the only honest answer the server has:
+
+- **Claude Code** — `CRABSWARM_CLAUDE_CHANNEL=1`, with the session launched as
+
+  ```console
+  CRABSWARM_CLAUDE_CHANNEL=1 claude --dangerously-load-development-channels server:crabswarm-mcp
+  ```
+
+  The flag is variadic, so every argument after it is read as a channel entry: a
+  positional prompt has to come *before* it, or the session exits 1 with
+  `--dangerously-load-development-channels entries must be tagged`. At startup a
+  full-screen dialog asks the operator to confirm the development channels, and
+  one Enter answers it. A `claude --bg` session never shows that dialog and
+  drops every channel event silently, so a background session cannot host the
+  channel.
+- **Codex** — `CRABSWARM_CODEX_APP_SERVER=unix:///path.sock`, with the session
+  hosted by an app server the TUI is attached to:
+
+  ```console
+  codex app-server --listen unix:///path.sock
+  codex --remote unix:///path.sock
+  ```
+
+  The socket path has to stay short; a long one fails with
+  `path must be shorter than SUN_LEN`.
+- **OpenCode** — `CRABSWARM_OPENCODE_RELAY`, which the plugin sets itself. It
+  opens a loopback listener and puts its address into the environment of the
+  server it declares, so an OpenCode running the plugin needs nothing from the
+  launcher. See [OpenCode](#opencode).
+
+A session launched without its variable still attends, still serves its tools
+and still receives its mentions; only the delivery changes. That fallback has
+one limit worth knowing: typed keys cannot see what is already in the harness's
+composer, so a notice typed into a session holding an unsent draft may submit
+the draft along with it. Native delivery never touches the composer — it pushes
+a turn, a notification or a prompt of its own — which is the reason the channels
+exist at all.
+
+### Where a member's state comes from
+
+The daemon needs to know whether an agent is mid-turn, because a terminal nudge
+is only safe while the terminal is waiting for one. Each harness answers that
+differently:
+
+| Harness | State comes from | Hooks that report it |
+| --- | --- | --- |
+| Claude Code | Its hooks as the fast path, corrected by the daemon's screen poller, which reads every attending Claude Code terminal and records what it shows. | `UserPromptSubmit`, `Notification`, `PermissionRequest`, `PostToolUse`, `Stop` |
+| Codex | The app server's own feed: thread status changes (idle, active, and the active flags that mean it is waiting on the person) and turn completion, which reads as done however the turn ended. | none |
+| OpenCode | The plugin's in-process events, which it reports as it handles them. | none — OpenCode has no hook file |
+
+Claude Code is the one that needs both halves. It offers no state API for an
+interactive session, so hooks are the only thing that reports one — and a hook
+goes missing the moment a turn is interrupted with Esc, which fires no `Stop`
+hook and leaves the member marked working with nothing left to correct it. The
+screen still says which of working, waiting on a dialog and back at the prompt
+the session is in, so the daemon reads it and lets that reading override the
+last report. `chat.screen_poll_interval` in the crabswarm config
+(`CRABSWARM_CHAT_SCREEN_POLL_INTERVAL` in the environment, a duration string
+there and nanoseconds in the file) sets how often: zero means the default of 3s,
+and a negative value turns the polling off and leaves the hooks alone with it.
 
 ### The room outlives the sessions in it
 
@@ -258,13 +352,15 @@ warning about a refusal nothing can clear.
 ### What the harness forwards to the bridge
 
 A harness may spawn a stdio MCP server with a fixed environment whitelist and
-pass nothing else through. Codex does, so the declaration names the three
-variables the bridge cannot work without:
+pass nothing else through. Codex does, so the declaration names every variable
+the bridge needs:
 
 ```yaml
 env_vars:
 - CMDMAN_CMD_ID
 - CRABSWARM_CHAT_TOKEN
+- CRABSWARM_CLAUDE_CHANNEL
+- CRABSWARM_CODEX_APP_SERVER
 - XDG_RUNTIME_DIR
 ```
 
@@ -272,6 +368,12 @@ The first two carry the identity token in its two spellings: the cmdman command
 id an agent inherits, and the token `crabswarm chat admin register` prints for a
 member registered by hand. A bridge that resolves neither still serves, and
 every tool answers that it has no identity.
+
+The two in the middle are the channel variables *How a mention reaches the
+agent* describes. Neither is needed for the bridge to work, so a missing one
+costs a keystroke nudge rather than a refusal — but a variable the launcher set
+and the harness did not forward is the same as one nobody set, which is why they
+are listed here beside the rest.
 
 `XDG_RUNTIME_DIR` decides where the bridge looks for the daemon. The socket path
 is derived from that variable, and a daemon started from a login shell listens
@@ -286,25 +388,34 @@ for a harness that forwards nothing.
 
 Codex reads `env_vars` from the server's own `[mcp_servers.crabswarm-mcp]`
 table. Claude Code has no such key; the plugin's `.mcp.json` names the same
-three variables as `env` entries of the form `"${CMDMAN_CMD_ID}"`, which Claude
-Code expands from its own environment when it starts the server.
-`e2e/crabswarm` keeps the two lists equal.
+variables as `env` entries of the form `"${CMDMAN_CMD_ID}"`, which Claude Code
+expands from its own environment when it starts the server. All of them but
+`CRABSWARM_CODEX_APP_SERVER`: Claude Code never hosts a Codex app server, so the
+entry would expand to nothing on every machine, and Codex reads its own list out
+of `config.toml` rather than out of `.mcp.json`. `e2e/crabswarm` derives what it
+expects in `.mcp.json` from `apm.yml` minus that one, so a variable added to
+`apm.yml` alone still fails.
 
-## What each hook does
+## What each hook does on Claude Code
 
 | Event | Runs | Purpose |
 | --- | --- | --- |
 | `UserPromptSubmit` | `crabswarm chat report-state working` | A turn began. |
-| `Notification` (`permission_prompt`) | `crabswarm chat report-state waiting` | A permission prompt is open — Claude Code only. |
-| `Notification` (`idle_prompt`) | `crabswarm chat report-state done` | The session has been sitting quiet for about a minute — Claude Code only (see below). |
+| `Notification` (`permission_prompt`) | `crabswarm chat report-state waiting` | A permission prompt is open. |
+| `Notification` (`idle_prompt`) | `crabswarm chat report-state done` | The session has been sitting quiet for about a minute (see below). |
 | `PermissionRequest` | `crabswarm chat report-state waiting` | An approval dialog is about to open. |
 | `PostToolUse` | `crabswarm chat read --quiet`, then `crabswarm chat report-state working` | Deliver messages that arrived mid-turn as `additionalContext`; the dialog, if there was one, has resolved. |
 | `Stop` | `crabswarm chat read --quiet --done-when-empty`, or `report-state done` | Read what arrived; block the stop when the read handed something over, otherwise report done. |
 
+Every state report here is Claude Code's alone — the other two harnesses say
+what they are doing on a feed of their own, and a hook reporting alongside one
+would race it. What the daemon does with these reports, and what corrects them
+when one goes missing, is *Where a member's state comes from* above.
+
 The second `PostToolUse` entry is how a member gets out of `waiting` again.
-Neither harness announces a dialog being answered or dismissed, so the next tool
-call completing is the only signal that the approval the member was waiting on
-resolved.
+Claude Code announces neither a dialog being answered nor one dismissed, so the
+next tool call completing is the only signal that the approval the member was
+waiting on resolved.
 
 ### How `hook exec` shapes the decision
 
@@ -415,9 +526,10 @@ Neither is a block: a decision rides on stdout and there is none, and only exit
 2 blocks an event. So the worst either costs is a noisy line and a late
 delivery.
 
-The last line of defence is outside this package: the daemon nudges the terminal
-of an agent that reported `done` (`[crabswarm chat] new message from ...`),
-which the skill teaches the agent to answer with `crabswarm chat read`.
+The last line of defence is outside this package: a mention reaches an agent
+that has stopped working whether or not a hook ever ran, either through its
+harness's own channel or as a line typed into its terminal
+(`[crabswarm chat] new message from ... — read it with the chat_read tool`).
 
 ### The idle notification is how an interrupted turn heals
 
@@ -427,32 +539,41 @@ selects on the event's `notification_type`. The two are wired apart because they
 mean opposite things: `permission_prompt` is a member blocked on a dialog,
 `idle_prompt` is a member with nothing left to do.
 
-The idle branch is the fast path back for a turn the user interrupted. `Stop`
-hooks do not run when a session is cancelled with ESC, so the member keeps
-whatever the last report left it in — `working` after a tool call, `waiting` if
-a dialog was open — and the daemon nudges a **done** member on sight, while a
-`working` or `waiting` one is left alone as busy. The daemon does heal that on
-its own: a report older than ten minutes has stopped describing the terminal,
-so it is nudged anyway, with the screen snapshot the injection takes still
-standing between the nudge and a terminal that turned out to be busy. Reporting
-`done` on the idle prompt is what makes the wait a minute instead of ten,
-without the agent doing anything.
+The idle branch is one of the two ways back for a turn the user interrupted.
+`Stop` hooks do not run when a session is cancelled with ESC, so the member
+keeps whatever the last report left it in — `working` after a tool call,
+`waiting` if a dialog was open — and the daemon nudges a **done** member on
+sight, while a `working` or `waiting` one is left alone as busy. Reporting
+`done` on the idle prompt clears that about a minute later, without the agent
+doing anything.
+
+The other way back is the daemon's screen poller, which reads the terminal
+directly and does not wait for any hook at all; a host that has turned the
+polling off with a negative `chat.screen_poll_interval` is left with this branch
+alone. Failing both, a report older than ten minutes has stopped describing the
+terminal and the member is nudged anyway, with the screen snapshot the injection
+takes still standing between the nudge and a terminal that turned out to be
+busy.
 
 Every other notification type — `elicitation_complete`, `elicitation_response`,
-`auth_success` — now reports nothing rather than `waiting`. That is deliberate:
-`PermissionRequest` covers the dialog case on both harnesses on its own, and a
-catch-all group would also match `idle_prompt` and race a `waiting` report
-against the `done` one, which is the wedge this split exists to remove.
+`auth_success` — reports nothing rather than `waiting`. That is deliberate:
+`PermissionRequest` covers the dialog case on its own, and a catch-all group
+would also match `idle_prompt` and race a `waiting` report against the `done`
+one, which is the wedge this split exists to remove.
 
 ## Codex
 
-**Best-effort and unverified.** Codex's hook surface is recent; the wiring was
-written against the Codex source (its `hooks.json` loader,
+**The hook half is best-effort and unverified.** Codex's hook surface is recent;
+the wiring was written against the Codex source (its `hooks.json` loader,
 `HookEventsToml`/`MatcherGroup`/`HookHandlerConfig` shapes, and the
 Stop/PostToolUse stdin and output schemas) but **has not been run against a
-Codex session**. Treat every behavior below as a claim to check, not a fact.
+Codex session**. Treat every claim about the two hooks below as one to check.
 Each hook is independent and failure-tolerant, so a hook Codex silently ignores
 degrades to late delivery.
+
+The app-server half stands on firmer ground: the exchange this package's client
+speaks was recorded off a real `codex app-server` and a real TUI, and
+`e2e/crabswarm/testdata/harness` keeps those frames.
 
 What has been checked from this side is that `crabswarm hook exec` speaks
 Codex's half of the envelope surface: a `PermissionRequest` envelope parses into
@@ -460,13 +581,14 @@ its typed variant and the hook exits 0 silently, which is what
 `e2e/crabswarm/chat_hooks_test.go` runs the shipped commands to prove. An event
 neither harness declares would parse too and simply render nothing.
 
-Codex gets `codex-hooks.json`, which declares the same events the plugin's
-`hooks.json` does. `apm` does not translate hook event names for Codex — it
-merges whatever events the file declares into `.codex/hooks.json` verbatim,
-unlike the Gemini target, which renames events on the way out — so the merged
-file's `Notification` block reaches Codex's config untouched. Codex deserializes that config into a struct of the events it knows
-and ignores the rest, so the block costs a few unread lines and nothing else,
-and `PermissionRequest` is the event that actually covers the case there.
+Codex gets `codex-hooks.json`, which wires two events and no more: the
+`PostToolUse` read and the `Stop` drain. Everything else the plugin's
+`hooks.json` declares is a state report, and Codex says what it is doing on the
+app server this package's MCP server is already listening to — a hook reporting
+beside that feed would race it with a slower, coarser answer. `apm` does not
+translate hook event names for Codex; it merges whatever events the file
+declares into `.codex/hooks.json` verbatim, unlike the Gemini target, which
+renames events on the way out.
 
 Nothing here needs a rewritten path. The commands name `crabswarm` and nothing
 else, so the file installs exactly as written and does not care what directory
@@ -489,22 +611,26 @@ What Codex ends up running:
 
 | Event | Runs | Purpose |
 | --- | --- | --- |
-| `UserPromptSubmit` | `report-state working` | A turn began. |
-| `PermissionRequest` | `report-state waiting` | An approval dialog is about to open. |
-| `PostToolUse` | `chat read --quiet`, then `report-state working` | Deliver mid-turn messages; the dialog, if there was one, has resolved. |
-| `Stop` | `chat read --quiet --done-when-empty`, or `report-state done` | Read what arrived; report done when the stop goes through. |
+| `PostToolUse` | `chat read --quiet` | Deliver mid-turn messages. |
+| `Stop` | `chat read --quiet --done-when-empty` | Read what arrived and block the stop when it handed something over. |
 
-The one difference from what Claude Code runs is the missing `Notification`:
-`PermissionRequest` covers the dialog case, and nothing on Codex covers a
-session sitting idle. So the split above buys Codex nothing — Codex announces no
-event that says "this session has gone quiet", so there is nothing to wire. An
-interrupted turn is left to the daemon's own fallback: ten minutes after the
-last report, a `working` or `waiting` member is treated as no longer describing
-its terminal and is nudged anyway. Codex heals the same way Claude Code does
-without the idle branch, just slower.
+The `PostToolUse` read is the plugin's own command byte for byte, and
+`chat_codex_test.go` keeps it so, since a message announced two different ways
+on two harnesses is a skill teaching the wrong words. The `Stop` drain carries
+that same wording with the `report-state done` branch left off — Codex's
+`stop_hook_active` case reads nothing and reports nothing. It does still pass
+`--done-when-empty`, which reports the member done when the read hands nothing
+over; the app-server feed says the same thing a moment later.
 
-Codex's `notify` program (`agent-turn-complete`) could report `done` redundantly,
-but the Stop hook already does it — the only thing this package puts in
+The state Codex does not report through hooks it reports on the app server the
+session is hosted by, which is the same socket a mention is delivered over.
+`CRABSWARM_CODEX_APP_SERVER` is what points the MCP server at it; a Codex
+started without an app server has no feed and no channel, and its member is
+woken through its terminal like any other. *Where a member's state comes from*
+above says what the feed carries.
+
+Codex's `notify` program (`agent-turn-complete`) could report `done`
+redundantly, and nothing here uses it — the only thing this package puts in
 `config.toml` is the bridge's `[mcp_servers]` table.
 
 ## OpenCode
@@ -514,6 +640,15 @@ them session, permission and tool events, so `opencode.ts` in the skill
 directory is this package's hook wiring for OpenCode: each handler runs one
 `crabswarm chat` verb, quietly, and ignores failure the way the hooks do. The
 delivery wording is the hook file's, and `e2e/crabswarm` keeps it so.
+
+It carries one thing no hook file needs: the relay a mention arrives on. The
+plugin is the only part of the install that knows which session the person is
+driving, so the MCP server posts the notice to a loopback listener the plugin
+opens, and the plugin prompts that session with it. A prompt of its own rather
+than the composer, for the reason *How a mention reaches the agent* gives: a
+notice appended to the composer and submitted would submit the person's unsent
+draft with it. A plugin that cannot open the listener declares no relay, and the
+member is a terminal one.
 
 apm does not register plugins with OpenCode, so the operator names the deployed
 file once in `opencode.json`, relative to that config file:
@@ -529,14 +664,23 @@ The plugin declares the server itself, through the `config` hook, as a local
 MCP server running `crabswarm mcp` with `CMDMAN_CMD_ID`,
 `CRABSWARM_CHAT_TOKEN` and `XDG_RUNTIME_DIR` set when the session has them.
 OpenCode hands a local server its whole environment anyway, so the three are
-there either way; naming them keeps the declaration the same on every harness.
-A `crabswarm-mcp` server already in the config wins, whether the operator
-wrote it or apm did at project scope. apm's entry carries the `env_vars` key
-Codex reads, which OpenCode accepts and ignores. A headless
-`opencode serve` starts its MCP servers when something first asks for them;
-whether the TUI connects them at startup or at the first tool use has not been
-watched, and it decides whether the member attends before or during its first
-turn.
+there either way; naming them keeps the declaration the same shape everywhere.
+It also sets `CRABSWARM_OPENCODE_RELAY` to the loopback address it listens on,
+and that is the whole of what makes an OpenCode member one the daemon does not
+type at.
+
+**A `crabswarm-mcp` server already in the config wins**, whether the operator
+wrote it by hand or apm did at project scope — and a server that won that way
+never receives the relay's address, since only the declaration the plugin builds
+carries it. Such a member attends, serves its tools and reports its state
+normally; it is simply a terminal one. Leaving the server out of `opencode.json`
+and letting the plugin declare it is what keeps the relay. apm's own entry
+carries the `env_vars` key Codex reads, which OpenCode accepts and ignores.
+
+A headless `opencode serve` starts its MCP servers when something first asks for
+them; whether the TUI connects them at startup or at the first tool use has not
+been watched, and it decides whether the member attends before or during its
+first turn.
 
 What the plugin runs:
 
@@ -566,12 +710,12 @@ The hook files parse with `jq`, and `e2e/crabswarm/chat_hooks_test.go` drives
 the wiring end to end from Go: it reads the plugin's `hooks/hooks.json`, pulls
 each `command` string out, and runs it **verbatim** through a shell with sample
 hook envelopes on stdin, the real `crabswarm` binary on `PATH` and a real daemon
-behind it. `apm_package_test.go` pins the Codex file to the same events, and
-`mcp_package_test.go` pins the plugin's `.mcp.json` to the same server `apm.yml`
-declares and runs that command line against the built binary.
-`chat_opencode_test.go` runs the `opencode` on `PATH`, when there is one,
-against a daemon and a mock model, and watches the plugin attend, report and
-deliver; without `opencode` the case is skipped. So
+behind it. `chat_codex_test.go` pins the Codex file to the delivering commands
+and to nothing that reports state, and `mcp_package_test.go` pins the plugin's
+`.mcp.json` to the same server `apm.yml` declares and runs that command line
+against the built binary. `chat_opencode_test.go` runs the `opencode` on `PATH`,
+when there is one, against a daemon and a mock model, and watches the plugin
+attend, report and deliver; without `opencode` the case is skipped. So
 what the suite exercises is the wiring that ships, not a Go paraphrase of it —
 including that every command stays silent and exits 0 when no daemon is
 running, that the delivering hooks move the read position exactly when they hand

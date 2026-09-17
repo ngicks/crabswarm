@@ -20,11 +20,11 @@ each hold the first line the harness wrote to an MCP stdio server, so the
 `clientInfo` in them is how a harness names itself.
 
 The server was a two-line wrapper that tees the harness's side of the stream to
-a log and then execs a build of this repository's `crabswarm chat mcp`:
+a log and then execs a build of this repository's `crabswarm mcp`:
 
 ```sh
 #!/bin/sh
-tee -a "$PROBE_LOG" | "$PROBE_SERVER" chat mcp
+tee -a "$PROBE_LOG" | "$PROBE_SERVER" mcp
 ```
 
 Each harness was pointed at that wrapper and started once; the first line of the

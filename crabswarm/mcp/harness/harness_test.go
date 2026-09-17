@@ -55,8 +55,11 @@ func TestDetect_ReadsTheHarnessOffTheHandshake(t *testing.T) {
 		t.Run(tc.fixture, func(t *testing.T) {
 			h := Detect(clientNameOf(t, tc.fixture), noEnv, nil)
 			assert.Equal(t, h.Kind(), tc.want)
-			// Until each harness's own channel is wired up, knowing which one it
-			// is changes nothing about how it is woken.
+			// The handshake names the harness; it never says whether that
+			// harness was launched with the channel its constructor needs. With
+			// nothing in the environment none of them is, so every one of them
+			// is woken through its terminal — the cases in each harness's own
+			// file are what cover the other half.
 			assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 		})
 	}

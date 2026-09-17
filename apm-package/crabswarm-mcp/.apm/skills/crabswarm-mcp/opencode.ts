@@ -62,7 +62,7 @@ export const CrabswarmChat = async ({ client, $ }: { client: Client; $: Shell })
   const token = process.env.CRABSWARM_CHAT_TOKEN || process.env.CMDMAN_CMD_ID
 
   const log = (level: string, message: string) =>
-    client.app.log({ body: { service: "crabswarm-chat", level, message } }).catch(() => {})
+    client.app.log({ body: { service: "crabswarm-mcp", level, message } }).catch(() => {})
 
   // chat runs one `crabswarm chat` verb as this session's member and returns
   // its stdout, or nothing when the verb failed or the session has no token.

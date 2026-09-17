@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm hook exec 'crabswarm chat read --quiet' '{{if and .Success .Stdout}}{{context (printf \"[crabswarm chat] Messages just arrived. Reply with `crabswarm chat send <everyone|role[,role...]> <text>` to any line marked [mentioned you]; otherwise carry on.\\n\\n%s\" .Stdout)}}{{end}}'",
+            "command": "crabswarm hook exec 'crabswarm chat read --quiet' '{{if and .Success .Stdout}}{{context (printf \"[crabswarm chat] Messages just arrived. Reply with the `chat_send` tool to any line marked [mentioned you]; otherwise carry on.\\n\\n%s\" .Stdout)}}{{end}}'",
             "timeout": 10
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm hook exec '{{if not .Input.StopHookActive}}crabswarm chat read --quiet --done-when-empty{{end}}' '{{if and .Success .Stdout}}{{blockDecision (printf \"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, which is every line marked [mentioned you], reply with `crabswarm chat send <everyone|role[,role...]> <text>`, then finish.\\n\\n%s\" .Stdout)}}{{end}}'",
+            "command": "crabswarm hook exec '{{if not .Input.StopHookActive}}crabswarm chat read --quiet --done-when-empty{{end}}' '{{if and .Success .Stdout}}{{blockDecision (printf \"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you, which is every line marked [mentioned you], reply with the `chat_send` tool, then finish.\\n\\n%s\" .Stdout)}}{{end}}'",
             "timeout": 10,
             "statusMessage": "Reading the crabswarm chat room..."
           }

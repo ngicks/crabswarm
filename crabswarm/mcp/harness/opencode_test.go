@@ -82,8 +82,10 @@ func TestOpenCode_WithoutTheRelayThereIsNoChannel(t *testing.T) {
 }
 
 // What the plugin is handed: one post of the notice as the plugin reads it, the
-// whole line under content and the sender beside it — empty on the notice that
-// counts what waits, which is about the room rather than about one message.
+// whole line under content, the sender beside it — empty on the notice that
+// counts what waits, which is about the room rather than about one message —
+// and the room the member attends, which every notice carries because an agent
+// can be looking at more than one crabswarm at a time.
 func TestOpenCode_PostsTheNoticeToTheRelay(t *testing.T) {
 	relay := startFakeRelay(t, http.StatusAccepted, "")
 
@@ -93,15 +95,21 @@ func TestOpenCode_PostsTheNoticeToTheRelay(t *testing.T) {
 
 	assert.NilError(t, h.Deliver(t.Context(), Notice{
 		From: "beta/bob",
+		Room: "/work",
 		Text: "[crabswarm chat] new message from beta/bob",
 	}))
 	assert.NilError(t, h.Deliver(t.Context(), Notice{
+		Room: "/work",
 		Text: "[crabswarm chat] 2 unread messages mention you",
 	}))
 
 	assert.DeepEqual(t, relay.delivered(), []openCodeNotice{
-		{Content: "[crabswarm chat] new message from beta/bob", From: "beta/bob"},
-		{Content: "[crabswarm chat] 2 unread messages mention you"},
+		{
+			Content: "[crabswarm chat] new message from beta/bob",
+			From:    "beta/bob",
+			Room:    "/work",
+		},
+		{Content: "[crabswarm chat] 2 unread messages mention you", Room: "/work"},
 	})
 
 	relay.mu.Lock()

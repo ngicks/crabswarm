@@ -103,15 +103,30 @@ func TestMCPPackage_DeclaresTheServer(t *testing.T) {
 	}
 }
 
-// The three variables the server cannot work without, named so a harness that
-// spawns it with a fixed environment whitelist forwards them: two spellings of
-// the identity token, and the runtime dir the daemon socket path is derived
-// from. A server started without them answers the handshake and then refuses
-// every tool, which is the failure this key exists to prevent.
+// The variables the server cannot work without, named so a harness that spawns
+// it with a fixed environment whitelist forwards them: two spellings of the
+// identity token, and the runtime dir the daemon socket path is derived from. A
+// server started without them answers the handshake and then refuses every
+// tool, which is the failure this key exists to prevent.
+//
+// The two channel variables are here for a different reason. Each says the
+// session was launched so that its harness can be handed a mention directly —
+// Claude Code as a registered channel, Codex as an app server the session is
+// hosted by — and a server that is spawned without the one belonging to its
+// harness attends as a member the daemon types at instead. Neither stops the
+// server working, so a missing one costs a keystroke nudge rather than a
+// refusal, which is why they are listed together with the rest and not
+// separately.
 func TestMCPPackage_ForwardsTheServersEnvironment(t *testing.T) {
 	server := declaredMCPServer(t)
 
-	want := []string{"CMDMAN_CMD_ID", "CRABSWARM_CHAT_TOKEN", "XDG_RUNTIME_DIR"}
+	want := []string{
+		"CMDMAN_CMD_ID",
+		"CRABSWARM_CHAT_TOKEN",
+		"CRABSWARM_CLAUDE_CHANNEL",
+		"CRABSWARM_CODEX_APP_SERVER",
+		"XDG_RUNTIME_DIR",
+	}
 	if !slices.Equal(server.EnvVars, want) {
 		t.Errorf("env_vars = %v, want %v", server.EnvVars, want)
 	}
@@ -143,11 +158,20 @@ func pluginDeclaredServer(t *testing.T) pluginMCPServer {
 	return server
 }
 
+// codexOnlyEnvVars are the variables apm.yml lists that the plugin's
+// `.mcp.json` has no reason to carry. Claude Code never hosts a Codex app
+// server, so the variable naming one is never set in a session that reads this
+// file, and the entry would expand to nothing on every machine. Codex reads its
+// own copy of the list out of `config.toml` rather than out of `.mcp.json`, so
+// leaving it out here takes nothing away from Codex.
+var codexOnlyEnvVars = []string{"CRABSWARM_CODEX_APP_SERVER"}
+
 // The plugin's `.mcp.json` is the same server apm renders from apm.yml, written
 // in Claude Code's own shape: the command line matches, and every variable
-// apm.yml asks a harness to forward is an `env` entry Claude Code expands from
-// the process environment. One list, two renderings; a variable added to one
-// and not the other is a server that finds its token on one harness only.
+// apm.yml asks a harness to forward — bar the ones only Codex can set — is an
+// `env` entry Claude Code expands from the process environment. One list, two
+// renderings; a variable added to one and not the other is a server that finds
+// its token, or its channel, on one harness only.
 func TestMCPPackage_PluginDeclaresTheSameServer(t *testing.T) {
 	declared := declaredMCPServer(t)
 	plugin := pluginDeclaredServer(t)
@@ -159,9 +183,15 @@ func TestMCPPackage_PluginDeclaresTheSameServer(t *testing.T) {
 		t.Errorf("plugin args = %v, apm.yml args = %v", plugin.Args, declared.Args)
 	}
 	got := slices.Sorted(maps.Keys(plugin.Env))
-	want := slices.Sorted(slices.Values(declared.EnvVars))
+	// Derived from apm.yml rather than spelled out, so a variable added there
+	// and forgotten here still fails.
+	want := slices.DeleteFunc(slices.Clone(declared.EnvVars), func(name string) bool {
+		return slices.Contains(codexOnlyEnvVars, name)
+	})
+	slices.Sort(want)
 	if !slices.Equal(got, want) {
-		t.Errorf("plugin env keys = %v, apm.yml env_vars = %v", got, want)
+		t.Errorf("plugin env keys = %v, apm.yml env_vars minus %v = %v",
+			got, codexOnlyEnvVars, want)
 	}
 	for k, v := range plugin.Env {
 		if v != "${"+k+"}" {

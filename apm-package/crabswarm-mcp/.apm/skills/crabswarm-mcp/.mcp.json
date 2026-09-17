@@ -6,6 +6,7 @@
       "env": {
         "CMDMAN_CMD_ID": "${CMDMAN_CMD_ID}",
         "CRABSWARM_CHAT_TOKEN": "${CRABSWARM_CHAT_TOKEN}",
+        "CRABSWARM_CLAUDE_CHANNEL": "${CRABSWARM_CLAUDE_CHANNEL}",
         "XDG_RUNTIME_DIR": "${XDG_RUNTIME_DIR}"
       }
     }
