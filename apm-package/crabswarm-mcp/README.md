@@ -222,12 +222,14 @@ and a line pushed at a session is the last place to repeat it.
 
 ```
 backend/alice  agent  working  claude-code  native
-backend/dave   agent  done     -            terminal
+backend/dave   agent  done     other        terminal
 frontend/bob   human  done     -            -
 ```
 
-A `-` is a column nothing was declared for — an agent whose server did not
-recognise its harness, or a person, who runs no harness and is never nudged.
+An agent this server attends for always names a harness; `other` is one whose
+client the server did not recognise. A `-` is a column the member declared
+nothing for: a person, who runs no harness and is never nudged, or an agent
+attending through something other than this server.
 
 The variable is set by whoever launches the session, in the environment the
 harness starts the server in, beside the flag that makes the channel exist.
@@ -323,7 +325,7 @@ leave one behind, and each needs a manual cleanup.
 
 An older version of this package installed a `SessionStart` hook running
 `crabswarm chat join`. That hook survives an upgrade and runs on every session
-start. There is no `join` verb any more — attendance is the bridge's open
+start. There is no `join` verb any more — attendance is the MCP server's open
 stream — so it fails; the hook discards that failure and exits 0, so nothing
 reports it. Search for the string `crabswarm chat join` in:
 
@@ -349,11 +351,11 @@ otherwise start two servers on one identity token, and the second of them never
 attends: the room already has that member, so it spends the session retrying and
 warning about a refusal nothing can clear.
 
-### What the harness forwards to the bridge
+### What the harness forwards to the server
 
 A harness may spawn a stdio MCP server with a fixed environment whitelist and
 pass nothing else through. Codex does, so the declaration names every variable
-the bridge needs:
+the server needs:
 
 ```yaml
 env_vars:
@@ -366,18 +368,18 @@ env_vars:
 
 The first two carry the identity token in its two spellings: the cmdman command
 id an agent inherits, and the token `crabswarm chat admin register` prints for a
-member registered by hand. A bridge that resolves neither still serves, and
+member registered by hand. A server that resolves neither still serves, and
 every tool answers that it has no identity.
 
 The two in the middle are the channel variables *How a mention reaches the
-agent* describes. Neither is needed for the bridge to work, so a missing one
+agent* describes. Neither is needed for the server to work, so a missing one
 costs a keystroke nudge rather than a refusal — but a variable the launcher set
 and the harness did not forward is the same as one nobody set, which is why they
 are listed here beside the rest.
 
-`XDG_RUNTIME_DIR` decides where the bridge looks for the daemon. The socket path
+`XDG_RUNTIME_DIR` decides where the server looks for the daemon. The socket path
 is derived from that variable, and a daemon started from a login shell listens
-under it. A bridge spawned without the variable probes `/run/user/<uid>` and
+under it. A server spawned without the variable probes `/run/user/<uid>` and
 takes `/run/user/<uid>/crabswarm/default.sock` when that directory is there,
 otherwise `/tmp/crabswarm/default.sock`. On an ordinary Linux login the probe
 lands on the path the daemon chose. A daemon started with some other
@@ -600,12 +602,12 @@ before they run.
 The MCP server is the same story one layer over: `apm install` writes an
 `[mcp_servers.crabswarm-mcp]` table into `.codex/config.toml` naming
 `crabswarm` with `["mcp"]`, which is the shape a Codex install was observed
-to produce; whether Codex then starts the bridge and it attends the room has not
-been run against a Codex session either. The table also carries the `env_vars`
-list above. Without that list Codex hands the bridge an environment holding
-neither an identity token nor the runtime dir the socket path comes from.
-Without the bridge Codex attends nothing at all: attendance is that open stream,
-and there is no command an operator could type to declare one.
+to produce; whether Codex then starts the MCP server and it attends the room has
+not been run against a Codex session either. The table also carries the
+`env_vars` list above. Without that list Codex hands the MCP server an
+environment holding neither an identity token nor the runtime dir the socket
+path comes from. Without it Codex attends nothing at all: attendance is that
+open stream, and there is no command an operator could type to declare one.
 
 What Codex ends up running:
 
@@ -631,7 +633,7 @@ above says what the feed carries.
 
 Codex's `notify` program (`agent-turn-complete`) could report `done`
 redundantly, and nothing here uses it — the only thing this package puts in
-`config.toml` is the bridge's `[mcp_servers]` table.
+`config.toml` is this server's `[mcp_servers]` table.
 
 ## OpenCode
 

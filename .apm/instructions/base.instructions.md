@@ -127,6 +127,7 @@ Tools to swarm claude(, codex and others!)
 - `AGENTS.md` / `CLAUDE.md` are generated (git-ignored) from `.apm/instructions/*.md`: edit the source, never the generated files. Never run `apm` (compile, install, ...) inside a worktree such as `main/`; the user regenerates them.
 - Backlog / plans: the issue backlog is the beads database (`bd`) under the repo root's `.beads/`, shared by every worktree — one `task` bead per item, labels as tags, `Discussion:`/`Decision:` comments, close reason as conclusion (`bd list`, `bd search <text> --status all`, `bd show <id>`; see the ngplan skill's `reference/beads.md`). Never `bd dolt push` or `bd hooks install`.
 - Plans live in beads too, one epic labelled `plan` per plan: `description` carries the idea, `design` the plan, `acceptance_criteria` the success criteria, `notes` (`bd update --append-notes`) the status narrative. Steps are child `task`s labelled `step`, ordered by `blocks` so `bd ready` drives execution; a sub-plan is a child epic labelled `plan`; a handoff item is a `task` with `discovered-from:<id>`. Decisions and open questions are `Decision:` / `Discussion:` comments, the idea gate is metadata `idea_gate_passed=YYYY-MM-DD` (absent means the gate was never confirmed), and a finished plan is `bd close --reason`. `doc/plan/<date>-<NN>-<slug>/` holds the file-authored plans (IDEA/PLAN/STATUS/DECISION, + HANDOFF) as history.
+- Commit messages follow `doc/COMMIT_CONVENTION.md`: one emoji prefix, a scope from its Scopes table, and a short imperative subject.
 
 ## Implementing functionality
 

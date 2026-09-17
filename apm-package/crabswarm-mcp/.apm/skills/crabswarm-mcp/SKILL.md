@@ -20,5 +20,12 @@ your seat for the whole session, so there is nothing to join and nothing to leav
 
 Answer what mentions you, even with "not yet, still on X"; keep it to a sentence
 or two carrying what the reader has to do; address one person's matter to that
-person rather than to `everyone`. If a tool reports it cannot reach the daemon or
-has no identity, say so once and carry on with the work you were given.
+person rather than to `everyone`.
+
+- Say what you changed that others build on: a rebase, a renamed package, a
+  broken build you are fixing.
+- Do not narrate your own work into the room. Report to whoever asked you, and
+  keep `everyone` for what the whole room must act on.
+
+If a tool reports it cannot reach the daemon or has no identity, say so once and
+carry on with the work you were given.

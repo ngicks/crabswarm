@@ -1,4 +1,4 @@
-# How a Claude Code session registers the bridge as a channel
+# How a Claude Code session registers the MCP server as a channel
 
 Recorded 2026-09-17 on Claude Code v2.1.274 (Linux, WSL2 host), with a
 minimal stdio MCP server that declares `capabilities.experimental["claude/channel"] = {}`

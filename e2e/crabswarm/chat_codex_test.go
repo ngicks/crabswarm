@@ -22,7 +22,7 @@ import (
 )
 
 // A Codex session in a swarm is hosted by `codex app-server --listen unix://…`,
-// and the bridge reaches its agent by starting a turn on that server. The
+// and the MCP server reaches its agent by starting a turn on it. The
 // suite cannot run Codex, so what stands in for it here is a fake app server
 // speaking the same wire: an HTTP upgrade on a unix socket, then one JSON-RPC
 // message per text frame, answered the way the real one answers — with no
@@ -33,8 +33,8 @@ import (
 // fake of their own; that one lives in a test file and cannot be imported, so
 // this is the small second copy.
 
-// codexFakeThread is the thread the fake says it has loaded, so the bridge has
-// exactly one to bind to.
+// codexFakeThread is the thread the fake says it has loaded, so the MCP server
+// has exactly one to bind to.
 const codexFakeThread = "01a0afbe-2c74-7452-a0fd-6858a3d7a885"
 
 // codexAppServer is a fake app server on a unix socket.
@@ -182,9 +182,9 @@ func (f *codexAppServer) connections() int {
 	return f.accepted
 }
 
-// waitCodexConnection blocks until the bridge has connected, which is what a
-// status push needs: the fake pushes to the connections it holds, and one
-// pushed before the bridge arrived reaches nobody.
+// waitCodexConnection blocks until the MCP server has connected, which is what
+// a status push needs: the fake pushes to the connections it holds, and one
+// pushed before the MCP server arrived reaches nobody.
 func waitCodexConnection(t *testing.T, f *codexAppServer) {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
@@ -194,7 +194,7 @@ func waitCodexConnection(t *testing.T, f *codexAppServer) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatal("the bridge never connected to the app server")
+	t.Fatal("the MCP server never connected to the app server")
 }
 
 // waitCodexTurns blocks until the fake has been asked to start exactly want,
@@ -213,7 +213,7 @@ func waitCodexTurns(t *testing.T, f *codexAppServer, want ...string) {
 	t.Fatalf("the app server was asked to start\n%q\nwant\n%q", got, want)
 }
 
-// The whole Codex story in one session. The bridge reads the app server's
+// The whole Codex story in one session. The MCP server reads the app server's
 // address out of its environment, so the member attends as one the daemon never
 // types at, and every notice it is owed arrives as a turn on the one thread the
 // app server has loaded — while the agent is idle, never mid-turn, and once the
@@ -277,19 +277,17 @@ func TestChatCodex_BridgeStartsATurnForEveryMention(t *testing.T) {
 // busy and quiet again reaches the room without a hook reporting anything — and
 // what the room hears is what decides when the next mention may be delivered.
 //
-// The half of that inside the bridge — the connection, the subscription and the
-// mapping onto harness states — is pinned by the unit tests in
-// crabswarm/mcp/harness. What is asserted here is the other half: the bridge
-// passing what it heard on to the daemon.
+// The half of that inside the MCP server — the connection, the subscription and
+// the mapping onto harness states — is pinned by the unit tests in
+// crabswarm/mcp/harness. What is asserted here is the other half: the MCP
+// server passing what it heard on to the daemon.
 func TestChatCodex_TheAppServerFeedBecomesTheMemberState(t *testing.T) {
-	requireCodexStateWiring(t)
-
 	app := startCodexAppServer(t)
 	cfg := startChatDaemon(t)
 	startChatBridgeAs(t, cfg, "tok-ana", "codex-mcp-client",
 		append(chatEnviron(), harness.CodexAppServerEnv+"=unix://"+app.addr))
 	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
-	// A status pushed before the bridge connected reaches nobody.
+	// A status pushed before the MCP server connected reaches nobody.
 	waitCodexConnection(t, app)
 
 	// The daemon publishes every report onto the stub cmdman's status log, so
@@ -304,7 +302,7 @@ func TestChatCodex_TheAppServerFeedBecomesTheMemberState(t *testing.T) {
 		app.pushStatus(step.status)
 		trail = append(trail, codexStatusLine(step.state))
 		// One at a time: a real session's statuses are a turn apart, and two
-		// frames arriving in the same instant reach the bridge in whichever
+		// frames arriving in the same instant reach the MCP server in whichever
 		// order their handlers win the JSON-RPC client's lock, so three pushed
 		// together would make this a case about that race.
 		waitCodexStatusTrail(t, cfg, trail)
@@ -349,35 +347,9 @@ func waitCodexStatusTrail(t *testing.T, cfgPath string, want []string) {
 	t.Fatalf("cmdman status invocations =\n%q\nwant\n%q", published, want)
 }
 
-// requireCodexStateWiring skips when the MCP server does not yet ask its
-// harness for a state feed. It reads the server's own sources because there is
-// nothing to ask at runtime: a bridge that never subscribes looks exactly like
-// one whose app server said nothing.
-func requireCodexStateWiring(t *testing.T) {
-	t.Helper()
-	dir := filepath.Join(repoRoot(), "crabswarm", "mcp")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("read %s: %v", dir, err)
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
-			continue
-		}
-		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil {
-			t.Fatalf("read %s: %v", e.Name(), err)
-		}
-		if strings.Contains(string(b), "harness.StateSource") {
-			return
-		}
-	}
-	t.Skip("the MCP server does not read harness.StateSource yet, so no state is reported")
-}
-
 // Codex's hook file wires the delivery and nothing else. Its state comes off
-// the app server the bridge is already connected to, and a hook reporting the
-// same thing would race that feed with a slower, coarser answer.
+// the app server the MCP server is already connected to, and a hook reporting
+// the same thing would race that feed with a slower, coarser answer.
 func TestChatCodex_HooksLeaveTheStateToTheAppServer(t *testing.T) {
 	codex := readCodexHooks(t)
 	plugin := readChatHooks(t)

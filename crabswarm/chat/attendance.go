@@ -25,8 +25,9 @@ import (
 // with, so what arrived while it was away is waiting for it.
 //
 // An empty State defaults to [StateDone]: attendance is declared as the
-// member's bridge to the room opens, before the session has work to do. A zero
-// StateReportedAt defaults to now, the moment that state was declared.
+// member's MCP server opens its stream to the room, before the session has work
+// to do. A zero StateReportedAt defaults to now, the moment that state was
+// declared.
 //
 // An agent with an empty Nudge defaults to [NudgeTerminal], which is how every
 // agent was reached before a harness could deliver a mention itself. A member

@@ -1,7 +1,7 @@
 {
   "name": "crabswarm-mcp",
   "version": "0.2.0",
-  "description": "Attends the crabswarm chat room through the MCP bridge and reports harness state through hooks.",
+  "description": "Attends the crabswarm chat room through the MCP server and reports harness state through hooks.",
   "author": {
     "name": "ngicks"
   },

@@ -84,11 +84,16 @@ func (f *family) addTools() {
 	}, f.read)
 	mcp.AddTool(f.server.MCP(), &mcp.Tool{
 		Name: "chat_members",
-		Description: "List everyone attending your room, one member per line. " +
-			"The first column is exactly the role chat_send addresses; the " +
-			"ones after it are the kind — agent for a harness a message is " +
-			"typed into, human for someone who reads when it asks — and the " +
-			"state that harness last reported.",
+		Description: "List everyone attending your room, one member per line: " +
+			"the address, the kind, the state, the harness and the nudge. The " +
+			"first column is exactly the role chat_send addresses. The kind is " +
+			"agent for a harness a message reaches on its own, human for " +
+			"someone who reads when it asks. The state is what that harness " +
+			"last reported — working, waiting or done, and unknown where it " +
+			"reported none. The last two are the harness the member runs and " +
+			"how a mention reaches it: terminal for one the daemon types at, " +
+			`native for one its own server delivers to; both read as "-" where ` +
+			"nobody declared one.",
 	}, f.members)
 }
 

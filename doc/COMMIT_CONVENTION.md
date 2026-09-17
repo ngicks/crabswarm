@@ -85,6 +85,7 @@ character limit in the scope rules applies to comma-joined scopes.
 | `chat/tui`             | `crabswarm/chat/cli/tui/` admin TUI                                    |
 | `chat/cmdman`          | `crabswarm/chat/internal/cmdman/` terminal injection                   |
 | `chat/notify`          | `crabswarm/chat/notify/` nudges                                        |
+| `chat/nudge`           | `crabswarm/chat/nudge/` notice wording                                 |
 | `chat/resolver`        | `crabswarm/chat/resolver/` team-info provider                          |
 | `mcp`                  | `crabswarm/mcp/` the per-agent MCP server and its tool families        |
 | `server`               | `crabswarm/server/` the daemon                                         |
