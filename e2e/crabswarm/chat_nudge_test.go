@@ -13,7 +13,7 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	chatcli "github.com/ngicks/crabswarm/crabswarm/chat/cli"
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // attendNative puts an agent in the room that delivers its own mentions, and
@@ -154,7 +154,7 @@ func TestChat_ABridgeDeliversTheMentionsItsDaemonNoLongerTypes(t *testing.T) {
 	// Appended after the scrubbed environment, which drops every CRABSWARM_
 	// variable the suite is itself running with.
 	startChatBridgeAs(t, cfg, "tok-ana", "claude-code",
-		append(chatEnviron(), harness.SinkEnv+"="+sink))
+		append(chatEnviron(), harnessctl.SinkEnv+"="+sink))
 	attendChatBridges(t, cfg, "tok-bob")
 	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
 	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)

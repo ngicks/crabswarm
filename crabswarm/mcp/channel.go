@@ -109,7 +109,7 @@ var errNoChannelYet = errors.New(
 	"the harness has not connected yet, so there is no channel to notify it through")
 
 // Notify writes one JSON-RPC notification to the harness. It implements
-// [harness.Session], which is how a channel reaches its own harness.
+// [harnessctl.Session], which is how a channel reaches its own harness.
 func (c *channel) Notify(ctx context.Context, method string, params any) error {
 	c.mu.Lock()
 	conn := c.conn

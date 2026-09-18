@@ -20,7 +20,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // testToken is spelled out at every call site rather than left to resolution:
@@ -248,7 +248,7 @@ func deliversTo(t *testing.T, bridge *Server) string {
 
 	path := filepath.Join(t.TempDir(), "notices.log")
 	bridge.getenv = func(name string) string {
-		if name == harness.SinkEnv {
+		if name == harnessctl.SinkEnv {
 			return path
 		}
 		return ""
@@ -485,7 +485,7 @@ func (*feedingHarness) Nudge() chatv1.NudgeDelivery {
 	return chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL
 }
 
-func (*feedingHarness) Deliver(context.Context, harness.Notice) error {
+func (*feedingHarness) Deliver(context.Context, harnessctl.Notice) error {
 	return errors.New("this harness delivers nothing")
 }
 
@@ -515,8 +515,8 @@ func (h *feedingHarness) says(t *testing.T, state chatv1.HarnessState) {
 
 // runsOn has the server serve h whatever name the client handshakes under,
 // which is how a case plays a CLI this process cannot start.
-func runsOn(bridge *Server, h harness.Harness) {
-	bridge.detect = func(string, func(string) string, harness.Session) harness.Harness {
+func runsOn(bridge *Server, h harnessctl.Harness) {
+	bridge.detect = func(string, func(string) string, harnessctl.Session) harnessctl.Harness {
 		return h
 	}
 }
@@ -571,7 +571,7 @@ func TestServer_WatchesNothingForAHarnessWithoutAFeed(t *testing.T) {
 
 	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
 	assert.Assert(t, bridge.harness != nil)
-	_, watchable := bridge.harness.(harness.StateSource)
+	_, watchable := bridge.harness.(harnessctl.StateSource)
 	assert.Assert(t, !watchable, "a Codex with no app server carries a state feed")
 	assert.Equal(t, len(fake.reportedStates()), 0)
 }
@@ -582,7 +582,7 @@ func declaresChannel(res *mcpsdk.InitializeResult) bool {
 	if res.Capabilities == nil {
 		return false
 	}
-	_, declared := res.Capabilities.Experimental[harness.ClaudeChannelCapability]
+	_, declared := res.Capabilities.Experimental[harnessctl.ClaudeChannelCapability]
 	return declared
 }
 
@@ -594,7 +594,7 @@ func declaresChannel(res *mcpsdk.InitializeResult) bool {
 // capability has to be in the answer the server gives, and the answer is what
 // tells the server which harness it was serving all along.
 func TestServer_DeclaresTheChannelItsLauncherRegistered(t *testing.T) {
-	t.Setenv(harness.ClaudeChannelEnv, "1")
+	t.Setenv(harnessctl.ClaudeChannelEnv, "1")
 	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
 	bridge := newTestBridge(t, fake)
 	session := serveBridgeAs(t, bridge, "claude-code")
@@ -624,7 +624,7 @@ func TestServer_DeclaresTheChannelItsLauncherRegistered(t *testing.T) {
 // its session never registered, and every notice pushed at it would be dropped
 // unseen while the daemon typed at nobody.
 func TestServer_LeavesTheChannelOutUntilItIsRegistered(t *testing.T) {
-	t.Setenv(harness.ClaudeChannelEnv, "")
+	t.Setenv(harnessctl.ClaudeChannelEnv, "")
 	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
 	bridge := newTestBridge(t, fake)
 	session := serveBridgeAs(t, bridge, "claude-code")

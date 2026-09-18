@@ -14,7 +14,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // claudeChannelMethod carries one channel event. It is spelled here rather than
@@ -86,7 +86,7 @@ func startChannelBridge(
 		"mcp", "--config", cfgPath, "--token", token)
 	// Appended after the scrubbed environment, which drops every CRABSWARM_
 	// variable the suite is itself running with.
-	cmd.Env = append(chatEnviron(), harness.ClaudeChannelEnv+"=1")
+	cmd.Env = append(chatEnviron(), harnessctl.ClaudeChannelEnv+"=1")
 	cmd.Stderr = os.Stderr
 
 	// Buffered well past what one case pushes, so the bridge never waits on a
@@ -173,9 +173,9 @@ func TestChat_TheClaudeChannelTakesTheMentionsItsDaemonNoLongerTypes(t *testing.
 	if res.Capabilities == nil {
 		t.Fatal("the bridge declared no capabilities at all")
 	}
-	if _, declared := res.Capabilities.Experimental[harness.ClaudeChannelCapability]; !declared {
+	if _, declared := res.Capabilities.Experimental[harnessctl.ClaudeChannelCapability]; !declared {
 		t.Errorf("the handshake declares no %q capability: %+v",
-			harness.ClaudeChannelCapability, res.Capabilities.Experimental)
+			harnessctl.ClaudeChannelCapability, res.Capabilities.Experimental)
 	}
 	for _, want := range []string{"crabswarm-mcp", "chat_read", "chat_send"} {
 		if !strings.Contains(res.Instructions, want) {

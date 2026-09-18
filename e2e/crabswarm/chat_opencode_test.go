@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // The OpenCode half of the crabswarm-mcp package is a plugin file rather
@@ -282,10 +282,10 @@ func (h *opencodeHost) declaredRelay(t *testing.T) string {
 	if !ok {
 		t.Fatalf("opencode declares no crabswarm-mcp server: %v", config.MCP)
 	}
-	relay := server.Environment[harness.OpenCodeRelayEnv]
+	relay := server.Environment[harnessctl.OpenCodeRelayEnv]
 	if !relayAddress.MatchString(relay) {
 		t.Fatalf("the declared %s = %q, want the address of the plugin's own listener",
-			harness.OpenCodeRelayEnv, relay)
+			harnessctl.OpenCodeRelayEnv, relay)
 	}
 	return relay
 }

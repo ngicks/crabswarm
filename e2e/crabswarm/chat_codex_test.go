@@ -18,7 +18,7 @@ import (
 	"github.com/coder/websocket"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // A Codex session in a swarm is hosted by `codex app-server --listen unix://…`,
@@ -29,7 +29,7 @@ import (
 // version marker on anything it sends. testdata/harness/README.md records the
 // exchange this was written from.
 //
-// The unit tests in crabswarm/mcp/harness replay the captured session against a
+// The unit tests in pkg/harnessctl replay the captured session against a
 // fake of their own; that one lives in a test file and cannot be imported, so
 // this is the small second copy.
 
@@ -222,7 +222,7 @@ func TestChatCodex_BridgeStartsATurnForEveryMention(t *testing.T) {
 	app := startCodexAppServer(t)
 	cfg := startChatDaemon(t)
 	startChatBridgeAs(t, cfg, "tok-ana", "codex-mcp-client",
-		append(chatEnviron(), harness.CodexAppServerEnv+"=unix://"+app.addr))
+		append(chatEnviron(), harnessctl.CodexAppServerEnv+"=unix://"+app.addr))
 	attendChatBridges(t, cfg, "tok-bob")
 	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
 	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
@@ -279,13 +279,13 @@ func TestChatCodex_BridgeStartsATurnForEveryMention(t *testing.T) {
 //
 // The half of that inside the MCP server — the connection, the subscription and
 // the mapping onto harness states — is pinned by the unit tests in
-// crabswarm/mcp/harness. What is asserted here is the other half: the MCP
+// pkg/harnessctl. What is asserted here is the other half: the MCP
 // server passing what it heard on to the daemon.
 func TestChatCodex_TheAppServerFeedBecomesTheMemberState(t *testing.T) {
 	app := startCodexAppServer(t)
 	cfg := startChatDaemon(t)
 	startChatBridgeAs(t, cfg, "tok-ana", "codex-mcp-client",
-		append(chatEnviron(), harness.CodexAppServerEnv+"=unix://"+app.addr))
+		append(chatEnviron(), harnessctl.CodexAppServerEnv+"=unix://"+app.addr))
 	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
 	// A status pushed before the MCP server connected reaches nobody.
 	waitCodexConnection(t, app)

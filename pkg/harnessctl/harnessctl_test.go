@@ -1,4 +1,4 @@
-package harness
+package harnessctl
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 // names this package recognises are read out of those recordings rather than
 // spelled here a second time: a harness that renamed itself has to be
 // re-captured, and the case below then fails until the mapping follows.
-const fixtureDir = "../../../e2e/crabswarm/testdata/harness"
+const fixtureDir = "../../e2e/crabswarm/testdata/harness"
 
 // clientNameOf reads the name a client gave itself out of one recorded
 // initialize frame.
