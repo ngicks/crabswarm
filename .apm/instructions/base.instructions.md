@@ -76,8 +76,7 @@ Tools to swarm claude(, codex and others!)
 │   ├── mcp         `crabswarm mcp`: the stdio MCP server, one instance per agent; holds the Attend stream for the whole session, retrying until the daemon answers and reopening it after a restart; serves even with no identity token. Tool families register onto it before it runs.
 │   │   │           deliver.go = the other half: it watches the room's feed and hands a mention to its own harness, so the daemon stops typing at that member; channel.go wraps the stdio transport so the server can push a notification down the session the SDK is already serving.
 │   │   ├── chat      The first tool family: chat_send/chat_read/chat_members plus the `crabswarm://chat/members` resource, all over the member plane.
-│   │   └── harness   One file per CLI, chosen by the name the client gives itself in the MCP handshake: claude.go (a channel notification on the session the harness already spawned), codex*.go (the app server the session is hosted by — delivery and the state feed both), opencode.go (a POST to the plugin's loopback relay).
-│   │                 A harness launched without its variable has no channel and attends as a terminal member; a harness that also implements StateSource is watched for the whole session and reports its member's state.
+│   │   └── (the channels live in pkg/harnessctl; deliver.go asks it which harness the client is and hands it each mention)
 │   ├── hook        Claude Code / Codex hook handlers: exec/ (`hook exec` template runner + its Config), path/, audit.go.
 │   ├── issues      Beads backlog reader: every call shells out to `bd ... --json`, nothing opens the database.
 │   │   │           client.go/types.go/convert.go = the bd client; it collapses identical concurrent invocations into one run and
@@ -104,6 +103,8 @@ Tools to swarm claude(, codex and others!)
 │                   testdata/harness/ holds read-only recordings of what the real harnesses do (each one's MCP `initialize` frame, the Codex app-server session, Claude Code screens and its channel launch notes); re-capture rather than hand-edit them.
 ├── internal        internal helper packages (libver, loggerfactory, templateutil, stdiopipe, cmdsignals, versioninfo).
 ├── pkg
+│   ├── harnessctl  Reach a coding-agent harness from beside it: Detect picks the CLI off the MCP clientInfo name; claude.go (a channel notification on the session the harness spawned), codex*.go (the app server the session is hosted by — delivery and the state feed both), opencode.go (a POST to the plugin's loopback relay).
+│   │               A harness launched without its variable has no channel and is a terminal one; a harness that also implements StateSource is watched for the whole session. Knows nothing about chat; crabswarm/mcp composes it with the room.
 │   ├── claudehook  helper for claude code hook. Same code can be resued for codex.
 │   └── filetype    filetype detection config consumed by hook exec.
 └── web             Preact SPA for `crabswarm preview`, embedded via go:embed as seekable-zstd tar (dist.tar.zst committed).

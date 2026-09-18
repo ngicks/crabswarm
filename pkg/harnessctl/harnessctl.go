@@ -1,5 +1,8 @@
-// Package harness recognises the CLI an MCP server is serving and hands back
-// the channel a mention reaches its agent through.
+// Package harnessctl reaches a coding-agent harness from beside it: it
+// recognises which CLI an MCP server is serving and hands back the channel a
+// message reaches that agent through, and, where the harness has one, the feed
+// its state is read from. It knows nothing about chat rooms; the crabswarm MCP
+// server composes it with the room.
 //
 // A harness names itself once, in the MCP handshake, and everything about how
 // it can be woken follows from that name: Claude Code takes a channel
@@ -17,7 +20,7 @@
 // comes from. The server watches it for as long as the session runs and
 // reports what it says, so nothing about that member's turns depends on a hook
 // firing.
-package harness
+package harnessctl
 
 import (
 	"context"

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // The OpenCode channel runs the other way round from the rest: the plugin
@@ -101,7 +101,7 @@ func TestChatOpenCode_ABridgeDeliversThroughThePluginsRelay(t *testing.T) {
 	// variable the suite is itself running with. This is the one the plugin
 	// puts into the environment of the server it declares.
 	startChatBridgeAs(t, cfg, "tok-ana", "opencode",
-		append(chatEnviron(), harness.OpenCodeRelayEnv+"="+relay.url))
+		append(chatEnviron(), harnessctl.OpenCodeRelayEnv+"="+relay.url))
 	attendChatBridges(t, cfg, "tok-bob")
 	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
 	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)

@@ -38,8 +38,8 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
 	"github.com/ngicks/crabswarm/internal/libver"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // serverName identifies the server to the harness, which lists it beside every
@@ -69,15 +69,15 @@ type Server struct {
 	// detect names the harness behind the client that handshook. It is a field
 	// for the reason getenv is one: a harness that carries a channel or a state
 	// feed of its own speaks to a CLI this process cannot start, so a test hands
-	// the server one that plays the part. [New] takes [harness.Detect].
+	// the server one that plays the part. [New] takes [harnessctl.Detect].
 	detect func(
-		clientName string, getenv func(string) string, session harness.Session,
-	) harness.Harness
+		clientName string, getenv func(string) string, session harnessctl.Session,
+	) harnessctl.Harness
 
 	// session is the channel a harness deliverer pushes its notifications
 	// through, which is the MCP transport the session runs on. [Server.Serve]
 	// sets it before the session starts, so a handshake never reads it unset.
-	session harness.Session
+	session harnessctl.Session
 
 	// initialized is closed once the harness has finished the MCP handshake and
 	// [Server.harness] names what it runs. Attendance waits on it: what the
@@ -88,7 +88,7 @@ type Server struct {
 	initOnce    sync.Once
 	// harness is the CLI this server serves and the channel a mention takes to
 	// it. Written once, before initialized is closed, and read only after.
-	harness harness.Harness
+	harness harnessctl.Harness
 
 	// subscribable are the resource URIs a family registered, which are the ones
 	// a harness may ask to be told about. Written while the families register
@@ -158,7 +158,7 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		client:            client,
 		token:             token,
 		getenv:            os.Getenv,
-		detect:            harness.Detect,
+		detect:            harnessctl.Detect,
 		subscribable:      map[string]struct{}{},
 		initialized:       make(chan struct{}),
 		settled:           make(chan struct{}),
@@ -173,7 +173,7 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 	// What the server declares about itself is settled here, because the
 	// handshake carries it and the handshake is what tells the server which
 	// harness it is serving — the answer arrives after the question.
-	if harness.ClaudeChannelEnabled(s.getenv) {
+	if harnessctl.ClaudeChannelEnabled(s.getenv) {
 		opts.Capabilities = claudeChannelCapabilities()
 		opts.Instructions = claudeChannelInstructions
 	}
@@ -201,7 +201,7 @@ func claudeChannelCapabilities() *mcpsdk.ServerCapabilities {
 		//nolint:staticcheck // deprecated only from the revision above the cap this server offers
 		Logging: &mcpsdk.LoggingCapabilities{},
 		Experimental: map[string]any{
-			harness.ClaudeChannelCapability: map[string]any{},
+			harnessctl.ClaudeChannelCapability: map[string]any{},
 		},
 	}
 }
@@ -567,7 +567,7 @@ func (s *Server) watchHarnessState(ctx context.Context) {
 	case <-ctx.Done():
 		return
 	}
-	source, ok := s.harness.(harness.StateSource)
+	source, ok := s.harness.(harnessctl.StateSource)
 	if !ok {
 		return
 	}

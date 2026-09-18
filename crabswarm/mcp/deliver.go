@@ -5,7 +5,7 @@ import (
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/nudge"
-	"github.com/ngicks/crabswarm/crabswarm/mcp/harness"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // Delivering a mention is the other half of attending, for the members whose
@@ -47,7 +47,7 @@ func (s *Server) deliverArrival(ctx context.Context, from *chatv1.Member) {
 		return
 	}
 	addr := nudge.Sanitize(nudge.Address(from.GetTeam(), from.GetName()))
-	if !s.deliver(ctx, harness.Notice{From: addr, Text: nudge.NewMessage(addr)}) {
+	if !s.deliver(ctx, harnessctl.Notice{From: addr, Text: nudge.NewMessage(addr)}) {
 		s.remember()
 	}
 }
@@ -78,7 +78,7 @@ func (s *Server) deliverWaiting(ctx context.Context) {
 	if waiting == 0 {
 		return
 	}
-	if !s.deliver(ctx, harness.Notice{Text: nudge.Waiting(waiting)}) {
+	if !s.deliver(ctx, harnessctl.Notice{Text: nudge.Waiting(waiting)}) {
 		s.remember()
 	}
 }
@@ -90,7 +90,7 @@ func (s *Server) deliverWaiting(ctx context.Context) {
 // and retrying on the spot would hold up the feed for a channel that is
 // unlikely to take the same notice a moment later. The next report ending a
 // turn and the next attendance both try again, which is retry enough.
-func (s *Server) deliver(ctx context.Context, n harness.Notice) bool {
+func (s *Server) deliver(ctx context.Context, n harnessctl.Notice) bool {
 	// The room is filled in here rather than by the callers: every notice
 	// belongs to the one room this member attends, and it is only known once the
 	// attendance has landed — the harness was chosen before that, off the

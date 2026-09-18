@@ -97,7 +97,8 @@ character limit in the scope rules applies to comma-joined scopes.
 | `config`               | `crabswarm/config.go` layered config                                   |
 | `cli`                  | `crabswarm/cli/` shared presentation helpers                           |
 | `internal`             | `internal/` helper packages                                            |
-| `pkg`                  | `pkg/` reusable libraries other than `claudehook`                      |
+| `harnessctl`           | `pkg/harnessctl/` reaching a harness: channels and state feeds         |
+| `pkg`                  | `pkg/` reusable libraries other than `claudehook` and `harnessctl`     |
 | `e2e`                  | `e2e/` process-level tests                                             |
 | `web`                  | `web/` preview SPA                                                     |
 | `apm-package`          | `apm-package/` packages this repo publishes                            |
