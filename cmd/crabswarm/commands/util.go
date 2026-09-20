@@ -9,6 +9,7 @@ func utilCmd(parent *cobra.Command) {
 	}
 
 	utilPollCmd(cmd)
+	utilSupervisedCmd(cmd)
 
 	parent.AddCommand(cmd)
 }
