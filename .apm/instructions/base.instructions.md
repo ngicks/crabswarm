@@ -101,12 +101,16 @@ Tools to swarm claude(, codex and others!)
 ├── e2e
 │   └── crabswarm   Process-level tests: TestMain builds the binary once; chat_*.go and mcp_package_test.go cover daemon + CLI + hooks + MCP + TUI end to end.
 │                   testdata/harness/ holds read-only recordings of what the real harnesses do (each one's MCP `initialize` frame, the Codex app-server session, Claude Code screens and its channel launch notes); re-capture rather than hand-edit them.
-├── internal        internal helper packages (libver, loggerfactory, templateutil, stdiopipe, cmdsignals, versioninfo).
+├── internal        internal helper packages (libver, loggerfactory, templateutil, stdiopipe, cmdsignals, versioninfo,
+│                   supervisor = the Supervisor interface + the Start flow behind `util supervised [--name N] [--poll URI] -- CMD...`, cmdman/ implements it).
 ├── pkg
 │   ├── harnessctl  Reach a coding-agent harness from beside it: Detect picks the CLI off the MCP clientInfo name; claude.go (a channel notification on the session the harness spawned), codex*.go (the app server the session is hosted by — delivery and the state feed both), opencode.go (a POST to the plugin's loopback relay).
 │   │               A harness launched without its variable has no channel and is a terminal one; a harness that also implements StateSource is watched for the whole session. Knows nothing about chat; crabswarm/mcp composes it with the room.
 │   ├── claudehook  helper for claude code hook. Same code can be resued for codex.
-│   └── filetype    filetype detection config consumed by hook exec.
+│   ├── filetype    filetype detection config consumed by hook exec.
+│   └── util        Behind `crabswarm util`, independent of the rest of crabswarm: poll/ (`util poll wait URI` probes a unix socket,
+│                   file:// path or http(s) URL; --start-period delays the first probe, --interval and --retries carry their
+│                   Docker-healthcheck meaning).
 └── web             Preact SPA for `crabswarm preview`, embedded via go:embed as seekable-zstd tar (dist.tar.zst committed).
     └── src
         ├── app.tsx        The shell and the routes: /roots/{rootId}/{path...} is the file browser, /issues/{sourceId} the Issues tab.
