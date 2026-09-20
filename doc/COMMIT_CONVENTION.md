@@ -94,6 +94,7 @@ character limit in the scope rules applies to comma-joined scopes.
 | `preview`              | `crabswarm/preview/` preview daemon and renderers                      |
 | `git`                  | `crabswarm/git/` worktree helpers                                      |
 | `statusline`           | `crabswarm/statusline/`                                                |
+| `util`                 | `pkg/util/` readiness polling                                          |
 | `config`               | `crabswarm/config.go` layered config                                   |
 | `cli`                  | `crabswarm/cli/` shared presentation helpers                           |
 | `internal`             | `internal/` helper packages                                            |
