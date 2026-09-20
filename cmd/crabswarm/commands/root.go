@@ -65,6 +65,7 @@ func rootCmd() *cobra.Command {
 	previewCmd(cmd, &flagConfig)
 	chatCmd(cmd, &flagSock, &flagConfig)
 	mcpCmd(cmd, &flagSock, &flagConfig)
+	utilCmd(cmd)
 
 	return cmd
 }
