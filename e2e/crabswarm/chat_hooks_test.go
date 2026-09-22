@@ -15,15 +15,26 @@ import (
 	"time"
 )
 
-// The hook file Claude Code reads out of the skills-directory plugin. The cases
-// here are about that file; the Codex copy under `.apm/hooks/` wires fewer
-// events, since Codex reports its state on its app server rather than through
-// hooks, and chat_codex_test.go is what pins it. The commands inside are
-// `crabswarm hook exec` invocations, so every case below runs the shipped
-// command string verbatim rather than a Go paraphrase of it: the wiring is a
-// text file no compiler ever sees, and a template that renders the wrong thing
-// is exactly the bug that costs a message.
-var chatHooksPath = []string{".apm", "skills", "crabswarm-mcp", "hooks", "hooks.json"}
+// The hook wiring crabswarm-mcp ships, and the support every case that runs a
+// shipped hook command is built on.
+//
+// One harness is hooked: Codex, through `.apm/hooks/codex-hooks.json`, and
+// chat_codex_test.go is what pins the events that file wires. The cases here
+// are the other half — how `crabswarm hook exec` behaves running those
+// commands — so they read the same file and exercise it rather than restating
+// what it declares.
+//
+// The Claude Code plugin ships no hook file, and apm_package_test.go is what
+// keeps it that way. Its member reports what the session is doing off the
+// agents listing its own `crabswarm mcp` server polls, and its messages arrive
+// either as a channel notification or as a line the daemon types into the
+// terminal, so a hook there would have nothing to add and one thing to get
+// wrong: a report from a hook races a feed that is already right.
+//
+// Every case below runs the shipped command string verbatim rather than a Go
+// paraphrase of it: the wiring is a text file no compiler ever sees, and a
+// template that renders the wrong thing is exactly the bug that costs a
+// message.
 
 // chatHookConfig is the hook file's shape on both harnesses: events, each
 // holding matcher groups, each holding the commands to run.
@@ -41,25 +52,6 @@ type chatHookEntry struct {
 	Command       string `json:"command"`
 	Timeout       int    `json:"timeout"`
 	StatusMessage string `json:"statusMessage"`
-}
-
-// readChatHooks decodes the package's hook file out of the checkout under test.
-func readChatHooks(t *testing.T) chatHookConfig {
-	t.Helper()
-	path := filepath.Join(append(
-		[]string{repoRoot(), "apm-package", "crabswarm-mcp"}, chatHooksPath...)...)
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read hook file %s: %v", path, err)
-	}
-	var cfg chatHookConfig
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		t.Fatalf("decode hook file %s: %v", path, err)
-	}
-	if len(cfg.Hooks) == 0 {
-		t.Fatalf("hook file %s wires no events", path)
-	}
-	return cfg
 }
 
 // commands returns every command wired to event, in file order.
@@ -85,32 +77,10 @@ func (c chatHookConfig) command(t *testing.T, event string) string {
 	return got[0]
 }
 
-// commandForMatcher returns the single command event wires under matcher. The
-// lookup is by the matcher string itself rather than by position, so a typo in
-// it fails here — a hook whose matcher matches no notification type is a hook
-// that silently never runs, which no other case would notice.
-func (c chatHookConfig) commandForMatcher(t *testing.T, event, matcher string) string {
-	t.Helper()
-	var got []string
-	for _, m := range c.Hooks[event] {
-		if m.Matcher != matcher {
-			continue
-		}
-		for _, h := range m.Hooks {
-			got = append(got, h.Command)
-		}
-	}
-	if len(got) != 1 {
-		t.Fatalf("event %s matcher %q wires %d commands, want exactly 1: %v",
-			event, matcher, len(got), got)
-	}
-	return got[0]
-}
-
-// The envelopes the harnesses write to a hook's stdin, one per event this
-// package wires. Only the fields the hook commands actually read matter — the
-// Stop flag above all — but each carries the envelope metadata a real harness
-// sends, since `hook exec` parses the whole thing before it renders anything.
+// The envelopes a harness writes to a hook's stdin, one per event the file
+// wires. Only the fields the hook commands actually read matter — the Stop flag
+// above all — but each carries the envelope metadata a real harness sends,
+// since `hook exec` parses the whole thing before it renders anything.
 const (
 	chatStopEnvelope = `{` +
 		`"session_id":"sess-e2e",` +
@@ -124,33 +94,8 @@ const (
 		`"cwd":"/tmp",` +
 		`"hook_event_name":"Stop",` +
 		`"stop_hook_active":true}`
-	chatUserPromptSubmitEnvelope = `{` +
-		`"session_id":"sess-e2e",` +
-		`"transcript_path":"/tmp/e2e.jsonl",` +
-		`"cwd":"/tmp",` +
-		`"hook_event_name":"UserPromptSubmit",` +
-		`"prompt":"do the thing"}`
-	chatNotificationEnvelope = `{` +
-		`"session_id":"sess-e2e",` +
-		`"transcript_path":"/tmp/e2e.jsonl",` +
-		`"cwd":"/tmp",` +
-		`"hook_event_name":"Notification",` +
-		`"message":"Claude needs your permission to run a command",` +
-		`"title":"Permission needed",` +
-		`"notification_type":"permission_prompt"}`
-	// The other half of the Notification event: Claude Code announces a session
-	// that has gone quiet about a minute after it stopped responding, and that is
-	// the envelope the idle group is selected by.
-	chatIdleNotificationEnvelope = `{` +
-		`"session_id":"sess-e2e",` +
-		`"transcript_path":"/tmp/e2e.jsonl",` +
-		`"cwd":"/tmp",` +
-		`"hook_event_name":"Notification",` +
-		`"message":"Claude is waiting for your input",` +
-		`"notification_type":"idle_prompt"}`
-	// The approval dialog both harnesses announce. Codex has no other event for
-	// it, and it is the envelope that says whether `hook exec` speaks Codex's
-	// half of the surface at all.
+	// Codex's approval dialog, which no file here wires. It is the envelope
+	// that says whether `hook exec` speaks the rest of Codex's surface at all.
 	chatPermissionRequestEnvelope = `{` +
 		`"session_id":"sess-e2e",` +
 		`"transcript_path":"/tmp/e2e.jsonl",` +
@@ -161,31 +106,17 @@ const (
 )
 
 // chatHookEnvelopes pairs each wired event with the stdin a harness would give
-// it. TestChatHooks_EveryWiredEventIsExercised keeps it exhaustive, so wiring a
-// new event without an envelope fails rather than going untested.
+// it. TestChatCodex_HooksAreHarmlessWithoutADaemon keeps it exhaustive, so
+// wiring a new event without an envelope fails rather than going untested.
 var chatHookEnvelopes = map[string]string{
-	"UserPromptSubmit":  chatUserPromptSubmitEnvelope,
-	"Notification":      chatNotificationEnvelope,
-	"PermissionRequest": chatPermissionRequestEnvelope,
-	"PostToolUse":       postToolUseEnvelope,
-	"Stop":              chatStopEnvelope,
+	"PostToolUse": postToolUseEnvelope,
+	"Stop":        chatStopEnvelope,
 }
 
-// chatMatcherEnvelopes overrides chatHookEnvelopes for the matcher groups a
-// harness feeds something other than the event's default. Claude Code routes
-// Notification by `notification_type`, so the idle group only ever sees an idle
-// envelope, and a case that fed it the permission one would be exercising a
-// pairing that cannot happen.
-var chatMatcherEnvelopes = map[string]string{
-	"Notification/idle_prompt": chatIdleNotificationEnvelope,
-}
-
-// chatHookEnvelope is the stdin a harness gives the group event wires under
-// matcher.
-func chatHookEnvelope(event, matcher string) string {
-	if e, ok := chatMatcherEnvelopes[event+"/"+matcher]; ok {
-		return e
-	}
+// chatHookEnvelope is the stdin a harness gives the group event wires under a
+// matcher. A group is what a caller has in hand, so the matcher is taken; no
+// group of the one hook file left needs an envelope other than its event's.
+func chatHookEnvelope(event, _ string) string {
 	return chatHookEnvelopes[event]
 }
 
@@ -320,58 +251,6 @@ func assertInboxWasConsumed(t *testing.T, cfg string) {
 	}
 }
 
-// Messages in hand at turn end: the stop is blocked so they reach the agent,
-// carried through `hook exec`'s JSON intact — quotes and line breaks included.
-// decision and reason and nothing else, since a rejected output after a
-// consuming read is exactly the lost message this hook exists to prevent. The
-// inbox is empty afterwards: the block is the delivery.
-func TestChatHooks_StopBlocksWithTheMessages(t *testing.T) {
-	cfg := startChatRoomWithMail(t)
-	hooks := readChatHooks(t)
-
-	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
-	if res.exitCode != 0 {
-		t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
-			res.exitCode, res.stdout, res.stderr)
-	}
-	if res.stderr != "" {
-		t.Errorf("stderr = %q, want nothing", res.stderr)
-	}
-
-	obj := hookObject(t, res.stdout)
-	assertKeys(t, obj, "decision", "reason")
-	if got := hookString(t, obj, "decision"); got != "block" {
-		t.Errorf("decision = %q, want %q", got, "block")
-	}
-	reason := hookString(t, obj, "reason")
-	for _, want := range []string{
-		chatMailLine,
-		"and a second line",
-		// The reply is a tool call, not a command line: every harness the room
-		// reaches is served by the MCP server, and some of them decline to run a
-		// command nobody asked them to run.
-		"chat_send",
-	} {
-		if !strings.Contains(reason, want) {
-			t.Errorf("reason = %q, want it to carry %q", reason, want)
-		}
-	}
-	assertInboxWasConsumed(t, cfg)
-}
-
-// stop_hook_active means an earlier Stop hook already blocked this turn.
-// Reading again would either loop the agent or, once the harness stops honoring
-// the block, consume messages it never shows — so the hook does not read at
-// all, and the mail is still there afterwards.
-func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
-	cfg := startChatRoomWithMail(t)
-	hooks := readChatHooks(t)
-
-	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopActiveEnvelope)
-	assertHookIsSilent(t, res)
-	assertInboxStillHoldsTheMail(t, cfg)
-}
-
 // Nothing waiting: the turn ends as it would have without the hook. The done
 // report the same read makes on the way is not observable from outside the
 // daemon — TestClient_ReadDoneWhenEmpty pins that against the RPC — so what is
@@ -383,14 +262,13 @@ func TestChatHooks_StopLeavesTheInboxAloneWhenAlreadyBlocking(t *testing.T) {
 // implementation gets wrong — the room is not quiet, the message simply is not
 // addressed to anyone.
 func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
-	hooks := readChatHooks(t)
+	stop := readCodexHooks(t).command(t, "Stop")
 
 	t.Run("the room said nothing at all", func(t *testing.T) {
 		cfg := startChatDaemon(t)
 		attendChatBridges(t, cfg, "tok-ana")
 
-		res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
-		assertHookIsSilent(t, res)
+		assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", stop, chatStopEnvelope))
 	})
 
 	t.Run("the room posted to its board", func(t *testing.T) {
@@ -399,8 +277,7 @@ func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
 		waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
 		runChat(t, cfg, "tok-bob", "send", "", "fyi: rebased main")
 
-		res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), chatStopEnvelope)
-		assertHookIsSilent(t, res)
+		assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", stop, chatStopEnvelope))
 	})
 }
 
@@ -410,10 +287,9 @@ func TestChatHooks_StopAllowsWithNothingToDeliver(t *testing.T) {
 // drain keeps to decision and reason.
 func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
 	cfg := startChatRoomWithMail(t)
-	hooks := readChatHooks(t)
+	command := readCodexHooks(t).command(t, "PostToolUse")
 
-	res := runChatHook(t, cfg, "tok-ana",
-		hooks.commands("PostToolUse")[0], postToolUseEnvelope)
+	res := runChatHook(t, cfg, "tok-ana", command, postToolUseEnvelope)
 	if res.exitCode != 0 {
 		t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
 			res.exitCode, res.stdout, res.stderr)
@@ -433,6 +309,9 @@ func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
 	for _, want := range []string{
 		chatMailLine,
 		"and a second line",
+		// The reply is a tool call, not a command line: every harness the room
+		// reaches is served by the MCP server, and some of them decline to run a
+		// command nobody asked them to run.
 		"chat_send",
 	} {
 		if !strings.Contains(injected, want) {
@@ -449,8 +328,7 @@ func TestChatHooks_PostToolUseDeliversTheMessages(t *testing.T) {
 // goes to stderr, and injecting that as a message would be a delivery of
 // something nobody sent.
 func TestChatHooks_PostToolUseIsSilentWithoutMessages(t *testing.T) {
-	hooks := readChatHooks(t)
-	command := hooks.commands("PostToolUse")[0]
+	command := readCodexHooks(t).command(t, "PostToolUse")
 
 	t.Run("the inbox is empty", func(t *testing.T) {
 		cfg := startChatDaemon(t)
@@ -464,24 +342,18 @@ func TestChatHooks_PostToolUseIsSilentWithoutMessages(t *testing.T) {
 	})
 }
 
-// Every shipped command, on every event, against a daemon that is not running:
-// none of them says anything and none of them fails. That is the whole
-// degradation story of this package — a chat nobody is hosting must not break a
-// session start, a turn, or a tool call — and it is asserted over the file
-// itself so a newly wired command cannot skip it.
-func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
-	cfg := chatAbsentDaemonConfig(t)
-	hooks := readChatHooks(t)
-	for _, event := range slices.Sorted(maps.Keys(hooks.Hooks)) {
-		for _, group := range hooks.Hooks[event] {
-			envelope := chatHookEnvelope(event, group.Matcher)
-			for i, h := range group.Hooks {
-				t.Run(fmt.Sprintf("%s/%s/%d", event, group.Matcher, i), func(t *testing.T) {
-					assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", h.Command, envelope))
-				})
-			}
-		}
-	}
+// An event the file does not wire still parses: `hook exec` decodes the
+// envelope into its typed variant, the command runs, and a template with
+// nothing to record renders nothing. That is what says the envelope surface is
+// the harness's rather than a list of the events this package happens to use —
+// Codex announces its approval dialog this way, and a file that wires it later
+// must not be the thing that discovers the parser cannot read it.
+func TestChatHooks_AnUnwiredEventStillParses(t *testing.T) {
+	cfg := startChatDaemon(t)
+	attendChatBridges(t, cfg, "tok-ana")
+
+	assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana",
+		readCodexHooks(t).command(t, "PostToolUse"), chatPermissionRequestEnvelope))
 }
 
 // No hook attends the room. Attendance is the MCP bridge's open stream, held
@@ -492,87 +364,21 @@ func TestChatHooks_EveryCommandIsHarmlessWithoutADaemon(t *testing.T) {
 // It is asserted because re-adding a hook entry breaks nothing loudly: the
 // session that lost the race simply never reaches its room.
 func TestChatHooks_LeaveAttendanceToTheBridge(t *testing.T) {
-	if groups, ok := readChatHooks(t).Hooks["SessionStart"]; ok {
+	if groups, ok := readCodexHooks(t).Hooks["SessionStart"]; ok {
 		t.Errorf("SessionStart is wired again (%d group(s)); the MCP bridge attends the room",
 			len(groups))
 	}
 }
 
-// Interrupting a turn with ESC runs no Stop hook, so the member keeps whatever
-// the last report left it in — `working` after a tool call, `waiting` after a
-// dialog — and the daemon only nudges members that reported `done`. Claude
-// Code's idle notification is the way out: about a minute after the session goes
-// quiet it fires with `notification_type` `idle_prompt`, and that group reports
-// done, which re-arms the nudge without the member taking a turn it has nobody
-// to start.
-//
-// The state is read back off the stub cmdman's status log, the same surface
-// TestChat_MirrorsMemberStateOntoCmdmanStatus pins: the daemon publishes every
-// report there, so the whole trail is visible rather than just the last state.
-func TestChatHooks_IdleNotificationRecoversAnInterruptedTurn(t *testing.T) {
-	idle := readChatHooks(t).commandForMatcher(t, "Notification", "idle_prompt")
-
-	for _, stuck := range []string{"working", "waiting"} {
-		t.Run("interrupted while "+stuck, func(t *testing.T) {
-			cfg := startChatDaemon(t)
-			attendChatBridges(t, cfg, "tok-ana")
-			runChat(t, cfg, "tok-ana", "report-state", stuck)
-
-			assertHookIsSilent(t,
-				runChatHook(t, cfg, "tok-ana", idle, chatIdleNotificationEnvelope))
-
-			got := stubStatus(t, cfg)
-			want := []string{
-				"set done tok-ana --detail crabswarm chat",
-				"set " + stuck + " tok-ana --detail crabswarm chat",
-				"set done tok-ana --detail crabswarm chat",
-			}
-			if !slices.Equal(got, want) {
-				t.Errorf("cmdman status invocations =\n%q\nwant\n%q", got, want)
-			}
-		})
-	}
-}
-
-// An envelope `hook exec` cannot parse is a plain error, not a decision: exit 1
-// with the reason on stderr and nothing on stdout. That is a louder failure
-// than the shell scripts this wiring replaced — they treated an unreadable
-// envelope as "leave the inbox alone" — but it is never a block, and a harness
-// that sends unparseable JSON is broken in a way worth hearing about.
-func TestChatHooks_UnparseableEnvelopeFailsWithoutBlocking(t *testing.T) {
-	cfg := startChatRoomWithMail(t)
-	hooks := readChatHooks(t)
-
-	res := runChatHook(t, cfg, "tok-ana", hooks.command(t, "Stop"), "not an envelope at all")
-	if res.exitCode != 1 {
-		t.Errorf("exit code = %d, want 1\nstdout:\n%s\nstderr:\n%s",
-			res.exitCode, res.stdout, res.stderr)
-	}
-	if res.stdout != "" {
-		t.Errorf("stdout = %q, want nothing: a failed parse emits no hook decision", res.stdout)
-	}
-	if !strings.Contains(res.stderr, "parsing hook input") {
-		t.Errorf("stderr = %q, want it to name the failed parse", res.stderr)
-	}
-	assertInboxStillHoldsTheMail(t, cfg)
-}
-
-// Everything the hooks need now ships inside `crabswarm hook exec`: no shell
+// Everything the hooks need ships inside `crabswarm hook exec`: no shell
 // scripts to copy alongside the JSON, no `jq` to have installed, and no plugin
-// root to resolve. This is asserted because losing it is invisible — a command
-// that reaches back out to a script keeps working on the author's machine and
-// breaks on every consumer that installed only the hook file.
-func TestChatHooks_AreSelfContained(t *testing.T) {
+// root to resolve. The per-entry half of that is asserted over the file itself
+// by TestChatCodex_HooksLeaveTheStateToTheAppServer; this is the directory
+// half, which no command string would ever show.
+func TestChatHooks_ShipNoScripts(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(
 		repoRoot(), "apm-package", "crabswarm-mcp", "scripts")); err == nil {
 		t.Error("apm-package/crabswarm-mcp/scripts exists again; the hooks ship no scripts")
-	}
-	for event, groups := range readChatHooks(t).Hooks {
-		for _, g := range groups {
-			for _, h := range g.Hooks {
-				assertSelfContainedHookEntry(t, event, h)
-			}
-		}
 	}
 }
 
@@ -606,54 +412,25 @@ func assertSelfContainedHookEntry(t *testing.T, event string, h chatHookEntry) {
 	}
 }
 
-// Claude Code announces a dialog two ways — as a `Notification` and, since it
-// implements Codex's event too, as a `PermissionRequest` — so both carry the
-// same report, byte for byte: a waiting report reworded in one place and not
-// the other is a member stuck in the wrong state depending on which event
-// arrived. `PostToolUse` reports working again after the delivery, which is the
-// way back out of `waiting` once a permission is granted.
-//
-// `Notification` is split by `notification_type`: the permission prompt is the
-// half that pairs with `PermissionRequest`, and the idle prompt is the opposite
-// report, so a catch-all group would race the two.
-func TestChatHooks_WireBothWaysADialogIsAnnounced(t *testing.T) {
-	hooks := readChatHooks(t)
+// The unparseable envelope is a plain error, not a decision: exit 1 with the
+// reason on stderr and nothing on stdout. That is a louder failure than the
+// shell scripts this wiring replaced — they treated an unreadable envelope as
+// "leave the inbox alone" — but it is never a block, and a harness that sends
+// unparseable JSON is broken in a way worth hearing about.
+func TestChatHooks_UnparseableEnvelopeFailsWithoutBlocking(t *testing.T) {
+	cfg := startChatRoomWithMail(t)
+	stop := readCodexHooks(t).command(t, "Stop")
 
-	notification := hooks.commandForMatcher(t, "Notification", "permission_prompt")
-	if !strings.Contains(notification, "report-state waiting") {
-		t.Errorf("permission_prompt command = %q, want it to report waiting", notification)
+	res := runChatHook(t, cfg, "tok-ana", stop, "not an envelope at all")
+	if res.exitCode != 1 {
+		t.Errorf("exit code = %d, want 1\nstdout:\n%s\nstderr:\n%s",
+			res.exitCode, res.stdout, res.stderr)
 	}
-	if got := hooks.command(t, "PermissionRequest"); got != notification {
-		t.Errorf("PermissionRequest command = %q, want the Notification one %q",
-			got, notification)
+	if res.stdout != "" {
+		t.Errorf("stdout = %q, want nothing: a failed parse emits no hook decision", res.stdout)
 	}
-	idle := hooks.commandForMatcher(t, "Notification", "idle_prompt")
-	if !strings.Contains(idle, "report-state done") {
-		t.Errorf("idle_prompt command = %q, want it to report done", idle)
+	if !strings.Contains(res.stderr, "parsing hook input") {
+		t.Errorf("stderr = %q, want it to name the failed parse", res.stderr)
 	}
-
-	postToolUse := hooks.commands("PostToolUse")
-	if len(postToolUse) != 2 {
-		t.Fatalf("PostToolUse wires %d commands, want the delivery plus the "+
-			"working report: %v", len(postToolUse), postToolUse)
-	}
-	if !strings.Contains(postToolUse[0], "chat read --quiet") {
-		t.Errorf("first PostToolUse command = %q, want the delivering read", postToolUse[0])
-	}
-	if got, want := postToolUse[1], hooks.command(t, "UserPromptSubmit"); got != want {
-		t.Errorf("second PostToolUse command = %q, want the UserPromptSubmit one %q",
-			got, want)
-	}
-}
-
-// Every event the file wires has an envelope in chatHookEnvelopes, so
-// TestChatHooks_EveryCommandIsHarmlessWithoutADaemon really does feed each one
-// what its harness would. Without this, wiring a new event would quietly hand
-// that case an empty stdin and pass for the wrong reason.
-func TestChatHooks_EveryWiredEventIsExercised(t *testing.T) {
-	for event := range readChatHooks(t).Hooks {
-		if _, ok := chatHookEnvelopes[event]; !ok {
-			t.Errorf("event %s is wired but has no envelope in chatHookEnvelopes", event)
-		}
-	}
+	assertInboxStillHoldsTheMail(t, cfg)
 }

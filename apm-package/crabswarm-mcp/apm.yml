@@ -1,6 +1,6 @@
 name: crabswarm-mcp
 version: 0.3.0
-description: Wires an agent harness into its crabswarm chat room — an MCP server attends the room, serves the chat verbs as tools and hands a mention to a harness it can reach itself, and hooks deliver teammates' messages mid-turn and at turn end.
+description: Wires an agent harness into its crabswarm chat room — an MCP server attends the room, serves the chat verbs as tools, reports what the session is doing and hands a mention to a harness it can reach itself; Codex additionally gets hooks that deliver teammates' messages mid-turn and at turn end.
 author: ngicks
 license: Unlicense
 repository: https://github.com/ngicks/crabswarm
