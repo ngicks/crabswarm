@@ -416,7 +416,15 @@ func (s *Server) attend(ctx context.Context) {
 			failures = 0
 		}
 		failures++
-		s.warnRetry("the chat attendance ended; attending again", failures, backoff, err)
+		// An attendance that never opened — the daemon refused it, or the
+		// harness's channel was not there to probe — is a different report from
+		// one that ended, and the operator reading the log should not be told a
+		// stream ended when none was ever up.
+		msg := "the chat attendance ended; attending again"
+		if !landed {
+			msg = "the chat attendance could not open; trying again"
+		}
+		s.warnRetry(msg, failures, backoff, err)
 		select {
 		case <-ctx.Done():
 			return
