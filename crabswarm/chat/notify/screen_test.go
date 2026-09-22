@@ -164,16 +164,20 @@ func (f *fakeRecorder) states() []string {
 	return slices.Clone(f.recorded)
 }
 
-// claudeAgent is an attending Claude Code session, the one kind of member the
-// poller reads.
-func claudeAgent(token, name string) chat.Member {
+// otherAgent is an attending agent whose harness nobody recognised, the one
+// kind of member the poller reads.
+//
+// Its screens are Claude Code recordings: those are the screens the marker
+// table was read off, and a harness with no name has no recording of its own to
+// stand in for it.
+func otherAgent(token, name string) chat.Member {
 	return chat.Member{
 		Token:   token,
 		Name:    name,
 		Team:    "alpha",
 		Room:    "/work",
 		Kind:    chat.KindAgent,
-		Harness: chat.HarnessClaudeCode,
+		Harness: chat.HarnessOther,
 		State:   chat.StateDone,
 	}
 }
@@ -206,7 +210,7 @@ func TestScreenPoller_RecordsWhatTheScreenShows(t *testing.T) {
 		},
 	})
 	recorder := &fakeRecorder{}
-	pollOnce(t, []chat.Member{claudeAgent("tok-ana", "ana")}, screens, recorder, 3)
+	pollOnce(t, []chat.Member{otherAgent("tok-ana", "ana")}, screens, recorder, 3)
 
 	assert.DeepEqual(t, recorder.states(), []string{
 		"tok-ana=done",
@@ -215,29 +219,43 @@ func TestScreenPoller_RecordsWhatTheScreenShows(t *testing.T) {
 	})
 }
 
-// Only an agent running Claude Code is read. Every other harness reports its own
-// state, and a member that is not an agent has no terminal to read at all.
-func TestScreenPoller_ReadsOnlyClaudeCodeAgents(t *testing.T) {
-	codex := claudeAgent("tok-bob", "bob")
+// Only an agent whose harness has no feed of its own is read. Claude Code,
+// Codex and OpenCode each report from a feed their own bridge watches, so
+// reading their screens would only put a wrong "done" over what that feed said,
+// and a member that is not an agent has no terminal to read at all.
+func TestScreenPoller_ReadsOnlyHarnessesWithNoFeed(t *testing.T) {
+	claudeCode := otherAgent("tok-bob", "bob")
+	claudeCode.Harness = chat.HarnessClaudeCode
+	codex := otherAgent("tok-cid", "cid")
 	codex.Harness = chat.HarnessCodex
-	human := claudeAgent("tok-cid", "cid")
+	opencode := otherAgent("tok-dee", "dee")
+	opencode.Harness = chat.HarnessOpenCode
+	human := otherAgent("tok-eve", "eve")
 	human.Kind = chat.KindHuman
 	human.Harness = ""
-	unnamed := claudeAgent("tok-dee", "dee")
+	// An agent that declared no harness at all is not one attending as the
+	// harness nobody recognised: a bridge that ran beside a session and found no
+	// name for it still says "other", so an empty harness is a member nothing
+	// said a harness for at all.
+	unnamed := otherAgent("tok-fay", "fay")
 	unnamed.Harness = ""
 
+	working := harnessScreen(t, "claude-screen-working.txt")
 	screens := newFakeScreens(map[string][]screenAnswer{
-		"tok-ana": {{screen: harnessScreen(t, "claude-screen-working.txt")}},
-		"tok-bob": {{screen: harnessScreen(t, "claude-screen-working.txt")}},
-		"tok-cid": {{screen: harnessScreen(t, "claude-screen-working.txt")}},
-		"tok-dee": {{screen: harnessScreen(t, "claude-screen-working.txt")}},
+		"tok-ana": {{screen: working}},
+		"tok-bob": {{screen: working}},
+		"tok-cid": {{screen: working}},
+		"tok-dee": {{screen: working}},
+		"tok-eve": {{screen: working}},
+		"tok-fay": {{screen: working}},
 	})
 	recorder := &fakeRecorder{}
-	pollOnce(t, []chat.Member{claudeAgent("tok-ana", "ana"), codex, human, unnamed},
-		screens, recorder, 1)
+	pollOnce(t, []chat.Member{
+		otherAgent("tok-ana", "ana"), claudeCode, codex, opencode, human, unnamed,
+	}, screens, recorder, 1)
 
 	assert.DeepEqual(t, recorder.states(), []string{"tok-ana=working"})
-	for _, token := range []string{"tok-bob", "tok-cid", "tok-dee"} {
+	for _, token := range []string{"tok-bob", "tok-cid", "tok-dee", "tok-eve", "tok-fay"} {
 		assert.Equal(t, screens.captured(token), 0,
 			"%s must never have its screen read", token)
 	}
@@ -255,9 +273,9 @@ func TestScreenPoller_RecordsNothingItCannotRead(t *testing.T) {
 	})
 	recorder := &fakeRecorder{refuse: map[string]struct{}{"tok-cid": {}}}
 	pollOnce(t, []chat.Member{
-		claudeAgent("tok-ana", "ana"),
-		claudeAgent("tok-bob", "bob"),
-		claudeAgent("tok-cid", "cid"),
+		otherAgent("tok-ana", "ana"),
+		otherAgent("tok-bob", "bob"),
+		otherAgent("tok-cid", "cid"),
 	}, screens, recorder, 2)
 
 	assert.Equal(t, len(recorder.states()), 0, "recorded %v", recorder.states())
@@ -275,7 +293,7 @@ func TestScreenPoller_ForgetsMembersThatLeft(t *testing.T) {
 		"tok-ana": {{err: errors.New("no command found matching tok-ana")}},
 	})
 	poller := NewScreenPoller("", time.Hour,
-		fakeAttendance{members: []chat.Member{claudeAgent("tok-ana", "ana")}},
+		fakeAttendance{members: []chat.Member{otherAgent("tok-ana", "ana")}},
 		&fakeRecorder{}, nil)
 	poller.capture = screens
 

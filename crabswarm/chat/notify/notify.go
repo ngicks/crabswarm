@@ -4,11 +4,11 @@
 //
 // It holds the daemon's two halves of that: [SendKeys], the implementor of the
 // chat broker's notification hook, which types a notice into an agent's
-// terminal; and [ScreenPoller], which reads the terminal of every attending
-// Claude Code session and records the state it shows. The poller is what keeps
-// the guard [SendKeys] nudges behind honest — Claude Code reports through hooks,
-// and a hook goes missing the moment a turn is interrupted. Every other harness
-// says what it is doing on a feed of its own, so nothing here polls it.
+// terminal; and [ScreenPoller], which reads the terminal of an attending
+// session whose harness nobody recognised and records the state it shows. The
+// poller is what keeps the guard [SendKeys] nudges behind honest for such a
+// member, since nothing else says whether its turn has ended. Every harness
+// this daemon names reports on a feed of its own, so nothing here polls it.
 //
 // The notification interface itself is declared at its consumer, in the chat
 // package, and the terminal machinery both halves are built on lives in
