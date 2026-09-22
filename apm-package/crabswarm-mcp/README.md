@@ -306,11 +306,22 @@ only honest answer the server has:
   launched with no `CRABSWARM_CLAUDE_CHANNEL=1` is a different case: nothing is
   probed, and it attends as a terminal member the daemon types at.
 
+  The same question is asked every few seconds for as long as the member attends,
+  and a plugin that dies mid-session ends the attendance exactly the way a daemon
+  that went away does. So the member drops out of `crabswarm chat members` until
+  the plugin answers again, rather than staying listed as one the daemon types
+  nothing at while every mention it is handed is dropped.
+
   fakechat's own server instructions tell the model to answer a channel event
   with fakechat's `reply` tool, which reaches a browser tab nobody in the room is
   watching. Two things keep the answer in the room instead: the notice names
   `chat_send`, and this server's instructions say never to answer a
   `[crabswarm chat]` event with that reply tool.
+
+  A delivered notice is still not an obeyed one: a recorded session read the
+  injected line, called it a prompt injection and declined it, so the skill and
+  this server's instructions are what make an agent treat a `[crabswarm chat]`
+  event as the room asking for it rather than as text it should distrust.
 - **Codex** — `CRABSWARM_CODEX_APP_SERVER=unix:///path.sock`, with the session
   hosted by an app server the TUI is attached to:
 

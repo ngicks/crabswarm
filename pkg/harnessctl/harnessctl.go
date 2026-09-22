@@ -18,8 +18,10 @@
 // waking.
 //
 // A harness that also implements [Prober] has a channel that can be asked
-// whether it is there, and the server asks before the member attends, so a
-// channel that was declared and never listened is a member that never appears.
+// whether it is there, and the server asks before the member attends and again
+// for as long as it does, so a channel that was declared and never listened is
+// a member that never appears, and one that stops listening is a member that
+// leaves.
 //
 // A harness that also implements [StateSource] is where its member's state
 // comes from. The server watches it for as long as the session runs and
@@ -75,12 +77,18 @@ type Harness interface {
 // dropped.
 //
 // The server is what joins the two ends: it probes a harness that implements
-// this and refuses to attend while Probe fails, so a channel nothing listens on
-// is a member nobody sees rather than one nobody can reach. See [Harness] for
-// the other half of what a harness does.
+// this and refuses to attend while Probe fails, and asks again for as long as
+// the member attends, so a channel nothing listens on is a member nobody sees
+// rather than one nobody can reach — whether it never came up or went away
+// mid-session. See [Harness] for the other half of what a harness does.
 type Prober interface {
 	// Probe answers nil while the channel is reachable, and otherwise says
 	// which channel was looked for and where.
+	//
+	// An implementation bounds its own attempt. The context it is handed is the
+	// server's, which lives as long as the session, so a channel that took the
+	// connection and then said nothing would otherwise hold up the attendance
+	// this gates for the rest of that session.
 	Probe(ctx context.Context) error
 }
 
