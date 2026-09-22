@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -59,10 +60,65 @@ func newTestBridgeIn(
 ) *Server {
 	t.Helper()
 
-	bridge, err := newServer(
-		slog.New(slog.DiscardHandler), serveTestDaemon(t, svc), testToken, getenv)
+	return newTestBridgeWith(t, svc, slog.New(slog.DiscardHandler), getenv)
+}
+
+// newTestBridgeWith is [newTestBridgeIn] with somewhere to read what the server
+// said, for the cases about what the attendance loop reports rather than what
+// it does. Everything else discards: a logger writing to the test's output
+// would bury the case that failed under the loop of every case that did not.
+func newTestBridgeWith(
+	t *testing.T, svc *fakeChatService, logger *slog.Logger, getenv func(string) string,
+) *Server {
+	t.Helper()
+
+	bridge, err := newServer(logger, serveTestDaemon(t, svc), testToken, getenv)
 	assert.NilError(t, err)
 	return bridge
+}
+
+// logBuffer is a handler's destination a case can read while the server is
+// still writing to it. The attendance loop logs from a goroutine of its own, so
+// a plain buffer read from the case's goroutine would be a race rather than an
+// assertion.
+type logBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (l *logBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.Write(p)
+}
+
+// lines is what has been logged so far, oldest first.
+func (l *logBuffer) lines() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return strings.Split(strings.TrimSuffix(l.buf.String(), "\n"), "\n")
+}
+
+// loggedLine reports whether one line carrying every one of want has been
+// logged. All of them on one line rather than anywhere in the log: what a case
+// here is about is one report saying what happened and what to look at.
+func loggedLine(logs *logBuffer, want ...string) bool {
+	return slices.ContainsFunc(logs.lines(), func(line string) bool {
+		for _, w := range want {
+			if !strings.Contains(line, w) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// logsTo builds a server that writes its log where the case can read it.
+func logsTo(t *testing.T, svc *fakeChatService, logs *logBuffer) *Server {
+	t.Helper()
+
+	return newTestBridgeWith(t, svc, slog.New(slog.NewTextHandler(logs, nil)),
+		func(string) string { return "" })
 }
 
 // launchedWithTheChannel is the environment of a server whose launcher
@@ -84,6 +140,12 @@ func launchedWithTheChannel(name string) string {
 func runsAt(bridge *Server, base, max time.Duration) {
 	bridge.attendBackoffBase = base
 	bridge.attendBackoffMax = max
+}
+
+// reprobesEvery has a held attendance ask its channel at a pace a case can wait
+// for, for the reason [runsAt] exists: the real interval is seconds.
+func reprobesEvery(bridge *Server, every time.Duration) {
+	bridge.reprobeInterval = every
 }
 
 // serveBridge runs bridge over an in-memory pipe and returns the session a
@@ -737,6 +799,14 @@ func (h *probingHarness) listens() {
 	h.err = nil
 }
 
+// dies has the channel stop answering from here on, the way a plugin whose own
+// session went away does.
+func (h *probingHarness) dies(err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.err = err
+}
+
 // addMembersTool registers the roster tool in the shape every chat tool has: it
 // waits on the attendance before it acts, so what a refused attendance says is
 // what the call answers with. The family that registers the real one lives in a
@@ -815,6 +885,70 @@ func TestServer_WaitsForItsChannelBeforeAttending(t *testing.T) {
 		chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 }
 
+// A channel that answered at the opening and then went away takes its member
+// out of the room. The probe holds the attendance back on the way in, and on its
+// own it would hold nothing back after that: the plugin dies with the session it
+// belonged to, and the member would stay listed as one the daemon types nothing
+// at, with every mention it is handed dropped. So the question is asked again
+// for as long as the stream is held, and the first refusal ends the attendance —
+// after which the loop is back where a member whose plugin never came up is,
+// asking until it answers.
+//
+// The refusal is logged on its own line, too: an attendance that stood in
+// between is not part of a run of failures, so the one that follows it is the
+// first of a new run and says which port to go and look at.
+func TestServer_LeavesTheRoomWhenItsChannelGoesAway(t *testing.T) {
+	fake := &fakeChatService{
+		self:   doneSelf("backend", "alice", testRoom),
+		events: make(chan *chatv1.RoomEvent),
+		drops:  make(chan error),
+	}
+	logs := &logBuffer{}
+	bridge := logsTo(t, fake, logs)
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
+	reprobesEvery(bridge, 5*time.Millisecond)
+	plugin := &probingHarness{}
+	runsOn(bridge, plugin)
+	serveBridgeAs(t, bridge, "claude-code")
+
+	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+
+	const refused = "reaching the fakechat plugin on port 8787: connection refused"
+	plugin.dies(errors.New(refused))
+
+	// The daemon is the one that has to learn the member stopped attending, and
+	// what it sees is the stream let go of.
+	waitFor(t, "the attendance outlived the channel that carried it", func() bool {
+		return fake.cancelCount() == 1
+	})
+	// What it ended over is the channel's refusal and not the cancellation that
+	// carried it out, which is the difference between a line somebody can act on
+	// and one saying a context was cancelled.
+	waitFor(t, "the ended attendance never said the channel was why", func() bool {
+		return loggedLine(logs, "the chat attendance ended", "8787")
+	})
+
+	// And nothing attends again while the plugin is missing, however many times
+	// the loop comes back round to ask.
+	waitFor(t, "the server stopped asking its channel", func() bool {
+		return plugin.probes.Load() >= 4
+	})
+	assert.Equal(t, fake.openCount(), 1)
+
+	plugin.listens()
+	waitFor(t, "the server never attended again once its channel answered", func() bool {
+		return fake.attendCount() == 2
+	})
+	// One more attendance and no more: the channel answers every question now, so
+	// the stream it holds is held for the rest of the session.
+	assert.Equal(t, fake.openCount(), 2)
+
+	waitFor(t, "the refused opening was never reported", func() bool {
+		return loggedLine(logs,
+			"the chat attendance could not open", "failures=1", "8787")
+	})
+}
+
 func TestNew_RejectsEmptySocketPath(t *testing.T) {
 	_, err := New(nil, "", testToken)
 	assert.Assert(t, err != nil)
@@ -834,4 +968,8 @@ func TestNew_SeedsTheRetryPace(t *testing.T) {
 	assert.Assert(t, bridge.attendBackoffMax >= bridge.attendBackoffBase,
 		"attending climbs to %s, below its first wait of %s",
 		bridge.attendBackoffMax, bridge.attendBackoffBase)
+	// A zero here is worse than a zero backoff: the ticker a held attendance asks
+	// its channel on panics on one.
+	assert.Assert(t, bridge.reprobeInterval > 0,
+		"a held attendance asks its channel every %s", bridge.reprobeInterval)
 }

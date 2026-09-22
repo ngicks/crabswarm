@@ -122,6 +122,9 @@ type Server struct {
 	// constants.
 	attendBackoffBase time.Duration
 	attendBackoffMax  time.Duration
+	// reprobeInterval is how often a held attendance asks its harness's channel
+	// whether it is still there. A field for the reason the two above are.
+	reprobeInterval time.Duration
 }
 
 // New dials sockPath and prepares the MCP server. Attendance is declared from
@@ -168,6 +171,7 @@ func newServer(
 		settled:           make(chan struct{}),
 		attendBackoffBase: attendBackoffBase,
 		attendBackoffMax:  attendBackoffMax,
+		reprobeInterval:   reprobeInterval,
 	}
 	opts := &mcpsdk.ServerOptions{
 		Logger:             logger,
@@ -374,6 +378,18 @@ func (s *Server) warnRetry(msg string, failures int, backoff time.Duration, err 
 // answer is coming.
 const attendTimeout = 10 * time.Second
 
+// reprobeInterval is how often a held attendance asks its harness's channel
+// whether it is still there.
+//
+// The probe gates the opening, and on its own it gates nothing after that: a
+// plugin that dies mid-session would leave a member listed as one the daemon
+// types nothing at, with every mention it is handed dropped. Asking again is a
+// loopback request the plugin answers out of memory, so what this number buys
+// is only how long a channel that went away may go unnoticed — a few seconds of
+// one late mention, where a probe every second would cost the same and answer
+// no sooner than the next mention needs it.
+const reprobeInterval = 5 * time.Second
+
 // errNotAttending is what a tool call is refused with when the attendance is
 // down for a reason nothing recorded. Every path that ends an attendance
 // records why, so this stands in for nothing that happens today; it exists so a
@@ -402,6 +418,10 @@ func (s *Server) attend(ctx context.Context) {
 		return
 	}
 	backoff := s.attendBackoffBase
+	// failures counts the consecutive attempts that did not open, and nothing
+	// else: it is what decides which of them is worth a line, and an attendance
+	// that stood in between means whatever kept the previous opening from
+	// working is over.
 	failures := 0
 	for reopened := false; ; reopened = true {
 		landed, err := s.holdAttendance(ctx, reopened)
@@ -410,21 +430,25 @@ func (s *Server) attend(ctx context.Context) {
 		}
 		// An attendance that stood for a while and then ended is not the
 		// trouble one that never opened is, so it starts its retries over
-		// rather than inheriting the wait the previous failure had climbed to.
+		// rather than inheriting the wait the previous failure had climbed to —
+		// and it is reported every time rather than thinned out the way a run
+		// of failures is, since it resets the run and so is never one of them.
+		//
+		// The operator reading the log should not be told a stream ended when
+		// none was ever up either, which is the other half of why the two are
+		// reported apart: a refused opening — the daemon turned it down, or the
+		// harness's channel was not there to probe — says what to go and fix,
+		// and the first of a run is the one that says it.
 		if landed {
 			backoff = s.attendBackoffBase
 			failures = 0
+			s.logger.Warn("the chat attendance ended; attending again",
+				"backoff", backoff, "error", err)
+		} else {
+			failures++
+			s.warnRetry("the chat attendance could not open; trying again",
+				failures, backoff, err)
 		}
-		failures++
-		// An attendance that never opened — the daemon refused it, or the
-		// harness's channel was not there to probe — is a different report from
-		// one that ended, and the operator reading the log should not be told a
-		// stream ended when none was ever up.
-		msg := "the chat attendance ended; attending again"
-		if !landed {
-			msg = "the chat attendance could not open; trying again"
-		}
-		s.warnRetry(msg, failures, backoff, err)
 		select {
 		case <-ctx.Done():
 			return
@@ -464,8 +488,10 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	//
 	// Asked on every attempt rather than once: a plugin the launcher started
 	// beside this process may well come up after it, and then this is the loop
-	// that picks it up.
-	if prober, ok := s.harness.(harnessctl.Prober); ok {
+	// that picks it up. It is asked again for as long as the stream is held, for
+	// the same reason in the other direction — see [Server.reprobe].
+	prober, probed := s.harness.(harnessctl.Prober)
+	if probed {
 		if err := prober.Probe(ctx); err != nil {
 			s.attendanceEnded(err)
 			return false, err
@@ -473,6 +499,20 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	}
 	actx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// A held attendance has two halves: the room's feed, which this member acts
+	// on, and the question of whether the channel it acts through is still
+	// there. Either one ending ends the attendance — so a plugin that died takes
+	// its member out of the room the same way a daemon that went away does, and
+	// the loop above backs off, keeps asking, and attends again once the plugin
+	// answers.
+	//
+	// The group is made before the stream is opened, because the stream is then
+	// opened on the group's own context: the half that failed is the answer the
+	// attendance ends with, and the cancel the group makes on its way out is what
+	// ends the other half. Opening the stream on the context above instead would
+	// have the two race to report, and the feed's own cancellation could stand in
+	// front of what actually went wrong.
+	g, gctx := errgroup.WithContext(actx)
 	// A deadline on the context would end the attendance itself ten seconds in,
 	// so the wait is bounded by cancelling the attempt instead and only until
 	// the daemon has answered.
@@ -487,7 +527,7 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// channel this server can push a mention through attends as native, and the
 	// daemon then types nothing at it, leaving the waking to the deliverer
 	// below.
-	attendance, err := s.client.Attend(actx, token, "",
+	attendance, err := s.client.Attend(gctx, token, "",
 		chatv1.MemberKind_MEMBER_KIND_AGENT,
 		s.harness.Kind(),
 		s.harness.Nudge())
@@ -512,15 +552,48 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// daemon publishes to the room it just joined. It is announced like any
 	// other roster change: the room did gain a member, and every attendee sees
 	// the same feed.
-	err = attendance.Forward(actx, func(ev *chatv1.RoomEvent) error {
-		if rosterChanged(ev) {
-			s.announceRoster(ctx)
-		}
-		s.observe(ctx, ev)
-		return nil
+	g.Go(func() error {
+		return attendance.Forward(gctx, func(ev *chatv1.RoomEvent) error {
+			if rosterChanged(ev) {
+				s.announceRoster(ctx)
+			}
+			s.observe(ctx, ev)
+			return nil
+		})
 	})
+	if probed {
+		g.Go(func() error { return s.reprobe(gctx, prober) })
+	}
+	err = g.Wait()
 	s.attendanceEnded(err)
 	return true, err
+}
+
+// reprobe asks the channel whether it is still there for as long as the
+// attendance is held, and answers with the first refusal.
+//
+// A failed delivery does not ask on the spot. It says the notice is still
+// unread, which the outstanding count already carries to the next report that
+// ends a turn, and it says nothing about whether the plugin is coming back —
+// while a plugin that is genuinely gone is caught here within the interval
+// anyway. Wiring one into the other would buy a few seconds at the price of a
+// path that only ever runs when something is already broken.
+func (s *Server) reprobe(ctx context.Context, prober harnessctl.Prober) error {
+	ticker := time.NewTicker(s.reprobeInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			// Nothing to report: the attendance is ending for whatever the other
+			// half answered with, and a context this half only read would stand
+			// in front of it as the reason.
+			return nil
+		case <-ticker.C:
+			if err := prober.Probe(ctx); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // announceRoster tells the subscribed sessions to read the resources a roster
