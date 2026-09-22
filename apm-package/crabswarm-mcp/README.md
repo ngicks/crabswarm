@@ -191,6 +191,13 @@ failing attempt had climbed to. Neither case needs a tool call to prompt it.
 Until an attendance lands the server still serves its tools, and each of them
 reports why it cannot act.
 
+An attendance can wait on the channel as well as on the daemon. Where a harness
+offers a channel the server can ask about beforehand, the server asks before
+every attempt and holds the attendance back until the channel answers, rather
+than attending with a delivery route that does not work. A member gated that way
+is simply absent from `crabswarm chat members`, which is how a launch that went
+wrong shows itself.
+
 The chat tools are the member verbs: `chat_send(to, message)`,
 `chat_read(cursor, range, to, since, until)` and `chat_members`, each answering
 with the text the matching `crabswarm chat` verb prints. The room's attendance
@@ -211,11 +218,15 @@ at attendance. The server delivers it **natively** when it recognises its
 harness *and* the environment carries the variable that harness's channel needs;
 otherwise the daemon types a line into the agent's **terminal** through cmdman,
 the way every agent was reached before a harness could take a delivery. Both
-carry the same notice, which says who wrote and names the `chat_read` tool — the
-tool rather than a command line, since every harness the room reaches is served
-by this server, and some of them decline to run a command nobody asked them to
-run. The message itself is never in the notice: it is sender-controlled content,
-and a line pushed at a session is the last place to repeat it.
+carry the same notice, which says who wrote and names `chat_read` and
+`chat_send`, both from this server — tools rather than a command line, since
+every harness the room reaches is served by this server, and some of them decline
+to run a command nobody asked them to run. Naming the answer is what keeps it in
+the room: a channel arrives with instructions of its own, and one that tells the
+model to answer with its own reply tool would carry the answer somewhere nobody
+in the room reads. The message itself is never in the notice: it is
+sender-controlled content, and a line pushed at a session is the last place to
+repeat it.
 
 `crabswarm chat members` prints which one each member got. A line is
 `<address> <kind> <state> <harness> <nudge>`, and the last two columns are this:
@@ -231,24 +242,75 @@ client the server did not recognise. A `-` is a column the member declared
 nothing for: a person, who runs no harness and is never nudged, or an agent
 attending through something other than this server.
 
-The variable is set by whoever launches the session, in the environment the
+The variables are set by whoever launches the session, in the environment the
 harness starts the server in, beside the flag that makes the channel exist.
-Nothing in an MCP session reports that the flag was passed, so the variable is
-the only honest answer the server has:
+Nothing in an MCP session reports that the flag was passed, so a variable is the
+only honest answer the server has:
 
-- **Claude Code** — `CRABSWARM_CLAUDE_CHANNEL=1`, with the session launched as
+- **Claude Code** — `CRABSWARM_CLAUDE_CHANNEL=1` and `FAKECHAT_PORT`, with the
+  session hosting the official `fakechat` plugin as a channel. Install the
+  plugin once, from a Claude Code session:
 
-  ```console
-  CRABSWARM_CLAUDE_CHANNEL=1 claude --dangerously-load-development-channels server:crabswarm-mcp
+  ```
+  /plugin install fakechat@claude-plugins-official
   ```
 
-  The flag is variadic, so every argument after it is read as a channel entry: a
-  positional prompt has to come *before* it, or the session exits 1 with
-  `--dangerously-load-development-channels entries must be tagged`. At startup a
-  full-screen dialog asks the operator to confirm the development channels, and
-  one Enter answers it. A `claude --bg` session never shows that dialog and
-  drops every channel event silently, so a background session cannot host the
-  channel.
+  then launch as
+
+  ```console
+  FAKECHAT_PORT=<port> CRABSWARM_CLAUDE_CHANNEL=1 claude --channels plugin:fakechat@claude-plugins-official
+  ```
+
+  The plugin is the channel and this server is only the sender. Claude Code runs
+  the plugin's bun script beside the session, the script listens on
+  `127.0.0.1:$FAKECHAT_PORT`, and each notice this server posts to that server's
+  `POST /upload` reaches the model as a
+  `<channel source="fakechat" chat_id="web" message_id="crabswarm-...">` event
+  that starts a turn.
+
+  `CRABSWARM_CLAUDE_CHANNEL=1` is the launcher's opt-in. `FAKECHAT_PORT` is
+  fakechat's own variable: the plugin reads it out of the same launch
+  environment, which is what puts both ends on one port. Unset and empty mean
+  8787 on this side — the plugin's default, and what the `.mcp.json` entry's
+  `${FAKECHAT_PORT}` expands to when the launcher named nothing. So a launcher
+  either leaves the variable alone or gives it a real port, and never exports an
+  empty one: the plugin computes `Number(process.env.FAKECHAT_PORT ?? 8787)`, so
+  `""` is port 0 and a listener on whatever port the kernel chose, which nothing
+  can address.
+
+  One fakechat per session and one port per session. A second plugin server on a
+  port already held exits with `EADDRINUSE` and leaves that session without a
+  channel at all, so handing out distinct ports is the launcher's job.
+
+  The launch itself is quiet: no confirmation dialog, the session opens straight
+  onto its prompt, and one banner line stays up for the whole session.
+
+  ```
+  ▎ Channels (experimental) messages from plugin:fakechat@claude-plugins-official
+  ▎ inject directly in this session · restart without --channels to stop
+  ```
+
+  `--channels` is variadic, so every argument after it is read as another channel
+  entry: a positional prompt has to come *before* the flag. `claude --bg` hosts
+  this channel as well as an interactive session does, with the prompt in front
+  of the flag the same way. The plugin's start script runs `bun install` on every
+  launch, so a first launch wants `bun` on `PATH` and a network.
+
+  This server probes `GET /` on the port before every attendance, and takes the
+  plugin's own page as the answer that the channel is there. While nothing
+  answers — the plugin failed to start, the port was taken, the flag was
+  forgotten after the variable was set — the member does not attend at all: the
+  server logs why, retries on the attendance backoff above, and attends as
+  `native` the moment fakechat answers. Until then the member is missing from
+  `crabswarm chat members` and every chat tool says why it cannot act. A session
+  launched with no `CRABSWARM_CLAUDE_CHANNEL=1` is a different case: nothing is
+  probed, and it attends as a terminal member the daemon types at.
+
+  fakechat's own server instructions tell the model to answer a channel event
+  with fakechat's `reply` tool, which reaches a browser tab nobody in the room is
+  watching. Two things keep the answer in the room instead: the notice names
+  `chat_send`, and this server's instructions say never to answer a
+  `[crabswarm chat]` event with that reply tool.
 - **Codex** — `CRABSWARM_CODEX_APP_SERVER=unix:///path.sock`, with the session
   hosted by an app server the TUI is attached to:
 
@@ -268,9 +330,13 @@ A session launched without its variable still attends, still serves its tools
 and still receives its mentions; only the delivery changes. That fallback has
 one limit worth knowing: typed keys cannot see what is already in the harness's
 composer, so a notice typed into a session holding an unsent draft may submit
-the draft along with it. Native delivery never touches the composer — it pushes
-a turn, a notification or a prompt of its own — which is the reason the channels
-exist at all.
+the draft along with it. Native delivery never touches the composer — it pushes a
+turn or a prompt of its own — which is the reason the channels exist at all.
+
+A session launched *with* its variable and no working channel is the one case
+that does not attend. Claiming a channel and then failing every delivery on it is
+worse than never claiming one, so the Claude Code bullet's probe holds the
+attendance back instead, and the missing member is the report.
 
 ### Where a member's state comes from
 
@@ -363,6 +429,7 @@ env_vars:
 - CRABSWARM_CHAT_TOKEN
 - CRABSWARM_CLAUDE_CHANNEL
 - CRABSWARM_CODEX_APP_SERVER
+- FAKECHAT_PORT
 - XDG_RUNTIME_DIR
 ```
 
@@ -371,11 +438,23 @@ id an agent inherits, and the token `crabswarm chat admin register` prints for a
 member registered by hand. A server that resolves neither still serves, and
 every tool answers that it has no identity.
 
-The two in the middle are the channel variables *How a mention reaches the
-agent* describes. Neither is needed for the server to work, so a missing one
+The three in the middle are the channel variables *How a mention reaches the
+agent* describes. None of them is needed for the server to work, so a missing one
 costs a keystroke nudge rather than a refusal — but a variable the launcher set
 and the harness did not forward is the same as one nobody set, which is why they
 are listed here beside the rest.
+
+`FAKECHAT_PORT` is the exception worth reading twice, because forwarding it wrong
+costs more than a keystroke nudge. It belongs to the fakechat plugin, not to this
+package: the plugin reads it in the launch environment and this server reads the
+forwarded copy, and both ends have to land on the same number. A harness that
+drops it leaves this server posting at 8787 while the plugin listens elsewhere.
+With 8787 idle the probe catches that as a channel that is not there, and the
+member does not attend rather than attending and losing its mentions. With
+another session's fakechat sitting on 8787 it does not: a probe recognises the
+plugin by the page it serves and cannot tell one session's plugin from another's,
+so the notices would land in that session instead. Forwarding the variable is
+what makes the port a fact rather than a guess.
 
 `XDG_RUNTIME_DIR` decides where the server looks for the daemon. The socket path
 is derived from that variable, and a daemon started from a login shell listens
@@ -723,6 +802,11 @@ including that every command stays silent and exits 0 when no daemon is
 running, that the delivering hooks move the read position exactly when they hand
 something over, and that no command reaches back out to a script, to `jq`, to
 `${CLAUDE_PLUGIN_ROOT}` or to the wording an empty read prints.
+
+The Claude Code channel is covered the same way, in
+`e2e/crabswarm/chat_fakechat_test.go`, against a Go fake of fakechat's inbound
+surface rather than against the real plugin, which wants a Claude Code session
+and a network to install.
 
 The flags the Stop hook depends on are covered a level down, in
 `crabswarm/chat/cli/member_test.go`: the done report a read makes when it hands

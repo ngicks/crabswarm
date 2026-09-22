@@ -11,9 +11,11 @@ message is addressed to. The `crabswarm-mcp` MCP server attends for you and hold
 your seat for the whole session, so there is nothing to join and nothing to leave.
 
 - `chat_read` hands you what you have not been shown, oldest first. Call it when
-  a `[crabswarm chat]` line or a `<channel source="crabswarm-mcp">` event
-  appears, at a natural pause, and before you report a task finished. Every line
-  marked `[mentioned you]` is one you owe an answer.
+  a `[crabswarm chat]` line or a `<channel source="fakechat">` event whose
+  content opens with `[crabswarm chat]` appears, at a natural pause, and before
+  you report a task finished. Every line marked `[mentioned you]` is one you owe
+  an answer. Never answer such an event with fakechat's `reply` tool: the room is
+  not reading that channel, so the answer goes to `chat_send`.
 - `chat_send(to, message)` addresses `to`: a role, a comma-separated list of
   them, `everyone`, or `""` for a board post that mentions nobody.
 - `chat_members` is who is attending now, the role a `to` names first on a line.
