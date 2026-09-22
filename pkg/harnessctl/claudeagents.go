@@ -28,6 +28,10 @@ import (
 // seconds.
 const claudeAgentsInterval = 2 * time.Second
 
+// claudeAgentsWarnEvery is how many consecutive failed reads pass between two
+// log lines about them: at the 2s interval, one line every five minutes.
+const claudeAgentsWarnEvery = 150
+
 // The listing's fields, one type per field. They stay strings so a value
 // outside the vocabulary below still decodes and is read as the one thing that
 // is true of it — that this listing says nothing the feed can map.
@@ -150,10 +154,17 @@ var errClaudeSessionUnlisted = errors.New("the agents listing does not carry thi
 // A read that failed, or that came back without the session, reports nothing:
 // the member keeps its last state, which is the answer that interrupts nobody
 // mid-turn, and the next read replaces it. The first failure of a run is
-// logged and the rest are not, since a line per tick for the rest of the
-// session would bury everything else on the harness's stderr.
+// logged, then one in every claudeAgentsWarnEvery, since a line per tick for
+// the rest of the session would bury everything else on the harness's stderr
+// while a session that stays unlisted for days deserves more than one line.
+//
+// A Claude Code with no session id is said aloud too: the daemon reads no
+// screen for a Claude Code member, so without the feed nothing reports its
+// state and it keeps whatever it attended with.
 func (c claudeCode) Watch(ctx context.Context, report func(chatv1.HarnessState)) {
 	if c.sessionID == "" {
+		c.logger.Warn("no claude code session to follow; this member's state will not be reported",
+			"env", ClaudeSessionEnv)
 		return
 	}
 	last := chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED
@@ -165,9 +176,9 @@ func (c claudeCode) Watch(ctx context.Context, report func(chatv1.HarnessState))
 				return
 			}
 			failures++
-			if failures == 1 {
+			if failures == 1 || failures%claudeAgentsWarnEvery == 0 {
 				c.logger.Warn("reading the claude agents listing failed; trying again each tick",
-					"session", c.sessionID, "error", err)
+					"session", c.sessionID, "failures", failures, "error", err)
 			}
 			return
 		}
