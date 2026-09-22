@@ -198,6 +198,91 @@ Worth knowing when replaying this against a fake server:
   the host has Codex hooks configured. A fake server does not have to emit them.
 - Notification frames carry an `emittedAtMs` field alongside `params`.
 
+## fakechat plugin channel
+
+`fakechat-upload.http`, `fakechat-channel-notification.jsonl` and
+`fakechat-launch.md` record the official `fakechat` plugin: the loopback HTTP
+server it runs beside its MCP server, and the frame that server pushes into a
+Claude Code session which registered the plugin as a channel. These three
+files supersede `claude-channel-launch.md` and
+`claude-channel-notification.jsonl`, which stay as history of the
+development-channel approach.
+
+Captured 2026-09-22 on the same host with:
+
+| tool | version |
+| --- | --- |
+| Claude Code | 2.1.278 |
+| bun | 1.3.13 |
+| fakechat plugin | 0.0.1 |
+| cmdman | 0.0.26 |
+
+The plugin's own `server.ts` made the recording. It ran by absolute path, with
+its stdin held open so the MCP transport stayed up and its stdout stayed a log:
+
+```sh
+tail -f /dev/null | FAKECHAT_PORT=18787 \
+  bun "$CLAUDE_CONFIG_DIR/plugins/cache/claude-plugins-official/fakechat/0.0.1/server.ts" \
+  > out.log 2> err.log
+```
+
+`FAKECHAT_PORT` replaces the plugin's default 8787, which a live session on the
+host already held. Every launch in this section sets it. `err.log` took the one
+line the server prints on startup, `fakechat: http://localhost:18787`, and
+`out.log` took nothing but MCP frames.
+
+`fakechat-upload.http` is the request the server answered 204 to, byte for byte
+as curl sent it. A throwaway Go program listened on 28787, copied the client's
+bytes into the fixture through an `io.MultiWriter` and forwarded them to 18787
+unparsed, then copied the response back. curl connected to that relay while
+addressing the server, so the recorded `Host` header names the real port:
+
+```sh
+curl --connect-to 127.0.0.1:18787:127.0.0.1:28787 \
+  --form-string id=crabswarm-1 \
+  --form-string 'text=[crabswarm chat] new message from team/bob — …' \
+  http://127.0.0.1:18787/upload
+```
+
+The fixture holds the full `text` field; the line above shortens it. curl chose
+the boundary `------------------------jJ5AtftPT4iZsyuUkIlYeo` and wrote it into
+both the `Content-Type` header and the body, so no part of the file was picked
+by hand. The relay copies raw bytes, so the CRLF line endings and the trailing
+closing boundary are the ones that crossed the wire.
+
+Two deviations from the obvious recipe:
+
+- The capture went through the relay rather than `curl --trace-ascii`. The ascii
+  trace drops the CR of each CRLF and replaces non-printable bytes with dots, so
+  its output cannot be turned back into the request.
+- The fields went in as `--form-string` rather than `-F`. `-F` reads a leading
+  `@` or `<` in a value as a file reference, and the text starts with `[`.
+
+`fakechat-channel-notification.jsonl` is the whole of `out.log` after that one
+upload: a single `notifications/claude/channel` frame, 309 bytes including its
+newline. The server wrote nothing else to stdout, so no line was left out of the
+fixture. `params.meta.message_id` repeats the `id` field of the upload and ties
+the frame to the request beside it. The server sends the frame without any
+`initialize` handshake, since nothing was written to its stdin.
+
+`fakechat-launch.md` records how an interactive session and a background session
+each register the plugin, captured the way the Claude Code screens above were:
+
+```sh
+cmdman run -t --rm -n fakechat-launch -w <scratch dir> -- \
+  env -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_CODE_SESSION_ID \
+      -u CLAUDE_JOB_DIR -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT \
+      FAKECHAT_PORT=18788 claude --model haiku \
+      --channels plugin:fakechat@claude-plugins-official
+cmdman capture-screen fakechat-launch
+cmdman stop fakechat-launch
+```
+
+A `GET /` on the launch port proves the plugin server read `FAKECHAT_PORT` out of
+the launch environment: it answers 200 with a page titled `fakechat`. The
+background half ran the same `claude` line under `--bg --name <x>` with a prompt
+in front of `--channels`, and a post to its own port started a turn there too.
+
 ## Not captured
 
 Nothing on the list is missing. The OpenCode `initialize` was captured live
