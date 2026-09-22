@@ -121,6 +121,52 @@ cleared `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_JOB_DIR`,
 `CLAUDECODE` and `CLAUDE_CODE_ENTRYPOINT` so the captures do not carry a
 transcript-saving warning from the launching session.
 
+## Claude Code agents listing
+
+`claude-agents.json` is the output of
+
+```sh
+claude agents --json
+```
+
+captured 2026-09-21 with Claude Code 2.1.274, from a shell outside any Claude
+Code session. The command needs no TTY and prints every session recorded under
+`<config home>/sessions/` as one JSON array; `--all` adds finished background
+sessions. The capture holds two background sessions: one finished, with `state`
+and no `status`, and one live, with both.
+
+The fields a state feed decodes, as the Claude Code documentation lists them on
+the agent-view page under "List sessions as JSON":
+
+| field | values | present when |
+| --- | --- | --- |
+| `kind` | `interactive`, `background` | always |
+| `sessionId` | the session's UUID | when set |
+| `pid`, `status` | `busy`, `waiting`, `idle` | the process is alive |
+| `waitingFor` | `permission prompt`, `input needed`, `sandbox request`, `worker request`, `dialog open` | `status` is `waiting` |
+| `state` | `working`, `blocked`, `done`, `failed`, `stopped` | background sessions only |
+
+An interactive session carries `status` and never `state`; a background session
+carries `state` always and `status` while its process lives. The registry
+record's own `shell` status prints as `busy`. The capture itself shows only
+`busy`, `done` and `working`. `status` is the live answer and `state` the
+session's own account of its progress, so a feed reads `status` first and falls
+back to `state` when it is absent. `waitingFor` is display text, not a state of
+its own.
+
+Two properties of the registry shape what a reader can rely on:
+
+- The record is `<config home>/sessions/<pid>.json`, keyed by the harness's pid
+  in its own PID namespace, and the listing drops a record whose pid or process
+  start time no longer matches a live process in the caller's namespace. Two
+  sessions in different PID namespaces sharing one config home can overwrite
+  each other's record, so the listing is only trustworthy when each namespace
+  has a registry of its own.
+- A record from another PID namespace is printed without `status`, whatever the
+  session is doing, so only a listing run beside the session sees its live
+  status. Match entries by `sessionId` and never by `cwd`: the listing covers
+  every session on the host.
+
 ## Codex app-server
 
 `codex-app-server.client.ndjson` and `codex-app-server.server.ndjson` are one
