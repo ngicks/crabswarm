@@ -76,7 +76,7 @@ func (r *fakeRelay) delivered() []openCodeNotice {
 // A harness whose OpenCode carries no plugin carries no relay either, and the
 // member attends as a terminal one the daemon types at.
 func TestOpenCode_WithoutTheRelayThereIsNoChannel(t *testing.T) {
-	h := Detect("opencode", noEnv, nil)
+	h := Detect("opencode", noEnv)
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_OPENCODE)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 }
@@ -89,7 +89,7 @@ func TestOpenCode_WithoutTheRelayThereIsNoChannel(t *testing.T) {
 func TestOpenCode_PostsTheNoticeToTheRelay(t *testing.T) {
 	relay := startFakeRelay(t, http.StatusAccepted, "")
 
-	h := Detect("opencode", relayEnv(relay.url()), nil)
+	h := Detect("opencode", relayEnv(relay.url()))
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_OPENCODE)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 
@@ -125,7 +125,7 @@ func TestOpenCode_PostsTheNoticeToTheRelay(t *testing.T) {
 func TestOpenCode_ARefusedNoticeIsNotDelivered(t *testing.T) {
 	relay := startFakeRelay(t, http.StatusConflict, "no session yet")
 
-	err := Detect("opencode", relayEnv(relay.url()), nil).
+	err := Detect("opencode", relayEnv(relay.url())).
 		Deliver(t.Context(), Notice{Text: "hi"})
 	assert.ErrorContains(t, err, "409")
 	assert.ErrorContains(t, err, "no session yet")
