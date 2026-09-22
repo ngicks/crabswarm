@@ -345,5 +345,5 @@ func TestChatClaudeAgents_ARestartedDaemonIsToldTheStateAgain(t *testing.T) {
 	// Waited out from the attendance rather than from the restart: nothing is
 	// said again while the room is missing the member, so a repeat that fell
 	// into that gap is one interval late.
-	waitClaudeMemberState(t, cfg, "tok-ana", chatBridgeAna, "working", 15*time.Second)
+	waitClaudeMemberState(t, cfg, "tok-ana", chatBridgeAna, "working", 30*time.Second)
 }

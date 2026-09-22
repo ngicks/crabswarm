@@ -336,6 +336,20 @@ func TestNewClaudeCode_TakesTheChannelAndTheFeedTogether(t *testing.T) {
 	assert.Equal(t, c.channel.url("/"), "http://127.0.0.1:1234/")
 }
 
+// A Claude Code that knows no session says so on its stderr: the daemon reads
+// no screen for a Claude Code member, so nothing else would report its state.
+func TestClaudeCode_WatchWithoutASessionSaysSo(t *testing.T) {
+	var log bytes.Buffer
+	h := claudeCode{logger: slog.New(slog.NewTextHandler(&log, nil)), interval: time.Hour}
+	h.Watch(t.Context(), func(chatv1.HarnessState) { t.Error("reported a state") })
+	assert.Assert(
+		t,
+		strings.Contains(log.String(), "no claude code session"),
+		"log:\n%s",
+		log.String(),
+	)
+}
+
 // The whole of it through [Detect]: a Claude Code that set its session id in
 // the server's environment attends as a member whose state the feed reports,
 // and, having no channel, as one the server asks nothing before it attends.

@@ -371,7 +371,6 @@ func TestChatCodex_HooksLeaveTheStateToTheAppServer(t *testing.T) {
 			}
 		}
 	}
-
 }
 
 // readCodexHooks decodes the Codex hook file out of the checkout under test.

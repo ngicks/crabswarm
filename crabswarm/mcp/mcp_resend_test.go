@@ -14,9 +14,9 @@ import (
 )
 
 // What a feed last said is repeated for as long as the session runs, and these
-// cases are about the three things that decides: the repeat happens, it happens
-// after a report the daemon turned down, and it does not happen before a feed
-// has said anything at all.
+// cases are about what decides that: the repeat happens, it happens after a
+// report the daemon turned down, it does not happen before a feed has said
+// anything at all, and it does not happen while the member is out of the room.
 
 // testResend is the pace the repeat runs at here — short enough that a case
 // sees several inside its timeout, long enough that the first one does not race
@@ -63,7 +63,9 @@ func assertOnly(t *testing.T, got []chatv1.HarnessState, want chatv1.HarnessStat
 type refusingChat struct {
 	*fakeChatService
 
-	// refusals is how many of the first reports are turned down.
+	// refusals is how many of the first reports are turned down. None leaves
+	// every report answered as the stub would have answered it and only counted,
+	// for a case that wants the attempts alone.
 	refusals int64
 	attempts atomic.Int64
 }
@@ -127,4 +129,62 @@ func TestServer_SaysNothingAgainUntilAFeedHasSpoken(t *testing.T) {
 	// rather than the repeat not having run yet.
 	time.Sleep(10 * testResend)
 	assert.Equal(t, len(fake.reportedStates()), 0)
+}
+
+// The repeat is quiet while the attendance is down and speaks again once the
+// member is back in the room.
+//
+// A state reported about a member the room does not have is refused by
+// definition, so repeating one through a gap in the attendance would buy a
+// doomed RPC and a warning every interval, for as long as the daemon stayed
+// away. Nothing is lost by the wait: the tick after the attendance comes back
+// says it, which is the case the repeat exists for.
+func TestServer_SaysNothingAgainWhileTheAttendanceIsDown(t *testing.T) {
+	// Nothing is turned down by the stub itself. What this case reads off it is
+	// how many reports reached the daemon at all, since one made while the daemon
+	// is refusing this member records nothing.
+	fake := &refusingChat{
+		fakeChatService: &fakeChatService{
+			self:   doneSelf("backend", "alice", testRoom),
+			events: make(chan *chatv1.RoomEvent),
+			drops:  make(chan error),
+		},
+	}
+	feed := watchedBridge(t, fake)
+
+	feed.says(t, chatv1.HarnessState_HARNESS_STATE_WORKING)
+	waitFor(t, "the state the feed reported never reached the daemon", func() bool {
+		return len(fake.reportedStates()) > 0
+	})
+
+	// Everything asked of the daemon from here is turned away, so the attendance
+	// the drop below ends is one nothing opens again until this is lifted.
+	fake.setErr(status.Error(codes.Unavailable, "the daemon is away"))
+	dropFeed(t, fake.fakeChatService,
+		status.Error(codes.Unavailable, "the daemon is going away"))
+
+	// A second opening is the server having taken the end of the first, so the
+	// member is out of the room from here and what is counted below is what the
+	// repeat did about that.
+	waitFor(t, "the server never asked to attend again", func() bool {
+		return fake.openCount() > 1
+	})
+	attempts := fake.attempts.Load()
+	said := len(fake.reportedStates())
+
+	// Several intervals, so the quiet is the repeat finding nobody to say it to
+	// rather than the repeat not having run yet.
+	time.Sleep(10 * testResend)
+	assert.Equal(t, fake.attempts.Load(), attempts)
+
+	fake.setErr(nil)
+	waitFor(t, "the server never attended again", func() bool {
+		return fake.attendCount() == 2
+	})
+	// The feed has been handed nothing since, so a report past the ones made
+	// while the member was in the room is the repeat speaking up again.
+	waitFor(t, "the state the feed reported was never said again", func() bool {
+		return len(fake.reportedStates()) > said
+	})
+	assertOnly(t, fake.reportedStates(), chatv1.HarnessState_HARNESS_STATE_WORKING)
 }
