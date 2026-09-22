@@ -70,14 +70,7 @@ type Server struct {
 	// for the reason getenv is one: a harness that carries a channel or a state
 	// feed of its own speaks to a CLI this process cannot start, so a test hands
 	// the server one that plays the part. [New] takes [harnessctl.Detect].
-	detect func(
-		clientName string, getenv func(string) string, session harnessctl.Session,
-	) harnessctl.Harness
-
-	// session is the channel a harness deliverer pushes its notifications
-	// through, which is the MCP transport the session runs on. [Server.Serve]
-	// sets it before the session starts, so a handshake never reads it unset.
-	session harnessctl.Session
+	detect func(clientName string, getenv func(string) string) harnessctl.Harness
 
 	// initialized is closed once the harness has finished the MCP handshake and
 	// [Server.harness] names what it runs. Attendance waits on it: what the
@@ -146,6 +139,17 @@ type Server struct {
 // discards logs; a logger writing to stdout would corrupt the MCP stream, so
 // the caller owns that choice.
 func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
+	return newServer(logger, sockPath, token, os.Getenv)
+}
+
+// newServer is [New] with the environment handed in. What the server declares
+// about a channel is read out of it before the session starts, so a test plays
+// a launcher through this rather than setting a variable on the process running
+// the suite — which would point a real channel at whatever is listening on the
+// plugin's own port.
+func newServer(
+	logger *slog.Logger, sockPath, token string, getenv func(string) string,
+) (*Server, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
@@ -157,7 +161,7 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		logger:            logger,
 		client:            client,
 		token:             token,
-		getenv:            os.Getenv,
+		getenv:            getenv,
 		detect:            harnessctl.Detect,
 		subscribable:      map[string]struct{}{},
 		initialized:       make(chan struct{}),
@@ -174,51 +178,31 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 	// handshake carries it and the handshake is what tells the server which
 	// harness it is serving — the answer arrives after the question.
 	if harnessctl.ClaudeChannelEnabled(s.getenv) {
-		opts.Capabilities = claudeChannelCapabilities()
 		opts.Instructions = claudeChannelInstructions
 	}
 	s.mcp = mcpsdk.NewServer(
 		&mcpsdk.Implementation{Name: serverName, Version: libver.Version},
 		opts,
 	)
-	s.mcp.AddReceivingMiddleware(s.readsHandshake, refusesTheNewerHandshake)
+	s.mcp.AddReceivingMiddleware(s.readsHandshake)
 	return s, nil
 }
 
-// claudeChannelCapabilities declares the channel Claude Code registers a
-// listener for.
+// claudeChannelInstructions tells the model what the event a room notice reaches
+// it as is, and which tool answers it.
 //
-// It is declared only for a session that was launched as a channel: the
-// capability is what makes Claude Code listen, and a listener on a server that
-// was never registered would be one nothing ever reaches.
-//
-// Logging is spelled out because setting any capability at all replaces the
-// SDK's default set, and the default is logging alone; leaving it out would
-// quietly take logging away from a channel session and no other. Everything
-// else the server offers is inferred from what the families registered.
-func claudeChannelCapabilities() *mcpsdk.ServerCapabilities {
-	return &mcpsdk.ServerCapabilities{
-		//nolint:staticcheck // deprecated only from the revision above the cap this server offers
-		Logging: &mcpsdk.LoggingCapabilities{},
-		Experimental: map[string]any{
-			harnessctl.ClaudeChannelCapability: map[string]any{},
-		},
-	}
-}
-
-// claudeChannelInstructions tells the model what a channel event from this
-// server is and what to do about it.
-//
-// The harness shows the model an event and nothing else — no tool call, no
-// transcript entry saying where it came from — so without this the first one
-// reads as a line that appeared from nowhere. It also says not to answer down
-// the channel: the channel carries one direction, and a reply written into it
-// would go nowhere while the room waited.
-const claudeChannelInstructions = "Events from " + serverName +
-	` arrive as <channel source="` + serverName +
-	`" from="<team/name>" room="<room>">. Each one says a chat message is ` +
-	"waiting for you: read it with the chat_read tool and answer with " +
-	"chat_send. Do not reply through the channel."
+// The harness shows the model an event another plugin's channel pushed, and that
+// plugin's own instructions tell the model to answer with its reply tool — which
+// reaches a browser tab nobody is watching, while the room goes on waiting. So
+// the event is named as precisely as this end can name it: the source the plugin
+// labels it with, the message id this server numbers its uploads by, and the
+// opening of the line the room worded.
+const claudeChannelInstructions = "Room notices from " + serverName +
+	` reach you as <channel source="fakechat" chat_id="web" ` +
+	`message_id="crabswarm-..."> events whose content opens with ` +
+	"[crabswarm chat]. Each one says a chat message is waiting for you: " +
+	"read it with the chat_read tool and answer with chat_send. " +
+	"Never answer such an event with fakechat's reply tool."
 
 // readsHandshake watches what the harness sends for the point at which it has
 // said who it is.
@@ -257,7 +241,7 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 		if params.ClientInfo != nil {
 			client = params.ClientInfo.Name
 		}
-		s.harness = s.detect(client, s.getenv, s.session)
+		s.harness = s.detect(client, s.getenv)
 		close(s.initialized)
 		s.logger.Info("the harness named itself",
 			"client", client,
@@ -320,16 +304,6 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 	defer func() { _ = s.client.Close() }()
 
-	// Whatever the session runs on is wrapped, stdio and injected alike: the
-	// wrapper is both the notification channel a deliverer pushes through and
-	// the cap on what protocol revision the server offers, and neither is
-	// something one transport should have and another go without.
-	//
-	// Set before anything can read it: the harness names itself on the session
-	// started below, and naming itself is what hands this to its deliverer.
-	harnessChannel := newChannel(transport)
-	s.session = harnessChannel
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -362,7 +336,7 @@ func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 		// gone has nobody left to attend for, and without this the loop would
 		// hold the session open for the rest of its backoff.
 		defer cancel()
-		return s.mcp.Run(gctx, harnessChannel)
+		return s.mcp.Run(gctx, transport)
 	})
 	return g.Wait()
 }
@@ -468,6 +442,26 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	if err != nil {
 		s.attendanceEnded(err)
 		return false, err
+	}
+	// A harness whose channel is somewhere other than this session is asked
+	// whether it is there before the member attends, and the member stays out of
+	// the room for as long as the answer is no.
+	//
+	// Attending as a terminal member instead — leaving the daemon to type at a
+	// session whose channel never came up — would paper the broken launch over:
+	// the room would go on working, and nobody would learn that the plugin the
+	// launch promised is not running. A member missing from the roster is noticed,
+	// and the refusal it is missing over says which channel was looked for and
+	// where.
+	//
+	// Asked on every attempt rather than once: a plugin the launcher started
+	// beside this process may well come up after it, and then this is the loop
+	// that picks it up.
+	if prober, ok := s.harness.(harnessctl.Prober); ok {
+		if err := prober.Probe(ctx); err != nil {
+			s.attendanceEnded(err)
+			return false, err
+		}
 	}
 	actx, cancel := context.WithCancel(ctx)
 	defer cancel()
