@@ -27,10 +27,10 @@ import (
 )
 
 // staleStateAfter is how long a reported working or waiting state is believed.
-// A state only changes when a harness hook reports the change, and a hook can
-// go missing — the user interrupts the session, or the harness has no idle
-// notification to hook in the first place — which would leave the member busy
-// forever and never nudged again. Past this, the report is treated as no
+// A state only changes when something reports the change, and a report can go
+// missing — a feed's bridge is gone, or the harness has no feed and no idle
+// notification at all — which would leave the member busy forever and never
+// nudged again. Past this, the report is treated as no
 // longer describing the terminal, and the screen snapshot in
 // [cmdman.Terminal.SendCommand] is what still stands between the nudge and a
 // terminal that is busy after all.

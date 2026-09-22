@@ -24,8 +24,8 @@ import (
 
 // claudeAgentsInterval is how often the listing is read. Each read spawns a
 // Claude Code process, which costs a good part of a second, so the interval
-// stays well above that; it sits under the daemon's screen-poll cadence so the
-// feed is never the slower of the two.
+// stays well above that while still turning a transition around within a few
+// seconds.
 const claudeAgentsInterval = 2 * time.Second
 
 // The listing's fields, one type per field. They stay strings so a value

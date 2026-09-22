@@ -111,9 +111,9 @@ type Member struct {
 	// State is the last harness state reported for the member.
 	State MemberState
 	// StateReportedAt is when State was reported. A notifier reads it to tell a
-	// member that is genuinely busy from one whose state-reporting hook was
-	// missed — an interrupted session, or a harness that has no idle
-	// notification at all — and would otherwise stay busy forever.
+	// member that is genuinely busy from one whose report never came — its
+	// bridge is gone, or its harness has no feed and no idle notification at
+	// all — and would otherwise stay busy forever.
 	StateReportedAt time.Time
 }
 

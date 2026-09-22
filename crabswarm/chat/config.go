@@ -41,18 +41,19 @@ type Config struct {
 	// a room keeps everything ever said in it — for a host whose rooms are
 	// theirs to keep and to clear by hand.
 	HistoryLimit int `json:"history_limit" yaml:"history_limit"`
-	// ScreenPollInterval is how often the daemon reads the terminal of every
-	// attending Claude Code session and records the state that screen shows.
+	// ScreenPollInterval is how often the daemon reads the terminal of an
+	// attending session whose harness it does not recognise and records the
+	// state that screen shows.
 	//
-	// Claude Code offers no state API for an interactive session, and its hooks
-	// go missing the moment a turn is interrupted — Esc fires no Stop hook — so
-	// a member would stay marked working with nothing left to correct it. The
-	// screen still says which of working, waiting on a dialog and back at the
-	// prompt the session is in, so the daemon reads it and lets that reading
-	// override the last hook report.
+	// Every harness the daemon names reports on a feed of its own: Codex
+	// reports off its app server, OpenCode from its plugin's events, Claude
+	// Code from the agents listing its own MCP server polls. A harness nobody
+	// recognised has no such feed. Its screen still says which of working,
+	// waiting on a dialog and back at the prompt the session is in, so the
+	// daemon reads it and records what it read.
 	//
 	// Zero means the default of 3s. A negative value stops the polling
-	// altogether, leaving the hooks as the only report there is.
+	// altogether. Such a member then keeps the state it attended with.
 	//
 	// The file forms carry nanoseconds, which is how a [time.Duration]
 	// marshals; CRABSWARM_CHAT_SCREEN_POLL_INTERVAL takes a duration string

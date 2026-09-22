@@ -1,11 +1,11 @@
 // Package cmdman types lines into a member's terminal through the cmdman CLI.
 //
-// It is the terminal machinery ../../notify is built on — the injection a
-// nudge needs, and the snapshots the screen poller reads a member's state off —
-// kept here rather than beside them so that package holds only what acts on a
-// member. The chat package is consumed, never the other way round: the notifier
-// and the poller each compose a [Terminal], and nothing in chat knows this
-// package exists.
+// It is the terminal machinery ../../notify is built on: the injection a nudge
+// needs, and the snapshots the screen poller reads a state off for a member
+// whose harness reports none itself. It sits here rather than beside them so
+// that package holds only what acts on a member. The chat package is consumed,
+// never the other way round: the notifier and the poller each compose a
+// [Terminal], and nothing in chat knows this package exists.
 package cmdman
 
 import (

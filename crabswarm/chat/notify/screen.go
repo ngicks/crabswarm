@@ -45,7 +45,7 @@ type AttendingMembers interface {
 }
 
 // StateRecorder records the state a member is observed in, the same way a
-// harness hook's report is recorded: the store keeps it, the status display
+// bridge's report is recorded: the store keeps it, the status display
 // follows it, and the room hears about a change. [chat.Service] is what the
 // daemon passes.
 type StateRecorder interface {

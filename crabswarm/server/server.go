@@ -188,11 +188,11 @@ func (s *Server) Serve(ctx context.Context) error {
 	// Unimplemented would read as "this daemon is too old".
 	chatv1.RegisterChatAdminServiceServer(srv, adminSvc)
 
-	// Claude Code has no state API for an interactive session, and its hooks go
-	// missing the moment a turn is interrupted, so the daemon reads the state off
-	// the terminal itself and lets that reading override the last hook report. It
-	// runs for as long as the server does; a negative interval is the operator
-	// saying not to run it at all.
+	// A harness the daemon recognises reports on a feed of its own. A harness
+	// nobody recognised says nothing about its turns, so the daemon reads the
+	// state off that member's terminal instead. The poller runs for as long as
+	// the server does; a negative interval is the operator saying not to run it
+	// at all.
 	if s.chatCfg.ScreenPollInterval >= 0 {
 		// Derived from the server's context rather than being it: a daemon that
 		// stopped because its listener failed never cancels that context, and the
