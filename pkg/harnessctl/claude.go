@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"strconv"
@@ -69,23 +70,96 @@ const fakechatTimeout = 5 * time.Second
 // else took this one is not a channel.
 const fakechatTitle = "<title>fakechat</title>"
 
+// ClaudeSessionEnv names this bridge's Claude Code session, as Claude Code sets
+// it in the environment of every MCP server it spawns. It is the id the agents
+// listing prints as sessionId, which is how the feed picks its own session out
+// of every session on the host.
+const ClaudeSessionEnv = "CLAUDE_CODE_SESSION_ID"
+
 // ClaudeChannelEnabled reports whether this process was launched beside a
 // Claude Code session that registered the fakechat plugin as a channel.
 func ClaudeChannelEnabled(getenv func(string) string) bool {
 	return getenv(ClaudeChannelEnv) == "1"
 }
 
-// newClaudeCode builds the fakechat channel, or answers nil for a session that
-// registered no plugin and so has to be woken through its terminal.
+// newClaudeCode builds the Claude Code harness: the fakechat channel, when this
+// server was launched beside a session that registered the plugin, and the
+// state feed, when the environment names the session to follow. It answers nil
+// when it has neither, and the member is then a terminal one with nothing
+// Claude-specific about it.
+//
+// The two halves are independent. The channel needs the launcher's variable,
+// and a session that registered no plugin has to be woken through its
+// terminal. The feed needs only the session id, which Claude Code sets itself,
+// so a session launched without the channel still reports its state.
+//
+// A member with the channel comes back as a [Prober], since the channel is a
+// server somewhere other than this session and can be asked whether it is
+// there; a member without one is asked nothing, which is why the two are two
+// types rather than one with a probe that always says yes.
 func newClaudeCode(getenv func(string) string) Harness {
-	if !ClaudeChannelEnabled(getenv) {
+	c := claudeCode{
+		sessionID: getenv(ClaudeSessionEnv),
+		list:      listClaudeAgents,
+		interval:  claudeAgentsInterval,
+		logger:    slog.Default(),
+	}
+	if ClaudeChannelEnabled(getenv) {
+		port := getenv(FakechatPortEnv)
+		if port == "" {
+			port = fakechatDefaultPort
+		}
+		c.channel = &fakechat{port: port, timeout: fakechatTimeout}
+		return channelledClaudeCode{c}
+	}
+	if c.sessionID == "" {
 		return nil
 	}
-	port := getenv(FakechatPortEnv)
-	if port == "" {
-		port = fakechatDefaultPort
+	return c
+}
+
+// claudeCode delivers a notice through the fakechat plugin the session
+// registered, when it registered one, and reports what the session is doing off
+// the agents listing.
+type claudeCode struct {
+	// channel is the plugin's server, nil for a session that registered none.
+	channel *fakechat
+
+	// sessionID is the session the feed follows, empty for a feed that has
+	// nothing to follow.
+	sessionID string
+	list      claudeAgentsLister
+	interval  time.Duration
+	logger    *slog.Logger
+}
+
+func (claudeCode) Kind() chatv1.Harness { return chatv1.Harness_HARNESS_CLAUDE_CODE }
+
+func (c claudeCode) Nudge() chatv1.NudgeDelivery {
+	if c.channel == nil {
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL
 	}
-	return fakechat{port: port, timeout: fakechatTimeout}
+	return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
+}
+
+// Deliver posts the notice to the plugin. A session that registered none
+// refuses, the way every terminal harness does.
+func (c claudeCode) Deliver(ctx context.Context, n Notice) error {
+	if c.channel == nil {
+		return errNoChannel
+	}
+	return c.channel.Deliver(ctx, n)
+}
+
+// channelledClaudeCode is a [claudeCode] whose session registered the plugin,
+// which is the one that can be asked whether its channel is there.
+type channelledClaudeCode struct {
+	claudeCode
+}
+
+// Probe asks the plugin's server, see [fakechat.Probe].
+func (c channelledClaudeCode) Probe(ctx context.Context) error {
+	return c.channel.Probe(ctx)
 }
 
 // fakechat delivers a notice by posting it to the loopback server the fakechat
@@ -96,12 +170,6 @@ func newClaudeCode(getenv func(string) string) Harness {
 type fakechat struct {
 	port    string
 	timeout time.Duration
-}
-
-func (fakechat) Kind() chatv1.Harness { return chatv1.Harness_HARNESS_CLAUDE_CODE }
-
-func (fakechat) Nudge() chatv1.NudgeDelivery {
-	return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
 }
 
 // url is one endpoint of the plugin's server. Loopback and nothing else: the

@@ -234,7 +234,7 @@ func TestNewClaudeCode_FallsBackToThePortThePluginBindsItself(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newClaudeCode(tc.getenv)
-			assert.Equal(t, h.(fakechat).url("/"), "http://127.0.0.1:8787/")
+			assert.Equal(t, h.(channelledClaudeCode).channel.url("/"), "http://127.0.0.1:8787/")
 		})
 	}
 }
