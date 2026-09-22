@@ -7,9 +7,10 @@
 // a member that changed how it is reached would otherwise find the room
 // addressing it in a different voice.
 //
-// What a notice says is who wrote, or how much is waiting, and how to read it.
-// Never the message itself: the text is sender-controlled content, and a line
-// typed into a terminal or pushed into a context is the last place to repeat it.
+// What a notice says is who wrote, or how much is waiting, how to read it, and
+// where the answer goes. Never the message itself: the text is sender-controlled
+// content, and a line typed into a terminal or pushed into a context is the last
+// place to repeat it.
 package nudge
 
 import (
@@ -31,11 +32,18 @@ const prefix = "[crabswarm chat] "
 // command. Every harness the room reaches is served by the crabswarm MCP server
 // and so has the tool, while some of them decline to run a command nobody asked
 // them to run.
+//
+// They also name chat_send and the server both tools come from. A member
+// reached through a harness channel sees that channel's own instructions beside
+// the notice, and a channel plugin that tells the model to answer with its own
+// reply tool would carry the answer away from the room.
 
-// NewMessage is the notice for one mention that just arrived: who wrote, and
-// what hands it over.
+// NewMessage is the notice for one mention that just arrived: who wrote, what
+// hands it over, and what answers it.
 func NewMessage(from string) string {
-	return prefix + "new message from " + from + " — read it with the chat_read tool"
+	return prefix + "new message from " + from +
+		" — read it with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 }
 
 // Waiting is the notice for mentions that piled up while the member could not
@@ -43,10 +51,13 @@ func NewMessage(from string) string {
 // it is delivered, which of them wrote is what the read itself says.
 func Waiting(n int) string {
 	if n == 1 {
-		return prefix + "1 unread message mentions you — read it with the chat_read tool"
+		return prefix + "1 unread message mentions you" +
+			" — read it with the chat_read tool and respond with chat_send," +
+			" both from crabswarm-mcp"
 	}
-	return prefix + strconv.Itoa(n) +
-		" unread messages mention you — read them with the chat_read tool"
+	return prefix + strconv.Itoa(n) + " unread messages mention you" +
+		" — read them with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 }
 
 // Address spells a sender the way every chat verb addresses one. A sender with

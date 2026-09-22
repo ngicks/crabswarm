@@ -531,7 +531,7 @@ delivery.
 The last line of defence is outside this package: a mention reaches an agent
 that has stopped working whether or not a hook ever ran, either through its
 harness's own channel or as a line typed into its terminal
-(`[crabswarm chat] new message from ... — read it with the chat_read tool`).
+(`[crabswarm chat] new message from ... — read it with the chat_read tool and respond with chat_send, both from crabswarm-mcp`).
 
 ### The idle notification is how an interrupted turn heals
 

@@ -361,9 +361,11 @@ func TestServer_DeliversAMentionItsHarnessCanTake(t *testing.T) {
 	assert.Equal(t, fake.lastAttend().GetNudge(),
 		chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 
+	arrival := "[crabswarm chat] new message from frontend/bob" +
+		" — read it with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 	pushEvent(t, fake, mentionOf(member("frontend", "bob", testRoom), self, "rebase please"))
-	waitNotices(t, sink,
-		"[crabswarm chat] new message from frontend/bob — read it with the chat_read tool")
+	waitNotices(t, sink, arrival)
 
 	// A message it wrote itself and one addressed to nobody are both left alone:
 	// neither is unread for it, so a notice would buy it an empty read.
@@ -378,9 +380,7 @@ func TestServer_DeliversAMentionItsHarnessCanTake(t *testing.T) {
 		},
 	})
 	pushEvent(t, fake, mentionOf(member("frontend", "bob", testRoom), self, "and this one"))
-	waitNotices(t, sink,
-		"[crabswarm chat] new message from frontend/bob — read it with the chat_read tool",
-		"[crabswarm chat] new message from frontend/bob — read it with the chat_read tool")
+	waitNotices(t, sink, arrival, arrival)
 }
 
 // A harness mid-turn is not interrupted, however long the turn runs: the report
@@ -397,6 +397,10 @@ func TestServer_HoldsAMentionUntilTheTurnEnds(t *testing.T) {
 
 	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
 
+	waiting := "[crabswarm chat] 2 unread messages mention you" +
+		" — read them with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
+
 	bob := member("frontend", "bob", testRoom)
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_WORKING))
 	pushEvent(t, fake, mentionOf(bob, self, "the migration needs you"))
@@ -405,15 +409,13 @@ func TestServer_HoldsAMentionUntilTheTurnEnds(t *testing.T) {
 
 	// The turn ends, and what waited is delivered as the one thing worth saying.
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_DONE))
-	waitNotices(t, sink,
-		"[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool")
+	waitNotices(t, sink, waiting)
 
 	// Nothing waits any more, so the next report that ends a turn says nothing.
 	fake.setUnread(0)
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_WORKING))
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_DONE))
-	waitNotices(t, sink,
-		"[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool")
+	waitNotices(t, sink, waiting)
 }
 
 // Whatever was said while nothing was attending was said to nobody here, so
@@ -442,7 +444,9 @@ func TestServer_DeliversWhatWaitedWhenItAttendsAgain(t *testing.T) {
 	dropFeed(t, fake, status.Error(codes.Unavailable, "the daemon is going away"))
 
 	waitNotices(t, sink,
-		"[crabswarm chat] 1 unread message mentions you — read it with the chat_read tool")
+		"[crabswarm chat] 1 unread message mentions you"+
+			" — read it with the chat_read tool and respond with chat_send,"+
+			" both from crabswarm-mcp")
 }
 
 // A harness this server has no channel for attends as one the daemon types at,

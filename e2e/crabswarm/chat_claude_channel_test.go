@@ -199,7 +199,8 @@ func TestChat_TheClaudeChannelTakesTheMentionsItsDaemonNoLongerTypes(t *testing.
 	// wrote and which room, and no keystroke is typed anywhere.
 	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "the migration needs you")
 	arrival := "[crabswarm chat] new message from " + chatBridgeBob +
-		" — read it with the chat_read tool"
+		" — read it with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 	content, meta := nextChannelEvent(t, events)
 	if content != arrival {
 		t.Errorf("the channel event carried %q, want %q", content, arrival)
@@ -223,7 +224,9 @@ func TestChat_TheClaudeChannelTakesTheMentionsItsDaemonNoLongerTypes(t *testing.
 	// still unread — an event is not a read — so the count is two.
 	runChat(t, cfg, "tok-ana", "report-state", "done")
 	content, meta = nextChannelEvent(t, events)
-	waiting := "[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool"
+	waiting := "[crabswarm chat] 2 unread messages mention you" +
+		" — read them with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 	if content != waiting {
 		t.Errorf("the channel event carried %q, want %q", content, waiting)
 	}

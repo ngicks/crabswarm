@@ -125,7 +125,8 @@ func TestChatOpenCode_ABridgeDeliversThroughThePluginsRelay(t *testing.T) {
 	arrival := relayNotice{
 		From: chatBridgeBob,
 		Content: "[crabswarm chat] new message from " + chatBridgeBob +
-			" — read it with the chat_read tool",
+			" — read it with the chat_read tool and respond with chat_send," +
+			" both from crabswarm-mcp",
 	}
 	relay.waitNotices(t, arrival)
 	// A nudge is typed while the send is being served, so by now there would be
@@ -148,7 +149,8 @@ func TestChatOpenCode_ABridgeDeliversThroughThePluginsRelay(t *testing.T) {
 	runChat(t, cfg, "tok-ana", "report-state", "done")
 	relay.waitNotices(t, arrival, relayNotice{
 		Content: "[crabswarm chat] 2 unread messages mention you — " +
-			"read them with the chat_read tool",
+			"read them with the chat_read tool and respond with chat_send," +
+			" both from crabswarm-mcp",
 	})
 	if keys := stubSendKeys(t, cfg); keys != nil {
 		t.Errorf("cmdman send-keys invocations = %q, want none", keys)

@@ -1075,7 +1075,8 @@ func TestChat_ReadToKeepsOnlyWhatNamesTheRole(t *testing.T) {
 func chatNudgeKeys(token, from string) []string {
 	return []string{
 		token + " [crabswarm chat] new message from " + from +
-			" — read it with the chat_read tool",
+			" — read it with the chat_read tool and respond with chat_send," +
+			" both from crabswarm-mcp",
 		token + " Enter",
 	}
 }
@@ -1638,7 +1639,8 @@ func TestChat_OnlyAnAgentIsTypedAt(t *testing.T) {
 	got := stubSendKeys(t, cfg)
 	want := []string{
 		"tok-ana [crabswarm chat] new message from humans/yuki" +
-			" — read it with the chat_read tool",
+			" — read it with the chat_read tool and respond with chat_send," +
+			" both from crabswarm-mcp",
 		"tok-ana Enter",
 	}
 	if !slices.Equal(got, want) {

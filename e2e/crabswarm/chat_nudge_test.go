@@ -175,7 +175,8 @@ func TestChat_ABridgeDeliversTheMentionsItsDaemonNoLongerTypes(t *testing.T) {
 	// no keystroke is typed anywhere.
 	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "the migration needs you")
 	arrival := "[crabswarm chat] new message from " + chatBridgeBob +
-		" — read it with the chat_read tool"
+		" — read it with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 	waitChatSinkNotices(t, sink, arrival)
 	// A nudge is typed while the send is being served, so by now there would be
 	// one to read.
@@ -192,7 +193,9 @@ func TestChat_ABridgeDeliversTheMentionsItsDaemonNoLongerTypes(t *testing.T) {
 	// still unread — a notice is not a read — so the count is two.
 	runChat(t, cfg, "tok-ana", "report-state", "done")
 	waitChatSinkNotices(t, sink, arrival,
-		"[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool")
+		"[crabswarm chat] 2 unread messages mention you"+
+			" — read them with the chat_read tool and respond with chat_send,"+
+			" both from crabswarm-mcp")
 	if keys := stubSendKeys(t, cfg); keys != nil {
 		t.Errorf("cmdman send-keys invocations = %q, want none", keys)
 	}
