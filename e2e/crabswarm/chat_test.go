@@ -774,7 +774,7 @@ func TestChat(t *testing.T) {
 		t.Errorf("read after the board post = %q, want nothing unread", got)
 	}
 
-	// report-state is driven by harness hooks, so it stays silent.
+	// report-state is driven by a harness plugin or hook, so it stays silent.
 	if got := runChat(t, cfg, "tok-ana", "report-state", "done"); got != "" {
 		t.Errorf("report-state wrote %q, want nothing", got)
 	}

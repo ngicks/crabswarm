@@ -98,8 +98,8 @@ type Prober interface {
 //
 // Claude Code has the agents listing and Codex has its app server, so both
 // implement this. A harness with no feed says nothing here, and the daemon
-// reads that member's terminal instead. Nothing reports a state through a hook
-// any more: a hook only fires on the events its harness announces, so an
+// reads that member's terminal instead. A feed is preferred over a hook for
+// the state: a hook only fires on the events its harness announces, so an
 // interrupted turn would leave a member marked working with nothing to correct
 // it.
 //
