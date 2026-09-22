@@ -190,6 +190,19 @@ func TestHarnessFixture_FakechatChannelNotification(t *testing.T) {
 	}
 }
 
+func TestHarnessFixture_FakechatPage(t *testing.T) {
+	page := harnessFixtureBytes(t, "fakechat-page.html")
+	// The whole of what a probe recognises the plugin by. A recording that lost
+	// it would be a page every probe rejects, and the fake serving it below would
+	// then keep the member out of every room.
+	if !bytes.Contains(page, []byte("<title>fakechat</title>")) {
+		t.Errorf(
+			"fixture %s does not carry the title a probe looks for",
+			filepath.Join(harnessFixtureDir, "fakechat-page.html"),
+		)
+	}
+}
+
 func TestHarnessFixture_FakechatLaunch(t *testing.T) {
 	harnessFixtureBytes(t, "fakechat-launch.md")
 }

@@ -43,13 +43,24 @@ func fakechatEnv(channel, port string) func(string) string {
 	}
 }
 
-// fakechatPage is the head of the page the plugin answers GET / with, as its
-// own server writes it. A probe recognises the plugin by the title alone, so
-// the title is all a stand-in has to carry.
-const fakechatPage = `<!doctype html>
-<meta charset="utf-8">
-<title>fakechat</title>
-`
+// recordedFakechatPage is the page the real plugin answered GET / with, byte for
+// byte as its own server wrote it.
+//
+// Read rather than spelled out: a probe recognises the plugin by one string it
+// looks for in that page, and a stand-in serving a page written by hand would
+// agree with the string this package happens to hold instead of with the page the
+// plugin serves.
+func recordedFakechatPage(t *testing.T) string {
+	t.Helper()
+
+	path := filepath.Join(fixtureDir, "fakechat-page.html")
+	b, err := os.ReadFile(path)
+	assert.NilError(t, err)
+	// A recording that read as nothing would be a page every probe rejects, which
+	// would pass the cases that expect a refusal.
+	assert.Assert(t, len(b) > 0, "%s is empty", path)
+	return string(b)
+}
 
 // uploadID is the shape of an id the plugin is posted. It numbers the uploads
 // of this process, so a case can say what it looks like but not what it is.
@@ -232,7 +243,7 @@ func TestNewClaudeCode_FallsBackToThePortThePluginBindsItself(t *testing.T) {
 // launched with the plugin attends as a member the daemon never types at, and
 // as one the server can ask whether its channel is there.
 func TestDetect_TheClaudeChannelIsAskedBeforeItAttends(t *testing.T) {
-	plugin := startFakePlugin(t, fakechatPage, http.StatusNoContent, "")
+	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusNoContent, "")
 
 	h := Detect("claude-code", fakechatEnv("1", plugin.port(t)))
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CLAUDE_CODE)
@@ -279,7 +290,7 @@ func TestFakechat_ProbeRefusesWhateverElseHoldsThePort(t *testing.T) {
 // room's, and the id is this process's own.
 func TestFakechat_PostsTheNoticeAsAnUpload(t *testing.T) {
 	recorded := recordedFakechatUpload(t)
-	plugin := startFakePlugin(t, fakechatPage, http.StatusNoContent, "")
+	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusNoContent, "")
 
 	h := Detect("claude-code", fakechatEnv("1", plugin.port(t)))
 	text := "[crabswarm chat] new message from team/bob"
@@ -305,7 +316,7 @@ func TestFakechat_PostsTheNoticeAsAnUpload(t *testing.T) {
 // Two mentions are two messages, and the plugin tells them apart by the id it
 // is posted.
 func TestFakechat_GivesEachUploadAnIDOfItsOwn(t *testing.T) {
-	plugin := startFakePlugin(t, fakechatPage, http.StatusNoContent, "")
+	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusNoContent, "")
 
 	h := Detect("claude-code", fakechatEnv("1", plugin.port(t)))
 	assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "first"}))
@@ -323,7 +334,7 @@ func TestFakechat_GivesEachUploadAnIDOfItsOwn(t *testing.T) {
 // reached the session: the caller leaves the mention outstanding and comes back
 // to it.
 func TestFakechat_ARefusedUploadIsNotDelivered(t *testing.T) {
-	plugin := startFakePlugin(t, fakechatPage, http.StatusBadRequest, "missing id")
+	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusBadRequest, "missing id")
 
 	err := Detect("claude-code", fakechatEnv("1", plugin.port(t))).
 		Deliver(t.Context(), Notice{Text: "hi"})

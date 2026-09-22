@@ -1,7 +1,6 @@
 package crabswarm_test
 
 import (
-	"io"
 	"maps"
 	"net"
 	"net/http"
@@ -26,12 +25,6 @@ import (
 // two is in that server: the page it answers a probe with, and the upload route
 // it takes a notice on.
 
-// fakechatPage is what a probe recognises the plugin by, cut down to the title
-// the bridge looks for. A loopback port answering 200 is not a channel, so the
-// page is the part that matters and the rest of the plugin's UI is not.
-const fakechatPage = "<!doctype html>\n<html><head><title>fakechat</title></head>" +
-	"<body>a stand-in for the plugin's chat UI</body></html>\n"
-
 // fakechatUpload is one notice as the plugin reads it off its own form: the id
 // it delivers the message under, and the text the model is handed.
 type fakechatUpload struct {
@@ -51,6 +44,10 @@ type fakechatRequest struct {
 // posted.
 type fakeFakechat struct {
 	port string
+	// page is what a probe reads, which is the plugin's own page as it was
+	// recorded. A page written by hand here would only agree with whatever the
+	// bridge happens to look for, where this agrees with the plugin.
+	page []byte
 
 	mu       sync.Mutex
 	uploaded []fakechatUpload
@@ -87,7 +84,10 @@ func serveFakeFakechat(t *testing.T, ln net.Listener) *fakeFakechat {
 	if err != nil {
 		t.Fatalf("read the port off %s: %v", ln.Addr(), err)
 	}
-	fake := &fakeFakechat{port: port}
+	// Read once here rather than per request: the recording does not change while
+	// a case runs, and reading it off disk on the request a probe is waiting for
+	// would put a file read in the middle of an attendance.
+	fake := &fakeFakechat{port: port, page: harnessFixtureBytes(t, "fakechat-page.html")}
 	server := httptest.NewUnstartedServer(fake.handler())
 	// The test server opens a listener of its own, and the one that matters is
 	// the port the bridge was told about.
@@ -107,7 +107,7 @@ func (f *fakeFakechat) handler() http.Handler {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/":
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = io.WriteString(w, fakechatPage)
+			_, _ = w.Write(f.page)
 		case r.Method == http.MethodPost && r.URL.Path == "/upload":
 			f.take(w, r)
 		default:

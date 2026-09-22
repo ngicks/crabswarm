@@ -200,13 +200,13 @@ Worth knowing when replaying this against a fake server:
 
 ## fakechat plugin channel
 
-`fakechat-upload.http`, `fakechat-channel-notification.jsonl` and
-`fakechat-launch.md` record the official `fakechat` plugin: the loopback HTTP
-server it runs beside its MCP server, and the frame that server pushes into a
-Claude Code session which registered the plugin as a channel. These three
-files supersede `claude-channel-launch.md` and
-`claude-channel-notification.jsonl`, which stay as history of the
-development-channel approach.
+`fakechat-page.html`, `fakechat-upload.http`,
+`fakechat-channel-notification.jsonl` and `fakechat-launch.md` record the
+official `fakechat` plugin: the loopback HTTP server it runs beside its MCP
+server, and the frame that server pushes into a Claude Code session which
+registered the plugin as a channel. These four files supersede
+`claude-channel-launch.md` and `claude-channel-notification.jsonl`, which stay
+as history of the development-channel approach.
 
 Captured 2026-09-22 on the same host with:
 
@@ -230,6 +230,29 @@ tail -f /dev/null | FAKECHAT_PORT=18787 \
 host already held. Every launch in this section sets it. `err.log` took the one
 line the server prints on startup, `fakechat: http://localhost:18787`, and
 `out.log` took nothing but MCP frames.
+
+`fakechat-page.html` is the body the server answered `GET /` with, byte for
+byte, captured the same day on bun 1.3.13 and plugin version 0.0.1:
+
+```sh
+mkfifo fifo
+exec 3<>fifo
+FAKECHAT_PORT=18790 \
+  bun "$CLAUDE_CONFIG_DIR/plugins/cache/claude-plugins-official/fakechat/0.0.1/server.ts" \
+  < fifo > out.log 2> err.log &
+curl -s --retry-connrefused --retry 20 --retry-delay 1 \
+  -o fakechat-page.html http://127.0.0.1:18790/
+kill $!
+```
+
+The fifo holds the server's stdin open, which is what the `tail -f /dev/null`
+in the launch above does. A fifo does it here because it closes with the shell
+and leaves no writer behind to stop. The port is again one of its own, 18790,
+and nothing was left listening on it afterwards. The page is a constant in
+`server.ts` and names no port, so this is a page rather than a template: it is
+identical whatever port the server was started on, and the
+`<title>fakechat</title>` a probe recognises the plugin by is in it as the
+plugin writes it.
 
 `fakechat-upload.http` is the request the server answered 204 to, byte for byte
 as curl sent it. A throwaway Go program listened on 28787, copied the client's
