@@ -180,16 +180,45 @@ func TestCodex_DeliversTheNoticeAsATurn(t *testing.T) {
 	assert.Equal(t, strings.Contains(started.Input[0].Text, "\n"), false)
 }
 
+// Codex loads helper threads beside the session — a system thread after every
+// turn, the guardian approval reviewer, memory consolidation — and the notice
+// goes to the one thread a person is in front of, whichever of them it is.
+func TestCodex_DeliversPastTheHelperThreads(t *testing.T) {
+	for _, helper := range []string{"system", "guardian_review", "memory_consolidation"} {
+		t.Run(helper, func(t *testing.T) {
+			f := startCodexFake(t)
+			thread := f.rec.threadId(t)
+			f.loaded = []string{"helper-" + helper, thread}
+			f.sources = map[string]string{"helper-" + helper: helper}
+			h, _ := newCodexHarness(f)
+
+			assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "hi"}))
+
+			assert.DeepEqual(t, f.methods(), []string{
+				"initialize", "initialized", "thread/loaded/list",
+				"thread/read", "thread/read", "thread/resume", "turn/start",
+			})
+			var started struct {
+				ThreadId string `json:"threadId"`
+			}
+			assert.NilError(t, json.Unmarshal(f.paramsOf(t, "turn/start"), &started))
+			assert.Equal(t, started.ThreadId, thread)
+		})
+	}
+}
+
 // An app server that cannot say which thread the agent is in front of is not
 // guessed at: nothing is started, the refusal says how many it held, and the
-// server that asked keeps the mention outstanding.
+// server that asked keeps the mention outstanding. The fake answers every
+// thread it is not told about as a person's, so two loaded threads are two
+// sessions.
 func TestCodex_SkipsADeliveryItCannotBind(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		loaded []string
 	}{
 		{"no thread is loaded", nil},
-		{"several threads are loaded", []string{"one", "two"}},
+		{"several people's threads are loaded", []string{"one", "two"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := startCodexFake(t, tc.loaded...)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -115,8 +116,11 @@ type codexFake struct {
 	path string
 	rec  codexRecording
 
-	mu       sync.Mutex
-	loaded   []string
+	mu     sync.Mutex
+	loaded []string
+	// sources is the threadSource each loaded thread reports, by id. A thread
+	// missing here is a person's, which is what the recording holds.
+	sources  map[string]string
 	requests []codexRequest
 	conns    []*websocket.Conn
 }
@@ -194,6 +198,7 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 	f.mu.Lock()
 	f.requests = append(f.requests, codexRequest{Method: frame.Method, Params: frame.Params})
 	loaded := slices.Clone(f.loaded)
+	sources := maps.Clone(f.sources)
 	f.mu.Unlock()
 
 	if len(frame.Id) == 0 {
@@ -203,18 +208,57 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 	if !ok {
 		result = json.RawMessage(`{}`)
 	}
-	if frame.Method == "thread/loaded/list" {
+	switch frame.Method {
+	case "thread/loaded/list":
 		ids, err := json.Marshal(loaded)
 		if err != nil {
 			return
 		}
 		result = json.RawMessage(`{"data":` + string(ids) + `,"nextCursor":null}`)
+	case "thread/read":
+		var err error
+		if result, err = threadReadAnswer(result, frame.Params, sources); err != nil {
+			return
+		}
 	}
 	reply, err := json.Marshal(map[string]json.RawMessage{"id": frame.Id, "result": result})
 	if err != nil {
 		return
 	}
 	_ = conn.Write(context.Background(), websocket.MessageText, reply)
+}
+
+// threadReadAnswer is the recorded thread/read answer re-addressed to the thread
+// params asked about, with the source that thread was given. The recording read
+// one thread, a person's; a case about the helpers Codex loads beside a session
+// needs the same shape to say something else.
+func threadReadAnswer(
+	recorded json.RawMessage, params json.RawMessage, sources map[string]string,
+) (json.RawMessage, error) {
+	var asked struct {
+		ThreadId string `json:"threadId"`
+	}
+	if err := json.Unmarshal(params, &asked); err != nil {
+		return nil, err
+	}
+	var answer struct {
+		Thread map[string]json.RawMessage `json:"thread"`
+	}
+	if err := json.Unmarshal(recorded, &answer); err != nil {
+		return nil, err
+	}
+	source := codexUserThread
+	if s, ok := sources[asked.ThreadId]; ok {
+		source = s
+	}
+	var err error
+	if answer.Thread["id"], err = json.Marshal(asked.ThreadId); err != nil {
+		return nil, err
+	}
+	if answer.Thread["threadSource"], err = json.Marshal(source); err != nil {
+		return nil, err
+	}
+	return json.Marshal(answer)
 }
 
 func (f *codexFake) joined(conn *websocket.Conn) {

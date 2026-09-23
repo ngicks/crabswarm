@@ -121,12 +121,22 @@ func (c *codex) deliverOn(ctx context.Context, cli *codexClient, n Notice) error
 // say which one this session is.
 var errCodexUnbound = errors.New("no single loaded codex thread to deliver to")
 
-// bind names the thread a delivery goes to: the one thread the app server
-// holds in memory.
+// bind names the thread a delivery goes to: the one loaded thread a person is
+// sitting in front of.
 //
-// Anything else is refused rather than guessed at. An app server hosting
-// several loaded threads cannot say which of them the agent is sitting in
-// front of, and a turn started on the wrong one would interrupt a session
+// The app server does not hold that thread alone. Codex loads helpers beside a
+// session — a `system` thread for about a minute after every turn, the guardian
+// approval reviewer, memory consolidation — and each of them is a loaded thread
+// too, so counting is no way to find the session. What tells them apart is the
+// thread's own source: a person's thread says `user`, a helper says what it is.
+// A parent link would not do, since the post-turn system thread has none.
+//
+// A lone loaded thread is taken as the session without asking: a helper only
+// ever exists beside the session it serves.
+//
+// Several threads of a person's are refused rather than guessed at. An app
+// server hosting more than one cannot say which of them the agent is sitting
+// in front of, and a turn started on the wrong one would interrupt a session
 // nobody addressed. The notice stays unread in the room, which is where the
 // member's own next read finds it.
 func (c *codex) bind(ctx context.Context, cli *codexClient) (string, error) {
@@ -134,11 +144,24 @@ func (c *codex) bind(ctx context.Context, cli *codexClient) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(loaded) != 1 {
-		return "", fmt.Errorf("%w: the app server on %s holds %d of them",
-			errCodexUnbound, c.path, len(loaded))
+	if len(loaded) == 1 {
+		return loaded[0], nil
 	}
-	return loaded[0], nil
+	var users []string
+	for _, id := range loaded {
+		thread, err := cli.readThread(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		if thread.Source == codexUserThread {
+			users = append(users, id)
+		}
+	}
+	if len(users) != 1 {
+		return "", fmt.Errorf("%w: the app server on %s holds %d, %d of them a person's",
+			errCodexUnbound, c.path, len(loaded), len(users))
+	}
+	return users[0], nil
 }
 
 // lend publishes the watcher's connection for a delivery to ride.

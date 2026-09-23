@@ -128,6 +128,34 @@ func (c *codexClient) loadedThreads(ctx context.Context) ([]string, error) {
 	return res.Data, nil
 }
 
+// codexThread is what a delivery needs to know about one loaded thread: whose
+// it is.
+type codexThread struct {
+	Id     string `json:"id"`
+	Source string `json:"threadSource"`
+}
+
+// codexUserThread is the threadSource of a thread a person is sitting in front
+// of. Every other value names a helper the app server runs beside the session:
+// `system` for the minute after a turn, `guardian_review` for the approval
+// reviewer, `memory_consolidation`, and whatever else a later Codex adds.
+const codexUserThread = "user"
+
+// readThread reads one loaded thread without its turns, which is all a binding
+// needs and far less than the whole history a session of any length carries.
+func (c *codexClient) readThread(ctx context.Context, threadId string) (codexThread, error) {
+	var res struct {
+		Thread codexThread `json:"thread"`
+	}
+	if err := c.rpc.CallResult(ctx, "thread/read", map[string]any{
+		"threadId":     threadId,
+		"includeTurns": false,
+	}, &res); err != nil {
+		return codexThread{}, fmt.Errorf("reading the codex thread %s: %w", threadId, err)
+	}
+	return res.Thread, nil
+}
+
 // subscribe subscribes this connection to a thread's events, once per thread.
 //
 // The answer is the whole thread and is thrown away: the call is made for the

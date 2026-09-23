@@ -33,9 +33,14 @@ import (
 // fake of their own; that one lives in a test file and cannot be imported, so
 // this is the small second copy.
 
-// codexFakeThread is the thread the fake says it has loaded, so the MCP server
-// has exactly one to bind to.
+// codexFakeThread is the thread the fake says a person is sitting in front of,
+// which is the one the MCP server has to bind to.
 const codexFakeThread = "01a0afbe-2c74-7452-a0fd-6858a3d7a885"
+
+// codexFakeGuardian is loaded beside it, the way Codex keeps its guardian
+// approval reviewer loaded under a session. It is there so a delivery has to
+// tell the two apart the way it must on a real app server.
+const codexFakeGuardian = "01a0c58c-ce42-78b2-8eea-5d3d232fc421"
 
 // codexAppServer is a fake app server on a unix socket.
 type codexAppServer struct {
@@ -44,7 +49,9 @@ type codexAppServer struct {
 	mu     sync.Mutex
 	turns  []string
 	loaded []string
-	conns  []*websocket.Conn
+	// sources is the threadSource each loaded thread reports.
+	sources map[string]string
+	conns   []*websocket.Conn
 	// accepted is every connection the fake has taken since it started, the
 	// closed ones included. Counted rather than measured off the live ones: a
 	// delivery that dialled a connection of its own closes it again, and by the
@@ -68,7 +75,11 @@ func startCodexAppServer(t *testing.T) *codexAppServer {
 
 	f := &codexAppServer{
 		addr:   filepath.Join(dir, "app.sock"),
-		loaded: []string{codexFakeThread},
+		loaded: []string{codexFakeGuardian, codexFakeThread},
+		sources: map[string]string{
+			codexFakeThread:   "user",
+			codexFakeGuardian: "guardian_review",
+		},
 	}
 	ln, err := net.Listen("unix", f.addr)
 	if err != nil {
