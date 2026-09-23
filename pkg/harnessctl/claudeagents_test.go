@@ -186,13 +186,15 @@ func TestClaudeAgentHarnessState_WaitingWhateverTheReason(t *testing.T) {
 }
 
 // The recorded listing parses into the fields the feed reads, and the one live
-// session in it is a busy one, which is a session working.
+// session in it is the interactive one, busy, which is a session working. An
+// interactive session carries no state of its own, so the feed's verdict comes
+// from status alone.
 func TestClaudeAgents_TheFixtureParses(t *testing.T) {
 	listing, live := claudeAgentsFixture(t)
 	assert.Equal(t, len(listing), 2)
-	assert.Equal(t, live.Kind, claudeKindBackground)
+	assert.Equal(t, live.Kind, claudeKindInteractive)
 	assert.Equal(t, live.Status, claudeStatusBusy)
-	assert.Equal(t, live.State, claudeStateWorking)
+	assert.Equal(t, live.State, claudeAgentState(""))
 
 	state, ok := claudeAgentHarnessState(live)
 	assert.Assert(t, ok)

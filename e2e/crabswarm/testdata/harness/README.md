@@ -129,11 +129,113 @@ transcript-saving warning from the launching session.
 claude agents --json
 ```
 
-captured 2026-09-21 with Claude Code 2.1.274, from a shell outside any Claude
-Code session. The command needs no TTY and prints every session recorded under
-`<config home>/sessions/` as one JSON array; `--all` adds finished background
-sessions. The capture holds two background sessions: one finished, with `state`
-and no `status`, and one live, with both.
+captured 2026-09-24 with Claude Code 2.1.281, from a shell beside an
+interactive session: a Bash tool call of that session itself, which runs in the
+session's container and PID namespace. The command needs no TTY and prints every
+session recorded under `<config home>/sessions/` as one JSON array; `--all` adds
+finished background sessions. The capture holds one finished background session,
+with `state` and no `status`, and the live interactive session, with `pid` and
+`status` and no `state`. The file is the busy moment below, verbatim.
+
+### The launcher isolation
+
+The session ran under the `claude` command of a cmdman compose project, one
+podman container per replica, launched as
+
+```sh
+FAKECHAT_PORT=9943 CRABSWARM_CLAUDE_CHANNEL=1 claude --channels plugin:fakechat@claude-plugins-official
+```
+
+Inside the container `claude` is pid 2 under `podman-init`, in a PID namespace of
+its own. The registry directory `<config home>/sessions/` is a tmpfs mount of
+its own, and `cc-socks/` sits under `/run/user/1000/`, a tmpfs of the container,
+so no other session shares either. `df -aT` shows both mounts; the record
+`sessions/2.json` carries `"pid":2`, the session's UUID and
+`"pidDomain":"linux::pid:[…]"`, the namespace `readlink /proc/self/ns/pid`
+prints from inside.
+
+### The identity the spawned server sees
+
+The environment of the `crabswarm mcp` process the session spawned, read from
+`/proc/<pid>/environ`, carried
+
+```
+CLAUDE_CODE_SESSION_ID=76d3d5de-09b1-4cef-b786-1db9974f53ed
+CLAUDE_CONFIG_DIR=/root/.config/claude
+CLAUDE_CODE_ENTRYPOINT=cli
+CLAUDECODE=1
+CRABSWARM_CLAUDE_CHANNEL=1
+FAKECHAT_PORT=9943
+CMDMAN_CMD_ID=aa7a8c63a3cd8a425dade306d689cbff
+XDG_RUNTIME_DIR=/run/user/1000/
+```
+
+and the listing's interactive entry carries that same UUID as `sessionId`. The
+feed matches on it (`pkg/harnessctl/claudeagents.go`).
+
+### The three moments
+
+One sampler ran `claude agents --json` every 0.3 s and kept each output whose
+status differed from the previous one. Each block is verbatim; the finished
+background entry that precedes the interactive one in every output is left out
+here and kept in the fixture.
+
+Busy, while the main turn was over and a background subagent kept building and
+testing; the status held without a change for the whole subagent run:
+
+```json
+{
+  "pid": 2,
+  "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+  "kind": "interactive",
+  "startedAt": 1790197322621,
+  "sessionId": "76d3d5de-09b1-4cef-b786-1db9974f53ed",
+  "name": "crabswarm-44",
+  "status": "busy"
+}
+```
+
+Waiting, while a permission dialog for a Bash tool call stood open:
+
+```json
+{
+  "pid": 2,
+  "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+  "kind": "interactive",
+  "startedAt": 1790197322621,
+  "sessionId": "76d3d5de-09b1-4cef-b786-1db9974f53ed",
+  "name": "crabswarm-44",
+  "status": "waiting",
+  "waitingFor": "permission prompt"
+}
+```
+
+Idle, after a turn was interrupted with Esc and the session sat at the prompt:
+
+```json
+{
+  "pid": 2,
+  "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+  "kind": "interactive",
+  "startedAt": 1790197322621,
+  "sessionId": "76d3d5de-09b1-4cef-b786-1db9974f53ed",
+  "name": "crabswarm-44",
+  "status": "idle"
+}
+```
+
+Two things the capture taught about how to take one:
+
+- A permission dialog only opens in a permission mode that asks. Under auto
+  mode the classifier answers in the dialog's place and the status never leaves
+  busy, so the waiting moment was recorded after switching the session to the
+  default mode.
+- A process the session's own Bash tool starts, detached or not, does not run
+  once the turn ends, so a sampler inside the session sees neither the idle
+  between turns nor the interruption. The idle moment was read from the host
+  with `podman exec <container> claude agents --json`.
+
+### The fields
 
 The fields a state feed decodes, as the Claude Code documentation lists them on
 the agent-view page under "List sessions as JSON":
@@ -147,12 +249,10 @@ the agent-view page under "List sessions as JSON":
 | `state` | `working`, `blocked`, `done`, `failed`, `stopped` | background sessions only |
 
 An interactive session carries `status` and never `state`; a background session
-carries `state` always and `status` while its process lives. The registry
-record's own `shell` status prints as `busy`. The capture itself shows only
-`busy`, `done` and `working`. `status` is the live answer and `state` the
-session's own account of its progress, so a feed reads `status` first and falls
-back to `state` when it is absent. `waitingFor` is display text, not a state of
-its own.
+carries `state` always and `status` while its process lives. `status` is the
+live answer and `state` the session's own account of its progress, so a feed
+reads `status` first and falls back to `state` when it is absent. `waitingFor`
+is display text, not a state of its own.
 
 Two properties of the registry shape what a reader can rely on:
 
