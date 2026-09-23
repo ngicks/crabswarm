@@ -121,6 +121,152 @@ cleared `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_JOB_DIR`,
 `CLAUDECODE` and `CLAUDE_CODE_ENTRYPOINT` so the captures do not carry a
 transcript-saving warning from the launching session.
 
+## Claude Code agents listing
+
+`claude-agents.json` is the output of
+
+```sh
+claude agents --json
+```
+
+captured 2026-09-24 with Claude Code 2.1.281, from a shell beside an
+interactive session: a Bash tool call of that session itself, which runs in the
+session's container and PID namespace. The command needs no TTY and prints every
+session recorded under `<config home>/sessions/` as one JSON array; `--all` adds
+finished background sessions. The capture holds one finished background session,
+with `state` and no `status`, and the live interactive session, with `pid` and
+`status` and no `state`. The file is the busy moment below, verbatim.
+
+### The launcher isolation
+
+The session ran under the `claude` command of a cmdman compose project, one
+podman container per replica, launched as
+
+```sh
+FAKECHAT_PORT=9943 CRABSWARM_CLAUDE_CHANNEL=1 claude --channels plugin:fakechat@claude-plugins-official
+```
+
+Inside the container `claude` is pid 2 under `podman-init`, in a PID namespace of
+its own. The registry directory `<config home>/sessions/` is a tmpfs mount of
+its own, and `cc-socks/` sits under `/run/user/1000/`, a tmpfs of the container,
+so no other session shares either. `df -aT` shows both mounts; the record
+`sessions/2.json` carries `"pid":2`, the session's UUID and
+`"pidDomain":"linux::pid:[…]"`, the namespace `readlink /proc/self/ns/pid`
+prints from inside.
+
+### The identity the spawned server sees
+
+The environment of the `crabswarm mcp` process the session spawned, read from
+`/proc/<pid>/environ`, carried
+
+```
+CLAUDE_CODE_SESSION_ID=76d3d5de-09b1-4cef-b786-1db9974f53ed
+CLAUDE_CONFIG_DIR=/root/.config/claude
+CLAUDE_CODE_ENTRYPOINT=cli
+CLAUDECODE=1
+CRABSWARM_CLAUDE_CHANNEL=1
+FAKECHAT_PORT=9943
+CMDMAN_CMD_ID=aa7a8c63a3cd8a425dade306d689cbff
+XDG_RUNTIME_DIR=/run/user/1000/
+```
+
+and the listing's interactive entry carries that same UUID as `sessionId`. The
+feed matches on it (`pkg/harnessctl/claudeagents.go`).
+
+### The three moments
+
+One sampler ran `claude agents --json` every 0.3 s and kept each output whose
+status differed from the previous one. Each block is verbatim; the finished
+background entry that precedes the interactive one in every output is left out
+here and kept in the fixture.
+
+Busy, while the main turn was over and a background subagent kept building and
+testing; the status held without a change for the whole subagent run:
+
+```json
+{
+  "pid": 2,
+  "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+  "kind": "interactive",
+  "startedAt": 1790197322621,
+  "sessionId": "76d3d5de-09b1-4cef-b786-1db9974f53ed",
+  "name": "crabswarm-44",
+  "status": "busy"
+}
+```
+
+Waiting, while a permission dialog for a Bash tool call stood open:
+
+```json
+{
+  "pid": 2,
+  "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+  "kind": "interactive",
+  "startedAt": 1790197322621,
+  "sessionId": "76d3d5de-09b1-4cef-b786-1db9974f53ed",
+  "name": "crabswarm-44",
+  "status": "waiting",
+  "waitingFor": "permission prompt"
+}
+```
+
+Idle, after a turn was interrupted with Esc and the session sat at the prompt:
+
+```json
+{
+  "pid": 2,
+  "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+  "kind": "interactive",
+  "startedAt": 1790197322621,
+  "sessionId": "76d3d5de-09b1-4cef-b786-1db9974f53ed",
+  "name": "crabswarm-44",
+  "status": "idle"
+}
+```
+
+Two things the capture taught about how to take one:
+
+- A permission dialog only opens in a permission mode that asks. Under auto
+  mode the classifier answers in the dialog's place and the status never leaves
+  busy, so the waiting moment was recorded after switching the session to the
+  default mode.
+- A process the session's own Bash tool starts, detached or not, does not run
+  once the turn ends, so a sampler inside the session sees neither the idle
+  between turns nor the interruption. The idle moment was read from the host
+  with `podman exec <container> claude agents --json`.
+
+### The fields
+
+The fields a state feed decodes, as the Claude Code documentation lists them on
+the agent-view page under "List sessions as JSON":
+
+| field | values | present when |
+| --- | --- | --- |
+| `kind` | `interactive`, `background` | always |
+| `sessionId` | the session's UUID | when set |
+| `pid`, `status` | `busy`, `waiting`, `idle` | the process is alive |
+| `waitingFor` | `permission prompt`, `input needed`, `sandbox request`, `worker request`, `dialog open` | `status` is `waiting` |
+| `state` | `working`, `blocked`, `done`, `failed`, `stopped` | background sessions only |
+
+An interactive session carries `status` and never `state`; a background session
+carries `state` always and `status` while its process lives. `status` is the
+live answer and `state` the session's own account of its progress, so a feed
+reads `status` first and falls back to `state` when it is absent. `waitingFor`
+is display text, not a state of its own.
+
+Two properties of the registry shape what a reader can rely on:
+
+- The record is `<config home>/sessions/<pid>.json`, keyed by the harness's pid
+  in its own PID namespace, and the listing drops a record whose pid or process
+  start time no longer matches a live process in the caller's namespace. Two
+  sessions in different PID namespaces sharing one config home can overwrite
+  each other's record, so the listing is only trustworthy when each namespace
+  has a registry of its own.
+- A record from another PID namespace is printed without `status`, whatever the
+  session is doing, so only a listing run beside the session sees its live
+  status. Match entries by `sessionId` and never by `cwd`: the listing covers
+  every session on the host.
+
 ## Codex app-server
 
 `codex-app-server.client.ndjson` and `codex-app-server.server.ndjson` are one
@@ -248,6 +394,114 @@ Timing seen while polling, not recorded in the pair:
 - A connection that has only done the handshake receives `thread/started`
   when a TUI attaches to the app server and starts its thread, so a client
   that connected before the session existed hears about it without polling.
+
+## fakechat plugin channel
+
+`fakechat-page.html`, `fakechat-upload.http`,
+`fakechat-channel-notification.jsonl` and `fakechat-launch.md` record the
+official `fakechat` plugin: the loopback HTTP server it runs beside its MCP
+server, and the frame that server pushes into a Claude Code session which
+registered the plugin as a channel. These four files supersede
+`claude-channel-launch.md` and `claude-channel-notification.jsonl`, which stay
+as history of the development-channel approach.
+
+Captured 2026-09-22 on the same host with:
+
+| tool | version |
+| --- | --- |
+| Claude Code | 2.1.278 |
+| bun | 1.3.13 |
+| fakechat plugin | 0.0.1 |
+| cmdman | 0.0.26 |
+
+The plugin's own `server.ts` made the recording. It ran by absolute path, with
+its stdin held open so the MCP transport stayed up and its stdout stayed a log:
+
+```sh
+tail -f /dev/null | FAKECHAT_PORT=18787 \
+  bun "$CLAUDE_CONFIG_DIR/plugins/cache/claude-plugins-official/fakechat/0.0.1/server.ts" \
+  > out.log 2> err.log
+```
+
+`FAKECHAT_PORT` replaces the plugin's default 8787, which a live session on the
+host already held. Every launch in this section sets it. `err.log` took the one
+line the server prints on startup, `fakechat: http://localhost:18787`, and
+`out.log` took nothing but MCP frames.
+
+`fakechat-page.html` is the body the server answered `GET /` with, byte for
+byte, captured the same day on bun 1.3.13 and plugin version 0.0.1:
+
+```sh
+mkfifo fifo
+exec 3<>fifo
+FAKECHAT_PORT=18790 \
+  bun "$CLAUDE_CONFIG_DIR/plugins/cache/claude-plugins-official/fakechat/0.0.1/server.ts" \
+  < fifo > out.log 2> err.log &
+curl -s --retry-connrefused --retry 20 --retry-delay 1 \
+  -o fakechat-page.html http://127.0.0.1:18790/
+kill $!
+```
+
+The fifo holds the server's stdin open, which is what the `tail -f /dev/null`
+in the launch above does. A fifo does it here because it closes with the shell
+and leaves no writer behind to stop. The port is again one of its own, 18790,
+and nothing was left listening on it afterwards. The page is a constant in
+`server.ts` and names no port, so this is a page rather than a template: it is
+identical whatever port the server was started on, and the
+`<title>fakechat</title>` a probe recognises the plugin by is in it as the
+plugin writes it.
+
+`fakechat-upload.http` is the request the server answered 204 to, byte for byte
+as curl sent it. A throwaway Go program listened on 28787, copied the client's
+bytes into the fixture through an `io.MultiWriter` and forwarded them to 18787
+unparsed, then copied the response back. curl connected to that relay while
+addressing the server, so the recorded `Host` header names the real port:
+
+```sh
+curl --connect-to 127.0.0.1:18787:127.0.0.1:28787 \
+  --form-string id=crabswarm-1 \
+  --form-string 'text=[crabswarm chat] new message from team/bob — …' \
+  http://127.0.0.1:18787/upload
+```
+
+The fixture holds the full `text` field; the line above shortens it. curl chose
+the boundary `------------------------jJ5AtftPT4iZsyuUkIlYeo` and wrote it into
+both the `Content-Type` header and the body, so no part of the file was picked
+by hand. The relay copies raw bytes, so the CRLF line endings and the trailing
+closing boundary are the ones that crossed the wire.
+
+Two deviations from the obvious recipe:
+
+- The capture went through the relay rather than `curl --trace-ascii`. The ascii
+  trace drops the CR of each CRLF and replaces non-printable bytes with dots, so
+  its output cannot be turned back into the request.
+- The fields went in as `--form-string` rather than `-F`. `-F` reads a leading
+  `@` or `<` in a value as a file reference, and the text starts with `[`.
+
+`fakechat-channel-notification.jsonl` is the whole of `out.log` after that one
+upload: a single `notifications/claude/channel` frame, 309 bytes including its
+newline. The server wrote nothing else to stdout, so no line was left out of the
+fixture. `params.meta.message_id` repeats the `id` field of the upload and ties
+the frame to the request beside it. The server sends the frame without any
+`initialize` handshake, since nothing was written to its stdin.
+
+`fakechat-launch.md` records how an interactive session and a background session
+each register the plugin, captured the way the Claude Code screens above were:
+
+```sh
+cmdman run -t --rm -n fakechat-launch -w <scratch dir> -- \
+  env -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_CODE_SESSION_ID \
+      -u CLAUDE_JOB_DIR -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT \
+      FAKECHAT_PORT=18788 claude --model haiku \
+      --channels plugin:fakechat@claude-plugins-official
+cmdman capture-screen fakechat-launch
+cmdman stop fakechat-launch
+```
+
+A `GET /` on the launch port proves the plugin server read `FAKECHAT_PORT` out of
+the launch environment: it answers 200 with a page titled `fakechat`. The
+background half ran the same `claude` line under `--bg --name <x>` with a prompt
+in front of `--channels`, and a post to its own port started a turn there too.
 
 ## Not captured
 

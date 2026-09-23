@@ -7,9 +7,12 @@ package chat
 
 // Harness is the CLI a member runs, as the member's own MCP server read it off
 // the MCP handshake. The empty value is a member nothing said this about: a
-// human, or a server whose handshake did not name a client it recognises.
+// human, or an agent whose server declared no harness at all. A server that
+// handshaked under a name nothing recognises declares [HarnessOther] instead.
 //
-// The daemon records it and shows it; nothing it does turns on it.
+// The daemon records it and shows it. One thing turns on it: the screen poller
+// reads the terminal of an agent attending as [HarnessOther] and of no other
+// member, since every harness this list names reports on a feed of its own.
 type Harness string
 
 const (

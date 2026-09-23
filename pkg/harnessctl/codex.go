@@ -25,7 +25,7 @@ const CodexAppServerEnv = "CRABSWARM_CODEX_APP_SERVER"
 
 // newCodex builds the codex channel, which is the app server the session is
 // hosted by. A Codex started without one is a terminal member.
-func newCodex(getenv func(string) string, _ Session) Harness {
+func newCodex(getenv func(string) string) Harness {
 	path, ok := codexSocket(getenv(CodexAppServerEnv))
 	if !ok {
 		return nil

@@ -109,14 +109,17 @@ func TestMCPPackage_DeclaresTheServer(t *testing.T) {
 // server started without them answers the handshake and then refuses every
 // tool, which is the failure this key exists to prevent.
 //
-// The two channel variables are here for a different reason. Each says the
-// session was launched so that its harness can be handed a mention directly —
-// Claude Code as a registered channel, Codex as an app server the session is
-// hosted by — and a server that is spawned without the one belonging to its
-// harness attends as a member the daemon types at instead. Neither stops the
-// server working, so a missing one costs a keystroke nudge rather than a
-// refusal, which is why they are listed together with the rest and not
-// separately.
+// The channel variables are here for a different reason. Each says the session
+// was launched so that its harness can be handed a mention directly — Claude
+// Code as a session that registered the fakechat plugin, on the loopback port
+// that plugin was launched with, Codex as an app server the session is hosted
+// by — and a server that is spawned without the one belonging to its harness
+// attends as a member the daemon types at instead. Dropping one costs a
+// keystroke nudge rather than a refusal, which is why they are listed together
+// with the rest and not separately — bar the port, which is dropped on its own
+// at a higher price: a session that forwards the channel variable without it
+// leaves its server looking for the plugin on the default 8787, and the member
+// does not attend at all while the plugin is elsewhere.
 func TestMCPPackage_ForwardsTheServersEnvironment(t *testing.T) {
 	server := declaredMCPServer(t)
 
@@ -125,6 +128,7 @@ func TestMCPPackage_ForwardsTheServersEnvironment(t *testing.T) {
 		"CRABSWARM_CHAT_TOKEN",
 		"CRABSWARM_CLAUDE_CHANNEL",
 		"CRABSWARM_CODEX_APP_SERVER",
+		"FAKECHAT_PORT",
 		"XDG_RUNTIME_DIR",
 	}
 	if !slices.Equal(server.EnvVars, want) {

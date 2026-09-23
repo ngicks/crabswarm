@@ -1,0 +1,20 @@
+[
+  {
+    "id": "7eda2488",
+    "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+    "kind": "background",
+    "startedAt": 1789891368947,
+    "sessionId": "7eda2488-ab16-4b7a-98cc-b8b8b314a225",
+    "name": "Crabswarm poll and supervised commands",
+    "state": "blocked"
+  },
+  {
+    "pid": 2,
+    "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+    "kind": "interactive",
+    "startedAt": 1790197322621,
+    "sessionId": "76d3d5de-09b1-4cef-b786-1db9974f53ed",
+    "name": "crabswarm-44",
+    "status": "busy"
+  }
+]

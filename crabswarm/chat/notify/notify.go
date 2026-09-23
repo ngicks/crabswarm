@@ -4,11 +4,11 @@
 //
 // It holds the daemon's two halves of that: [SendKeys], the implementor of the
 // chat broker's notification hook, which types a notice into an agent's
-// terminal; and [ScreenPoller], which reads the terminal of every attending
-// Claude Code session and records the state it shows. The poller is what keeps
-// the guard [SendKeys] nudges behind honest — Claude Code reports through hooks,
-// and a hook goes missing the moment a turn is interrupted. Every other harness
-// says what it is doing on a feed of its own, so nothing here polls it.
+// terminal; and [ScreenPoller], which reads the terminal of an attending
+// session whose harness nobody recognised and records the state it shows. The
+// poller is what keeps the guard [SendKeys] nudges behind honest for such a
+// member, since nothing else says whether its turn has ended. Every harness
+// this daemon names reports on a feed of its own, so nothing here polls it.
 //
 // The notification interface itself is declared at its consumer, in the chat
 // package, and the terminal machinery both halves are built on lives in
@@ -27,10 +27,10 @@ import (
 )
 
 // staleStateAfter is how long a reported working or waiting state is believed.
-// A state only changes when a harness hook reports the change, and a hook can
-// go missing — the user interrupts the session, or the harness has no idle
-// notification to hook in the first place — which would leave the member busy
-// forever and never nudged again. Past this, the report is treated as no
+// A state only changes when something reports the change, and a report can go
+// missing — a feed's bridge is gone, or the harness has no feed and no idle
+// notification at all — which would leave the member busy forever and never
+// nudged again. Past this, the report is treated as no
 // longer describing the terminal, and the screen snapshot in
 // [cmdman.Terminal.SendCommand] is what still stands between the nudge and a
 // terminal that is busy after all.
@@ -41,7 +41,8 @@ const staleStateAfter = 10 * time.Minute
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so a nudge passes three guards — the member is an agent, its last
-// reported harness state invites one (see [nudgeable]), and a snapshot of its
+// reported harness state invites one (done, or a stale working or waiting
+// report, as nudgeable below decides), and a snapshot of its
 // screen shows no dialog. A guard that declines drops the nudge and reports
 // success: the message is already in the room and unread for the recipient, so
 // it reads it at the end of its current turn instead of a moment from now.

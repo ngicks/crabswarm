@@ -1,6 +1,6 @@
 name: crabswarm-mcp
-version: 0.2.0
-description: Wires an agent harness into its crabswarm chat room — an MCP server attends the room, serves the chat verbs as tools and hands a mention to a harness it can reach itself, and hooks deliver teammates' messages mid-turn and at turn end.
+version: 0.3.0
+description: Wires an agent harness into its crabswarm chat room — an MCP server attends the room, serves the chat verbs as tools, reports what the session is doing and hands a mention to a harness it can reach itself; Codex additionally gets hooks that deliver teammates' messages mid-turn and at turn end.
 author: ngicks
 license: Unlicense
 repository: https://github.com/ngicks/crabswarm
@@ -16,15 +16,20 @@ dependencies:
     # Codex spawns a stdio MCP server with a fixed environment whitelist and
     # forwards nothing else unless the server's own table names it. Without the
     # first two and the last the server has no identity to attend with and
-    # derives a different socket path than the daemon listens on. The two in the
-    # middle are how a session says it can be woken without the daemon typing at
-    # its terminal: the launcher sets the one belonging to the harness it
-    # started, and a server that receives neither attends as a terminal member.
+    # derives a different socket path than the daemon listens on. The three in
+    # the middle are how a session says it can be woken without the daemon typing
+    # at its terminal: the launcher sets the ones belonging to the harness it
+    # started, and a server that receives none of them attends as a terminal
+    # member. FAKECHAT_PORT is the fakechat plugin's own variable, read by the
+    # plugin out of the same launch environment, which is what puts the plugin's
+    # loopback server and this one on a single port; a Claude Code session that
+    # carries the channel flag and names no port is answered on 8787.
     env_vars:
     - CMDMAN_CMD_ID
     - CRABSWARM_CHAT_TOKEN
     - CRABSWARM_CLAUDE_CHANNEL
     - CRABSWARM_CODEX_APP_SERVER
+    - FAKECHAT_PORT
     - XDG_RUNTIME_DIR
 targets:
 - claude

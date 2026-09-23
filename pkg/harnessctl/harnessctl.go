@@ -5,16 +5,24 @@
 // server composes it with the room.
 //
 // A harness names itself once, in the MCP handshake, and everything about how
-// it can be woken follows from that name: Claude Code takes a channel
-// notification, Codex listens on its app server, OpenCode relays through a
-// plugin, and a harness nobody recognises takes nothing at all. The server asks
-// here and attends as whatever comes back, so the daemon knows both what the
-// member runs and whether it still has to type at it.
+// it can be woken and how it is heard from follows from that name: Claude Code
+// takes an upload on the loopback server its fakechat plugin runs and says what
+// it is doing in the agents listing, Codex listens on its app server and
+// reports on that server's feed, OpenCode relays through a plugin, and a
+// harness nobody recognises takes nothing at all. The server asks here and
+// attends as whatever comes back, so the daemon knows both what the member runs
+// and whether it still has to type at it.
 //
 // A harness with no channel of its own is not a failure: it is the terminal
 // one, which is how every agent was reached before a harness could deliver a
 // mention itself. Its [Harness.Deliver] refuses, and the daemon does the
 // waking.
+//
+// A harness that also implements [Prober] has a channel that can be asked
+// whether it is there, and the server asks before the member attends and again
+// for as long as it does, so a channel that was declared and never listened is
+// a member that never appears, and one that stops listening is a member that
+// leaves.
 //
 // A harness that also implements [StateSource] is where its member's state
 // comes from. The server watches it for as long as the session runs and
@@ -59,13 +67,41 @@ type Harness interface {
 	Deliver(ctx context.Context, n Notice) error
 }
 
+// Prober is a harness whose channel can be asked whether it is there before the
+// member attends, which is a harness whose channel is something other than the
+// session this server already holds.
+//
+// A channel built out of launch-time variables is a claim and nothing more: the
+// variables say the launcher meant to wire one up, and no part of the session
+// says it worked. A member that attends on a broken claim attends as native, so
+// the daemon stops typing at it, and every mention it is then handed is
+// dropped.
+//
+// The server is what joins the two ends: it probes a harness that implements
+// this and refuses to attend while Probe fails, and asks again for as long as
+// the member attends, so a channel nothing listens on is a member nobody sees
+// rather than one nobody can reach — whether it never came up or went away
+// mid-session. See [Harness] for the other half of what a harness does.
+type Prober interface {
+	// Probe answers nil while the channel is reachable, and otherwise says
+	// which channel was looked for and where.
+	//
+	// An implementation bounds its own attempt. The context it is handed is the
+	// server's, which lives as long as the session, so a channel that took the
+	// connection and then said nothing would otherwise hold up the attendance
+	// this gates for the rest of that session.
+	Probe(ctx context.Context) error
+}
+
 // StateSource is a harness that says what its agent is doing without being
 // asked, which is a harness whose CLI has a feed of its own to say it on.
 //
-// Every other harness reports through its hooks: a hook runs on each event the
-// harness announces and tells the daemon what changed. A harness with a feed
-// needs none of them, and hooks reporting alongside it would race it with a
-// slower, coarser answer.
+// Claude Code has the agents listing and Codex has its app server, so both
+// implement this. A harness with no feed says nothing here, and the daemon
+// reads that member's terminal instead. A feed is preferred over a hook for
+// the state: a hook only fires on the events its harness announces, so an
+// interrupted turn would leave a member marked working with nothing to correct
+// it.
 //
 // The server is what joins the two ends: it holds one harness per session, and
 // a harness that implements this gets watched for as long as that session runs,
@@ -88,14 +124,6 @@ type StateSource interface {
 // this member a native one whatever it runs.
 const SinkEnv = "CRABSWARM_HARNESS_SINK"
 
-// Session is the MCP session the server holds with its harness, as far as a
-// channel needs it: a way to send the harness a notification of its own. The
-// server supplies it; a channel that pushes through the session itself (Claude
-// Code's) is the reason it exists, and the others ignore it.
-type Session interface {
-	Notify(ctx context.Context, method string, params any) error
-}
-
 // Detect maps the name a client gave itself in the MCP handshake onto the
 // harness behind it, reading what that harness needs from getenv — the process
 // environment the harness started the server in, [os.Getenv] outside a test.
@@ -103,7 +131,7 @@ type Session interface {
 // A name nothing recognises, the empty one included, is [chatv1.Harness]'s
 // other: the server is serving something, and saying so is more use to whoever
 // reads a roster than leaving the field blank.
-func Detect(clientName string, getenv func(string) string, session Session) Harness {
+func Detect(clientName string, getenv func(string) string) Harness {
 	kind := kindOf(clientName)
 	if getenv == nil {
 		getenv = os.Getenv
@@ -112,7 +140,7 @@ func Detect(clientName string, getenv func(string) string, session Session) Harn
 		return sink{kind: kind, path: path}
 	}
 	if newNative := natives[kind]; newNative != nil {
-		if h := newNative(getenv, session); h != nil {
+		if h := newNative(getenv); h != nil {
 			return h
 		}
 	}
@@ -125,7 +153,7 @@ func Detect(clientName string, getenv func(string) string, session Session) Harn
 // variable that points at it — and the member then attends as a terminal one,
 // which is always a working way to be woken. Each constructor lives in the
 // file of its harness.
-var natives = map[chatv1.Harness]func(getenv func(string) string, session Session) Harness{
+var natives = map[chatv1.Harness]func(getenv func(string) string) Harness{
 	chatv1.Harness_HARNESS_CLAUDE_CODE: newClaudeCode,
 	chatv1.Harness_HARNESS_CODEX:       newCodex,
 	chatv1.Harness_HARNESS_OPENCODE:    newOpenCode,

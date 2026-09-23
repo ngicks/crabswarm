@@ -111,13 +111,13 @@ func nextState(t *testing.T, states <-chan chatv1.HarnessState) chatv1.HarnessSt
 // without the variable that names it is woken through its terminal, which is
 // what a harness with no channel falls back to.
 func TestDetect_CodexTakesItsAppServer(t *testing.T) {
-	h := Detect("codex-mcp-client", codexEnv("unix:///tmp/codex.sock"), nil)
+	h := Detect("codex-mcp-client", codexEnv("unix:///tmp/codex.sock"))
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CODEX)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 
 	for _, addr := range []string{"", "   ", "tcp://127.0.0.1:1234"} {
 		t.Run("address "+addr, func(t *testing.T) {
-			h := Detect("codex-mcp-client", codexEnv(addr), nil)
+			h := Detect("codex-mcp-client", codexEnv(addr))
 			assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CODEX)
 			assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 		})

@@ -147,9 +147,11 @@ func (s *Store) SetState(
 // Attending returns everyone attending the daemon right now, every room
 // together, ordered by team then name.
 //
-// It is what a watcher with no room of its own walks — the screen poller, which
-// reads terminals rather than serving a caller who is in one. A watcher that
-// listed the rooms first would have to ask the log for names nobody attends.
+// It is what a watcher with no room of its own walks. The screen poller is that
+// watcher: it serves no caller who sits in one room, and it reads the terminal
+// of every attending member whose harness reports on no feed of its own. A
+// watcher that listed the rooms first would have to ask the log for names
+// nobody attends.
 func (s *Store) Attending(_ context.Context) ([]Member, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -254,7 +254,8 @@ func TestChatCodex_BridgeStartsATurnForEveryMention(t *testing.T) {
 	// typed anywhere.
 	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "the migration needs you")
 	arrival := "[crabswarm chat] new message from " + chatBridgeBob +
-		" — read it with the chat_read tool"
+		" — read it with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 	waitCodexTurns(t, app, arrival)
 	if keys := stubSendKeys(t, cfg); keys != nil {
 		t.Errorf("cmdman send-keys invocations = %q, want none", keys)
@@ -269,7 +270,9 @@ func TestChatCodex_BridgeStartsATurnForEveryMention(t *testing.T) {
 	// are still unread — a notice is not a read — so the count is two.
 	runChat(t, cfg, "tok-ana", "report-state", "done")
 	waitCodexTurns(t, app, arrival,
-		"[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool")
+		"[crabswarm chat] 2 unread messages mention you"+
+			" — read them with the chat_read tool and respond with chat_send,"+
+			" both from crabswarm-mcp")
 	if keys := stubSendKeys(t, cfg); keys != nil {
 		t.Errorf("cmdman send-keys invocations = %q, want none", keys)
 	}
@@ -329,7 +332,8 @@ func TestChatCodex_TheAppServerFeedBecomesTheMemberState(t *testing.T) {
 	waitChatRosterHas(t, cfg, "tok-bob", chatBridgeAna, 30*time.Second)
 	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "the migration needs you")
 	waitCodexTurns(t, app, "[crabswarm chat] new message from "+chatBridgeBob+
-		" — read it with the chat_read tool")
+		" — read it with the chat_read tool and respond with chat_send,"+
+		" both from crabswarm-mcp")
 	if conns := app.connections(); conns != 1 {
 		t.Errorf("the app server took %d connections, want the watched one alone", conns)
 	}
@@ -363,7 +367,6 @@ func waitCodexStatusTrail(t *testing.T, cfgPath string, want []string) {
 // the same thing would race that feed with a slower, coarser answer.
 func TestChatCodex_HooksLeaveTheStateToTheAppServer(t *testing.T) {
 	codex := readCodexHooks(t)
-	plugin := readChatHooks(t)
 
 	for event, groups := range codex.Hooks {
 		for _, group := range groups {
@@ -378,17 +381,6 @@ func TestChatCodex_HooksLeaveTheStateToTheAppServer(t *testing.T) {
 				assertSelfContainedHookEntry(t, event, h)
 			}
 		}
-	}
-
-	// The delivering half is the same text on both harnesses: a message
-	// announced two different ways is a skill teaching the wrong words.
-	if got, want := codex.commands(
-		"PostToolUse",
-	), plugin.commands("PostToolUse")[:1]; !slices.Equal(
-		got,
-		want,
-	) {
-		t.Errorf("codex PostToolUse = %v, want the plugin's delivering read %v", got, want)
 	}
 }
 

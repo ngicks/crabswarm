@@ -109,7 +109,9 @@ func TestSendKeys_NudgesDoneAgent(t *testing.T) {
 	assert.Equal(t, len(args), 3, "invocations: %v", args)
 	assert.Equal(t, args[0], "capture-screen 0123456789abcdef")
 	assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
-		"[crabswarm chat] new message from beta/bob — read it with the chat_read tool")
+		"[crabswarm chat] new message from beta/bob"+
+		" — read it with the chat_read tool and respond with chat_send,"+
+		" both from crabswarm-mcp")
 	assert.Equal(t, args[2], "send-keys 0123456789abcdef Enter")
 }
 
@@ -270,7 +272,8 @@ func TestSendKeys_SanitizesSenderAddress(t *testing.T) {
 			assert.Equal(t, len(args), 3, "invocations: %v", args)
 			assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
 				"[crabswarm chat] new message from "+tc.want+
-				" — read it with the chat_read tool")
+				" — read it with the chat_read tool and respond with chat_send,"+
+				" both from crabswarm-mcp")
 		})
 	}
 }
@@ -288,7 +291,9 @@ func TestSendKeys_UnteamedSenderCarriesTheBareName(t *testing.T) {
 	args := stubArgs(t, bin)
 	assert.Equal(t, len(args), 3, "invocations: %v", args)
 	assert.Equal(t, args[1], "send-keys 0123456789abcdef "+
-		"[crabswarm chat] new message from admin — read it with the chat_read tool")
+		"[crabswarm chat] new message from admin"+
+		" — read it with the chat_read tool and respond with chat_send,"+
+		" both from crabswarm-mcp")
 }
 
 func TestSendKeys_RejectsMalformedTokenWithoutExec(t *testing.T) {

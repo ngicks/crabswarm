@@ -52,6 +52,9 @@ type fakeChatService struct {
 	attend  *chatv1.AttendRequest
 	opens   int
 	attends int
+	// cancels counts the held attendances the reader let go of, which is the
+	// only way a case sees the server end one from its own side.
+	cancels int
 	// unread is what CountUnread answers with, and counts how many times it was
 	// asked. A test moves the first with [fakeChatService.setUnread] and reads
 	// the second to know the server has asked once already, which is what makes
@@ -163,6 +166,9 @@ func (f *fakeChatService) Attend(
 	for {
 		select {
 		case <-ctx.Done():
+			f.mu.Lock()
+			f.cancels++
+			f.mu.Unlock()
 			return ctx.Err()
 		case err := <-f.drops:
 			return err
@@ -196,6 +202,15 @@ func (f *fakeChatService) attendCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.attends
+}
+
+// cancelCount is how many held attendances the server let go of, which is what
+// pins one it ended itself — the daemon is the one that learns a member has
+// stopped attending.
+func (f *fakeChatService) cancelCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.cancels
 }
 
 // serveTestDaemon starts the stub on a Unix socket behind the daemon's own

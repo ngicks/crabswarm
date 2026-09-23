@@ -70,14 +70,7 @@ type Server struct {
 	// for the reason getenv is one: a harness that carries a channel or a state
 	// feed of its own speaks to a CLI this process cannot start, so a test hands
 	// the server one that plays the part. [New] takes [harnessctl.Detect].
-	detect func(
-		clientName string, getenv func(string) string, session harnessctl.Session,
-	) harnessctl.Harness
-
-	// session is the channel a harness deliverer pushes its notifications
-	// through, which is the MCP transport the session runs on. [Server.Serve]
-	// sets it before the session starts, so a handshake never reads it unset.
-	session harnessctl.Session
+	detect func(clientName string, getenv func(string) string) harnessctl.Harness
 
 	// initialized is closed once the harness has finished the MCP handshake and
 	// [Server.harness] names what it runs. Attendance waits on it: what the
@@ -124,11 +117,26 @@ type Server struct {
 	// next attendance answer by counting the unread and saying how much waits.
 	pending bool
 
-	// The loop's schedule, held here rather than read from the constants below
-	// so a test can drive it at a pace it can wait for. [New] takes the
+	// reportMu serializes what this server tells the daemon about its harness.
+	// It is held across the send, so a repeat that read the last state cannot
+	// land after a newer one the feed sent meanwhile and leave the daemon a
+	// state behind. It is not mu: mu is what every tool call reads before
+	// acting, and holding that across an RPC would stall them.
+	reportMu sync.Mutex
+	// reportedState is what a feed last handed over, which is what gets said
+	// again. Unspecified means no feed has spoken — the state the attendance
+	// came back with is not one, since it is what the daemon already holds.
+	reportedState chatv1.HarnessState
+
+	// The loops' schedule, held here rather than read from the constants below
+	// so a test can drive them at a pace it can wait for. [New] takes the
 	// constants.
-	attendBackoffBase time.Duration
-	attendBackoffMax  time.Duration
+	attendBackoffBase  time.Duration
+	attendBackoffMax   time.Duration
+	harnessStateResend time.Duration
+	// reprobeInterval is how often a held attendance asks its harness's channel
+	// whether it is still there. A field for the reason the three above are.
+	reprobeInterval time.Duration
 }
 
 // New dials sockPath and prepares the MCP server. Attendance is declared from
@@ -146,6 +154,17 @@ type Server struct {
 // discards logs; a logger writing to stdout would corrupt the MCP stream, so
 // the caller owns that choice.
 func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
+	return newServer(logger, sockPath, token, os.Getenv)
+}
+
+// newServer is [New] with the environment handed in. What the server declares
+// about a channel is read out of it before the session starts, so a test plays
+// a launcher through this rather than setting a variable on the process running
+// the suite — which would point a real channel at whatever is listening on the
+// plugin's own port.
+func newServer(
+	logger *slog.Logger, sockPath, token string, getenv func(string) string,
+) (*Server, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
@@ -154,16 +173,18 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		logger:            logger,
-		client:            client,
-		token:             token,
-		getenv:            os.Getenv,
-		detect:            harnessctl.Detect,
-		subscribable:      map[string]struct{}{},
-		initialized:       make(chan struct{}),
-		settled:           make(chan struct{}),
-		attendBackoffBase: attendBackoffBase,
-		attendBackoffMax:  attendBackoffMax,
+		logger:             logger,
+		client:             client,
+		token:              token,
+		getenv:             getenv,
+		detect:             harnessctl.Detect,
+		subscribable:       map[string]struct{}{},
+		initialized:        make(chan struct{}),
+		settled:            make(chan struct{}),
+		attendBackoffBase:  attendBackoffBase,
+		attendBackoffMax:   attendBackoffMax,
+		harnessStateResend: harnessStateResend,
+		reprobeInterval:    reprobeInterval,
 	}
 	opts := &mcpsdk.ServerOptions{
 		Logger:             logger,
@@ -174,51 +195,31 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 	// handshake carries it and the handshake is what tells the server which
 	// harness it is serving — the answer arrives after the question.
 	if harnessctl.ClaudeChannelEnabled(s.getenv) {
-		opts.Capabilities = claudeChannelCapabilities()
 		opts.Instructions = claudeChannelInstructions
 	}
 	s.mcp = mcpsdk.NewServer(
 		&mcpsdk.Implementation{Name: serverName, Version: libver.Version},
 		opts,
 	)
-	s.mcp.AddReceivingMiddleware(s.readsHandshake, refusesTheNewerHandshake)
+	s.mcp.AddReceivingMiddleware(s.readsHandshake)
 	return s, nil
 }
 
-// claudeChannelCapabilities declares the channel Claude Code registers a
-// listener for.
+// claudeChannelInstructions tells the model what the event a room notice reaches
+// it as is, and which tool answers it.
 //
-// It is declared only for a session that was launched as a channel: the
-// capability is what makes Claude Code listen, and a listener on a server that
-// was never registered would be one nothing ever reaches.
-//
-// Logging is spelled out because setting any capability at all replaces the
-// SDK's default set, and the default is logging alone; leaving it out would
-// quietly take logging away from a channel session and no other. Everything
-// else the server offers is inferred from what the families registered.
-func claudeChannelCapabilities() *mcpsdk.ServerCapabilities {
-	return &mcpsdk.ServerCapabilities{
-		//nolint:staticcheck // deprecated only from the revision above the cap this server offers
-		Logging: &mcpsdk.LoggingCapabilities{},
-		Experimental: map[string]any{
-			harnessctl.ClaudeChannelCapability: map[string]any{},
-		},
-	}
-}
-
-// claudeChannelInstructions tells the model what a channel event from this
-// server is and what to do about it.
-//
-// The harness shows the model an event and nothing else — no tool call, no
-// transcript entry saying where it came from — so without this the first one
-// reads as a line that appeared from nowhere. It also says not to answer down
-// the channel: the channel carries one direction, and a reply written into it
-// would go nowhere while the room waited.
-const claudeChannelInstructions = "Events from " + serverName +
-	` arrive as <channel source="` + serverName +
-	`" from="<team/name>" room="<room>">. Each one says a chat message is ` +
-	"waiting for you: read it with the chat_read tool and answer with " +
-	"chat_send. Do not reply through the channel."
+// The harness shows the model an event another plugin's channel pushed, and that
+// plugin's own instructions tell the model to answer with its reply tool — which
+// reaches a browser tab nobody is watching, while the room goes on waiting. So
+// the event is named as precisely as this end can name it: the source the plugin
+// labels it with, the message id this server numbers its uploads by, and the
+// opening of the line the room worded.
+const claudeChannelInstructions = "Room notices from " + serverName +
+	` reach you as <channel source="fakechat" chat_id="web" ` +
+	`message_id="crabswarm-..."> events whose content opens with ` +
+	"[crabswarm chat]. Each one says a chat message is waiting for you: " +
+	"read it with the chat_read tool and answer with chat_send. " +
+	"Never answer such an event with fakechat's reply tool."
 
 // readsHandshake watches what the harness sends for the point at which it has
 // said who it is.
@@ -257,7 +258,7 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 		if params.ClientInfo != nil {
 			client = params.ClientInfo.Name
 		}
-		s.harness = s.detect(client, s.getenv, s.session)
+		s.harness = s.detect(client, s.getenv)
 		close(s.initialized)
 		s.logger.Info("the harness named itself",
 			"client", client,
@@ -320,16 +321,6 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 	defer func() { _ = s.client.Close() }()
 
-	// Whatever the session runs on is wrapped, stdio and injected alike: the
-	// wrapper is both the notification channel a deliverer pushes through and
-	// the cap on what protocol revision the server offers, and neither is
-	// something one transport should have and another go without.
-	//
-	// Set before anything can read it: the harness names itself on the session
-	// started below, and naming itself is what hands this to its deliverer.
-	harnessChannel := newChannel(transport)
-	s.session = harnessChannel
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -356,13 +347,17 @@ func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 			s.watchHarnessState(gctx)
 			return nil
 		})
+		g.Go(func() error {
+			s.resendHarnessState(gctx)
+			return nil
+		})
 	}
 	g.Go(func() error {
 		// The session ending ends the attendance too: a server whose harness is
 		// gone has nobody left to attend for, and without this the loop would
 		// hold the session open for the rest of its backoff.
 		defer cancel()
-		return s.mcp.Run(gctx, harnessChannel)
+		return s.mcp.Run(gctx, transport)
 	})
 	return g.Wait()
 }
@@ -400,6 +395,18 @@ func (s *Server) warnRetry(msg string, failures int, backoff time.Duration, err 
 // answer is coming.
 const attendTimeout = 10 * time.Second
 
+// reprobeInterval is how often a held attendance asks its harness's channel
+// whether it is still there.
+//
+// The probe gates the opening, and on its own it gates nothing after that: a
+// plugin that dies mid-session would leave a member listed as one the daemon
+// types nothing at, with every mention it is handed dropped. Asking again is a
+// loopback request the plugin answers out of memory, so what this number buys
+// is only how long a channel that went away may go unnoticed — a few seconds of
+// one late mention, where a probe every second would cost the same and answer
+// no sooner than the next mention needs it.
+const reprobeInterval = 5 * time.Second
+
 // errNotAttending is what a tool call is refused with when the attendance is
 // down for a reason nothing recorded. Every path that ends an attendance
 // records why, so this stands in for nothing that happens today; it exists so a
@@ -428,6 +435,10 @@ func (s *Server) attend(ctx context.Context) {
 		return
 	}
 	backoff := s.attendBackoffBase
+	// failures counts the consecutive attempts that did not open, and nothing
+	// else: it is what decides which of them is worth a line, and an attendance
+	// that stood in between means whatever kept the previous opening from
+	// working is over.
 	failures := 0
 	for reopened := false; ; reopened = true {
 		landed, err := s.holdAttendance(ctx, reopened)
@@ -436,13 +447,25 @@ func (s *Server) attend(ctx context.Context) {
 		}
 		// An attendance that stood for a while and then ended is not the
 		// trouble one that never opened is, so it starts its retries over
-		// rather than inheriting the wait the previous failure had climbed to.
+		// rather than inheriting the wait the previous failure had climbed to —
+		// and it is reported every time rather than thinned out the way a run
+		// of failures is, since it resets the run and so is never one of them.
+		//
+		// The operator reading the log should not be told a stream ended when
+		// none was ever up either, which is the other half of why the two are
+		// reported apart: a refused opening — the daemon turned it down, or the
+		// harness's channel was not there to probe — says what to go and fix,
+		// and the first of a run is the one that says it.
 		if landed {
 			backoff = s.attendBackoffBase
 			failures = 0
+			s.logger.Warn("the chat attendance ended; attending again",
+				"backoff", backoff, "error", err)
+		} else {
+			failures++
+			s.warnRetry("the chat attendance could not open; trying again",
+				failures, backoff, err)
 		}
-		failures++
-		s.warnRetry("the chat attendance ended; attending again", failures, backoff, err)
 		select {
 		case <-ctx.Done():
 			return
@@ -469,8 +492,44 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 		s.attendanceEnded(err)
 		return false, err
 	}
+	// A harness whose channel is somewhere other than this session is asked
+	// whether it is there before the member attends, and the member stays out of
+	// the room for as long as the answer is no.
+	//
+	// Attending as a terminal member instead — leaving the daemon to type at a
+	// session whose channel never came up — would paper the broken launch over:
+	// the room would go on working, and nobody would learn that the plugin the
+	// launch promised is not running. A member missing from the roster is noticed,
+	// and the refusal it is missing over says which channel was looked for and
+	// where.
+	//
+	// Asked on every attempt rather than once: a plugin the launcher started
+	// beside this process may well come up after it, and then this is the loop
+	// that picks it up. It is asked again for as long as the stream is held, for
+	// the same reason in the other direction — see [Server.reprobe].
+	prober, probed := s.harness.(harnessctl.Prober)
+	if probed {
+		if err := prober.Probe(ctx); err != nil {
+			s.attendanceEnded(err)
+			return false, err
+		}
+	}
 	actx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// A held attendance has two halves: the room's feed, which this member acts
+	// on, and the question of whether the channel it acts through is still
+	// there. Either one ending ends the attendance — so a plugin that died takes
+	// its member out of the room the same way a daemon that went away does, and
+	// the loop above backs off, keeps asking, and attends again once the plugin
+	// answers.
+	//
+	// The group is made before the stream is opened, because the stream is then
+	// opened on the group's own context: the half that failed is the answer the
+	// attendance ends with, and the cancel the group makes on its way out is what
+	// ends the other half. Opening the stream on the context above instead would
+	// have the two race to report, and the feed's own cancellation could stand in
+	// front of what actually went wrong.
+	g, gctx := errgroup.WithContext(actx)
 	// A deadline on the context would end the attendance itself ten seconds in,
 	// so the wait is bounded by cancelling the attempt instead and only until
 	// the daemon has answered.
@@ -485,7 +544,7 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// channel this server can push a mention through attends as native, and the
 	// daemon then types nothing at it, leaving the waking to the deliverer
 	// below.
-	attendance, err := s.client.Attend(actx, token, "",
+	attendance, err := s.client.Attend(gctx, token, "",
 		chatv1.MemberKind_MEMBER_KIND_AGENT,
 		s.harness.Kind(),
 		s.harness.Nudge())
@@ -510,15 +569,48 @@ func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// daemon publishes to the room it just joined. It is announced like any
 	// other roster change: the room did gain a member, and every attendee sees
 	// the same feed.
-	err = attendance.Forward(actx, func(ev *chatv1.RoomEvent) error {
-		if rosterChanged(ev) {
-			s.announceRoster(ctx)
-		}
-		s.observe(ctx, ev)
-		return nil
+	g.Go(func() error {
+		return attendance.Forward(gctx, func(ev *chatv1.RoomEvent) error {
+			if rosterChanged(ev) {
+				s.announceRoster(ctx)
+			}
+			s.observe(ctx, ev)
+			return nil
+		})
 	})
+	if probed {
+		g.Go(func() error { return s.reprobe(gctx, prober) })
+	}
+	err = g.Wait()
 	s.attendanceEnded(err)
 	return true, err
+}
+
+// reprobe asks the channel whether it is still there for as long as the
+// attendance is held, and answers with the first refusal.
+//
+// A failed delivery does not ask on the spot. It says the notice is still
+// unread, which the outstanding count already carries to the next report that
+// ends a turn, and it says nothing about whether the plugin is coming back —
+// while a plugin that is genuinely gone is caught here within the interval
+// anyway. Wiring one into the other would buy a few seconds at the price of a
+// path that only ever runs when something is already broken.
+func (s *Server) reprobe(ctx context.Context, prober harnessctl.Prober) error {
+	ticker := time.NewTicker(s.reprobeInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			// Nothing to report: the attendance is ending for whatever the other
+			// half answered with, and a context this half only read would stand
+			// in front of it as the reason.
+			return nil
+		case <-ticker.C:
+			if err := prober.Probe(ctx); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // announceRoster tells the subscribed sessions to read the resources a roster
@@ -580,12 +672,73 @@ func (s *Server) watchHarnessState(ctx context.Context) {
 // daemon publishes to the room — this server included, where it is what decides
 // whether a mention may be delivered now.
 //
-// A report that failed is said once and left. The next state the feed carries
-// replaces it whatever became of this one, and the member meanwhile keeps
-// whatever it last reported, which is the answer that interrupts nobody
-// mid-turn. A session on its way out says nothing at all: what the feed had
-// queued is drained as it closes, against a daemon connection closing with it.
+// The state is remembered as it is sent, and [Server.resendHarnessState] says
+// what was remembered again; a report that failed is therefore not left. The
+// member meanwhile keeps whatever the daemon last recorded, which is the answer
+// that interrupts nobody mid-turn. A session on its way out says nothing at all:
+// what the feed had queued is drained as it closes, against a daemon connection
+// closing with it.
 func (s *Server) reportHarnessState(ctx context.Context, state chatv1.HarnessState) {
+	s.reportMu.Lock()
+	defer s.reportMu.Unlock()
+	s.reportedState = state
+	s.sendHarnessState(ctx, state)
+}
+
+// harnessStateResend is how often the bridge re-sends the last state a feed
+// reported, so a daemon that restarted or refused a report hears it again.
+const harnessStateResend = 10 * time.Second
+
+// resendHarnessState says again, every harnessStateResend, what a feed last
+// reported about this member, for as long as the session runs.
+//
+// A feed speaks on change alone, and a member the daemon has wrong therefore
+// stays wrong until the agent's next transition — which may be the end of a
+// turn nobody was told had begun. A restarted daemon records a reopened
+// attendance as done, a refused report changes nothing, and a change-only
+// watcher repeats neither. Saying it again bounds the gap to one interval.
+//
+// Once an interval rather than on every poll of a feed, because the daemon runs
+// `cmdman status set` as a child process for every report it records. What the
+// room hears costs nothing: the daemon publishes an event only where the state
+// moved. Which feed said it does not matter — the Codex app server and the
+// Claude Code listing are repeated alike — and nothing is repeated at all until
+// one of them has spoken.
+func (s *Server) resendHarnessState(ctx context.Context) {
+	ticker := time.NewTicker(s.harnessStateResend)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.resendLastHarnessState(ctx)
+		}
+	}
+}
+
+// resendLastHarnessState says the last reported state again, where there is one
+// to say and somebody to say it to.
+//
+// Nothing is sent while the attendance is down: the daemon refuses a state
+// reported about a member the room does not have, so the attempt would fail and
+// say so every interval for as long as the daemon stayed away. The next tick
+// catches the attendance that comes back, which is the case this exists for.
+func (s *Server) resendLastHarnessState(ctx context.Context) {
+	if !s.attending() {
+		return
+	}
+	s.reportMu.Lock()
+	defer s.reportMu.Unlock()
+	if s.reportedState == chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED {
+		return
+	}
+	s.sendHarnessState(ctx, s.reportedState)
+}
+
+// sendHarnessState puts one state on the wire and reports a refusal. The caller
+// holds reportMu.
+func (s *Server) sendHarnessState(ctx context.Context, state chatv1.HarnessState) {
 	token, err := s.ResolveToken()
 	if err == nil {
 		err = s.client.ReportHarnessState(ctx, token, state)
@@ -594,6 +747,13 @@ func (s *Server) reportHarnessState(ctx context.Context, state chatv1.HarnessSta
 		s.logger.Warn("reporting what the harness says it is doing failed",
 			"state", cli.HarnessStateName(state), "error", err)
 	}
+}
+
+// attending reports whether the attendance stream is open right now.
+func (s *Server) attending() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.attended
 }
 
 // subscribed accepts a request to be told about a resource. The room's feed is

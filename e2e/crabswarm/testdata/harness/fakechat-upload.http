@@ -1,0 +1,16 @@
+POST /upload HTTP/1.1
+Host: 127.0.0.1:18787
+User-Agent: curl/8.21.0
+Accept: */*
+Content-Length: 389
+Content-Type: multipart/form-data; boundary=------------------------jJ5AtftPT4iZsyuUkIlYeo
+
+--------------------------jJ5AtftPT4iZsyuUkIlYeo
+Content-Disposition: form-data; name="id"
+
+crabswarm-1
+--------------------------jJ5AtftPT4iZsyuUkIlYeo
+Content-Disposition: form-data; name="text"
+
+[crabswarm chat] new message from team/bob — read it with the chat_read tool and respond with chat_send, both from crabswarm-mcp
+--------------------------jJ5AtftPT4iZsyuUkIlYeo--

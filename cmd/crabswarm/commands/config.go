@@ -40,8 +40,9 @@ The value passed to --format has this shape (Go field name -> JSON key):
       .AdminRecipients   []string  // age public keys for admin   (admin_recipients)
       .AdminIdentityFile string    // age identity file (client)  (admin_identity_file)
       .HistoryLimit      int       // per-room history cap; 0 = default, <0 = none (history_limit)
-      .ScreenPollInterval time.Duration // how often a Claude Code session's screen is
-                                        // read; 0 = 3s, <0 = never (screen_poll_interval).
+      .ScreenPollInterval time.Duration // how often the daemon reads the screen of a
+                                        // session whose harness it does not recognise;
+                                        // 0 = 3s, <0 = never (screen_poll_interval).
                                         // JSON/YAML take nanoseconds, the env var a
                                         // duration string ("3s")
   }
