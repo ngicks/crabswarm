@@ -7,18 +7,24 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-func TestNewMessage_NamesTheSenderAndTheTool(t *testing.T) {
+func TestNewMessage_NamesTheSenderAndBothTools(t *testing.T) {
 	assert.Equal(t, NewMessage("beta/bob"),
-		"[crabswarm chat] new message from beta/bob — read it with the chat_read tool")
+		"[crabswarm chat] new message from beta/bob"+
+			" — read it with the chat_read tool and respond with chat_send,"+
+			" both from crabswarm-mcp")
 }
 
 // One waiting mention reads as one, not as "1 message(s)": the notice is a
 // sentence the agent reads, not a log line.
 func TestWaiting_CountsInWordsThatMatchTheCount(t *testing.T) {
 	assert.Equal(t, Waiting(1),
-		"[crabswarm chat] 1 unread message mentions you — read it with the chat_read tool")
+		"[crabswarm chat] 1 unread message mentions you"+
+			" — read it with the chat_read tool and respond with chat_send,"+
+			" both from crabswarm-mcp")
 	assert.Equal(t, Waiting(4),
-		"[crabswarm chat] 4 unread messages mention you — read them with the chat_read tool")
+		"[crabswarm chat] 4 unread messages mention you"+
+			" — read them with the chat_read tool and respond with chat_send,"+
+			" both from crabswarm-mcp")
 }
 
 func TestAddress_LeavesAnUnteamedSenderBare(t *testing.T) {

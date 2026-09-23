@@ -1,0 +1,1 @@
+{"method":"notifications/claude/channel","params":{"content":"[crabswarm chat] new message from team/bob — read it with the chat_read tool and respond with chat_send, both from crabswarm-mcp","meta":{"chat_id":"web","message_id":"crabswarm-1","user":"web","ts":"2026-09-22T06:16:45.715Z"}},"jsonrpc":"2.0"}

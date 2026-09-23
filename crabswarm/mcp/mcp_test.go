@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -38,12 +40,99 @@ const eventTimeout = 5 * time.Second
 
 // newTestBridge builds a server onto the stub. It carries no tool family: what
 // this package does on its own is attend, and every case here is about that.
+//
+// The environment it was launched in is empty, so nothing a case does turns on
+// what the process running the suite carries. A launcher variable in that
+// environment would otherwise have a case build a real channel and go looking
+// for it on the plugin's own loopback port, where a session belonging to
+// whoever runs the suite may well be listening.
 func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
 	t.Helper()
 
-	bridge, err := New(slog.New(slog.DiscardHandler), serveTestDaemon(t, svc), testToken)
+	return newTestBridgeIn(t, svc, func(string) string { return "" })
+}
+
+// newTestBridgeIn is [newTestBridge] launched in the environment getenv answers
+// for, which is how a case plays a launcher that wired something up beside the
+// server.
+func newTestBridgeIn(
+	t *testing.T, svc *fakeChatService, getenv func(string) string,
+) *Server {
+	t.Helper()
+
+	return newTestBridgeWith(t, svc, slog.New(slog.DiscardHandler), getenv)
+}
+
+// newTestBridgeWith is [newTestBridgeIn] with somewhere to read what the server
+// said, for the cases about what the attendance loop reports rather than what
+// it does. Everything else discards: a logger writing to the test's output
+// would bury the case that failed under the loop of every case that did not.
+func newTestBridgeWith(
+	t *testing.T, svc *fakeChatService, logger *slog.Logger, getenv func(string) string,
+) *Server {
+	t.Helper()
+
+	bridge, err := newServer(logger, serveTestDaemon(t, svc), testToken, getenv)
 	assert.NilError(t, err)
 	return bridge
+}
+
+// logBuffer is a handler's destination a case can read while the server is
+// still writing to it. The attendance loop logs from a goroutine of its own, so
+// a plain buffer read from the case's goroutine would be a race rather than an
+// assertion.
+type logBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (l *logBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.Write(p)
+}
+
+// lines is what has been logged so far, oldest first.
+func (l *logBuffer) lines() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return strings.Split(strings.TrimSuffix(l.buf.String(), "\n"), "\n")
+}
+
+// loggedLine reports whether one line carrying every one of want has been
+// logged. All of them on one line rather than anywhere in the log: what a case
+// here is about is one report saying what happened and what to look at.
+func loggedLine(logs *logBuffer, want ...string) bool {
+	return slices.ContainsFunc(logs.lines(), func(line string) bool {
+		for _, w := range want {
+			if !strings.Contains(line, w) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// logsTo builds a server that writes its log where the case can read it.
+func logsTo(t *testing.T, svc *fakeChatService, logs *logBuffer) *Server {
+	t.Helper()
+
+	return newTestBridgeWith(t, svc, slog.New(slog.NewTextHandler(logs, nil)),
+		func(string) string { return "" })
+}
+
+// launchedWithTheChannel is the environment of a server whose launcher
+// registered the fakechat plugin as a channel of the session beside it.
+//
+// It carries the claim and no port, and a case using it plays its harness as
+// well, because nothing here may build the real channel: the real one is probed
+// on the plugin's own loopback port, which on a developer's machine is a session
+// of their own.
+func launchedWithTheChannel(name string) string {
+	if name == harnessctl.ClaudeChannelEnv {
+		return "1"
+	}
+	return ""
 }
 
 // runsAt sets the loop going at a pace a case can wait for, for the cases that
@@ -51,6 +140,12 @@ func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
 func runsAt(bridge *Server, base, max time.Duration) {
 	bridge.attendBackoffBase = base
 	bridge.attendBackoffMax = max
+}
+
+// reprobesEvery has a held attendance ask its channel at a pace a case can wait
+// for, for the reason [runsAt] exists: the real interval is seconds.
+func reprobesEvery(bridge *Server, every time.Duration) {
+	bridge.reprobeInterval = every
 }
 
 // serveBridge runs bridge over an in-memory pipe and returns the session a
@@ -361,9 +456,11 @@ func TestServer_DeliversAMentionItsHarnessCanTake(t *testing.T) {
 	assert.Equal(t, fake.lastAttend().GetNudge(),
 		chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 
+	arrival := "[crabswarm chat] new message from frontend/bob" +
+		" — read it with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
 	pushEvent(t, fake, mentionOf(member("frontend", "bob", testRoom), self, "rebase please"))
-	waitNotices(t, sink,
-		"[crabswarm chat] new message from frontend/bob — read it with the chat_read tool")
+	waitNotices(t, sink, arrival)
 
 	// A message it wrote itself and one addressed to nobody are both left alone:
 	// neither is unread for it, so a notice would buy it an empty read.
@@ -378,9 +475,7 @@ func TestServer_DeliversAMentionItsHarnessCanTake(t *testing.T) {
 		},
 	})
 	pushEvent(t, fake, mentionOf(member("frontend", "bob", testRoom), self, "and this one"))
-	waitNotices(t, sink,
-		"[crabswarm chat] new message from frontend/bob — read it with the chat_read tool",
-		"[crabswarm chat] new message from frontend/bob — read it with the chat_read tool")
+	waitNotices(t, sink, arrival, arrival)
 }
 
 // A harness mid-turn is not interrupted, however long the turn runs: the report
@@ -397,6 +492,10 @@ func TestServer_HoldsAMentionUntilTheTurnEnds(t *testing.T) {
 
 	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
 
+	waiting := "[crabswarm chat] 2 unread messages mention you" +
+		" — read them with the chat_read tool and respond with chat_send," +
+		" both from crabswarm-mcp"
+
 	bob := member("frontend", "bob", testRoom)
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_WORKING))
 	pushEvent(t, fake, mentionOf(bob, self, "the migration needs you"))
@@ -405,15 +504,13 @@ func TestServer_HoldsAMentionUntilTheTurnEnds(t *testing.T) {
 
 	// The turn ends, and what waited is delivered as the one thing worth saying.
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_DONE))
-	waitNotices(t, sink,
-		"[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool")
+	waitNotices(t, sink, waiting)
 
 	// Nothing waits any more, so the next report that ends a turn says nothing.
 	fake.setUnread(0)
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_WORKING))
 	pushEvent(t, fake, stateOf(self, chatv1.HarnessState_HARNESS_STATE_DONE))
-	waitNotices(t, sink,
-		"[crabswarm chat] 2 unread messages mention you — read them with the chat_read tool")
+	waitNotices(t, sink, waiting)
 }
 
 // Whatever was said while nothing was attending was said to nobody here, so
@@ -442,7 +539,9 @@ func TestServer_DeliversWhatWaitedWhenItAttendsAgain(t *testing.T) {
 	dropFeed(t, fake, status.Error(codes.Unavailable, "the daemon is going away"))
 
 	waitNotices(t, sink,
-		"[crabswarm chat] 1 unread message mentions you — read it with the chat_read tool")
+		"[crabswarm chat] 1 unread message mentions you"+
+			" — read it with the chat_read tool and respond with chat_send,"+
+			" both from crabswarm-mcp")
 }
 
 // A harness this server has no channel for attends as one the daemon types at,
@@ -516,9 +615,7 @@ func (h *feedingHarness) says(t *testing.T, state chatv1.HarnessState) {
 // runsOn has the server serve h whatever name the client handshakes under,
 // which is how a case plays a CLI this process cannot start.
 func runsOn(bridge *Server, h harnessctl.Harness) {
-	bridge.detect = func(string, func(string) string, harnessctl.Session) harnessctl.Harness {
-		return h
-	}
+	bridge.detect = func(string, func(string) string) harnessctl.Harness { return h }
 }
 
 // waitReported blocks until the member has reported exactly want, so a case
@@ -576,66 +673,280 @@ func TestServer_WatchesNothingForAHarnessWithoutAFeed(t *testing.T) {
 	assert.Equal(t, len(fake.reportedStates()), 0)
 }
 
-// declaresChannel reports whether the handshake res carries the capability
-// Claude Code registers a channel listener on.
-func declaresChannel(res *mcpsdk.InitializeResult) bool {
+// experimental is whatever the handshake res declared beyond the capabilities
+// the SDK fills in for every server, which for this one is nothing at all.
+func experimental(res *mcpsdk.InitializeResult) map[string]any {
 	if res.Capabilities == nil {
-		return false
+		return nil
 	}
-	_, declared := res.Capabilities.Experimental[harnessctl.ClaudeChannelCapability]
-	return declared
+	return res.Capabilities.Experimental
 }
 
-// A server its launcher registered as a channel says so in the handshake, since
-// the capability is what makes Claude Code listen — and then attends as a
-// member the daemon leaves to its own server.
-//
-// The environment is read before the handshake rather than after: the
-// capability has to be in the answer the server gives, and the answer is what
-// tells the server which harness it was serving all along.
-func TestServer_DeclaresTheChannelItsLauncherRegistered(t *testing.T) {
-	t.Setenv(harnessctl.ClaudeChannelEnv, "1")
+// plainRevision is the MCP revision an SDK server with nothing added to it
+// settles on with the SDK's own client, which is the revision a client gets when
+// the server turns none down.
+func plainRevision(t *testing.T) string {
+	t.Helper()
+
+	serverSide, clientSide := mcpsdk.NewInMemoryTransports()
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "probe", Version: "v0"}, nil)
+	ctx, cancel := context.WithCancel(t.Context())
+	var served errgroup.Group
+	served.Go(func() error { return server.Run(ctx, serverSide) })
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "probe-client", Version: "v0"}, nil)
+	session, err := client.Connect(t.Context(), clientSide, nil)
+	assert.NilError(t, err)
+	t.Cleanup(func() {
+		_ = session.Close()
+		cancel()
+		_ = served.Wait()
+	})
+	return session.InitializeResult().ProtocolVersion
+}
+
+// The server declares no channel of its own and caps no revision: a room notice
+// reaches a Claude Code through the plugin's loopback server, which is nothing
+// this session negotiates. A capability or a cap left over from one that was
+// would cost the agent whatever the revision above it carries, for a channel
+// nobody reads.
+func TestServer_DeclaresNoChannelOfItsOwn(t *testing.T) {
 	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
 	bridge := newTestBridge(t, fake)
 	session := serveBridgeAs(t, bridge, "claude-code")
 
 	res := session.InitializeResult()
-	assert.Assert(t, declaresChannel(res), "the handshake declares no channel")
-	// The model is shown a channel event and nothing else, so the instructions
-	// are where it reads what to do with one.
-	for _, want := range []string{serverName, "chat_read", "chat_send"} {
-		assert.Assert(t, strings.Contains(res.Instructions, want),
-			"the instructions do not name %q:\n%s", want, res.Instructions)
-	}
-	// Above this revision the events would be dropped unseen, so the server
-	// offers nothing above it.
-	assert.Equal(t, res.ProtocolVersion, maxProtocolVersion)
+	assert.Equal(t, len(experimental(res)), 0,
+		"the handshake declares %v", experimental(res))
+	assert.Equal(t, res.ProtocolVersion, plainRevision(t))
 
 	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+	assert.Equal(t, fake.lastAttend().GetNudge(),
+		chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
+}
+
+// A server the plugin's channel was wired up beside says in its instructions
+// which tool answers a room notice.
+//
+// The event the model is shown is one that plugin pushed, and the plugin's own
+// instructions have it answer with the reply tool — which reaches a browser tab
+// nobody is watching while the room goes on waiting. So this says what such an
+// event is, which tools the room is read and answered with, and that the reply
+// tool is not one of them.
+func TestServer_TellsTheModelWhichToolAnswersARoomNotice(t *testing.T) {
+	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
+	bridge := newTestBridgeIn(t, fake, launchedWithTheChannel)
+	// The harness is played rather than detected: a real one built from this
+	// environment would be probed on the plugin's own loopback port.
+	runsOn(bridge, &probingHarness{})
+	session := serveBridgeAs(t, bridge, "claude-code")
+
+	got := session.InitializeResult().Instructions
+	for _, want := range []string{"fakechat", "chat_read", "chat_send", "reply"} {
+		assert.Assert(t, strings.Contains(got, want),
+			"the instructions do not name %q:\n%s", want, got)
+	}
+}
+
+// A server nobody wired a channel up beside says nothing. The agent has no
+// channel event coming, and instructions about one would be instructions about
+// something that never arrives.
+func TestServer_SaysNothingAboutAChannelNobodyWiredUp(t *testing.T) {
+	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
+	session := serveBridgeAs(t, newTestBridge(t, fake), "claude-code")
+
+	assert.Equal(t, session.InitializeResult().Instructions, "")
+}
+
+// probingHarness is a harness whose channel is something other than the session
+// this server holds, which is what makes the server ask whether the channel is
+// there before the member attends.
+//
+// It stands in for Claude Code's, whose plugin this process must not go looking
+// for: one belonging to whoever runs the suite may well be listening where the
+// real probe would look, and a notice posted at it would land in their session.
+type probingHarness struct {
+	// probes counts the questions asked, which is what pins one per attempt
+	// rather than one for the session.
+	probes atomic.Int64
+
+	// mu guards err, which a case clears while the attendance loop is asking.
+	mu sync.Mutex
+	// err is what the channel answers with, or nil for one that is listening.
+	err error
+}
+
+func (*probingHarness) Kind() chatv1.Harness { return chatv1.Harness_HARNESS_CLAUDE_CODE }
+
+func (*probingHarness) Nudge() chatv1.NudgeDelivery {
+	return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
+}
+
+func (*probingHarness) Deliver(context.Context, harnessctl.Notice) error { return nil }
+
+func (h *probingHarness) Probe(context.Context) error {
+	h.probes.Add(1)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.err
+}
+
+// listens has the channel answer from here on, the way a plugin that came up
+// after the process beside it does.
+func (h *probingHarness) listens() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.err = nil
+}
+
+// dies has the channel stop answering from here on, the way a plugin whose own
+// session went away does.
+func (h *probingHarness) dies(err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.err = err
+}
+
+// addMembersTool registers the roster tool in the shape every chat tool has: it
+// waits on the attendance before it acts, so what a refused attendance says is
+// what the call answers with. The family that registers the real one lives in a
+// package that imports this one, so the case spells the one line of it this is
+// about.
+func addMembersTool(bridge *Server) {
+	mcpsdk.AddTool(bridge.MCP(),
+		&mcpsdk.Tool{Name: "chat_members", Description: "list everyone attending your room"},
+		func(
+			ctx context.Context, _ *mcpsdk.CallToolRequest, _ struct{},
+		) (*mcpsdk.CallToolResult, any, error) {
+			if err := bridge.AwaitAttendance(ctx); err != nil {
+				return nil, nil, err
+			}
+			return &mcpsdk.CallToolResult{
+				Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "attending"}},
+			}, nil, nil
+		})
+}
+
+// toolText unwraps the one text block a tool answered with.
+func toolText(t *testing.T, res *mcpsdk.CallToolResult) string {
+	t.Helper()
+
+	assert.Equal(t, len(res.Content), 1)
+	text, ok := res.Content[0].(*mcpsdk.TextContent)
+	assert.Assert(t, ok, "the tool answered with %T, not text", res.Content[0])
+	return text.Text
+}
+
+// A channel that was declared and is not listening is a member that never
+// appears. What the launch variables say is a claim about a plugin nothing in
+// this session can see, so the server asks the channel first: a member attending
+// on a broken claim attends as one the daemon stops typing at, and every mention
+// it is then handed is dropped.
+//
+// The refusal is what a tool call reads meanwhile, and the question is asked
+// again on every attempt, so a plugin that came up late is one the loop picks up.
+func TestServer_WaitsForItsChannelBeforeAttending(t *testing.T) {
+	fake := &fakeChatService{
+		self:   doneSelf("backend", "alice", testRoom),
+		events: make(chan *chatv1.RoomEvent),
+	}
+	bridge := newTestBridge(t, fake)
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
+	const refused = "reaching the fakechat plugin on port 8787: connection refused"
+	missing := &probingHarness{err: errors.New(refused)}
+	runsOn(bridge, missing)
+	addMembersTool(bridge)
+	session := serveBridgeAs(t, bridge, "claude-code")
+
+	waitFor(t, "the server never asked its channel twice", func() bool {
+		return missing.probes.Load() >= 2
+	})
+	// The daemon was never asked at all, so the room is a member short — which is
+	// the failure somebody reads.
+	assert.Equal(t, fake.openCount(), 0)
+
+	// What the agent reads meanwhile is why, down to where the channel was looked
+	// for.
+	res, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{Name: "chat_members"})
+	assert.NilError(t, err)
+	assert.Assert(t, res.IsError)
+	answer := toolText(t, res)
+	assert.Assert(t, strings.Contains(answer, refused), "the tool answered %q", answer)
+
+	missing.listens()
+	waitFor(t, "the server never attended once its channel answered", func() bool {
+		return fake.attendCount() == 1
+	})
+	// One attendance and no more: it is held for the rest of the session, and it
+	// is the one the daemon leaves to this server.
+	assert.Equal(t, fake.openCount(), 1)
 	assert.Equal(t, fake.lastAttend().GetHarness(), chatv1.Harness_HARNESS_CLAUDE_CODE)
 	assert.Equal(t, fake.lastAttend().GetNudge(),
 		chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 }
 
-// A Claude Code nobody registered the server with declares nothing, and is
-// woken through its terminal like any harness with no channel.
+// A channel that answered at the opening and then went away takes its member
+// out of the room. The probe holds the attendance back on the way in, and on its
+// own it would hold nothing back after that: the plugin dies with the session it
+// belonged to, and the member would stay listed as one the daemon types nothing
+// at, with every mention it is handed dropped. So the question is asked again
+// for as long as the stream is held, and the first refusal ends the attendance —
+// after which the loop is back where a member whose plugin never came up is,
+// asking until it answers.
 //
-// Declaring the capability anyway would have Claude Code listening on a channel
-// its session never registered, and every notice pushed at it would be dropped
-// unseen while the daemon typed at nobody.
-func TestServer_LeavesTheChannelOutUntilItIsRegistered(t *testing.T) {
-	t.Setenv(harnessctl.ClaudeChannelEnv, "")
-	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
-	bridge := newTestBridge(t, fake)
-	session := serveBridgeAs(t, bridge, "claude-code")
-
-	res := session.InitializeResult()
-	assert.Assert(t, !declaresChannel(res), "the handshake declares a channel nobody registered")
-	assert.Equal(t, res.Instructions, "")
+// The refusal is logged on its own line, too: an attendance that stood in
+// between is not part of a run of failures, so the one that follows it is the
+// first of a new run and says which port to go and look at.
+func TestServer_LeavesTheRoomWhenItsChannelGoesAway(t *testing.T) {
+	fake := &fakeChatService{
+		self:   doneSelf("backend", "alice", testRoom),
+		events: make(chan *chatv1.RoomEvent),
+		drops:  make(chan error),
+	}
+	logs := &logBuffer{}
+	bridge := logsTo(t, fake, logs)
+	runsAt(bridge, 10*time.Millisecond, 20*time.Millisecond)
+	reprobesEvery(bridge, 5*time.Millisecond)
+	plugin := &probingHarness{}
+	runsOn(bridge, plugin)
+	serveBridgeAs(t, bridge, "claude-code")
 
 	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
-	assert.Equal(t, fake.lastAttend().GetNudge(),
-		chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
+
+	const refused = "reaching the fakechat plugin on port 8787: connection refused"
+	plugin.dies(errors.New(refused))
+
+	// The daemon is the one that has to learn the member stopped attending, and
+	// what it sees is the stream let go of.
+	waitFor(t, "the attendance outlived the channel that carried it", func() bool {
+		return fake.cancelCount() == 1
+	})
+	// What it ended over is the channel's refusal and not the cancellation that
+	// carried it out, which is the difference between a line somebody can act on
+	// and one saying a context was cancelled.
+	waitFor(t, "the ended attendance never said the channel was why", func() bool {
+		return loggedLine(logs, "the chat attendance ended", "8787")
+	})
+
+	// And nothing attends again while the plugin is missing, however many times
+	// the loop comes back round to ask.
+	waitFor(t, "the server stopped asking its channel", func() bool {
+		return plugin.probes.Load() >= 4
+	})
+	assert.Equal(t, fake.openCount(), 1)
+
+	plugin.listens()
+	waitFor(t, "the server never attended again once its channel answered", func() bool {
+		return fake.attendCount() == 2
+	})
+	// One more attendance and no more: the channel answers every question now, so
+	// the stream it holds is held for the rest of the session.
+	assert.Equal(t, fake.openCount(), 2)
+
+	waitFor(t, "the refused opening was never reported", func() bool {
+		return loggedLine(logs,
+			"the chat attendance could not open", "failures=1", "8787")
+	})
 }
 
 func TestNew_RejectsEmptySocketPath(t *testing.T) {
@@ -657,4 +968,8 @@ func TestNew_SeedsTheRetryPace(t *testing.T) {
 	assert.Assert(t, bridge.attendBackoffMax >= bridge.attendBackoffBase,
 		"attending climbs to %s, below its first wait of %s",
 		bridge.attendBackoffMax, bridge.attendBackoffBase)
+	// A zero here is worse than a zero backoff: the ticker a held attendance asks
+	// its channel on panics on one.
+	assert.Assert(t, bridge.reprobeInterval > 0,
+		"a held attendance asks its channel every %s", bridge.reprobeInterval)
 }

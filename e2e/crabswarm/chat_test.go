@@ -214,11 +214,17 @@ func waitStubStatus(t *testing.T, cfgPath, want string, timeout time.Duration) {
 // test's own, minus everything that would override the config file this test
 // hands them or supply an identity token behind its back. The suite may itself
 // run under cmdman, which exports CMDMAN_CMD_ID.
+//
+// FAKECHAT_PORT goes with them. The suite may be run beside a live Claude Code
+// whose fakechat plugin is listening on the port that environment names, and a
+// bridge started here that inherited it would post the suite's notices into that
+// session. The cases that want a plugin name a port of their own.
 func chatEnviron() []string {
 	var env []string
 	for _, kv := range os.Environ() {
 		name, _, _ := strings.Cut(kv, "=")
-		if strings.HasPrefix(name, "CRABSWARM_") || name == "CMDMAN_CMD_ID" {
+		if strings.HasPrefix(name, "CRABSWARM_") || name == "CMDMAN_CMD_ID" ||
+			name == "FAKECHAT_PORT" {
 			continue
 		}
 		env = append(env, kv)
@@ -1075,7 +1081,8 @@ func TestChat_ReadToKeepsOnlyWhatNamesTheRole(t *testing.T) {
 func chatNudgeKeys(token, from string) []string {
 	return []string{
 		token + " [crabswarm chat] new message from " + from +
-			" — read it with the chat_read tool",
+			" — read it with the chat_read tool and respond with chat_send," +
+			" both from crabswarm-mcp",
 		token + " Enter",
 	}
 }
@@ -1638,7 +1645,8 @@ func TestChat_OnlyAnAgentIsTypedAt(t *testing.T) {
 	got := stubSendKeys(t, cfg)
 	want := []string{
 		"tok-ana [crabswarm chat] new message from humans/yuki" +
-			" — read it with the chat_read tool",
+			" — read it with the chat_read tool and respond with chat_send," +
+			" both from crabswarm-mcp",
 		"tok-ana Enter",
 	}
 	if !slices.Equal(got, want) {

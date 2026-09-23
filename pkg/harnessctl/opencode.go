@@ -33,7 +33,7 @@ const openCodeRelayTimeout = 5 * time.Second
 // newOpenCode builds the opencode channel, which exists only where the plugin
 // that serves it does: an OpenCode started without the plugin starts this server
 // without the relay URL, and the member then attends as a terminal one.
-func newOpenCode(getenv func(string) string, _ Session) Harness {
+func newOpenCode(getenv func(string) string) Harness {
 	relay := getenv(OpenCodeRelayEnv)
 	if relay == "" {
 		return nil
