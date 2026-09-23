@@ -356,7 +356,6 @@ func waitCodexStatusTrail(t *testing.T, cfgPath string, want []string) {
 // the same thing would race that feed with a slower, coarser answer.
 func TestChatCodex_HooksLeaveTheStateToTheAppServer(t *testing.T) {
 	codex := readCodexHooks(t)
-	plugin := readChatHooks(t)
 
 	for event, groups := range codex.Hooks {
 		for _, group := range groups {
@@ -371,17 +370,6 @@ func TestChatCodex_HooksLeaveTheStateToTheAppServer(t *testing.T) {
 				assertSelfContainedHookEntry(t, event, h)
 			}
 		}
-	}
-
-	// The delivering half is the same text on both harnesses: a message
-	// announced two different ways is a skill teaching the wrong words.
-	if got, want := codex.commands(
-		"PostToolUse",
-	), plugin.commands("PostToolUse")[:1]; !slices.Equal(
-		got,
-		want,
-	) {
-		t.Errorf("codex PostToolUse = %v, want the plugin's delivering read %v", got, want)
 	}
 }
 

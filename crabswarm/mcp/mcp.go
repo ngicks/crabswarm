@@ -117,13 +117,25 @@ type Server struct {
 	// next attendance answer by counting the unread and saying how much waits.
 	pending bool
 
-	// The loop's schedule, held here rather than read from the constants below
-	// so a test can drive it at a pace it can wait for. [New] takes the
+	// reportMu serializes what this server tells the daemon about its harness.
+	// It is held across the send, so a repeat that read the last state cannot
+	// land after a newer one the feed sent meanwhile and leave the daemon a
+	// state behind. It is not mu: mu is what every tool call reads before
+	// acting, and holding that across an RPC would stall them.
+	reportMu sync.Mutex
+	// reportedState is what a feed last handed over, which is what gets said
+	// again. Unspecified means no feed has spoken — the state the attendance
+	// came back with is not one, since it is what the daemon already holds.
+	reportedState chatv1.HarnessState
+
+	// The loops' schedule, held here rather than read from the constants below
+	// so a test can drive them at a pace it can wait for. [New] takes the
 	// constants.
-	attendBackoffBase time.Duration
-	attendBackoffMax  time.Duration
+	attendBackoffBase  time.Duration
+	attendBackoffMax   time.Duration
+	harnessStateResend time.Duration
 	// reprobeInterval is how often a held attendance asks its harness's channel
-	// whether it is still there. A field for the reason the two above are.
+	// whether it is still there. A field for the reason the three above are.
 	reprobeInterval time.Duration
 }
 
@@ -161,17 +173,18 @@ func newServer(
 		return nil, err
 	}
 	s := &Server{
-		logger:            logger,
-		client:            client,
-		token:             token,
-		getenv:            getenv,
-		detect:            harnessctl.Detect,
-		subscribable:      map[string]struct{}{},
-		initialized:       make(chan struct{}),
-		settled:           make(chan struct{}),
-		attendBackoffBase: attendBackoffBase,
-		attendBackoffMax:  attendBackoffMax,
-		reprobeInterval:   reprobeInterval,
+		logger:             logger,
+		client:             client,
+		token:              token,
+		getenv:             getenv,
+		detect:             harnessctl.Detect,
+		subscribable:       map[string]struct{}{},
+		initialized:        make(chan struct{}),
+		settled:            make(chan struct{}),
+		attendBackoffBase:  attendBackoffBase,
+		attendBackoffMax:   attendBackoffMax,
+		harnessStateResend: harnessStateResend,
+		reprobeInterval:    reprobeInterval,
 	}
 	opts := &mcpsdk.ServerOptions{
 		Logger:             logger,
@@ -332,6 +345,10 @@ func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 		// a feed open for nothing.
 		g.Go(func() error {
 			s.watchHarnessState(gctx)
+			return nil
+		})
+		g.Go(func() error {
+			s.resendHarnessState(gctx)
 			return nil
 		})
 	}
@@ -655,12 +672,73 @@ func (s *Server) watchHarnessState(ctx context.Context) {
 // daemon publishes to the room — this server included, where it is what decides
 // whether a mention may be delivered now.
 //
-// A report that failed is said once and left. The next state the feed carries
-// replaces it whatever became of this one, and the member meanwhile keeps
-// whatever it last reported, which is the answer that interrupts nobody
-// mid-turn. A session on its way out says nothing at all: what the feed had
-// queued is drained as it closes, against a daemon connection closing with it.
+// The state is remembered as it is sent, and [Server.resendHarnessState] says
+// what was remembered again; a report that failed is therefore not left. The
+// member meanwhile keeps whatever the daemon last recorded, which is the answer
+// that interrupts nobody mid-turn. A session on its way out says nothing at all:
+// what the feed had queued is drained as it closes, against a daemon connection
+// closing with it.
 func (s *Server) reportHarnessState(ctx context.Context, state chatv1.HarnessState) {
+	s.reportMu.Lock()
+	defer s.reportMu.Unlock()
+	s.reportedState = state
+	s.sendHarnessState(ctx, state)
+}
+
+// harnessStateResend is how often the bridge re-sends the last state a feed
+// reported, so a daemon that restarted or refused a report hears it again.
+const harnessStateResend = 10 * time.Second
+
+// resendHarnessState says again, every harnessStateResend, what a feed last
+// reported about this member, for as long as the session runs.
+//
+// A feed speaks on change alone, and a member the daemon has wrong therefore
+// stays wrong until the agent's next transition — which may be the end of a
+// turn nobody was told had begun. A restarted daemon records a reopened
+// attendance as done, a refused report changes nothing, and a change-only
+// watcher repeats neither. Saying it again bounds the gap to one interval.
+//
+// Once an interval rather than on every poll of a feed, because the daemon runs
+// `cmdman status set` as a child process for every report it records. What the
+// room hears costs nothing: the daemon publishes an event only where the state
+// moved. Which feed said it does not matter — the Codex app server and the
+// Claude Code listing are repeated alike — and nothing is repeated at all until
+// one of them has spoken.
+func (s *Server) resendHarnessState(ctx context.Context) {
+	ticker := time.NewTicker(s.harnessStateResend)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.resendLastHarnessState(ctx)
+		}
+	}
+}
+
+// resendLastHarnessState says the last reported state again, where there is one
+// to say and somebody to say it to.
+//
+// Nothing is sent while the attendance is down: the daemon refuses a state
+// reported about a member the room does not have, so the attempt would fail and
+// say so every interval for as long as the daemon stayed away. The next tick
+// catches the attendance that comes back, which is the case this exists for.
+func (s *Server) resendLastHarnessState(ctx context.Context) {
+	if !s.attending() {
+		return
+	}
+	s.reportMu.Lock()
+	defer s.reportMu.Unlock()
+	if s.reportedState == chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED {
+		return
+	}
+	s.sendHarnessState(ctx, s.reportedState)
+}
+
+// sendHarnessState puts one state on the wire and reports a refusal. The caller
+// holds reportMu.
+func (s *Server) sendHarnessState(ctx context.Context, state chatv1.HarnessState) {
 	token, err := s.ResolveToken()
 	if err == nil {
 		err = s.client.ReportHarnessState(ctx, token, state)
@@ -669,6 +747,13 @@ func (s *Server) reportHarnessState(ctx context.Context, state chatv1.HarnessSta
 		s.logger.Warn("reporting what the harness says it is doing failed",
 			"state", cli.HarnessStateName(state), "error", err)
 	}
+}
+
+// attending reports whether the attendance stream is open right now.
+func (s *Server) attending() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.attended
 }
 
 // subscribed accepts a request to be told about a resource. The room's feed is

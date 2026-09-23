@@ -116,6 +116,10 @@ func TestHarnessFixture_ClaudeScreenDialog(t *testing.T) {
 	harnessFixtureBytes(t, "claude-screen-dialog.txt")
 }
 
+func TestHarnessFixture_ClaudeAgents(t *testing.T) {
+	harnessFixtureJSON(t, "claude-agents.json")
+}
+
 func TestHarnessFixture_CodexAppServerClient(t *testing.T) {
 	harnessFixtureNDJSON(t, "codex-app-server.client.ndjson")
 }

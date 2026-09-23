@@ -46,7 +46,10 @@ const eventTimeout = 5 * time.Second
 // environment would otherwise have a case build a real channel and go looking
 // for it on the plugin's own loopback port, where a session belonging to
 // whoever runs the suite may well be listening.
-func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
+//
+// It takes the service rather than the stub, so a case that needs one verb
+// answered differently can hand over the stub wrapped.
+func newTestBridge(t *testing.T, svc chatv1.ChatServiceServer) *Server {
 	t.Helper()
 
 	return newTestBridgeIn(t, svc, func(string) string { return "" })
@@ -56,7 +59,7 @@ func newTestBridge(t *testing.T, svc *fakeChatService) *Server {
 // for, which is how a case plays a launcher that wired something up beside the
 // server.
 func newTestBridgeIn(
-	t *testing.T, svc *fakeChatService, getenv func(string) string,
+	t *testing.T, svc chatv1.ChatServiceServer, getenv func(string) string,
 ) *Server {
 	t.Helper()
 
@@ -68,7 +71,7 @@ func newTestBridgeIn(
 // it does. Everything else discards: a logger writing to the test's output
 // would bury the case that failed under the loop of every case that did not.
 func newTestBridgeWith(
-	t *testing.T, svc *fakeChatService, logger *slog.Logger, getenv func(string) string,
+	t *testing.T, svc chatv1.ChatServiceServer, logger *slog.Logger, getenv func(string) string,
 ) *Server {
 	t.Helper()
 
@@ -968,6 +971,8 @@ func TestNew_SeedsTheRetryPace(t *testing.T) {
 	assert.Assert(t, bridge.attendBackoffMax >= bridge.attendBackoffBase,
 		"attending climbs to %s, below its first wait of %s",
 		bridge.attendBackoffMax, bridge.attendBackoffBase)
+	assert.Assert(t, bridge.harnessStateResend > 0,
+		"the last harness state is said again every %s", bridge.harnessStateResend)
 	// A zero here is worse than a zero backoff: the ticker a held attendance asks
 	// its channel on panics on one.
 	assert.Assert(t, bridge.reprobeInterval > 0,

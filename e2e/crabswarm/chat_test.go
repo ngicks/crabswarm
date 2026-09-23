@@ -213,7 +213,9 @@ func waitStubStatus(t *testing.T, cfgPath, want string, timeout time.Duration) {
 // chatEnviron is the environment the crabswarm processes below run with: the
 // test's own, minus everything that would override the config file this test
 // hands them or supply an identity token behind its back. The suite may itself
-// run under cmdman, which exports CMDMAN_CMD_ID.
+// run under cmdman, which exports CMDMAN_CMD_ID, or under Claude Code, which
+// exports CLAUDE_CODE_SESSION_ID; a bridge handshaked as Claude Code with that
+// id would poll the developer's own session through the real claude on PATH.
 //
 // FAKECHAT_PORT goes with them. The suite may be run beside a live Claude Code
 // whose fakechat plugin is listening on the port that environment names, and a
@@ -224,7 +226,7 @@ func chatEnviron() []string {
 	for _, kv := range os.Environ() {
 		name, _, _ := strings.Cut(kv, "=")
 		if strings.HasPrefix(name, "CRABSWARM_") || name == "CMDMAN_CMD_ID" ||
-			name == "FAKECHAT_PORT" {
+			name == "CLAUDE_CODE_SESSION_ID" || name == "FAKECHAT_PORT" {
 			continue
 		}
 		env = append(env, kv)
@@ -772,7 +774,7 @@ func TestChat(t *testing.T) {
 		t.Errorf("read after the board post = %q, want nothing unread", got)
 	}
 
-	// report-state is driven by harness hooks, so it stays silent.
+	// report-state is driven by a harness plugin or hook, so it stays silent.
 	if got := runChat(t, cfg, "tok-ana", "report-state", "done"); got != "" {
 		t.Errorf("report-state wrote %q, want nothing", got)
 	}

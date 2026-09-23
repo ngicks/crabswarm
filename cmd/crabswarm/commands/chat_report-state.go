@@ -13,8 +13,8 @@ func chatReportStateCmd(parent *cobra.Command, flags *chatFlags) {
 		Use:   "report-state <" + strings.Join(chatcli.HarnessStateNames(), "|") + ">",
 		Short: "Record the state of the harness this member runs under",
 		Long: `report-state tells the daemon what the caller's harness is doing. It is
-driven by harness hooks rather than typed by hand, and prints nothing so its
-output never reaches the agent reading the hook's stdout.
+driven by a harness plugin or hook rather than typed by hand, and prints
+nothing so its output never reaches the agent reading the hook's stdout.
 
 The state gates keystroke-injection nudges: done means the turn finished and
 the harness sits waiting for a new prompt, which is the one state a nudge is

@@ -2,9 +2,12 @@ package crabswarm_test
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,7 +18,7 @@ import (
 // wiring as a skills-directory plugin: apm copies `.apm/skills/<name>/` to
 // `~/.claude/skills/<name>/` with every file in it, and Claude Code loads a
 // skill directory carrying `.claude-plugin/plugin.json` as a plugin, reading
-// its hooks and MCP servers from the directory instead of from settings.json.
+// whatever hooks and MCP servers the directory holds instead of settings.json.
 // The Codex wiring stays a merged hooks file, routed to Codex alone by its
 // `codex-` stem. Both are text apm copies as written, so their shape is pinned
 // here rather than discovered on a consumer's machine.
@@ -56,10 +59,28 @@ func hooksObject(t *testing.T, path string) map[string]any {
 	return file.Hooks
 }
 
+// apmPluginHookPackages are the packages whose Claude Code plugin ships a hook
+// file. crabswarm-issues-lint is one: its whole point is a `Stop` hook that
+// blocks a turn on a broken diagram, and Claude Code has no other way to be
+// told.
+//
+// crabswarm-mcp is not. Its member reports what the session is doing off the
+// agents listing its own MCP server polls, and its messages arrive either as a
+// channel notification or as a line the daemon types into the terminal, so a
+// hook there would have nothing left to carry and one thing to get wrong: the
+// `Stop` read it used to ship stored `done` whenever the inbox was empty, while
+// a subagent running in the background kept the session working.
+var apmPluginHookPackages = []string{"crabswarm-issues-lint"}
+
 // apm deploys a skill directory only when a SKILL.md sits at its root, and
 // Claude Code turns it into a plugin only when the manifest is there and names
 // the directory: a manifest name that drifts from the directory is a plugin
 // Claude Code lists under one name and apm deploys under another.
+//
+// The hook file is pinned in both directions. Claude Code loads whatever hooks
+// the directory carries on every session, so a file re-added to a package that
+// wires none is wiring nobody would notice until the room started disagreeing
+// with itself.
 func TestApmPackages_ShipAClaudePlugin(t *testing.T) {
 	for _, name := range apmPackages {
 		t.Run(name, func(t *testing.T) {
@@ -92,30 +113,53 @@ func TestApmPackages_ShipAClaudePlugin(t *testing.T) {
 					manifest.Version, pkg.Version)
 			}
 
-			hooksObject(t, filepath.Join(dir, "hooks", "hooks.json"))
+			if slices.Contains(apmPluginHookPackages, name) {
+				hooksObject(t, filepath.Join(dir, "hooks", "hooks.json"))
+				return
+			}
+			if _, err := os.Stat(filepath.Join(dir, "hooks")); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("the plugin carries a hooks directory (%v); %s wires Claude Code none",
+					err, name)
+			}
 		})
 	}
 }
 
-// The OpenCode plugin carries the delivery wording of the hook file, since a
-// message announced two different ways on two harnesses is a skill teaching
-// the wrong words. The wording is pinned by its opening, which is what an
-// agent recognises.
+// chatDeliveryNotices are the two lines a handed-over message is announced
+// with: the mid-turn one and the one at turn end. Each is pinned by its
+// opening, which is the part an agent recognises.
+var chatDeliveryNotices = []string{
+	"[crabswarm chat] Messages just arrived. Reply with",
+	"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you",
+}
+
+// The two places crabswarm-mcp announces a delivery — Codex's hooks and the
+// OpenCode plugin — say it in the same words, since a message announced two
+// different ways on two harnesses is a skill teaching the wrong words. They are
+// separate files in separate languages, so nothing but this keeps them
+// together.
 func TestApmPackages_OpenCodePluginSpeaksLikeTheHooks(t *testing.T) {
 	plugin, err := os.ReadFile(filepath.Join(apmSkillPluginDir("crabswarm-mcp"), "opencode.ts"))
 	if err != nil {
 		t.Fatalf("read the OpenCode plugin: %v", err)
 	}
-	for _, want := range []string{
-		"[crabswarm chat] Messages just arrived. Reply with",
-		"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you",
-	} {
+	for _, want := range chatDeliveryNotices {
 		if !strings.Contains(string(plugin), want) {
 			t.Errorf("opencode.ts does not carry %q", want)
 		}
 	}
 	if strings.Contains(string(plugin), "console.log") {
 		t.Error("opencode.ts writes to stdout, which the TUI shares with the screen")
+	}
+
+	hooks := readCodexHooks(t)
+	for event, want := range map[string]string{
+		"PostToolUse": chatDeliveryNotices[0],
+		"Stop":        chatDeliveryNotices[1],
+	} {
+		if got := hooks.command(t, event); !strings.Contains(got, want) {
+			t.Errorf("the codex %s command %q does not carry %q", event, got, want)
+		}
 	}
 }
 
@@ -146,10 +190,10 @@ func TestApmPackages_MergeHooksIntoCodexOnly(t *testing.T) {
 
 // apmMirroredHookPackages are the packages whose two hook files are the same
 // wiring written twice, which is every package that asks the two harnesses for
-// the same thing. crabswarm-mcp is not one of them: Codex reports its state on
-// the app server the MCP server is already listening to, so its file wires
-// fewer events than the plugin's. TestChatCodex_HooksLeaveTheStateToTheAppServer
-// is what pins that file instead.
+// the same thing. crabswarm-mcp is not one of them: it hooks Codex alone, and
+// has no second file to compare its one against.
+// TestChatCodex_HooksLeaveTheStateToTheAppServer is what pins that file
+// instead.
 var apmMirroredHookPackages = []string{"crabswarm-issues-lint"}
 
 // The two copies of a mirrored package's wiring are compared whole: a Codex

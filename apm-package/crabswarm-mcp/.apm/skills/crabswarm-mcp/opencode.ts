@@ -1,8 +1,8 @@
 // OpenCode plugin: the crabswarm-mcp wiring for a harness that has no hook
 // file. OpenCode loads JavaScript or TypeScript plugins and delivers session,
 // permission and tool events to them, so this file is the counterpart of
-// hooks/hooks.json: each handler maps one OpenCode event onto one
-// `crabswarm chat` verb. The delivery wording is the same text the hook file
+// .apm/hooks/codex-hooks.json: each handler maps one OpenCode event onto one
+// `crabswarm chat` verb. The delivery wording is the same text that hook file
 // carries.
 //
 // It also carries what no hook file needs: the relay the MCP server hands a

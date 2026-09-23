@@ -1,0 +1,22 @@
+[
+  {
+    "id": "b228860f",
+    "cwd": "/home/watage/gitrepo/github.com/ngicks/cmdman",
+    "kind": "background",
+    "startedAt": 1789735185904,
+    "sessionId": "b228860f-cd9a-436d-a117-8b471909e314",
+    "name": "ngplan list epics priority",
+    "state": "done"
+  },
+  {
+    "pid": 143824,
+    "id": "7eda2488",
+    "cwd": "/home/watage/gitrepo/github.com/ngicks/crabswarm",
+    "kind": "background",
+    "startedAt": 1789891374781,
+    "sessionId": "7eda2488-ab16-4b7a-98cc-b8b8b314a225",
+    "name": "Crabswarm poll and supervised commands",
+    "status": "busy",
+    "state": "working"
+  }
+]

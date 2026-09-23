@@ -45,7 +45,7 @@ type AttendingMembers interface {
 }
 
 // StateRecorder records the state a member is observed in, the same way a
-// harness hook's report is recorded: the store keeps it, the status display
+// bridge's report is recorded: the store keeps it, the status display
 // follows it, and the room hears about a change. [chat.Service] is what the
 // daemon passes.
 type StateRecorder interface {
@@ -59,19 +59,21 @@ type screenCapturer interface {
 	CaptureScreen(ctx context.Context, token string) (string, error)
 }
 
-// ScreenPoller keeps the recorded state of every attending Claude Code session
-// in step with what its terminal is actually showing.
+// ScreenPoller keeps the recorded state of an attending session whose harness
+// nobody recognised in step with what its terminal is actually showing.
 //
-// Claude Code offers no state API for an interactive session, so hooks are the
-// only thing that reports one — and a hook can go missing: interrupting a turn
-// with Esc fires no Stop hook, which leaves the member marked working with
-// nothing left to correct it. The screen still says which of working, waiting
-// on a dialog and back at the prompt the session is in, so the poller reads it
-// at every interval and records what it read. The hooks stay the fast path;
-// this is what the reading overrides them with.
+// Every harness this daemon names reports on a feed of its own that its bridge
+// watches: Codex its app server, OpenCode its plugin events, Claude Code the
+// agents listing its own `crabswarm mcp` server polls. Reading a screen beside
+// such a feed only reintroduces a wrong "done" — the empty composer line reads
+// as idle while a subagent running in the background keeps the session working
+// — so a harness with a feed is left to that feed.
 //
-// Only agents running Claude Code are polled. Every other harness reports its
-// own state, and a member that is not an agent has no terminal to read.
+// This is the fallback for a harness that has no feed, so only agents attending
+// as [chat.HarnessOther] are polled: for those, the screen is the only thing
+// that says what the session is doing. A member that declared no harness at all
+// is left alone too — nothing says a harness is sitting in that terminal — and a
+// member that is not an agent has no terminal to read.
 type ScreenPoller struct {
 	interval time.Duration
 	capture  screenCapturer
@@ -134,8 +136,8 @@ func (p *ScreenPoller) Run(ctx context.Context) {
 	}
 }
 
-// poll reads the screen of every attending Claude Code agent once, in roster
-// order.
+// poll reads the screen of every attending agent whose harness has no feed of
+// its own once, in roster order.
 //
 // One at a time: a room holds a handful of agents, and capturing them in
 // parallel would spend goroutines and cmdman processes to shave milliseconds
@@ -148,7 +150,7 @@ func (p *ScreenPoller) poll(ctx context.Context) {
 	}
 	watched := make(map[string]struct{}, len(members))
 	for _, m := range members {
-		if m.Kind != chat.KindAgent || m.Harness != chat.HarnessClaudeCode {
+		if m.Kind != chat.KindAgent || m.Harness != chat.HarnessOther {
 			continue
 		}
 		watched[m.Token] = struct{}{}

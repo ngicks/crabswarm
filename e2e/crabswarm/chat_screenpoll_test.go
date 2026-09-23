@@ -23,6 +23,11 @@ const screenPollInterval = 200 * time.Millisecond
 // in: at its prompt, then mid-turn, then holding a permission dialog, then back
 // at its prompt. The last one is held once the script runs out, the way a
 // terminal keeps showing its last screen.
+//
+// They are Claude Code recordings although the member walking them attends as
+// the harness nobody recognised: the markers the daemon reads a screen with
+// were read off those recordings, and a harness with no name has no recording
+// of its own to stand in for it.
 var screenPollScript = []string{
 	"claude-screen-idle.txt",
 	"claude-screen-working.txt",
@@ -230,15 +235,16 @@ func memberRow(t *testing.T, cfgPath, token, address string) []string {
 	return nil
 }
 
-// A Claude Code session reports nothing here — no hook runs, and nothing calls
-// report-state — and the daemon still follows it from its prompt into a turn,
-// into the permission dialog that turn raised, and back to its prompt. Reading
-// the screen is the whole of how it knows.
-func TestChat_ScreenPollFollowsAClaudeCodeSession(t *testing.T) {
+// A session attending as the harness nobody recognised reports nothing here —
+// it has no feed of its own, and nothing calls report-state — and the daemon
+// still follows it from its prompt into a turn, into the permission dialog that
+// turn raised, and back to its prompt. Reading the screen is the whole of how
+// it knows.
+func TestChat_ScreenPollFollowsAHarnessWithNoFeed(t *testing.T) {
 	cfg := startScreenPollDaemon(t, []stubCommand{
 		{token: "tok-ana", dir: chatRoom, project: "alpha"},
 	})
-	attendance := attendScreenPoll(t, cfg, "tok-ana", chatv1.Harness_HARNESS_CLAUDE_CODE)
+	attendance := attendScreenPoll(t, cfg, "tok-ana", chatv1.Harness_HARNESS_OTHER)
 
 	// Attendance opens at done, so the first screen — the session at its prompt
 	// — changes nothing and announces nothing. What follows is the sequence.
@@ -271,33 +277,50 @@ func TestChat_ScreenPollFollowsAClaudeCodeSession(t *testing.T) {
 	}
 }
 
-// Only a Claude Code session has its screen read. Every other harness reports
-// its own state, so reading its terminal would cost an invocation per interval
-// and tell the daemon nothing it was not already told.
-func TestChat_ScreenPollLeavesOtherHarnessesAlone(t *testing.T) {
+// A harness the daemon has a name for is left to the feed it reports on.
+// Reading its screen beside that feed would only lay a wrong "done" over what
+// the feed said: the composer line stands empty while a subagent running in the
+// background keeps the session working.
+func TestChat_ScreenPollLeavesHarnessesWithAFeedAlone(t *testing.T) {
 	cfg := startScreenPollDaemon(t, []stubCommand{
 		{token: "tok-ana", dir: chatRoom, project: "alpha"},
 		{token: "tok-bob", dir: chatRoom, project: "alpha"},
+		{token: "tok-cid", dir: chatRoom, project: "alpha"},
 	})
-	claude := attendScreenPoll(t, cfg, "tok-ana", chatv1.Harness_HARNESS_CLAUDE_CODE)
-	codex := attendScreenPoll(t, cfg, "tok-bob", chatv1.Harness_HARNESS_CODEX)
+	// The two harnesses with a feed attend first, so every sweep that read the
+	// unrecognised member's screen had both of them on the roster already.
+	claude := attendScreenPoll(t, cfg, "tok-bob", chatv1.Harness_HARNESS_CLAUDE_CODE)
+	codex := attendScreenPoll(t, cfg, "tok-cid", chatv1.Harness_HARNESS_CODEX)
+	other := attendScreenPoll(t, cfg, "tok-ana", chatv1.Harness_HARNESS_OTHER)
 
-	// The Claude session walking its whole script is what says the poller has
-	// been round several times by now, so the Codex session's screen was not
-	// merely not read yet.
-	screenPollStates(t, claude, 3, 30*time.Second)
+	// The unrecognised member walking its whole script is what says the poller
+	// has been round several times by now, so the other two had not simply gone
+	// unread so far.
+	screenPollStates(t, other, 3, 30*time.Second)
 
 	captured := stubCaptures(t, cfg)
-	if len(captured) == 0 {
-		t.Fatalf("no screen was captured at all")
+	if !slices.Contains(captured, "tok-ana") {
+		t.Fatalf("capture-screen was never asked for tok-ana; it captured %q", captured)
 	}
-	if slices.Contains(captured, "tok-bob") {
-		t.Errorf("capture-screen was asked for tok-bob; it captured %q", captured)
+	// The stub answers `capture-screen` for whatever token it is handed, so a
+	// token missing from its log is the daemon declining to read that screen
+	// rather than the stub refusing to show one.
+	for _, token := range []string{"tok-bob", "tok-cid"} {
+		if slices.Contains(captured, token) {
+			t.Errorf("capture-screen was asked for %s; it captured %q", token, captured)
+		}
 	}
 
-	// The Codex member is still where its own reports left it.
-	row := memberRow(t, cfg, "tok-bob", codex.Self().GetTeam()+"/"+codex.Self().GetName())
-	if len(row) < 3 || row[2] != "done" {
-		t.Errorf("members row = %v, want its state column to read done", row)
+	// Both are still where their own feeds left them.
+	for _, m := range []struct {
+		token      string
+		attendance *chatcli.Attendance
+	}{{"tok-bob", claude}, {"tok-cid", codex}} {
+		self := m.attendance.Self()
+		row := memberRow(t, cfg, m.token, self.GetTeam()+"/"+self.GetName())
+		if len(row) < 3 || row[2] != "done" {
+			t.Errorf("members row for %s = %v, want its state column to read done",
+				m.token, row)
+		}
 	}
 }

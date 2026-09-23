@@ -5,12 +5,13 @@
 // server composes it with the room.
 //
 // A harness names itself once, in the MCP handshake, and everything about how
-// it can be woken follows from that name: Claude Code takes an upload on the
-// loopback server its fakechat plugin runs, Codex listens on its app server,
-// OpenCode relays through a plugin, and a harness nobody recognises takes
-// nothing at all. The server asks here and attends as whatever comes back, so
-// the daemon knows both what the member runs and whether it still has to type
-// at it.
+// it can be woken and how it is heard from follows from that name: Claude Code
+// takes an upload on the loopback server its fakechat plugin runs and says what
+// it is doing in the agents listing, Codex listens on its app server and
+// reports on that server's feed, OpenCode relays through a plugin, and a
+// harness nobody recognises takes nothing at all. The server asks here and
+// attends as whatever comes back, so the daemon knows both what the member runs
+// and whether it still has to type at it.
 //
 // A harness with no channel of its own is not a failure: it is the terminal
 // one, which is how every agent was reached before a harness could deliver a
@@ -95,10 +96,12 @@ type Prober interface {
 // StateSource is a harness that says what its agent is doing without being
 // asked, which is a harness whose CLI has a feed of its own to say it on.
 //
-// Every other harness reports through its hooks: a hook runs on each event the
-// harness announces and tells the daemon what changed. A harness with a feed
-// needs none of them, and hooks reporting alongside it would race it with a
-// slower, coarser answer.
+// Claude Code has the agents listing and Codex has its app server, so both
+// implement this. A harness with no feed says nothing here, and the daemon
+// reads that member's terminal instead. A feed is preferred over a hook for
+// the state: a hook only fires on the events its harness announces, so an
+// interrupted turn would leave a member marked working with nothing to correct
+// it.
 //
 // The server is what joins the two ends: it holds one harness per session, and
 // a harness that implements this gets watched for as long as that session runs,

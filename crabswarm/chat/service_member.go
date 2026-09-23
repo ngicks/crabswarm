@@ -193,16 +193,18 @@ func (s *Service) ListMembers(
 	return &chatv1.ListMembersResponse{Members: membersProto(members)}, nil
 }
 
-// ReportState records the harness state the caller's hooks report.
+// ReportState records the harness state the caller reports for itself, which it
+// read off the feed its harness answers on.
 //
 // The report is always stored, even when it repeats the state already held: it
 // carries the moment the harness was last seen in that state, which is what
 // tells a member still working from one that stopped saying so.
 //
-// The room only hears about it when the state actually changed. Hooks report
-// working after every tool call, so a room of busy agents would otherwise spend
-// its event feed telling every attendee to re-read a roster that says exactly
-// what it said before.
+// The room only hears about it when the state actually changed. A member
+// reports the same state more than once: a server watching a feed re-sends the
+// last state that feed reported every few seconds. A room of agents would
+// otherwise spend its event feed telling every attendee to re-read a roster
+// that says exactly what it said before.
 func (s *Service) ReportState(
 	ctx context.Context,
 	req *chatv1.ReportStateRequest,
@@ -222,15 +224,15 @@ func (s *Service) ReportState(
 }
 
 // RecordState records the state a watcher observed for the member attending
-// under token, through the very path [Service.ReportState] records a hook's
-// report through — so a reading of the terminal overrides a report that never
-// came, and an operator's status display and the room's feed say the same thing
-// either way.
+// under token, through the very path [Service.ReportState] records a member's
+// own report through. A reading of the terminal and a report a member sent for
+// itself therefore land the same way, and an operator's status display and the
+// room's feed say the same thing whichever arrived.
 //
 // It is the seam for a watcher outside the RPC surface: the screen poller,
-// which reads the state off the terminal because an interrupted Claude Code
-// turn fires no hook. An unknown token is [ErrNotAttending] — the session ended
-// between the listing and the reading, which is ordinary.
+// which reads the state off the terminal of a member whose harness reports on
+// no feed of its own. An unknown token is [ErrNotAttending]: the session ended
+// between the listing and the reading, and that is ordinary.
 func (s *Service) RecordState(ctx context.Context, token string, state MemberState) error {
 	m, err := s.store.Member(ctx, token)
 	if err != nil {
@@ -241,9 +243,10 @@ func (s *Service) RecordState(ctx context.Context, token string, state MemberSta
 
 // recordState is the one path a member's state is written through: the store
 // first, then the status display, then the room — and the room only when the
-// state actually changed. Hooks report working after every tool call, so a room
-// of busy agents would otherwise spend its event feed telling every attendee to
-// re-read a roster that says exactly what it said before.
+// state actually changed. A server watching a feed re-sends the last state that
+// feed reported every few seconds, so a room of agents would otherwise spend
+// its event feed telling every attendee to re-read a roster that says exactly
+// what it said before.
 //
 // m is the member as it stood before the write, which is what the change is
 // measured against and what the event carries.
