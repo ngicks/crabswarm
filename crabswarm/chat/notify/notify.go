@@ -41,7 +41,8 @@ const staleStateAfter = 10 * time.Minute
 //
 // Typing into a terminal is only safe while that terminal is waiting for a
 // command, so a nudge passes three guards — the member is an agent, its last
-// reported harness state invites one (see [nudgeable]), and a snapshot of its
+// reported harness state invites one (done, or a stale working or waiting
+// report, as nudgeable below decides), and a snapshot of its
 // screen shows no dialog. A guard that declines drops the nudge and reports
 // success: the message is already in the room and unread for the recipient, so
 // it reads it at the end of its current turn instead of a moment from now.
