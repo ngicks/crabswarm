@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -49,8 +50,9 @@ func (l *syncLog) String() string {
 func newCodexHarness(f *codexFake) (*codex, *syncLog) {
 	log := &syncLog{}
 	return &codex{
-		path:   f.path,
-		logger: slog.New(slog.NewTextHandler(log, nil)),
+		path:    f.path,
+		logger:  slog.New(slog.NewTextHandler(log, nil)),
+		binding: semaphore.NewWeighted(1),
 	}, log
 }
 
@@ -304,7 +306,7 @@ func TestCodex_SkipsADeliveryItCannotBind(t *testing.T) {
 	}{
 		{
 			name: "no thread is loaded",
-			held: "holds 0, 0 of them a person's",
+			held: "holds 0 threads, none of them a person's",
 		},
 		{
 			name:   "only helpers are loaded",
@@ -313,7 +315,7 @@ func TestCodex_SkipsADeliveryItCannotBind(t *testing.T) {
 				"helper-system":   "system",
 				"helper-guardian": "guardian_review",
 			},
-			held: "holds 2, 0 of them a person's",
+			held: "holds 2 threads, none of them a person's",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -531,6 +533,68 @@ func TestCodex_DeliveryRidesTheWatchedConnection(t *testing.T) {
 	assert.Equal(t, count(f.methods(), "thread/resume"), 1,
 		"the delivery resumed a thread this connection already follows")
 	assert.Equal(t, count(f.methods(), "turn/start"), 1)
+}
+
+// A delivery riding the feed's connection and the feed moving to a new session
+// thread each list the loaded threads and then subscribe, and they take turns
+// doing it. Here the delivery is still reading the threads when a new TUI's
+// thread is announced. The feed waits for the delivery, which starts its turn
+// on the thread a person was in when it listed them, and then moves to the new
+// thread. The delivery resumes nothing over the top of the move.
+func TestCodex_DeliveryAndTheFeedTakeTurnsBinding(t *testing.T) {
+	f := startCodexFake(t)
+	old := f.rec.threadId(t)
+	const helper = "helper-system"
+	f.loaded = []string{old}
+	h, _ := newCodexHarness(f)
+
+	states := watchCodex(t, h)
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+
+	// A helper beside the session makes the delivery read the threads, and its
+	// first read is kept back so the announcement lands in the middle of it.
+	f.update(func() {
+		f.loaded = []string{old, helper}
+		f.sources = map[string]string{helper: "system"}
+	})
+	release := f.holdNext(t, "thread/read")
+	var delivering errgroup.Group
+	delivering.Go(func() error {
+		return h.Deliver(t.Context(), Notice{Text: "the migration needs you"})
+	})
+	f.waitAsked(t, "thread/read")
+
+	f.update(func() {
+		f.loaded = []string{old, helper, codexLaterSession}
+		f.recency = map[string]int64{old: 100, codexLaterSession: 200}
+	})
+	f.push(codexThreadStartedFrame(codexLaterSession))
+
+	// A feed that did not wait would list the threads again in this window. The
+	// delivery would then resume the thread it had listed over the top of the
+	// feed's move, and leave the feed following the stopped TUI's thread.
+	time.Sleep(codexRebindInterval / 4)
+	assert.Equal(t, count(f.methods(), "thread/loaded/list"), 2,
+		"the feed bound again while a delivery was binding: %v", f.methods())
+	release()
+	assert.NilError(t, delivering.Wait())
+
+	// The new thread keeps the recorded resume answer, which is idle.
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+	assert.Equal(t, f.handshakes(), 1, "the delivery opened a second connection")
+	assert.Equal(t, deliveredTo(t, f), old)
+	assert.Equal(t, h.borrow().subscribed(), codexLaterSession)
+	assert.DeepEqual(t, f.methods(), []string{
+		"initialize", "initialized", "thread/loaded/list", "thread/resume",
+		"thread/loaded/list", "thread/read", "thread/started", "thread/read", "turn/start",
+		"thread/loaded/list", "thread/read", "thread/read", "thread/read",
+		"thread/unsubscribe", "thread/resume",
+	})
+	assert.DeepEqual(t, f.threadsOf(t, "thread/resume"), []string{old, codexLaterSession})
+
+	// The feed hears the new thread, which is what the move was for.
+	f.push(codexWaitingFrame(codexLaterSession))
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WAITING)
 }
 
 // count is how many of methods are one.

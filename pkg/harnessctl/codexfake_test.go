@@ -136,8 +136,20 @@ type codexFake struct {
 	// resumeStatus is the thread status each thread's resume answer carries, as
 	// JSON, by id. A thread missing here keeps the recorded one, which is idle.
 	resumeStatus map[string]string
-	trail        []codexRequest
-	conns        []*websocket.Conn
+	// hold is the call whose answer [codexFake.holdNext] keeps back, until that
+	// call arrives.
+	hold  *codexHold
+	trail []codexRequest
+	conns []*websocket.Conn
+
+	// held writes the answers that were kept back, each once it is released.
+	held errgroup.Group
+}
+
+// codexHold is one call whose answer waits for released to close.
+type codexHold struct {
+	method   string
+	released <-chan struct{}
 }
 
 // codexRequest is one message in the fake's trail: a call it was asked to
@@ -181,6 +193,7 @@ func startCodexFake(t *testing.T, loaded ...string) *codexFake {
 	t.Cleanup(func() {
 		_ = srv.Close()
 		_ = serving.Wait()
+		_ = f.held.Wait()
 	})
 	return f
 }
@@ -222,6 +235,10 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 	sources := maps.Clone(f.sources)
 	recency := maps.Clone(f.recency)
 	resumeStatus := maps.Clone(f.resumeStatus)
+	var hold *codexHold
+	if f.hold != nil && f.hold.method == frame.Method && len(frame.Id) > 0 {
+		hold, f.hold = f.hold, nil
+	}
 	f.mu.Unlock()
 
 	if len(frame.Id) == 0 {
@@ -255,7 +272,28 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 	if err != nil {
 		return
 	}
-	_ = conn.Write(context.Background(), websocket.MessageText, reply)
+	if hold == nil {
+		_ = conn.Write(context.Background(), websocket.MessageText, reply)
+		return
+	}
+	// The answer is written aside so that the calls after the held one are
+	// still read and answered, as the real app server answers each call on its
+	// own.
+	f.held.Go(func() error {
+		<-hold.released
+		_ = conn.Write(context.Background(), websocket.MessageText, reply)
+		return nil
+	})
+}
+
+// holdNext keeps back the answer to the next call to method until release is
+// called, and until the test ends at the latest. Every other call is answered
+// meanwhile.
+func (f *codexFake) holdNext(t *testing.T, method string) (release func()) {
+	t.Helper()
+	gate, release := context.WithCancel(t.Context())
+	f.update(func() { f.hold = &codexHold{method: method, released: gate.Done()} })
+	return release
 }
 
 // threadReadAnswer is the recorded thread/read answer re-addressed to the thread

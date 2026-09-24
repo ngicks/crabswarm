@@ -174,7 +174,13 @@ func (c *codex) follow(
 // followed until now is still the best one this connection knows of. A resume
 // that fails after the old thread was unsubscribed leaves the connection
 // following nothing, which is the state the feed retries from on its timer.
+//
+// It holds [codex.binding] for its whole length, for the reason given there.
 func (c *codex) rebind(ctx context.Context, cli *codexClient, events chan codexEvent) error {
+	if err := c.binding.Acquire(ctx, 1); err != nil {
+		return err
+	}
+	defer c.binding.Release(1)
 	id, err := c.bind(ctx, cli)
 	if err != nil {
 		return err
@@ -204,10 +210,10 @@ func (c *codex) rebind(ctx context.Context, cli *codexClient, events chan codexE
 // queue hands one state to the goroutine reporting them, dropping the oldest
 // waiting state when the queue is full.
 //
-// It never blocks: it runs on the JSON-RPC client's delivery goroutine, which
-// holds that client's lock, so waiting here would stop every reply behind it.
-// The oldest goes rather than the newest because the newest is the one that is
-// still true.
+// It never blocks: a notification handler calls it while holding the JSON-RPC
+// client's lock, and every other frame received and every call sent waits on
+// that lock. The oldest goes rather than the newest because the newest is the
+// one that is still true.
 func (c *codex) queue(events chan codexEvent, ev codexEvent) {
 	for {
 		select {

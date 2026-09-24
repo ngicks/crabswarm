@@ -51,6 +51,10 @@ type codexClient struct {
 	// the one thread whose states the feed reports. The feed and a delivery both
 	// ask for the subscription and either may be first, so it is recorded rather
 	// than assumed.
+	//
+	// The lock keeps one read or write of the record whole and nothing more. A
+	// caller that reads the record and then changes the subscription orders that
+	// sequence itself, as [codex.binding] does.
 	resumedMu sync.Mutex
 	resumed   string
 }
@@ -59,9 +63,10 @@ type codexClient struct {
 // at path and finishes the JSON-RPC handshake. onNotify, when not nil, is
 // handed every notification the server pushes.
 //
-// The notification handler runs on the JSON-RPC client's own delivery
-// goroutine, which holds its lock for the length of the call, so a handler that
-// blocks stalls every reply behind it. Callers hand the event on and return.
+// The JSON-RPC client hands every frame it receives to a goroutine of its own,
+// and that goroutine runs the handler while holding the client's lock. A
+// handler that blocks stalls every other frame received and every call sent
+// meanwhile. Callers hand the event on and return.
 func dialCodex(
 	ctx context.Context, path string, onNotify func(*jrpc2.Request),
 ) (*codexClient, error) {
@@ -131,14 +136,13 @@ func (c *codexClient) loadedThreads(ctx context.Context) ([]string, error) {
 }
 
 // codexThread is what a delivery needs to know about one loaded thread: whose
-// it is, when it was last used, and what it is doing.
+// it is and when it was last used.
 type codexThread struct {
 	Id     string `json:"id"`
 	Source string `json:"threadSource"`
 	// RecencyAt is the Unix second the app server orders its threads by
 	// recency with. The protocol allows null, which reads as 0.
-	RecencyAt int64             `json:"recencyAt"`
-	Status    codexThreadStatus `json:"status"`
+	RecencyAt int64 `json:"recencyAt"`
 }
 
 // codexThreadStatus is what a thread is doing: `idle`, `active` with the flags
