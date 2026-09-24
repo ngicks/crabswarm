@@ -132,12 +132,16 @@ type codexFake struct {
 	sources map[string]string
 	// recency is the recencyAt each loaded thread reports, by id. A thread
 	// missing here keeps the recorded one, so two such threads tie.
-	recency  map[string]int64
-	requests []codexRequest
-	conns    []*websocket.Conn
+	recency map[string]int64
+	// resumeStatus is the thread status each thread's resume answer carries, as
+	// JSON, by id. A thread missing here keeps the recorded one, which is idle.
+	resumeStatus map[string]string
+	trail        []codexRequest
+	conns        []*websocket.Conn
 }
 
-// codexRequest is one call the fake was asked to answer.
+// codexRequest is one message in the fake's trail: a call it was asked to
+// answer, or a notification it pushed.
 type codexRequest struct {
 	Method string
 	Params json.RawMessage
@@ -213,10 +217,11 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 		return
 	}
 	f.mu.Lock()
-	f.requests = append(f.requests, codexRequest{Method: frame.Method, Params: frame.Params})
+	f.trail = append(f.trail, codexRequest{Method: frame.Method, Params: frame.Params})
 	loaded := slices.Clone(f.loaded)
 	sources := maps.Clone(f.sources)
 	recency := maps.Clone(f.recency)
+	resumeStatus := maps.Clone(f.resumeStatus)
 	f.mu.Unlock()
 
 	if len(frame.Id) == 0 {
@@ -235,6 +240,12 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 		result = json.RawMessage(`{"data":` + string(ids) + `,"nextCursor":null}`)
 	case "thread/read":
 		answer, err := threadReadAnswer(f.threadRead, frame.Params, sources, recency)
+		if err != nil {
+			return
+		}
+		result = answer
+	case "thread/resume":
+		answer, err := resumeAnswer(result, frame.Params, resumeStatus)
 		if err != nil {
 			return
 		}
@@ -286,6 +297,48 @@ func threadReadAnswer(
 	return json.Marshal(answer)
 }
 
+// resumeAnswer is the recorded thread/resume answer re-addressed to the thread
+// params asked about, with the status that thread was given. The recording
+// resumed one thread, idle; a case about the feed moving from one thread to
+// another needs each thread to answer for itself.
+func resumeAnswer(
+	recorded, params json.RawMessage, statuses map[string]string,
+) (json.RawMessage, error) {
+	var asked struct {
+		ThreadId string `json:"threadId"`
+	}
+	if err := json.Unmarshal(params, &asked); err != nil {
+		return nil, err
+	}
+	var answer map[string]json.RawMessage
+	if err := json.Unmarshal(recorded, &answer); err != nil {
+		return nil, err
+	}
+	var thread map[string]json.RawMessage
+	if err := json.Unmarshal(answer["thread"], &thread); err != nil {
+		return nil, err
+	}
+	var err error
+	if thread["id"], err = json.Marshal(asked.ThreadId); err != nil {
+		return nil, err
+	}
+	if status, ok := statuses[asked.ThreadId]; ok {
+		thread["status"] = json.RawMessage(status)
+	}
+	if answer["thread"], err = json.Marshal(thread); err != nil {
+		return nil, err
+	}
+	return json.Marshal(answer)
+}
+
+// update changes what the fake holds while connections are open to it, under
+// the lock its answers read it with.
+func (f *codexFake) update(change func()) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	change()
+}
+
 func (f *codexFake) joined(conn *websocket.Conn) {
 	f.mu.Lock()
 	f.conns = append(f.conns, conn)
@@ -298,9 +351,16 @@ func (f *codexFake) left(conn *websocket.Conn) {
 	f.mu.Unlock()
 }
 
-// push writes one frame to every connection, exactly as the bytes give it.
+// push writes one frame to every connection, exactly as the bytes give it, and
+// enters it in the trail before any of them can answer it.
 func (f *codexFake) push(frame []byte) {
+	var note struct {
+		Method string          `json:"method"`
+		Params json.RawMessage `json:"params"`
+	}
+	_ = json.Unmarshal(frame, &note)
 	f.mu.Lock()
+	f.trail = append(f.trail, codexRequest{Method: note.Method, Params: note.Params})
 	conns := slices.Clone(f.conns)
 	f.mu.Unlock()
 	for _, conn := range conns {
@@ -319,14 +379,15 @@ func (f *codexFake) disconnect() {
 	}
 }
 
-// asked returns every call the fake has been handed, oldest first.
+// asked returns the trail: every call the fake has been handed and every
+// notification it pushed, oldest first.
 func (f *codexFake) asked() []codexRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return slices.Clone(f.requests)
+	return slices.Clone(f.trail)
 }
 
-// methods returns the names of those calls, which is what most cases pin.
+// methods returns the names in the trail, which is what most cases pin.
 func (f *codexFake) methods() []string {
 	var out []string
 	for _, req := range f.asked() {
@@ -346,6 +407,23 @@ func (f *codexFake) paramsOf(t *testing.T, method string) json.RawMessage {
 	}
 	t.Fatalf("nothing called %s; the fake was asked %v", method, f.methods())
 	return nil
+}
+
+// threadsOf returns the thread each call to method named, oldest first.
+func (f *codexFake) threadsOf(t *testing.T, method string) []string {
+	t.Helper()
+	var out []string
+	for _, req := range f.asked() {
+		if req.Method != method {
+			continue
+		}
+		var params struct {
+			ThreadId string `json:"threadId"`
+		}
+		assert.NilError(t, json.Unmarshal(req.Params, &params))
+		out = append(out, params.ThreadId)
+	}
+	return out
 }
 
 // waitAsked blocks until the fake has been handed method, so a case does not
@@ -378,4 +456,33 @@ func codexWaitingFrame(threadId string) []byte {
 		`{"method":"thread/status/changed","params":{"threadId":%q,`+
 			`"status":{"type":"active","activeFlags":["waitingOnApproval"]}},`+
 			`"emittedAtMs":1789654916664}`, threadId)
+}
+
+// codexThreadStartedFrame announces a thread the way the app server does when
+// a TUI starts one. No such frame was recorded, so it is written out here in
+// the captured notifications' form: no version marker, a stamp beside the
+// parameters. The feed reads nothing inside the parameters, so the thread
+// object under them only names the thread.
+func codexThreadStartedFrame(threadId string) []byte {
+	return fmt.Appendf(nil,
+		`{"method":"thread/started","params":{"thread":{"id":%q}},`+
+			`"emittedAtMs":1789654916664}`, threadId)
+}
+
+// codexFrameAbout is a recorded notification frame said about threadId instead,
+// with everything else in it as it was captured.
+func codexFrameAbout(t *testing.T, frame []byte, threadId string) []byte {
+	t.Helper()
+	var msg map[string]json.RawMessage
+	assert.NilError(t, json.Unmarshal(frame, &msg))
+	var params map[string]json.RawMessage
+	assert.NilError(t, json.Unmarshal(msg["params"], &params))
+	var err error
+	params["threadId"], err = json.Marshal(threadId)
+	assert.NilError(t, err)
+	msg["params"], err = json.Marshal(params)
+	assert.NilError(t, err)
+	out, err := json.Marshal(msg)
+	assert.NilError(t, err)
+	return out
 }

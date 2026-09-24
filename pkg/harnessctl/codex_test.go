@@ -343,7 +343,10 @@ func TestCodex_WatchReportsWhatTheAppServerSays(t *testing.T) {
 	h, _ := newCodexHarness(f)
 
 	states := watchCodex(t, h)
-	f.waitAsked(t, "thread/resume")
+
+	// Binding says what the thread is doing before anything is pushed: the
+	// recorded resume answer holds it idle.
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
 
 	// The recorded frames go over the wire as they were captured: no version
 	// marker, a stamp beside the parameters, nothing rewritten.
@@ -371,12 +374,130 @@ func TestCodex_WatchConnectsAgainAfterADrop(t *testing.T) {
 	h, _ := newCodexHarness(f)
 
 	states := watchCodex(t, h)
-	f.waitAsked(t, "thread/resume")
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
 	f.disconnect()
 
+	// The connection made again binds again, and says what the thread is doing
+	// the way the first one did.
 	waitCodexHandshakes(t, f, 2)
-	f.push(f.rec.notification(t, codexStatusChanged, 1))
 	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+	f.push(f.rec.notification(t, codexStatusChanged, 0))
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WORKING)
+}
+
+// A feed that connected before the session had a thread follows none, and
+// binds the moment the app server announces one: no delivery is needed to find
+// the thread, and no turn is started on it.
+func TestCodex_WatchBindsTheThreadAStartAnnounces(t *testing.T) {
+	f := startCodexFake(t)
+	thread := f.rec.threadId(t)
+	h, _ := newCodexHarness(f)
+
+	states := watchCodex(t, h)
+	f.waitAsked(t, "thread/loaded/list")
+	f.update(func() { f.loaded = []string{thread} })
+	f.push(codexThreadStartedFrame(thread))
+
+	// Well inside the first retry, so the bind is the announcement's doing and
+	// not the timer's; the trail then holds nothing the timer asked for.
+	select {
+	case state := <-states:
+		assert.Equal(t, state, chatv1.HarnessState_HARNESS_STATE_DONE)
+	case <-time.After(codexRebindInterval / 2):
+		t.Fatalf("the feed did not bind on the announcement; the fake was asked %v",
+			f.methods())
+	}
+	assert.DeepEqual(t, f.methods(), []string{
+		"initialize", "initialized", "thread/loaded/list",
+		"thread/started", "thread/loaded/list", "thread/resume",
+	})
+}
+
+// A thread loaded without an announcement is found all the same: a feed that
+// follows nothing looks again every few seconds, and stops looking once it
+// follows a thread.
+func TestCodex_WatchLooksAgainUntilItFollowsAThread(t *testing.T) {
+	f := startCodexFake(t)
+	thread := f.rec.threadId(t)
+	h, _ := newCodexHarness(f)
+
+	states := watchCodex(t, h)
+	f.waitAsked(t, "thread/loaded/list")
+	f.update(func() { f.loaded = []string{thread} })
+
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+	assert.DeepEqual(t, f.threadsOf(t, "thread/resume"), []string{thread})
+	listed := count(f.methods(), "thread/loaded/list")
+
+	time.Sleep(codexRebindInterval + codexRebindInterval/2)
+	assert.Equal(t, count(f.methods(), "thread/loaded/list"), listed,
+		"the feed kept looking for a thread it already follows: %v", f.methods())
+	assert.Assert(t, !slices.Contains(f.methods(), "turn/start"))
+}
+
+// A TUI stopped and started again leaves its old thread loaded beside the new
+// one for a while. The new thread's announcement moves the feed to it: the old
+// thread is unsubscribed, the new one resumed, and what the new one's resume
+// answer says is reported on its own, since an idle replacement pushes nothing
+// until its first turn and the room would otherwise keep the old thread's
+// working.
+func TestCodex_WatchFollowsTheSessionToItsReplacement(t *testing.T) {
+	f := startCodexFake(t)
+	old := f.rec.threadId(t)
+	f.loaded = []string{old}
+	f.resumeStatus = map[string]string{old: `{"type":"active","activeFlags":[]}`}
+	h, _ := newCodexHarness(f)
+
+	states := watchCodex(t, h)
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WORKING)
+
+	f.update(func() {
+		f.loaded = []string{old, codexLaterSession}
+		f.recency = map[string]int64{old: 100, codexLaterSession: 200}
+	})
+	f.push(codexThreadStartedFrame(codexLaterSession))
+
+	// The new thread keeps the recorded resume answer, which is idle.
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+	assert.DeepEqual(t, f.methods(), []string{
+		"initialize", "initialized", "thread/loaded/list", "thread/resume",
+		"thread/started", "thread/loaded/list", "thread/read", "thread/read",
+		"thread/unsubscribe", "thread/resume",
+	})
+	assert.DeepEqual(t, f.threadsOf(t, "thread/unsubscribe"), []string{old})
+	assert.DeepEqual(t, f.threadsOf(t, "thread/resume"), []string{old, codexLaterSession})
+
+	// From here on the old thread is one the feed reads past.
+	f.push(f.rec.notification(t, codexStatusChanged, 0))
+	f.push(codexWaitingFrame(codexLaterSession))
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WAITING)
+}
+
+// A helper Codex runs beside the session goes active and idle on its own, and
+// none of that is the session's: a state about any thread but the one the feed
+// follows, loaded or not, reports nothing.
+func TestCodex_WatchReadsPastThreadsItDoesNotFollow(t *testing.T) {
+	f := startCodexFake(t)
+	thread := f.rec.threadId(t)
+	const helper = "helper-system"
+	f.loaded = []string{helper, thread}
+	f.sources = map[string]string{helper: "system"}
+	h, _ := newCodexHarness(f)
+
+	states := watchCodex(t, h)
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+
+	for _, other := range []string{helper, codexEarlierSession} {
+		f.push(codexFrameAbout(t, f.rec.notification(t, codexStatusChanged, 0), other))
+		f.push(codexFrameAbout(t, f.rec.notification(t, codexTurnCompleted, 0), other))
+	}
+	// The session's own state follows twice. Each frame is handed on in its own
+	// goroutine, so a state about another thread that got through could land on
+	// either side of the first; it cannot hide from both.
+	f.push(codexWaitingFrame(thread))
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WAITING)
+	f.push(codexWaitingFrame(thread))
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WAITING)
 }
 
 // waitCodexHandshakes blocks until the fake has been introduced to want times,

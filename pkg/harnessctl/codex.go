@@ -113,7 +113,7 @@ func (c *codex) deliverOn(ctx context.Context, cli *codexClient, n Notice) error
 	// Subscribing before the turn is what the recorded session does, and it is
 	// also what lets a delivery made over a connection nothing was watching
 	// hear how the turn it started ends.
-	if err := cli.subscribe(ctx, id); err != nil {
+	if _, err := cli.subscribe(ctx, id); err != nil {
 		return err
 	}
 	return cli.startTurn(ctx, id, n.Text)
