@@ -128,6 +128,14 @@ func TestHarnessFixture_CodexAppServerServer(t *testing.T) {
 	harnessFixtureNDJSON(t, "codex-app-server.server.ndjson")
 }
 
+func TestHarnessFixture_CodexAppServerHelpersClient(t *testing.T) {
+	harnessFixtureNDJSON(t, "codex-app-server-helpers.client.ndjson")
+}
+
+func TestHarnessFixture_CodexAppServerHelpersServer(t *testing.T) {
+	harnessFixtureNDJSON(t, "codex-app-server-helpers.server.ndjson")
+}
+
 func TestHarnessFixture_FakechatUpload(t *testing.T) {
 	req := harnessFixtureRequest(t, "fakechat-upload.http")
 	if req.Method != http.MethodPost {

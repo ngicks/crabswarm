@@ -47,9 +47,14 @@ type codexClient struct {
 	stopped chan struct{}
 	stopErr error
 
-	// resumedMu guards resumed, the thread this connection is subscribed to.
-	// The feed and a delivery both ask for the subscription and either may be
-	// first, so it is recorded rather than assumed.
+	// resumedMu guards resumed, the thread this connection is subscribed to and
+	// the one thread whose states the feed reports. The feed and a delivery both
+	// ask for the subscription and either may be first, so it is recorded rather
+	// than assumed.
+	//
+	// The lock keeps one read or write of the record whole and nothing more. A
+	// caller that reads the record and then changes the subscription orders that
+	// sequence itself, as [codex.binding] does.
 	resumedMu sync.Mutex
 	resumed   string
 }
@@ -58,9 +63,10 @@ type codexClient struct {
 // at path and finishes the JSON-RPC handshake. onNotify, when not nil, is
 // handed every notification the server pushes.
 //
-// The notification handler runs on the JSON-RPC client's own delivery
-// goroutine, which holds its lock for the length of the call, so a handler that
-// blocks stalls every reply behind it. Callers hand the event on and return.
+// The JSON-RPC client hands every frame it receives to a goroutine of its own,
+// and that goroutine runs the handler while holding the client's lock. A
+// handler that blocks stalls every other frame received and every call sent
+// meanwhile. Callers hand the event on and return.
 func dialCodex(
 	ctx context.Context, path string, onNotify func(*jrpc2.Request),
 ) (*codexClient, error) {
@@ -116,8 +122,9 @@ func (c *codexClient) handshake(ctx context.Context) error {
 	return nil
 }
 
-// loadedThreads lists the threads the app server holds in memory, newest first.
-// These are bare ids rather than thread objects.
+// loadedThreads lists the threads the app server holds in memory, as bare ids
+// rather than thread objects. The order is none a caller can rely on: the
+// recorded app server listed its threads oldest first.
 func (c *codexClient) loadedThreads(ctx context.Context) ([]string, error) {
 	var res struct {
 		Data []string `json:"data"`
@@ -128,28 +135,106 @@ func (c *codexClient) loadedThreads(ctx context.Context) ([]string, error) {
 	return res.Data, nil
 }
 
-// subscribe subscribes this connection to a thread's events, once per thread.
-//
-// The answer is the whole thread and is thrown away: the call is made for the
-// feed it opens, which is where the states this harness reports come from. It
-// is made once because a second one would ask a live session to be resumed
-// again for no gain, and both the feed and a delivery ask for the same thread.
-func (c *codexClient) subscribe(ctx context.Context, threadId string) error {
-	c.resumedMu.Lock()
-	subscribed := c.resumed == threadId
-	c.resumedMu.Unlock()
-	if subscribed {
-		return nil
+// codexThread is what a delivery needs to know about one loaded thread: whose
+// it is and when it was last used.
+type codexThread struct {
+	Id     string `json:"id"`
+	Source string `json:"threadSource"`
+	// RecencyAt is the Unix second the app server orders its threads by
+	// recency with. The protocol allows null, which reads as 0.
+	RecencyAt int64 `json:"recencyAt"`
+}
+
+// codexThreadStatus is what a thread is doing: `idle`, `active` with the flags
+// saying what it waits on, or a state that makes no claim about a turn.
+type codexThreadStatus struct {
+	Type        string   `json:"type"`
+	ActiveFlags []string `json:"activeFlags"`
+}
+
+// codexUserThread is the threadSource of a thread a person started. Any other
+// value, and no value at all, marks a thread Codex runs by itself beside the
+// session; the recorded helper answered `system`.
+const codexUserThread = "user"
+
+// readThread reads one loaded thread without its turns, which is all a binding
+// needs and far less than the whole history a session of any length carries.
+func (c *codexClient) readThread(ctx context.Context, threadId string) (codexThread, error) {
+	var res struct {
+		Thread codexThread `json:"thread"`
 	}
-	if _, err := c.rpc.Call(
-		ctx, "thread/resume", map[string]any{"threadId": threadId},
+	if err := c.rpc.CallResult(ctx, "thread/read", map[string]any{
+		"threadId":     threadId,
+		"includeTurns": false,
+	}, &res); err != nil {
+		return codexThread{}, fmt.Errorf("reading the codex thread %s: %w", threadId, err)
+	}
+	return res.Thread, nil
+}
+
+// subscribe subscribes this connection to a thread's events, once per thread,
+// and returns what the thread was doing when the server answered.
+//
+// The answer is the whole thread, and only its status is kept. The call is made
+// for the feed it opens, which is where the states this harness reports come
+// from; the status is the state the feed starts that thread at. It is made once
+// because a second one would ask a live session to be resumed again for no
+// gain, and both the feed and a delivery ask for the same thread. A thread this
+// connection already follows answers the zero status, which reads as no state.
+//
+// Resuming a thread moves the record to it. Whatever was resumed before keeps
+// sending its events until [codexClient.unsubscribe] ends them, and they are
+// read past because they name another thread.
+func (c *codexClient) subscribe(ctx context.Context, threadId string) (codexThreadStatus, error) {
+	if c.subscribed() == threadId {
+		return codexThreadStatus{}, nil
+	}
+	// thread/resume answers with the thread under `thread`, and its status in
+	// the shape thread/status/changed carries one: the recorded answer holds
+	// `"status":{"type":"idle"}` there.
+	var res struct {
+		Thread struct {
+			Status codexThreadStatus `json:"status"`
+		} `json:"thread"`
+	}
+	if err := c.rpc.CallResult(
+		ctx, "thread/resume", map[string]any{"threadId": threadId}, &res,
 	); err != nil {
-		return fmt.Errorf("resuming the codex thread %s: %w", threadId, err)
+		return codexThreadStatus{}, fmt.Errorf("resuming the codex thread %s: %w", threadId, err)
 	}
 	c.resumedMu.Lock()
 	c.resumed = threadId
 	c.resumedMu.Unlock()
+	return res.Thread.Status, nil
+}
+
+// unsubscribe ends this connection's subscription to a thread, which clears the
+// record [codexClient.subscribe] keeps of it.
+func (c *codexClient) unsubscribe(ctx context.Context, threadId string) error {
+	if _, err := c.rpc.Call(
+		ctx, "thread/unsubscribe", map[string]any{"threadId": threadId},
+	); err != nil {
+		return fmt.Errorf("unsubscribing from the codex thread %s: %w", threadId, err)
+	}
+	c.resumedMu.Lock()
+	if c.resumed == threadId {
+		c.resumed = ""
+	}
+	c.resumedMu.Unlock()
 	return nil
+}
+
+// subscribed is the thread this connection is subscribed to, or "" for none.
+func (c *codexClient) subscribed() string {
+	c.resumedMu.Lock()
+	defer c.resumedMu.Unlock()
+	return c.resumed
+}
+
+// follows reports whether threadId names the thread this connection is
+// subscribed to. A notification that names no thread is about none of them.
+func (c *codexClient) follows(threadId string) bool {
+	return threadId != "" && threadId == c.subscribed()
 }
 
 // startTurn hands text to a thread as one user input, which is a turn the agent
@@ -246,55 +331,80 @@ const (
 	codexTurnCompleted = "turn/completed"
 )
 
+// codexThreadStarted is the notification a thread being started pushes to
+// every connection, subscribed or not, which is how a feed hears that a TUI
+// attached or was replaced.
+//
+// Its parameters are never read. No such frame was recorded, and the feed
+// binds again from the loaded threads anyway, so the notification is only a
+// signal that the answer may have changed.
+const codexThreadStarted = "thread/started"
+
 // codexWaitingFlags are the reasons an active thread is not working but
 // waiting on the person in front of it. The protocol's other flags, and any it
 // gains later, read as work in progress.
 var codexWaitingFlags = []string{"waitingOnApproval", "waitingOnUserInput"}
 
-// codexState reads what a server notification says about the agent, and reports
-// whether it said anything at all.
+// state reads what a thread status says about the agent, and reports whether it
+// said anything at all.
+//
+// A status this does not recognise — one that was never loaded, one the server
+// has given up on, the zero status of a thread nobody read — leaves the member
+// in whatever it last reported, since none of them is a claim about a turn.
+func (s codexThreadStatus) state() (chatv1.HarnessState, bool) {
+	switch s.Type {
+	case "idle":
+		return chatv1.HarnessState_HARNESS_STATE_DONE, true
+	case "active":
+		for _, flag := range s.ActiveFlags {
+			if slices.Contains(codexWaitingFlags, flag) {
+				return chatv1.HarnessState_HARNESS_STATE_WAITING, true
+			}
+		}
+		return chatv1.HarnessState_HARNESS_STATE_WORKING, true
+	}
+	return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, false
+}
+
+// codexState reads what a server notification says about the agent and the
+// thread it says it about, and reports whether it said anything at all.
+//
+// Which thread that is matters, because a helper Codex runs beside the session
+// flips between active and idle on its own; the caller reads past a state about
+// any thread but the one it follows. The thread is handed back rather than
+// checked here: this runs as the notification arrives, and a notification that
+// arrived while the thread was still being bound would be checked against no
+// thread and lost.
 //
 // A turn that ended is done however it ended: interrupted and failed both leave
 // the agent back at its prompt, which is the only thing a room needs to know
-// before it interrupts. A thread status this does not recognise — one that was
-// never loaded, one the server has given up on — leaves the member in whatever
-// it last reported, since neither is a claim about a turn.
-func codexState(req *jrpc2.Request) (chatv1.HarnessState, bool) {
+// before it interrupts.
+func codexState(req *jrpc2.Request) (string, chatv1.HarnessState, bool) {
 	switch req.Method() {
 	case codexStatusChanged:
 		var params struct {
-			Status struct {
-				Type        string   `json:"type"`
-				ActiveFlags []string `json:"activeFlags"`
-			} `json:"status"`
+			ThreadId string            `json:"threadId"`
+			Status   codexThreadStatus `json:"status"`
 		}
 		if req.UnmarshalParams(&params) != nil {
-			return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, false
+			break
 		}
-		switch params.Status.Type {
-		case "idle":
-			return chatv1.HarnessState_HARNESS_STATE_DONE, true
-		case "active":
-			for _, flag := range params.Status.ActiveFlags {
-				if slices.Contains(codexWaitingFlags, flag) {
-					return chatv1.HarnessState_HARNESS_STATE_WAITING, true
-				}
-			}
-			return chatv1.HarnessState_HARNESS_STATE_WORKING, true
-		}
+		state, ok := params.Status.state()
+		return params.ThreadId, state, ok
 	case codexTurnCompleted:
 		var params struct {
-			Turn struct {
+			ThreadId string `json:"threadId"`
+			Turn     struct {
 				Status string `json:"status"`
 			} `json:"turn"`
 		}
 		if req.UnmarshalParams(&params) != nil {
-			return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, false
+			break
 		}
 		switch params.Turn.Status {
 		case "completed", "interrupted", "failed":
-			return chatv1.HarnessState_HARNESS_STATE_DONE, true
+			return params.ThreadId, chatv1.HarnessState_HARNESS_STATE_DONE, true
 		}
 	}
-	return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, false
+	return "", chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, false
 }

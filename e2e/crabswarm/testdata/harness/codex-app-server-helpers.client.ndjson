@@ -1,0 +1,6 @@
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"clientInfo":{"name":"crabswarm-probe","title":"crabswarm probe","version":"0.0.0"}}}
+{"jsonrpc":"2.0","method":"initialized"}
+{"id":2,"jsonrpc":"2.0","method":"thread/loaded/list","params":{}}
+{"id":3,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0c777-0a11-7713-a00f-f61ed05c0e9f"}}
+{"id":4,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0c77a-cf11-7122-9a8d-af74926d81a4"}}
+{"id":5,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0c77a-eb19-7f93-9bdc-2d2611e1e778"}}

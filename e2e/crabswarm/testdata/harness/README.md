@@ -344,6 +344,57 @@ Worth knowing when replaying this against a fake server:
   the host has Codex hooks configured. A fake server does not have to emit them.
 - Notification frames carry an `emittedAtMs` field alongside `params`.
 
+### Helper threads beside the session
+
+`codex-app-server-helpers.client.ndjson` and
+`codex-app-server-helpers.server.ndjson` are a second pair in the same split,
+captured 2026-09-22 with Codex 0.155.1 and cmdman 0.0.26, of an app server
+holding more than the one session thread. They hold `initialize`,
+`initialized`, `thread/loaded/list`, and one `thread/read` with
+`includeTurns: false` per loaded id. No `thread/list`: that listing is
+host-wide and would put every session on the host into the fixture.
+
+The server and a TUI ran under cmdman:
+
+```sh
+cmdman run --rm -n cx-probe-server -w <scratch dir> -- codex app-server --listen unix:///tmp/cxprobe.sock
+cmdman run --rm -t -n cx-probe-tui -w <scratch dir> -- codex --remote unix:///tmp/cxprobe.sock
+cmdman send-keys -l cx-probe-tui 'Reply with the single word ok.'
+sleep 0.3
+cmdman send-keys cx-probe-tui Enter
+```
+
+The prompt and the Enter go in separate `send-keys` calls with a pause between
+them; sent together, the TUI reads the newline as part of the text. The
+recorder ran within a minute of the turn ending. The TUI was then stopped and
+a second one started on the same socket and given one more turn, which is the
+state the pair records.
+
+What it shows, and what it means for a client binding a delivery to a thread:
+
+- Three ids are loaded: the first TUI's thread, the second TUI's thread, and a
+  helper Codex opened by itself.
+- Both TUI threads answer `threadSource: "user"`. The helper answers
+  `threadSource: "system"`, `ephemeral: true` and `name: null`.
+- Every other candidate field is the same on all three: `source: "vscode"`,
+  `parentThreadId: null`, `canAcceptDirectInput: true`, `originator:
+  "codex-tui"`.
+- `thread/list` was probed separately and left out of the fixture. The
+  `system` helper appears in no listing; guardian reviewer threads appear
+  with `source: {"subAgent": {"other": "guardian"}}` and `threadSource: null`,
+  as does every thread in a listing.
+
+Timing seen while polling, not recorded in the pair:
+
+- The `system` helper appears after a session's first turn, when Codex names
+  the thread, and unloads within about a minute.
+- A stopped TUI's thread stays loaded for about two minutes.
+- A guardian thread never stayed loaded while a command was auto-reviewed,
+  polled at 1.5 s.
+- A connection that has only done the handshake receives `thread/started`
+  when a TUI attaches to the app server and starts its thread, so a client
+  that connected before the session existed hears about it without polling.
+
 ## fakechat plugin channel
 
 `fakechat-page.html`, `fakechat-upload.http`,

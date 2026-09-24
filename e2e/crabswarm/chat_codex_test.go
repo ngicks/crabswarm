@@ -1,6 +1,7 @@
 package crabswarm_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -33,18 +34,37 @@ import (
 // fake of their own; that one lives in a test file and cannot be imported, so
 // this is the small second copy.
 
-// codexFakeThread is the thread the fake says it has loaded, so the MCP server
-// has exactly one to bind to.
+// codexFakeThread is the thread the fake says a person is sitting in front of,
+// which is the one the MCP server has to bind to.
 const codexFakeThread = "01a0afbe-2c74-7452-a0fd-6858a3d7a885"
+
+// codexFakeSystemHelper is loaded beside it. After a turn Codex opens a thread
+// of its own beside the session and keeps it loaded for about a minute, so a
+// real app server hosting one person's session regularly lists two threads.
+// The fake lists both, which keeps a delivery from taking the lone loaded
+// thread and makes it read each thread's source to find the person's.
+const codexFakeSystemHelper = "01a0c77a-eb19-7f93-9bdc-2d2611e1e778"
+
+// The recording of an app server with a helper loaded beside the session,
+// which is where the fake's thread/read answers come from.
+const (
+	codexHelpersClientFixture = "codex-app-server-helpers.client.ndjson"
+	codexHelpersServerFixture = "codex-app-server-helpers.server.ndjson"
+)
 
 // codexAppServer is a fake app server on a unix socket.
 type codexAppServer struct {
 	addr string
+	// read is the recorded thread/read answer every read is answered from.
+	read json.RawMessage
 
 	mu     sync.Mutex
-	turns  []string
+	turns  []codexTurn
 	loaded []string
-	conns  []*websocket.Conn
+	// sources is the threadSource each loaded thread reports, by id. A thread
+	// missing here is a person's.
+	sources map[string]string
+	conns   []*websocket.Conn
 	// accepted is every connection the fake has taken since it started, the
 	// closed ones included. Counted rather than measured off the live ones: a
 	// delivery that dialled a connection of its own closes it again, and by the
@@ -67,8 +87,10 @@ func startCodexAppServer(t *testing.T) *codexAppServer {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	f := &codexAppServer{
-		addr:   filepath.Join(dir, "app.sock"),
-		loaded: []string{codexFakeThread},
+		addr:    filepath.Join(dir, "app.sock"),
+		read:    codexRecordedResult(t, "thread/read"),
+		loaded:  []string{codexFakeSystemHelper, codexFakeThread},
+		sources: map[string]string{codexFakeSystemHelper: "system"},
 	}
 	ln, err := net.Listen("unix", f.addr)
 	if err != nil {
@@ -85,6 +107,48 @@ func startCodexAppServer(t *testing.T) *codexAppServer {
 		_ = serving.Wait()
 	})
 	return f
+}
+
+// codexRecordedResult is the first answer the helpers recording holds to a
+// call of method. The recording splits the two directions into two files, and
+// only the request id says which answer belongs to which call.
+func codexRecordedResult(t *testing.T, method string) json.RawMessage {
+	t.Helper()
+	var ids []string
+	client := harnessFixtureBytes(t, codexHelpersClientFixture)
+	for line := range bytes.SplitSeq(client, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var frame struct {
+			Id     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
+		}
+		if err := json.Unmarshal(line, &frame); err != nil {
+			t.Fatalf("decode a frame of %s: %v", codexHelpersClientFixture, err)
+		}
+		if frame.Method == method && len(frame.Id) > 0 {
+			ids = append(ids, string(frame.Id))
+		}
+	}
+	server := harnessFixtureBytes(t, codexHelpersServerFixture)
+	for line := range bytes.SplitSeq(server, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var frame struct {
+			Id     json.RawMessage `json:"id"`
+			Result json.RawMessage `json:"result"`
+		}
+		if err := json.Unmarshal(line, &frame); err != nil {
+			t.Fatalf("decode a frame of %s: %v", codexHelpersServerFixture, err)
+		}
+		if len(frame.Id) > 0 && slices.Contains(ids, string(frame.Id)) {
+			return frame.Result
+		}
+	}
+	t.Fatalf("%s holds no answer to a %s call", codexHelpersServerFixture, method)
+	return nil
 }
 
 func (f *codexAppServer) serve(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +182,8 @@ func (f *codexAppServer) answer(conn *websocket.Conn, data []byte) {
 		Id     json.RawMessage `json:"id"`
 		Method string          `json:"method"`
 		Params struct {
-			Input []struct {
+			ThreadId string `json:"threadId"`
+			Input    []struct {
 				Text string `json:"text"`
 			} `json:"input"`
 		} `json:"params"`
@@ -136,13 +201,19 @@ func (f *codexAppServer) answer(conn *websocket.Conn, data []byte) {
 			return
 		}
 		result = `{"data":` + string(ids) + `,"nextCursor":null}`
+	case "thread/read":
+		read, err := f.threadRead(frame.Params.ThreadId)
+		if err != nil {
+			return
+		}
+		result = string(read)
 	case "turn/start":
 		var text string
 		for _, in := range frame.Params.Input {
 			text += in.Text
 		}
 		f.mu.Lock()
-		f.turns = append(f.turns, text)
+		f.turns = append(f.turns, codexTurn{thread: frame.Params.ThreadId, text: text})
 		f.mu.Unlock()
 		result = `{"turn":{"id":"turn-1","status":"inProgress"}}`
 	}
@@ -153,8 +224,48 @@ func (f *codexAppServer) answer(conn *websocket.Conn, data []byte) {
 		fmt.Appendf(nil, `{"id":%s,"result":%s}`, frame.Id, result))
 }
 
-// started is the text of every turn the fake was asked to start, oldest first.
-func (f *codexAppServer) started() []string {
+// threadRead is the recorded thread/read answer re-addressed to the thread id,
+// with the source the fake gives that thread. The recording read a person's
+// thread; a helper needs the same shape to say something else.
+//
+// The recorded recencyAt stays as it was. It only orders a person's threads
+// against each other, and the fake loads one.
+func (f *codexAppServer) threadRead(id string) (json.RawMessage, error) {
+	f.mu.Lock()
+	source, ok := f.sources[id]
+	f.mu.Unlock()
+	if !ok {
+		source = "user"
+	}
+	var answer struct {
+		Thread map[string]json.RawMessage `json:"thread"`
+	}
+	if err := json.Unmarshal(f.read, &answer); err != nil {
+		return nil, err
+	}
+	// sessionId repeats the thread's own id on every thread the recording read.
+	for field, value := range map[string]string{
+		"id":           id,
+		"sessionId":    id,
+		"threadSource": source,
+	} {
+		b, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		answer.Thread[field] = b
+	}
+	return json.Marshal(answer)
+}
+
+// codexTurn is one turn the fake was asked to start: the thread it was started
+// on and the text it was handed.
+type codexTurn struct {
+	thread, text string
+}
+
+// started is every turn the fake was asked to start, oldest first.
+func (f *codexAppServer) started() []codexTurn {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.turns)
@@ -198,19 +309,25 @@ func waitCodexConnection(t *testing.T, f *codexAppServer) {
 }
 
 // waitCodexTurns blocks until the fake has been asked to start exactly want,
-// so a case pins both what reached the agent and that nothing else did.
+// every one of them on the person's thread, so a case pins what reached the
+// agent, that nothing else did, and that none of it went to the helper loaded
+// beside the session.
 func waitCodexTurns(t *testing.T, f *codexAppServer, want ...string) {
 	t.Helper()
-	var got []string
+	var wantTurns []codexTurn
+	for _, text := range want {
+		wantTurns = append(wantTurns, codexTurn{thread: codexFakeThread, text: text})
+	}
+	var got []codexTurn
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		got = f.started()
-		if slices.Equal(got, want) {
+		if slices.Equal(got, wantTurns) {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("the app server was asked to start\n%q\nwant\n%q", got, want)
+	t.Fatalf("the app server was asked to start (thread, text)\n%q\nwant\n%q", got, wantTurns)
 }
 
 // The whole Codex story in one session. The MCP server reads the app server's
