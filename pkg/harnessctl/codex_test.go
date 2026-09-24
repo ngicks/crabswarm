@@ -147,8 +147,9 @@ func TestCodexSocket_ReadsTheListenerAddress(t *testing.T) {
 	}
 }
 
-// One loaded thread is the session, and the notice reaches it as a turn of its
-// own — the whole exchange in order, with the notice as the user's input.
+// One loaded thread is the session, taken without reading it, and the notice
+// reaches it as a turn of its own — the whole exchange in order, with the
+// notice as the user's input.
 func TestCodex_DeliversTheNoticeAsATurn(t *testing.T) {
 	f := startCodexFake(t)
 	thread := f.rec.threadId(t)
@@ -180,9 +181,21 @@ func TestCodex_DeliversTheNoticeAsATurn(t *testing.T) {
 	assert.Equal(t, strings.Contains(started.Input[0].Text, "\n"), false)
 }
 
-// Codex loads helper threads beside the session — a system thread after every
-// turn, the guardian approval reviewer, memory consolidation — and the notice
-// goes to the one thread a person is in front of, whichever of them it is.
+// deliveredTo is the thread the delivery started its turn on.
+func deliveredTo(t *testing.T, f *codexFake) string {
+	t.Helper()
+	var started struct {
+		ThreadId string `json:"threadId"`
+	}
+	assert.NilError(t, json.Unmarshal(f.paramsOf(t, "turn/start"), &started))
+	return started.ThreadId
+}
+
+// Codex loads helper threads beside the session, and the notice goes to the
+// one thread a person started, whichever helper sits beside it. The recorded
+// helper answers `system`; any other source is a helper too. The helper is the
+// most recently used thread loaded, as the recorded one was, so the session is
+// found by its source before recency is weighed.
 func TestCodex_DeliversPastTheHelperThreads(t *testing.T) {
 	for _, helper := range []string{"system", "guardian_review", "memory_consolidation"} {
 		t.Run(helper, func(t *testing.T) {
@@ -190,6 +203,7 @@ func TestCodex_DeliversPastTheHelperThreads(t *testing.T) {
 			thread := f.rec.threadId(t)
 			f.loaded = []string{"helper-" + helper, thread}
 			f.sources = map[string]string{"helper-" + helper: helper}
+			f.recency = map[string]int64{"helper-" + helper: 200, thread: 100}
 			h, _ := newCodexHarness(f)
 
 			assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "hi"}))
@@ -198,30 +212,113 @@ func TestCodex_DeliversPastTheHelperThreads(t *testing.T) {
 				"initialize", "initialized", "thread/loaded/list",
 				"thread/read", "thread/read", "thread/resume", "turn/start",
 			})
-			var started struct {
-				ThreadId string `json:"threadId"`
-			}
-			assert.NilError(t, json.Unmarshal(f.paramsOf(t, "turn/start"), &started))
-			assert.Equal(t, started.ThreadId, thread)
+			assert.Equal(t, deliveredTo(t, f), thread)
 		})
 	}
 }
 
-// An app server that cannot say which thread the agent is in front of is not
-// guessed at: nothing is started, the refusal says how many it held, and the
-// server that asked keeps the mention outstanding. The fake answers every
-// thread it is not told about as a person's, so two loaded threads are two
-// sessions.
+// Two of a person's threads as Codex names them: time-ordered UUIDs, so the
+// earlier one sorts first. They are the two TUI threads of the helpers
+// recording.
+const (
+	codexEarlierSession = "01a0c777-0a11-7713-a00f-f61ed05c0e9f"
+	codexLaterSession   = "01a0c77a-cf11-7122-9a8d-af74926d81a4"
+)
+
+// codexSessionOrders are both orders an app server may list the two in.
+var codexSessionOrders = []struct {
+	name string
+	ids  []string
+}{
+	{"listed earlier first", []string{codexEarlierSession, codexLaterSession}},
+	{"listed later first", []string{codexLaterSession, codexEarlierSession}},
+}
+
+// deliverAmongSessions delivers one notice through an app server holding
+// loaded, each thread a person's and used at the second recency gives it, and
+// returns the thread the turn was started on.
+func deliverAmongSessions(t *testing.T, loaded []string, recency map[string]int64) string {
+	t.Helper()
+	f := startCodexFake(t, loaded...)
+	f.recency = recency
+	h, _ := newCodexHarness(f)
+
+	assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "hi"}))
+
+	assert.DeepEqual(t, f.methods(), []string{
+		"initialize", "initialized", "thread/loaded/list",
+		"thread/read", "thread/read", "thread/resume", "turn/start",
+	})
+	return deliveredTo(t, f)
+}
+
+// A stopped TUI leaves its thread loaded for about two minutes beside the
+// thread of the TUI that replaced it. The notice goes to the thread used last,
+// whichever order the app server lists them in, and even when that is the
+// earlier thread a person resumed.
+func TestCodex_DeliversToTheSessionUsedLast(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		recency map[string]int64
+		want    string
+	}{
+		{
+			name:    "the later thread was used last",
+			recency: map[string]int64{codexEarlierSession: 100, codexLaterSession: 200},
+			want:    codexLaterSession,
+		},
+		{
+			name:    "the earlier thread was resumed and used last",
+			recency: map[string]int64{codexEarlierSession: 200, codexLaterSession: 100},
+			want:    codexEarlierSession,
+		},
+	} {
+		for _, order := range codexSessionOrders {
+			t.Run(tc.name+"/"+order.name, func(t *testing.T) {
+				assert.Equal(t, deliverAmongSessions(t, order.ids, tc.recency), tc.want)
+			})
+		}
+	}
+}
+
+// Two threads used in the same second go to the one created later, which is
+// the greater id, whichever order the app server lists them in.
+func TestCodex_BreaksARecencyTieOnTheLaterThread(t *testing.T) {
+	recency := map[string]int64{codexEarlierSession: 100, codexLaterSession: 100}
+	for _, order := range codexSessionOrders {
+		t.Run(order.name, func(t *testing.T) {
+			assert.Equal(t, deliverAmongSessions(t, order.ids, recency), codexLaterSession)
+		})
+	}
+}
+
+// An app server holding no thread a person started has no session to hand the
+// notice to: nothing is started, the warning says how many threads it held,
+// and the server that asked keeps the mention outstanding.
 func TestCodex_SkipsADeliveryItCannotBind(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		loaded []string
+		name    string
+		loaded  []string
+		sources map[string]string
+		held    string
 	}{
-		{"no thread is loaded", nil},
-		{"several people's threads are loaded", []string{"one", "two"}},
+		{
+			name: "no thread is loaded",
+			held: "holds 0, 0 of them a person's",
+		},
+		{
+			name:   "only helpers are loaded",
+			loaded: []string{"helper-system", "helper-guardian"},
+			sources: map[string]string{
+				"helper-system":   "system",
+				"helper-guardian": "guardian_review",
+			},
+			held: "holds 2, 0 of them a person's",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := startCodexFake(t, tc.loaded...)
+			f.sources = tc.sources
 			h, log := newCodexHarness(f)
 
 			err := h.Deliver(t.Context(), Notice{Text: "hi"})
@@ -229,6 +326,8 @@ func TestCodex_SkipsADeliveryItCannotBind(t *testing.T) {
 			assert.Assert(t, !slices.Contains(f.methods(), "turn/start"),
 				"the fake was asked %v", f.methods())
 			assert.Assert(t, strings.Contains(log.String(), "skipping a codex delivery"),
+				"the harness logged %q", log.String())
+			assert.Assert(t, strings.Contains(log.String(), tc.held),
 				"the harness logged %q", log.String())
 		})
 	}

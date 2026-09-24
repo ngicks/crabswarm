@@ -1,10 +1,12 @@
 package harnessctl
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -117,28 +119,38 @@ func (c *codex) deliverOn(ctx context.Context, cli *codexClient, n Notice) error
 	return cli.startTurn(ctx, id, n.Text)
 }
 
-// errCodexUnbound is the refusal for an app server whose loaded threads do not
-// say which one this session is.
-var errCodexUnbound = errors.New("no single loaded codex thread to deliver to")
+// errCodexUnbound is the refusal for an app server holding no thread a person
+// started. The notice stays unread in the room, which is where the member's own
+// next read finds it.
+var errCodexUnbound = errors.New("no loaded codex thread to deliver to")
 
-// bind names the thread a delivery goes to: the one loaded thread a person is
+// bind names the thread a delivery goes to: the session thread a person is
 // sitting in front of.
 //
-// The app server does not hold that thread alone. Codex loads helpers beside a
-// session — a `system` thread for about a minute after every turn, the guardian
-// approval reviewer, memory consolidation — and each of them is a loaded thread
-// too, so counting is no way to find the session. What tells them apart is the
-// thread's own source: a person's thread says `user`, a helper says what it is.
-// A parent link would not do, since the post-turn system thread has none.
+// The app server does not hold that thread alone. Codex opens helper threads
+// of its own beside a session: a `system` thread appears after the session's
+// first turn, when Codex names the session, and unloads within about a minute;
+// the guardian that reviews an approval runs as a thread of its own too. A
+// helper is loaded just like the session, so counting loaded threads does not
+// find the session. The fields a helper shares with the session do not tell
+// them apart either: where the thread was started from, its parent, its
+// originator and whether it takes direct input read the same on both. The
+// thread's own source does differ. A thread a person started says `user`, and
+// a helper says something else or nothing.
 //
-// A lone loaded thread is taken as the session without asking: a helper only
-// ever exists beside the session it serves.
+// A lone loaded thread is taken as the session without reading it: a helper
+// only ever exists beside the session it serves.
 //
-// Several threads of a person's are refused rather than guessed at. An app
-// server hosting more than one cannot say which of them the agent is sitting
-// in front of, and a turn started on the wrong one would interrupt a session
-// nobody addressed. The notice stays unread in the room, which is where the
-// member's own next read finds it.
+// Two of a person's threads can be loaded at once. A stopped TUI's thread stays
+// loaded for about two minutes beside the thread of the TUI that replaced it.
+// The person is in front of the one used last, so the greatest recencyAt wins.
+// A thread used in the same second as another loses to the one created later.
+// Codex thread ids are time-ordered UUIDs, so the greater id is the later
+// thread; the order the app server lists its threads in says nothing about
+// their age.
+//
+// Two TUIs driven on purpose on one app server are not supported. The one used
+// last gets the mentions.
 func (c *codex) bind(ctx context.Context, cli *codexClient) (string, error) {
 	loaded, err := cli.loadedThreads(ctx)
 	if err != nil {
@@ -147,21 +159,27 @@ func (c *codex) bind(ctx context.Context, cli *codexClient) (string, error) {
 	if len(loaded) == 1 {
 		return loaded[0], nil
 	}
-	var users []string
+	type session struct {
+		id        string
+		recencyAt int64
+	}
+	var sessions []session
 	for _, id := range loaded {
 		thread, err := cli.readThread(ctx, id)
 		if err != nil {
 			return "", err
 		}
 		if thread.Source == codexUserThread {
-			users = append(users, id)
+			sessions = append(sessions, session{id: id, recencyAt: thread.RecencyAt})
 		}
 	}
-	if len(users) != 1 {
+	if len(sessions) == 0 {
 		return "", fmt.Errorf("%w: the app server on %s holds %d, %d of them a person's",
-			errCodexUnbound, c.path, len(loaded), len(users))
+			errCodexUnbound, c.path, len(loaded), len(sessions))
 	}
-	return users[0], nil
+	return slices.MaxFunc(sessions, func(a, b session) int {
+		return cmp.Or(cmp.Compare(a.recencyAt, b.recencyAt), strings.Compare(a.id, b.id))
+	}).id, nil
 }
 
 // lend publishes the watcher's connection for a delivery to ride.

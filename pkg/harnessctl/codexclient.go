@@ -116,8 +116,9 @@ func (c *codexClient) handshake(ctx context.Context) error {
 	return nil
 }
 
-// loadedThreads lists the threads the app server holds in memory, newest first.
-// These are bare ids rather than thread objects.
+// loadedThreads lists the threads the app server holds in memory, as bare ids
+// rather than thread objects. The order is none a caller can rely on: the
+// recorded app server listed its threads oldest first.
 func (c *codexClient) loadedThreads(ctx context.Context) ([]string, error) {
 	var res struct {
 		Data []string `json:"data"`
@@ -129,16 +130,26 @@ func (c *codexClient) loadedThreads(ctx context.Context) ([]string, error) {
 }
 
 // codexThread is what a delivery needs to know about one loaded thread: whose
-// it is.
+// it is, when it was last used, and what it is doing.
 type codexThread struct {
 	Id     string `json:"id"`
 	Source string `json:"threadSource"`
+	// RecencyAt is the Unix second the app server orders its threads by
+	// recency with. The protocol allows null, which reads as 0.
+	RecencyAt int64             `json:"recencyAt"`
+	Status    codexThreadStatus `json:"status"`
 }
 
-// codexUserThread is the threadSource of a thread a person is sitting in front
-// of. Every other value names a helper the app server runs beside the session:
-// `system` for the minute after a turn, `guardian_review` for the approval
-// reviewer, `memory_consolidation`, and whatever else a later Codex adds.
+// codexThreadStatus is what a thread is doing: `idle`, `active` with the flags
+// saying what it waits on, or a state that makes no claim about a turn.
+type codexThreadStatus struct {
+	Type        string   `json:"type"`
+	ActiveFlags []string `json:"activeFlags"`
+}
+
+// codexUserThread is the threadSource of a thread a person started. Any other
+// value, and no value at all, marks a thread Codex runs by itself beside the
+// session; the recorded helper answered `system`.
 const codexUserThread = "user"
 
 // readThread reads one loaded thread without its turns, which is all a binding
@@ -291,10 +302,7 @@ func codexState(req *jrpc2.Request) (chatv1.HarnessState, bool) {
 	switch req.Method() {
 	case codexStatusChanged:
 		var params struct {
-			Status struct {
-				Type        string   `json:"type"`
-				ActiveFlags []string `json:"activeFlags"`
-			} `json:"status"`
+			Status codexThreadStatus `json:"status"`
 		}
 		if req.UnmarshalParams(&params) != nil {
 			return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, false

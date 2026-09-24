@@ -29,6 +29,11 @@ import (
 const (
 	codexClientFixture = "codex-app-server.client.ndjson"
 	codexServerFixture = "codex-app-server.server.ndjson"
+
+	// The helpers pair read every loaded thread without its turns, which is the
+	// thread/read a binding makes.
+	codexHelpersClientFixture = "codex-app-server-helpers.client.ndjson"
+	codexHelpersServerFixture = "codex-app-server-helpers.server.ndjson"
 )
 
 // codexRecording is one captured session, indexed by what a fake needs to
@@ -39,14 +44,14 @@ type codexRecording struct {
 	notifications map[string][][]byte
 }
 
-// loadCodexRecording reads the two halves of the capture and pairs them by
+// loadCodexRecording reads the two halves of a capture and pairs them by
 // request id, which is the only thing that says which answer belongs to which
 // call once the directions are split apart.
-func loadCodexRecording(t *testing.T) codexRecording {
+func loadCodexRecording(t *testing.T, clientFixture, serverFixture string) codexRecording {
 	t.Helper()
 
 	methods := map[string]string{}
-	for _, line := range codexFixtureLines(t, codexClientFixture) {
+	for _, line := range codexFixtureLines(t, clientFixture) {
 		var frame struct {
 			Id     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
@@ -61,7 +66,7 @@ func loadCodexRecording(t *testing.T) codexRecording {
 		results:       map[string]json.RawMessage{},
 		notifications: map[string][][]byte{},
 	}
-	for _, line := range codexFixtureLines(t, codexServerFixture) {
+	for _, line := range codexFixtureLines(t, serverFixture) {
 		var frame struct {
 			Id     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
@@ -115,12 +120,19 @@ func (r codexRecording) notification(t *testing.T, method string, n int) []byte 
 type codexFake struct {
 	path string
 	rec  codexRecording
+	// threadRead is the answer every thread/read is re-addressed from. It comes
+	// from the helpers recording, since the main one read its thread with every
+	// turn in it, which is not the call a binding makes.
+	threadRead json.RawMessage
 
 	mu     sync.Mutex
 	loaded []string
 	// sources is the threadSource each loaded thread reports, by id. A thread
-	// missing here is a person's, which is what the recording holds.
-	sources  map[string]string
+	// missing here is a person's, which is what the recorded answer says.
+	sources map[string]string
+	// recency is the recencyAt each loaded thread reports, by id. A thread
+	// missing here keeps the recorded one, so two such threads tie.
+	recency  map[string]int64
 	requests []codexRequest
 	conns    []*websocket.Conn
 }
@@ -143,10 +155,15 @@ func startCodexFake(t *testing.T, loaded ...string) *codexFake {
 	assert.NilError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
+	helpers := loadCodexRecording(t, codexHelpersClientFixture, codexHelpersServerFixture)
+	threadRead, ok := helpers.results["thread/read"]
+	assert.Assert(t, ok, "%s answers no thread/read", codexHelpersServerFixture)
+
 	f := &codexFake{
-		path:   filepath.Join(dir, "app.sock"),
-		rec:    loadCodexRecording(t),
-		loaded: loaded,
+		path:       filepath.Join(dir, "app.sock"),
+		rec:        loadCodexRecording(t, codexClientFixture, codexServerFixture),
+		threadRead: threadRead,
+		loaded:     loaded,
 	}
 	ln, err := net.Listen("unix", f.path)
 	assert.NilError(t, err)
@@ -199,6 +216,7 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 	f.requests = append(f.requests, codexRequest{Method: frame.Method, Params: frame.Params})
 	loaded := slices.Clone(f.loaded)
 	sources := maps.Clone(f.sources)
+	recency := maps.Clone(f.recency)
 	f.mu.Unlock()
 
 	if len(frame.Id) == 0 {
@@ -216,10 +234,11 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 		}
 		result = json.RawMessage(`{"data":` + string(ids) + `,"nextCursor":null}`)
 	case "thread/read":
-		var err error
-		if result, err = threadReadAnswer(result, frame.Params, sources); err != nil {
+		answer, err := threadReadAnswer(f.threadRead, frame.Params, sources, recency)
+		if err != nil {
 			return
 		}
+		result = answer
 	}
 	reply, err := json.Marshal(map[string]json.RawMessage{"id": frame.Id, "result": result})
 	if err != nil {
@@ -229,11 +248,12 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 }
 
 // threadReadAnswer is the recorded thread/read answer re-addressed to the thread
-// params asked about, with the source that thread was given. The recording read
-// one thread, a person's; a case about the helpers Codex loads beside a session
-// needs the same shape to say something else.
+// params asked about, with the source and recency that thread was given. The
+// recorded answer is about a person's thread; a case about the helpers Codex
+// loads beside a session, or about two of a person's threads, needs the same
+// shape to say something else.
 func threadReadAnswer(
-	recorded json.RawMessage, params json.RawMessage, sources map[string]string,
+	recorded, params json.RawMessage, sources map[string]string, recency map[string]int64,
 ) (json.RawMessage, error) {
 	var asked struct {
 		ThreadId string `json:"threadId"`
@@ -257,6 +277,11 @@ func threadReadAnswer(
 	}
 	if answer.Thread["threadSource"], err = json.Marshal(source); err != nil {
 		return nil, err
+	}
+	if at, ok := recency[asked.ThreadId]; ok {
+		if answer.Thread["recencyAt"], err = json.Marshal(at); err != nil {
+			return nil, err
+		}
 	}
 	return json.Marshal(answer)
 }
