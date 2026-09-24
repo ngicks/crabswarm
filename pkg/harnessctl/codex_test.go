@@ -219,6 +219,59 @@ func TestCodex_DeliversPastTheHelperThreads(t *testing.T) {
 	}
 }
 
+// A TUI that has only just started loads a thread that has taken no turn, and
+// the app server refuses to resume it until one has: resuming reads the rollout
+// the first turn writes. The notice still becomes a turn on it, since a
+// delivery that waited on the subscription would never reach a fresh session,
+// and the refusal is logged.
+func TestCodex_DeliversToAThreadThatCannotBeResumedYet(t *testing.T) {
+	f := startCodexFake(t)
+	thread := f.rec.threadId(t)
+	f.loaded = []string{thread}
+	f.fresh = map[string]bool{thread: true}
+	h, log := newCodexHarness(f)
+
+	assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "hi"}))
+
+	assert.DeepEqual(t, f.methods(), []string{
+		"initialize", "initialized", "thread/loaded/list", "thread/resume", "turn/start",
+	})
+	assert.Equal(t, deliveredTo(t, f), thread)
+	assert.Assert(t, strings.Contains(log.String(), "without a subscription"),
+		"the harness logged %q", log.String())
+	assert.Assert(t, strings.Contains(log.String(), "no rollout found"),
+		"the harness logged %q", log.String())
+}
+
+// A feed that connected to a fresh session follows nothing until the session
+// has a turn. The turn a delivery starts is that turn: the feed's next look
+// resumes the thread and reports what the resume answer says it is doing.
+func TestCodex_WatchFollowsAFreshThreadOnceADeliveryStartsIt(t *testing.T) {
+	f := startCodexFake(t)
+	thread := f.rec.threadId(t)
+	f.loaded = []string{thread}
+	f.fresh = map[string]bool{thread: true}
+	f.resumeStatus = map[string]string{thread: `{"type":"active","activeFlags":[]}`}
+	h, _ := newCodexHarness(f)
+
+	states := watchCodex(t, h)
+	f.waitAsked(t, "thread/resume")
+	select {
+	case state := <-states:
+		t.Fatalf("the feed reported %s about a thread it could not resume", state)
+	case <-time.After(codexRebindInterval / 4):
+	}
+
+	assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "hi"}))
+	assert.Equal(t, f.handshakes(), 1, "the delivery opened a second connection")
+
+	// The resume the feed retries on its timer now answers, mid-turn.
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WORKING)
+	assert.Equal(t, h.borrow().subscribed(), thread)
+	f.push(f.rec.notification(t, codexStatusChanged, 1))
+	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+}
+
 // Two of a person's threads as Codex names them: time-ordered UUIDs, so the
 // earlier one sorts first. They are the two TUI threads of the helpers
 // recording.

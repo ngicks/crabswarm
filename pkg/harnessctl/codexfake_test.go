@@ -136,6 +136,11 @@ type codexFake struct {
 	// resumeStatus is the thread status each thread's resume answer carries, as
 	// JSON, by id. A thread missing here keeps the recorded one, which is idle.
 	resumeStatus map[string]string
+	// fresh holds the threads that have taken no turn yet. The real app server
+	// refuses to resume one, since resuming reads the rollout the first turn
+	// writes; a turn/start on the thread takes it out of here, as the turn
+	// writes the rollout on the real one.
+	fresh map[string]bool
 	// hold is the call whose answer [codexFake.holdNext] keeps back, until that
 	// call arrives.
 	hold  *codexHold
@@ -239,9 +244,36 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 	if f.hold != nil && f.hold.method == frame.Method && len(frame.Id) > 0 {
 		hold, f.hold = f.hold, nil
 	}
+	var refused string
+	if frame.Method == "thread/resume" || frame.Method == "turn/start" {
+		var params struct {
+			ThreadId string `json:"threadId"`
+		}
+		_ = json.Unmarshal(frame.Params, &params)
+		if f.fresh[params.ThreadId] {
+			if frame.Method == "turn/start" {
+				delete(f.fresh, params.ThreadId)
+			} else {
+				refused = "no rollout found for thread id " + params.ThreadId
+			}
+		}
+	}
 	f.mu.Unlock()
 
 	if len(frame.Id) == 0 {
+		return
+	}
+	if refused != "" {
+		// The refusal the real app server writes: an error object with the
+		// protocol's invalid-request code, and no version marker.
+		reply, err := json.Marshal(map[string]any{
+			"id":    frame.Id,
+			"error": map[string]any{"code": -32600, "message": refused},
+		})
+		if err != nil {
+			return
+		}
+		_ = conn.Write(context.Background(), websocket.MessageText, reply)
 		return
 	}
 	result, ok := f.rec.results[frame.Method]

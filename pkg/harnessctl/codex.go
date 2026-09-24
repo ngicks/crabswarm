@@ -138,8 +138,17 @@ func (c *codex) deliverOn(ctx context.Context, cli *codexClient, n Notice) error
 	// Subscribing before the turn is what the recorded session does, and it is
 	// also what lets a delivery made over a connection nothing was watching
 	// hear how the turn it started ends.
+	//
+	// A refused subscription does not stop the turn. Resuming a thread reads its
+	// rollout, and a session's first turn is what writes one: a thread a TUI has
+	// only just started is loaded and takes a turn, and answers resume with
+	// "no rollout found" until that turn has run. A delivery that gave up here
+	// would never reach a fresh session at all — the notice waits for a state
+	// report, and a session nobody starts a turn on reports none. The feed
+	// subscribes on its own once the turn exists.
 	if _, err := cli.subscribe(ctx, id); err != nil {
-		return err
+		c.logger.Warn("starting the codex turn without a subscription",
+			"socket", c.path, "thread", id, "error", err)
 	}
 	return cli.startTurn(ctx, id, n.Text)
 }

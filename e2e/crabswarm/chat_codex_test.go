@@ -64,7 +64,11 @@ type codexAppServer struct {
 	// sources is the threadSource each loaded thread reports, by id. A thread
 	// missing here is a person's.
 	sources map[string]string
-	conns   []*websocket.Conn
+	// fresh holds the threads that have taken no turn yet. The real app server
+	// refuses to resume one until its first turn has written the rollout a
+	// resume reads, and a turn/start on the thread is that turn.
+	fresh map[string]bool
+	conns []*websocket.Conn
 	// accepted is every connection the fake has taken since it started, the
 	// closed ones included. Counted rather than measured off the live ones: a
 	// delivery that dialled a connection of its own closes it again, and by the
@@ -193,6 +197,17 @@ func (f *codexAppServer) answer(conn *websocket.Conn, data []byte) {
 	}
 	result := `{}`
 	switch frame.Method {
+	case "thread/resume":
+		f.mu.Lock()
+		fresh := f.fresh[frame.Params.ThreadId]
+		f.mu.Unlock()
+		if fresh && len(frame.Id) > 0 {
+			_ = conn.Write(context.Background(), websocket.MessageText,
+				fmt.Appendf(nil, `{"id":%s,"error":{"code":-32600,`+
+					`"message":"no rollout found for thread id %s"}}`,
+					frame.Id, frame.Params.ThreadId))
+			return
+		}
 	case "thread/loaded/list":
 		f.mu.Lock()
 		ids, err := json.Marshal(f.loaded)
@@ -214,6 +229,7 @@ func (f *codexAppServer) answer(conn *websocket.Conn, data []byte) {
 		}
 		f.mu.Lock()
 		f.turns = append(f.turns, codexTurn{thread: frame.Params.ThreadId, text: text})
+		delete(f.fresh, frame.Params.ThreadId)
 		f.mu.Unlock()
 		result = `{"turn":{"id":"turn-1","status":"inProgress"}}`
 	}
@@ -335,8 +351,14 @@ func waitCodexTurns(t *testing.T, f *codexAppServer, want ...string) {
 // types at, and every notice it is owed arrives as a turn on the one thread the
 // app server has loaded — while the agent is idle, never mid-turn, and once the
 // turn ends as a count of what piled up meanwhile.
+//
+// The session is a fresh one: its thread has taken no turn, so the app server
+// refuses to resume it until the first notice has become one. That first
+// mention is the common case for a swarm, where every agent is started and then
+// addressed.
 func TestChatCodex_BridgeStartsATurnForEveryMention(t *testing.T) {
 	app := startCodexAppServer(t)
+	app.fresh = map[string]bool{codexFakeThread: true}
 	cfg := startChatDaemon(t)
 	startChatBridgeAs(t, cfg, "tok-ana", "codex-mcp-client",
 		append(chatEnviron(), harnessctl.CodexAppServerEnv+"=unix://"+app.addr))

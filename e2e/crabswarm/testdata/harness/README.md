@@ -395,6 +395,22 @@ Timing seen while polling, not recorded in the pair:
   when a TUI attaches to the app server and starts its thread, so a client
   that connected before the session existed hears about it without polling.
 
+Seen with Codex 0.156.1, not recorded in the pair:
+
+- A TUI's thread is loaded and answers `threadSource: "user"` from the moment
+  the TUI attaches, before any turn. `thread/resume` on it fails until the
+  first turn has run, with
+  `[-32600] no rollout found for thread id <id>`: resuming reads the rollout
+  file the first turn writes. `turn/start` on that thread works and the TUI
+  shows the turn, and `thread/resume` answers once it has run.
+- `codex app-server --listen unix://PATH` creates PATH as a symlink into
+  `/tmp/codex-daemon-<uid>/`, where the socket itself lives. Dialing PATH
+  works as before.
+- A helper thread appears after a turn as before, answering
+  `threadSource: "thread_title"`, `ephemeral: true` and `path: null`; its
+  `originator` names the client that last spoke to the app server, so the
+  field says nothing about whose thread it is.
+
 ## fakechat plugin channel
 
 `fakechat-page.html`, `fakechat-upload.http`,
