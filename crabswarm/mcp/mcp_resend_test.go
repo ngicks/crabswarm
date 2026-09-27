@@ -37,7 +37,7 @@ func watchedBridge(t *testing.T, svc attendingStub) *feedingHarness {
 	t.Helper()
 
 	bridge := newTestBridge(t, svc)
-	bridge.harnessStateResend = testResend
+	bridge.host.pace.harnessStateResend = testResend
 	feed := &feedingHarness{states: make(chan chatv1.HarnessState)}
 	runsOn(bridge, feed)
 	serveBridge(t, bridge)

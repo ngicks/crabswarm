@@ -15,22 +15,59 @@
 package chat
 
 import (
+	"context"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 	crabmcp "github.com/ngicks/crabswarm/crabswarm/mcp"
 )
 
+// Host is the crabswarm MCP server the family registers onto, whichever
+// transport it serves: a stdio [crabmcp.Server] acting as one member, or an
+// [crabmcp.HTTPServer] acting as a member per session's token.
+type Host interface {
+	MCP() *mcp.Server
+	Client() *cli.Client
+	AddResource(res *mcp.Resource, handler mcp.ResourceHandler)
+	AnnounceOnRosterChange(uri string)
+	MemberOf(session *mcp.ServerSession) (*crabmcp.Member, error)
+}
+
 // family is the chat verbs bound to the server they act through. One server
-// carries one of these: what a tool may do follows from the attendance that
-// server holds, so the two are never apart.
+// carries one of these, and every call asks the server which member the
+// calling session is: what a tool may do follows from that member's
+// attendance.
 type family struct {
-	server *crabmcp.Server
+	server Host
 }
 
 // Register adds the chat verbs and the room's roster to server.
 //
 // It is called before the server runs, so both are advertised during the
 // handshake rather than announced as a change the harness has to notice.
-func Register(server *crabmcp.Server) {
+func Register(server Host) {
 	f := &family{server: server}
 	f.addTools()
 	f.addResources()
+}
+
+// caller is the token of the member session acts as, once that member has an
+// answer about its attendance.
+//
+// The member is looked up first, so a session with no identity reports what is
+// missing rather than waiting on an attendance that was never going to happen.
+// Attendance is waited on next, because none of the daemon's member calls mean
+// anything from outside the room, and a member whose attendance never landed
+// would otherwise get the daemon's answer to a question it should not have
+// asked.
+func (f *family) caller(ctx context.Context, session *mcp.ServerSession) (string, error) {
+	member, err := f.server.MemberOf(session)
+	if err != nil {
+		return "", err
+	}
+	if err := member.AwaitAttendance(ctx); err != nil {
+		return "", err
+	}
+	return member.Token(), nil
 }

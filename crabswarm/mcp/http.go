@@ -1,0 +1,337 @@
+package mcp
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"sync"
+	"time"
+
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
+)
+
+// TokenHeader is the HTTP request header an MCP session names its chat
+// identity in. A launcher that runs one harness server for several agents sets
+// it per agent, which is what makes each of them a member of its own.
+const TokenHeader = "X-Crabswarm-Token"
+
+// HTTPPath is where [HTTPServer] serves MCP.
+const HTTPPath = "/mcp"
+
+// errNoTokenHeader is what every tool of a session that named no identity
+// answers with. It names the header and nothing else: a session on a shared
+// server never falls back to the process's own identity, since every session
+// that forgot the header would otherwise act as one and the same member.
+var errNoTokenHeader = errors.New("no chat identity token: this MCP session sent no " +
+	TokenHeader + " header, which is what names the member a session acts as")
+
+// readHeaderTimeout bounds how long a client may take to send its request
+// headers. A local harness sends them at once; this only keeps a connection
+// that never does from being held open for nothing.
+const readHeaderTimeout = 10 * time.Second
+
+// HTTPServer serves MCP sessions over streamable HTTP, many at once, and
+// attends the room once per identity token among them.
+//
+// A session names the member it acts as in the [TokenHeader] of its initialize
+// request, and keeps that member for its whole life. Sessions naming one token
+// share one member, which attends while at least one of them is open and
+// leaves when the last one closes. A session naming none still serves, and its
+// tools answer with what is missing.
+type HTTPServer struct {
+	host *host
+
+	// mu guards the registry below, which every request of every session reads.
+	mu sync.Mutex
+	// closed is set once the server is shutting down. A session that arrives
+	// after it acts as nobody: its member would outlive the server that made it.
+	closed bool
+	// members are the members attending, by the token they attend as.
+	members map[string]*attendee
+	// sessions are the sessions bound so far, and what each acts as.
+	sessions map[*mcpsdk.ServerSession]*binding
+	// running holds every member's loops and every session's watch, so a
+	// shutdown waits for them before the connection to the daemon closes.
+	running errgroup.Group
+}
+
+// attendee is one member and the count of open sessions keeping it in the room.
+type attendee struct {
+	member   *Member
+	stop     context.CancelFunc
+	sessions int
+}
+
+// binding is what one session acts as. A nil attendee is a session that named
+// no identity.
+type binding struct {
+	attendee *attendee
+	// handshook says the session's harness has been read off its handshake.
+	handshook bool
+}
+
+// NewHTTP dials sockPath and prepares a server for many MCP sessions. Nothing
+// attends until a session names a token, so the daemon being down or refusing
+// that token keeps no harness from getting a server it can talk to.
+//
+// getenv is the environment the harness server started this process in. It is
+// where a deliverer finds what its channel needs, the same for every session;
+// it is never where a session's identity comes from. A nil getenv reads the
+// process environment, and a nil logger discards logs.
+//
+// It comes back with no tools and no resources: a family registers its own onto
+// it before [HTTPServer.Serve], as onto a stdio [Server].
+func NewHTTP(
+	logger *slog.Logger,
+	sockPath string,
+	getenv func(string) string,
+) (*HTTPServer, error) {
+	h, err := newHost(logger, sockPath, getenv)
+	if err != nil {
+		return nil, err
+	}
+	s := &HTTPServer{
+		host:     h,
+		members:  map[string]*attendee{},
+		sessions: map[*mcpsdk.ServerSession]*binding{},
+	}
+	h.mcp.AddReceivingMiddleware(s.bindsSessions)
+	return s, nil
+}
+
+// MCP is the SDK server a family adds its tools to. Every session is served by
+// this one server, so a tool registered once is offered to all of them.
+func (s *HTTPServer) MCP() *mcpsdk.Server {
+	return s.host.mcp
+}
+
+// Client is the connection to the daemon every tool acts through, whichever
+// member it acts as.
+func (s *HTTPServer) Client() *cli.Client {
+	return s.host.client
+}
+
+// AddResource registers a resource and lets a harness subscribe to it.
+func (s *HTTPServer) AddResource(res *mcpsdk.Resource, handler mcpsdk.ResourceHandler) {
+	s.host.addResource(res, handler)
+}
+
+// AnnounceOnRosterChange has the subscribed sessions told to read uri again
+// whenever the room's attendance or anyone's state changes, as any member of
+// this server sees it.
+func (s *HTTPServer) AnnounceOnRosterChange(uri string) {
+	s.host.announceOnRosterChange(uri)
+}
+
+// MemberOf is the member a tool called over session acts as: the one its token
+// names. A session that named no token answers with what is missing.
+func (s *HTTPServer) MemberOf(session *mcpsdk.ServerSession) (*Member, error) {
+	s.mu.Lock()
+	b := s.sessions[session]
+	s.mu.Unlock()
+	switch {
+	case b == nil:
+		return nil, errNotAttending
+	case b.attendee == nil:
+		return nil, errNoTokenHeader
+	default:
+		return b.attendee.member, nil
+	}
+}
+
+// methodInitialize is the request a session opens with, which is where it names
+// its identity and its client.
+const methodInitialize = "initialize"
+
+// bindsSessions ties every session to its member at its initialize request, and
+// reads its harness off that handshake.
+//
+// Only initialize binds. A client may probe the server before it initializes —
+// the SDK's own client asks server/discover first — and the handler gives that
+// probe a session of its own that its client never closes. A probe binding its
+// token would keep the member in the room after every real session was gone.
+//
+// The binding comes before the handler, so a member exists by the time the
+// session's first call needs one. The harness is read after it, because the
+// initialize request is what hands the session its client's name.
+func (s *HTTPServer) bindsSessions(next mcpsdk.MethodHandler) mcpsdk.MethodHandler {
+	return func(
+		ctx context.Context, method string, req mcpsdk.Request,
+	) (mcpsdk.Result, error) {
+		session, ok := req.GetSession().(*mcpsdk.ServerSession)
+		if !ok || method != methodInitialize {
+			return next(ctx, method, req)
+		}
+		s.bind(session, req.GetExtra())
+		res, err := next(ctx, method, req)
+		s.handshook(session)
+		return res, err
+	}
+}
+
+// bind ties session to the member the token in extra names, making that member
+// when it is the token's first session, and watches the session for its end.
+// A session already bound keeps what it was bound to.
+func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestExtra) {
+	var token string
+	if extra != nil {
+		token = extra.Header.Get(TokenHeader)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	if _, ok := s.sessions[session]; ok {
+		return
+	}
+	b := &binding{}
+	if token == "" {
+		s.host.logger.Warn("an MCP session named no chat identity; its tools will report it",
+			"session", session.ID(), "header", TokenHeader)
+	} else {
+		a := s.members[token]
+		if a == nil {
+			// The member runs on a context of its own rather than on any request's:
+			// it lives as long as its sessions do, which is longer than any one
+			// request and shorter than the server.
+			ctx, stop := context.WithCancel(context.Background())
+			a = &attendee{member: s.host.newMember(token), stop: stop}
+			s.members[token] = a
+			s.running.Go(func() error {
+				a.member.run(ctx)
+				return nil
+			})
+		}
+		a.sessions++
+		b.attendee = a
+	}
+	s.sessions[session] = b
+	s.running.Go(func() error {
+		// A session ends however its client left — a DELETE, or the server
+		// closing it — and Wait returns on either.
+		_ = session.Wait()
+		s.release(session)
+		return nil
+	})
+}
+
+// handshook reads the harness off session once it names a client, and hands it
+// to the member the session acts as. Each session is read once: it names one
+// client for its whole life.
+func (s *HTTPServer) handshook(session *mcpsdk.ServerSession) {
+	params := session.InitializeParams()
+	if params == nil {
+		return
+	}
+	s.mu.Lock()
+	b := s.sessions[session]
+	first := b != nil && !b.handshook
+	if first {
+		b.handshook = true
+	}
+	s.mu.Unlock()
+	if !first {
+		return
+	}
+	harness := s.host.harnessOf(params)
+	if b.attendee != nil {
+		b.attendee.member.handshook(harness)
+	}
+}
+
+// release unbinds a session that ended, and takes its member out of the room
+// when it was the last session keeping it there.
+//
+// A token whose next session arrives before the daemon has let go of the old
+// attendance gets a new member that is refused as already attending; its loop
+// retries until the daemon has caught up, which is what it does for any other
+// refusal.
+func (s *HTTPServer) release(session *mcpsdk.ServerSession) {
+	s.mu.Lock()
+	b := s.sessions[session]
+	delete(s.sessions, session)
+	var left *attendee
+	if b != nil && b.attendee != nil {
+		a := b.attendee
+		a.sessions--
+		if a.sessions == 0 {
+			delete(s.members, a.member.token)
+			left = a
+		}
+	}
+	s.mu.Unlock()
+	if left != nil {
+		left.stop()
+		s.host.logger.Info("the last session of a chat member closed; leaving the room",
+			"member", cli.Address(left.member.selfMember()))
+	}
+}
+
+// Serve serves MCP at [HTTPPath] on ln until ctx is done, and closes the
+// connection to the daemon on the way out, so an HTTPServer is not reusable.
+//
+// On the way out every session is closed and every member leaves the room.
+// Like [Server.Serve], it answers a shutdown ctx asked for with ctx's error.
+func (s *HTTPServer) Serve(ctx context.Context, ln net.Listener) error {
+	defer func() { _ = s.host.client.Close() }()
+
+	mux := http.NewServeMux()
+	mux.Handle(HTTPPath, mcpsdk.NewStreamableHTTPHandler(
+		func(*http.Request) *mcpsdk.Server { return s.host.mcp },
+		&mcpsdk.StreamableHTTPOptions{Logger: s.host.logger},
+	))
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: readHeaderTimeout}
+
+	s.host.logger.Info("serving MCP over HTTP", "addr", ln.Addr().String(), "path", HTTPPath)
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serving MCP over HTTP on %s: %w", ln.Addr(), err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		<-gctx.Done()
+		// Closed rather than shut down: a session's event stream is a request
+		// that never finishes, and a graceful shutdown would wait on it forever.
+		err := srv.Close()
+		s.shutdown()
+		return err
+	})
+	if err := g.Wait(); err != nil {
+		return err
+	}
+	return ctx.Err()
+}
+
+// shutdown takes every member out of the room and closes every session, then
+// waits for what they were running.
+//
+// The members go first. A tool call still waiting on its member's attendance
+// is answered once that member stops, and closing a session waits for the
+// calls it has in flight.
+func (s *HTTPServer) shutdown() {
+	s.mu.Lock()
+	s.closed = true
+	stops := make([]context.CancelFunc, 0, len(s.members))
+	for _, a := range s.members {
+		stops = append(stops, a.stop)
+	}
+	s.mu.Unlock()
+	for _, stop := range stops {
+		stop()
+	}
+	for session := range s.host.mcp.Sessions() {
+		_ = session.Close()
+	}
+	_ = s.running.Wait()
+}
