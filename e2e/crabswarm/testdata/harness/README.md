@@ -573,6 +573,135 @@ What the recordings and the probing around them show:
   `thread/status/changed` to `notLoaded`, then `thread/closed`. Its server
   process was gone within about three minutes of the stop.
 
+### Tools executed by an exec server
+
+Six files record an app server whose threads execute on a standalone
+`codex exec-server`, captured 2026-09-27 with Codex 0.157.1 and cmdman 0.0.26.
+
+```sh
+cmdman run --rm -n cxe-exec -w <replica dir> -- codex exec-server --listen ws://127.0.0.1:47500
+cmdman run --rm -n cxe-server -w <server dir> -E CODEX_EXEC_SERVER_URL=ws://127.0.0.1:47500 -- \
+  codex app-server --listen unix:///tmp/cxe.sock \
+  -c 'mcp_servers.crabswarm-mcp.environment_id="remote"' \
+  -c 'mcp_servers.crabswarm-mcp.cwd="<replica dir>"' \
+  -c 'mcp_servers.crabswarm-mcp.env_vars=[{name="CMDMAN_CMD_ID",source="remote"}]'
+cmdman run -t --rm -n cxe-tui -w <replica dir> -- codex --remote unix:///tmp/cxe.sock
+```
+
+- `codex-exec-server-thread.{client,server}.ndjson` are the recorder's
+  `thread/loaded/list` and `thread/read` of the TUI's thread. The thread's
+  `environments` names `environmentId: "remote"`, with the app server's
+  directory as `cwd`, since the TUI sent none.
+- `codex-exec-server-mcp-local.{client,server}.ndjson` are one
+  `mcpServerStatus/list` for a thread of an app server started with only
+  `CODEX_EXEC_SERVER_URL`, and no `mcp_servers` overrides.
+  `codex-exec-server-mcp-remote.{client,server}.ndjson` are the same call with
+  all three overrides above. Each server file holds the answer alone,
+  reduced to the `crabswarm-mcp` entry of `result.data`. The dropped entries
+  list the `codex_apps` plugin's tools, which belong to the signed-in account.
+
+What they and the process tree showed:
+
+- With `CODEX_EXEC_SERVER_URL` set, the TUI's thread runs on the environment
+  `remote`. A shell command the agent ran was a child of the `codex
+  exec-server` process, inside its bubblewrap sandbox, not a child of the app
+  server.
+- A stdio MCP server declared without `environment_id` does not start there:
+  `runtimeStatus: "failed"`, `toolsError: "MCP startup failed: local stdio
+  MCP server \`crabswarm-mcp\` requires a local environment"`.
+- `environment_id = "remote"` alone fails with `executor stdio server
+  requires an explicit cwd`. With `cwd` as well it starts as a child of the
+  exec server and reports `connected`. `environment` is not a recognized key.
+- `env_vars` entries take a `source`. With
+  `{name = "CMDMAN_CMD_ID", source = "remote"}` the spawned `crabswarm mcp`
+  carried the exec server's `CMDMAN_CMD_ID`, where a plain `env_vars` entry
+  carries the app server's.
+- The binary names an `environments.toml` in which each environment has `id`,
+  `url` or `program`, and timeouts, plus one default environment id. The TUI
+  has no option to pick an environment for its threads, and its
+  `thread/start` sends `environments: null`.
+
+### A pass-through proxy that stamps a token on threads
+
+Six files record a throwaway proxy between a remote TUI and one app server,
+captured 2026-09-27 with Codex 0.157.1 and cmdman 0.0.26. The proxy terminated
+WebSocket on both sides and forwarded every message unchanged, except that a
+client message whose `method` was `thread/start`, `thread/resume` or
+`thread/fork` got
+`params.config["mcp_servers.crabswarm-mcp.env.CRABSWARM_CHAT_TOKEN"]` set to
+the proxy's token. Each rewritten message was also appended to a log. The app
+server's `crabswarm-mcp` entry pointed at a wrapper that wrote the spawned
+server's environment and then `exec`ed `crabswarm mcp`.
+
+```sh
+cmdman run --rm -n cxp-server -w <scratch dir> -- \
+  codex app-server --listen unix:///tmp/cxp.sock \
+  -c 'mcp_servers.crabswarm-mcp.command="<scratch dir>/mcpwrap.sh"'
+cmdman run --rm -n cxp-proxy-a -- proxy /tmp/cxp-a.sock /tmp/cxp.sock tokA <log prefix>
+cmdman run --rm -n cxp-proxy-b -- proxy /tmp/cxp-b.sock /tmp/cxp.sock tokB <log prefix>
+cmdman run -t --rm -n cxp-a -w <scratch dir> -- codex --remote unix:///tmp/cxp-a.sock
+```
+
+- `codex-proxy-injected-tui.ndjson` is proxy A's log: the TUI's two
+  `thread/start` requests as forwarded, with the token key beside the TUI's
+  own `config` keys. The thread's `crabswarm mcp` started with
+  `CRABSWARM_CHAT_TOKEN=tokA`.
+- `codex-app-server-resume-loaded.{client,server}.ndjson` are a recorder,
+  connected through proxy B, resuming thread A while TUI A was still attached.
+  `codex-app-server-resume-unloaded.{client,server}.ndjson` are the same resume
+  made after TUI A had stopped and the thread had unloaded. The client files
+  hold what the recorder sent; the proxy's rewrite of the two resumes is
+  `codex-proxy-injected-resume.ndjson`, the two lines of proxy B's log with
+  JSON-RPC `id` 2.
+
+What they and the wrapper's logs showed:
+
+- A `thread/resume` of a loaded thread does not restart that thread's MCP
+  server: it kept `tokA` after the resume carrying `tokB`.
+- A `thread/resume` of an unloaded thread starts a new MCP server, and it
+  carried the injected `tokB`.
+- After TUI A stopped, thread A went `notLoaded` about 50 seconds later, and its
+  `crabswarm mcp` exited at the same time. The longer tail recorded above came
+  from the pipe-based wrapper used there.
+- The unloaded resume's answer came with a `deprecationNotice`:
+  `Full-history hydration is deprecated for paginated threads; use
+  excludeTurns: true, then page with thread/turns/list and thread/items/list.`
+
+### A per-thread header on an HTTP MCP server
+
+Three files record per-thread HTTP headers on a streamable-HTTP MCP server,
+captured 2026-09-28 with Codex 0.157.1. One throwaway Go program ran all three
+parts: an HTTP MCP server on `127.0.0.1:47210` that logged every request and
+echoed the `X-Crabswarm-Token` header from `tools/call`, the app server as its
+child, and a recorder client on the app server's socket.
+
+```sh
+codex app-server --listen unix:///tmp/cxh-probe.sock \
+  -c 'mcp_servers.probe-http.url="http://127.0.0.1:47210/mcp"'
+```
+
+The recorder started three threads. The first `thread/start` carried
+`config: {"mcp_servers.probe-http.http_headers.X-Crabswarm-Token": "tokA"}`,
+the second the same key set to `tokB`, and the third an empty `config`. It then
+sent one `mcpServer/tool/call` of `probe_echo` to each thread.
+
+- `codex-app-server-thread-header.client.ndjson` and
+  `codex-app-server-thread-header.server.ndjson` are the recorder's frames and
+  every frame the app server sent back.
+- `codex-mcp-http-thread-header.jsonl` is every request the HTTP server
+  received, in the shape of `codex-mcp-http-two-threads.jsonl`.
+
+What they showed:
+
+- Each thread opened its own MCP session, and every request of that session
+  carried the thread's header, `initialize` included. The first thread's
+  session sent `tokA` throughout and the second's sent `tokB`.
+- The third thread's session carried no `X-Crabswarm-Token` header.
+- `mcpServer/tool/call` reached each thread's HTTP session with no turn run,
+  as it reaches a stdio server.
+- The dotted key layered over the app server's own `-c` entry for the server.
+  The URL stayed in effect.
+
 ## OpenCode server with attached TUIs
 
 Four files record one `opencode serve` with TUIs attached to it, captured
@@ -627,6 +756,21 @@ What they show:
   `CMDMAN_CMD_ID`. `api.route.current` reads `{"name":"home"}` before the first
   prompt and `{"name":"session","params":{"sessionID":"ses_…"}}` after it. The
   plugin also receives `session.status` events through `api.event.on`.
+
+`opencode-serve-config-mcp.json` is the `mcp` key of what `GET /config`
+answered on an `opencode serve` given a remote MCP server through the
+environment, captured 2026-09-28 with OpenCode 1.18.32. The rest of the answer
+was dropped: it holds the host's own configuration.
+
+```sh
+OPENCODE_CONFIG_CONTENT='{"mcp":{"crabswarm-mcp":{"type":"remote","url":"http://127.0.0.1:47300/mcp","enabled":true}}}' \
+  opencode serve --port 47410
+curl -s http://127.0.0.1:47410/config
+```
+
+- The server answers the remote entry as it was configured: `type`, `url` and
+  `enabled`. A process holding the server's URL reads the MCP server's address
+  from it.
 
 ## fakechat plugin channel
 

@@ -1,0 +1,1 @@
+{"id":2,"result":{"data":[{"name":"crabswarm-mcp","runtimeStatus":"failed","pluginId":null,"httpOrigin":null,"serverInfo":null,"serverCapabilities":null,"tools":{},"toolsError":"MCP startup failed: local stdio MCP server `crabswarm-mcp` requires a local environment","resources":[],"resourceTemplates":[],"authStatus":"unsupported"}],"nextCursor":null}}

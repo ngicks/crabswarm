@@ -1,0 +1,9 @@
+{
+  "mcp": {
+    "crabswarm-mcp": {
+      "type": "remote",
+      "url": "http://127.0.0.1:47300/mcp",
+      "enabled": true
+    }
+  }
+}

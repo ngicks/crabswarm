@@ -1,0 +1,8 @@
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"clientInfo":{"name":"crabswarm-probe","title":"probe","version":"0"}}}
+{"jsonrpc":"2.0","method":"initialized"}
+{"id":2,"jsonrpc":"2.0","method":"thread/start","params":{"config":{"mcp_servers.probe-http.http_headers.X-Crabswarm-Token":"tokA"}}}
+{"id":3,"jsonrpc":"2.0","method":"thread/start","params":{"config":{"mcp_servers.probe-http.http_headers.X-Crabswarm-Token":"tokB"}}}
+{"id":4,"jsonrpc":"2.0","method":"thread/start","params":{"config":{}}}
+{"id":5,"jsonrpc":"2.0","method":"mcpServer/tool/call","params":{"arguments":{},"server":"probe-http","threadId":"01a0e409-935a-7560-8228-c6bc5ff965ac","tool":"probe_echo"}}
+{"id":6,"jsonrpc":"2.0","method":"mcpServer/tool/call","params":{"arguments":{},"server":"probe-http","threadId":"01a0e409-940d-7e00-bdcf-8d497330c020","tool":"probe_echo"}}
+{"id":7,"jsonrpc":"2.0","method":"mcpServer/tool/call","params":{"arguments":{},"server":"probe-http","threadId":"01a0e409-9471-7772-80ba-763404a0ad87","tool":"probe_echo"}}

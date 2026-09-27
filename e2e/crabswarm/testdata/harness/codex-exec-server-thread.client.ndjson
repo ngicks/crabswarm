@@ -1,0 +1,4 @@
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"clientInfo":{"name":"crabswarm-probe","title":"probe","version":"0"}}}
+{"jsonrpc":"2.0","method":"initialized"}
+{"id":2,"jsonrpc":"2.0","method":"thread/loaded/list","params":{}}
+{"id":3,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0e155-a05c-78d1-8a3a-1ff014674515"}}

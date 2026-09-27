@@ -1,0 +1,2 @@
+{"id":2,"jsonrpc":"2.0","method":"thread/resume","params":{"config":{"mcp_servers.crabswarm-mcp.env.CRABSWARM_CHAT_TOKEN":"tokB"},"threadId":"01a0e15d-b576-7410-a249-a1300176a36d"}}
+{"id":2,"jsonrpc":"2.0","method":"thread/resume","params":{"config":{"mcp_servers.crabswarm-mcp.env.CRABSWARM_CHAT_TOKEN":"tokB"},"threadId":"01a0e15d-b576-7410-a249-a1300176a36d"}}
