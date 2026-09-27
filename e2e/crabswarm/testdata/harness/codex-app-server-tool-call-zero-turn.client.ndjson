@@ -1,0 +1,3 @@
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"clientInfo":{"name":"crabswarm-probe","title":"probe","version":"0"}}}
+{"jsonrpc":"2.0","method":"initialized"}
+{"id":2,"jsonrpc":"2.0","method":"mcpServer/tool/call","params":{"arguments":{"token":"x"},"server":"crabswarm-mcp","threadId":"01a0df46-7c72-7691-85c9-6efb2f88f057","tool":"crabswarm_bind_probe"}}

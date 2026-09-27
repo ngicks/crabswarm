@@ -1,0 +1,5 @@
+Authorization: Bearer fa53af844d83f9f2bb102eff1ed06145
+Connection: Upgrade
+Sec-Websocket-Key: WTff5rSPJHlSvVH2wpLcGA==
+Sec-Websocket-Version: 13
+Upgrade: websocket

@@ -411,6 +411,223 @@ Seen with Codex 0.156.1, not recorded in the pair:
   `originator` names the client that last spoke to the app server, so the
   field says nothing about whose thread it is.
 
+### Several TUIs on one app server
+
+Sixteen files record one app server shared by several remote TUIs, captured
+2026-09-26 with Codex 0.156.1, cmdman 0.0.26 and crabswarm v0.1.0. They show
+what a client needs to address one thread's MCP server out of many.
+
+The app server ran with its `crabswarm-mcp` entry pointed at a wrapper that
+logs each spawned server's environment and both halves of its stdio before
+running `crabswarm mcp`:
+
+```sh
+cmdman run --rm -n cxs-server -w <scratch dir> -- \
+  codex app-server --listen unix:///tmp/cxs.sock \
+  -c 'mcp_servers.crabswarm-mcp.command="<scratch dir>/mcpwrap.sh"'
+cmdman run -t --rm -n cxs-a -w <scratch dir> -- codex --remote unix:///tmp/cxs.sock
+cmdman run -t --rm -n cxs-b -w <scratch dir> -- codex --remote unix:///tmp/cxs.sock
+```
+
+```sh
+#!/bin/sh
+d=<log dir>/$$
+mkdir -p "$d"
+env | sort > "$d/env"
+tee -a "$d/in.ndjson" | crabswarm mcp 2>> "$d/stderr" | tee -a "$d/out.ndjson"
+```
+
+Each TUI was given the prompt `Call the crabswarm-mcp chat_members tool exactly
+once, then reply with the single word done.` in two `send-keys` calls as above.
+
+`codex-mcp-thread-a.stdin.ndjson` and `codex-mcp-thread-b.stdin.ndjson` are the
+whole stdin of the two servers the app server spawned, one per TUI thread.
+`codex-mcp-thread-b.stdout.ndjson` is the whole stdout of the second one.
+
+`codex-app-server-tool-call.client.ndjson` and
+`codex-app-server-tool-call.server.ndjson` are a recorder's `initialize`,
+`initialized` and one `mcpServer/tool/call` naming thread A's id, server
+`crabswarm-mcp` and tool `chat_members`. The last line of the thread A stdin
+fixture is the frame that call produced.
+
+`codex-app-server-thread-config.client.ndjson` and
+`codex-app-server-thread-config.server.ndjson` are a recorder's
+`thread/start` carrying
+`config: {"mcp_servers.crabswarm-mcp.env.PROBE_TAG": "H"}`, with every frame the
+server sent until the thread's MCP servers reported `ready`.
+
+`codex-tui-thread-start.client.ndjson` and
+`codex-tui-thread-start.server.ndjson` are the `thread/start` a remote TUI sent
+and the answer it got. A throwaway WebSocket relay sat between the TUI and the
+app server and logged each direction; the two lines were picked out of those
+logs by the request's `id`. The rest of the TUI's traffic stays out: its
+`thread/list` answers cover every Codex session on the host.
+
+`codex-tui-upgrade-unix.txt` and `codex-tui-upgrade-bearer.txt` are what a
+second version of that relay saw of one TUI's WebSocket upgrade: the request
+headers as Go's `http.Header.Write` prints them, then, for the unix socket
+listener only, the peer credentials read with `SO_PEERCRED` and the
+`CMDMAN_CMD_ID` read from that pid's `/proc/<pid>/environ`. The headers are not
+the bytes on the wire; the relay printed them from the parsed request.
+
+```sh
+cmdman run -t --rm -n cxs-bare -w <scratch dir> -- codex --remote unix:///tmp/cxs-r.sock
+cmdman run -t -n cxs-tok -w <scratch dir> -- \
+  codex --remote ws://127.0.0.1:47123 --remote-auth-token-env CMDMAN_CMD_ID
+```
+
+- Over the unix socket the TUI sends no credential of its own. The peer pid is
+  the TUI's, and its environment names the TUI's cmdman command.
+- `--remote-auth-token-env` sends `Authorization: Bearer <value>`. The TUI
+  refuses it on a unix socket and exits with
+  ``ERROR: `--remote-auth-token-env` requires a `wss://` or loopback `ws://` remote.``
+
+`codex-mcp-http-two-threads.jsonl` is every HTTP request a streamable-HTTP MCP
+server received from one app server while two remote TUIs each made one tool
+call, one JSON object per request: `method`, `path`, `headers` and the raw
+`body`. The server was a throwaway Python `ThreadingHTTPServer` answering JSON
+(no SSE), declared on the app server with
+`-c 'mcp_servers.probe-http.url="http://127.0.0.1:47200/mcp"'` and exposing one
+tool, `probe_echo`.
+
+- Each thread opens its own MCP session: its own `initialize` and its own
+  `Mcp-Session-Id` from then on.
+- No header names the thread. The `user-agent` is `codex-mcp-client/0.156.1`
+  on every request. `tools/call` carries `_meta.threadId` as over stdio, so a
+  session maps to its thread from its first call.
+
+A TUI can publish its own thread id where a process beside it can read it:
+
+- `-c 'tui.terminal_title=["thread-id"]'` sets the terminal title to the
+  thread id, cut by Codex to its first 29 characters plus `...` (the OSC 0
+  payload read from `cmdman logs` was `01a0de70-7bb0-7462-ba8f-79cd2...`).
+  cmdman keeps the title: `cmdman ls` shows it and `cmdman inspect` holds it as
+  `Title`. The title changed to the new thread's id on `/new`.
+- `-c 'tui.status_line=["thread-id"]'` prints the full id on the status line,
+  which `cmdman capture-screen` reads.
+- Both are TUI-side settings, so `[tui]` in `config.toml` works as well as
+  `-c` on the TUI's own command line.
+- Nothing else runs on the TUI's side. `notify` given to the TUI with `-c`
+  never ran. Given to the app server, it ran once per completed turn as a
+  child of the app server, with the app server's `CMDMAN_CMD_ID`, and its
+  JSON argument named the thread in `thread-id`. It also ran for the helper
+  thread Codex starts after a first turn.
+
+`codex-app-server-tool-call-zero-turn.client.ndjson` and
+`codex-app-server-tool-call-zero-turn.server.ndjson` are the same kind of
+`mcpServer/tool/call`, made against a TUI's thread before that thread had run
+any turn, naming the unlisted tool `crabswarm_bind_probe` with
+`arguments: {"token": "x"}`. The call reached the thread's `crabswarm mcp`,
+whose stdin got `_meta: {"threadId": …}` and the arguments unchanged; the
+`-32602 unknown tool` answer is that server's.
+
+`codex-tui-thread-lifecycle.client.ndjson` and
+`codex-tui-thread-lifecycle.server.ndjson` are one remote TUI's thread
+lifecycle through the relay: every `thread/start`, `thread/resume`,
+`thread/fork` and `thread/unsubscribe` request the TUI sent, and the answers to
+them, picked out of the relay logs by method and then by request `id`. The TUI
+was driven with `send-keys`: one prompt, then `/new`, then `/resume` choosing
+the first thread, then `/fork`.
+
+- At startup the TUI sends two `thread/start` requests. The second starts a
+  thread answering `threadSource: "thread_title"` and `ephemeral: true`, with
+  a `config` that turns off most features and sets
+  `mcp_servers: {"crabswarm-mcp": {"enabled": false}}`. The TUI unsubscribes
+  from it at once.
+- `/new` sends `thread/start`; `/resume` sends `thread/resume` naming the
+  chosen thread; `/fork` sends `thread/fork` naming the source thread, and its
+  answer is a new thread whose `forkedFromId` names the source.
+- Every switch is followed by `thread/unsubscribe` for the thread the TUI
+  left.
+
+What the recordings and the probing around them show:
+
+- The app server spawns one MCP server process per loaded thread, when the
+  thread starts, before any turn. Every one of them inherits the app server's
+  environment, so all of them carry the app server's `CMDMAN_CMD_ID`.
+- A `tools/call` from a turn carries the thread in `_meta`: `threadId`,
+  `sessionId` and `x-codex-turn-metadata.thread_id` all name it.
+- `initialize`, `notifications/initialized` and `tools/list` carry no thread
+  id. A server learns its thread from the first `tools/call` it receives.
+- `mcpServer/tool/call` on the app server reaches the MCP server of the thread
+  it names, with `_meta: {"threadId": …}`. The TUI shows nothing of it. The app
+  server forwards a tool name the server never listed; the refusal
+  `-32602 unknown tool` in the thread B stdout fixture came from
+  `crabswarm mcp`.
+- `thread/start` takes `config` overrides per thread, and an
+  `mcp_servers.<name>.env.<VAR>` key sets that variable for that thread's
+  server alone. The dotted spelling layers over the app server's own `-c`
+  overrides. The nested spelling
+  `{"mcp_servers": {"crabswarm-mcp": {"env": {…}}}}` also set the variable, but
+  the spawned server ran the `config.toml` command and lost the app server's
+  `-c` override.
+- The remote TUI forwards none of its own `-c` overrides as `config`. Its
+  `thread/start` config holds `model_reasoning_effort` and `web_search` only,
+  and `cwd` is null unless `-C` is given, so the thread runs in the app
+  server's working directory, whatever directory the TUI started in.
+- `mcpServer/startupStatus/updated` names the thread and the server, and goes
+  from `starting` to `ready` before the `thread/start` answer.
+- `/new` in a TUI starts a new thread and a new MCP server; the old thread's
+  server keeps running until that thread unloads.
+- A stopped TUI's thread unloads about a minute later:
+  `thread/status/changed` to `notLoaded`, then `thread/closed`. Its server
+  process was gone within about three minutes of the stop.
+
+## OpenCode server with attached TUIs
+
+Four files record one `opencode serve` with TUIs attached to it, captured
+2026-09-27 with OpenCode 1.18.32 (run by absolute path under the mise install
+root) and cmdman 0.0.26. The model was the free `opencode/big-pickle`, so no
+provider credentials were involved.
+
+The scratch directory held an `opencode.json` declaring the logging wrapper from
+the Codex section as the local MCP server `probe`, and a server plugin
+`probe-plugin.ts`. It also held a `tui.json` naming a TUI plugin
+`probe-tui.ts`. Each plugin appended one JSON line per call to its own log, with
+`process.pid` and `CMDMAN_CMD_ID`.
+
+```sh
+cmdman run --rm -n ocs-server -w <scratch dir> -- opencode serve --port 47400
+cmdman run -t --rm -n ocs-t1 -w <scratch dir> -- opencode attach http://127.0.0.1:47400
+cmdman run -t --rm -n ocs-t2 -w <scratch dir> -- opencode attach http://127.0.0.1:47400
+cmdman run -t --rm -n ocs-t3 -w <scratch dir> -- opencode attach http://127.0.0.1:47400
+```
+
+`ocs-t1` and `ocs-t2` each got `Call the probe_chat_members tool exactly once,
+then reply with the single word done.` and `ocs-t3` got
+`Reply with the single word ok.`, typed with `send-keys` as above. `tui.json`
+was written after `ocs-t1` and `ocs-t2` had attached, so only `ocs-t3` loaded
+the TUI plugin.
+
+- `opencode-mcp-shared.stdin.ndjson` is the whole stdin of the one MCP server
+  the OpenCode server spawned. Both TUIs' sessions called `chat_members` on it.
+- `opencode-server-plugin.jsonl` is the whole log of the server plugin.
+- `opencode-tui-plugin.jsonl` is the whole log of the TUI plugin in `ocs-t3`:
+  the keys of the API object it was handed, every five seconds the value of
+  `api.route.current`, and each `session.status` event it received.
+
+What they show:
+
+- The server spawns one MCP server for all attached TUIs, not one per session.
+  It inherits the server's environment.
+- A `tools/call` from OpenCode carries no session id: its `_meta` holds only
+  `progressToken`. The two sessions' calls are told apart only by their
+  JSON-RPC ids.
+- The server plugin runs in the server process, with the server's
+  `CMDMAN_CMD_ID`, and sees every session: `tool.execute.before` names the
+  calling session in `sessionID`.
+- A server plugin can put the session into an MCP tool call.
+  `opencode-mcp-session-arg.stdin.ndjson` is the whole stdin of the MCP server
+  in a second run, where the server plugin's `tool.execute.before` set
+  `output.args._crabswarm_session = input.sessionID` for tools named
+  `probe_*`. Only `ocs-t1` was attached and given the same prompt. Both calls
+  the model made arrived with `arguments: {"_crabswarm_session": "ses_…"}`,
+  though the tool's schema declares no properties.
+- The TUI plugin runs in the attached TUI's process, with that TUI's own
+  `CMDMAN_CMD_ID`. `api.route.current` reads `{"name":"home"}` before the first
+  prompt and `{"name":"session","params":{"sessionID":"ses_…"}}` after it. The
+  plugin also receives `session.status` events through `api.event.on`.
+
 ## fakechat plugin channel
 
 `fakechat-page.html`, `fakechat-upload.http`,

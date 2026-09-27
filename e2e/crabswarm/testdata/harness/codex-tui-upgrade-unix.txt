@@ -1,0 +1,6 @@
+Connection: Upgrade
+Sec-Websocket-Key: d9r1LR/glqBug6MUpcGP0w==
+Sec-Websocket-Version: 13
+Upgrade: websocket
+peer pid=984958 uid=0
+peer CMDMAN_CMD_ID=99926c146fc73a60a03d085264c3ee82
