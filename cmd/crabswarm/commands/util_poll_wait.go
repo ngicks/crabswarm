@@ -32,7 +32,7 @@ same names have: probes follow one another every --interval, and --retries
 consecutive failures end the wait. --start-period is a delay before the first
 probe. Nothing is probed until it elapses, and every failed probe counts toward
 --retries.`,
-		Example: `  crabswarm util poll wait /run/user/1000/crabswarm/default.sock
+		Example: `  crabswarm util poll wait /run/user/1000/crabswarm/host/default.sock
   crabswarm util poll wait unix://./run/daemon.sock --interval 200ms
   crabswarm util poll wait file://./dist/index.html
   crabswarm util poll wait http://127.0.0.1:6419/healthz --start-period 5s`,

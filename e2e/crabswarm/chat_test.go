@@ -1843,7 +1843,7 @@ func TestChat_BridgeWithoutAnIdentityStillServes(t *testing.T) {
 func TestChat_BridgeFindsTheDaemonThroughTheRuntimeDir(t *testing.T) {
 	// The runtime dir is made short on purpose: a Unix socket path is bounded
 	// at a little over a hundred bytes, and a t.TempDir() spends much of that
-	// on the test's own name before the derived crabswarm/default.sock is
+	// on the test's own name before the derived crabswarm/host/default.sock is
 	// appended.
 	runtimeDir, err := os.MkdirTemp("", "crabswarm-rt")
 	if err != nil {
@@ -1853,9 +1853,9 @@ func TestChat_BridgeFindsTheDaemonThroughTheRuntimeDir(t *testing.T) {
 
 	// Where the bridge derives the socket from $XDG_RUNTIME_DIR, and therefore
 	// where the daemon has to listen for the derivation to be worth anything.
-	// Its crabswarm/ directory is left for the daemon to create, as on a fresh
-	// boot.
-	sock := filepath.Join(runtimeDir, "crabswarm", "default.sock")
+	// Its crabswarm/host/ directory is left for the daemon to create, as on a
+	// fresh boot.
+	sock := filepath.Join(runtimeDir, "crabswarm", "host", "default.sock")
 	cfg := writeChatConfigOn(t, t.TempDir(), sock, 0, defaultStubCommands())
 	startChatServeOn(t, cfg, sock)
 

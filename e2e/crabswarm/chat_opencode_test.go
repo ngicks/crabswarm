@@ -376,7 +376,7 @@ func TestChatOpenCode_PluginAttendsReportsAndDelivers(t *testing.T) {
 		t.Fatalf("make a runtime dir: %v", err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(runtimeDir) })
-	sock := filepath.Join(runtimeDir, "crabswarm", "default.sock")
+	sock := filepath.Join(runtimeDir, "crabswarm", "host", "default.sock")
 
 	identity, recipient := newChatIdentityFile(t)
 	cfg := writeChatConfigOn(t, t.TempDir(), sock, 0, []stubCommand{

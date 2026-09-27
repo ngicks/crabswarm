@@ -90,7 +90,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 
 	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "default.sock"))
+	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "host", "default.sock"))
 	assert.Equal(t, cfg.GitRepoBaseDir, filepath.Join("/home/someone", "gitrepo"))
 	assert.Equal(t, cfg.ProjectDir, "")
 }
@@ -298,7 +298,7 @@ func TestLoadConfig_MissingFileTolerated(t *testing.T) {
 	cfg, err := LoadConfig("")
 	assert.NilError(t, err)
 	// Defaults still applied.
-	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "default.sock"))
+	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "host", "default.sock"))
 	assert.Equal(t, len(cfg.HookExec.Filetypes), 0)
 }
 
@@ -312,7 +312,7 @@ func TestLoadConfig_ExplicitMissingFileTolerated(t *testing.T) {
 
 	cfg, err := LoadConfig(filepath.Join(t.TempDir(), "absent.json"))
 	assert.NilError(t, err)
-	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "default.sock"))
+	assert.Equal(t, cfg.Sock, filepath.Join("/run/user/1000", "crabswarm", "host", "default.sock"))
 }
 
 func TestLoadConfig_InvalidJSONErrors(t *testing.T) {

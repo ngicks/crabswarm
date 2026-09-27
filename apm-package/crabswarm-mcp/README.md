@@ -487,9 +487,9 @@ what makes the port a fact rather than a guess.
 `XDG_RUNTIME_DIR` decides where the server looks for the daemon. The socket path
 is derived from that variable, and a daemon started from a login shell listens
 under it. A server spawned without the variable probes `/run/user/<uid>` and
-takes `/run/user/<uid>/crabswarm/default.sock` when that directory is there,
-otherwise `/tmp/crabswarm/default.sock`. On an ordinary Linux login the probe
-lands on the path the daemon chose. A daemon started with some other
+takes `/run/user/<uid>/crabswarm/host/default.sock` when that directory is
+there, otherwise `/tmp/crabswarm/host/default.sock`. On an ordinary Linux login
+the probe lands on the path the daemon chose. A daemon started with some other
 `XDG_RUNTIME_DIR`, in a container or under a test harness, still listens where
 the probe never reaches. Forwarding the variable is what covers that case.
 Pinning `sock` in `~/.config/crabswarm/config.json` settles the same question

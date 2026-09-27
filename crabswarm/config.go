@@ -271,9 +271,13 @@ func configPath(flagPath string) (string, error) {
 // defaultSockPath derives the default socket path from the host's runtime
 // directory. This is default derivation (see DefaultConfig), not a config
 // override.
+//
+// The socket sits in its own host/ directory because a container mounts the
+// daemon's directory read-only, apart from crabswarm/session/, which holds the
+// sockets one compose session shares and has to stay writable.
 func defaultSockPath() string {
 	dir := runtimeDir(os.Getenv("XDG_RUNTIME_DIR"), os.Getuid(), isDir)
-	return filepath.Join(dir, "crabswarm", "default.sock")
+	return filepath.Join(dir, "crabswarm", "host", "default.sock")
 }
 
 // runtimeDir picks the directory the socket lives under: $XDG_RUNTIME_DIR when
