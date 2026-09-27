@@ -102,7 +102,10 @@ func newServer(
 		return nil, err
 	}
 	s := &Server{host: h, token: token}
-	h.mcp.AddReceivingMiddleware(s.readsHandshake)
+	// The reserved calls are answered and learn nothing here: a stdio server
+	// serves one session, and the thread a delivery goes to is the one a person
+	// used last on the app server — see [harnessctl.Detect].
+	h.mcp.AddReceivingMiddleware(s.readsHandshake, answersReservedCalls(nil))
 	return s, nil
 }
 
@@ -155,7 +158,7 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 	s.handshake.Do(func() {
 		harness := s.host.harnessOf(params)
 		if s.member != nil {
-			s.member.handshook(harness)
+			s.member.retarget(harness)
 		}
 	})
 }

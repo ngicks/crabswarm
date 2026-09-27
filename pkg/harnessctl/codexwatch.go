@@ -3,16 +3,16 @@ package harnessctl
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
-
-	"github.com/creachadair/jrpc2"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
 // The app server is not only how a mention reaches a Codex session; it is also
-// where that session says what it is doing. Everything here is that half — the
-// connection held open for the feed, and the states it forwards.
+// where that session says what it is doing. Everything here is one agent's half
+// of that — the thread it follows on the connection [codexHub] holds, and the
+// states it forwards.
 
 // How long the harness waits before opening the app server connection again.
 // The first retries are quick, for the app server still binding its socket as
@@ -37,143 +37,83 @@ const codexStateBuffer = 64
 // leaving the room deaf to the session until its next thread starts.
 const codexRebindInterval = 2 * time.Second
 
-// codexEvent is one state the app server gave, and the thread it gave it for.
+// codexEvent is one state the app server gave, the thread it gave it for, and
+// the connection it came in on — which is what says whether the agent follows
+// that thread.
 type codexEvent struct {
+	cli    *codexClient
 	thread string
 	state  chatv1.HarnessState
 }
 
-// Watch follows the app server's own account of the session for as long as ctx
-// runs, opening the connection again whenever it drops.
-func (c *codex) Watch(ctx context.Context, report func(chatv1.HarnessState)) {
-	backoff := codexBackoffBase
-	failures := 0
-	for {
-		followed, err := c.follow(ctx, report)
-		if ctx.Err() != nil {
-			return
-		}
-		// A connection that stood for a while and then dropped is not the
-		// trouble one that never opened is, so it starts its retries over
-		// rather than inheriting the wait the last failure had climbed to.
-		if followed {
-			backoff = codexBackoffBase
-			failures = 0
-		}
-		failures++
-		// Only the first of a run: it is the one that says what broke, and a
-		// line per retry for the rest of the session would bury everything else
-		// on the harness's stderr.
-		if failures == 1 {
-			c.logger.Warn("the codex app server feed ended; connecting again",
-				"socket", c.path, "error", err)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(backoff):
-		}
-		backoff = min(2*backoff, codexBackoffMax)
-	}
-}
-
-// follow holds one connection and reports what it carries until it drops,
-// reporting whether it ever carried anything and why it is over.
+// Watch follows the app server's own account of the agent's thread for as long
+// as ctx runs. The connection is the hub's, opened again whenever it drops.
 //
-// Only the thread the connection is subscribed to is reported on. The thread is
-// checked as a state is taken off the queue rather than as it arrives: a state
-// that arrived while the thread was being bound is judged against the thread
-// the bind settled on, not against the one before it.
-func (c *codex) follow(
-	ctx context.Context, report func(chatv1.HarnessState),
-) (bool, error) {
-	events := make(chan codexEvent, codexStateBuffer)
-	// One waiting request to bind again is as good as ten: a bind reads the
-	// loaded threads afresh whichever announcement asked for it.
-	rebind := make(chan struct{}, 1)
-	cli, err := dialCodex(ctx, c.path, func(req *jrpc2.Request) {
-		if req.Method() == codexThreadStarted {
-			select {
-			case rebind <- struct{}{}:
-			default:
-			}
-			return
-		}
-		if thread, state, ok := codexState(req); ok {
-			c.queue(events, codexEvent{thread: thread, state: state})
-		}
-	})
-	if err != nil {
-		return false, err
+// Only the thread the agent follows is reported on. The thread moves when the
+// agent is seen in front of another one, when the app server announces a new
+// thread, and every few seconds while the agent follows none.
+func (c *codex) Watch(ctx context.Context, report func(chatv1.HarnessState)) {
+	w := codexWatcher{
+		events: make(chan codexEvent, codexStateBuffer),
+		rebind: make(chan struct{}, 1),
 	}
-	defer cli.close()
-	if err := cli.handshake(ctx); err != nil {
-		return false, err
+	c.hub.join(c, w)
+	defer c.hub.leave(c)
+
+	var changed <-chan struct{}
+	if c.threads != nil {
+		changed = c.threads.Changed()
 	}
-	// Subscribing is what makes the feed a feed. An app server that cannot say
-	// which thread this session is has nothing to subscribe to yet; the feed
-	// binds again when a thread starts, and every few seconds until one does.
 	var failing bool
 	bind := func() {
-		err := c.rebind(ctx, cli, events)
+		cli := c.hub.borrow()
+		if cli == nil {
+			// The hub asks again once it has a connection.
+			return
+		}
+		err := c.rebind(ctx, cli, w.events)
 		// Holding no session thread is no failure at all: it is an app server
 		// whose TUI has not attached yet. Of the failures, only the first of a
-		// run is worth a line, for the reason [codex.Watch] gives.
+		// run is worth a line, for the reason [codexHub.run] gives.
 		failed := err != nil && !errors.Is(err, errCodexUnbound) && ctx.Err() == nil
 		if failed && !failing {
 			c.logger.Warn("binding the codex feed to the session thread failed",
-				"socket", c.path, "error", err)
+				"socket", c.hub.path, "error", err)
 		}
 		failing = failed
 	}
-	bind()
 
-	c.lend(cli)
-	defer c.withdraw(cli)
 	retry := time.NewTicker(codexRebindInterval)
 	defer retry.Stop()
 	for {
 		// A nil channel is never ready, so the timer only counts while the
-		// connection follows nothing.
+		// agent follows nothing on a connection it has.
 		var retried <-chan time.Time
-		if cli.subscribed() == "" {
+		if cli := c.hub.borrow(); cli != nil && cli.following(c) == "" {
 			retried = retry.C
 		}
 		select {
 		case <-ctx.Done():
-			return true, ctx.Err()
-		case <-cli.dropped():
-			// What the connection carried before it went is still true, and the
-			// last of it is regularly the turn ending.
-			c.drain(cli, events, report)
-			return true, cli.stopErr
-		case <-rebind:
+			return
+		case <-w.rebind:
+			bind()
+		case <-changed:
 			bind()
 		case <-retried:
 			bind()
-		case ev := <-events:
-			if cli.follows(ev.thread) {
+		case ev := <-w.events:
+			if ev.cli.follows(c, ev.thread) {
 				report(ev.state)
 			}
 		}
 	}
 }
 
-// rebind binds the session thread and, when the connection follows another,
-// moves the subscription to it: the old thread is unsubscribed and the new one
-// resumed. What the resume answer says the new thread is doing is queued like
-// any state a notification carried.
+// rebind binds the agent's thread and moves what the agent follows on cli to
+// it.
 //
-// That state is what moves the room off the thread it leaves behind. A stopped
-// TUI's thread stays loaded for a while, and the room still holds whatever it
-// last said; a replacement sitting idle says nothing until its first turn, so a
-// room left believing the old thread was mid-turn would hold back every
-// mention until then.
-//
-// A bind that fails leaves the subscription where it was, since the thread
-// followed until now is still the best one this connection knows of. A resume
-// that fails after the old thread was unsubscribed leaves the connection
-// following nothing, which is the state the feed retries from on its timer.
+// A bind that fails leaves the agent following what it followed, since that
+// thread is still the best one this connection knows of.
 //
 // It holds [codex.binding] for its whole length, for the reason given there.
 func (c *codex) rebind(ctx context.Context, cli *codexClient, events chan codexEvent) error {
@@ -181,40 +121,68 @@ func (c *codex) rebind(ctx context.Context, cli *codexClient, events chan codexE
 		return err
 	}
 	defer c.binding.Release(1)
-	id, err := c.bind(ctx, cli)
+	id, err := c.target(ctx, cli)
 	if err != nil {
 		return err
 	}
-	old := cli.subscribed()
+	return c.move(ctx, cli, id, events)
+}
+
+// move has the agent follow id on cli: the thread it leaves is unsubscribed
+// when no other agent follows it, and id is resumed. What the resume answer
+// says id is doing is queued on events like any state a notification carried;
+// nil events drops it.
+//
+// That state is what moves the room off the thread the agent leaves behind. A
+// stopped TUI's thread stays loaded for a while, and the room still holds
+// whatever it last said; a replacement sitting idle says nothing until its
+// first turn, so a room left believing the old thread was mid-turn would hold
+// back every mention until then.
+//
+// A resume that fails after the old thread was let go of leaves the agent
+// following nothing, which is the state its feed retries from on its timer.
+//
+// The caller holds [codex.binding].
+func (c *codex) move(
+	ctx context.Context,
+	cli *codexClient,
+	id string,
+	events chan codexEvent,
+) error {
+	old := cli.following(c)
 	if id == old {
 		return nil
 	}
 	if old != "" {
+		cli.follow(c, "")
 		// Leaving the old thread subscribed costs nothing but its events, which
-		// name a thread this connection no longer follows and are read past.
-		if err := cli.unsubscribe(ctx, old); err != nil {
-			c.logger.Warn("unsubscribing from the abandoned codex thread failed",
-				"socket", c.path, "thread", old, "error", err)
+		// name a thread this agent no longer follows and are read past.
+		if cli.followers(old) == 0 {
+			if err := cli.unsubscribe(ctx, old); err != nil {
+				c.logger.Warn("unsubscribing from the abandoned codex thread failed",
+					"socket", c.hub.path, "thread", old, "error", err)
+			}
 		}
 	}
 	status, err := cli.subscribe(ctx, id)
 	if err != nil {
 		return err
 	}
-	if state, ok := status.state(); ok {
-		c.queue(events, codexEvent{thread: id, state: state})
+	cli.follow(c, id)
+	if state, ok := status.state(); ok && events != nil {
+		queueCodexEvent(c.logger, events, codexEvent{cli: cli, thread: id, state: state})
 	}
 	return nil
 }
 
-// queue hands one state to the goroutine reporting them, dropping the oldest
-// waiting state when the queue is full.
+// queueCodexEvent hands one state to the goroutine reporting them, dropping
+// the oldest waiting state when the queue is full.
 //
 // It never blocks: a notification handler calls it while holding the JSON-RPC
 // client's lock, and every other frame received and every call sent waits on
 // that lock. The oldest goes rather than the newest because the newest is the
 // one that is still true.
-func (c *codex) queue(events chan codexEvent, ev codexEvent) {
+func queueCodexEvent(logger *slog.Logger, events chan codexEvent, ev codexEvent) {
 	for {
 		select {
 		case events <- ev:
@@ -223,24 +191,9 @@ func (c *codex) queue(events chan codexEvent, ev codexEvent) {
 		}
 		select {
 		case dropped := <-events:
-			c.logger.Warn("dropping a codex state nothing took in time",
+			logger.Warn("dropping a codex state nothing took in time",
 				"thread", dropped.thread, "state", dropped.state.String())
 		default:
-		}
-	}
-}
-
-// drain reports the states about the followed thread that were waiting when
-// the connection went.
-func (c *codex) drain(cli *codexClient, events chan codexEvent, report func(chatv1.HarnessState)) {
-	for {
-		select {
-		case ev := <-events:
-			if cli.follows(ev.thread) {
-				report(ev.state)
-			}
-		default:
-			return
 		}
 	}
 }

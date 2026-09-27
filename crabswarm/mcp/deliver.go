@@ -86,8 +86,8 @@ func (m *Member) deliverWaiting(ctx context.Context) {
 // unlikely to take the same notice a moment later. The next report ending a
 // turn and the next attendance both try again, which is retry enough.
 //
-// The harness is the one the member's most recent session runs, so a notice
-// goes to whichever window of the agent handshook last.
+// The harness is the one of the session the member was last seen in, so a
+// notice goes to the window of the agent a person was last in front of.
 func (m *Member) deliver(ctx context.Context, n harnessctl.Notice) bool {
 	// The room is filled in here rather than by the callers: every notice
 	// belongs to the one room this member attends, and it is only known once the

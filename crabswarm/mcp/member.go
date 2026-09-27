@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"reflect"
 	"sync"
 	"time"
 
@@ -42,13 +43,17 @@ type Member struct {
 	initOnce    sync.Once
 
 	// mu guards what the attendance loop reports about itself, which is what
-	// every tool call reads before acting, and the harness a later session may
+	// every tool call reads before acting, and the harness the server may
 	// replace.
 	mu sync.Mutex
-	// harness is the CLI the member's most recently handshaken session runs,
-	// and the channel a mention takes to it. An attendance declares the one it
-	// finds when it opens and keeps that declaration until it opens again.
+	// harness is the CLI of the session the member was last seen in, and the
+	// channel a mention takes to it. An attendance declares the one it finds
+	// when it opens, and opens again when the member is seen in a session whose
+	// harness declares something else.
 	harness harnessctl.Harness
+	// retargeted is closed when harness is replaced, and replaced with it, so
+	// whatever follows the harness can wait for the next one.
+	retargeted chan struct{}
 	// attended says whether the attendance stream is open right now.
 	attended bool
 	// attendErr is why it is not, as the last attempt ended — the daemon's own
@@ -118,6 +123,7 @@ func newMember(
 		announce:    announce,
 		pace:        p,
 		initialized: make(chan struct{}),
+		retargeted:  make(chan struct{}),
 		settled:     make(chan struct{}),
 	}
 }
@@ -150,26 +156,52 @@ func (m *Member) run(ctx context.Context) {
 	_ = g.Wait()
 }
 
-// handshook records the harness a session of this member runs, which is how a
-// mention reaches the member from here on. The first one is also what lets the
-// attendance open.
+// retarget makes harness the one a mention reaches the member through from
+// here on. The first one is also what lets the attendance open.
 //
-// A later session replaces the harness rather than being ignored: several
-// sessions share one token when a harness server hosts one agent in several
-// windows, and the one handshaken last is the one a mention is handed to.
-func (m *Member) handshook(harness harnessctl.Harness) {
+// A later one replaces it rather than being ignored: several sessions share one
+// token when a harness server hosts one agent in several windows, and the
+// server hands over the harness of the session the agent was last seen in. The
+// same harness handed over again changes nothing.
+func (m *Member) retarget(harness harnessctl.Harness) {
+	if harness == nil {
+		return
+	}
 	m.mu.Lock()
-	m.harness = harness
+	if !sameHarness(m.harness, harness) {
+		m.harness = harness
+		close(m.retargeted)
+		m.retargeted = make(chan struct{})
+	}
 	m.mu.Unlock()
 	m.initOnce.Do(func() { close(m.initialized) })
 }
 
-// currentHarness is the harness of the most recently handshaken session, or nil
-// before any session has handshaken.
+// sameHarness reports whether a and b are one harness. A harness built as a
+// value may carry a function, which == cannot compare, so two of those are
+// never the same.
+func sameHarness(a, b harnessctl.Harness) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	typ := reflect.TypeOf(a)
+	return typ == reflect.TypeOf(b) && typ.Comparable() && a == b
+}
+
+// currentHarness is the harness of the session the member was last seen in, or
+// nil before any session has handshaken.
 func (m *Member) currentHarness() harnessctl.Harness {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.harness
+}
+
+// harnessNow is the current harness and the channel closed once it is
+// replaced.
+func (m *Member) harnessNow() (harnessctl.Harness, <-chan struct{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.harness, m.retargeted
 }
 
 // How long a member waits before opening the attendance stream again. The
@@ -266,12 +298,24 @@ func (m *Member) attend(ctx context.Context) {
 		// reported apart: a refused opening — the daemon turned it down, or the
 		// harness's channel was not there to probe — says what to go and fix,
 		// and the first of a run is the one that says it.
-		if landed {
+		//
+		// A member seen in a session of another harness ends its attendance on
+		// purpose, to declare that harness, and says so without a warning: it is
+		// the attendance working, not failing.
+		switch {
+		case landed && errors.Is(err, errRedeclared):
+			backoff = m.pace.attendBackoffBase
+			failures = 0
+			harness := m.currentHarness()
+			m.logger.Info("attending again to declare the harness the member was last seen in",
+				"harness", cli.HarnessName(harness.Kind()),
+				"nudge", cli.NudgeDeliveryName(harness.Nudge()))
+		case landed:
 			backoff = m.pace.attendBackoffBase
 			failures = 0
 			m.logger.Warn("the chat attendance ended; attending again",
 				"backoff", backoff, "error", err)
-		} else {
+		default:
 			failures++
 			m.warnRetry("the chat attendance could not open; trying again",
 				failures, backoff, err)
@@ -297,9 +341,10 @@ func (m *Member) attend(ctx context.Context) {
 // answers ends nothing but that attempt. The parent context lives as long as
 // the member.
 func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error) {
-	// One harness for the whole attempt: what is probed is what is declared, and
-	// a session handshaking meanwhile is picked up by the next opening.
-	harness := m.currentHarness()
+	// One harness for the whole attempt: what is probed is what is declared. A
+	// harness that declares something else ends the attempt once it is held,
+	// and the next opening declares it.
+	harness, retargeted := m.harnessNow()
 	// A harness whose channel is somewhere other than this session is asked
 	// whether it is there before the member attends, and the member stays out of
 	// the room for as long as the answer is no.
@@ -389,9 +434,40 @@ func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	if probed {
 		g.Go(func() error { return m.reprobe(gctx, prober) })
 	}
+	g.Go(func() error { return m.redeclare(gctx, harness, retargeted) })
 	err = g.Wait()
 	m.attendanceEnded(err)
 	return true, err
+}
+
+// errRedeclared ends an attendance whose member was seen in a session whose
+// harness declares another CLI, or another way of being woken, than the one
+// the attendance declared.
+var errRedeclared = errors.New("the member is reached through another harness now")
+
+// redeclare answers with errRedeclared once the member's harness declares
+// something other than declared, and with nil once ctx is done.
+//
+// What an attendance declares is what the daemon reads for as long as it is
+// held: whether to type at the member, and what the roster shows it runs. A
+// member now reached through a harness that says otherwise has to attend again
+// to say so. One that declares the same is followed where it is: the
+// deliveries and the state feed read the current harness themselves.
+func (m *Member) redeclare(
+	ctx context.Context, declared harnessctl.Harness, retargeted <-chan struct{},
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-retargeted:
+		}
+		var now harnessctl.Harness
+		now, retargeted = m.harnessNow()
+		if now.Kind() != declared.Kind() || now.Nudge() != declared.Nudge() {
+			return errRedeclared
+		}
+	}
 }
 
 // reprobe asks the channel whether it is still there for as long as the
@@ -446,9 +522,9 @@ func rosterChanged(ev *chatv1.RoomEvent) bool {
 // for it may be delivered. A harness with no feed leaves the reporting to its
 // hooks, and there is nothing to run here.
 //
-// The harness watched is the first session's. A session handshaking later takes
-// over delivery, and the feed stays where it is: the feed is the harness server
-// itself, which every session of one token shares.
+// The harness watched is the current one, and a harness that replaces it
+// replaces the watch too: the state reported is the state of the session the
+// member was last seen in, which is where its mentions go.
 func (m *Member) watchHarnessState(ctx context.Context) {
 	// Nothing before the handshake, for the reason attendance waits on it: the
 	// harness is what the handshake names, and there is nothing to ask for a
@@ -458,13 +534,39 @@ func (m *Member) watchHarnessState(ctx context.Context) {
 	case <-ctx.Done():
 		return
 	}
-	source, ok := m.currentHarness().(harnessctl.StateSource)
-	if !ok {
-		return
+	for {
+		harness, retargeted := m.harnessNow()
+		if !m.watchUntil(ctx, harness, retargeted) {
+			return
+		}
 	}
-	source.Watch(ctx, func(state chatv1.HarnessState) {
-		m.reportHarnessState(ctx, state)
-	})
+}
+
+// watchUntil watches harness until retargeted is closed, reporting whether the
+// member still runs. A harness with no feed is waited out.
+func (m *Member) watchUntil(
+	ctx context.Context, harness harnessctl.Harness, retargeted <-chan struct{},
+) bool {
+	if source, ok := harness.(harnessctl.StateSource); ok {
+		wctx, cancel := context.WithCancel(ctx)
+		var watching errgroup.Group
+		watching.Go(func() error {
+			source.Watch(wctx, func(state chatv1.HarnessState) {
+				m.reportHarnessState(ctx, state)
+			})
+			return nil
+		})
+		defer func() {
+			cancel()
+			_ = watching.Wait()
+		}()
+	}
+	select {
+	case <-ctx.Done():
+		return false
+	case <-retargeted:
+		return true
+	}
 }
 
 // reportHarnessState hands the daemon one state the feed carried, which the

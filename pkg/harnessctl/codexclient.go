@@ -47,28 +47,32 @@ type codexClient struct {
 	stopped chan struct{}
 	stopErr error
 
-	// resumedMu guards resumed, the thread this connection is subscribed to and
-	// the one thread whose states the feed reports. The feed and a delivery both
-	// ask for the subscription and either may be first, so it is recorded rather
-	// than assumed.
+	// resumedMu guards the two records below. The feed and a delivery both ask
+	// for a subscription and either may be first, so what this connection is
+	// subscribed to is recorded rather than assumed.
 	//
-	// The lock keeps one read or write of the record whole and nothing more. A
-	// caller that reads the record and then changes the subscription orders that
+	// The lock keeps one read or write of a record whole and nothing more. A
+	// caller that reads a record and then changes the subscription orders that
 	// sequence itself, as [codex.binding] does.
 	resumedMu sync.Mutex
-	resumed   string
+	// resumed is the threads this connection is subscribed to.
+	resumed map[string]bool
+	// followed is the one thread each agent's states are read from on this
+	// connection. An agent missing here follows nothing on it.
+	followed map[*codex]string
 }
 
 // dialCodex opens one connection to the app server listening on the unix socket
 // at path and finishes the JSON-RPC handshake. onNotify, when not nil, is
-// handed every notification the server pushes.
+// handed every notification the server pushes, with the connection it came in
+// on.
 //
 // The JSON-RPC client hands every frame it receives to a goroutine of its own,
 // and that goroutine runs the handler while holding the client's lock. A
 // handler that blocks stalls every other frame received and every call sent
 // meanwhile. Callers hand the event on and return.
 func dialCodex(
-	ctx context.Context, path string, onNotify func(*jrpc2.Request),
+	ctx context.Context, path string, onNotify func(*codexClient, *jrpc2.Request),
 ) (*codexClient, error) {
 	// The HTTP client dials the unix socket for every address, so the URL below
 	// only has to be a syntactically valid one; the host in it is never
@@ -92,9 +96,18 @@ func dialCodex(
 	}
 	conn.SetReadLimit(codexReadLimit)
 
-	c := &codexClient{conn: conn, stopped: make(chan struct{})}
+	c := &codexClient{
+		conn:     conn,
+		stopped:  make(chan struct{}),
+		resumed:  map[string]bool{},
+		followed: map[*codex]string{},
+	}
+	var notified func(*jrpc2.Request)
+	if onNotify != nil {
+		notified = func(req *jrpc2.Request) { onNotify(c, req) }
+	}
 	c.rpc = jrpc2.NewClient(codexChannel{conn: conn}, &jrpc2.ClientOptions{
-		OnNotify: onNotify,
+		OnNotify: notified,
 		OnStop: func(_ *jrpc2.Client, err error) {
 			c.stopErr = err
 			close(c.stopped)
@@ -180,13 +193,14 @@ func (c *codexClient) readThread(ctx context.Context, threadId string) (codexThr
 // from; the status is the state the feed starts that thread at. It is made once
 // because a second one would ask a live session to be resumed again for no
 // gain, and both the feed and a delivery ask for the same thread. A thread this
-// connection already follows answers the zero status, which reads as no state.
+// connection is already subscribed to answers the zero status, which reads as
+// no state.
 //
-// Resuming a thread moves the record to it. Whatever was resumed before keeps
-// sending its events until [codexClient.unsubscribe] ends them, and they are
-// read past because they name another thread.
+// Whatever was resumed before keeps sending its events until
+// [codexClient.unsubscribe] ends them, and an agent reads past them because
+// they name a thread it does not follow.
 func (c *codexClient) subscribe(ctx context.Context, threadId string) (codexThreadStatus, error) {
-	if c.subscribed() == threadId {
+	if c.isSubscribed(threadId) {
 		return codexThreadStatus{}, nil
 	}
 	// thread/resume answers with the thread under `thread`, and its status in
@@ -203,7 +217,7 @@ func (c *codexClient) subscribe(ctx context.Context, threadId string) (codexThre
 		return codexThreadStatus{}, fmt.Errorf("resuming the codex thread %s: %w", threadId, err)
 	}
 	c.resumedMu.Lock()
-	c.resumed = threadId
+	c.resumed[threadId] = true
 	c.resumedMu.Unlock()
 	return res.Thread.Status, nil
 }
@@ -217,24 +231,79 @@ func (c *codexClient) unsubscribe(ctx context.Context, threadId string) error {
 		return fmt.Errorf("unsubscribing from the codex thread %s: %w", threadId, err)
 	}
 	c.resumedMu.Lock()
-	if c.resumed == threadId {
-		c.resumed = ""
-	}
+	delete(c.resumed, threadId)
 	c.resumedMu.Unlock()
 	return nil
 }
 
-// subscribed is the thread this connection is subscribed to, or "" for none.
-func (c *codexClient) subscribed() string {
+// isSubscribed reports whether this connection is subscribed to threadId.
+func (c *codexClient) isSubscribed(threadId string) bool {
 	c.resumedMu.Lock()
 	defer c.resumedMu.Unlock()
-	return c.resumed
+	return c.resumed[threadId]
 }
 
-// follows reports whether threadId names the thread this connection is
-// subscribed to. A notification that names no thread is about none of them.
-func (c *codexClient) follows(threadId string) bool {
-	return threadId != "" && threadId == c.subscribed()
+// following is the thread agent's states are read from on this connection, or
+// "" for none.
+func (c *codexClient) following(agent *codex) string {
+	c.resumedMu.Lock()
+	defer c.resumedMu.Unlock()
+	return c.followed[agent]
+}
+
+// follow records that agent's states are read from threadId on this
+// connection from here on. The empty id records that it follows nothing.
+func (c *codexClient) follow(agent *codex, threadId string) {
+	c.resumedMu.Lock()
+	defer c.resumedMu.Unlock()
+	if threadId == "" {
+		delete(c.followed, agent)
+		return
+	}
+	c.followed[agent] = threadId
+}
+
+// followers is how many agents read their states from threadId on this
+// connection.
+func (c *codexClient) followers(threadId string) int {
+	c.resumedMu.Lock()
+	defer c.resumedMu.Unlock()
+	var n int
+	for _, id := range c.followed {
+		if id == threadId {
+			n++
+		}
+	}
+	return n
+}
+
+// follows reports whether threadId names the thread agent follows on this
+// connection. A notification that names no thread is about none of them.
+func (c *codexClient) follows(agent *codex, threadId string) bool {
+	return threadId != "" && threadId == c.following(agent)
+}
+
+// callTool has the app server call one tool on the MCP server of a thread, and
+// waits for that server's answer.
+//
+// What the tool answered is not read: the call is made for where it arrives,
+// which is the MCP session serving that thread, and a server that refused the
+// tool still received it.
+func (c *codexClient) callTool(ctx context.Context, threadId string, call ToolCall) error {
+	args := call.Arguments
+	if args == nil {
+		args = map[string]any{}
+	}
+	if _, err := c.rpc.Call(ctx, "mcpServer/tool/call", map[string]any{
+		"threadId":  threadId,
+		"server":    call.Server,
+		"tool":      call.Tool,
+		"arguments": args,
+	}); err != nil {
+		return fmt.Errorf("calling %s on the %s server of codex thread %s: %w",
+			call.Tool, call.Server, threadId, err)
+	}
+	return nil
 }
 
 // startTurn hands text to a thread as one user input, which is a turn the agent
@@ -339,6 +408,25 @@ const (
 // binds again from the loaded threads anyway, so the notification is only a
 // signal that the answer may have changed.
 const codexThreadStarted = "thread/started"
+
+// codexTurnStarted is the notification a turn beginning on a thread pushes,
+// whoever started it: the person at a TUI, or a delivery.
+const codexTurnStarted = "turn/started"
+
+// codexTurnThread reads the thread a turn/started notification names, and
+// reports whether it named one.
+func codexTurnThread(req *jrpc2.Request) (string, bool) {
+	if req.Method() != codexTurnStarted {
+		return "", false
+	}
+	var params struct {
+		ThreadId string `json:"threadId"`
+	}
+	if req.UnmarshalParams(&params) != nil || params.ThreadId == "" {
+		return "", false
+	}
+	return params.ThreadId, true
+}
 
 // codexWaitingFlags are the reasons an active thread is not working but
 // waiting on the person in front of it. The protocol's other flags, and any it

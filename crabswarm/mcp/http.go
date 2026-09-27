@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // TokenHeader is the HTTP request header an MCP session names its chat
@@ -44,6 +45,13 @@ const readHeaderTimeout = 10 * time.Second
 // share one member, which attends while at least one of them is open and
 // leaves when the last one closes. A session naming none still serves, and its
 // tools answer with what is missing.
+//
+// A member with several sessions is reached through the one it was last seen
+// in. It is seen in a session when the session opens, when a focus call
+// arrives on it, and when the app server reports a turn starting on the thread
+// the session serves. A harness server hosting several agents' threads, as a
+// shared Codex app server does, is scoped to each member's threads, so a
+// mention reaches the thread of the agent it names.
 type HTTPServer struct {
 	host *host
 
@@ -56,6 +64,14 @@ type HTTPServer struct {
 	members map[string]*attendee
 	// sessions are the sessions bound so far, and what each acts as.
 	sessions map[*mcpsdk.ServerSession]*binding
+	// seen counts the moments a member is seen somewhere, so that of two
+	// moments the later one has the greater number.
+	seen uint64
+	// turns is the moment a turn last started on each thread the app server
+	// reported one on.
+	turns map[string]uint64
+	// pings are the pings in flight, by nonce, and the thread each was sent to.
+	pings map[string]string
 	// running holds every member's loops and every session's watch, so a
 	// shutdown waits for them before the connection to the daemon closes.
 	running errgroup.Group
@@ -66,6 +82,18 @@ type attendee struct {
 	member   *Member
 	stop     context.CancelFunc
 	sessions int
+	// scoped is the harness the member is reached through on each harness
+	// server hosting several agents, by that server's unscoped harness. It is
+	// made once per server, so the member keeps one feed there however often
+	// it moves between its sessions.
+	scoped map[harnessctl.ThreadScoper]scopedHarness
+}
+
+// scopedHarness is a harness scoped to one member's threads, and those threads
+// as the harness asks about them.
+type scopedHarness struct {
+	harness harnessctl.Harness
+	threads *memberThreads
 }
 
 // binding is what one session acts as. A nil attendee is a session that named
@@ -74,6 +102,14 @@ type binding struct {
 	attendee *attendee
 	// handshook says the session's harness has been read off its handshake.
 	handshook bool
+	// harness is the harness the handshake named, nil before it landed.
+	harness harnessctl.Harness
+	// thread is the thread the session serves on a harness server hosting
+	// several, once a tool call named it.
+	thread string
+	// seen is the moment the member was last seen in this session itself: when
+	// the session opened, or when a focus call arrived on it.
+	seen uint64
 }
 
 // NewHTTP dials sockPath and prepares a server for many MCP sessions. Nothing
@@ -100,8 +136,13 @@ func NewHTTP(
 		host:     h,
 		members:  map[string]*attendee{},
 		sessions: map[*mcpsdk.ServerSession]*binding{},
+		turns:    map[string]uint64{},
+		pings:    map[string]string{},
 	}
-	h.mcp.AddReceivingMiddleware(s.bindsSessions)
+	// One detector for every session, so the sessions hosted by one app server
+	// share one connection to it, and the turns it reports reach the members.
+	h.detect = harnessctl.NewDetector(logger, s.turnStarted).Detect
+	h.mcp.AddReceivingMiddleware(s.bindsSessions, answersReservedCalls(s))
 	return s, nil
 }
 
@@ -203,7 +244,11 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 			// it lives as long as its sessions do, which is longer than any one
 			// request and shorter than the server.
 			ctx, stop := context.WithCancel(context.Background())
-			a = &attendee{member: s.host.newMember(token), stop: stop}
+			a = &attendee{
+				member: s.host.newMember(token),
+				stop:   stop,
+				scoped: map[harnessctl.ThreadScoper]scopedHarness{},
+			}
 			s.members[token] = a
 			s.running.Go(func() error {
 				a.member.run(ctx)
@@ -212,6 +257,9 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 		}
 		a.sessions++
 		b.attendee = a
+		// A session opening is the member being seen in it: a person started a
+		// TUI, or a new thread in one.
+		b.seen = s.nextSeen()
 	}
 	s.sessions[session] = b
 	s.running.Go(func() error {
@@ -223,9 +271,9 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 	})
 }
 
-// handshook reads the harness off session once it names a client, and hands it
-// to the member the session acts as. Each session is read once: it names one
-// client for its whole life.
+// handshook reads the harness off session once it names a client, and points
+// the member the session acts as at the session it was last seen in. Each
+// session is read once: it names one client for its whole life.
 func (s *HTTPServer) handshook(session *mcpsdk.ServerSession) {
 	params := session.InitializeParams()
 	if params == nil {
@@ -242,8 +290,11 @@ func (s *HTTPServer) handshook(session *mcpsdk.ServerSession) {
 		return
 	}
 	harness := s.host.harnessOf(params)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b.harness = harness
 	if b.attendee != nil {
-		b.attendee.member.handshook(harness)
+		s.retarget(b.attendee)
 	}
 }
 
@@ -265,7 +316,13 @@ func (s *HTTPServer) release(session *mcpsdk.ServerSession) {
 		if a.sessions == 0 {
 			delete(s.members, a.member.token)
 			left = a
+		} else {
+			// The member may have been last seen in the session that closed.
+			s.retarget(a)
 		}
+	}
+	if b != nil && b.thread != "" && !s.threadBound(b.thread) {
+		delete(s.turns, b.thread)
 	}
 	s.mu.Unlock()
 	if left != nil {

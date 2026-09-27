@@ -1,0 +1,19 @@
+{"id":1,"jsonrpc":"2.0","method":"initialize","params":{"clientInfo":{"name":"crabswarm-probe","title":"probe","version":"0"}}}
+{"jsonrpc":"2.0","method":"initialized"}
+{"id":2,"jsonrpc":"2.0","method":"thread/start","params":{"approvalPolicy":"never","sandbox":"read-only","threadSource":"user"}}
+{"id":3,"jsonrpc":"2.0","method":"turn/start","params":{"input":[{"text":"Reply with the single word ok.","type":"text"}],"threadId":"01a0e508-d67b-7a83-beea-9bbe77546150"}}
+{"id":4,"jsonrpc":"2.0","method":"thread/start","params":{"approvalPolicy":"never","sandbox":"read-only","threadSource":"user"}}
+{"id":5,"jsonrpc":"2.0","method":"thread/unsubscribe","params":{"threadId":"01a0e508-d67b-7a83-beea-9bbe77546150"}}
+{"id":6,"jsonrpc":"2.0","method":"turn/start","params":{"input":[{"text":"Reply with the single word ok.","type":"text"}],"threadId":"01a0e508-f1f5-74d0-9e01-cdc8b500a958"}}
+{"id":7,"jsonrpc":"2.0","method":"thread/loaded/list","params":{}}
+{"id":8,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0e508-d67b-7a83-beea-9bbe77546150"}}
+{"id":9,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0e508-f1f5-74d0-9e01-cdc8b500a958"}}
+{"id":10,"jsonrpc":"2.0","method":"thread/resume","params":{"excludeTurns":true,"threadId":"01a0e508-d67b-7a83-beea-9bbe77546150"}}
+{"id":11,"jsonrpc":"2.0","method":"thread/unsubscribe","params":{"threadId":"01a0e508-f1f5-74d0-9e01-cdc8b500a958"}}
+{"id":12,"jsonrpc":"2.0","method":"thread/loaded/list","params":{}}
+{"id":13,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0e508-d67b-7a83-beea-9bbe77546150"}}
+{"id":14,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0e508-f1f5-74d0-9e01-cdc8b500a958"}}
+{"id":15,"jsonrpc":"2.0","method":"turn/start","params":{"input":[{"text":"Reply with the single word ok.","type":"text"}],"threadId":"01a0e508-d67b-7a83-beea-9bbe77546150"}}
+{"id":16,"jsonrpc":"2.0","method":"thread/loaded/list","params":{}}
+{"id":17,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0e508-d67b-7a83-beea-9bbe77546150"}}
+{"id":18,"jsonrpc":"2.0","method":"thread/read","params":{"includeTurns":false,"threadId":"01a0e508-f1f5-74d0-9e01-cdc8b500a958"}}
