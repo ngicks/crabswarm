@@ -84,6 +84,8 @@ acts as nobody, and its tools say so. --token has no meaning there.`,
 		cobra.FixedCompletions([]string{mcpTransportStdio, mcpTransportHTTP},
 			cobra.ShellCompDirectiveNoFileComp))
 
+	mcpCodexProxyCmd(cmd)
+
 	parent.AddCommand(cmd)
 }
 
