@@ -52,6 +52,12 @@ const readHeaderTimeout = 10 * time.Second
 // the session serves. A harness server hosting several agents' threads, as a
 // shared Codex app server does, is scoped to each member's threads, so a
 // mention reaches the thread of the agent it names.
+//
+// A shared OpenCode server is the exception to a session naming its member: it
+// opens one session for every TUI attached to it. Each TUI's plugin registers
+// over the routes beside [HTTPPath] instead, and every tool call on an OpenCode
+// session acts as the member whose TUI shows the OpenCode session the call
+// names. See opencode.go.
 type HTTPServer struct {
 	host *host
 
@@ -64,6 +70,9 @@ type HTTPServer struct {
 	members map[string]*attendee
 	// sessions are the sessions bound so far, and what each acts as.
 	sessions map[*mcpsdk.ServerSession]*binding
+	// openCodeSessions are the members an OpenCode TUI registered, by the
+	// OpenCode session the TUI shows.
+	openCodeSessions map[string]*attendee
 	// seen counts the moments a member is seen somewhere, so that of two
 	// moments the later one has the greater number.
 	seen uint64
@@ -77,11 +86,19 @@ type HTTPServer struct {
 	running errgroup.Group
 }
 
-// attendee is one member and the count of open sessions keeping it in the room.
+// attendee is one member and what keeps it in the room: the MCP sessions naming
+// its token and the notice streams an OpenCode TUI holds open with it. It
+// leaves once neither is left.
 type attendee struct {
 	member   *Member
 	stop     context.CancelFunc
 	sessions int
+	// streams counts the notice streams open, which openCode writes to.
+	streams  int
+	openCode *harnessctl.OpenCodeNotices
+	// openCodeSession is the OpenCode session the member's TUI last said it
+	// shows, "" before it said one.
+	openCodeSession string
 	// scoped is the harness the member is reached through on each harness
 	// server hosting several agents, by that server's unscoped harness. It is
 	// made once per server, so the member keeps one feed there however often
@@ -133,16 +150,17 @@ func NewHTTP(
 		return nil, err
 	}
 	s := &HTTPServer{
-		host:     h,
-		members:  map[string]*attendee{},
-		sessions: map[*mcpsdk.ServerSession]*binding{},
-		turns:    map[string]uint64{},
-		pings:    map[string]string{},
+		host:             h,
+		members:          map[string]*attendee{},
+		sessions:         map[*mcpsdk.ServerSession]*binding{},
+		openCodeSessions: map[string]*attendee{},
+		turns:            map[string]uint64{},
+		pings:            map[string]string{},
 	}
 	// One detector for every session, so the sessions hosted by one app server
 	// share one connection to it, and the turns it reports reach the members.
 	h.detect = harnessctl.NewDetector(logger, s.turnStarted).Detect
-	h.mcp.AddReceivingMiddleware(s.bindsSessions, answersReservedCalls(s))
+	h.mcp.AddReceivingMiddleware(s.bindsSessions, answersReservedCalls(s), takesOpenCodeSession)
 	return s, nil
 }
 
@@ -172,13 +190,20 @@ func (s *HTTPServer) AnnounceOnRosterChange(uri string) {
 
 // MemberOf is the member a tool called over session acts as: the one its token
 // names. A session that named no token answers with what is missing.
-func (s *HTTPServer) MemberOf(session *mcpsdk.ServerSession) (*Member, error) {
+//
+// A call on an OpenCode session acts as the member whose TUI shows the OpenCode
+// session the call named, which ctx carries, and never as the session's own
+// token: one such session carries the calls of every TUI attached to the
+// server.
+func (s *HTTPServer) MemberOf(ctx context.Context, session *mcpsdk.ServerSession) (*Member, error) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	b := s.sessions[session]
-	s.mu.Unlock()
 	switch {
 	case b == nil:
 		return nil, errNotAttending
+	case b.servesOpenCode():
+		return s.openCodeCaller(ctx)
 	case b.attendee == nil:
 		return nil, errNoTokenHeader
 	default:
@@ -234,27 +259,8 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 		return
 	}
 	b := &binding{}
-	if token == "" {
-		s.host.logger.Warn("an MCP session named no chat identity; its tools will report it",
-			"session", session.ID(), "header", TokenHeader)
-	} else {
-		a := s.members[token]
-		if a == nil {
-			// The member runs on a context of its own rather than on any request's:
-			// it lives as long as its sessions do, which is longer than any one
-			// request and shorter than the server.
-			ctx, stop := context.WithCancel(context.Background())
-			a = &attendee{
-				member: s.host.newMember(token),
-				stop:   stop,
-				scoped: map[harnessctl.ThreadScoper]scopedHarness{},
-			}
-			s.members[token] = a
-			s.running.Go(func() error {
-				a.member.run(ctx)
-				return nil
-			})
-		}
+	if token != "" {
+		a := s.attendeeOf(token)
 		a.sessions++
 		b.attendee = a
 		// A session opening is the member being seen in it: a person started a
@@ -269,6 +275,46 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 		s.release(session)
 		return nil
 	})
+}
+
+// attendeeOf is the member attending as token, made and started when it is the
+// token's first. Its caller counts what keeps it in the room. It runs with mu
+// held.
+func (s *HTTPServer) attendeeOf(token string) *attendee {
+	if a := s.members[token]; a != nil {
+		return a
+	}
+	// The member runs on a context of its own rather than on any request's: it
+	// lives as long as its sessions and streams do, which is longer than any one
+	// request and shorter than the server.
+	ctx, stop := context.WithCancel(context.Background())
+	a := &attendee{
+		member: s.host.newMember(token),
+		stop:   stop,
+		scoped: map[harnessctl.ThreadScoper]scopedHarness{},
+	}
+	s.members[token] = a
+	s.running.Go(func() error {
+		a.member.run(ctx)
+		return nil
+	})
+	return a
+}
+
+// unkept is called with mu held whenever a loses a session or a stream. It
+// reports whether nothing keeps a in the room any more, having taken it off the
+// registry, and otherwise points it at what is left. A true answer leaves the
+// caller to stop the member once mu is released.
+func (s *HTTPServer) unkept(a *attendee) bool {
+	if a.sessions > 0 || a.streams > 0 {
+		// The member may have been last seen in what closed.
+		s.retarget(a)
+		return false
+	}
+	if s.members[a.member.token] == a {
+		delete(s.members, a.member.token)
+	}
+	return true
 }
 
 // handshook reads the harness off session once it names a client, and points
@@ -293,13 +339,19 @@ func (s *HTTPServer) handshook(session *mcpsdk.ServerSession) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	b.harness = harness
-	if b.attendee != nil {
+	switch {
+	case b.attendee != nil:
 		s.retarget(b.attendee)
+	case !b.servesOpenCode():
+		// An OpenCode session names no identity by design: its calls name one
+		// each. Any other harness was meant to send the header.
+		s.host.logger.Warn("an MCP session named no chat identity; its tools will report it",
+			"session", session.ID(), "header", TokenHeader)
 	}
 }
 
 // release unbinds a session that ended, and takes its member out of the room
-// when it was the last session keeping it there.
+// when it was the last thing keeping it there.
 //
 // A token whose next session arrives before the daemon has let go of the old
 // attendance gets a new member that is refused as already attending; its loop
@@ -311,14 +363,9 @@ func (s *HTTPServer) release(session *mcpsdk.ServerSession) {
 	delete(s.sessions, session)
 	var left *attendee
 	if b != nil && b.attendee != nil {
-		a := b.attendee
-		a.sessions--
-		if a.sessions == 0 {
-			delete(s.members, a.member.token)
-			left = a
-		} else {
-			// The member may have been last seen in the session that closed.
-			s.retarget(a)
+		b.attendee.sessions--
+		if s.unkept(b.attendee) {
+			left = b.attendee
 		}
 	}
 	if b != nil && b.thread != "" && !s.threadBound(b.thread) {
@@ -334,6 +381,7 @@ func (s *HTTPServer) release(session *mcpsdk.ServerSession) {
 
 // Serve serves MCP at [HTTPPath] on ln until ctx is done, and closes the
 // connection to the daemon on the way out, so an HTTPServer is not reusable.
+// The routes an OpenCode TUI's plugin registers over are served beside it.
 //
 // On the way out every session is closed and every member leaves the room.
 // Like [Server.Serve], it answers a shutdown ctx asked for with ctx's error.
@@ -345,6 +393,7 @@ func (s *HTTPServer) Serve(ctx context.Context, ln net.Listener) error {
 		func(*http.Request) *mcpsdk.Server { return s.host.mcp },
 		&mcpsdk.StreamableHTTPOptions{Logger: s.host.logger},
 	))
+	s.routeOpenCode(mux)
 	srv := &http.Server{Handler: mux, ReadHeaderTimeout: readHeaderTimeout}
 
 	s.host.logger.Info("serving MCP over HTTP", "addr", ln.Addr().String(), "path", HTTPPath)

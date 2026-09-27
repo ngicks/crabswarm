@@ -8,10 +8,15 @@
 // it can be woken and how it is heard from follows from that name: Claude Code
 // takes an upload on the loopback server its fakechat plugin runs and says what
 // it is doing in the agents listing, Codex listens on its app server and
-// reports on that server's feed, OpenCode relays through a plugin, and a
-// harness nobody recognises takes nothing at all. The server asks here and
-// attends as whatever comes back, so the daemon knows both what the member runs
-// and whether it still has to type at it.
+// reports on that server's feed, and a harness nobody recognises takes nothing
+// at all. The server asks here and attends as whatever comes back, so the
+// daemon knows both what the member runs and whether it still has to type at
+// it.
+//
+// OpenCode is the one the name does not settle. Its channel is a notice stream
+// the plugin of a TUI attached to a shared server opens, which the server
+// attaches to that TUI's member itself — see [OpenCodeNotices] — so an
+// OpenCode MCP session on its own is a terminal harness.
 //
 // A harness with no channel of its own is not a failure: it is the terminal
 // one, which is how every agent was reached before a harness could deliver a
@@ -197,9 +202,10 @@ func (d *Detector) native(kind chatv1.Harness, getenv func(string) string) Harne
 		return newClaudeCode(getenv)
 	case chatv1.Harness_HARNESS_CODEX:
 		return d.newCodex(getenv)
-	case chatv1.Harness_HARNESS_OPENCODE:
-		return newOpenCode(getenv)
 	default:
+		// A harness nobody recognises has no channel. OpenCode's is a stream
+		// its plugin opens, which no launch-time variable points at; see
+		// [OpenCodeNotices].
 		return nil
 	}
 }

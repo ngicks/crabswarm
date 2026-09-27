@@ -821,14 +821,14 @@ func (h *probingHarness) dies(err error) {
 // transport finds who it acts for.
 func addMembersTool(bridge interface {
 	MCP() *mcpsdk.Server
-	MemberOf(*mcpsdk.ServerSession) (*Member, error)
+	MemberOf(context.Context, *mcpsdk.ServerSession) (*Member, error)
 }) {
 	mcpsdk.AddTool(bridge.MCP(),
 		&mcpsdk.Tool{Name: "chat_members", Description: "list everyone attending your room"},
 		func(
 			ctx context.Context, req *mcpsdk.CallToolRequest, _ struct{},
 		) (*mcpsdk.CallToolResult, any, error) {
-			member, err := bridge.MemberOf(req.Session)
+			member, err := bridge.MemberOf(ctx, req.Session)
 			if err != nil {
 				return nil, nil, err
 			}

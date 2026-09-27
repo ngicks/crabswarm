@@ -43,6 +43,10 @@ func (s *HTTPServer) threadBound(thread string) bool {
 // retarget points a's member at the session it was last seen in, among those
 // whose harness is known, and tells every harness scoped to a that the
 // thread it follows may have moved.
+//
+// A member whose OpenCode TUI holds a notice stream open is reached through
+// that stream instead: it is what the TUI's plugin opened to be told things,
+// however many MCP sessions carry the same token besides.
 func (s *HTTPServer) retarget(a *attendee) {
 	var last *binding
 	var at uint64
@@ -56,6 +60,10 @@ func (s *HTTPServer) retarget(a *attendee) {
 	}
 	for _, sc := range a.scoped {
 		poke(sc.threads.changed)
+	}
+	if a.streams > 0 {
+		a.member.retarget(a.openCode)
+		return
 	}
 	if last == nil {
 		return

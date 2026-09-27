@@ -104,8 +104,10 @@ func newServer(
 	s := &Server{host: h, token: token}
 	// The reserved calls are answered and learn nothing here: a stdio server
 	// serves one session, and the thread a delivery goes to is the one a person
-	// used last on the app server — see [harnessctl.Detect].
-	h.mcp.AddReceivingMiddleware(s.readsHandshake, answersReservedCalls(nil))
+	// used last on the app server — see [harnessctl.Detect]. The OpenCode
+	// session a call names is taken off it for the same reason: the one member
+	// this server attends as is who every call acts as.
+	h.mcp.AddReceivingMiddleware(s.readsHandshake, answersReservedCalls(nil), takesOpenCodeSession)
 	return s, nil
 }
 
@@ -189,13 +191,13 @@ func (s *Server) AnnounceOnRosterChange(uri string) {
 }
 
 // MemberOf is the member a tool called over session acts as. A stdio server
-// serves one session and attends as one member, so session names nothing it
-// does not already know.
+// serves one session and attends as one member, so neither the call nor the
+// session names anything it does not already know.
 //
 // A server that resolved no identity answers with why, which is the words every
 // member verb answers a missing token with; a family hands that to the agent
 // rather than acting as nobody.
-func (s *Server) MemberOf(*mcpsdk.ServerSession) (*Member, error) {
+func (s *Server) MemberOf(context.Context, *mcpsdk.ServerSession) (*Member, error) {
 	switch {
 	case s.member != nil:
 		return s.member, nil

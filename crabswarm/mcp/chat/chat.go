@@ -26,12 +26,16 @@ import (
 // Host is the crabswarm MCP server the family registers onto, whichever
 // transport it serves: a stdio [crabmcp.Server] acting as one member, or an
 // [crabmcp.HTTPServer] acting as a member per session's token.
+//
+// MemberOf takes the context of the call being answered as well as its
+// session, since a session a shared OpenCode server opened carries the calls
+// of several members and only the call itself names the one it is for.
 type Host interface {
 	MCP() *mcp.Server
 	Client() *cli.Client
 	AddResource(res *mcp.Resource, handler mcp.ResourceHandler)
 	AnnounceOnRosterChange(uri string)
-	MemberOf(session *mcp.ServerSession) (*crabmcp.Member, error)
+	MemberOf(ctx context.Context, session *mcp.ServerSession) (*crabmcp.Member, error)
 }
 
 // family is the chat verbs bound to the server they act through. One server
@@ -62,7 +66,7 @@ func Register(server Host) {
 // would otherwise get the daemon's answer to a question it should not have
 // asked.
 func (f *family) caller(ctx context.Context, session *mcp.ServerSession) (string, error) {
-	member, err := f.server.MemberOf(session)
+	member, err := f.server.MemberOf(ctx, session)
 	if err != nil {
 		return "", err
 	}

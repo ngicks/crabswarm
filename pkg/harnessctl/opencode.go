@@ -1,98 +1,194 @@
 package harnessctl
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-// OpenCodeRelayEnv names the loopback URL the crabswarm plugin listens for
-// notices on, which the plugin puts into the environment of the MCP server it
-// declares.
+// OpenCode has no channel a server beside it can push a notice through on its
+// own. Its TUI carries a plugin that can prompt the session the person is
+// driving, so the notice travels to the plugin: the plugin of a TUI attached to
+// a shared `opencode serve` holds a notice stream open on the crabswarm MCP
+// server that serves it, and the server writes every notice there. Detect never
+// hands one out, since an MCP session does not say which TUI it is for; the
+// server attaches the channel to the member whose token opened the stream. An
+// OpenCode that reached the server any other way is a terminal harness.
+
+// OpenCodeNoticeContentType is what a notice stream is answered as: one JSON
+// object per line, each one notice.
+const OpenCodeNoticeContentType = "application/x-ndjson"
+
+// openCodeWriteTimeout bounds one notice written to a stream. The plugin reads
+// the stream as it arrives, so a write only waits when the connection's window
+// is full; past this the plugin is not reading, and the feed the delivery runs
+// on must not be held any longer than that.
+const openCodeWriteTimeout = 5 * time.Second
+
+// OpenCodeNotices is the channel one OpenCode member is reached through: every
+// notice is written as one JSON line to each stream attached to it, and the
+// plugin holding a stream prompts the session its TUI shows with it.
 //
-// The plugin delivers rather than this server, and the relay is how the two
-// meet. Only the plugin knows which session the person is driving, and
-// OpenCode's own way of typing at a session — appending to the composer and
-// submitting it — would submit whatever draft the person had half-written. So
-// the notice travels the other way: the server hands it to the plugin, and the
-// plugin prompts the session it last saw the person write in.
-const OpenCodeRelayEnv = "CRABSWARM_OPENCODE_RELAY"
-
-// openCodeRelayTimeout bounds one call on the relay. The plugin answers as soon
-// as it has handed the notice to the session — it never waits for the turn that
-// follows — so this is only the point past which no answer is coming, and the
-// feed the delivery runs on must not be held any longer than that.
-const openCodeRelayTimeout = 5 * time.Second
-
-// newOpenCode builds the opencode channel, which exists only where the plugin
-// that serves it does: an OpenCode started without the plugin starts this server
-// without the relay URL, and the member then attends as a terminal one.
-func newOpenCode(getenv func(string) string) Harness {
-	relay := getenv(OpenCodeRelayEnv)
-	if relay == "" {
-		return nil
-	}
-	return openCode{relay: relay, timeout: openCodeRelayTimeout}
+// Its zero value is not usable; make one with [NewOpenCodeNotices].
+type OpenCodeNotices struct {
+	mu      sync.Mutex
+	streams map[*OpenCodeStream]struct{}
 }
 
-// openCode delivers a notice by posting it to the plugin's relay.
-type openCode struct {
-	relay   string
-	timeout time.Duration
+var _ Harness = (*OpenCodeNotices)(nil)
+
+// NewOpenCodeNotices returns a channel with no stream attached yet.
+func NewOpenCodeNotices() *OpenCodeNotices {
+	return &OpenCodeNotices{streams: map[*OpenCodeStream]struct{}{}}
 }
 
-func (openCode) Kind() chatv1.Harness { return chatv1.Harness_HARNESS_OPENCODE }
+func (*OpenCodeNotices) Kind() chatv1.Harness { return chatv1.Harness_HARNESS_OPENCODE }
 
-func (openCode) Nudge() chatv1.NudgeDelivery {
+func (*OpenCodeNotices) Nudge() chatv1.NudgeDelivery {
 	return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
 }
 
-// openCodeNotice is what the relay is handed, as the plugin reads it. The room
-// rides along for a plugin that labels a notice with where it came from; the
-// one this package ships prompts the session with the content alone and ignores
-// the rest, which costs nothing and leaves the field there for one that does
-// not.
+// openCodeNotice is one line of a notice stream, as the plugin reads it. From
+// is empty on a notice about the room rather than about one message.
 type openCodeNotice struct {
 	Content string `json:"content"`
 	From    string `json:"from"`
-	Room    string `json:"room"`
 }
 
-// Deliver posts one notice to the relay.
-//
-// Anything but a 2xx is an error, the plugin's refusal included: a plugin that
-// has not seen the person write yet has no session to prompt, and reporting
-// that leaves the mention waiting for the next report that ends a turn instead
-// of counting it as delivered to nobody.
-func (o openCode) Deliver(ctx context.Context, n Notice) error {
-	body, err := json.Marshal(openCodeNotice{Content: n.Text, From: n.From, Room: n.Room})
+// errNoOpenCodeStream is what a delivery is refused with while no plugin holds
+// a stream open.
+var errNoOpenCodeStream = errors.New(
+	"no opencode notice stream is open to deliver a mention through",
+)
+
+// Deliver writes n to every stream attached, and reports an error when none of
+// them took it: the mention is still unread, and the caller comes back to it
+// rather than counting it as delivered to nobody.
+func (o *OpenCodeNotices) Deliver(_ context.Context, n Notice) error {
+	line, err := json.Marshal(openCodeNotice{Content: n.Text, From: n.From})
 	if err != nil {
-		return fmt.Errorf("encoding a chat notice for the opencode relay: %w", err)
+		return fmt.Errorf("encoding a chat notice for an opencode notice stream: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, o.timeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.relay, bytes.NewReader(body))
+	line = append(line, '\n')
+
+	o.mu.Lock()
+	streams := make([]*OpenCodeStream, 0, len(o.streams))
+	for s := range o.streams {
+		streams = append(streams, s)
+	}
+	o.mu.Unlock()
+	if len(streams) == 0 {
+		return errNoOpenCodeStream
+	}
+	var errs []error
+	for _, s := range streams {
+		if err := s.write(line); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) == len(streams) {
+		return errors.Join(errs...)
+	}
+	return nil
+}
+
+// OpenCodeStream is one notice stream: the response to one request a plugin
+// holds open.
+type OpenCodeStream struct {
+	notices *OpenCodeNotices
+	w       http.ResponseWriter
+	rc      *http.ResponseController
+	// broken is closed once a notice could not be written.
+	broken    chan struct{}
+	breakOnce sync.Once
+
+	// mu serializes what is written to w, which a delivery does from the
+	// member's own goroutine rather than from the handler holding the request.
+	mu sync.Mutex
+	// started says the response header went out, with [OpenCodeStream.Open] or
+	// with the first notice, whichever came first.
+	started bool
+	// detached says the handler is done with w, which may not be touched after.
+	detached bool
+}
+
+// Attach makes w a stream of o: every notice delivered until
+// [OpenCodeStream.Detach] is written to it. Nothing is written yet. A caller
+// attaches the stream before it lets anything deliver through o, so the first
+// notice finds it, and answers the request with [OpenCodeStream.Open] after.
+func (o *OpenCodeNotices) Attach(w http.ResponseWriter) *OpenCodeStream {
+	w.Header().Set("Content-Type", OpenCodeNoticeContentType)
+	s := &OpenCodeStream{
+		notices: o,
+		w:       w,
+		rc:      http.NewResponseController(w),
+		broken:  make(chan struct{}),
+	}
+	o.mu.Lock()
+	o.streams[s] = struct{}{}
+	o.mu.Unlock()
+	return s
+}
+
+// Open sends the response header now, unless a notice already has, so the
+// plugin learns the stream is up before anything is said on it.
+func (s *OpenCodeStream) Open() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.detached || s.started {
+		return nil
+	}
+	s.started = true
+	s.w.WriteHeader(http.StatusOK)
+	if err := s.rc.Flush(); err != nil {
+		return fmt.Errorf("opening an opencode notice stream: %w", err)
+	}
+	return nil
+}
+
+// Broken is closed once a notice could not be written to the stream. The
+// stream is worth nothing after that, and the handler holding the request may
+// end it: the plugin opens another.
+func (s *OpenCodeStream) Broken() <-chan struct{} {
+	return s.broken
+}
+
+// Detach takes the stream off its channel. Nothing is written to it once
+// Detach has returned, so the handler holding the request may return then.
+func (s *OpenCodeStream) Detach() {
+	s.notices.mu.Lock()
+	delete(s.notices.streams, s)
+	s.notices.mu.Unlock()
+	s.mu.Lock()
+	s.detached = true
+	s.mu.Unlock()
+}
+
+// write puts one line on the stream and flushes it to the plugin.
+func (s *OpenCodeStream) write(line []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.detached {
+		return errors.New("the opencode notice stream has closed")
+	}
+	s.started = true
+	// A writer that cannot take a deadline is written without one: the
+	// connection the plugin holds is one that can.
+	_ = s.rc.SetWriteDeadline(time.Now().Add(openCodeWriteTimeout))
+	defer func() { _ = s.rc.SetWriteDeadline(time.Time{}) }()
+	_, err := s.w.Write(line)
+	if err == nil {
+		err = s.rc.Flush()
+	}
 	if err != nil {
-		return fmt.Errorf("building a request for the opencode relay %s: %w", o.relay, err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("posting a chat notice to the opencode relay %s: %w", o.relay, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	// Bounded: the answer is a word or two of why, and the relay is not this
-	// process's to trust with how much it sends.
-	answer, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("the opencode relay %s refused a chat notice: %s: %s",
-			o.relay, resp.Status, bytes.TrimSpace(answer))
+		s.breakOnce.Do(func() { close(s.broken) })
+		return fmt.Errorf("writing a chat notice to an opencode notice stream: %w", err)
 	}
 	return nil
 }
