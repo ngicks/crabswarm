@@ -240,6 +240,23 @@ func (s *opencodeServer) promptAsync(t *testing.T, session, prompt string) {
 	}
 }
 
+// waitIdle blocks until the server lists session as running no turn: absent
+// from its session statuses, or idle there.
+func (s *opencodeServer) waitIdle(t *testing.T, session string) {
+	t.Helper()
+	waitFor(t, openCodeSharedTimeout, session+" ending its turn", func() bool {
+		var statuses map[string]struct {
+			Type string `json:"type"`
+		}
+		status, answer := s.try(t, http.MethodGet, "/session/status", "", 10*time.Second)
+		if status != http.StatusOK || json.Unmarshal([]byte(answer), &statuses) != nil {
+			return false
+		}
+		st, ok := statuses[session]
+		return !ok || st.Type == "idle"
+	})
+}
+
 // answerAsReplica answers the notice of a mention with a chat_send to bob that
 // names the replica whose session the request came from, which the session's
 // first prompt names, and anything else with "ok". The message sent is
@@ -411,6 +428,126 @@ func TestChatOpenCodeShared_AStoppedReplicaLeavesAlone(t *testing.T) {
 	}
 }
 
+// A session stays with the replica whose TUI showed it first. A turn runs in
+// two's session, and while it runs, two's TUI moves to one's session. The
+// server answers two's registration that the session is another TUI's, and
+// two's plugin reports two done, because the end of the turn it left no longer
+// reaches it. A mention of one is prompted into the session both TUIs show,
+// the chat_send the model answers it with there goes out as one, and two
+// reports nothing for that turn. A mention of two is prompted nowhere and stays
+// unread. Once one's TUI dies, the session passes to two, whose plugin hears
+// that it is its own when it registers the session again.
+func TestChatOpenCodeShared_ASessionStaysWithTheTUIThatShowedItFirst(t *testing.T) {
+	// The model holds its answer to a prompt asking it to take its time until
+	// the case lets it go.
+	holding := make(chan struct{})
+	hold := make(chan struct{})
+	release := sync.OnceFunc(func() { close(hold) })
+	var held sync.Once
+	c := startOpenCodeShared(t, func(ctx context.Context, req mockRequest) mockReply {
+		if role, last := req.last(); role == "user" && strings.Contains(last, "take your time") &&
+			req.offers(opencodeSendTool) {
+			held.Do(func() {
+				close(holding)
+				select {
+				case <-hold:
+				case <-ctx.Done():
+				}
+			})
+		}
+		return answerAsReplica(req)
+	})
+	t.Cleanup(release)
+
+	one := c.attach(t, "tok-oc1", "alpha/opencode-1")
+	two := c.attach(t, "tok-oc2", "alpha/opencode-2")
+
+	// A turn in two's session, held mid-way.
+	since2, before1 := len(c.states(t, two.token)), c.states(t, one.token)
+	c.server.promptAsync(t, two.session, "take your time")
+	select {
+	case <-holding:
+	case <-time.After(openCodeSharedTimeout):
+		t.Fatal("the model never received the prompt of two's turn")
+	}
+	waitFor(t, openCodeSharedTimeout, two.address+" being listed working", func() bool {
+		row := c.row(t, two.address)
+		return len(row) == 5 && row[2] == "working"
+	})
+
+	// Every attached TUI follows the selection, and one's already shows the
+	// session, so two's alone moves.
+	c.server.call(t, http.MethodPost, "/tui/select-session",
+		fmt.Sprintf(`{"sessionID":%q}`, one.session))
+	waitFor(t, openCodeSharedTimeout, two.address+"'s TUI hearing the session is another's",
+		func() bool {
+			return strings.Contains(c.server.output.String(),
+				one.session+" is another TUI's session in the crabswarm room")
+		})
+	// Still mid-turn: the done is the plugin letting the session go, not the
+	// end of the turn.
+	c.waitTurn(t, two.token, since2)
+	release()
+	c.server.waitIdle(t, two.session)
+	if got := c.states(t, one.token); !slices.Equal(got, before1) {
+		t.Errorf("%s's move published %q for %s, which had %q before it",
+			two.address, got, one.token, before1)
+	}
+
+	// A mention of one, answered in the session both TUIs show.
+	since1, after2 := len(c.states(t, one.token)), c.states(t, two.token)
+	c.mention(t, "opencode-1", "ping one")
+	c.waitBobReads(t, sentBy(one.address))
+	c.waitTurn(t, one.token, since1)
+	if n := c.notices(t, one.session); n != 1 {
+		t.Errorf("%s's session holds %d prompts of a notice, want 1", one.address, n)
+	}
+	if got := c.states(t, two.token); !slices.Equal(got, after2) {
+		t.Errorf("the turns in the sessions %s's TUI left and moved to published %q for it, "+
+			"which had %q before them", two.address, got, after2)
+	}
+
+	// A mention of two, which its TUI has no session of its own to prompt.
+	c.mention(t, "opencode-2", "ping two")
+	waitFor(t, openCodeSharedTimeout, two.address+"'s plugin dropping the notice", func() bool {
+		return strings.Contains(c.server.output.String(),
+			"a chat notice from alpha/bob arrived while this TUI shows "+one.session+
+				", a session it does not own")
+	})
+	if n := c.notices(t, one.session); n != 1 {
+		t.Errorf("%s's session holds %d prompts of a notice, want only %s's own",
+			one.address, n, one.address)
+	}
+	if n := c.notices(t, two.session); n != 0 {
+		t.Errorf("the session %s's TUI left holds %d prompts of a notice, want 0", two.address, n)
+	}
+	if c.mock.sawRequest("ping two") {
+		t.Errorf("the model was handed the mention of %s", two.address)
+	}
+
+	// The session passes to two once one's TUI dies. Only two's plugin is left
+	// to say so past this point.
+	mark := len(c.server.output.String())
+	if err := one.tui.Process.Kill(); err != nil {
+		t.Fatalf("kill %s's TUI: %v", one.address, err)
+	}
+	waitFor(t, openCodeSharedTimeout, one.address+" leaving the room", func() bool {
+		return c.row(t, one.address) == nil
+	})
+	waitFor(t, openCodeSharedTimeout, two.address+"'s TUI hearing the session is its own",
+		func() bool {
+			return strings.Contains(c.server.output.String()[mark:],
+				one.session+" is this TUI's session in the crabswarm room")
+		})
+
+	if got := runChat(t, c.cfg, two.token, "read"); !strings.Contains(got, "ping two") {
+		t.Errorf("%s's read = %q, want the mention its TUI dropped still unread", two.address, got)
+	}
+	if keys := stubSendKeys(t, c.cfg); keys != nil {
+		t.Errorf("cmdman send-keys invocations = %q, want none", keys)
+	}
+}
+
 // A subagent's session is never one a TUI shows, so a crabswarm call from it
 // acts as nobody. The model in the replica's session hands a task to a
 // subagent, whose model calls chat_send: the server's plugin names the
@@ -544,8 +681,8 @@ func TestChatOpenCodeShared_AMentionBeforeASessionWaitsForATurn(t *testing.T) {
 
 // dialOpenCodeMCP opens an MCP session on the MCP server at addr the way
 // opencode serve does: under the name OpenCode gives itself and with no token
-// header, so a call on it acts as the member whose TUI shows the session the
-// call names.
+// header, so a call on it acts as the member that owns the session the call
+// names.
 func dialOpenCodeMCP(t *testing.T, addr string) *mcp.ClientSession {
 	t.Helper()
 	client := mcp.NewClient(&mcp.Implementation{Name: "opencode", Version: "1.18.32"}, nil)

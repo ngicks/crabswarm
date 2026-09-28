@@ -2,9 +2,10 @@
 // shared `opencode serve`. The server hosts every TUI attached to it and opens
 // one session on the crabswarm MCP server for all of them, so a tool call there
 // names no member of its own. This plugin names the OpenCode session making
-// each call, and the MCP server acts as the member whose TUI shows that session.
+// each call, and the MCP server acts as the member that owns that session: the
+// one whose TUI registered it first among the TUIs showing it now.
 // opencode-tui.ts, running in each attached TUI with that TUI's own token, is
-// what says which member shows which session.
+// what registers the session each TUI shows.
 //
 // The plugin runs with the server's environment, which carries a token of its
 // own when the server itself runs under cmdman. Acting with that token would
@@ -12,7 +13,7 @@
 // `crabswarm chat` verb: attendance, state and delivery at idle are the TUI
 // plugin's. What is left is the mid-turn delivery, which only the server sees:
 // the result of a tool call is the closest OpenCode has to a hook's
-// additionalContext, and the MCP server reads for the member showing the
+// additionalContext, and the MCP server reads for the member that owns the
 // calling session. The delivery line opens with the `[crabswarm chat]` marker
 // every notice from the room opens with, and it names the `chat_send` tool
 // those notices name. It carries the messages themselves because the read that
@@ -82,7 +83,7 @@ export const CrabswarmChatShared = async ({ client }: { client: Client }) => {
     return top
   }
 
-  // read returns what the member showing sessionID has unread, marked read, or
+  // read returns what the member owning sessionID has unread, marked read, or
   // nothing. A session no TUI shows is not an error: a session started over the
   // HTTP API, or from a TUI without the plugin, has no member.
   const read = async (sessionID: string): Promise<string> => {

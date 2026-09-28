@@ -502,9 +502,9 @@ func (s *opencodeServer) takeTurn(t *testing.T, session, prompt string) {
 	s.call(t, http.MethodPost, "/session/"+session+"/message", string(message))
 }
 
-// openCodeRead is the server plugin's read of what the member whose TUI shows
-// session has unread, answered with the status alone: 404 for a session no TUI
-// shows. It reads as that member, so a case asks only while nothing is unread.
+// openCodeRead is the server plugin's read of what the member owning session
+// has unread, answered with the status alone: 404 for a session no TUI shows.
+// It reads as that member, so a case asks only while nothing is unread.
 func openCodeRead(t *testing.T, mcpAddr, session string) int {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)

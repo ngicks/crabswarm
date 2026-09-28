@@ -187,8 +187,8 @@ func TestServer_SaysNothingAgainUntilAFeedHasSpoken(t *testing.T) {
 // A state reported about a member the room does not have is refused by
 // definition, so repeating one through a gap in the attendance would buy a
 // doomed RPC and a warning every interval, for as long as the daemon stayed
-// away. Nothing is lost by the wait: the tick after the attendance comes back
-// says it, which is the case the repeat exists for.
+// away. Nothing is lost by the wait: the attendance that comes back says it as
+// it lands, so the room hears it again without waiting for a tick.
 func TestServer_SaysNothingAgainWhileTheAttendanceIsDown(t *testing.T) {
 	// Nothing is turned down by the stub itself. What this case reads off it is
 	// how many reports reached the daemon at all, since one made while the daemon
@@ -232,7 +232,7 @@ func TestServer_SaysNothingAgainWhileTheAttendanceIsDown(t *testing.T) {
 		return fake.attendCount() == 2
 	})
 	// The feed has been handed nothing since, so a report past the ones made
-	// while the member was in the room is the repeat speaking up again.
+	// while the member was in the room is the state said again on its return.
 	waitFor(t, "the state the feed reported was never said again", func() bool {
 		return len(fake.reportedStates()) > said
 	})

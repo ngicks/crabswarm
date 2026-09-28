@@ -271,8 +271,9 @@ that link.
 
 The server checks no credential. Anything that reaches the listener and sends
 an `X-Crabswarm-Token` header acts as the member that token names, and a
-request that names an OpenCode session a TUI registered acts as that TUI's
-member. `POST /opencode/sessions/{id}/read`, the route the server plugin reads
+request that names an OpenCode session acts as the member that owns it: the
+member whose TUI registered it first among the TUIs showing it now.
+`POST /opencode/sessions/{id}/read`, the route the server plugin reads
 mid-turn messages through, takes the session id as its only credential,
 because the plugin runs inside `opencode serve` and holds no token. Anything
 that reaches the listener and knows a session id reads the unread messages of
@@ -313,10 +314,15 @@ session's containers alone.
   session, and a tool call in it acts as the owner. The TUI prompts no notice
   into that session, reports no state for it and reads nothing when its turns
   end. A notice for its member that arrives meanwhile stays unread until a
-  turn ends in a session the replica owns. The session passes to the TUI that
-  registered it next once the owner's TUI shows another session or leaves the
-  room. The TUI plugin registers the session its TUI shows again every ten
-  seconds, so that TUI learns within ten seconds that the session is its own.
+  turn ends in a session the replica owns. A TUI that moves away from the
+  session it owns reports its member done, because the end of a turn there no
+  longer reaches it and the server holds every mention for a working member.
+  The session passes to the TUI that registered it next once the owner's TUI
+  shows another session or leaves the room. The TUI plugin registers the
+  session its TUI shows again every ten seconds, so that TUI learns within ten
+  seconds that the session is its own. Ownership passes the moment the owner's
+  last notice stream closes, so a brief drop of that stream, or a restart of
+  `crabswarm mcp`, can hand the session to another TUI already showing it.
 
   The server refuses a read of the `crabswarm://chat/members` resource over the
   MCP session `opencode serve` shares: a resource read carries no arguments, so

@@ -10,7 +10,9 @@
 // member. Every TUI can open every session of the server, and a session belongs
 // to the TUI that registered it first, so the TUI speaks for its member only in
 // a session it owns: only there are notices prompted, the session's state
-// reported, and what arrived by the time a turn ends handed over. The delivery
+// reported, and what arrived by the time a turn ends handed over. A TUI that
+// moves away from the session it owned reports its member done, because the end
+// of a turn there no longer reaches it. The delivery
 // line opens with the `[crabswarm chat]` marker every notice from the room
 // opens with, and it names the `chat_send` tool those notices name. It carries
 // the messages themselves because the read that found them has already marked
@@ -159,6 +161,18 @@ const tui = async (api: Api) => {
       const messages = await chat("read", "--quiet", "--done-when-empty")
       reported = messages === "" ? "done" : undefined
       if (messages) prompt(sessionID, `${DELIVERED_AT_IDLE}\n\n${messages}`)
+    })
+
+  // leave reports the member done once the TUI has moved from sessionID to
+  // another session, unless the TUI owns sessionID again by then. The idle
+  // that ends a turn in sessionID is not this TUI's to hear any more, and the
+  // server holds every mention while the member reads working. The mentions it
+  // then delivers are dropped while the TUI shows a session it does not own,
+  // and stay unread.
+  const leave = (sessionID: string) =>
+    queue(async () => {
+      if (reported === "done" || (await owns(sessionID))) return
+      if ((await chat("report-state", "done")) !== undefined) reported = "done"
     })
 
   // Every attached TUI hears every session's events, so only the session this
@@ -343,6 +357,9 @@ const tui = async (api: Api) => {
         streaming = false
         owned = undefined
         answered = undefined
+        // The member leaves the room with its last stream and comes back done,
+        // so the state last reported no longer stands and the next one is sent.
+        reported = undefined
       }
       await sleep(delay)
       delay = Math.min(delay * 2, RETRY_MAX)
@@ -359,7 +376,12 @@ const tui = async (api: Api) => {
 
   // follow registers the session the route shows as soon as it changes. A
   // session the server could not describe is asked about again on the next
-  // poll, and logged once.
+  // poll, and logged once. A route with no session, such as the home screen,
+  // leaves the TUI showing the session it showed last.
+  //
+  // The done for the session left is queued here, before any event of the new
+  // session can queue a report: queued once the registration is answered, it
+  // could land after the working report of a turn already running there.
   let looked: string | undefined
   let unknown: string | undefined
   let following = false
@@ -380,8 +402,10 @@ const tui = async (api: Api) => {
       }
       looked = sessionID
       if (parent !== null) return
+      const left = shown
       shown = sessionID
       register()
+      if (left && left !== sessionID) leave(left)
     } finally {
       following = false
     }

@@ -33,7 +33,8 @@ const openCodeWriteTimeout = 5 * time.Second
 
 // OpenCodeNotices is the channel one OpenCode member is reached through: every
 // notice is written as one JSON line to each stream attached to it, and the
-// plugin holding a stream prompts the session its TUI shows with it.
+// plugin holding a stream prompts the session its TUI shows with it when that
+// TUI owns the session.
 //
 // Its zero value is not usable; make one with [NewOpenCodeNotices].
 type OpenCodeNotices struct {
