@@ -103,7 +103,8 @@ character limit in the scope rules applies to comma-joined scopes.
 | `e2e`                  | `e2e/` process-level tests                                             |
 | `web`                  | `web/` preview SPA                                                     |
 | `apm-package`          | `apm-package/` packages this repo publishes                            |
-| `crabswarm-mcp`        | `apm-package/crabswarm-mcp/` harness wiring, hooks, skill, plugin      |
+| `crabswarm-mcp`        | `apm-package/crabswarm-mcp/` Claude Code wiring: skill, plugin         |
+| `crabswarm-mcp-shared` | `apm-package/crabswarm-mcp-shared/` Codex and OpenCode wiring          |
 | `crabswarm-issues-lint`| `apm-package/crabswarm-issues-lint/`                                   |
 | `instructions`         | `.apm/instructions/` (the AGENTS.md source) and `.claude/rules/`       |
 | `hk`                   | `hk.pkl`, `.hk/` hook wiring                                           |
