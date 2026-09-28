@@ -234,6 +234,9 @@ func opencodeHome(t *testing.T, plugin string) (home, configDir string) {
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("make plugin dir: %v", err)
 	}
+	if err := os.MkdirAll(opencodeTmpDir(home), 0o755); err != nil {
+		t.Fatalf("make the temporary directory: %v", err)
+	}
 	b, err := os.ReadFile(filepath.Join(append(
 		append([]string{repoRoot()}, opencodePluginDir...), plugin)...))
 	if err != nil {
@@ -243,12 +246,21 @@ func opencodeHome(t *testing.T, plugin string) (home, configDir string) {
 	return home, configDir
 }
 
+// opencodeTmpDir is the temporary directory of the OpenCode process under home.
+// OpenCode unpacks its native libraries there at every start and never removes
+// them, so a directory the test removes keeps a run from leaving them behind.
+func opencodeTmpDir(home string) string {
+	return filepath.Join(home, "tmp")
+}
+
 // opencodeEnviron is the environment an OpenCode process under home runs with:
-// the suite's scrubbed one, the home, the config every crabswarm verb reads,
-// the server password, and the built crabswarm first on PATH.
+// the suite's scrubbed one, the home and a temporary directory inside it, the
+// config every crabswarm verb reads, the server password, and the built
+// crabswarm first on PATH.
 func opencodeEnviron(home, cfgPath string, extra ...string) []string {
 	env := append(chatEnviron(),
 		"HOME="+home,
+		"TMPDIR="+opencodeTmpDir(home),
 		"XDG_CONFIG_HOME="+filepath.Join(home, ".config"),
 		"XDG_DATA_HOME="+filepath.Join(home, ".local", "share"),
 		"XDG_STATE_HOME="+filepath.Join(home, ".local", "state"),
@@ -265,6 +277,15 @@ func opencodeEnviron(home, cfgPath string, extra ...string) []string {
 func startOpenCodeMCP(t *testing.T, cfgPath string) string {
 	t.Helper()
 	addr := freeAddr(t)
+	startOpenCodeMCPOn(t, cfgPath, addr)
+	return addr
+}
+
+// startOpenCodeMCPOn is startOpenCodeMCP on an address the caller picked, and
+// returns the process, so a case can stop it and start another on the same
+// address.
+func startOpenCodeMCPOn(t *testing.T, cfgPath, addr string) *exec.Cmd {
+	t.Helper()
 	cmd := exec.Command(crabswarmBin, "mcp", "--config", cfgPath,
 		"--transport", "http", "--listen", addr)
 	cmd.Env = chatEnviron()
@@ -282,7 +303,7 @@ func startOpenCodeMCP(t *testing.T, cfgPath string) string {
 		_ = conn.Close()
 		return true
 	})
-	return addr
+	return cmd
 }
 
 // opencodeServer is one `opencode serve` started with the server plugin, the
@@ -353,14 +374,16 @@ func startOpenCodeServe(
 }
 
 // startOpenCodeTUI attaches a TUI to s, showing session, under a home of its
-// own whose tui.json loads the TUI plugin. It runs as the agent token names,
-// which is the only place the plugin finds its identity.
+// own whose tui.json loads the TUI plugin, and returns the process. It runs as
+// the agent token names, which is the only place the plugin finds its
+// identity. An empty session is a TUI that opens on its home screen, showing
+// none.
 func startOpenCodeTUI(
 	t *testing.T,
 	opencode string,
 	s *opencodeServer,
 	cfgPath, token, session string,
-) {
+) *exec.Cmd {
 	t.Helper()
 
 	home, configDir := opencodeHome(t, "opencode-tui.ts")
@@ -368,7 +391,11 @@ func startOpenCodeTUI(
 		`{"plugin": ["./skills/crabswarm-mcp-shared/opencode-tui.ts"]}`+"\n")
 
 	output := &syncBuffer{}
-	cmd := exec.Command(opencode, "attach", s.baseURL, "--session", session, "--print-logs")
+	args := []string{"attach", s.baseURL, "--print-logs"}
+	if session != "" {
+		args = append(args, "--session", session)
+	}
+	cmd := exec.Command(opencode, args...)
 	cmd.Dir = s.project
 	cmd.Env = opencodeEnviron(home, cfgPath,
 		chatTokenEnvVar+"="+token,
@@ -386,6 +413,7 @@ func startOpenCodeTUI(
 		}
 		stopProcess(t, cmd)
 	})
+	return cmd
 }
 
 // waitReady blocks until the server lists sessions, which it does only after
