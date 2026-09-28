@@ -230,9 +230,8 @@ var fakechatUploads atomic.Uint64
 // user and the time — and the line the room worded already says who wrote and
 // which tool answers them, so a third field would have nothing to carry.
 //
-// Anything but a 2xx is an error, as it is for the opencode relay: the mention
-// is still unread, and the caller comes back to it rather than counting it as
-// delivered to nobody.
+// Anything but a 2xx is an error: the mention is still unread, and the caller
+// comes back to it rather than counting it as delivered to nobody.
 func (f fakechat) Deliver(ctx context.Context, n Notice) error {
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)

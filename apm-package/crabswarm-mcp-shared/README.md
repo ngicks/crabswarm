@@ -113,8 +113,9 @@ crabswarm mcp --transport http --listen 127.0.0.1:47300
 One process serves a compose session. It serves MCP at `/mcp`, and the routes
 the OpenCode plugins use beside it. It reaches the daemon over the daemon's unix
 socket the way every crabswarm command does: `--sock`, `sock` in the crabswarm
-config, or the default `<runtime dir>/crabswarm/host/default.sock`, where the
-runtime dir is `$XDG_RUNTIME_DIR`.
+config, or the default `<runtime dir>/crabswarm/host/default.sock`. The runtime
+dir is `$XDG_RUNTIME_DIR`, else `/run/user/<uid>` when that directory exists,
+else `/tmp`.
 
 - **Listen address.** The Codex app server and the `opencode serve` reach the
   server at the URL in their configuration, `127.0.0.1:47300`. apm's Codex
@@ -273,7 +274,9 @@ an `X-Crabswarm-Token` header acts as the member that token names, and a
 request that names an OpenCode session a TUI registered acts as that TUI's
 member. Keep the listener on a network only the session's containers share:
 loopback when everything runs in one network namespace, and never an address
-another host can reach.
+another host can reach. `0.0.0.0` binds every interface of the network
+namespace the server runs in, so the OpenCode layout above belongs in a
+namespace whose interfaces reach the session's containers alone.
 
 ## How a mention reaches an agent
 
@@ -295,7 +298,7 @@ another host can reach.
   arrived during it as the next prompt. The server plugin appends what arrived
   mid-turn to the result of each tool call.
 
-The OpenCode plugins announce what they hand over in the same words:
+Each OpenCode plugin opens what it hands over with a notice of its own:
 
 | Plugin | When | Notice |
 | --- | --- | --- |
@@ -318,10 +321,13 @@ apm-package/crabswarm-mcp-shared/
 ## Verifying a change
 
 `e2e/crabswarm/mcp_package_test.go` pins the declared server: the name, the
-transport, the URL and the targets. `apm_package_test.go` pins the files the
+transport, the URL and the targets. It also runs the two command lines this
+README launches, `crabswarm mcp --transport http --listen` and
+`crabswarm mcp codex-proxy`, against the built binary. `apm_package_test.go` pins the files the
 skill directory ships and the notices the two plugins carry.
 `chat_codex_shared_test.go` runs Codex replicas through real
 `crabswarm mcp codex-proxy` processes against a fake app server.
-`chat_opencode_test.go` runs the `opencode` on `PATH`, when there is one, as a
-shared server with an attached TUI, and watches both plugins attend, report and
-deliver; without `opencode` the case is skipped.
+`chat_opencode_test.go` and `chat_opencode_shared_test.go` run the `opencode` on
+`PATH`, when there is one, as a shared server with one or two attached TUIs, and
+watch both plugins attend, report and deliver; without `opencode` the cases are
+skipped.

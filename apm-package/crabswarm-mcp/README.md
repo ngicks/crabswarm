@@ -343,7 +343,10 @@ Earlier versions of this package targeted Codex and OpenCode as well:
   `crabswarm-mcp-shared` now, which ships no hooks.
 - Codex and OpenCode got a stdio `crabswarm-mcp` server, in `.codex/config.toml`
   and a project's `opencode.json`. Installing `crabswarm-mcp-shared` writes its
-  remote entry under the same name in its place.
+  remote entry under the same name in its place. apm writes `opencode.json`
+  only in a project that has an `.opencode/` directory, so replace any other
+  stdio entry by hand with the remote one the `crabswarm-mcp-shared` README
+  shows.
 - OpenCode's `opencode.json` named `./skills/crabswarm-mcp/opencode.ts` or
   `./.agents/skills/crabswarm-mcp/opencode.ts` as a plugin. Remove that line and
   name the plugins `crabswarm-mcp-shared` ships instead.
