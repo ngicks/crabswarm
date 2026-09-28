@@ -68,18 +68,18 @@ export const CrabswarmChatShared = async ({ client }: { client: Client }) => {
   let base: URL | undefined
 
   // Only a session a person drives has a member to read for. A subagent's
-  // session carries a parentID, and no TUI ever registers one.
-  const topLevel = new Map<string, Promise<boolean>>()
-  const isTopLevel = (sessionID: string) => {
-    let known = topLevel.get(sessionID)
-    if (!known) {
-      known = client.session
-        .get({ path: { id: sessionID } })
-        .then((r) => !r.data?.parentID)
-        .catch(() => false)
-      topLevel.set(sessionID, known)
-    }
-    return known
+  // session carries a parentID, and no TUI ever registers one. Only what the
+  // server answered is kept: a session it could not describe is read for no
+  // member this time and asked about again on its next tool call.
+  const topLevel = new Map<string, boolean>()
+  const isTopLevel = async (sessionID: string): Promise<boolean> => {
+    const known = topLevel.get(sessionID)
+    if (known !== undefined) return known
+    const r = await client.session.get({ path: { id: sessionID } }).catch(() => undefined)
+    if (!r?.data) return false
+    const top = !r.data.parentID
+    topLevel.set(sessionID, top)
+    return top
   }
 
   // read returns what the member showing sessionID has unread, marked read, or

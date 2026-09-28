@@ -272,11 +272,16 @@ that link.
 The server checks no credential. Anything that reaches the listener and sends
 an `X-Crabswarm-Token` header acts as the member that token names, and a
 request that names an OpenCode session a TUI registered acts as that TUI's
-member. Keep the listener on a network only the session's containers share:
-loopback when everything runs in one network namespace, and never an address
-another host can reach. `0.0.0.0` binds every interface of the network
-namespace the server runs in, so the OpenCode layout above belongs in a
-namespace whose interfaces reach the session's containers alone.
+member. `POST /opencode/sessions/{id}/read`, the route the server plugin reads
+mid-turn messages through, takes the session id as its only credential,
+because the plugin runs inside `opencode serve` and holds no token. Anything
+that reaches the listener and knows a session id reads the unread messages of
+the member that owns the session, and marks them read. Keep the listener on a
+network only the session's containers share: loopback when everything runs in
+one network namespace, and never an address another host can reach. `0.0.0.0`
+binds every interface of the network namespace the server runs in, so the
+OpenCode layout above belongs in a namespace whose interfaces reach the
+session's containers alone.
 
 ## How a mention reaches an agent
 
@@ -287,9 +292,13 @@ namespace whose interfaces reach the session's containers alone.
 - **Codex.** The server holds one connection to the app server that
   `CRABSWARM_CODEX_APP_SERVER` names. A mention becomes a turn of its own on
   the thread the replica's TUI is in, and follows the TUI through a new,
-  resumed or forked thread. A mention for a replica that is working, or
-  waiting on a dialog, is held until the replica is done. Each replica's state
-  comes off the app server's feed for its own threads.
+  resumed or forked thread. A thread keeps the identity of the replica whose
+  TUI loaded it: when another replica resumes a thread the app server still
+  has loaded, the app server does not restart the thread's MCP session, and a
+  tool call there still acts as the replica that loaded it. A mention for a
+  replica that is working, or waiting on a dialog, is held until the replica
+  is done. Each replica's state comes off the app server's feed for its own
+  threads.
 - **OpenCode.** The TUI plugin holds a notice stream open on the server, which
   keeps the member attending and carries each mention. The plugin prompts the
   session its TUI shows with the notice, as a prompt of its own rather than
@@ -297,6 +306,22 @@ namespace whose interfaces reach the session's containers alone.
   also reports the session's state and, when a turn ends, hands over what
   arrived during it as the next prompt. The server plugin appends what arrived
   mid-turn to the result of each tool call.
+
+  A session belongs to the replica whose TUI showed it first. Every TUI can
+  open every session of the server, and a TUI that opens a session another
+  replica owns speaks for nobody there: its own member takes no part in that
+  session, and a tool call in it acts as the owner. The TUI prompts no notice
+  into that session, reports no state for it and reads nothing when its turns
+  end. A notice for its member that arrives meanwhile stays unread until a
+  turn ends in a session the replica owns. The session passes to the TUI that
+  registered it next once the owner's TUI shows another session or leaves the
+  room. The TUI plugin registers the session its TUI shows again every ten
+  seconds, so that TUI learns within ten seconds that the session is its own.
+
+  The server refuses a read of the `crabswarm://chat/members` resource over the
+  MCP session `opencode serve` shares: a resource read carries no arguments, so
+  nothing names the OpenCode session making it. The `chat_members` tool lists
+  the same members.
 
 Each OpenCode plugin opens what it hands over with a notice of its own:
 

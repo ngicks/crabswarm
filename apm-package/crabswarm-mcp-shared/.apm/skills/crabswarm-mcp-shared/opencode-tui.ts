@@ -7,11 +7,14 @@
 // crabswarm MCP server beside `opencode serve`, which keeps the member attending
 // and is the channel a mention reaches it through, and it tells that server
 // which session the TUI shows, so a tool call from that session acts as this
-// member. It also reports the session's state and hands over what arrived by
-// the time a turn ends. The delivery line opens with the `[crabswarm chat]`
-// marker every notice from the room opens with, and it names the `chat_send`
-// tool those notices name. It carries the messages themselves because the read
-// that found them has already marked them read.
+// member. Every TUI can open every session of the server, and a session belongs
+// to the TUI that registered it first, so the TUI speaks for its member only in
+// a session it owns: only there are notices prompted, the session's state
+// reported, and what arrived by the time a turn ends handed over. The delivery
+// line opens with the `[crabswarm chat]` marker every notice from the room
+// opens with, and it names the `chat_send` tool those notices name. It carries
+// the messages themselves because the read that found them has already marked
+// them read.
 //
 // CRABSWARM_OPENCODE_SERVER is the URL of the `opencode serve` the TUI attached
 // to. The MCP server's address is read off that server's config, where the
@@ -35,6 +38,13 @@ const TOKEN_HEADER = "X-Crabswarm-Token"
 
 // The TUI announces no route change, so the route is read this often.
 const ROUTE_POLL = 300
+// The session shown is registered again this often. The server tells no TUI
+// when a session's owner lets it go, so a TUI showing a session another TUI
+// owns learns that it is its own by registering it again.
+const REGISTER_AGAIN = 10_000
+// REGISTER_TIMEOUT bounds one registration, which state reports and notices
+// wait on.
+const REGISTER_TIMEOUT = 10_000
 // A dropped notice stream is opened again after RETRY_MIN, doubling up to
 // RETRY_MAX while it keeps failing.
 const RETRY_MIN = 1_000
@@ -114,16 +124,19 @@ const tui = async (api: Api) => {
   // reported is the state this plugin last reported, so a turn that says it is
   // busy at every step is reported working once.
   let reported: string | undefined
-  const report = (state: string) =>
+  const report = (sessionID: string, state: string) =>
     queue(async () => {
-      if (reported === state) return
+      if (reported === state || !(await owns(sessionID))) return
       if ((await chat("report-state", state)) !== undefined) reported = state
     })
 
-  // shown is the session this TUI shows and its notices go to: the last
-  // top-level session its route showed. A subagent's session is one the person
-  // looks into; the session they drive is still its parent.
+  // shown is the session this TUI shows: the last top-level session its route
+  // showed. A subagent's session is one the person looks into; the session they
+  // drive is still its parent.
   let shown: string | undefined
+  // owned is the session the server last answered is this TUI's own, which its
+  // notices go to.
+  let owned: string | undefined
 
   // prompt hands text to a session as a prompt of its own. Not through the
   // TUI's composer: submitting it would submit whatever the person had
@@ -142,24 +155,27 @@ const tui = async (api: Api) => {
   // it hands nothing over, and what it found becomes the next prompt.
   const atIdle = (sessionID: string) =>
     queue(async () => {
+      if (!(await owns(sessionID))) return
       const messages = await chat("read", "--quiet", "--done-when-empty")
       reported = messages === "" ? "done" : undefined
       if (messages) prompt(sessionID, `${DELIVERED_AT_IDLE}\n\n${messages}`)
     })
 
   // Every attached TUI hears every session's events, so only the session this
-  // one shows speaks for its member.
+  // one shows, and owns, speaks for its member.
   api.event.on("session.status", (event) => {
     const { sessionID, status } = event.properties
     if (!sessionID || sessionID !== shown) return
     if (status?.type === "idle") atIdle(sessionID)
-    else report("working")
+    else report(sessionID, "working")
   })
   api.event.on("permission.asked", (event) => {
-    if (event.properties.sessionID && event.properties.sessionID === shown) report("waiting")
+    const { sessionID } = event.properties
+    if (sessionID && sessionID === shown) report(sessionID, "waiting")
   })
   api.event.on("permission.replied", (event) => {
-    if (event.properties.sessionID && event.properties.sessionID === shown) report("working")
+    const { sessionID } = event.properties
+    if (sessionID && sessionID === shown) report(sessionID, "working")
   })
 
   // base is the directory the MCP server's routes sit in, beside its /mcp
@@ -194,33 +210,75 @@ const tui = async (api: Api) => {
     return new URL(".", mcp)
   }
 
+  // answered is the last answer a registration got, as the session and what
+  // the server said of it, so an answer the periodic registration repeats is
+  // logged once.
+  let answered: string | undefined
+  const heard = (sessionID: string, answer: string, level: string, message: string) => {
+    if (answered === `${sessionID} ${answer}`) return
+    answered = `${sessionID} ${answer}`
+    log(level, message)
+  }
+
+  // claim registers sessionID as the session this TUI shows, and reports
+  // whether the server answered that it is this TUI's own: 204 says so, and
+  // 202 says another TUI registered it first.
+  const claim = async (routes: URL, sessionID: string): Promise<boolean> => {
+    try {
+      const response = await fetch(new URL("opencode/session", routes), {
+        method: "PUT",
+        headers: { [TOKEN_HEADER]: token, "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionID }),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(REGISTER_TIMEOUT)]),
+      })
+      const body = await response.text()
+      switch (response.status) {
+        case 204:
+          heard(sessionID, "own", "info", `${sessionID} is this TUI's session in the crabswarm room`)
+          return true
+        case 202:
+          heard(sessionID, "another's", "info", `${sessionID} is another TUI's session in the ` +
+            "crabswarm room; this TUI speaks for nobody there")
+          return false
+        default:
+          heard(sessionID, `${response.status}`, "warn", `registering ${sessionID} with ` +
+            `crabswarm answered ${response.status}: ${body}`)
+          return false
+      }
+    } catch (err) {
+      if (!signal.aborted) {
+        heard(sessionID, "failed", "warn", `registering ${sessionID} with crabswarm failed: ${err}`)
+      }
+      return false
+    }
+  }
+
   // Registrations are sent one at a time, so the last session shown is the
-  // last one the server hears.
+  // last one the server hears. A session whose registration went unanswered is
+  // not this TUI's own, and neither is one registered on a stream that closed
+  // before the answer came.
   let registration: Promise<void> = Promise.resolve()
   const register = () => {
     registration = registration.then(async () => {
       const sessionID = shown
-      if (!sessionID || !base || !streaming) return
-      try {
-        const response = await fetch(new URL("opencode/session", base), {
-          method: "PUT",
-          headers: { [TOKEN_HEADER]: token, "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionID }),
-          signal,
-        })
-        if (response.status !== 204) {
-          log("warn", `registering ${sessionID} with crabswarm answered ` +
-            `${response.status}: ${await response.text()}`)
-        }
-      } catch (err) {
-        if (!signal.aborted) log("warn", `registering ${sessionID} with crabswarm failed: ${err}`)
-      }
+      const routes = base
+      if (!sessionID || !routes || !streaming) return
+      const own = await claim(routes, sessionID)
+      owned = own && streaming ? sessionID : undefined
     })
   }
 
-  // deliver prompts one notice into the session shown. With none shown yet it
-  // is dropped: the mention stays unread, and the read that ends the person's
-  // first turn hands it over.
+  // owns reports whether sessionID is this TUI's own once every registration
+  // sent so far is answered, so a turn in a session the TUI just moved to
+  // waits for the server's word on it.
+  const owns = async (sessionID: string) => {
+    await registration
+    return owned === sessionID
+  }
+
+  // deliver prompts one notice into the session shown, when it is this TUI's
+  // own. Otherwise the notice is dropped: the mention stays unread, and the
+  // read that ends the next turn in a session this TUI owns hands it over.
   const deliver = (line: string) => {
     let notice: { content?: unknown; from?: unknown }
     try {
@@ -231,13 +289,17 @@ const tui = async (api: Api) => {
     }
     const text = typeof notice?.content === "string" ? notice.content : ""
     if (!text) return
+    const from = typeof notice.from === "string" && notice.from ? ` from ${notice.from}` : ""
     const sessionID = shown
     if (!sessionID) {
-      const from = typeof notice.from === "string" && notice.from ? ` from ${notice.from}` : ""
       log("warn", `a chat notice${from} arrived before this TUI showed a session`)
       return
     }
-    prompt(sessionID, text)
+    void owns(sessionID).then((own) => {
+      if (own) prompt(sessionID, text)
+      else log("warn", `a chat notice${from} arrived while this TUI shows ${sessionID}, ` +
+        "a session it does not own")
+    })
   }
 
   const sleep = (ms: number) =>
@@ -253,7 +315,8 @@ const tui = async (api: Api) => {
 
   // listen holds the notice stream open for as long as the TUI runs. The
   // server forgets the session a member showed when its last stream closes, so
-  // every stream that opens registers it again.
+  // the TUI owns nothing from then on, and every stream that opens registers
+  // the session again.
   const listen = async () => {
     let delay = RETRY_MIN
     while (!signal.aborted) {
@@ -278,6 +341,8 @@ const tui = async (api: Api) => {
         log("warn", `the crabswarm notice stream failed: ${err}`)
       } finally {
         streaming = false
+        owned = undefined
+        answered = undefined
       }
       await sleep(delay)
       delay = Math.min(delay * 2, RETRY_MAX)
@@ -292,9 +357,9 @@ const tui = async (api: Api) => {
     return r.data.parentID ?? null
   }
 
-  // follow registers the session the route shows once it changes. A session
-  // the server could not describe is asked about again on the next poll, and
-  // logged once.
+  // follow registers the session the route shows as soon as it changes. A
+  // session the server could not describe is asked about again on the next
+  // poll, and logged once.
   let looked: string | undefined
   let unknown: string | undefined
   let following = false
@@ -322,8 +387,12 @@ const tui = async (api: Api) => {
     }
   }
 
-  const timer = setInterval(() => void follow(), ROUTE_POLL)
-  signal.addEventListener("abort", () => clearInterval(timer))
+  const routes = setInterval(() => void follow(), ROUTE_POLL)
+  const registrations = setInterval(register, REGISTER_AGAIN)
+  signal.addEventListener("abort", () => {
+    clearInterval(routes)
+    clearInterval(registrations)
+  })
   void follow()
   void listen()
 }
