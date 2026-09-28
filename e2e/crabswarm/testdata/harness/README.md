@@ -828,6 +828,45 @@ curl -s http://127.0.0.1:47410/config
   `enabled`. A process holding the server's URL reads the MCP server's address
   from it.
 
+## Pings on a streamable-HTTP MCP session
+
+`codex-mcp-http-keepalive.jsonl` and `opencode-mcp-http-keepalive.jsonl` record
+whether a harness answers the pings a streamable-HTTP MCP server sends on its
+session, captured 2026-09-28 with Codex 0.157.1 and OpenCode 1.18.32. The server
+was `crabswarm mcp --transport http` built with a three-second keepalive in
+place of the usual interval, and it attended no daemon. A throwaway Go program
+ran a logging reverse proxy in front of it and started each harness against the
+proxy:
+
+- Codex: `codex app-server` with a fresh `CODEX_HOME` whose `config.toml` held
+  only `[mcp_servers.crabswarm-mcp] url = "http://<proxy>/mcp"`, and one
+  `thread/start` carrying
+  `config: {"mcp_servers.crabswarm-mcp.http_headers.X-Crabswarm-Token": "tokA"}`
+  from a WebSocket client on its socket.
+- OpenCode: `opencode serve` under a fresh home, given the remote entry through
+  `OPENCODE_CONFIG_CONTENT` as above. It opened its MCP session once a request
+  had bootstrapped the instance.
+
+The program logged one JSON object per request and per event-stream line: `dir`
+(`client->server`, `server->client`, `response` or `stream-end`), the HTTP
+`method` or the request a line came `on`, the `Mcp-Session-Id` as `session`,
+the JSON-RPC message as `body` or `data`, and the time as `t`. After about 45
+seconds it sent `SIGKILL` to the harness's process group, so no `DELETE` was
+sent. Each fixture holds the lines picked from that log: the `GET` opening the
+session's event stream, the first three pings and their answers, and the end of
+the event stream at the kill.
+
+- Both harnesses hold a `GET` event stream open for the session, and the server
+  sends each ping there. Each ping was answered by a `POST` carrying
+  `{"result": {}}` under the ping's id within a few milliseconds. Codex
+  answered 14 pings and OpenCode 14 before the kill, and neither missed one.
+- The kill closed the event stream at once. Every ping after it failed with
+  `stream not connected`, and the server closed the session on the third
+  failure, 6 to 8 seconds after the kill. For Codex the member the header named
+  left the room with it.
+- `mcpServer/tool/call` naming a server the app server does not declare answered
+  `{"error": {"code": -32603, "message": "unknown MCP server 'not-crabswarm'"}}`.
+
 ## fakechat plugin channel
 
 `fakechat-page.html`, `fakechat-upload.http`,

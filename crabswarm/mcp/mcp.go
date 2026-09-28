@@ -97,7 +97,9 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 func newServer(
 	logger *slog.Logger, sockPath, token string, getenv func(string) string,
 ) (*Server, error) {
-	h, err := newHost(logger, sockPath, getenv)
+	// Nothing is pinged: the one session ends with the harness's end of stdio,
+	// which closes as the harness exits however it exits.
+	h, err := newHost(logger, sockPath, getenv, 0)
 	if err != nil {
 		return nil, err
 	}

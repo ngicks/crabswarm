@@ -158,13 +158,23 @@ func pipe(
 
 // dropOwnAnswer passes on every app server message except the answers to the
 // requests the proxy made itself, which the TUI never asked for.
+//
+// A focus call the app server refused is a warning rather than a detail. The
+// usual cause is a --server-name naming a server other than crabswarm's: one the
+// app server does not declare, or one without the focus tool. The identity the
+// proxy stamps on every thread then goes to that server too.
 func (r *relay) dropOwnAnswer(typ websocket.MessageType, msg []byte) [][]byte {
-	if typ == websocket.MessageText && ownAnswer(msg) {
-		r.logger.Debug("codex proxy: dropped the answer to its own request",
-			"answer", string(msg))
+	if typ != websocket.MessageText || !ownAnswer(msg) {
+		return [][]byte{msg}
+	}
+	if failed := answerError(msg); failed != nil {
+		r.logger.Warn("codex proxy: the app server refused the focus call on a resumed thread; "+
+			"check that the server name is the one the app server declares crabswarm's MCP server under",
+			"server", r.server, "error", string(failed))
 		return nil
 	}
-	return [][]byte{msg}
+	r.logger.Debug("codex proxy: dropped the answer to its own request", "answer", string(msg))
+	return nil
 }
 
 // stamper rewrites the thread requests of one TUI connection.

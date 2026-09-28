@@ -527,6 +527,120 @@ func TestHTTPServer_OpenCodeMemberLeavesWithItsLastStream(t *testing.T) {
 	assert.Equal(t, c.show(t, tokenA, `{"sessionID":"ses_a"}`), http.StatusConflict)
 }
 
+// sendsAs asserts that a call naming openCodeSession acts as the member token
+// names: the message goes out with that token.
+func sendsAs(
+	t *testing.T,
+	c openCodeRoom,
+	shared *mcpsdk.ClientSession,
+	openCodeSession, token string,
+) {
+	t.Helper()
+	before := len(c.chat.sentSoFar())
+	res := send(t, shared, openCodeSession, "from "+openCodeSession)
+	assert.Assert(t, !res.IsError, "the tool answered %q", toolText(t, res))
+	sent := c.chat.sentSoFar()
+	assert.Equal(t, len(sent), before+1)
+	assert.Equal(t, sent[before].Token, token, "a call from %s", openCodeSession)
+}
+
+// readsAs asserts that the server's plugin reading for openCodeSession reads
+// what the member token names has unread.
+func readsAs(t *testing.T, c openCodeRoom, openCodeSession, token string) {
+	t.Helper()
+	text := "for " + token
+	c.chat.setUnread(token, &chatv1.Message{
+		Seq: 1, From: member("frontend", "bob", testRoom), Text: text,
+	})
+	status, _, body := c.read(t, openCodeSession)
+	assert.Equal(t, status, http.StatusOK)
+	assert.Assert(
+		t,
+		strings.Contains(body, text),
+		"the read of %s answered %q",
+		openCodeSession,
+		body,
+	)
+}
+
+// A TUI moving to a session another TUI showed first takes nothing over. Its
+// registration is answered 202, the calls from the session and the reads for it
+// stay the first TUI's member's, and registering again changes neither. The
+// first TUI registering the session again keeps it.
+func TestHTTPServer_OpenCodeASessionStaysWithTheTUIThatShowedItFirst(t *testing.T) {
+	c := startOpenCodeRoom(t)
+	sentTool(t, c.srv)
+	c.listen(t, tokenA)
+	c.listen(t, tokenB)
+	waitFor(t, "both agents never attended", func() bool {
+		return c.chat.attendCount(tokenA) == 1 && c.chat.attendCount(tokenB) == 1
+	})
+	shared := connectHTTPAs(t, c.endpoint, "", "opencode")
+
+	assert.Equal(t, c.show(t, tokenA, `{"sessionID":"ses_x"}`), http.StatusNoContent)
+	status, contentType, body := answer(t, c.request(t, http.MethodPut, "/opencode/session", tokenB,
+		strings.NewReader(`{"sessionID":"ses_x"}`)))
+	assert.Equal(t, status, http.StatusAccepted)
+	assert.Equal(t, contentType, "text/plain; charset=utf-8")
+	assert.Assert(t, strings.Contains(body, cli.Address(selfA)), "the 202 answered %q", body)
+	sendsAs(t, c, shared, "ses_x", tokenA)
+	readsAs(t, c, "ses_x", tokenA)
+
+	assert.Equal(t, c.show(t, tokenB, `{"sessionID":"ses_x"}`), http.StatusAccepted)
+	assert.Equal(t, c.show(t, tokenA, `{"sessionID":"ses_x"}`), http.StatusNoContent)
+	sendsAs(t, c, shared, "ses_x", tokenA)
+
+	assert.Equal(t, c.show(t, tokenB, `{"sessionID":"ses_b"}`), http.StatusNoContent)
+	sendsAs(t, c, shared, "ses_x", tokenA)
+	sendsAs(t, c, shared, "ses_b", tokenB)
+}
+
+// A session whose owner moves to another one passes to the TUI that showed it
+// next, which then registers it as its own. The first TUI coming back to it is
+// the one that takes nothing over.
+func TestHTTPServer_OpenCodeASessionPassesOnWhenItsOwnerMovesAway(t *testing.T) {
+	c := startOpenCodeRoom(t)
+	sentTool(t, c.srv)
+	c.listen(t, tokenA)
+	c.listen(t, tokenB)
+	waitFor(t, "both agents never attended", func() bool {
+		return c.chat.attendCount(tokenA) == 1 && c.chat.attendCount(tokenB) == 1
+	})
+	shared := connectHTTPAs(t, c.endpoint, "", "opencode")
+
+	assert.Equal(t, c.show(t, tokenA, `{"sessionID":"ses_x"}`), http.StatusNoContent)
+	assert.Equal(t, c.show(t, tokenB, `{"sessionID":"ses_x"}`), http.StatusAccepted)
+	assert.Equal(t, c.show(t, tokenA, `{"sessionID":"ses_a"}`), http.StatusNoContent)
+
+	sendsAs(t, c, shared, "ses_x", tokenB)
+	readsAs(t, c, "ses_x", tokenB)
+	assert.Equal(t, c.show(t, tokenB, `{"sessionID":"ses_x"}`), http.StatusNoContent)
+	assert.Equal(t, c.show(t, tokenA, `{"sessionID":"ses_x"}`), http.StatusAccepted)
+	sendsAs(t, c, shared, "ses_x", tokenB)
+}
+
+// A session passes on the same way when its owner's last notice stream closes.
+func TestHTTPServer_OpenCodeASessionPassesOnWhenItsOwnersLastStreamCloses(t *testing.T) {
+	c := startOpenCodeRoom(t)
+	sentTool(t, c.srv)
+	sa := c.listen(t, tokenA)
+	c.listen(t, tokenB)
+	waitFor(t, "both agents never attended", func() bool {
+		return c.chat.attendCount(tokenA) == 1 && c.chat.attendCount(tokenB) == 1
+	})
+	shared := connectHTTPAs(t, c.endpoint, "", "opencode")
+
+	assert.Equal(t, c.show(t, tokenA, `{"sessionID":"ses_x"}`), http.StatusNoContent)
+	assert.Equal(t, c.show(t, tokenB, `{"sessionID":"ses_x"}`), http.StatusAccepted)
+
+	sa.close(t)
+	waitFor(t, "the closed stream still keeps the member", func() bool {
+		return streamsOf(c.srv, tokenA) == 0
+	})
+	sendsAs(t, c, shared, "ses_x", tokenB)
+	readsAs(t, c, "ses_x", tokenB)
+}
+
 // A TUI's plugin may reach the listener from another network namespace, under
 // a host name that is not loopback. The MCP handler refuses such a request; the
 // routes beside it answer it.

@@ -23,8 +23,16 @@ import (
 // below: it holds a notice stream open, which keeps the member in the room and
 // is the channel a mention reaches it through, and it says which OpenCode
 // session the TUI shows. The server's plugin adds the OpenCode session making a
-// call to the call's arguments, and the call acts as the member whose TUI shows
-// that session.
+// call to the call's arguments, and the call acts as the member that owns that
+// session.
+//
+// Every attached TUI can show any session of the server, so several may show
+// one at once. The one that registered it first among those showing it now
+// owns it, and another TUI moving to it takes nothing over: the session stays
+// the agent's whose TUI it was, and the other TUI's member has no session of
+// its own until it shows one nobody owns. Ownership passes to the next of the
+// TUIs still showing the session when its owner shows another or its last
+// notice stream closes.
 //
 // The routes sit beside the MCP handler rather than behind it. The TUI's plugin
 // may reach this listener from another network namespace, under a host name
@@ -36,10 +44,11 @@ const (
 	// [TokenHeader] names the member.
 	openCodeNoticesRoute = "GET /opencode/notices"
 	// openCodeSessionRoute records the OpenCode session a TUI shows, in an
-	// [openCodeShowing] body. Its [TokenHeader] names the member.
+	// [openCodeShowing] body. Its [TokenHeader] names the member. It answers
+	// 204 when that member owns the session and 202 when another one does.
 	openCodeSessionRoute = "PUT /opencode/session"
-	// openCodeReadRoute reads as the member whose TUI shows the session in the
-	// path, which the server's plugin hands to a turn in progress.
+	// openCodeReadRoute reads as the member that owns the session in the path,
+	// which the server's plugin hands to a turn in progress.
 	openCodeReadRoute = "POST /opencode/sessions/{sessionID}/read"
 )
 
@@ -107,20 +116,38 @@ var errNoOpenCodeSession = errors.New("no crabswarm identity: this call came fro
 	"which names the OpenCode session making the call and which the crabswarm " +
 	"plugin inside opencode serve adds")
 
-// openCodeCaller is the member whose TUI shows the OpenCode session ctx names.
-// It runs with mu held.
+// openCodeCaller is the member that owns the OpenCode session ctx names. It
+// runs with mu held.
 func (s *HTTPServer) openCodeCaller(ctx context.Context) (*Member, error) {
 	session, ok := ctx.Value(openCodeSessionKey{}).(string)
 	if !ok {
 		return nil, errNoOpenCodeSession
 	}
-	a := s.openCodeSessions[session]
+	a := s.openCodeOwner(session)
 	if a == nil {
 		return nil, fmt.Errorf("this OpenCode session (%q) has no crabswarm identity: "+
 			"no attached TUI registered it as the session it shows, "+
 			"and a subagent's session is never registered", session)
 	}
 	return a.member, nil
+}
+
+// openCodeOwner is the member whose TUI registered session first among the
+// TUIs showing it now, or nil when none shows it. It runs with mu held.
+func (s *HTTPServer) openCodeOwner(session string) *attendee {
+	if session == "" {
+		return nil
+	}
+	var owner *attendee
+	for _, a := range s.members {
+		if a.openCodeSession != session {
+			continue
+		}
+		if owner == nil || a.openCodeShownAt < owner.openCodeShownAt {
+			owner = a
+		}
+	}
+	return owner
 }
 
 // routeOpenCode serves the routes a TUI's plugin and the server's plugin reach
@@ -187,8 +214,9 @@ func (s *HTTPServer) attachStream(
 // it was the last thing keeping it there.
 //
 // The OpenCode session the member's TUI showed goes with its last stream: a TUI
-// with no stream open is one nothing reaches, and a call naming its session
-// acts as nobody until the TUI registers again.
+// with no stream open is one nothing reaches. A call naming that session acts
+// as the member of the TUI that registered it next among those still showing
+// it, or as nobody until a TUI registers it again.
 func (s *HTTPServer) detachStream(a *attendee, stream *harnessctl.OpenCodeStream) {
 	stream.Detach()
 	s.mu.Lock()
@@ -217,6 +245,12 @@ const maxShowingBody = 4 << 10
 // shows. It is refused while no notice stream is open for that member: the
 // session is where its notices go and where its calls come from, and a member
 // nothing keeps in the room has neither.
+//
+// A session the member owns is answered 204. One another member owns is
+// recorded all the same, since it is what decides who owns the session once
+// that member moves on, and answered 202: the calls from it act as the owner,
+// and the plugin is the one to decide what its TUI does with a notice
+// meanwhile.
 func (s *HTTPServer) recordShowing(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get(TokenHeader)
 	if token == "" {
@@ -233,47 +267,66 @@ func (s *HTTPServer) recordShowing(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "the body names no sessionID", http.StatusBadRequest)
 		return
 	}
-	if !s.show(token, showing.SessionID) {
+	shown, owner := s.show(token, showing.SessionID)
+	switch {
+	case !shown:
 		http.Error(w, "no notice stream is open for this "+TokenHeader+
 			"; hold GET /opencode/notices open first", http.StatusConflict)
-		return
+	case owner == nil:
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		name := cli.Address(owner.member.selfMember())
+		if name == "" {
+			name = "another member"
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = fmt.Fprintf(w, "OpenCode session %q belongs to %s, whose TUI showed it first; "+
+			"a call from it acts as that member\n", showing.SessionID, name)
 	}
-	w.WriteHeader(http.StatusNoContent)
 }
 
-// show records that the TUI of the member token names shows session, and
-// reports false when no notice stream is open for token. A session another TUI
-// showed until now is this one's from here on.
-func (s *HTTPServer) show(token, session string) bool {
+// show records that the TUI of the member token names shows session. It
+// reports false when no notice stream is open for token, and otherwise the
+// member that owns session when that is another one.
+//
+// Registering the session the TUI already shows keeps the moment it first
+// did: the plugin may register one session again, as it does whenever it opens
+// another notice stream, and doing so must not hand the session to a TUI that
+// moved to it later.
+func (s *HTTPServer) show(token, session string) (bool, *attendee) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a := s.members[token]
 	if a == nil || a.streams == 0 {
-		return false
+		return false, nil
 	}
-	s.forgetShowing(a)
-	a.openCodeSession = session
-	s.openCodeSessions[session] = a
-	return true
+	if a.openCodeSession != session {
+		a.openCodeSession = session
+		a.openCodeShownAt = s.nextSeen()
+	}
+	if owner := s.openCodeOwner(session); owner != a {
+		return true, owner
+	}
+	return true, nil
 }
 
-// forgetShowing drops the OpenCode session a's TUI showed, unless another TUI
-// has shown it since. It runs with mu held.
+// forgetShowing drops the OpenCode session a's TUI showed, which passes to the
+// TUI that registered it next among those still showing it. It runs with mu
+// held.
 func (s *HTTPServer) forgetShowing(a *attendee) {
-	if a.openCodeSession != "" && s.openCodeSessions[a.openCodeSession] == a {
-		delete(s.openCodeSessions, a.openCodeSession)
-	}
 	a.openCodeSession = ""
+	a.openCodeShownAt = 0
 }
 
-// readShowing reads as the member whose TUI shows the session in the path, and
+// readShowing reads as the member that owns the session in the path, and
 // answers with exactly what `crabswarm chat read --quiet` prints for that
 // member. Nothing to read is 204, a session no TUI shows 404, a member not in
 // the room 503, and a read the daemon failed 502.
 func (s *HTTPServer) readShowing(w http.ResponseWriter, r *http.Request) {
 	session := r.PathValue("sessionID")
 	s.mu.Lock()
-	a := s.openCodeSessions[session]
+	a := s.openCodeOwner(session)
 	s.mu.Unlock()
 	if a == nil {
 		http.Error(w, fmt.Sprintf("OpenCode session %q has no crabswarm identity", session),

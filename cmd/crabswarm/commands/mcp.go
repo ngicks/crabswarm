@@ -37,30 +37,33 @@ func mcpCmd(parent *cobra.Command, flagSock, flagConfig *string) {
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve crabswarm's verbs as MCP tools over stdio or HTTP",
-		Long: `mcp runs the per-agent MCP server a harness starts as its own stdio
-subprocess, offering crabswarm's verbs as tools instead of commands an agent
-has to remember to type.
+		Long: `mcp runs crabswarm's MCP server, which offers crabswarm's verbs to an agent
+as tools instead of commands it has to remember to type. Over stdio, the
+default, it serves one agent as the subprocess that agent's harness starts for
+it. With --transport http it serves many agents at once on --listen, for a
+harness server that hosts several of them, such as a shared "codex app-server"
+or "opencode serve".
 
-Chat is the first family of them. The server attends the room as it starts and
-holds that attendance for the whole session, so the room has the member before
-its first turn rather than from whenever it first says something — and has it
-again once a daemon that went away comes back.
+Chat is the first family of them. An agent attends the room as soon as its
+session opens and holds that attendance for as long as the session runs, so
+the room has the member before its first turn rather than from whenever it
+first says something — and has it again once a daemon that went away comes
+back.
 
-It is configured, not typed: the harness spawns it and speaks MCP to it, so
-stdout carries the protocol and nothing else. Logging goes to stderr, warnings
-and above by default and whatever --log asks for otherwise, which leaves the
-stream intact either way.
+It is configured, not typed: the harness starts it or connects to it and
+speaks MCP. Over stdio, stdout carries the protocol and nothing else. Logging
+goes to stderr, warnings and above by default and whatever --log asks for
+otherwise, which leaves the stream intact either way.
 
-The identity token is resolved exactly as in every chat member verb, so a
-server configured with no token at all still inherits the one cmdman gave the
-agent. One that resolves none still serves, and every tool answers with what is
-missing.
+Over stdio the identity token is resolved exactly as in every chat member verb,
+so a server configured with no token at all still inherits the one cmdman gave
+the agent. One that resolves none still serves, and every tool answers with
+what is missing.
 
-With --transport http it serves many sessions at once on --listen, at the /mcp
-path, for a harness server that hosts several agents. Each session names the
-member it acts as in its X-Crabswarm-Token request header, and a token attends
-the room for as long as it has a session open. A session without the header
-acts as nobody, and its tools say so. --token has no meaning there.`,
+Over http the server answers at the /mcp path. Each session names the member it
+acts as in its X-Crabswarm-Token request header, and a token attends the room
+for as long as it has a session open. A session without the header acts as
+nobody, and its tools say so. --token has no meaning there.`,
 		Example: `  crabswarm mcp
   crabswarm mcp --sock /run/user/1000/crabswarm/daemon.sock
   crabswarm mcp --transport http --listen 127.0.0.1:7801`,

@@ -37,6 +37,18 @@ var errNoTokenHeader = errors.New("no chat identity token: this MCP session sent
 // that never does from being held open for nothing.
 const readHeaderTimeout = 10 * time.Second
 
+// httpKeepAlive is how often every HTTP session is pinged. A client that goes
+// away without the DELETE that ends its session — killed, or its host gone —
+// leaves nothing else behind that says so, and its member would attend for as
+// long as the server runs. A session that leaves [keepAliveFailures] pings in a
+// row unanswered is closed, which releases it like a DELETE does, so such a
+// member leaves about a minute and a half after its client did.
+//
+// A ping travels on the event stream a client holds open for its session, and
+// both Codex and OpenCode hold one open and answer every ping on it, so a live
+// session is never closed by this.
+const httpKeepAlive = 30 * time.Second
+
 // HTTPServer serves MCP sessions over streamable HTTP, many at once, and
 // attends the room once per identity token among them.
 //
@@ -56,8 +68,9 @@ const readHeaderTimeout = 10 * time.Second
 // A shared OpenCode server is the exception to a session naming its member: it
 // opens one session for every TUI attached to it. Each TUI's plugin registers
 // over the routes beside [HTTPPath] instead, and every tool call on an OpenCode
-// session acts as the member whose TUI shows the OpenCode session the call
-// names. See opencode.go.
+// session acts as the member that owns the OpenCode session the call names:
+// the one whose TUI registered it first among the TUIs showing it now. See
+// opencode.go.
 type HTTPServer struct {
 	host *host
 
@@ -70,9 +83,6 @@ type HTTPServer struct {
 	members map[string]*attendee
 	// sessions are the sessions bound so far, and what each acts as.
 	sessions map[*mcpsdk.ServerSession]*binding
-	// openCodeSessions are the members an OpenCode TUI registered, by the
-	// OpenCode session the TUI shows.
-	openCodeSessions map[string]*attendee
 	// seen counts the moments a member is seen somewhere, so that of two
 	// moments the later one has the greater number.
 	seen uint64
@@ -97,8 +107,11 @@ type attendee struct {
 	streams  int
 	openCode *harnessctl.OpenCodeNotices
 	// openCodeSession is the OpenCode session the member's TUI last said it
-	// shows, "" before it said one.
+	// shows, "" before it said one and once its last notice stream closed.
 	openCodeSession string
+	// openCodeShownAt is the moment the TUI registered openCodeSession, which
+	// orders the TUIs showing one session: the earliest owns it.
+	openCodeShownAt uint64
 	// scoped is the harness the member is reached through on each harness
 	// server hosting several agents, by that server's unscoped harness. It is
 	// made once per server, so the member keeps one feed there however often
@@ -145,17 +158,27 @@ func NewHTTP(
 	sockPath string,
 	getenv func(string) string,
 ) (*HTTPServer, error) {
-	h, err := newHost(logger, sockPath, getenv)
+	return newHTTP(logger, sockPath, getenv, httpKeepAlive)
+}
+
+// newHTTP is [NewHTTP] pinging its sessions every keepAlive, so a test can
+// watch a session whose client vanished being closed in milliseconds.
+func newHTTP(
+	logger *slog.Logger,
+	sockPath string,
+	getenv func(string) string,
+	keepAlive time.Duration,
+) (*HTTPServer, error) {
+	h, err := newHost(logger, sockPath, getenv, keepAlive)
 	if err != nil {
 		return nil, err
 	}
 	s := &HTTPServer{
-		host:             h,
-		members:          map[string]*attendee{},
-		sessions:         map[*mcpsdk.ServerSession]*binding{},
-		openCodeSessions: map[string]*attendee{},
-		turns:            map[string]uint64{},
-		pings:            map[string]string{},
+		host:     h,
+		members:  map[string]*attendee{},
+		sessions: map[*mcpsdk.ServerSession]*binding{},
+		turns:    map[string]uint64{},
+		pings:    map[string]string{},
 	}
 	// One detector for every session, so the sessions hosted by one app server
 	// share one connection to it, and the turns it reports reach the members.
@@ -191,7 +214,7 @@ func (s *HTTPServer) AnnounceOnRosterChange(uri string) {
 // MemberOf is the member a tool called over session acts as: the one its token
 // names. A session that named no token answers with what is missing.
 //
-// A call on an OpenCode session acts as the member whose TUI shows the OpenCode
+// A call on an OpenCode session acts as the member that owns the OpenCode
 // session the call named, which ctx carries, and never as the session's own
 // token: one such session carries the calls of every TUI attached to the
 // server.
@@ -220,8 +243,10 @@ const methodInitialize = "initialize"
 //
 // Only initialize binds. A client may probe the server before it initializes —
 // the SDK's own client asks server/discover first — and the handler gives that
-// probe a session of its own that its client never closes. A probe binding its
-// token would keep the member in the room after every real session was gone.
+// probe a session of its own that its client never closes. The server closes it
+// once it has left [keepAliveFailures] pings unanswered, which the SDK logs as
+// a failure. A probe binding its token would keep the member in the room until
+// then, after every real session was gone.
 //
 // The binding comes before the handler, so a member exists by the time the
 // session's first call needs one. The harness is read after it, because the
@@ -269,8 +294,8 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 	}
 	s.sessions[session] = b
 	s.running.Go(func() error {
-		// A session ends however its client left — a DELETE, or the server
-		// closing it — and Wait returns on either.
+		// A session ends however its client left — a DELETE, pings left
+		// unanswered, or the server closing it — and Wait returns on each.
 		_ = session.Wait()
 		s.release(session)
 		return nil

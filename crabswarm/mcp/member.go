@@ -410,6 +410,10 @@ func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error
 		return false, err
 	}
 	m.attendanceLanded(attendance.Self())
+	// The daemon records a fresh attendance as done, and the room reads it so
+	// until somebody says otherwise. What the feed last said goes out at once
+	// rather than an interval later.
+	m.resendLastHarnessState(ctx)
 	if reopened {
 		m.announce(ctx)
 	}
@@ -579,10 +583,17 @@ func (m *Member) watchUntil(
 // that interrupts nobody mid-turn. A member on its way out says nothing at all:
 // what the feed had queued is drained as it closes, against a daemon connection
 // closing with it.
+//
+// A state the feed carries while the attendance is down is only remembered:
+// the daemon refuses a report about a member the room does not have, and the
+// attendance landing says what was remembered as its first word.
 func (m *Member) reportHarnessState(ctx context.Context, state chatv1.HarnessState) {
 	m.reportMu.Lock()
 	defer m.reportMu.Unlock()
 	m.reportedState = state
+	if !m.attending() {
+		return
+	}
 	m.sendHarnessState(ctx, state)
 }
 
@@ -623,8 +634,8 @@ func (m *Member) resendHarnessState(ctx context.Context) {
 //
 // Nothing is sent while the attendance is down: the daemon refuses a state
 // reported about a member the room does not have, so the attempt would fail and
-// say so every interval for as long as the daemon stayed away. The next tick
-// catches the attendance that comes back, which is the case this exists for.
+// say so every interval for as long as the daemon stayed away. The attendance
+// that comes back calls this as it lands.
 func (m *Member) resendLastHarnessState(ctx context.Context) {
 	if !m.attending() {
 		return

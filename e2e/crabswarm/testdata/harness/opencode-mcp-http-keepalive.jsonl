@@ -1,0 +1,9 @@
+{"dir":"client-\u003eserver","method":"GET","path":"/mcp","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:58:38.612","token":"","ua":"opencode/1.18.32"}
+{"ctype":"text/event-stream","dir":"response","on":"GET","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","status":200,"t":"10:58:38.612"}
+{"data":{"jsonrpc":"2.0","id":1,"method":"ping"},"dir":"server-\u003eclient","on":"GET","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:58:41.568"}
+{"body":{"result":{},"jsonrpc":"2.0","id":1},"dir":"client-\u003eserver","method":"POST","path":"/mcp","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:58:41.580","token":"","ua":"opencode/1.18.32"}
+{"data":{"jsonrpc":"2.0","id":2,"method":"ping"},"dir":"server-\u003eclient","on":"GET","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:58:44.568"}
+{"body":{"result":{},"jsonrpc":"2.0","id":2},"dir":"client-\u003eserver","method":"POST","path":"/mcp","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:58:44.572","token":"","ua":"opencode/1.18.32"}
+{"data":{"jsonrpc":"2.0","id":3,"method":"ping"},"dir":"server-\u003eclient","on":"GET","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:58:47.568"}
+{"body":{"result":{},"jsonrpc":"2.0","id":3},"dir":"client-\u003eserver","method":"POST","path":"/mcp","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:58:47.572","token":"","ua":"opencode/1.18.32"}
+{"dir":"stream-end","err":"context canceled","on":"GET","session":"2NSNAM4TLYKW226Y5ZZETFPYIC","t":"10:59:20.656"}

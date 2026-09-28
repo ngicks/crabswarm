@@ -135,6 +135,19 @@ func ownAnswer(msg []byte) bool {
 	return strings.HasPrefix(id, focusIdPrefix)
 }
 
+// answerError is the error member of the answer msg, or nil when msg carries
+// none.
+func answerError(msg []byte) json.RawMessage {
+	var answer struct {
+		Error json.RawMessage `json:"error"`
+	}
+	if json.Unmarshal(msg, &answer) != nil || len(answer.Error) == 0 ||
+		bytes.Equal(answer.Error, []byte("null")) {
+		return nil
+	}
+	return answer.Error
+}
+
 // object decodes a JSON object member, reading an absent or null one as an
 // empty object.
 func object(raw json.RawMessage) (map[string]json.RawMessage, error) {

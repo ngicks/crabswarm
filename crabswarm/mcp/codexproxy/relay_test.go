@@ -1,12 +1,15 @@
 package codexproxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -143,6 +146,27 @@ func TestRelay_StampsThreadRequestsAndFocusesAResume(t *testing.T) {
 	for _, line := range sent {
 		answer := readFrame(t, tui)
 		assert.Equal(t, requestId(t, answer.Data), requestId(t, line))
+	}
+}
+
+// The answer to the proxy's own focus call never reaches the TUI. A refused one
+// is a warning naming the server the call was made for, which is how a
+// --server-name naming the wrong server shows; an answered one is not.
+func TestRelay_WarnsOfARefusedFocusCall(t *testing.T) {
+	var logs bytes.Buffer
+	r := newRelay(slog.New(slog.NewTextHandler(&logs, nil)), "app.sock", "not-crabswarm")
+
+	answered := []byte(`{"id":"crabswarm-proxy-1","result":{"content":[]}}`)
+	assert.Equal(t, len(r.dropOwnAnswer(websocket.MessageText, answered)), 0)
+	assert.Equal(t, logs.String(), "")
+
+	// What Codex 0.157.1 answers a call naming a server it does not declare.
+	refused := []byte(`{"error":{"code":-32603,"message":"unknown MCP server 'not-crabswarm'"},` +
+		`"id":"crabswarm-proxy-2"}`)
+	assert.Equal(t, len(r.dropOwnAnswer(websocket.MessageText, refused)), 0)
+	line := logs.String()
+	for _, want := range []string{"level=WARN", "server=not-crabswarm", "unknown MCP server"} {
+		assert.Assert(t, strings.Contains(line, want), "the log %q lacks %q", line, want)
 	}
 }
 

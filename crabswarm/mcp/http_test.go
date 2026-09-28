@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -59,9 +60,10 @@ func serveHTTP(t *testing.T, srv *HTTPServer) servingHTTP {
 
 // stampsToken is the launcher's side of a shared server: every request a
 // session makes carries the token of the agent it belongs to. The empty token
-// stamps nothing.
+// stamps nothing. A nil base sends through [http.DefaultTransport].
 type stampsToken struct {
 	token string
+	base  http.RoundTripper
 }
 
 func (s stampsToken) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -69,7 +71,10 @@ func (s stampsToken) RoundTrip(req *http.Request) (*http.Response, error) {
 		req = req.Clone(req.Context())
 		req.Header.Set(TokenHeader, s.token)
 	}
-	return http.DefaultTransport.RoundTrip(req)
+	if s.base == nil {
+		return http.DefaultTransport.RoundTrip(req)
+	}
+	return s.base.RoundTrip(req)
 }
 
 // connectHTTP opens one MCP session on endpoint as the agent token names.
@@ -140,6 +145,79 @@ func TestHTTPServer_AMemberLeavesWhenItsLastSessionCloses(t *testing.T) {
 
 	assert.NilError(t, second.Close())
 	waitFor(t, "the member outlived its last session", func() bool {
+		return fake.cancelCount() == 1
+	})
+	assert.Equal(t, sessionsOf(srv, testToken), 0)
+}
+
+// vanishingNetwork is the network a client reaches the server over, which the
+// case can cut: every connection the client holds closes and every one it
+// opens after is refused, the way a killed client or a host gone away leaves
+// its server.
+type vanishingNetwork struct {
+	mu    sync.Mutex
+	cut   bool
+	conns []net.Conn
+}
+
+func (n *vanishingNetwork) dial(ctx context.Context, network, addr string) (net.Conn, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.cut {
+		return nil, errors.New("the client is gone")
+	}
+	conn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+	if err != nil {
+		return nil, err
+	}
+	n.conns = append(n.conns, conn)
+	return conn, nil
+}
+
+func (n *vanishingNetwork) vanish() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.cut = true
+	for _, conn := range n.conns {
+		_ = conn.Close()
+	}
+}
+
+// testKeepAlive is how often the server pings in the case below: a few
+// intervals fit in the case's timeout, and a pong on loopback takes far less
+// than the half interval the SDK waits for one.
+const testKeepAlive = 100 * time.Millisecond
+
+// A client that vanishes without the DELETE that ends its session answers no
+// ping from then on, and the session is closed after a few of them, which
+// takes its member out of the room. A client that is still there answers every
+// ping and keeps its session.
+func TestHTTPServer_AMemberLeavesWhenItsClientVanishes(t *testing.T) {
+	fake := &fakeChatService{self: doneSelf("backend", "alice", testRoom)}
+	srv, err := newHTTP(slog.New(slog.DiscardHandler), serveTestDaemon(t, fake),
+		func(string) string { return "" }, testKeepAlive)
+	assert.NilError(t, err)
+	endpoint := serveHTTP(t, srv).endpoint
+
+	network := &vanishingNetwork{}
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test-harness", Version: "v0"}, nil)
+	session, err := client.Connect(t.Context(), &mcpsdk.StreamableClientTransport{
+		Endpoint: endpoint,
+		HTTPClient: &http.Client{Transport: stampsToken{
+			token: testToken,
+			base:  &http.Transport{DialContext: network.dial},
+		}},
+	}, nil)
+	assert.NilError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+
+	time.Sleep(5 * testKeepAlive)
+	assert.Equal(t, sessionsOf(srv, testToken), 1)
+	assert.Equal(t, fake.cancelCount(), 0)
+
+	network.vanish()
+	waitFor(t, "the member outlived its vanished client", func() bool {
 		return fake.cancelCount() == 1
 	})
 	assert.Equal(t, sessionsOf(srv, testToken), 0)

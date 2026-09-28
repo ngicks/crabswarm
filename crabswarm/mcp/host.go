@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -49,8 +50,11 @@ type host struct {
 }
 
 // newHost dials sockPath and prepares the SDK server. getenv nil reads the
-// process environment.
-func newHost(logger *slog.Logger, sockPath string, getenv func(string) string) (*host, error) {
+// process environment. A keepAlive above zero pings every session that often
+// and closes one that stopped answering; zero pings nothing.
+func newHost(
+	logger *slog.Logger, sockPath string, getenv func(string) string, keepAlive time.Duration,
+) (*host, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
@@ -70,9 +74,11 @@ func newHost(logger *slog.Logger, sockPath string, getenv func(string) string) (
 		pace:         defaultPace,
 	}
 	opts := &mcpsdk.ServerOptions{
-		Logger:             logger,
-		SubscribeHandler:   h.subscribed,
-		UnsubscribeHandler: h.unsubscribed,
+		Logger:                    logger,
+		SubscribeHandler:          h.subscribed,
+		UnsubscribeHandler:        h.unsubscribed,
+		KeepAlive:                 keepAlive,
+		KeepAliveFailureThreshold: keepAliveFailures,
 	}
 	// What the server declares about itself is settled here, because the
 	// handshake carries it and the handshake is what tells the server which
@@ -86,6 +92,12 @@ func newHost(logger *slog.Logger, sockPath string, getenv func(string) string) (
 	)
 	return h, nil
 }
+
+// keepAliveFailures is how many pings in a row a session may leave unanswered
+// before it is closed. One is not enough: a client whose event stream just
+// dropped answers nothing until it has opened the stream again, and that is a
+// live session.
+const keepAliveFailures = 3
 
 // newMember makes a member attending as token on this server's connection.
 func (h *host) newMember(token string) *Member {
