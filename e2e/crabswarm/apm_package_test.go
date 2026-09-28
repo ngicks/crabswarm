@@ -133,23 +133,26 @@ var chatDeliveryNotices = []string{
 	"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you",
 }
 
-// The two places crabswarm-mcp announces a delivery — Codex's hooks and the
-// OpenCode plugin — say it in the same words, since a message announced two
-// different ways on two harnesses is a skill teaching the wrong words. They are
-// separate files in separate languages, so nothing but this keeps them
-// together.
+// The places a delivery is announced — Codex's hooks and the OpenCode plugins
+// — say it in the same words, since a message announced two different ways on
+// two harnesses is a skill teaching the wrong words. They are separate files in
+// separate languages, so nothing but this keeps them together. OpenCode's
+// server plugin delivers mid-turn and its TUI plugin at the end of a turn.
 func TestApmPackages_OpenCodePluginSpeaksLikeTheHooks(t *testing.T) {
-	plugin, err := os.ReadFile(filepath.Join(apmSkillPluginDir("crabswarm-mcp"), "opencode.ts"))
-	if err != nil {
-		t.Fatalf("read the OpenCode plugin: %v", err)
-	}
-	for _, want := range chatDeliveryNotices {
-		if !strings.Contains(string(plugin), want) {
-			t.Errorf("opencode.ts does not carry %q", want)
+	for plugin, want := range map[string]string{
+		"opencode.ts":     chatDeliveryNotices[0],
+		"opencode-tui.ts": chatDeliveryNotices[1],
+	} {
+		b, err := os.ReadFile(filepath.Join(apmSkillPluginDir("crabswarm-mcp-shared"), plugin))
+		if err != nil {
+			t.Fatalf("read the OpenCode plugin: %v", err)
 		}
-	}
-	if strings.Contains(string(plugin), "console.log") {
-		t.Error("opencode.ts writes to stdout, which the TUI shares with the screen")
+		if !strings.Contains(string(b), want) {
+			t.Errorf("%s does not carry %q", plugin, want)
+		}
+		if strings.Contains(string(b), "console.log") {
+			t.Errorf("%s writes to stdout, which the TUI shares with the screen", plugin)
+		}
 	}
 
 	hooks := readCodexHooks(t)
