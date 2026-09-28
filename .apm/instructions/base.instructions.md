@@ -65,7 +65,7 @@ Tools to swarm claude(, codex and others!)
 │   └── crabswarm
 │       └── commands  One file per cobra subcommand, named by path: chat_admin_tui.go = `crabswarm chat admin tui`. zz_*.go hold a command family's shared helpers (config resolution, dialers, shell completions); every other name is reserved for a subcommand. Wiring only — logic lives under crabswarm/.
 ├── crabswarm       crabswarm implementation (package per top-level subcommand).
-│   ├── config.go   Layered config: DefaultConfig < file < env; Config / PartialConfig; sub-configs are chat.Config, preview.Config, exec.Config.
+│   ├── config.go   Layered config: DefaultConfig < file < env; Config / PartialConfig; sub-configs are chat.Config, preview.Config, exec.Config, mcp.Config.
 │   ├── server      The daemon behind `crabswarm serve`: one gRPC server on Config.Sock hosting hook audit + chat services.
 │   ├── chat        Chat broker. Attendance is one open Attend stream, messages are the room's persistent log, delivery is a per-role read position.
 │   │   │           service.go + service_member.go (Attend/ListMembers/ReportState) + service_inbox.go (Send/Read) = member plane RPCs;

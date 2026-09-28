@@ -153,18 +153,20 @@ type codexSharedReplica struct {
 	stopErr  error
 }
 
-// startCodexSharedReplica starts a proxy with args in front of a TUI attached
-// to app, with env added to the suite's environment, and returns once the TUI
-// has made its handshake. The proxy serves its socket under runtimeDir.
+// startCodexSharedReplica starts a proxy on cfg with args in front of a TUI
+// attached to app, with env added to the suite's environment, and returns once
+// the TUI has made its handshake. cfg names no socket directory, so the proxy
+// serves its socket under runtimeDir.
 func startCodexSharedReplica(
-	t *testing.T, app *codexSharedApp, runtimeDir string, args []string, env ...string,
+	t *testing.T, cfg string, app *codexSharedApp, runtimeDir string, args []string,
+	env ...string,
 ) *codexSharedReplica {
 	t.Helper()
 	tui, err := os.Executable()
 	if err != nil {
 		t.Fatalf("locate the test binary: %v", err)
 	}
-	argv := append([]string{"mcp", "codex-proxy"}, args...)
+	argv := append([]string{"mcp", "codex-proxy", "--config", cfg}, args...)
 	argv = append(argv, "--", tui, "--remote", "unix://"+app.path)
 	proxy := exec.Command(crabswarmBin, argv...)
 	proxy.Env = append(chatEnviron(), "XDG_RUNTIME_DIR="+runtimeDir, codexSharedTUIEnv+"=1")
@@ -339,8 +341,8 @@ func startCodexShared(t *testing.T) codexShared {
 	// pid, and a unix socket path is capped well below what a test's own
 	// temporary directory comes to.
 	runtimeDir := shortSocketDir(t)
-	a := startCodexSharedReplica(t, app, runtimeDir, []string{"--token", "tok-ana"})
-	b := startCodexSharedReplica(t, app, runtimeDir, nil, "CMDMAN_CMD_ID=tok-bob")
+	a := startCodexSharedReplica(t, cfg, app, runtimeDir, []string{"--token", "tok-ana"})
+	b := startCodexSharedReplica(t, cfg, app, runtimeDir, nil, "CMDMAN_CMD_ID=tok-bob")
 	startup := codexSharedFrame(t, codexSharedLifecycleFixture, "thread/start", 0)
 	c := codexShared{
 		cfg: cfg,

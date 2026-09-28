@@ -231,16 +231,64 @@ func TestRun_RefusesBeforeRunningTheCommand(t *testing.T) {
 	assert.Assert(t, errors.Is(err, fs.ErrNotExist), "the command ran")
 }
 
-// Without $XDG_RUNTIME_DIR the socket goes under the temporary directory, in
-// a directory only its owner can enter, even one that was there before with
-// wider permissions.
+// A socket directory the caller names is where the command is handed its
+// socket, created on the way, and the fallback under $XDG_RUNTIME_DIR is left
+// alone.
+func TestRun_ServesInTheGivenSockDir(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh to run a command with")
+	}
+	runtimeDir := shortDir(t)
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+	sockDir := filepath.Join(shortDir(t), "given")
+	out := filepath.Join(shortDir(t), "argv")
+	t.Setenv("CODEXPROXY_TEST_ARGV", out)
+
+	err = Run(t.Context(), testLogger(t), Config{
+		Argv: []string{sh, "-c",
+			`test -S "${2#unix://}" || exit 99
+printf '%s\n' "$2" > "$CODEXPROXY_TEST_ARGV"`,
+			"sh", "--remote", "unix:///nowhere.sock"},
+		SockDir: sockDir,
+	})
+	assert.NilError(t, err)
+
+	argv, err := os.ReadFile(out)
+	assert.NilError(t, err)
+	want := filepath.Join(sockDir, strconv.Itoa(os.Getpid())+".sock")
+	assert.Equal(t, string(argv), "unix://"+want+"\n")
+	info, err := os.Stat(sockDir)
+	assert.NilError(t, err)
+	assert.Equal(t, info.Mode().Perm(), fs.FileMode(0o700))
+	_, err = os.Stat(filepath.Join(runtimeDir, "crabswarm-codex-proxy"))
+	assert.Assert(t, errors.Is(err, fs.ErrNotExist), "the default directory was made: %v", err)
+}
+
+// A given socket directory that was there before with wider permissions is
+// taken over by its owner alone.
+func TestSocketPath_SecuresTheGivenDir(t *testing.T) {
+	dir := filepath.Join(shortDir(t), "wide")
+	assert.NilError(t, os.Mkdir(dir, 0o755))
+
+	path, err := socketPath(dir)
+	assert.NilError(t, err)
+	assert.Equal(t, path, filepath.Join(dir, strconv.Itoa(os.Getpid())+".sock"))
+	info, err := os.Stat(dir)
+	assert.NilError(t, err)
+	assert.Equal(t, info.Mode().Perm(), fs.FileMode(0o700))
+}
+
+// With no socket directory given and no $XDG_RUNTIME_DIR, the socket goes
+// under the temporary directory, in a directory only its owner can enter, even
+// one that was there before with wider permissions.
 func TestSocketPath_FallsBackToTheTempDir(t *testing.T) {
 	tmp := shortDir(t)
 	t.Setenv("XDG_RUNTIME_DIR", "")
 	t.Setenv("TMPDIR", tmp)
 	assert.NilError(t, os.Mkdir(filepath.Join(tmp, "crabswarm-codex-proxy"), 0o755))
 
-	path, err := socketPath()
+	path, err := socketPath("")
 	assert.NilError(t, err)
 	assert.Equal(t, path, proxySocket(tmp))
 	info, err := os.Stat(filepath.Dir(path))

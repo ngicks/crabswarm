@@ -9,6 +9,7 @@ import (
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/hook/exec"
+	"github.com/ngicks/crabswarm/crabswarm/mcp"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 	"github.com/ngicks/crabswarm/pkg/filetype"
 	"gotest.tools/v3/assert"
@@ -31,6 +32,7 @@ const (
 	envChatScreenPoll        = "CRABSWARM_CHAT_SCREEN_POLL_INTERVAL"
 	envPreviewAddr           = "CRABSWARM_PREVIEW_ADDR"
 	envPreviewDaemonName     = "CRABSWARM_PREVIEW_DAEMON_NAME"
+	envMCPCodexProxySockDir  = "CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR"
 	envXDGRuntime            = "XDG_RUNTIME_DIR"
 )
 
@@ -54,6 +56,7 @@ func baseEnv(t *testing.T) {
 		envChatScreenPoll,
 		envPreviewAddr,
 		envPreviewDaemonName,
+		envMCPCodexProxySockDir,
 		envXDGRuntime,
 		"XDG_CONFIG_HOME",
 		"XDG_STATE_HOME",
@@ -809,4 +812,89 @@ func TestApply_ChatOverlay(t *testing.T) {
 	got = keep.Apply(base)
 	assert.Equal(t, got.Chat.Db, "/state/crabswarm/chat.db")
 	assert.DeepEqual(t, got.Chat.AdminRecipients, []string{"age1base", "age1basesecond"})
+}
+
+// The codex-proxy socket directory sits beside crabswarm/ in the runtime
+// directory the daemon socket is derived from.
+func TestLoadConfig_MCPCodexProxySockDirDefault(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv(envXDGRuntime, "/run/user/1000")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(
+		t,
+		cfg.MCP.CodexProxySockDir,
+		filepath.Join("/run/user/1000", "crabswarm-codex-proxy"),
+	)
+}
+
+// An mcp section in the file overrides the derived default.
+func TestLoadConfig_MCPFromFile(t *testing.T) {
+	baseEnv(t)
+	t.Setenv(envXDGRuntime, "/run/user/1000")
+	confPath := filepath.Join(t.TempDir(), "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(confPath, []byte(`{"mcp":{"codex_proxy_sock_dir":"/file/proxy"}}`), 0o644),
+	)
+
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.MCP.CodexProxySockDir, "/file/proxy")
+}
+
+// The mcp sub-config is env-settable: caarlos0/env composes the global
+// CRABSWARM_ prefix with the MCP field's envPrefix:"MCP_" and the bare env tag,
+// so CODEX_PROXY_SOCK_DIR is reached as CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR.
+func TestLoadConfig_MCPFromEnv(t *testing.T) {
+	baseEnv(t)
+	configDir(t)
+	t.Setenv(envXDGRuntime, "/run/user/1000")
+	t.Setenv(envMCPCodexProxySockDir, "/env/proxy")
+
+	cfg, err := LoadConfig("")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.MCP.CodexProxySockDir, "/env/proxy")
+}
+
+// The nested env layer sits above the file layer, and a present-but-empty
+// variable leaves the file value standing (see
+// TestLoadConfig_ChatEnvEmptyTreatedAsAbsent).
+func TestLoadConfig_MCPEnvOverridesFile(t *testing.T) {
+	confPath := filepath.Join(t.TempDir(), "config.json")
+	assert.NilError(
+		t,
+		os.WriteFile(confPath, []byte(`{"mcp":{"codex_proxy_sock_dir":"/file/proxy"}}`), 0o644),
+	)
+
+	baseEnv(t)
+	t.Setenv(envMCPCodexProxySockDir, "/env/proxy")
+	cfg, err := LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.MCP.CodexProxySockDir, "/env/proxy")
+
+	baseEnv(t)
+	t.Setenv(envMCPCodexProxySockDir, "") // present but empty
+	cfg, err = LoadConfig(confPath)
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.MCP.CodexProxySockDir, "/file/proxy")
+}
+
+// PartialConfig.Apply: the mcp sub-partial overwrites when set, an explicit
+// empty value included, leaves the base when nil, and does not mutate the base.
+func TestApply_MCPOverlay(t *testing.T) {
+	base := Config{MCP: mcp.Config{CodexProxySockDir: "/run/user/1000/crabswarm-codex-proxy"}}
+
+	got := PartialConfig{MCP: mcp.PartialConfig{CodexProxySockDir: new("/elsewhere")}}.Apply(base)
+	assert.Equal(t, got.MCP.CodexProxySockDir, "/elsewhere")
+
+	got = PartialConfig{MCP: mcp.PartialConfig{CodexProxySockDir: new("")}}.Apply(base)
+	assert.Equal(t, got.MCP.CodexProxySockDir, "")
+
+	got = PartialConfig{}.Apply(base)
+	assert.Equal(t, got.MCP.CodexProxySockDir, "/run/user/1000/crabswarm-codex-proxy")
+
+	assert.Equal(t, base.MCP.CodexProxySockDir, "/run/user/1000/crabswarm-codex-proxy")
 }

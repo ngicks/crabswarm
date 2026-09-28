@@ -5,10 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ngicks/crabswarm/crabswarm"
 	"github.com/ngicks/crabswarm/crabswarm/mcp/codexproxy"
 )
 
-func mcpCodexProxyCmd(parent *cobra.Command) {
+func mcpCodexProxyCmd(parent *cobra.Command, flagConfig *string) {
 	var (
 		flagToken      string
 		flagServerName string
@@ -41,17 +42,22 @@ The identity token is resolved exactly as in every chat member verb. With none,
 the proxy forwards everything unchanged and warns once, and Codex still runs.
 
 The command must follow "--" and name its app server as --remote unix://PATH or
---remote=unix://PATH. The proxy's socket sits under
-$XDG_RUNTIME_DIR/crabswarm-codex-proxy/, or under the temporary directory where
-that is unset, and is removed when the command exits. The command owns the
-terminal: SIGINT and SIGTERM are passed on to it, and the proxy exits with its
-status. Logging goes to stderr beneath the TUI, warnings and above by default.`,
+--remote=unix://PATH. The proxy's socket is <pid>.sock in the directory the
+config key mcp.codex_proxy_sock_dir names ($CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR),
+by default crabswarm-codex-proxy/ under the runtime directory the daemon socket
+is derived from: $XDG_RUNTIME_DIR, else /run/user/<uid> when it exists, else
+/tmp. The proxy creates the directory, makes it private to its owner, and
+removes the socket when the command exits.
+
+The command owns the terminal: SIGINT and SIGTERM are passed on to it, and the
+proxy exits with its status. Logging goes to stderr beneath the TUI, warnings
+and above by default.`,
 		Example: `  crabswarm mcp codex-proxy -- codex --remote unix:///tmp/codex.sock
   crabswarm mcp codex-proxy --token "$TOKEN" -- codex --remote=unix:///tmp/codex.sock -m gpt-6-sol`,
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: mcpCodexProxyCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMCPCodexProxy(cmd, args, flagToken, flagServerName)
+			return runMCPCodexProxy(cmd, args, *flagConfig, flagToken, flagServerName)
 		},
 	}
 
@@ -74,16 +80,23 @@ func mcpCodexProxyCompletion(
 	return nil, cobra.ShellCompDirectiveDefault
 }
 
-func runMCPCodexProxy(cmd *cobra.Command, args []string, token, serverName string) error {
+func runMCPCodexProxy(
+	cmd *cobra.Command, args []string, flagConfig, token, serverName string,
+) error {
 	// A dash anywhere else means the command was written without "--" or mixed
 	// with this command's flags, and pflag may have taken a Codex flag as ours.
 	if cmd.ArgsLenAtDash() != 0 {
 		return errors.New(`the codex command must follow "--", ` +
 			`e.g. crabswarm mcp codex-proxy -- codex --remote unix:///tmp/codex.sock`)
 	}
+	cfg, err := crabswarm.LoadConfig(flagConfig)
+	if err != nil {
+		return err
+	}
 	return codexproxy.Run(cmd.Context(), commandLogger(cmd), codexproxy.Config{
-		Token:  token,
-		Argv:   args,
-		Server: serverName,
+		Token:   token,
+		Argv:    args,
+		Server:  serverName,
+		SockDir: cfg.MCP.CodexProxySockDir,
 	})
 }

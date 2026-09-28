@@ -47,6 +47,14 @@ type Config struct {
 	// refuses a thread whose config sets http_headers on a server it does not
 	// declare, or on a stdio one, so every thread the TUI starts fails then.
 	Server string
+	// SockDir is the directory the proxy serves the TUI's socket in, as
+	// <pid>.sock. Run creates it and makes it private to its owner.
+	//
+	// Empty means $XDG_RUNTIME_DIR/crabswarm-codex-proxy, or the same
+	// directory under [os.TempDir] where that variable is unset. The crabswarm
+	// config derives its default from a runtime directory that also probes
+	// /run/user/<uid>, so a caller holding that config passes its value here.
+	SockDir string
 }
 
 // ExitError reports that the command ran and exited unsuccessfully. Code is
@@ -98,7 +106,7 @@ func Run(ctx context.Context, logger *slog.Logger, cfg Config) error {
 		r.token = token
 	}
 
-	sock, err := socketPath()
+	sock, err := socketPath(cfg.SockDir)
 	if err != nil {
 		return err
 	}
@@ -126,22 +134,24 @@ func Run(ctx context.Context, logger *slog.Logger, cfg Config) error {
 	return serveErr
 }
 
-// socketPath is where the proxy serves the TUI: a directory under
-// $XDG_RUNTIME_DIR, or under the temporary directory where that is unset.
-// Inside a container the crabswarm runtime directory is a read-only mount, so
-// the socket has a directory of its own beside it.
-func socketPath() (string, error) {
-	base := os.Getenv("XDG_RUNTIME_DIR")
-	if base == "" {
-		base = os.TempDir()
+// socketPath is where the proxy serves the TUI: <pid>.sock in dir, which it
+// creates. An empty dir is the fallback [Config.SockDir] describes.
+func socketPath(dir string) (string, error) {
+	if dir == "" {
+		// Kept apart from the crabswarm config's runtime-directory derivation,
+		// which lives in the config layer this package does not import.
+		base := os.Getenv("XDG_RUNTIME_DIR")
+		if base == "" {
+			base = os.TempDir()
+		}
+		dir = filepath.Join(base, "crabswarm-codex-proxy")
 	}
-	dir := filepath.Join(base, "crabswarm-codex-proxy")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("creating the proxy socket directory: %w", err)
 	}
-	// The temporary directory is shared by every user of the host. Taking the
-	// directory over refuses one somebody else made, who could otherwise swap
-	// the socket and read the token off the wire.
+	// The directory can sit in one every user of the host shares, such as
+	// /tmp. Taking the directory over refuses one somebody else made, who could
+	// otherwise swap the socket and read the token off the wire.
 	if err := os.Chmod(dir, 0o700); err != nil {
 		return "", fmt.Errorf("securing the proxy socket directory: %w", err)
 	}

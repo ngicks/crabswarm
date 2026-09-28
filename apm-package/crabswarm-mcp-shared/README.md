@@ -187,8 +187,12 @@ through `codex-proxy`, because a thread started without it names no member.
 The proxy reads the replica's token from `CRABSWARM_CHAT_TOKEN`, else from the
 `CMDMAN_CMD_ID` cmdman gives the replica. With neither it warns once and runs
 Codex anyway, and that replica's threads act as nobody. The proxy serves the
-TUI on a private socket under `$XDG_RUNTIME_DIR/crabswarm-codex-proxy/`, or
-under the temporary directory where that variable is unset.
+TUI on a private socket, `<pid>.sock`, in the directory the config key
+`mcp.codex_proxy_sock_dir` names (environment variable
+`CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR`). The default is `crabswarm-codex-proxy/`
+under the runtime directory the daemon socket is derived from:
+`$XDG_RUNTIME_DIR`, else `/run/user/<uid>` when it exists, else `/tmp`.
+`crabswarm config` prints the resolved directory.
 
 OpenCode runs one `opencode serve` and one `opencode attach` per replica. The
 server listens beyond loopback here, so it takes a password, and every TUI
@@ -259,8 +263,11 @@ the same socket paths:
   `codex-app-server.sock`. Each compose session mounts a directory of its own
   there.
 
-A Codex replica also creates `$XDG_RUNTIME_DIR/crabswarm-codex-proxy/` for the
-proxy's socket, so `$XDG_RUNTIME_DIR` itself stays writable in its container.
+A Codex replica also creates a directory for the proxy's socket and makes it
+private to its owner. By default the directory is
+`$XDG_RUNTIME_DIR/crabswarm-codex-proxy/`, so `$XDG_RUNTIME_DIR` itself stays
+writable in its container. Set `mcp.codex_proxy_sock_dir` or
+`CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR` to put the directory elsewhere.
 
 `codex app-server --listen unix://PATH` has been observed to create PATH as a
 symlink into `/tmp/codex-daemon-<uid>/`, where the socket itself lives. A Codex
