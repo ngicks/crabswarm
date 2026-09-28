@@ -1,5 +1,5 @@
-// OpenCode server plugin: the half of the crabswarm-mcp wiring that runs inside
-// a shared `opencode serve`. The server hosts every TUI attached to it and opens
+// OpenCode server plugin of crabswarm-mcp-shared: the half that runs inside a
+// shared `opencode serve`. The server hosts every TUI attached to it and opens
 // one session on the crabswarm MCP server for all of them, so a tool call there
 // names no member of its own. This plugin names the OpenCode session making
 // each call, and the MCP server acts as the member whose TUI shows that session.
@@ -13,8 +13,10 @@
 // plugin's. What is left is the mid-turn delivery, which only the server sees:
 // the result of a tool call is the closest OpenCode has to a hook's
 // additionalContext, and the MCP server reads for the member showing the
-// calling session. The delivery wording is the same text the Codex hook file
-// carries.
+// calling session. The delivery line opens with the `[crabswarm chat]` marker
+// every notice from the room opens with, and it names the `chat_send` tool
+// those notices name. It carries the messages themselves because the read that
+// found them has already marked them read.
 //
 // The crabswarm MCP server is a remote entry of the OpenCode config, which is
 // where this plugin finds its address. Only `node:` builtins may be imported:

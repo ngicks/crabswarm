@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -488,98 +487,4 @@ func waitCodexStatusTrail(t *testing.T, cfgPath string, want []string) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("cmdman status invocations =\n%q\nwant\n%q", published, want)
-}
-
-// Codex's hook file wires the delivery and nothing else. Its state comes off
-// the app server the MCP server is already connected to, and a hook reporting
-// the same thing would race that feed with a slower, coarser answer.
-func TestChatCodex_HooksLeaveTheStateToTheAppServer(t *testing.T) {
-	codex := readCodexHooks(t)
-
-	for event, groups := range codex.Hooks {
-		for _, group := range groups {
-			for _, h := range group.Hooks {
-				if strings.Contains(h.Command, "report-state") {
-					t.Errorf(
-						"%s command %q reports state; the app server does that",
-						event,
-						h.Command,
-					)
-				}
-				assertSelfContainedHookEntry(t, event, h)
-			}
-		}
-	}
-}
-
-// readCodexHooks decodes the Codex hook file out of the checkout under test.
-func readCodexHooks(t *testing.T) chatHookConfig {
-	t.Helper()
-	path := filepath.Join(repoRoot(), "apm-package", "crabswarm-mcp",
-		".apm", "hooks", "codex-hooks.json")
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read hook file %s: %v", path, err)
-	}
-	var cfg chatHookConfig
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		t.Fatalf("decode hook file %s: %v", path, err)
-	}
-	if len(cfg.Hooks) == 0 {
-		t.Fatalf("hook file %s wires no events", path)
-	}
-	return cfg
-}
-
-// Codex's Stop hook still drains the inbox, and still refuses to drain it
-// twice: with an earlier block already in force the command renders empty,
-// which `hook exec` runs as a plain allow. Nothing is read, so the messages are
-// still there for the turn the block bought.
-func TestChatCodex_StopDeliversOnceAndThenStandsAside(t *testing.T) {
-	stop := readCodexHooks(t).command(t, "Stop")
-
-	t.Run("messages in hand at turn end", func(t *testing.T) {
-		cfg := startChatRoomWithMail(t)
-		res := runChatHook(t, cfg, "tok-ana", stop, chatStopEnvelope)
-		if res.exitCode != 0 {
-			t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s",
-				res.exitCode, res.stdout, res.stderr)
-		}
-		obj := hookObject(t, res.stdout)
-		assertKeys(t, obj, "decision", "reason")
-		if got := hookString(t, obj, "decision"); got != "block" {
-			t.Errorf("decision = %q, want %q", got, "block")
-		}
-		if reason := hookString(t, obj, "reason"); !strings.Contains(reason, chatMailLine) {
-			t.Errorf("reason = %q, want it to carry %q", reason, chatMailLine)
-		}
-		assertInboxWasConsumed(t, cfg)
-	})
-
-	t.Run("an earlier block is already in force", func(t *testing.T) {
-		cfg := startChatRoomWithMail(t)
-		assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", stop, chatStopActiveEnvelope))
-		assertInboxStillHoldsTheMail(t, cfg)
-	})
-}
-
-// Every command the Codex file wires, on every event, against a daemon that is
-// not running: none of them says anything and none of them fails. A chat nobody
-// is hosting must not break a turn or a tool call.
-func TestChatCodex_HooksAreHarmlessWithoutADaemon(t *testing.T) {
-	cfg := chatAbsentDaemonConfig(t)
-	hooks := readCodexHooks(t)
-	for _, event := range slices.Sorted(maps.Keys(hooks.Hooks)) {
-		for _, group := range hooks.Hooks[event] {
-			envelope := chatHookEnvelope(event, group.Matcher)
-			if envelope == "" {
-				t.Fatalf("event %s is wired but has no envelope in chatHookEnvelopes", event)
-			}
-			for i, h := range group.Hooks {
-				t.Run(fmt.Sprintf("%s/%s/%d", event, group.Matcher, i), func(t *testing.T) {
-					assertHookIsSilent(t, runChatHook(t, cfg, "tok-ana", h.Command, envelope))
-				})
-			}
-		}
-	}
 }

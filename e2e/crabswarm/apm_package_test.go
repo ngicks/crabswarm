@@ -14,15 +14,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The apm packages this repository publishes. Each ships its Claude Code
-// wiring as a skills-directory plugin: apm copies `.apm/skills/<name>/` to
-// `~/.claude/skills/<name>/` with every file in it, and Claude Code loads a
-// skill directory carrying `.claude-plugin/plugin.json` as a plugin, reading
-// whatever hooks and MCP servers the directory holds instead of settings.json.
-// The Codex wiring stays a merged hooks file, routed to Codex alone by its
-// `codex-` stem. Both are text apm copies as written, so their shape is pinned
-// here rather than discovered on a consumer's machine.
-var apmPackages = []string{"crabswarm-mcp", "crabswarm-issues-lint"}
+// The apm packages this repository publishes. A package that targets Claude
+// Code ships its wiring as a skills-directory plugin: apm copies
+// `.apm/skills/<name>/` to `~/.claude/skills/<name>/` with every file in it,
+// and Claude Code loads a skill directory carrying `.claude-plugin/plugin.json`
+// as a plugin, reading whatever hooks and MCP servers the directory holds
+// instead of settings.json. A Codex hook is a merged hooks file, routed to
+// Codex alone by its `codex-` stem. crabswarm-mcp-shared targets Codex and
+// OpenCode only, and ships its skill with the OpenCode plugins beside it. All
+// of it is text apm copies as written, so its shape is pinned here rather than
+// discovered on a consumer's machine.
+var apmPackages = []string{"crabswarm-mcp", "crabswarm-mcp-shared", "crabswarm-issues-lint"}
 
 func apmPackageDir(name string) string {
 	return filepath.Join(repoRoot(), "apm-package", name)
@@ -32,6 +34,31 @@ func apmPackageDir(name string) string {
 // the package so the plugin Claude Code derives from it is `<name>@skills-dir`.
 func apmSkillPluginDir(name string) string {
 	return filepath.Join(apmPackageDir(name), ".apm", "skills", name)
+}
+
+// apmManifest is what these tests read of a package's apm.yml.
+type apmManifest struct {
+	Version      string   `yaml:"version"`
+	Targets      []string `yaml:"targets"`
+	Dependencies struct {
+		MCP []mcpDependency `yaml:"mcp"`
+	} `yaml:"dependencies"`
+}
+
+// readApmManifest decodes the apm.yml of the package name out of the checkout
+// under test.
+func readApmManifest(t *testing.T, name string) apmManifest {
+	t.Helper()
+	path := filepath.Join(apmPackageDir(name), "apm.yml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read manifest %s: %v", path, err)
+	}
+	var manifest apmManifest
+	if err := yaml.Unmarshal(b, &manifest); err != nil {
+		t.Fatalf("decode manifest %s: %v", path, err)
+	}
+	return manifest
 }
 
 func readJSONFile(t *testing.T, path string, v any) {
@@ -59,6 +86,58 @@ func hooksObject(t *testing.T, path string) map[string]any {
 	return file.Hooks
 }
 
+// apmSkillFiles is every file each package's skill directory ships, as a path
+// relative to that directory. apm copies the directory as it is, so a file
+// added or dropped here is one added to or dropped from every consumer.
+var apmSkillFiles = map[string][]string{
+	"crabswarm-mcp": {
+		".claude-plugin/plugin.json",
+		".mcp.json",
+		"SKILL.md",
+	},
+	"crabswarm-mcp-shared": {
+		"SKILL.md",
+		"opencode-tui.ts",
+		"opencode.ts",
+	},
+	"crabswarm-issues-lint": {
+		".claude-plugin/plugin.json",
+		"SKILL.md",
+		"hooks/hooks.json",
+	},
+}
+
+func TestApmPackages_SkillDirectoriesShipTheirFiles(t *testing.T) {
+	for _, name := range apmPackages {
+		t.Run(name, func(t *testing.T) {
+			want, ok := apmSkillFiles[name]
+			if !ok {
+				t.Fatalf("apmSkillFiles lists nothing for %s", name)
+			}
+			dir := apmSkillPluginDir(name)
+			var got []string
+			err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return err
+				}
+				rel, err := filepath.Rel(dir, path)
+				if err != nil {
+					return err
+				}
+				got = append(got, filepath.ToSlash(rel))
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("walk %s: %v", dir, err)
+			}
+			slices.Sort(got)
+			if !slices.Equal(got, want) {
+				t.Errorf("the skill directory holds %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 // apmPluginHookPackages are the packages whose Claude Code plugin ships a hook
 // file. crabswarm-issues-lint is one: its whole point is a `Stop` hook that
 // blocks a turn on a broken diagram, and Claude Code has no other way to be
@@ -72,10 +151,11 @@ func hooksObject(t *testing.T, path string) map[string]any {
 // a subagent running in the background kept the session working.
 var apmPluginHookPackages = []string{"crabswarm-issues-lint"}
 
-// apm deploys a skill directory only when a SKILL.md sits at its root, and
-// Claude Code turns it into a plugin only when the manifest is there and names
-// the directory: a manifest name that drifts from the directory is a plugin
-// Claude Code lists under one name and apm deploys under another.
+// Every package that targets Claude Code ships a plugin. apm deploys a skill
+// directory only when a SKILL.md sits at its root, and Claude Code turns it into
+// a plugin only when the manifest is there and names the directory: a manifest
+// name that drifts from the directory is a plugin Claude Code lists under one
+// name and apm deploys under another.
 //
 // The hook file is pinned in both directions. Claude Code loads whatever hooks
 // the directory carries on every session, so a file re-added to a package that
@@ -83,6 +163,10 @@ var apmPluginHookPackages = []string{"crabswarm-issues-lint"}
 // with itself.
 func TestApmPackages_ShipAClaudePlugin(t *testing.T) {
 	for _, name := range apmPackages {
+		pkg := readApmManifest(t, name)
+		if !slices.Contains(pkg.Targets, "claude") {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			dir := apmSkillPluginDir(name)
 			if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err != nil {
@@ -96,17 +180,6 @@ func TestApmPackages_ShipAClaudePlugin(t *testing.T) {
 			readJSONFile(t, filepath.Join(dir, ".claude-plugin", "plugin.json"), &manifest)
 			if manifest.Name != name {
 				t.Errorf("plugin.json name = %q, want the directory name %q", manifest.Name, name)
-			}
-
-			var pkg struct {
-				Version string `yaml:"version"`
-			}
-			b, err := os.ReadFile(filepath.Join(apmPackageDir(name), "apm.yml"))
-			if err != nil {
-				t.Fatalf("read apm.yml: %v", err)
-			}
-			if err := yaml.Unmarshal(b, &pkg); err != nil {
-				t.Fatalf("decode apm.yml: %v", err)
 			}
 			if manifest.Version != pkg.Version {
 				t.Errorf("plugin.json version = %q, apm.yml version = %q; want them equal",
@@ -125,20 +198,20 @@ func TestApmPackages_ShipAClaudePlugin(t *testing.T) {
 	}
 }
 
-// chatDeliveryNotices are the two lines a handed-over message is announced
-// with: the mid-turn one and the one at turn end. Each is pinned by its
-// opening, which is the part an agent recognises.
+// chatDeliveryNotices are the two lines the OpenCode plugins announce a
+// handed-over message with: the one the server plugin appends to a tool result
+// mid-turn, and the one the TUI plugin prompts with when a turn ends. Each is
+// pinned by its opening, which is the part an agent recognises.
 var chatDeliveryNotices = []string{
 	"[crabswarm chat] Messages just arrived. Reply with",
 	"[crabswarm chat] Messages arrived while you were working. Act on anything addressed to you",
 }
 
-// The places a delivery is announced — Codex's hooks and the OpenCode plugins
-// — say it in the same words, since a message announced two different ways on
-// two harnesses is a skill teaching the wrong words. They are separate files in
-// separate languages, so nothing but this keeps them together. OpenCode's
-// server plugin delivers mid-turn and its TUI plugin at the end of a turn.
-func TestApmPackages_OpenCodePluginSpeaksLikeTheHooks(t *testing.T) {
+// OpenCode's server plugin delivers mid-turn and its TUI plugin at the end of a
+// turn, each announcing what it hands over with its own notice. Both plugins
+// run inside OpenCode's own processes, whose stdout the TUI draws on, so
+// neither may write there.
+func TestApmPackages_OpenCodePluginsAnnounceTheirDelivery(t *testing.T) {
 	for plugin, want := range map[string]string{
 		"opencode.ts":     chatDeliveryNotices[0],
 		"opencode-tui.ts": chatDeliveryNotices[1],
@@ -154,26 +227,32 @@ func TestApmPackages_OpenCodePluginSpeaksLikeTheHooks(t *testing.T) {
 			t.Errorf("%s writes to stdout, which the TUI shares with the screen", plugin)
 		}
 	}
-
-	hooks := readCodexHooks(t)
-	for event, want := range map[string]string{
-		"PostToolUse": chatDeliveryNotices[0],
-		"Stop":        chatDeliveryNotices[1],
-	} {
-		if got := hooks.command(t, event); !strings.Contains(got, want) {
-			t.Errorf("the codex %s command %q does not carry %q", event, got, want)
-		}
-	}
 }
 
-// Each package ships Codex one file and one file only, under a `codex-` stem.
-// apm cannot hand a file to Codex's merge and keep it out of Claude Code's: a
-// universal file under `.apm/hooks/` would be merged into settings.json beside
-// the plugin, and every Claude Code hook would then run twice.
+// apmCodexHookPackages are the packages that hand Codex a hook file.
+//
+// crabswarm-mcp targets Claude Code alone. crabswarm-mcp-shared hooks Codex
+// nothing: a Codex hook runs beside the thread, inside the app server every
+// replica shares, where the identity is the app server's rather than any
+// replica's, so a chat read there would read for the wrong member. A mention
+// reaches a Codex replica as a turn the shared MCP server starts instead.
+var apmCodexHookPackages = []string{"crabswarm-issues-lint"}
+
+// A package that hooks Codex ships it one file and one file only, under a
+// `codex-` stem. apm cannot hand a file to Codex's merge and keep it out of
+// Claude Code's: a universal file under `.apm/hooks/` would be merged into
+// settings.json beside the plugin, and every Claude Code hook would then run
+// twice. A package that hooks Codex nothing ships no `.apm/hooks/` at all.
 func TestApmPackages_MergeHooksIntoCodexOnly(t *testing.T) {
 	for _, name := range apmPackages {
 		t.Run(name, func(t *testing.T) {
 			hooksDir := filepath.Join(apmPackageDir(name), ".apm", "hooks")
+			if !slices.Contains(apmCodexHookPackages, name) {
+				if _, err := os.Stat(hooksDir); !errors.Is(err, fs.ErrNotExist) {
+					t.Errorf(".apm/hooks is there (%v); %s wires Codex no hooks", err, name)
+				}
+				return
+			}
 			entries, err := os.ReadDir(hooksDir)
 			if err != nil {
 				t.Fatalf("read %s: %v", hooksDir, err)
@@ -193,10 +272,8 @@ func TestApmPackages_MergeHooksIntoCodexOnly(t *testing.T) {
 
 // apmMirroredHookPackages are the packages whose two hook files are the same
 // wiring written twice, which is every package that asks the two harnesses for
-// the same thing. crabswarm-mcp is not one of them: it hooks Codex alone, and
-// has no second file to compare its one against.
-// TestChatCodex_HooksLeaveTheStateToTheAppServer is what pins that file
-// instead.
+// the same thing. The other packages hook Codex nothing, and have no second
+// file to compare a plugin's against.
 var apmMirroredHookPackages = []string{"crabswarm-issues-lint"}
 
 // The two copies of a mirrored package's wiring are compared whole: a Codex

@@ -1,0 +1,25 @@
+name: crabswarm-mcp-shared
+version: 0.1.0
+description: Wires Codex and OpenCode into their crabswarm chat room through one shared `crabswarm mcp --transport http`, which serves every replica of a shared Codex app server or opencode serve as a member of its own. Claude Code is wired by crabswarm-mcp.
+author: ngicks
+license: Unlicense
+repository: https://github.com/ngicks/crabswarm
+dependencies:
+  apm: []
+  mcp:
+  - name: crabswarm-mcp
+    registry: false
+    # The server is not started by the harness: the launcher runs
+    # `crabswarm mcp --transport http --listen <host>:47300` beside the harness
+    # servers, and every replica's session reaches that one process. apm's
+    # Codex adapter accepts a plain http URL only on a loopback host, so the URL
+    # names 127.0.0.1 and the listener has to share the harness servers' network
+    # namespace.
+    transport: streamable-http
+    url: http://127.0.0.1:47300/mcp
+targets:
+- codex
+- opencode
+includes: auto
+scripts: {}
+type: hybrid

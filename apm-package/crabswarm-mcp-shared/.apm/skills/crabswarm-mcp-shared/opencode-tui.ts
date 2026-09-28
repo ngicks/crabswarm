@@ -1,5 +1,5 @@
-// OpenCode TUI plugin: the half of the crabswarm-mcp wiring that runs in each
-// TUI attached to a shared `opencode serve` (`opencode attach`). It runs in the
+// OpenCode TUI plugin of crabswarm-mcp-shared: the half that runs in each TUI
+// attached to a shared `opencode serve` (`opencode attach`). It runs in the
 // TUI's own process, with the TUI's own environment and so with the chat token
 // of the agent the TUI is, which the server and its plugin never have.
 //
@@ -7,9 +7,11 @@
 // crabswarm MCP server beside `opencode serve`, which keeps the member attending
 // and is the channel a mention reaches it through, and it tells that server
 // which session the TUI shows, so a tool call from that session acts as this
-// member. It also does what a hook file does on the other harnesses: it reports
-// the session's state and hands over what arrived by the time a turn ends. The
-// delivery wording is the same text the Codex hook file carries.
+// member. It also reports the session's state and hands over what arrived by
+// the time a turn ends. The delivery line opens with the `[crabswarm chat]`
+// marker every notice from the room opens with, and it names the `chat_send`
+// tool those notices name. It carries the messages themselves because the read
+// that found them has already marked them read.
 //
 // CRABSWARM_OPENCODE_SERVER is the URL of the `opencode serve` the TUI attached
 // to. The MCP server's address is read off that server's config, where the
@@ -137,8 +139,7 @@ const tui = async (api: Api) => {
   }
 
   // atIdle is the end of a turn. The read reports the member done exactly when
-  // it hands nothing over, and what it found becomes the next prompt, which is
-  // what a blocked Stop is on the other harnesses.
+  // it hands nothing over, and what it found becomes the next prompt.
   const atIdle = (sessionID: string) =>
     queue(async () => {
       const messages = await chat("read", "--quiet", "--done-when-empty")
