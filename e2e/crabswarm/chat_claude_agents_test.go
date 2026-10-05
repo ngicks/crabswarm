@@ -59,15 +59,24 @@ func startClaudeAgentsShim(t *testing.T) *claudeAgentsShim {
 	t.Helper()
 
 	shim := &claudeAgentsShim{dir: t.TempDir()}
-	for _, listing := range []struct{ name, status, waitingFor string }{
-		{"busy", "busy", ""},
-		{"idle", "idle", ""},
+	for _, listing := range []struct {
+		name, status, waitingFor string
+		resumed                  bool
+	}{
+		{"busy", "busy", "", false},
+		{"idle", "idle", "", false},
 		// A waiting session names what it is waiting on. The reason is display
 		// text rather than a state of its own, so it rides along here only
 		// because the real listing carries it beside the status.
-		{"waiting", "waiting", "dialog open"},
+		{"waiting", "waiting", "dialog open", false},
+		{"resumed-idle", "idle", "", true},
 	} {
-		rendered, session := claudeAgentsListing(t, listing.status, listing.waitingFor)
+		rendered, session := claudeAgentsListing(
+			t,
+			listing.status,
+			listing.waitingFor,
+			listing.resumed,
+		)
 		writeFile(t, filepath.Join(shim.dir, "agents-"+listing.name+".json"), rendered)
 		shim.sessionID = session
 	}
@@ -106,7 +115,13 @@ func (s *claudeAgentsShim) show(t *testing.T, listing string) {
 // listing cannot see is printed without one, whatever it is doing.
 //
 // waitingFor is left out entirely for a status that names no reason.
-func claudeAgentsListing(t *testing.T, status, waitingFor string) (listing, sessionID string) {
+//
+// resumed gives the finished background session the live session's id and a
+// blocked state. That is the listing of a session resumed from a background
+// job: the job record, without a pid, precedes the live entry.
+func claudeAgentsListing(
+	t *testing.T, status, waitingFor string, resumed bool,
+) (listing, sessionID string) {
 	t.Helper()
 
 	var entries []map[string]any
@@ -132,6 +147,20 @@ func claudeAgentsListing(t *testing.T, status, waitingFor string) (listing, sess
 	id, _ := entries[live]["sessionId"].(string)
 	if id == "" {
 		t.Fatal("the live session in the recorded agents listing carries no sessionId")
+	}
+	if resumed {
+		job := slices.IndexFunc(
+			entries,
+			func(e map[string]any) bool { return e["kind"] == "background" },
+		)
+		if job < 0 || job > live {
+			t.Fatal("the recorded agents listing holds no background session before the live one")
+		}
+		if _, ok := entries[job]["pid"]; ok {
+			t.Fatal("the background session in the recorded agents listing carries a pid")
+		}
+		entries[job]["sessionId"] = id
+		entries[job]["state"] = "blocked"
 	}
 	rendered, err := json.Marshal(entries)
 	if err != nil {
@@ -288,6 +317,23 @@ func TestChatClaudeAgents_TheListingBecomesTheMemberState(t *testing.T) {
 	// it names as the reason.
 	shim.show(t, "waiting")
 	waitClaudeMemberState(t, cfg, "tok-ana", chatBridgeAna, "waiting", 30*time.Second)
+}
+
+// A session resumed from a background job is listed twice: the job record,
+// without a pid and still blocked, and the live entry. The member follows the
+// live entry.
+func TestChatClaudeAgents_AResumedSessionFollowsItsLiveEntry(t *testing.T) {
+	shim := startClaudeAgentsShim(t)
+	cfg := writeChatConfig(t, 0, []stubCommand{
+		{token: "tok-ana", dir: chatRoom, project: "alpha"},
+	})
+	startChatServe(t, cfg)
+	startClaudeAgentsBridge(t, cfg, "tok-ana", shim)
+	waitChatAttendance(t, cfg, "tok-ana", 30*time.Second)
+	waitClaudeMemberState(t, cfg, "tok-ana", chatBridgeAna, "working", 30*time.Second)
+
+	shim.show(t, "resumed-idle")
+	waitClaudeMemberState(t, cfg, "tok-ana", chatBridgeAna, "done", 30*time.Second)
 }
 
 // A member with a feed is left to it. The daemon reads screens for the harnesses

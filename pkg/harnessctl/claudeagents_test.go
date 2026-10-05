@@ -195,6 +195,7 @@ func TestClaudeAgents_TheFixtureParses(t *testing.T) {
 	assert.Equal(t, live.Kind, claudeKindInteractive)
 	assert.Equal(t, live.Status, claudeStatusBusy)
 	assert.Equal(t, live.State, claudeAgentState(""))
+	assert.Equal(t, live.PID, 2)
 
 	state, ok := claudeAgentHarnessState(live)
 	assert.Assert(t, ok)
@@ -268,6 +269,42 @@ func TestClaudeCode_WatchLogsAFailingListingOnce(t *testing.T) {
 	assert.Equal(t, strings.Count(log.String(), "reading the claude agents listing failed"), 1,
 		"log:\n%s", log.String())
 	assert.Assert(t, strings.Contains(log.String(), broken.Error()), "log:\n%s", log.String())
+}
+
+// A session resumed from a background job is listed twice under one id, the
+// job record first. The job record carries no pid and a stale state, so the
+// feed reads the live entry.
+func TestClaudeCode_WatchSkipsAJobRecordOfTheSameSession(t *testing.T) {
+	listing, live := claudeAgentsFixture(t)
+	job := listing[0]
+	assert.Equal(t, job.PID, 0)
+	job.SessionID = live.SessionID
+	job.State = claudeStateBlocked
+	idle := live
+	idle.Status = claudeStatusIdle
+	script := &scriptedLister{answers: []func() ([]claudeAgent, error){
+		listingOf(job, idle),
+	}}
+	states, log := watchClaude(t, live.SessionID, script)
+
+	assert.Equal(t, nextClaudeState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+	noClaudeState(t, states)
+	assert.Equal(t, log.String(), "")
+}
+
+// A job record alone says nothing about this session: it may be one running in
+// another container that shares the job records.
+func TestClaudeCode_WatchReportsNothingFromAJobRecordAlone(t *testing.T) {
+	listing, _ := claudeAgentsFixture(t)
+	job := listing[0]
+	script := &scriptedLister{answers: []func() ([]claudeAgent, error){
+		listingOf(job),
+	}}
+	states, log := watchClaude(t, job.SessionID, script)
+
+	noClaudeState(t, states)
+	assert.Equal(t, strings.Count(log.String(), "reading the claude agents listing failed"), 1,
+		"log:\n%s", log.String())
 }
 
 // A harness that knows no session has nothing to follow: Watch returns at once
