@@ -1,5 +1,5 @@
-// Package mcp is the crabswarm MCP server one harness spawns per agent; chat is
-// its first tool family.
+// Package mcp is the crabswarm MCP server a harness reaches its agent's room
+// through; chat is its first tool family.
 //
 // A harness starts it as a stdio subprocess of its own, so an agent gets
 // crabswarm's verbs as tools it is offered rather than as commands it has to
@@ -7,6 +7,11 @@
 // starts and holds that attendance for the rest of the session, the agent is a
 // member before its first turn instead of whenever it first thinks to say
 // something, and a member again once a daemon that went away comes back.
+//
+// A harness server that hosts several agents at once reaches it over HTTP
+// instead: one process serves every session, and each session names the member
+// it acts as in a request header, so every agent behind that harness server is
+// a member of its own. See [HTTPServer].
 //
 // Attendance is one open stream, and holding it is the whole of what membership
 // means. The server opens it at startup and opens it again every time it ends,
@@ -20,26 +25,21 @@
 // channel instead, off the same feed everything else is read from.
 //
 // What the server offers is not its own. A tool family is a sub-package that
-// registers its tools and its resources onto a [Server] before it runs, so this
+// registers its tools and its resources onto a server before it runs, so this
 // package knows the room it attends and the harness it answers, and each family
 // knows the verbs it serves.
 package mcp
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"sync"
-	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
 
-	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
-	"github.com/ngicks/crabswarm/internal/libver"
-	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // serverName identifies the server to the harness, which lists it beside every
@@ -50,93 +50,25 @@ const serverName = "crabswarm-mcp"
 
 // Server bridges one agent's MCP stdio session to the crabswarm daemon.
 type Server struct {
-	logger *slog.Logger
-	client *cli.Client
+	host *host
 	// token is the value the caller was configured with, kept as it was given.
-	// It is resolved against the environment where it is used rather than here,
-	// so a harness that starts the server with no identity at all gets one whose
-	// tools say what is missing instead of a subprocess that exited before the
-	// handshake.
+	// It is resolved against the environment when the session starts rather
+	// than here, so a harness that starts the server with no identity at all
+	// gets one whose tools say what is missing instead of a subprocess that
+	// exited before the handshake.
 	token string
-	mcp   *mcpsdk.Server
 
-	// getenv reads the environment the harness started this server in, which is
-	// where a deliverer finds what its channel needs. It is a field rather than
-	// a call to [os.Getenv] so a test can play a harness without setting a
-	// variable on the process running it. [New] takes the real one.
-	getenv func(string) string
+	// member is the one member this server attends as, and noIdentity is why
+	// there is none. Both are written once as the session starts, before
+	// anything that reads them runs.
+	member     *Member
+	noIdentity error
 
-	// detect names the harness behind the client that handshook. It is a field
-	// for the reason getenv is one: a harness that carries a channel or a state
-	// feed of its own speaks to a CLI this process cannot start, so a test hands
-	// the server one that plays the part. [New] takes [harnessctl.Detect].
-	detect func(clientName string, getenv func(string) string) harnessctl.Harness
-
-	// initialized is closed once the harness has finished the MCP handshake and
-	// [Server.harness] names what it runs. Attendance waits on it: what the
-	// member declares about itself is read off that handshake, and attending
-	// before it landed would put the wrong answer in the room for the rest of
-	// the session.
-	initialized chan struct{}
-	initOnce    sync.Once
-	// harness is the CLI this server serves and the channel a mention takes to
-	// it. Written once, before initialized is closed, and read only after.
-	harness harnessctl.Harness
-
-	// subscribable are the resource URIs a family registered, which are the ones
-	// a harness may ask to be told about. Written while the families register
-	// and only read once the session is up.
-	subscribable map[string]struct{}
-	// rosterResources are the resources a change in who attends the room makes
-	// stale. Written and read like subscribable.
-	rosterResources []string
-
-	// mu guards what the attendance loop reports about itself, which is what
-	// every tool call reads before acting.
-	mu sync.Mutex
-	// attended says whether the attendance stream is open right now.
-	attended bool
-	// attendErr is why it is not, as the last attempt ended — the daemon's own
-	// refusal where there was one, which is what a failed tool call hands the
-	// agent to read.
-	attendErr error
-	// settled is closed once the first attempt has either landed or failed, so
-	// a tool call that arrived during startup waits for an answer instead of
-	// reporting an attendance that simply has not happened yet.
-	settled    chan struct{}
-	settleOnce sync.Once
-	// self is the member the daemon attended as, which is what an event of the
-	// room is matched against: a member is named by room, team and name.
-	self *chatv1.Member
-	// state is what this member's harness last reported about itself, as the
-	// attendance said it and every report since has changed it. A mention is
-	// only ever delivered while it is done.
-	state chatv1.HarnessState
-	// pending says a mention arrived that nothing delivered — the agent was
-	// mid-turn, or the delivery failed. It is what the next done report and the
-	// next attendance answer by counting the unread and saying how much waits.
-	pending bool
-
-	// reportMu serializes what this server tells the daemon about its harness.
-	// It is held across the send, so a repeat that read the last state cannot
-	// land after a newer one the feed sent meanwhile and leave the daemon a
-	// state behind. It is not mu: mu is what every tool call reads before
-	// acting, and holding that across an RPC would stall them.
-	reportMu sync.Mutex
-	// reportedState is what a feed last handed over, which is what gets said
-	// again. Unspecified means no feed has spoken — the state the attendance
-	// came back with is not one, since it is what the daemon already holds.
-	reportedState chatv1.HarnessState
-
-	// The loops' schedule, held here rather than read from the constants below
-	// so a test can drive them at a pace it can wait for. [New] takes the
-	// constants.
-	attendBackoffBase  time.Duration
-	attendBackoffMax   time.Duration
-	harnessStateResend time.Duration
-	// reprobeInterval is how often a held attendance asks its harness's channel
-	// whether it is still there. A field for the reason the three above are.
-	reprobeInterval time.Duration
+	// handshake reads the harness off the one session this server serves. It is
+	// the first naming that counts: a session names one client for its whole
+	// life, and a member cannot change what it attends as without attending
+	// again.
+	handshake sync.Once
 }
 
 // New dials sockPath and prepares the MCP server. Attendance is declared from
@@ -148,7 +80,7 @@ type Server struct {
 // handshake rather than announced as a change the harness has to notice.
 //
 // token is resolved the way every member verb resolves it — the value given
-// here first, then the environment — but not until something needs it, so a
+// here first, then the environment — but not until the session starts, so a
 // server started with no identity at all still answers the handshake and
 // reports the missing token through every tool the agent calls. A nil logger
 // discards logs; a logger writing to stdout would corrupt the MCP stream, so
@@ -165,43 +97,19 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 func newServer(
 	logger *slog.Logger, sockPath, token string, getenv func(string) string,
 ) (*Server, error) {
-	if logger == nil {
-		logger = slog.New(slog.DiscardHandler)
-	}
-	client, err := cli.Dial(sockPath)
+	// Nothing is pinged: the one session ends with the harness's end of stdio,
+	// which closes as the harness exits however it exits.
+	h, err := newHost(logger, sockPath, getenv, 0)
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{
-		logger:             logger,
-		client:             client,
-		token:              token,
-		getenv:             getenv,
-		detect:             harnessctl.Detect,
-		subscribable:       map[string]struct{}{},
-		initialized:        make(chan struct{}),
-		settled:            make(chan struct{}),
-		attendBackoffBase:  attendBackoffBase,
-		attendBackoffMax:   attendBackoffMax,
-		harnessStateResend: harnessStateResend,
-		reprobeInterval:    reprobeInterval,
-	}
-	opts := &mcpsdk.ServerOptions{
-		Logger:             logger,
-		SubscribeHandler:   s.subscribed,
-		UnsubscribeHandler: s.unsubscribed,
-	}
-	// What the server declares about itself is settled here, because the
-	// handshake carries it and the handshake is what tells the server which
-	// harness it is serving — the answer arrives after the question.
-	if harnessctl.ClaudeChannelEnabled(s.getenv) {
-		opts.Instructions = claudeChannelInstructions
-	}
-	s.mcp = mcpsdk.NewServer(
-		&mcpsdk.Implementation{Name: serverName, Version: libver.Version},
-		opts,
-	)
-	s.mcp.AddReceivingMiddleware(s.readsHandshake)
+	s := &Server{host: h, token: token}
+	// The reserved calls are answered and learn nothing here: a stdio server
+	// serves one session, and the thread a delivery goes to is the one a person
+	// used last on the app server — see [harnessctl.Detect]. The OpenCode
+	// session a call names is taken off it for the same reason: the one member
+	// this server attends as is who every call acts as.
+	h.mcp.AddReceivingMiddleware(s.readsHandshake, answersReservedCalls(nil), takesOpenCodeSession)
 	return s, nil
 }
 
@@ -245,25 +153,17 @@ func (s *Server) readsHandshake(next mcpsdk.MethodHandler) mcpsdk.MethodHandler 
 }
 
 // handshook reads the harness off session once it names a client, which is
-// where the member learns what it runs and how a mention can reach it. It is
-// the first naming that counts: a session names one client for its whole life,
-// and a member cannot change what it attends as without attending again.
+// where the member learns what it runs and how a mention can reach it.
 func (s *Server) handshook(session *mcpsdk.ServerSession) {
 	params := session.InitializeParams()
 	if params == nil {
 		return
 	}
-	s.initOnce.Do(func() {
-		var client string
-		if params.ClientInfo != nil {
-			client = params.ClientInfo.Name
+	s.handshake.Do(func() {
+		harness := s.host.harnessOf(params)
+		if s.member != nil {
+			s.member.retarget(harness)
 		}
-		s.harness = s.detect(client, s.getenv)
-		close(s.initialized)
-		s.logger.Info("the harness named itself",
-			"client", client,
-			"harness", cli.HarnessName(s.harness.Kind()),
-			"nudge", cli.NudgeDeliveryName(s.harness.Nudge()))
 	})
 }
 
@@ -271,31 +171,17 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 // than wrapped because the SDK adds a tool through a generic function, which a
 // method here could not be.
 func (s *Server) MCP() *mcpsdk.Server {
-	return s.mcp
+	return s.host.mcp
 }
 
 // Client is the connection to the daemon every tool acts through.
 func (s *Server) Client() *cli.Client {
-	return s.client
-}
-
-// ResolveToken resolves the caller's identity the way every member verb does:
-// the value the server was configured with first, then the environment. A
-// family resolves it per call rather than once, since a server that resolves
-// none still serves and answers with what is missing.
-func (s *Server) ResolveToken() (string, error) {
-	return cli.ResolveToken(s.token)
+	return s.host.client
 }
 
 // AddResource registers a resource and lets a harness subscribe to it.
-//
-// Subscribing goes through the server because the SDK takes one handler for the
-// whole session: a URI nothing registered is refused rather than accepted
-// quietly, which is what keeps a harness from waiting on news that could never
-// come.
 func (s *Server) AddResource(res *mcpsdk.Resource, handler mcpsdk.ResourceHandler) {
-	s.subscribable[res.URI] = struct{}{}
-	s.mcp.AddResource(res, handler)
+	s.host.addResource(res, handler)
 }
 
 // AnnounceOnRosterChange has the subscribed sessions told to read uri again
@@ -303,7 +189,25 @@ func (s *Server) AddResource(res *mcpsdk.Resource, handler mcpsdk.ResourceHandle
 // attendance the server had to open again, since whatever happened while
 // nothing was attending went unannounced.
 func (s *Server) AnnounceOnRosterChange(uri string) {
-	s.rosterResources = append(s.rosterResources, uri)
+	s.host.announceOnRosterChange(uri)
+}
+
+// MemberOf is the member a tool called over session acts as. A stdio server
+// serves one session and attends as one member, so neither the call nor the
+// session names anything it does not already know.
+//
+// A server that resolved no identity answers with why, which is the words every
+// member verb answers a missing token with; a family hands that to the agent
+// rather than acting as nobody.
+func (s *Server) MemberOf(context.Context, *mcpsdk.ServerSession) (*Member, error) {
+	switch {
+	case s.member != nil:
+		return s.member, nil
+	case s.noIdentity != nil:
+		return nil, s.noIdentity
+	default:
+		return nil, errNotAttending
+	}
 }
 
 // Run serves MCP on stdin/stdout until ctx is done.
@@ -319,36 +223,25 @@ func (s *Server) Run(ctx context.Context) error {
 // Serve is [Server.Run] with the transport given, so a caller can drive a
 // session over something other than the process's own stdio.
 func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
-	defer func() { _ = s.client.Close() }()
+	defer func() { _ = s.host.client.Close() }()
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	g, gctx := errgroup.WithContext(ctx)
-	if _, err := s.ResolveToken(); err != nil {
+	token, err := cli.ResolveToken(s.token)
+	if err != nil {
 		// Neither the flag nor the environment changes while the process runs,
 		// so a server with no identity to resolve has nothing to attend with,
-		// and retrying would only say so again. Recording the refusal as the
-		// answer to attendance is what keeps a tool call from waiting on a
-		// loop that will never run; it still serves, and the tools report this
-		// same refusal, which is where the agent reads what is missing.
-		s.attendanceEnded(err)
-		s.logger.Error("no chat identity; the tools will report it", "error", err)
+		// and retrying would only say so again. It still serves, and the tools
+		// report this same refusal, which is where the agent reads what is
+		// missing.
+		s.noIdentity = err
+		s.host.logger.Error("no chat identity; the tools will report it", "error", err)
 	} else {
+		s.member = s.host.newMember(token)
 		g.Go(func() error {
-			s.attend(gctx)
-			return nil
-		})
-		// The feed is followed under the same identity the attendance uses: a
-		// state is reported about the member this server attends as, so a
-		// server with none to resolve has nobody to report about and would hold
-		// a feed open for nothing.
-		g.Go(func() error {
-			s.watchHarnessState(gctx)
-			return nil
-		})
-		g.Go(func() error {
-			s.resendHarnessState(gctx)
+			s.member.run(gctx)
 			return nil
 		})
 	}
@@ -357,500 +250,7 @@ func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 		// gone has nobody left to attend for, and without this the loop would
 		// hold the session open for the rest of its backoff.
 		defer cancel()
-		return s.mcp.Run(gctx, transport)
+		return s.host.mcp.Run(gctx, transport)
 	})
 	return g.Wait()
-}
-
-// How long the server waits before opening the attendance stream again. The
-// first retries are quick, for the ordinary case of one that started while the
-// daemon was still binding its socket; the ceiling is what keeps a daemon that
-// is down from being asked in a loop.
-const (
-	attendBackoffBase = 200 * time.Millisecond
-	attendBackoffMax  = 2 * time.Second
-)
-
-// How many consecutive failures pass between the lines the loop logs. The
-// first of a run is always reported, since that is the one that says what
-// broke; after it a loop that keeps trying for the rest of the session would
-// bury everything else on the harness's stderr, and the second identical line
-// says nothing the first did not. Against the ceiling the loop retries at, this
-// is a line every half minute.
-const warnEvery = 15
-
-// warnRetry reports a failed attempt — the first of a run, and every warnEvery
-// after it.
-func (s *Server) warnRetry(msg string, failures int, backoff time.Duration, err error) {
-	if failures > 1 && failures%warnEvery != 0 {
-		return
-	}
-	s.logger.Warn(msg, "failures", failures, "backoff", backoff, "error", err)
-}
-
-// attendTimeout bounds the opening of one attendance. The stream is lazy, so a
-// daemon that accepted the connection and then answered nothing would leave the
-// loop waiting for the rest of the session and every tool call waiting with it.
-// A local socket answers in microseconds; this is only the point past which no
-// answer is coming.
-const attendTimeout = 10 * time.Second
-
-// reprobeInterval is how often a held attendance asks its harness's channel
-// whether it is still there.
-//
-// The probe gates the opening, and on its own it gates nothing after that: a
-// plugin that dies mid-session would leave a member listed as one the daemon
-// types nothing at, with every mention it is handed dropped. Asking again is a
-// loopback request the plugin answers out of memory, so what this number buys
-// is only how long a channel that went away may go unnoticed — a few seconds of
-// one late mention, where a probe every second would cost the same and answer
-// no sooner than the next mention needs it.
-const reprobeInterval = 5 * time.Second
-
-// errNotAttending is what a tool call is refused with when the attendance is
-// down for a reason nothing recorded. Every path that ends an attendance
-// records why, so this stands in for nothing that happens today; it exists so a
-// refusal is never the empty error.
-var errNotAttending = errors.New("not attending the chat room")
-
-// attend keeps this member attending for the whole session: one open stream,
-// opened again every time it ends.
-//
-// It never gives up, because attendance is not something the agent asked for
-// and so not something it will notice missing. A server starts with its
-// harness, which is regularly before the daemon is up at all, and the daemon
-// can go away and come back underneath it; either way a message addressed to
-// this member needs a member to be addressed to, and a hook reporting harness
-// state needs one to report about, both before the agent takes its first turn.
-// A loop that stopped after a handful of tries would leave the room a member
-// short until the agent happened to call a tool, which is exactly the moment it
-// is too late.
-func (s *Server) attend(ctx context.Context) {
-	// Nothing is declared before the harness has said what it is: the kind and
-	// the delivery an attendance carries stand for its whole life, and the
-	// daemon stops typing at a member that claimed to deliver its own mentions.
-	select {
-	case <-s.initialized:
-	case <-ctx.Done():
-		return
-	}
-	backoff := s.attendBackoffBase
-	// failures counts the consecutive attempts that did not open, and nothing
-	// else: it is what decides which of them is worth a line, and an attendance
-	// that stood in between means whatever kept the previous opening from
-	// working is over.
-	failures := 0
-	for reopened := false; ; reopened = true {
-		landed, err := s.holdAttendance(ctx, reopened)
-		if ctx.Err() != nil {
-			return
-		}
-		// An attendance that stood for a while and then ended is not the
-		// trouble one that never opened is, so it starts its retries over
-		// rather than inheriting the wait the previous failure had climbed to —
-		// and it is reported every time rather than thinned out the way a run
-		// of failures is, since it resets the run and so is never one of them.
-		//
-		// The operator reading the log should not be told a stream ended when
-		// none was ever up either, which is the other half of why the two are
-		// reported apart: a refused opening — the daemon turned it down, or the
-		// harness's channel was not there to probe — says what to go and fix,
-		// and the first of a run is the one that says it.
-		if landed {
-			backoff = s.attendBackoffBase
-			failures = 0
-			s.logger.Warn("the chat attendance ended; attending again",
-				"backoff", backoff, "error", err)
-		} else {
-			failures++
-			s.warnRetry("the chat attendance could not open; trying again",
-				failures, backoff, err)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(backoff):
-		}
-		backoff = min(2*backoff, s.attendBackoffMax)
-	}
-}
-
-// holdAttendance opens one attendance and holds it until it ends, reporting
-// whether it ever opened and why it is over.
-//
-// reopened says an earlier attendance had already ended, which makes the roster
-// stale by definition: whatever happened while nothing was attending went
-// unannounced. Saying so as soon as the new stream is up closes that gap — the
-// subscriber reads the resource, and the read lists the room afresh.
-//
-// The stream gets a context of its own so giving up on an opening that never
-// answers ends nothing but that attempt. The parent context lives as long as
-// the session.
-func (s *Server) holdAttendance(ctx context.Context, reopened bool) (bool, error) {
-	token, err := s.ResolveToken()
-	if err != nil {
-		s.attendanceEnded(err)
-		return false, err
-	}
-	// A harness whose channel is somewhere other than this session is asked
-	// whether it is there before the member attends, and the member stays out of
-	// the room for as long as the answer is no.
-	//
-	// Attending as a terminal member instead — leaving the daemon to type at a
-	// session whose channel never came up — would paper the broken launch over:
-	// the room would go on working, and nobody would learn that the plugin the
-	// launch promised is not running. A member missing from the roster is noticed,
-	// and the refusal it is missing over says which channel was looked for and
-	// where.
-	//
-	// Asked on every attempt rather than once: a plugin the launcher started
-	// beside this process may well come up after it, and then this is the loop
-	// that picks it up. It is asked again for as long as the stream is held, for
-	// the same reason in the other direction — see [Server.reprobe].
-	prober, probed := s.harness.(harnessctl.Prober)
-	if probed {
-		if err := prober.Probe(ctx); err != nil {
-			s.attendanceEnded(err)
-			return false, err
-		}
-	}
-	actx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	// A held attendance has two halves: the room's feed, which this member acts
-	// on, and the question of whether the channel it acts through is still
-	// there. Either one ending ends the attendance — so a plugin that died takes
-	// its member out of the room the same way a daemon that went away does, and
-	// the loop above backs off, keeps asking, and attends again once the plugin
-	// answers.
-	//
-	// The group is made before the stream is opened, because the stream is then
-	// opened on the group's own context: the half that failed is the answer the
-	// attendance ends with, and the cancel the group makes on its way out is what
-	// ends the other half. Opening the stream on the context above instead would
-	// have the two race to report, and the feed's own cancellation could stand in
-	// front of what actually went wrong.
-	g, gctx := errgroup.WithContext(actx)
-	// A deadline on the context would end the attendance itself ten seconds in,
-	// so the wait is bounded by cancelling the attempt instead and only until
-	// the daemon has answered.
-	opening := time.AfterFunc(attendTimeout, cancel)
-	// The empty name takes the one the daemon derives from the token: an agent
-	// is named by whoever registered it, not by the harness it happens to run.
-	//
-	// Always as an agent: this server is started by a harness and serves
-	// nothing else, so the terminal behind it is one a nudge belongs in.
-	//
-	// The harness and the delivery are what the handshake said: a harness whose
-	// channel this server can push a mention through attends as native, and the
-	// daemon then types nothing at it, leaving the waking to the deliverer
-	// below.
-	attendance, err := s.client.Attend(gctx, token, "",
-		chatv1.MemberKind_MEMBER_KIND_AGENT,
-		s.harness.Kind(),
-		s.harness.Nudge())
-	if !opening.Stop() && err != nil {
-		err = errors.New("the daemon did not answer the attendance within " +
-			attendTimeout.String())
-	}
-	if err != nil {
-		s.attendanceEnded(err)
-		return false, err
-	}
-	s.attendanceLanded(attendance.Self())
-	if reopened {
-		s.announceRoster(ctx)
-	}
-	// Whatever was said while nothing was attending was said to nobody here, so
-	// every attendance asks what is waiting rather than only the ones that
-	// followed a dropped stream: a server that started after its agent was
-	// mentioned has the same gap to close.
-	s.deliverWaiting(ctx)
-	// The first event of the feed is this member's own arrival, which the
-	// daemon publishes to the room it just joined. It is announced like any
-	// other roster change: the room did gain a member, and every attendee sees
-	// the same feed.
-	g.Go(func() error {
-		return attendance.Forward(gctx, func(ev *chatv1.RoomEvent) error {
-			if rosterChanged(ev) {
-				s.announceRoster(ctx)
-			}
-			s.observe(ctx, ev)
-			return nil
-		})
-	})
-	if probed {
-		g.Go(func() error { return s.reprobe(gctx, prober) })
-	}
-	err = g.Wait()
-	s.attendanceEnded(err)
-	return true, err
-}
-
-// reprobe asks the channel whether it is still there for as long as the
-// attendance is held, and answers with the first refusal.
-//
-// A failed delivery does not ask on the spot. It says the notice is still
-// unread, which the outstanding count already carries to the next report that
-// ends a turn, and it says nothing about whether the plugin is coming back —
-// while a plugin that is genuinely gone is caught here within the interval
-// anyway. Wiring one into the other would buy a few seconds at the price of a
-// path that only ever runs when something is already broken.
-func (s *Server) reprobe(ctx context.Context, prober harnessctl.Prober) error {
-	ticker := time.NewTicker(s.reprobeInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			// Nothing to report: the attendance is ending for whatever the other
-			// half answered with, and a context this half only read would stand
-			// in front of it as the reason.
-			return nil
-		case <-ticker.C:
-			if err := prober.Probe(ctx); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-// announceRoster tells the subscribed sessions to read the resources a roster
-// change made stale.
-func (s *Server) announceRoster(ctx context.Context) {
-	for _, uri := range s.rosterResources {
-		err := s.mcp.ResourceUpdated(ctx,
-			&mcpsdk.ResourceUpdatedNotificationParams{URI: uri})
-		if err != nil {
-			s.logger.Warn("announcing the changed room roster failed",
-				"uri", uri, "error", err)
-		}
-	}
-}
-
-// rosterChanged reports whether ev changes who attends the room or what state
-// they are in. A message being appended does not: the same members are there in
-// the same states. It changes the room's conversation, but nothing subscribes
-// to that — the chat family's read verb is what a member reads its messages
-// with, and a subscription the server accepted would be one it could not serve.
-func rosterChanged(ev *chatv1.RoomEvent) bool {
-	switch ev.GetEvent().(type) {
-	case *chatv1.RoomEvent_MemberStateChanged,
-		*chatv1.RoomEvent_MemberJoined,
-		*chatv1.RoomEvent_MemberLeft:
-		return true
-	default:
-		return false
-	}
-}
-
-// watchHarnessState reports what this member's harness says it is doing for as
-// long as the session runs, for a harness that says it without being asked.
-//
-// It is the whole of such a member's state: its CLI carries a feed of its own,
-// its hooks report nothing beside it, and a room hearing neither would never
-// learn when the agent's turn is over — which is the moment a mention waiting
-// for it may be delivered. A harness with no feed leaves the reporting to its
-// hooks, and there is nothing to run here.
-func (s *Server) watchHarnessState(ctx context.Context) {
-	// Nothing before the handshake, for the reason attendance waits on it: the
-	// harness is what the handshake names, and there is nothing to ask for a
-	// feed until it has.
-	select {
-	case <-s.initialized:
-	case <-ctx.Done():
-		return
-	}
-	source, ok := s.harness.(harnessctl.StateSource)
-	if !ok {
-		return
-	}
-	source.Watch(ctx, func(state chatv1.HarnessState) {
-		s.reportHarnessState(ctx, state)
-	})
-}
-
-// reportHarnessState hands the daemon one state the feed carried, which the
-// daemon publishes to the room — this server included, where it is what decides
-// whether a mention may be delivered now.
-//
-// The state is remembered as it is sent, and [Server.resendHarnessState] says
-// what was remembered again; a report that failed is therefore not left. The
-// member meanwhile keeps whatever the daemon last recorded, which is the answer
-// that interrupts nobody mid-turn. A session on its way out says nothing at all:
-// what the feed had queued is drained as it closes, against a daemon connection
-// closing with it.
-func (s *Server) reportHarnessState(ctx context.Context, state chatv1.HarnessState) {
-	s.reportMu.Lock()
-	defer s.reportMu.Unlock()
-	s.reportedState = state
-	s.sendHarnessState(ctx, state)
-}
-
-// harnessStateResend is how often the bridge re-sends the last state a feed
-// reported, so a daemon that restarted or refused a report hears it again.
-const harnessStateResend = 10 * time.Second
-
-// resendHarnessState says again, every harnessStateResend, what a feed last
-// reported about this member, for as long as the session runs.
-//
-// A feed speaks on change alone, and a member the daemon has wrong therefore
-// stays wrong until the agent's next transition — which may be the end of a
-// turn nobody was told had begun. A restarted daemon records a reopened
-// attendance as done, a refused report changes nothing, and a change-only
-// watcher repeats neither. Saying it again bounds the gap to one interval.
-//
-// Once an interval rather than on every poll of a feed, because the daemon runs
-// `cmdman status set` as a child process for every report it records. What the
-// room hears costs nothing: the daemon publishes an event only where the state
-// moved. Which feed said it does not matter — the Codex app server and the
-// Claude Code listing are repeated alike — and nothing is repeated at all until
-// one of them has spoken.
-func (s *Server) resendHarnessState(ctx context.Context) {
-	ticker := time.NewTicker(s.harnessStateResend)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.resendLastHarnessState(ctx)
-		}
-	}
-}
-
-// resendLastHarnessState says the last reported state again, where there is one
-// to say and somebody to say it to.
-//
-// Nothing is sent while the attendance is down: the daemon refuses a state
-// reported about a member the room does not have, so the attempt would fail and
-// say so every interval for as long as the daemon stayed away. The next tick
-// catches the attendance that comes back, which is the case this exists for.
-func (s *Server) resendLastHarnessState(ctx context.Context) {
-	if !s.attending() {
-		return
-	}
-	s.reportMu.Lock()
-	defer s.reportMu.Unlock()
-	if s.reportedState == chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED {
-		return
-	}
-	s.sendHarnessState(ctx, s.reportedState)
-}
-
-// sendHarnessState puts one state on the wire and reports a refusal. The caller
-// holds reportMu.
-func (s *Server) sendHarnessState(ctx context.Context, state chatv1.HarnessState) {
-	token, err := s.ResolveToken()
-	if err == nil {
-		err = s.client.ReportHarnessState(ctx, token, state)
-	}
-	if err != nil && ctx.Err() == nil {
-		s.logger.Warn("reporting what the harness says it is doing failed",
-			"state", cli.HarnessStateName(state), "error", err)
-	}
-}
-
-// attending reports whether the attendance stream is open right now.
-func (s *Server) attending() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.attended
-}
-
-// subscribed accepts a request to be told about a resource. The room's feed is
-// already up — it is the attendance the server holds for the whole session — so
-// there is nothing to start here; what is left is deciding whether the server
-// can keep the promise a subscription asks for.
-func (s *Server) subscribed(_ context.Context, req *mcpsdk.SubscribeRequest) error {
-	return s.announceable(req.Params.URI)
-}
-
-// unsubscribed acknowledges the withdrawal and leaves the feed running.
-//
-// The feed is not the subscription's to end: it is the attendance itself, which
-// runs for as long as the session does whether or not anything is listening.
-// Nothing is announced to a harness that withdrew — the SDK sends a resource
-// update to the sessions that subscribed and to no others. The SDK also
-// requires this handler as soon as [Server.subscribed] exists.
-func (s *Server) unsubscribed(_ context.Context, req *mcpsdk.UnsubscribeRequest) error {
-	return s.announceable(req.Params.URI)
-}
-
-// announceable returns nil when the server can tell a harness that uri changed,
-// and the refusal otherwise.
-//
-// A URI no family registered is refused rather than accepted quietly. The SDK
-// records a subscription for whatever URI it is handed, so accepting a typo
-// would leave the harness waiting on news that could never come.
-func (s *Server) announceable(uri string) error {
-	if _, ok := s.subscribable[uri]; ok {
-		return nil
-	}
-	return mcpsdk.ResourceNotFoundError(uri)
-}
-
-// attendanceLanded records an open attendance, which is what lets a tool act on
-// behalf of this member.
-//
-// The member comes back with the state the daemon holds for it, which is what
-// decides whether a mention may be delivered: a fresh attendance is done, and
-// one taken up again carries whatever the agent's hooks last reported.
-func (s *Server) attendanceLanded(self *chatv1.Member) {
-	s.mu.Lock()
-	s.attended = true
-	s.attendErr = nil
-	s.self = self
-	s.state = self.GetState()
-	s.mu.Unlock()
-	s.settle()
-	s.logger.Info("attending the chat room",
-		"member", cli.Address(self), "room", self.GetRoom())
-}
-
-// attendanceEnded records that there is no attendance and why, which is what a
-// tool call is refused with until the loop opens the next one.
-func (s *Server) attendanceEnded(err error) {
-	s.mu.Lock()
-	s.attended = false
-	s.attendErr = err
-	s.mu.Unlock()
-	s.settle()
-}
-
-// settle releases the tool calls waiting for the first attempt to finish. Every
-// attempt after that finds the gate already open and answers from what the last
-// one recorded.
-func (s *Server) settle() {
-	s.settleOnce.Do(func() { close(s.settled) })
-}
-
-// AwaitAttendance blocks until the server has an answer about its attendance
-// and returns nil when it has one. A family waits on it before acting, since
-// none of the daemon's member calls mean anything from outside the room.
-//
-// The wait is only ever for the first attempt: a harness starts its MCP
-// subprocesses before the services they talk to, so a tool called in the first
-// moments of a session would otherwise be refused for no better reason than
-// having arrived first.
-//
-// After that a call is answered from what the loop last recorded. A tool called
-// in the gap between an attendance ending and the next one opening is refused
-// with why the last one ended — the gap is a backoff wide and the agent can
-// call again, where waiting it out would hand the model a tool that sometimes
-// blocks for seconds with nothing to show for it.
-func (s *Server) AwaitAttendance(ctx context.Context) error {
-	select {
-	case <-s.settled:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	switch {
-	case s.attended:
-		return nil
-	case s.attendErr != nil:
-		return s.attendErr
-	default:
-		return errNotAttending
-	}
 }

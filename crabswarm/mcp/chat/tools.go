@@ -98,13 +98,13 @@ func (f *family) addTools() {
 }
 
 func (f *family) send(
-	ctx context.Context, _ *mcp.CallToolRequest, in sendArgs,
+	ctx context.Context, req *mcp.CallToolRequest, in sendArgs,
 ) (*mcp.CallToolResult, any, error) {
 	target, err := cli.ParseTarget(in.To)
 	if err != nil {
 		return nil, nil, err
 	}
-	return f.call(ctx, func(w io.Writer, token string) error {
+	return f.call(ctx, req.Session, func(w io.Writer, token string) error {
 		resp, err := f.server.Client().Send(ctx, token, target, in.Message)
 		if err != nil {
 			return err
@@ -119,7 +119,7 @@ func (f *family) send(
 }
 
 func (f *family) read(
-	ctx context.Context, _ *mcp.CallToolRequest, in readArgs,
+	ctx context.Context, req *mcp.CallToolRequest, in readArgs,
 ) (*mcp.CallToolResult, any, error) {
 	filter, err := cli.ReadFlags{
 		Cursor: in.Cursor,
@@ -131,7 +131,7 @@ func (f *family) read(
 	if err != nil {
 		return nil, nil, err
 	}
-	return f.call(ctx, func(w io.Writer, token string) error {
+	return f.call(ctx, req.Session, func(w io.Writer, token string) error {
 		// The two options `chat read` carries beside the filter exist for
 		// harness hooks deciding whether they have mail to deliver, which is
 		// not a decision the model calling this tool is making.
@@ -140,9 +140,9 @@ func (f *family) read(
 }
 
 func (f *family) members(
-	ctx context.Context, _ *mcp.CallToolRequest, _ noArgs,
+	ctx context.Context, req *mcp.CallToolRequest, _ noArgs,
 ) (*mcp.CallToolResult, any, error) {
-	return f.call(ctx, func(w io.Writer, token string) error {
+	return f.call(ctx, req.Session, func(w io.Writer, token string) error {
 		return f.server.Client().ListMembers(ctx, w, token)
 	})
 }
@@ -155,20 +155,15 @@ func (f *family) members(
 // text, so the two ways of being in a room stay one thing to learn — and a
 // change to how a message reads reaches both at once.
 //
-// Attendance is waited on first because none of these calls mean anything from
-// outside the room, and a member whose attendance never landed would otherwise
-// get the daemon's answer to a question it should not have asked. The token is
-// resolved before that, so a server configured with none reports what is
-// missing rather than waiting on an attendance that was never going to happen.
+// The call acts as the member session is, see [family.caller]: several agents
+// can share one server, and each is answered as itself.
 func (f *family) call(
 	ctx context.Context,
+	session *mcp.ServerSession,
 	rpc func(w io.Writer, token string) error,
 ) (*mcp.CallToolResult, any, error) {
-	token, err := f.server.ResolveToken()
+	token, err := f.caller(ctx, session)
 	if err != nil {
-		return nil, nil, err
-	}
-	if err := f.server.AwaitAttendance(ctx); err != nil {
 		return nil, nil, err
 	}
 	var rendered bytes.Buffer

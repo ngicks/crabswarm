@@ -141,14 +141,14 @@ func launchedWithTheChannel(name string) string {
 // runsAt sets the loop going at a pace a case can wait for, for the cases that
 // are about it attending again rather than about what one attendance did.
 func runsAt(bridge *Server, base, max time.Duration) {
-	bridge.attendBackoffBase = base
-	bridge.attendBackoffMax = max
+	bridge.host.pace.attendBackoffBase = base
+	bridge.host.pace.attendBackoffMax = max
 }
 
 // reprobesEvery has a held attendance ask its channel at a pace a case can wait
 // for, for the reason [runsAt] exists: the real interval is seconds.
 func reprobesEvery(bridge *Server, every time.Duration) {
-	bridge.reprobeInterval = every
+	bridge.host.pace.reprobeInterval = every
 }
 
 // serveBridge runs bridge over an in-memory pipe and returns the session a
@@ -305,13 +305,13 @@ func TestServer_RefusesToWatchWhatItCannotAnnounce(t *testing.T) {
 	bridge, err := New(slog.New(slog.DiscardHandler),
 		serveTestDaemon(t, &fakeChatService{}), testToken)
 	assert.NilError(t, err)
-	t.Cleanup(func() { _ = bridge.client.Close() })
+	t.Cleanup(func() { _ = bridge.host.client.Close() })
 	registerWatched(bridge)
 
-	assertNotFound(t, unwatchable, bridge.subscribed(t.Context(), &mcpsdk.SubscribeRequest{
+	assertNotFound(t, unwatchable, bridge.host.subscribed(t.Context(), &mcpsdk.SubscribeRequest{
 		Params: &mcpsdk.SubscribeParams{URI: unwatchable},
 	}))
-	assert.NilError(t, bridge.subscribed(t.Context(), &mcpsdk.SubscribeRequest{
+	assert.NilError(t, bridge.host.subscribed(t.Context(), &mcpsdk.SubscribeRequest{
 		Params: &mcpsdk.SubscribeParams{URI: watched},
 	}))
 }
@@ -325,11 +325,11 @@ func TestServer_RefusesToUnwatchWhatItCannotAnnounce(t *testing.T) {
 	bridge, err := New(slog.New(slog.DiscardHandler),
 		serveTestDaemon(t, &fakeChatService{}), testToken)
 	assert.NilError(t, err)
-	t.Cleanup(func() { _ = bridge.client.Close() })
+	t.Cleanup(func() { _ = bridge.host.client.Close() })
 	registerWatched(bridge)
 
 	unsubscribe := func(uri string) error {
-		return bridge.unsubscribed(t.Context(), &mcpsdk.UnsubscribeRequest{
+		return bridge.host.unsubscribed(t.Context(), &mcpsdk.UnsubscribeRequest{
 			Params: &mcpsdk.UnsubscribeParams{URI: uri},
 		})
 	}
@@ -345,7 +345,7 @@ func deliversTo(t *testing.T, bridge *Server) string {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "notices.log")
-	bridge.getenv = func(name string) string {
+	bridge.host.getenv = func(name string) string {
 		if name == harnessctl.SinkEnv {
 			return path
 		}
@@ -618,7 +618,7 @@ func (h *feedingHarness) says(t *testing.T, state chatv1.HarnessState) {
 // runsOn has the server serve h whatever name the client handshakes under,
 // which is how a case plays a CLI this process cannot start.
 func runsOn(bridge *Server, h harnessctl.Harness) {
-	bridge.detect = func(string, func(string) string) harnessctl.Harness { return h }
+	bridge.host.detect = func(string, func(string) string) harnessctl.Harness { return h }
 }
 
 // waitReported blocks until the member has reported exactly want, so a case
@@ -670,8 +670,9 @@ func TestServer_WatchesNothingForAHarnessWithoutAFeed(t *testing.T) {
 	serveBridgeAs(t, bridge, "codex-mcp-client")
 
 	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
-	assert.Assert(t, bridge.harness != nil)
-	_, watchable := bridge.harness.(harnessctl.StateSource)
+	harness := bridge.member.currentHarness()
+	assert.Assert(t, harness != nil)
+	_, watchable := harness.(harnessctl.StateSource)
 	assert.Assert(t, !watchable, "a Codex with no app server carries a state feed")
 	assert.Equal(t, len(fake.reportedStates()), 0)
 }
@@ -815,13 +816,23 @@ func (h *probingHarness) dies(err error) {
 // what the call answers with. The family that registers the real one lives in a
 // package that imports this one, so the case spells the one line of it this is
 // about.
-func addMembersTool(bridge *Server) {
+//
+// It acts as the member the calling session is, which is how a tool on either
+// transport finds who it acts for.
+func addMembersTool(bridge interface {
+	MCP() *mcpsdk.Server
+	MemberOf(context.Context, *mcpsdk.ServerSession) (*Member, error)
+}) {
 	mcpsdk.AddTool(bridge.MCP(),
 		&mcpsdk.Tool{Name: "chat_members", Description: "list everyone attending your room"},
 		func(
-			ctx context.Context, _ *mcpsdk.CallToolRequest, _ struct{},
+			ctx context.Context, req *mcpsdk.CallToolRequest, _ struct{},
 		) (*mcpsdk.CallToolResult, any, error) {
-			if err := bridge.AwaitAttendance(ctx); err != nil {
+			member, err := bridge.MemberOf(ctx, req.Session)
+			if err != nil {
+				return nil, nil, err
+			}
+			if err := member.AwaitAttendance(ctx); err != nil {
 				return nil, nil, err
 			}
 			return &mcpsdk.CallToolResult{
@@ -964,17 +975,18 @@ func TestNew_RejectsEmptySocketPath(t *testing.T) {
 func TestNew_SeedsTheRetryPace(t *testing.T) {
 	bridge, err := New(nil, serveTestDaemon(t, &fakeChatService{}), testToken)
 	assert.NilError(t, err)
-	t.Cleanup(func() { _ = bridge.client.Close() })
+	t.Cleanup(func() { _ = bridge.host.client.Close() })
 
-	assert.Assert(t, bridge.attendBackoffBase > 0,
-		"attending starts at %s", bridge.attendBackoffBase)
-	assert.Assert(t, bridge.attendBackoffMax >= bridge.attendBackoffBase,
+	p := bridge.host.pace
+	assert.Assert(t, p.attendBackoffBase > 0,
+		"attending starts at %s", p.attendBackoffBase)
+	assert.Assert(t, p.attendBackoffMax >= p.attendBackoffBase,
 		"attending climbs to %s, below its first wait of %s",
-		bridge.attendBackoffMax, bridge.attendBackoffBase)
-	assert.Assert(t, bridge.harnessStateResend > 0,
-		"the last harness state is said again every %s", bridge.harnessStateResend)
+		p.attendBackoffMax, p.attendBackoffBase)
+	assert.Assert(t, p.harnessStateResend > 0,
+		"the last harness state is said again every %s", p.harnessStateResend)
 	// A zero here is worse than a zero backoff: the ticker a held attendance asks
 	// its channel on panics on one.
-	assert.Assert(t, bridge.reprobeInterval > 0,
-		"a held attendance asks its channel every %s", bridge.reprobeInterval)
+	assert.Assert(t, p.reprobeInterval > 0,
+		"a held attendance asks its channel every %s", p.reprobeInterval)
 }

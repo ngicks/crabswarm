@@ -26,6 +26,7 @@ func hermeticEnv(t *testing.T) {
 		"CRABSWARM_CHAT_ADMIN_IDENTITY_FILE",
 		"CRABSWARM_PREVIEW_ADDR",
 		"CRABSWARM_PREVIEW_DAEMON_NAME",
+		"CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR",
 		"CLAUDE_PROJECT_DIR",
 		"XDG_RUNTIME_DIR",
 	} {
@@ -61,6 +62,8 @@ func TestConfigCmd_WritesToStdout(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, stderr, "")
 	assert.Assert(t, strings.Contains(stdout, `"sock"`))
+	assert.Assert(t, strings.Contains(stdout,
+		`"codex_proxy_sock_dir": "/run/user/1000/crabswarm-codex-proxy"`), stdout)
 }
 
 // The --format flag (and its -f shorthand) is wired through to the renderer, and
@@ -72,4 +75,15 @@ func TestConfigCmd_FormatFlagToStdout(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, stderr, "")
 	assert.Equal(t, strings.TrimSpace(stdout), "/home/tester/gitrepo")
+}
+
+// The codex-proxy socket directory is printed under the mcp section, and the
+// environment reaches it as CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR.
+func TestConfigCmd_PrintsTheCodexProxySockDir(t *testing.T) {
+	hermeticEnv(t)
+	t.Setenv("CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR", "/env/proxy")
+
+	stdout, _, err := runConfigCmd(t, "-f", "{{.MCP.CodexProxySockDir}}")
+	assert.NilError(t, err)
+	assert.Equal(t, strings.TrimSpace(stdout), "/env/proxy")
 }

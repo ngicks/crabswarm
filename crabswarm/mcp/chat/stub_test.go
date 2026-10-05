@@ -4,10 +4,12 @@ import (
 	"context"
 	"net"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -40,7 +42,11 @@ func rolesTarget(members ...*chatv1.Member) *chatv1.Target {
 type fakeChatService struct {
 	chatv1.UnimplementedChatServiceServer
 
-	self      *chatv1.Member
+	self *chatv1.Member
+	// selves, when set, is who the daemon attends each token as, which is how a
+	// case plays several members sharing one server. A token it does not name
+	// attends as self.
+	selves    map[string]*chatv1.Member
 	mentioned []*chatv1.Member
 	absent    []*chatv1.Member
 	messages  []*chatv1.Message
@@ -68,6 +74,35 @@ type fakeChatService struct {
 	send    *chatv1.SendRequest
 	read    *chatv1.ReadRequest
 	reads   int
+	// attendedAs is the token of every attendance admitted, and sentAs the token
+	// and text of every message sent, oldest first: the token is who the daemon
+	// takes a caller to be.
+	attendedAs []string
+	sentAs     []sent
+}
+
+// sent is one message as the daemon received it.
+type sent struct {
+	token string
+	text  string
+}
+
+// tokenOf is the identity token a call carried, as the daemon's interceptor
+// reads it.
+func tokenOf(ctx context.Context) string {
+	md, _ := metadata.FromIncomingContext(ctx)
+	if values := md.Get(chatsvc.TokenMetadataKey); len(values) > 0 {
+		return values[0]
+	}
+	return ""
+}
+
+// selfFor is who the daemon attends token as.
+func (f *fakeChatService) selfFor(token string) *chatv1.Member {
+	if self, ok := f.selves[token]; ok {
+		return self
+	}
+	return f.self
 }
 
 // failure is the canned error as it stands, read under the lock so a test that
@@ -85,21 +120,24 @@ func (f *fakeChatService) Attend(
 	req *chatv1.AttendRequest,
 	stream grpc.ServerStreamingServer[chatv1.RoomEvent],
 ) error {
+	token := tokenOf(stream.Context())
+	self := f.selfFor(token)
 	f.mu.Lock()
 	f.attend = req
 	f.opens++
 	err := f.err
 	if err == nil {
 		f.attends++
+		f.attendedAs = append(f.attendedAs, token)
 	}
 	f.mu.Unlock()
 	if err != nil {
 		return err
 	}
 	opening := []*chatv1.RoomEvent{
-		{Event: &chatv1.RoomEvent_Attended{Attended: &chatv1.Attended{Self: f.self}}},
+		{Event: &chatv1.RoomEvent_Attended{Attended: &chatv1.Attended{Self: self}}},
 		{Event: &chatv1.RoomEvent_MemberJoined{
-			MemberJoined: &chatv1.MemberJoined{Member: f.self},
+			MemberJoined: &chatv1.MemberJoined{Member: self},
 		}},
 	}
 	for _, ev := range opening {
@@ -123,10 +161,11 @@ func (f *fakeChatService) Attend(
 }
 
 func (f *fakeChatService) Send(
-	_ context.Context, req *chatv1.SendRequest,
+	ctx context.Context, req *chatv1.SendRequest,
 ) (*chatv1.SendResponse, error) {
 	f.mu.Lock()
 	f.send = req
+	f.sentAs = append(f.sentAs, sent{token: tokenOf(ctx), text: req.GetText()})
 	f.mu.Unlock()
 	if err := f.failure(); err != nil {
 		return nil, err
@@ -175,6 +214,20 @@ func (f *fakeChatService) attendCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.attends
+}
+
+// attendedTokens is the token of every attendance admitted, oldest first.
+func (f *fakeChatService) attendedTokens() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.attendedAs)
+}
+
+// sends is every message sent with the token it was sent under, oldest first.
+func (f *fakeChatService) sends() []sent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.sentAs)
 }
 
 func (f *fakeChatService) lastSend() *chatv1.SendRequest {

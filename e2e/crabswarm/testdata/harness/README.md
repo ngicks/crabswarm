@@ -702,6 +702,62 @@ What they showed:
 - The dotted key layered over the app server's own `-c` entry for the server.
   The URL stayed in effect.
 
+### Recency after a resume of a loaded thread
+
+`codex-app-server-resume-order.client.ndjson` and
+`codex-app-server-resume-order.server.ndjson` record whether `thread/resume` of
+a thread that is still loaded moves that thread ahead of a thread started after
+it, captured 2026-09-28 with Codex 0.157.1. One throwaway Go program started the
+app server as its child and ran a recorder client on its socket.
+
+```sh
+codex app-server --listen unix:///tmp/cxr.sock
+```
+
+The client file holds every frame the recorder sent. The server file holds
+every answer, and of the notifications only `thread/started`,
+`thread/status/changed`, `turn/completed` and `thread/closed`; the recorder
+dropped the others as they arrived.
+
+The recorder played a TUI's `/new` and `/resume` with no TUI attached. Both of
+its `thread/start` requests carried `threadSource: "user"`,
+`approvalPolicy: "never"` and `sandbox: "read-only"`. In order, it:
+
+1. started thread A and ran one turn on it with the prompt
+   `Reply with the single word ok.`;
+2. started thread B, unsubscribed from A, and ran the same turn on B;
+3. listed the loaded threads and read both with `includeTurns: false`;
+4. resumed A with `excludeTurns: true`, as the TUI resumes, and unsubscribed
+   from B;
+5. listed the loaded threads and read both again;
+6. ran one more turn on A, then listed the loaded threads and read both a
+   third time.
+
+The recorder waited 2.5 seconds after each turn and after the resume, so a
+change in `recencyAt`, which counts whole seconds, would show.
+
+What they showed:
+
+- Both threads stayed loaded from the first listing to the last.
+- Before the resume, A read `recencyAt` 1790548958 and B read 1790548963.
+- The resume answer gave A `recencyAt` 1790548958. The reads after the resume
+  gave A 1790548958 and B 1790548963 again. A resume of a loaded thread leaves
+  its `recencyAt` where its last turn put it, and the thread started after it
+  stays the more recent one.
+- The turn on A after the resume moved A to `recencyAt` 1790548982, past B.
+- Between the resume answer (id 10) and the listing after the wait (id 12),
+  the server file holds only the answer to the unsubscribe (id 11): the app
+  server pushed no `thread/started` and no `thread/status/changed` for the
+  resume. Neither `recencyAt` nor these two
+  notifications mark the resume of a loaded thread.
+- A's `updatedAt` read 1790548961 before and after the resume.
+
+`codex-tui-thread-lifecycle.server.ndjson` holds a resume a real TUI made. Its
+answer (id 12) gave the resumed thread `recencyAt` 1790452348, while the thread
+the TUI had started after it answered 1790452369. That answer's `updatedAt` is
+newer than the thread's last turn; the two recordings do not show why the TUI's
+resume moved `updatedAt` and the recorder's did not.
+
 ## OpenCode server with attached TUIs
 
 Four files record one `opencode serve` with TUIs attached to it, captured
@@ -771,6 +827,45 @@ curl -s http://127.0.0.1:47410/config
 - The server answers the remote entry as it was configured: `type`, `url` and
   `enabled`. A process holding the server's URL reads the MCP server's address
   from it.
+
+## Pings on a streamable-HTTP MCP session
+
+`codex-mcp-http-keepalive.jsonl` and `opencode-mcp-http-keepalive.jsonl` record
+whether a harness answers the pings a streamable-HTTP MCP server sends on its
+session, captured 2026-09-28 with Codex 0.157.1 and OpenCode 1.18.32. The server
+was `crabswarm mcp --transport http` built with a three-second keepalive in
+place of the usual interval, and it attended no daemon. A throwaway Go program
+ran a logging reverse proxy in front of it and started each harness against the
+proxy:
+
+- Codex: `codex app-server` with a fresh `CODEX_HOME` whose `config.toml` held
+  only `[mcp_servers.crabswarm-mcp] url = "http://<proxy>/mcp"`, and one
+  `thread/start` carrying
+  `config: {"mcp_servers.crabswarm-mcp.http_headers.X-Crabswarm-Token": "tokA"}`
+  from a WebSocket client on its socket.
+- OpenCode: `opencode serve` under a fresh home, given the remote entry through
+  `OPENCODE_CONFIG_CONTENT` as above. It opened its MCP session once a request
+  had bootstrapped the instance.
+
+The program logged one JSON object per request and per event-stream line: `dir`
+(`client->server`, `server->client`, `response` or `stream-end`), the HTTP
+`method` or the request a line came `on`, the `Mcp-Session-Id` as `session`,
+the JSON-RPC message as `body` or `data`, and the time as `t`. After about 45
+seconds it sent `SIGKILL` to the harness's process group, so no `DELETE` was
+sent. Each fixture holds the lines picked from that log: the `GET` opening the
+session's event stream, the first three pings and their answers, and the end of
+the event stream at the kill.
+
+- Both harnesses hold a `GET` event stream open for the session, and the server
+  sends each ping there. Each ping was answered by a `POST` carrying
+  `{"result": {}}` under the ping's id within a few milliseconds. Codex
+  answered 14 pings and OpenCode 14 before the kill, and neither missed one.
+- The kill closed the event stream at once. Every ping after it failed with
+  `stream not connected`, and the server closed the session on the third
+  failure, 6 to 8 seconds after the kill. For Codex the member the header named
+  left the room with it.
+- `mcpServer/tool/call` naming a server the app server does not declare answered
+  `{"error": {"code": -32603, "message": "unknown MCP server 'not-crabswarm'"}}`.
 
 ## fakechat plugin channel
 

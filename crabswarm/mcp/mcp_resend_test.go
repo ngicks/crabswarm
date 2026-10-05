@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gotest.tools/v3/assert"
@@ -37,7 +38,7 @@ func watchedBridge(t *testing.T, svc attendingStub) *feedingHarness {
 	t.Helper()
 
 	bridge := newTestBridge(t, svc)
-	bridge.harnessStateResend = testResend
+	bridge.host.pace.harnessStateResend = testResend
 	feed := &feedingHarness{states: make(chan chatv1.HarnessState)}
 	runsOn(bridge, feed)
 	serveBridge(t, bridge)
@@ -77,6 +78,55 @@ func (f *refusingChat) ReportState(
 		return nil, status.Error(codes.Unavailable, "the daemon is going away")
 	}
 	return f.fakeChatService.ReportState(ctx, req)
+}
+
+// gatedChat holds every attendance at the door until the case opens it, which
+// is a daemon slow to admit a member while its harness already speaks.
+type gatedChat struct {
+	*refusingChat
+
+	gate chan struct{}
+}
+
+func (g *gatedChat) Attend(
+	req *chatv1.AttendRequest, stream grpc.ServerStreamingServer[chatv1.RoomEvent],
+) error {
+	select {
+	case <-g.gate:
+	case <-stream.Context().Done():
+		return stream.Context().Err()
+	}
+	return g.refusingChat.Attend(req, stream)
+}
+
+// What a feed says before the attendance has landed is kept from a daemon that
+// would refuse it, and said as soon as the attendance lands rather than an
+// interval later, while the room reads the fresh attendance as done.
+func TestServer_SaysWhatTheFeedSaidBeforeAttendingAsTheAttendanceLands(t *testing.T) {
+	fake := &gatedChat{
+		refusingChat: &refusingChat{
+			fakeChatService: &fakeChatService{self: doneSelf("backend", "alice", testRoom)},
+		},
+		gate: make(chan struct{}),
+	}
+	bridge := newTestBridge(t, fake)
+	// Past the end of the case, so nothing said here is the repeat.
+	bridge.host.pace.harnessStateResend = time.Hour
+	feed := &feedingHarness{states: make(chan chatv1.HarnessState)}
+	runsOn(bridge, feed)
+	serveBridge(t, bridge)
+
+	// The watch takes the second state only once it has reported the first.
+	feed.says(t, chatv1.HarnessState_HARNESS_STATE_WORKING)
+	feed.says(t, chatv1.HarnessState_HARNESS_STATE_WORKING)
+	assert.Equal(t, fake.attempts.Load(), int64(0))
+
+	close(fake.gate)
+	waitFor(t, "the server never attended", func() bool { return fake.attendCount() == 1 })
+	waitFor(t, "what the feed said was never reported", func() bool {
+		return len(fake.reportedStates()) > 0
+	})
+	assertOnly(t, fake.reportedStates(), chatv1.HarnessState_HARNESS_STATE_WORKING)
 }
 
 // A state a feed reported once keeps reaching the daemon. The feed speaks on
@@ -137,8 +187,8 @@ func TestServer_SaysNothingAgainUntilAFeedHasSpoken(t *testing.T) {
 // A state reported about a member the room does not have is refused by
 // definition, so repeating one through a gap in the attendance would buy a
 // doomed RPC and a warning every interval, for as long as the daemon stayed
-// away. Nothing is lost by the wait: the tick after the attendance comes back
-// says it, which is the case the repeat exists for.
+// away. Nothing is lost by the wait: the attendance that comes back says it as
+// it lands, so the room hears it again without waiting for a tick.
 func TestServer_SaysNothingAgainWhileTheAttendanceIsDown(t *testing.T) {
 	// Nothing is turned down by the stub itself. What this case reads off it is
 	// how many reports reached the daemon at all, since one made while the daemon
@@ -182,7 +232,7 @@ func TestServer_SaysNothingAgainWhileTheAttendanceIsDown(t *testing.T) {
 		return fake.attendCount() == 2
 	})
 	// The feed has been handed nothing since, so a report past the ones made
-	// while the member was in the room is the repeat speaking up again.
+	// while the member was in the room is the state said again on its return.
 	waitFor(t, "the state the feed reported was never said again", func() bool {
 		return len(fake.reportedStates()) > said
 	})

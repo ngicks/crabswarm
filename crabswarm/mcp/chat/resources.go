@@ -79,13 +79,10 @@ func (f *family) addResources() {
 // look, not a record to accumulate, so a reader that missed an event still gets
 // the truth here.
 func (f *family) readMembers(
-	ctx context.Context, _ *mcp.ReadResourceRequest,
+	ctx context.Context, req *mcp.ReadResourceRequest,
 ) (*mcp.ReadResourceResult, error) {
-	token, err := f.server.ResolveToken()
+	token, err := f.caller(ctx, req.Session)
 	if err != nil {
-		return nil, err
-	}
-	if err := f.server.AwaitAttendance(ctx); err != nil {
 		return nil, err
 	}
 	members, err := f.server.Client().Members(ctx, token)

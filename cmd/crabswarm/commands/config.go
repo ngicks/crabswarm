@@ -45,6 +45,11 @@ The value passed to --format has this shape (Go field name -> JSON key):
                                         // 0 = 3s, <0 = never (screen_poll_interval).
                                         // JSON/YAML take nanoseconds, the env var a
                                         // duration string ("3s")
+    .MCP                              // mcp server config        (mcp)
+      .CodexProxySockDir string  // directory codex-proxy serves its
+                                 // <pid>.sock in; default
+                                 // <runtime dir>/crabswarm-codex-proxy
+                                 // (codex_proxy_sock_dir)
   }
 
 Use the Go field names in --format (e.g. {{.Chat.Db}}); the default JSON output
@@ -54,7 +59,8 @@ Layers, lowest to highest: built-in defaults, the config file (--config, else
 $CRABSWARM_CONF, else $XDG_CONFIG_HOME/crabswarm/config.json), then the
 environment. Environment variables are the JSON keys upper-cased under the
 CRABSWARM_ prefix, nested keys joined with "_" (CRABSWARM_SOCK,
-CRABSWARM_CHAT_DB, CRABSWARM_PREVIEW_ADDR, ...); list-valued keys take a
+CRABSWARM_CHAT_DB, CRABSWARM_PREVIEW_ADDR,
+CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR, ...); list-valued keys take a
 comma-separated value. hook_exec is file-only. project_dir is read from
 $CLAUDE_PROJECT_DIR instead (an external contract, no CRABSWARM_ prefix).
 

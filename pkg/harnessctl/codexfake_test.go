@@ -146,6 +146,11 @@ type codexFake struct {
 	hold  *codexHold
 	trail []codexRequest
 	conns []*websocket.Conn
+	// toolCalled plays the MCP servers of the loaded threads: it is handed the
+	// thread every mcpServer/tool/call names and the call's parameters, and
+	// reports whether the server there knew the tool. Nil knows none, which is
+	// how the real app server answers a call the thread's server refused.
+	toolCalled func(thread string, params json.RawMessage) bool
 
 	// held writes the answers that were kept back, each once it is released.
 	held errgroup.Group
@@ -244,12 +249,14 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 	if f.hold != nil && f.hold.method == frame.Method && len(frame.Id) > 0 {
 		hold, f.hold = f.hold, nil
 	}
+	var params struct {
+		ThreadId string `json:"threadId"`
+		Tool     string `json:"tool"`
+	}
+	_ = json.Unmarshal(frame.Params, &params)
 	var refused string
+	refusal := -32600
 	if frame.Method == "thread/resume" || frame.Method == "turn/start" {
-		var params struct {
-			ThreadId string `json:"threadId"`
-		}
-		_ = json.Unmarshal(frame.Params, &params)
 		if f.fresh[params.ThreadId] {
 			if frame.Method == "turn/start" {
 				delete(f.fresh, params.ThreadId)
@@ -258,17 +265,26 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 			}
 		}
 	}
+	toolCalled := f.toolCalled
 	f.mu.Unlock()
 
+	if frame.Method == "mcpServer/tool/call" &&
+		(toolCalled == nil || !toolCalled(params.ThreadId, frame.Params)) {
+		// What a thread's MCP server answers a tool it does not have, passed
+		// on by the app server as the codex-app-server-tool-call-zero-turn
+		// recording holds it.
+		refused = fmt.Sprintf("unknown tool %q", params.Tool)
+		refusal = -32602
+	}
 	if len(frame.Id) == 0 {
 		return
 	}
 	if refused != "" {
 		// The refusal the real app server writes: an error object with the
-		// protocol's invalid-request code, and no version marker.
+		// protocol's code, and no version marker.
 		reply, err := json.Marshal(map[string]any{
 			"id":    frame.Id,
-			"error": map[string]any{"code": -32600, "message": refused},
+			"error": map[string]any{"code": refusal, "message": refused},
 		})
 		if err != nil {
 			return
@@ -299,6 +315,10 @@ func (f *codexFake) answer(conn *websocket.Conn, data []byte) {
 			return
 		}
 		result = answer
+	case "mcpServer/tool/call":
+		// The thread's MCP server answered the call with nothing, which is what
+		// a crabswarm server answers a reserved call with.
+		result = json.RawMessage(`{"content":[]}`)
 	}
 	reply, err := json.Marshal(map[string]json.RawMessage{"id": frame.Id, "result": result})
 	if err != nil {
@@ -537,6 +557,13 @@ func codexThreadStartedFrame(threadId string) []byte {
 	return fmt.Appendf(nil,
 		`{"method":"thread/started","params":{"thread":{"id":%q}},`+
 			`"emittedAtMs":1789654916664}`, threadId)
+}
+
+// codexTurnStartedFrame is the recorded turn/started frame said about threadId
+// instead.
+func codexTurnStartedFrame(t *testing.T, rec codexRecording, threadId string) []byte {
+	t.Helper()
+	return codexFrameAbout(t, rec.notification(t, codexTurnStarted, 0), threadId)
 }
 
 // codexFrameAbout is a recorded notification frame said about threadId instead,

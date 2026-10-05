@@ -47,7 +47,23 @@ func main() {
 		// error or a recovered *SignalReceivedError) it returns and we fall
 		// through to the generic report.
 		handler.Handle(err)
+		// A command standing in for a child process passes its status on, and
+		// the child has already said why it failed.
+		if status, ok := errors.AsType[exitStatusError](err); ok {
+			os.Exit(status.ExitStatus())
+		}
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// exitStatusError is an error carrying the status the process exits with.
+//
+// The method is not named ExitCode: *exec.ExitError has that one through its
+// embedded *os.ProcessState, and commands such as `crabswarm git` wrap it,
+// which would make every failed git run exit with git's status and print
+// nothing.
+type exitStatusError interface {
+	error
+	ExitStatus() int
 }

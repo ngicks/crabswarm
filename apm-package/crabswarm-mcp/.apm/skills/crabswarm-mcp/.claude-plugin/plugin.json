@@ -1,6 +1,6 @@
 {
   "name": "crabswarm-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Attends the crabswarm chat room through the MCP server, which also reports what the session is doing and hands it every mention.",
   "author": {
     "name": "ngicks"

@@ -17,6 +17,7 @@ import (
 
 	"github.com/ngicks/crabswarm/crabswarm/chat"
 	"github.com/ngicks/crabswarm/crabswarm/hook/exec"
+	"github.com/ngicks/crabswarm/crabswarm/mcp"
 	"github.com/ngicks/crabswarm/crabswarm/preview"
 )
 
@@ -52,6 +53,9 @@ type Config struct {
 	// Chat is the configuration of the chat broker the server hosts
 	// (nested sub-config: deep-merged).
 	Chat chat.Config `json:"chat" yaml:"chat"`
+	// MCP is the configuration consumed by `crabswarm mcp` and its
+	// subcommands (nested sub-config: deep-merged).
+	MCP mcp.Config `json:"mcp" yaml:"mcp"`
 }
 
 // DefaultConfig is the lowest-precedence layer. The path-like defaults are
@@ -74,6 +78,7 @@ func DefaultConfig() Config {
 		// keys already say something when empty — "cmdman, resolved on PATH"
 		// and "no admin key configured".
 		Chat: chat.Config{Db: defaultChatDbPath()},
+		MCP:  mcp.Config{CodexProxySockDir: defaultCodexProxySockDir()},
 	}
 }
 
@@ -108,9 +113,9 @@ func DefaultConfig() Config {
 //
 // HookExec is a nested sub-config with no env tags: a []filetype.Config is not
 // env-shaped, so it is file-only (env-unsettable), which the skill permits.
-// Preview and Chat are env-settable instead: they carry envPrefix tags, which
-// caarlos0/env composes onto the global CRABSWARM_ prefix before the bare names
-// in the sub-partial's own env tags (CRABSWARM_ + CHAT_ + DB ->
+// Preview, Chat and MCP are env-settable instead: they carry envPrefix tags,
+// which caarlos0/env composes onto the global CRABSWARM_ prefix before the bare
+// names in the sub-partial's own env tags (CRABSWARM_ + CHAT_ + DB ->
 // CRABSWARM_CHAT_DB). Their zero sub-partials merge nothing.
 //
 // JSON tags use ",omitzero" (Go 1.24+) so a marshaled partial stays sparse
@@ -126,6 +131,7 @@ type PartialConfig struct {
 	HookExec              exec.PartialConfig    `json:"hook_exec,omitzero" yaml:"hook_exec,omitempty"`
 	Preview               preview.PartialConfig `json:"preview,omitzero" yaml:"preview,omitempty" envPrefix:"PREVIEW_"`
 	Chat                  chat.PartialConfig    `json:"chat,omitzero" yaml:"chat,omitempty" envPrefix:"CHAT_"`
+	MCP                   mcp.PartialConfig     `json:"mcp,omitzero" yaml:"mcp,omitempty" envPrefix:"MCP_"`
 }
 
 // Apply overlays p's present fields onto base and returns the merged Config.
@@ -151,6 +157,7 @@ func (p PartialConfig) Apply(base Config) Config {
 	base.HookExec = p.HookExec.Apply(base.HookExec)
 	base.Preview = p.Preview.Apply(base.Preview)
 	base.Chat = p.Chat.Apply(base.Chat)
+	base.MCP = p.MCP.Apply(base.MCP)
 	return base
 }
 
@@ -158,7 +165,8 @@ func (p PartialConfig) Apply(base Config) Config {
 // variable names live in the env: tags on PartialConfig and its nested
 // sub-partials; the CRABSWARM_ prefix is applied here, yielding CRABSWARM_SOCK,
 // CRABSWARM_GIT_REPO_BASE_DIR, and — composed with the sub-configs' envPrefix
-// tags — CRABSWARM_CHAT_DB, CRABSWARM_PREVIEW_ADDR, etc. ProjectDir is
+// tags — CRABSWARM_CHAT_DB, CRABSWARM_PREVIEW_ADDR,
+// CRABSWARM_MCP_CODEX_PROXY_SOCK_DIR, etc. ProjectDir is
 // deliberately omitted from this parse (see LoadConfig).
 var envOptions = env.Options{Prefix: "CRABSWARM_"}
 
@@ -271,9 +279,25 @@ func configPath(flagPath string) (string, error) {
 // defaultSockPath derives the default socket path from the host's runtime
 // directory. This is default derivation (see DefaultConfig), not a config
 // override.
+//
+// The socket sits in its own host/ directory because a container mounts the
+// daemon's directory read-only, apart from crabswarm/session/, which holds the
+// sockets one compose session shares and has to stay writable.
 func defaultSockPath() string {
 	dir := runtimeDir(os.Getenv("XDG_RUNTIME_DIR"), os.Getuid(), isDir)
-	return filepath.Join(dir, "crabswarm", "default.sock")
+	return filepath.Join(dir, "crabswarm", "host", "default.sock")
+}
+
+// defaultCodexProxySockDir derives the directory `crabswarm mcp codex-proxy`
+// serves its socket in from the same runtime directory as the daemon socket.
+// This is default derivation (see DefaultConfig), not a config override.
+//
+// It sits beside crabswarm/ rather than inside it because a container mounts
+// the crabswarm runtime directory read-only, and the proxy has to create its
+// socket.
+func defaultCodexProxySockDir() string {
+	dir := runtimeDir(os.Getenv("XDG_RUNTIME_DIR"), os.Getuid(), isDir)
+	return filepath.Join(dir, "crabswarm-codex-proxy")
 }
 
 // runtimeDir picks the directory the socket lives under: $XDG_RUNTIME_DIR when

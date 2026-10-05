@@ -8,10 +8,15 @@
 // it can be woken and how it is heard from follows from that name: Claude Code
 // takes an upload on the loopback server its fakechat plugin runs and says what
 // it is doing in the agents listing, Codex listens on its app server and
-// reports on that server's feed, OpenCode relays through a plugin, and a
-// harness nobody recognises takes nothing at all. The server asks here and
-// attends as whatever comes back, so the daemon knows both what the member runs
-// and whether it still has to type at it.
+// reports on that server's feed, and a harness nobody recognises takes nothing
+// at all. The server asks here and attends as whatever comes back, so the
+// daemon knows both what the member runs and whether it still has to type at
+// it.
+//
+// OpenCode is the one the name does not settle. Its channel is a notice stream
+// the plugin of a TUI attached to a shared server opens, which the server
+// attaches to that TUI's member itself — see [OpenCodeNotices] — so an
+// OpenCode MCP session on its own is a terminal harness.
 //
 // A harness with no channel of its own is not a failure: it is the terminal
 // one, which is how every agent was reached before a harness could deliver a
@@ -34,7 +39,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"sync"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
@@ -131,7 +138,46 @@ const SinkEnv = "CRABSWARM_HARNESS_SINK"
 // A name nothing recognises, the empty one included, is [chatv1.Harness]'s
 // other: the server is serving something, and saying so is more use to whoever
 // reads a roster than leaving the field blank.
+//
+// Every call builds its harness afresh. A server detecting the harness of
+// several sessions uses a [Detector], so the sessions hosted by one app server
+// share it.
 func Detect(clientName string, getenv func(string) string) Harness {
+	return NewDetector(nil, nil).Detect(clientName, getenv)
+}
+
+// Detector is [Detect] for a server that serves several sessions at once. The
+// sessions hosted by one Codex app server get one harness, which holds one
+// connection to that server however many agents it is scoped to.
+type Detector struct {
+	logger *slog.Logger
+	// turnStarted hears the thread of every turn a Codex app server connection
+	// sees start. See [NewDetector].
+	turnStarted func(thread string)
+
+	mu sync.Mutex
+	// codex is the unscoped harness of each app server, by socket path.
+	codex map[string]*codex
+}
+
+// NewDetector returns a Detector logging to logger, [slog.Default] when nil.
+//
+// turnStarted, when not nil, is handed the thread of every turn a Codex app
+// server connection sees start, whoever started it. It is called while the
+// connection's notification is being handled, so it returns at once.
+func NewDetector(logger *slog.Logger, turnStarted func(thread string)) *Detector {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &Detector{
+		logger:      logger,
+		turnStarted: turnStarted,
+		codex:       map[string]*codex{},
+	}
+}
+
+// Detect is [Detect], sharing what the sessions of one app server share.
+func (d *Detector) Detect(clientName string, getenv func(string) string) Harness {
 	kind := kindOf(clientName)
 	if getenv == nil {
 		getenv = os.Getenv
@@ -139,24 +185,46 @@ func Detect(clientName string, getenv func(string) string) Harness {
 	if path := getenv(SinkEnv); path != "" {
 		return sink{kind: kind, path: path}
 	}
-	if newNative := natives[kind]; newNative != nil {
-		if h := newNative(getenv); h != nil {
-			return h
-		}
+	if h := d.native(kind, getenv); h != nil {
+		return h
 	}
 	return terminal{kind: kind}
 }
 
-// natives is what builds the channel of each harness that has one, keyed by the
-// harness it belongs to. A constructor answers nil when the environment does
-// not carry what its channel needs — the harness was started without the
-// variable that points at it — and the member then attends as a terminal one,
-// which is always a working way to be woken. Each constructor lives in the
-// file of its harness.
-var natives = map[chatv1.Harness]func(getenv func(string) string) Harness{
-	chatv1.Harness_HARNESS_CLAUDE_CODE: newClaudeCode,
-	chatv1.Harness_HARNESS_CODEX:       newCodex,
-	chatv1.Harness_HARNESS_OPENCODE:    newOpenCode,
+// native builds the channel of a harness that has one. It answers nil when the
+// environment does not carry what that channel needs — the harness was started
+// without the variable that points at it — and the member then attends as a
+// terminal one, which is always a working way to be woken. Each constructor
+// lives in the file of its harness.
+func (d *Detector) native(kind chatv1.Harness, getenv func(string) string) Harness {
+	switch kind {
+	case chatv1.Harness_HARNESS_CLAUDE_CODE:
+		return newClaudeCode(getenv)
+	case chatv1.Harness_HARNESS_CODEX:
+		return d.newCodex(getenv)
+	default:
+		// A harness nobody recognises has no channel. OpenCode's is a stream
+		// its plugin opens, which no launch-time variable points at; see
+		// [OpenCodeNotices].
+		return nil
+	}
+}
+
+// newCodex builds the codex channel, which is the app server the session is
+// hosted by. A Codex started without one is a terminal member.
+func (d *Detector) newCodex(getenv func(string) string) Harness {
+	path, ok := codexSocket(getenv(CodexAppServerEnv))
+	if !ok {
+		return nil
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if c := d.codex[path]; c != nil {
+		return c
+	}
+	c := newCodexAgent(newCodexHub(path, d.logger, d.turnStarted), nil)
+	d.codex[path] = c
+	return c
 }
 
 // The names the harnesses give themselves, as they wrote them in the first

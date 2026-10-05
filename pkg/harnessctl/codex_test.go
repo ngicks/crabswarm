@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 	"gotest.tools/v3/assert"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -46,14 +45,22 @@ func (l *syncLog) String() string {
 	return l.buf.String()
 }
 
-// newCodexHarness is one codex harness talking to f, with its log captured.
+// newCodexHarness is one codex harness talking to f, with its log captured. It
+// has the app server to itself, as a harness nobody scoped does.
 func newCodexHarness(f *codexFake) (*codex, *syncLog) {
 	log := &syncLog{}
-	return &codex{
-		path:    f.path,
-		logger:  slog.New(slog.NewTextHandler(log, nil)),
-		binding: semaphore.NewWeighted(1),
-	}, log
+	hub := newCodexHub(f.path, slog.New(slog.NewTextHandler(log, nil)), nil)
+	return newCodexAgent(hub, nil), log
+}
+
+// followed is the thread h follows on the connection its hub holds, or "" for
+// none.
+func followed(h *codex) string {
+	cli := h.hub.borrow()
+	if cli == nil {
+		return ""
+	}
+	return cli.following(h)
 }
 
 // threadId is the thread the recorded session ran on, read out of the first
@@ -267,7 +274,7 @@ func TestCodex_WatchFollowsAFreshThreadOnceADeliveryStartsIt(t *testing.T) {
 
 	// The resume the feed retries on its timer now answers, mid-turn.
 	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_WORKING)
-	assert.Equal(t, h.borrow().subscribed(), thread)
+	assert.Equal(t, followed(h), thread)
 	f.push(f.rec.notification(t, codexStatusChanged, 1))
 	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
 }
@@ -636,7 +643,7 @@ func TestCodex_DeliveryAndTheFeedTakeTurnsBinding(t *testing.T) {
 	assert.Equal(t, nextState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
 	assert.Equal(t, f.handshakes(), 1, "the delivery opened a second connection")
 	assert.Equal(t, deliveredTo(t, f), old)
-	assert.Equal(t, h.borrow().subscribed(), codexLaterSession)
+	assert.Equal(t, followed(h), codexLaterSession)
 	assert.DeepEqual(t, f.methods(), []string{
 		"initialize", "initialized", "thread/loaded/list", "thread/resume",
 		"thread/loaded/list", "thread/read", "thread/started", "thread/read", "turn/start",
