@@ -81,6 +81,7 @@ const (
 // read from. e2e/crabswarm/testdata/harness/claude-agents.json is a recorded
 // listing, and its README says where the vocabulary above comes from.
 type claudeAgent struct {
+	PID        int                   `json:"pid"`
 	SessionID  string                `json:"sessionId"`
 	Kind       claudeAgentKind       `json:"kind"`
 	Status     claudeAgentStatus     `json:"status"`
@@ -206,6 +207,12 @@ func (c claudeCode) Watch(ctx context.Context, report func(chatv1.HarnessState))
 // read runs one listing and picks this session's state out of it. The read is
 // bounded by the interval: a claude that hung would otherwise hold the feed for
 // the rest of the session.
+//
+// An entry without a pid is skipped. Those come from the background job
+// records under <config home>/jobs/, which the launcher shares between
+// containers, so they describe sessions running elsewhere or not at all. A
+// session resumed from such a job is listed twice under one id, and the job's
+// stale state (often blocked) comes first in the listing.
 func (c claudeCode) read(ctx context.Context) (chatv1.HarnessState, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.interval)
 	defer cancel()
@@ -214,7 +221,7 @@ func (c claudeCode) read(ctx context.Context) (chatv1.HarnessState, error) {
 		return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, err
 	}
 	for _, a := range agents {
-		if a.SessionID != c.sessionID {
+		if a.PID == 0 || a.SessionID != c.sessionID {
 			continue
 		}
 		state, ok := claudeAgentHarnessState(a)
