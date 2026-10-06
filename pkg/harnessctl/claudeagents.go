@@ -15,7 +15,7 @@ import (
 // Claude Code has no feed of its own to push a session's state on, but it does
 // keep a registry of every session on the host and prints it on request. This
 // file is the feed built on that: the listing polled, the session picked out of
-// it by id, and the state it shows reported when it changes.
+// it by the spawning process, and the state it shows reported when it changes.
 //
 // The listing is what Claude Code itself says the session is doing, which is
 // the one account that stays right while a background subagent keeps the
@@ -207,12 +207,6 @@ func (c claudeCode) Watch(ctx context.Context, report func(chatv1.HarnessState))
 // read runs one listing and picks this session's state out of it. The read is
 // bounded by the interval: a claude that hung would otherwise hold the feed for
 // the rest of the session.
-//
-// An entry without a pid is skipped. Those come from the background job
-// records under <config home>/jobs/, which the launcher shares between
-// containers, so they describe sessions running elsewhere or not at all. A
-// session resumed from such a job is listed twice under one id, and the job's
-// stale state (often blocked) comes first in the listing.
 func (c claudeCode) read(ctx context.Context) (chatv1.HarnessState, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.interval)
 	defer cancel()
@@ -220,19 +214,42 @@ func (c claudeCode) read(ctx context.Context) (chatv1.HarnessState, error) {
 	if err != nil {
 		return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, err
 	}
-	for _, a := range agents {
-		if a.PID == 0 || a.SessionID != c.sessionID {
-			continue
-		}
-		state, ok := claudeAgentHarnessState(a)
-		if !ok {
-			return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, fmt.Errorf(
-				"the agents listing shows this session with status %q and state %q, which map to nothing",
-				a.Status,
-				a.State,
-			)
-		}
-		return state, nil
+	a, ok := c.pick(agents)
+	if !ok {
+		return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, errClaudeSessionUnlisted
 	}
-	return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, errClaudeSessionUnlisted
+	state, ok := claudeAgentHarnessState(a)
+	if !ok {
+		return chatv1.HarnessState_HARNESS_STATE_UNSPECIFIED, fmt.Errorf(
+			"the agents listing shows this session with status %q and state %q, which map to nothing",
+			a.Status,
+			a.State,
+		)
+	}
+	return state, nil
+}
+
+// pick finds this session's entry: the one carrying the pid of the Claude Code
+// that spawned this server, else the one carrying the session id it was
+// started under. The pid comes first because /clear and /resume switch the
+// session id inside the same process, and the id in this server's environment
+// then names a session the process left.
+//
+// An entry without a pid is never picked. Those come from the background job
+// records under <config home>/jobs/, which the launcher shares between
+// containers, so they describe sessions running elsewhere or not at all. A
+// session resumed from a job leaves the job's record behind under the id this
+// server holds, with a stale state that is often blocked.
+func (c claudeCode) pick(agents []claudeAgent) (claudeAgent, bool) {
+	for _, a := range agents {
+		if a.PID != 0 && a.PID == c.pid {
+			return a, true
+		}
+	}
+	for _, a := range agents {
+		if a.PID != 0 && a.SessionID == c.sessionID {
+			return a, true
+		}
+	}
+	return claudeAgent{}, false
 }

@@ -65,15 +65,26 @@ func listingErr(err error) func() ([]claudeAgent, error) {
 
 // watchClaude runs the feed of a Claude Code following sessionID over the
 // scripted listings for the length of the test, at a cadence a test can wait
-// on, and hands back the states it reports and the log it wrote.
+// on, and hands back the states it reports and the log it wrote. The feed knows
+// no spawning process, so it follows the session id alone.
 func watchClaude(
 	t *testing.T, sessionID string, script *scriptedLister,
+) (<-chan chatv1.HarnessState, *bytes.Buffer) {
+	t.Helper()
+	return watchClaudeProcess(t, sessionID, 0, script)
+}
+
+// watchClaudeProcess is watchClaude for a feed spawned by the Claude Code
+// process pid.
+func watchClaudeProcess(
+	t *testing.T, sessionID string, pid int, script *scriptedLister,
 ) (<-chan chatv1.HarnessState, *bytes.Buffer) {
 	t.Helper()
 
 	var log bytes.Buffer
 	h := claudeCode{
 		sessionID: sessionID,
+		pid:       pid,
 		list:      script.list,
 		interval:  20 * time.Millisecond,
 		logger:    slog.New(slog.NewTextHandler(&log, nil)),
@@ -305,6 +316,52 @@ func TestClaudeCode_WatchReportsNothingFromAJobRecordAlone(t *testing.T) {
 	noClaudeState(t, states)
 	assert.Equal(t, strings.Count(log.String(), "reading the claude agents listing failed"), 1,
 		"log:\n%s", log.String())
+}
+
+// /clear and /resume switch the session id inside the same Claude Code process,
+// while the feed keeps the id it was started under. Resuming a background job
+// also leaves the job's record, without a pid and blocked, under that old id.
+// The feed follows the process through every switch.
+func TestClaudeCode_WatchFollowsTheProcessAcrossASessionSwitch(t *testing.T) {
+	listing, live := claudeAgentsFixture(t)
+	job := listing[0]
+	job.SessionID = live.SessionID
+	job.State = claudeStateBlocked
+	resumed := live
+	resumed.SessionID = "11111111-1111-1111-1111-111111111111"
+	resumed.Status = claudeStatusIdle
+	cleared := live
+	cleared.SessionID = "22222222-2222-2222-2222-222222222222"
+	cleared.Status = claudeStatusBusy
+	script := &scriptedLister{answers: []func() ([]claudeAgent, error){
+		listingOf(live),
+		listingOf(live),
+		listingOf(job, resumed),
+		listingOf(job, resumed),
+		listingOf(job, cleared),
+	}}
+	states, log := watchClaudeProcess(t, live.SessionID, live.PID, script)
+
+	assert.Equal(t, nextClaudeState(t, states), chatv1.HarnessState_HARNESS_STATE_WORKING)
+	assert.Equal(t, nextClaudeState(t, states), chatv1.HarnessState_HARNESS_STATE_DONE)
+	assert.Equal(t, nextClaudeState(t, states), chatv1.HarnessState_HARNESS_STATE_WORKING)
+	noClaudeState(t, states)
+	assert.Equal(t, log.String(), "")
+}
+
+// Another live session's entry is never this session's, even when the feed
+// knows its spawning process: an entry is picked by pid or by session id.
+func TestClaudeCode_WatchIgnoresAnotherProcess(t *testing.T) {
+	_, live := claudeAgentsFixture(t)
+	other := live
+	other.PID = live.PID + 1
+	other.SessionID = "33333333-3333-3333-3333-333333333333"
+	script := &scriptedLister{answers: []func() ([]claudeAgent, error){
+		listingOf(other),
+	}}
+	states, _ := watchClaudeProcess(t, live.SessionID, live.PID, script)
+
+	noClaudeState(t, states)
 }
 
 // A harness that knows no session has nothing to follow: Watch returns at once

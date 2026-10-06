@@ -116,9 +116,11 @@ func (s *claudeAgentsShim) show(t *testing.T, listing string) {
 //
 // waitingFor is left out entirely for a status that names no reason.
 //
-// resumed gives the finished background session the live session's id and a
-// blocked state. That is the listing of a session resumed from a background
-// job: the job record, without a pid, precedes the live entry.
+// resumed renders the listing after /resume of a background job in the process
+// that spawned the bridge, which is this test process. The live entry moves to
+// a new session id under this process's pid, and the job record, without a
+// pid and blocked, keeps the id the bridge was started under. The answered id
+// stays that old one.
 func claudeAgentsListing(
 	t *testing.T, status, waitingFor string, resumed bool,
 ) (listing, sessionID string) {
@@ -161,6 +163,8 @@ func claudeAgentsListing(
 		}
 		entries[job]["sessionId"] = id
 		entries[job]["state"] = "blocked"
+		entries[live]["sessionId"] = "11111111-1111-1111-1111-111111111111"
+		entries[live]["pid"] = os.Getpid()
 	}
 	rendered, err := json.Marshal(entries)
 	if err != nil {
@@ -319,10 +323,11 @@ func TestChatClaudeAgents_TheListingBecomesTheMemberState(t *testing.T) {
 	waitClaudeMemberState(t, cfg, "tok-ana", chatBridgeAna, "waiting", 30*time.Second)
 }
 
-// A session resumed from a background job is listed twice: the job record,
-// without a pid and still blocked, and the live entry. The member follows the
-// live entry.
-func TestChatClaudeAgents_AResumedSessionFollowsItsLiveEntry(t *testing.T) {
+// /resume of a background job switches the session id inside the Claude Code
+// that spawned the bridge, and leaves the job's record, without a pid and still
+// blocked, under the id the bridge was started with. The member follows the
+// spawning process to its new session.
+func TestChatClaudeAgents_AResumedSessionFollowsItsProcess(t *testing.T) {
 	shim := startClaudeAgentsShim(t)
 	cfg := writeChatConfig(t, 0, []stubCommand{
 		{token: "tok-ana", dir: chatRoom, project: "alpha"},

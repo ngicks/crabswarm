@@ -283,7 +283,12 @@ is only safe while the terminal is waiting for one. Claude Code answers on a
 feed of its own, and the member's own MCP server is what watches that feed and
 reports what it says: `claude agents --json`, the registry of every session on
 the host, read every two seconds. The server finds its own session in the
-listing by the id Claude Code hands it as `CLAUDE_CODE_SESSION_ID`.
+listing by the pid of the Claude Code that spawned it. `/clear` and `/resume`
+switch the session id inside that process, so the id Claude Code hands the
+server as `CLAUDE_CODE_SESSION_ID` goes stale; the server falls back to that id
+only when no entry carries its parent's pid. Entries without a pid are skipped:
+they are background job records, and the job directory may be shared with
+sessions in other containers.
 
 No hook reports state. Hooks were once the only report an interactive session
 could make, and they were wrong twice over: a turn interrupted with Esc fires no
