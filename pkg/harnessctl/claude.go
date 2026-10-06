@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -72,8 +73,8 @@ const fakechatTitle = "<title>fakechat</title>"
 
 // ClaudeSessionEnv names this bridge's Claude Code session, as Claude Code sets
 // it in the environment of every MCP server it spawns. It is the id the agents
-// listing prints as sessionId, which is how the feed picks its own session out
-// of every session on the host.
+// listing prints as sessionId at spawn time; the feed falls back to it when no
+// entry carries the pid of the process that spawned this server.
 const ClaudeSessionEnv = "CLAUDE_CODE_SESSION_ID"
 
 // ClaudeChannelEnabled reports whether this process was launched beside a
@@ -100,6 +101,7 @@ func ClaudeChannelEnabled(getenv func(string) string) bool {
 func newClaudeCode(getenv func(string) string) Harness {
 	c := claudeCode{
 		sessionID: getenv(ClaudeSessionEnv),
+		pid:       os.Getppid(),
 		list:      listClaudeAgents,
 		interval:  claudeAgentsInterval,
 		logger:    slog.Default(),
@@ -128,9 +130,14 @@ type claudeCode struct {
 	// sessionID is the session the feed follows, empty for a feed that has
 	// nothing to follow.
 	sessionID string
-	list      claudeAgentsLister
-	interval  time.Duration
-	logger    *slog.Logger
+	// pid is the Claude Code process that spawned this server. The feed
+	// follows the process first: /clear and /resume switch the session id
+	// inside the same process, while sessionID keeps the id this server was
+	// started under.
+	pid      int
+	list     claudeAgentsLister
+	interval time.Duration
+	logger   *slog.Logger
 }
 
 func (claudeCode) Kind() chatv1.Harness { return chatv1.Harness_HARNESS_CLAUDE_CODE }
