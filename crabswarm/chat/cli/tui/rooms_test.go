@@ -66,6 +66,25 @@ func TestSelectingARoomMovesTheScreenToIt(t *testing.T) {
 		"the room switched to is not marked:\n%s", rooms)
 }
 
+// The notice the screen opened with is about the room it opened on. enter on
+// that same room moves nothing and keeps it; the first switch to another room
+// takes it off the bar, and switching back does not bring it back.
+func TestTheOpeningNoticeLastsUntilTheFirstSwitch(t *testing.T) {
+	const notice = "cwd /home/alice matches no room"
+	m := fixtureModel(t, Deps{Notice: notice})
+	m.rooms = twoRooms()
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), notice))
+
+	m.selectRoom(fixtureRoom)
+	assert.Assert(t, strings.Contains(m.statusBar(defaultWidth), notice))
+
+	m.selectRoom(otherRoom)
+	assert.Assert(t, !strings.Contains(m.statusBar(defaultWidth), notice))
+
+	m.selectRoom(fixtureRoom)
+	assert.Assert(t, !strings.Contains(m.statusBar(defaultWidth), notice))
+}
+
 // A read of the log that was in flight when the operator left the room brings
 // back the other room's conversation. It is dropped rather than applied — and
 // dropped even when the operator has switched back, since the cursor it was

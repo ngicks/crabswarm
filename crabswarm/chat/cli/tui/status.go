@@ -52,9 +52,9 @@ func (f statusField) render() string {
 // makes dropping one field worth more than the field itself.
 const statusSep = " · "
 
-// statusBar says where the operator is — which room, whether the view still
-// follows it, how the daemon is answering — and names the keys the screen
-// cannot show.
+// statusBar says where the operator is — which room, what the caller had to say
+// about how it was chosen, whether the view still follows it, how the daemon is
+// answering — and names the keys the screen cannot show.
 func (m *model) statusBar(width int) string {
 	// MaxWidth below reads a zero as no limit, where a bar with no room is
 	// nothing at all.
@@ -90,16 +90,22 @@ func (m *model) statusFields(width int) []statusField {
 	// line: the whole screen would shift down otherwise, so what goes on it is
 	// folded before it is measured.
 	roomField := statusField{label: clip("room "+room, width)}
+	noticeField := statusField{label: clip(m.openNotice, width)}
 	modeField := statusField{label: mode}
-	fields := []statusField{
-		roomField,
-		modeField,
-		{label: clip(m.connection(), width)},
-		{key: "^hjkl", label: "panes"},
-		{key: "^enter/^x", label: "sends"},
-		{key: "^g", label: "editor"},
-		{key: "q", label: "quits"},
+	fields := []statusField{roomField}
+	// A screen told nothing about its room has no field here at all, rather
+	// than an empty one between two separators.
+	if m.openNotice != "" {
+		fields = append(fields, noticeField)
 	}
+	fields = append(fields,
+		modeField,
+		statusField{label: clip(m.connection(), width)},
+		statusField{key: "^hjkl", label: "panes"},
+		statusField{key: "^enter/^x", label: "sends"},
+		statusField{key: "^g", label: "editor"},
+		statusField{key: "q", label: "quits"},
+	)
 	// The bar as written is wider than an 80-column terminal, and what is cut
 	// off the end is the half that cannot be guessed from the screen. So it is
 	// dropped by the field rather than by the cell, in the order below.
@@ -109,7 +115,10 @@ func (m *model) statusFields(width int) []statusField {
 	// and pane movement is at least suggested by which frame is lit — while
 	// nothing on screen says how a message is sent. Then whether the view is
 	// following, which the conversation shows by standing still. Then the
-	// room, which is the last thing the panes themselves still say.
+	// notice about the room, which nothing else on the screen says: it is what
+	// tells an operator expecting their project's room why another is on
+	// screen. It still goes before the room, which it explains and which is
+	// the last thing the panes themselves still say.
 	//
 	// The connection field is never dropped: it is the one carrying `log
 	// unread: …`, and a screen that has stopped being fed must say so even
@@ -120,6 +129,7 @@ func (m *model) statusFields(width int) []statusField {
 		{key: "^hjkl", label: "panes"},
 		{key: "^enter/^x", label: "sends"},
 		modeField,
+		noticeField,
 		roomField,
 	} {
 		if statusWidth(fields) <= width {

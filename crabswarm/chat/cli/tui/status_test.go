@@ -112,6 +112,36 @@ func TestTheRoomSegmentNamesTheAbsenceOfARoom(t *testing.T) {
 	assert.Equal(t, plainFields(m.statusFields(defaultWidth))[0], "room (none)")
 }
 
+// What the caller said about the room the screen opened on follows the room on
+// the bar. It outlasts the key hints and the tailing segment, since nothing
+// else on the screen says it, and goes before the room it explains.
+func TestTheStatusBarCarriesTheOpeningNotice(t *testing.T) {
+	const notice = "cwd /home/alice matches no room"
+	for _, tc := range []struct {
+		width int
+		want  []string
+	}{
+		{
+			width: 80,
+			want:  []string{"room " + fixtureRoom, notice, "tailing", "connected"},
+		},
+		{
+			width: 65,
+			want:  []string{"room " + fixtureRoom, notice, "connected"},
+		},
+		{
+			width: 50,
+			want:  []string{"room " + fixtureRoom, "connected"},
+		},
+	} {
+		t.Run(fmt.Sprintf("%d columns", tc.width), func(t *testing.T) {
+			m := fixtureModel(t, Deps{Notice: notice})
+			assert.DeepEqual(t, plainFields(m.statusFields(tc.width)), tc.want)
+			assert.Assert(t, lipgloss.Width(m.statusBar(tc.width)) <= tc.width)
+		})
+	}
+}
+
 // Scrolling back is the other half of the tailing segment.
 func TestTheStatusBarSaysWhetherTheViewIsFollowing(t *testing.T) {
 	m := fixtureModel(t, Deps{})

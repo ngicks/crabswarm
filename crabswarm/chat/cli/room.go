@@ -1,6 +1,42 @@
 package cli
 
-import "path/filepath"
+import (
+	"context"
+	"path/filepath"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
+)
+
+// RoomLister reports every room the daemon knows. [AdminClient] is one.
+type RoomLister interface {
+	Rooms(ctx context.Context) ([]*chatv1.Room, error)
+}
+
+// ResolveRoom lists the rooms once and returns the one an operator standing in
+// dir means, by [RoomForDir].
+//
+// No room at or above dir returns an empty room and a notice naming dir. The
+// empty room leaves the choice to whatever the caller does when no room is
+// named, and the notice is for the operator, who expected their project's room
+// and is about to be shown another.
+func ResolveRoom(
+	ctx context.Context,
+	lister RoomLister,
+	dir string,
+) (room, notice string, err error) {
+	listed, err := lister.Rooms(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	names := make([]string, len(listed))
+	for i, r := range listed {
+		names[i] = r.GetName()
+	}
+	if room, ok := RoomForDir(dir, names); ok {
+		return room, "", nil
+	}
+	return "", "cwd " + dir + " matches no room", nil
+}
 
 // RoomForDir returns the nearest of dir and its ancestors that is one of rooms,
 // and whether one matched.

@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 
 	chatcli "github.com/ngicks/crabswarm/crabswarm/chat/cli"
@@ -21,9 +23,13 @@ would not run or a message addressed to nobody, and a status bar naming the
 room, whether the view is still following it, how the daemon is answering, and
 the keys the screen cannot show.
 
---room says which room the screen opens on; without it the screen opens on the
-first room the daemon lists, and the rooms pane switches between them from
-there. A room that is named but not known is refused before the screen opens.
+--room says which room the screen opens on. A room is named by the directory its
+members run in, so without --room the screen opens on the room of the current
+directory: the nearest of that directory and its ancestors the daemon lists. A
+directory under no room opens the first room the daemon lists, and the status
+bar says the directory matched no room until the screen first switches rooms.
+The rooms pane switches between rooms from there. A room that is named but not
+known is refused before the screen opens.
 
 Watching needs no keypresses. ctrl+h, ctrl+j, ctrl+k and ctrl+l move between the
 panes, and every other key belongs to the pane that has focus. In the three that
@@ -70,7 +76,7 @@ room reads who was asked.`,
 	}
 
 	cmd.Flags().StringVar(&flagRoom, "room", "",
-		"the room to watch; the first room listed when unset")
+		"the room to watch; the room of the current directory when unset")
 
 	parent.AddCommand(cmd)
 }
@@ -92,8 +98,20 @@ func runChatAdminTUI(
 	defer client.Close()
 
 	admin := client.Admin(identity)
+	var notice string
+	if room == "" {
+		dir, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		room, notice, err = chatcli.ResolveRoom(cmd.Context(), admin, dir)
+		if err != nil {
+			return err
+		}
+	}
 	return tui.Run(cmd.Context(), tui.Deps{
 		Room:   room,
+		Notice: notice,
 		Log:    admin,
 		Roster: admin,
 		Sender: admin,

@@ -1,10 +1,60 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"gotest.tools/v3/assert"
+
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
+
+// fakeLister answers a listing with the rooms named, or with err.
+type fakeLister struct {
+	rooms []string
+	err   error
+	calls int
+}
+
+func (f *fakeLister) Rooms(context.Context) ([]*chatv1.Room, error) {
+	f.calls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	listed := make([]*chatv1.Room, len(f.rooms))
+	for i, name := range f.rooms {
+		listed[i] = &chatv1.Room{Name: name}
+	}
+	return listed, nil
+}
+
+// The room an operator means is the nearest one at or above where they stand,
+// read off one listing. Standing outside every room names none and says so,
+// naming the directory that matched nothing.
+func TestResolveRoom(t *testing.T) {
+	lister := &fakeLister{rooms: []string{"/work/other", "/work/proj"}}
+
+	room, notice, err := ResolveRoom(t.Context(), lister, "/work/proj/src")
+	assert.NilError(t, err)
+	assert.Equal(t, room, "/work/proj")
+	assert.Equal(t, notice, "")
+	assert.Equal(t, lister.calls, 1)
+
+	room, notice, err = ResolveRoom(t.Context(), lister, "/home/alice")
+	assert.NilError(t, err)
+	assert.Equal(t, room, "")
+	assert.Equal(t, notice, "cwd /home/alice matches no room")
+
+	room, notice, err = ResolveRoom(t.Context(), &fakeLister{}, "/work/proj")
+	assert.NilError(t, err)
+	assert.Equal(t, room, "")
+	assert.Equal(t, notice, "cwd /work/proj matches no room")
+
+	refused := errors.New("decrypting the admin challenge")
+	_, _, err = ResolveRoom(t.Context(), &fakeLister{err: refused}, "/work/proj")
+	assert.ErrorIs(t, err, refused)
+}
 
 // A directory belongs to the nearest room at or above it, and the room comes
 // back spelled as listed so it can be handed to the daemon unchanged.
