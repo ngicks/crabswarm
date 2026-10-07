@@ -86,6 +86,10 @@ type model struct {
 	// not the conversation: how a send went, an editor that would not run, a
 	// message addressed to nobody. It is the system line's text.
 	notice string
+	// openNotice is [Deps.Notice]: a word about the room the screen opened on,
+	// which is the status bar's to show. It is about that room alone, so the
+	// first switch to another clears it.
+	openNotice string
 
 	// completion is the `@` dropdown, open only while the message pane has
 	// focus and the cursor sits at the end of the token it was opened on.
@@ -112,10 +116,11 @@ func newModel(ctx context.Context, deps Deps, room string, rooms []*chatv1.Room)
 		// The listing the room was chosen out of is the one the rooms pane
 		// draws, so both left panes are filled from the first frame rather than
 		// from the first poll.
-		rooms:     rooms,
-		roster:    membersOf(rooms, room),
-		drafts:    map[string]string{},
-		following: true,
+		rooms:      rooms,
+		roster:     membersOf(rooms, room),
+		drafts:     map[string]string{},
+		following:  true,
+		openNotice: deps.Notice,
 		// The conversation is what the operator opened the screen to read.
 		focus: focusConversation,
 	}

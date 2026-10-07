@@ -79,8 +79,10 @@ func (s *screen) since(mark int) string {
 const screenTimeout = 30 * time.Second
 
 // The size the screen is driven at: wide enough for both columns beside each
-// other and for every field of the status bar, and the height a terminal is
-// conventionally assumed to have.
+// other, and the height a terminal is conventionally assumed to have. Every
+// field of the status bar fits at this width until the screen carries a notice
+// about how its room was chosen. A directory that matched no room is such a
+// notice, and the bar drops some key hints to fit it.
 const (
 	screenWidth  = 100
 	screenHeight = 24
@@ -342,12 +344,62 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 
 	// The daemon lists its rooms by name, so /work/other is the first of the
 	// two and the one a screen that was told no room opens on.
-	t.Run("no --room opens on the first room listed", func(t *testing.T) {
+	t.Run("an empty Deps.Room opens on the first room listed", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{})
 		waitScreen(t, s.drawn, "gamma/zed → everyone: the other room is talking")
 
 		waitFrameWithout(t, s, []string{"the proj room is talking"},
 			"room "+chatOtherRoom, "members (1)")
+		quitScreen(t, s)
+	})
+
+	// The command resolves the room of the operator's working directory against
+	// the same listing before the screen opens. The binary cannot be driven to
+	// the screen from here, so the resolution is asked of the same client the
+	// command lists with, and the screen is handed what it would be handed.
+	client, err := chatcli.Dial(chatSock(cfg))
+	if err != nil {
+		t.Fatalf("dial the daemon: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	admin := client.Admin(identity)
+
+	// /work/proj is the second room listed, so a screen on it was put there by
+	// the directory rather than by the listing's order.
+	t.Run("a directory inside a room opens that room", func(t *testing.T) {
+		room, notice, err := chatcli.ResolveRoom(t.Context(), admin, chatRoom+"/src/pkg")
+		if err != nil {
+			t.Fatalf("resolve the room: %v", err)
+		}
+		s := startTUI(t, cfg, identity, tui.Deps{Room: room, Notice: notice})
+		waitScreen(t, s.drawn, "alpha/ana → everyone: the proj room is talking")
+
+		waitFrameWithout(t, s,
+			[]string{"the other room is talking", "matches no room"},
+			"room "+chatRoom, "members (3)")
+		quitScreen(t, s)
+	})
+
+	// A directory under no room opens the first room listed, and the status bar
+	// says the directory matched nothing until the operator moves to a room of
+	// their own choosing.
+	t.Run("a directory under no room opens the first listed and says so", func(t *testing.T) {
+		const dir = "/home/operator"
+		room, notice, err := chatcli.ResolveRoom(t.Context(), admin, dir)
+		if err != nil {
+			t.Fatalf("resolve the room: %v", err)
+		}
+		s := startTUI(t, cfg, identity, tui.Deps{Room: room, Notice: notice})
+		waitScreen(t, s.drawn, "gamma/zed → everyone: the other room is talking")
+		waitFrame(t, s, "room "+chatOtherRoom, "cwd "+dir+" matches no room")
+
+		typeOnScreen(t, s.keys, "\x08")
+		typeOnScreen(t, s.keys, "\x0b")
+		typeOnScreen(t, s.keys, "j")
+		typeOnScreen(t, s.keys, "\r")
+
+		waitScreen(t, s.drawn, "alpha/ana → everyone: the proj room is talking")
+		waitFrameWithout(t, s, []string{"matches no room"}, "room "+chatRoom)
 		quitScreen(t, s)
 	})
 
@@ -657,6 +709,14 @@ func TestChatTUI_FailuresExitBeforeTheScreen(t *testing.T) {
 		{
 			name: "an identity the daemon does not challenge",
 			args: []string{"admin", "tui", "--room", chatRoom, "--identity", stranger},
+			want: "decrypting the admin challenge",
+		},
+		{
+			// With no --room the command lists the rooms itself to find the one
+			// of the current directory, and a listing refused there is refused
+			// before the screen too.
+			name: "no --room, and an identity the daemon does not challenge",
+			args: []string{"admin", "tui", "--identity", stranger},
 			want: "decrypting the admin challenge",
 		},
 		{

@@ -57,13 +57,19 @@ type AdminSender interface {
 	) (*chatv1.AdminSendResponse, error)
 }
 
-// Deps is everything the screen needs from outside itself: the room it watches
-// and the three reads and writes it makes against the daemon.
+// Deps is everything the screen needs from outside itself: the room it watches,
+// what to tell the operator about how that room was chosen, and the three reads
+// and writes it makes against the daemon.
 type Deps struct {
 	// Room is the room selected when the screen opens. Empty selects the first
 	// room the daemon lists; a non-empty room the daemon does not know is
 	// refused before the terminal is taken over.
 	Room string
+	// Notice is what the caller has to say about the room the screen opens on,
+	// such as a working directory that matched no room. Until the operator
+	// first switches rooms, the status bar shows it whenever the bar is wide
+	// enough to fit it; empty shows nothing.
+	Notice string
 	// Log is where the conversation comes from.
 	Log LogReader
 	// Roster is where the attendance comes from.

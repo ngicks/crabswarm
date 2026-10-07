@@ -175,9 +175,13 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 			"admin delete-room takes no second argument",
 			[]string{"admin", "delete-room", "/work", "extra"},
 		},
-		// The admin attends no room, so the screen has none to fall back on and
-		// says so instead of picking one.
-		{"admin tui needs a room", []string{"admin", "tui", "--identity", "/dev/null"}},
+		// /dev/null holds no age identity to answer the admin challenge with, so
+		// the listing that picks the room of the working directory is refused
+		// before the screen opens.
+		{
+			"admin tui refuses an identity that cannot answer the challenge",
+			[]string{"admin", "tui", "--identity", "/dev/null"},
+		},
 		{
 			"admin tui takes no arguments",
 			[]string{"admin", "tui", "--room", "/work", "extra"},

@@ -53,6 +53,9 @@ func (m *model) selectRoom(name string) {
 	}
 	m.drafts[m.room] = m.text.Value()
 	m.room = name
+	// What the screen was told about the room it opened on is not about this
+	// one.
+	m.openNotice = ""
 	m.text.SetValue(m.drafts[name])
 	m.text.MoveToEnd()
 	// The dropdown was offering this room's attendance, which is not the
