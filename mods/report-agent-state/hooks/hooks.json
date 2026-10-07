@@ -1,0 +1,4 @@
+{
+  "description": "Polls claude agents --json and reports this session's state through the configured report command.",
+  "modules": ["./register.tsx"]
+}

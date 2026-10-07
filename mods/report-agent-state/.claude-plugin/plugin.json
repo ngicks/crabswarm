@@ -1,0 +1,27 @@
+{
+  "name": "report-agent-state",
+  "version": "0.1.0",
+  "description": "Reports what this Claude Code session is doing, as `claude agents --json` shows it, by running a command with the state word.",
+  "author": {
+    "name": "ngicks"
+  },
+  "license": "Unlicense",
+  "repository": "https://github.com/ngicks/crabswarm",
+  "skills": ["./"],
+  "userConfig": {
+    "reportCommand": {
+      "type": "string",
+      "multiple": true,
+      "title": "Report command",
+      "description": "The command and its arguments, one per item, run with the state word (working, waiting or done) appended as its last argument. Empty turns the mod off.",
+      "default": ["crabswarm", "chat", "report-state"]
+    },
+    "requireEnv": {
+      "type": "string",
+      "multiple": true,
+      "title": "Required environment",
+      "description": "Variable names. The mod runs only when the session's environment sets at least one of them. Empty always runs.",
+      "default": ["CRABSWARM_CHAT_TOKEN", "CMDMAN_CMD_ID"]
+    }
+  }
+}
