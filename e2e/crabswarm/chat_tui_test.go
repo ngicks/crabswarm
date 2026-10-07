@@ -79,8 +79,10 @@ func (s *screen) since(mark int) string {
 const screenTimeout = 30 * time.Second
 
 // The size the screen is driven at: wide enough for both columns beside each
-// other and for every field of the status bar, and the height a terminal is
-// conventionally assumed to have.
+// other, and the height a terminal is conventionally assumed to have. Every
+// field of the status bar fits at this width until the screen carries a notice
+// about how its room was chosen. A directory that matched no room is such a
+// notice, and the bar drops some key hints to fit it.
 const (
 	screenWidth  = 100
 	screenHeight = 24
@@ -342,7 +344,7 @@ func TestChatTUI_OpensAndSwitchesBetweenRooms(t *testing.T) {
 
 	// The daemon lists its rooms by name, so /work/other is the first of the
 	// two and the one a screen that was told no room opens on.
-	t.Run("no --room opens on the first room listed", func(t *testing.T) {
+	t.Run("an empty Deps.Room opens on the first room listed", func(t *testing.T) {
 		s := startTUI(t, cfg, identity, tui.Deps{})
 		waitScreen(t, s.drawn, "gamma/zed → everyone: the other room is talking")
 

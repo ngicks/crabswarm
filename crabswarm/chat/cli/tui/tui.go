@@ -66,8 +66,9 @@ type Deps struct {
 	// refused before the terminal is taken over.
 	Room string
 	// Notice is what the caller has to say about the room the screen opens on,
-	// such as a working directory that matched no room. The status bar shows
-	// it until the operator first switches rooms; empty shows nothing.
+	// such as a working directory that matched no room. Until the operator
+	// first switches rooms, the status bar shows it whenever the bar is wide
+	// enough to fit it; empty shows nothing.
 	Notice string
 	// Log is where the conversation comes from.
 	Log LogReader

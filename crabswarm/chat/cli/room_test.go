@@ -29,6 +29,74 @@ func (f *fakeLister) Rooms(context.Context) ([]*chatv1.Room, error) {
 	return listed, nil
 }
 
+// fakeGetwd reports dir, or err, and counts how often it was asked.
+type fakeGetwd struct {
+	dir   string
+	err   error
+	calls int
+}
+
+func (f *fakeGetwd) getwd() (string, error) {
+	f.calls++
+	return f.dir, f.err
+}
+
+// A room named on the command line is opened as named, without a listing or a
+// look at the working directory. With none named, the working directory picks
+// the room, and a directory under no room opens none and says so.
+func TestOpeningRoom(t *testing.T) {
+	t.Run("a named room passes through", func(t *testing.T) {
+		lister := &fakeLister{rooms: []string{"/work/proj"}}
+		wd := &fakeGetwd{dir: "/work/proj"}
+
+		open, notice, err := OpeningRoom(t.Context(), lister, "/work/other", wd.getwd)
+		assert.NilError(t, err)
+		assert.Equal(t, open, "/work/other")
+		assert.Equal(t, notice, "")
+		assert.Equal(t, lister.calls, 0)
+		assert.Equal(t, wd.calls, 0)
+	})
+
+	t.Run("the working directory picks its room", func(t *testing.T) {
+		lister := &fakeLister{rooms: []string{"/work/other", "/work/proj"}}
+		wd := &fakeGetwd{dir: "/work/proj/src"}
+
+		open, notice, err := OpeningRoom(t.Context(), lister, "", wd.getwd)
+		assert.NilError(t, err)
+		assert.Equal(t, open, "/work/proj")
+		assert.Equal(t, notice, "")
+		assert.Equal(t, lister.calls, 1)
+		assert.Equal(t, wd.calls, 1)
+	})
+
+	t.Run("a working directory under no room says so", func(t *testing.T) {
+		lister := &fakeLister{rooms: []string{"/work/proj"}}
+		wd := &fakeGetwd{dir: "/home/alice"}
+
+		open, notice, err := OpeningRoom(t.Context(), lister, "", wd.getwd)
+		assert.NilError(t, err)
+		assert.Equal(t, open, "")
+		assert.Equal(t, notice, "cwd /home/alice matches no room")
+	})
+
+	t.Run("an unreadable working directory lists nothing", func(t *testing.T) {
+		lister := &fakeLister{rooms: []string{"/work/proj"}}
+		removed := errors.New("getwd: no such file or directory")
+
+		_, _, err := OpeningRoom(t.Context(), lister, "", (&fakeGetwd{err: removed}).getwd)
+		assert.ErrorIs(t, err, removed)
+		assert.Equal(t, lister.calls, 0)
+	})
+
+	t.Run("a refused listing is returned", func(t *testing.T) {
+		refused := errors.New("decrypting the admin challenge")
+		wd := &fakeGetwd{dir: "/work/proj"}
+
+		_, _, err := OpeningRoom(t.Context(), &fakeLister{err: refused}, "", wd.getwd)
+		assert.ErrorIs(t, err, refused)
+	})
+}
+
 // The room an operator means is the nearest one at or above where they stand,
 // read off one listing. Standing outside every room names none and says so,
 // naming the directory that matched nothing.

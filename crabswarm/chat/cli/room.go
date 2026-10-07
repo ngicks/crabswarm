@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
@@ -10,6 +11,29 @@ import (
 // RoomLister reports every room the daemon knows. [AdminClient] is one.
 type RoomLister interface {
 	Rooms(ctx context.Context) ([]*chatv1.Room, error)
+}
+
+// OpeningRoom returns the room a watch screen opens on and what to tell the
+// operator about how it was chosen.
+//
+// A named room is returned as given, with nothing listed and no directory read:
+// whether the daemon knows it is the screen's to check. With no room named, the
+// working directory getwd reports is resolved by [ResolveRoom]. getwd is passed
+// in so the choice can be driven without a process working directory to set.
+func OpeningRoom(
+	ctx context.Context,
+	lister RoomLister,
+	room string,
+	getwd func() (string, error),
+) (open, notice string, err error) {
+	if room != "" {
+		return room, "", nil
+	}
+	dir, err := getwd()
+	if err != nil {
+		return "", "", fmt.Errorf("reading the working directory: %w", err)
+	}
+	return ResolveRoom(ctx, lister, dir)
 }
 
 // ResolveRoom lists the rooms once and returns the one an operator standing in

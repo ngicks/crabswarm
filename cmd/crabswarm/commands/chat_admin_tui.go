@@ -26,10 +26,10 @@ the keys the screen cannot show.
 --room says which room the screen opens on. A room is named by the directory its
 members run in, so without --room the screen opens on the room of the current
 directory: the nearest of that directory and its ancestors the daemon lists. A
-directory under no room opens the first room the daemon lists, and the status
-bar says the directory matched no room until the screen first switches rooms.
-The rooms pane switches between rooms from there. A room that is named but not
-known is refused before the screen opens.
+directory under no room opens the first room the daemon lists. Until the screen
+first switches rooms, the status bar says the directory matched no room whenever
+the bar is wide enough to fit it. The rooms pane switches between rooms from
+there. A room that is named but not known is refused before the screen opens.
 
 Watching needs no keypresses. ctrl+h, ctrl+j, ctrl+k and ctrl+l move between the
 panes, and every other key belongs to the pane that has focus. In the three that
@@ -98,16 +98,9 @@ func runChatAdminTUI(
 	defer client.Close()
 
 	admin := client.Admin(identity)
-	var notice string
-	if room == "" {
-		dir, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		room, notice, err = chatcli.ResolveRoom(cmd.Context(), admin, dir)
-		if err != nil {
-			return err
-		}
+	room, notice, err := chatcli.OpeningRoom(cmd.Context(), admin, room, os.Getwd)
+	if err != nil {
+		return err
 	}
 	return tui.Run(cmd.Context(), tui.Deps{
 		Room:   room,
