@@ -255,6 +255,6 @@ func withToken(t *testing.T, msg []byte, token string) map[string]any {
 		config = map[string]any{}
 		params["config"] = config
 	}
-	config["mcp_servers.crabswarm-mcp.http_headers.X-Crabswarm-Token"] = token
+	config[headerKey] = token
 	return req
 }

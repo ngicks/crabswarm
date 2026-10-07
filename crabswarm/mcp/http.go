@@ -22,6 +22,12 @@ import (
 // it per agent, which is what makes each of them a member of its own.
 const TokenHeader = "X-Crabswarm-Token"
 
+// SharedServerName is the name a harness's configuration declares
+// [HTTPServer] under, which is the name a call through the harness server
+// addresses it by. apm takes two packages declaring a server of the same name
+// for one server, so the name differs from the stdio server's.
+const SharedServerName = "crabswarm-mcp-shared"
+
 // HTTPPath is where [HTTPServer] serves MCP.
 const HTTPPath = "/mcp"
 

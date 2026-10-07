@@ -35,7 +35,7 @@ const DELIVERED_AT_IDLE =
 
 const SERVER_ENV = "CRABSWARM_OPENCODE_SERVER"
 // MCP_ENTRY is the name the crabswarm MCP server is configured under.
-const MCP_ENTRY = "crabswarm-mcp"
+const MCP_ENTRY = "crabswarm-mcp-shared"
 const TOKEN_HEADER = "X-Crabswarm-Token"
 
 // The TUI announces no route change, so the route is read this often.

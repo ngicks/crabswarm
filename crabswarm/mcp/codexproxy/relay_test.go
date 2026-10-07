@@ -116,10 +116,12 @@ func TestRelay_StampsThreadRequestsAndFocusesAResume(t *testing.T) {
 	// One call per resume above, naming the thread it resumed.
 	focusCalls := []string{
 		`{"jsonrpc":"2.0","id":"crabswarm-proxy-1","method":"mcpServer/tool/call",` +
-			`"params":{"server":"crabswarm-mcp","threadId":"01a0df46-7c72-7691-85c9-6efb2f88f057",` +
+			`"params":{"server":"crabswarm-mcp-shared",` +
+			`"threadId":"01a0df46-7c72-7691-85c9-6efb2f88f057",` +
 			`"tool":"crabswarm_focus","arguments":{}}}`,
 		`{"jsonrpc":"2.0","id":"crabswarm-proxy-2","method":"mcpServer/tool/call",` +
-			`"params":{"server":"crabswarm-mcp","threadId":"01a0e15d-b576-7410-a249-a1300176a36d",` +
+			`"params":{"server":"crabswarm-mcp-shared",` +
+			`"threadId":"01a0e15d-b576-7410-a249-a1300176a36d",` +
 			`"tool":"crabswarm_focus","arguments":{}}}`,
 	}
 

@@ -25,12 +25,13 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
+	"github.com/ngicks/crabswarm/crabswarm/mcp"
 	"github.com/ngicks/crabswarm/internal/cmdsignals"
 )
 
 // DefaultServer is the name the crabswarm MCP server is configured under in
 // the app server's mcp_servers table.
-const DefaultServer = "crabswarm-mcp"
+const DefaultServer = mcp.SharedServerName
 
 // Config is what [Run] runs.
 type Config struct {

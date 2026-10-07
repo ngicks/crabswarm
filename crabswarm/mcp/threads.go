@@ -236,7 +236,7 @@ func (t *memberThreads) Ping(thread string) (harnessctl.ToolCall, func()) {
 	s.pings[nonce] = thread
 	s.mu.Unlock()
 	call := harnessctl.ToolCall{
-		Server:    serverName,
+		Server:    SharedServerName,
 		Tool:      pingTool,
 		Arguments: map[string]any{pingNonceArg: nonce},
 	}

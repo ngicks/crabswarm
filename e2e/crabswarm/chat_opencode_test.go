@@ -53,7 +53,7 @@ const opencodePassword = "e2e-secret"
 
 // opencodeSendTool is chat_send as OpenCode names it to the model: prefixed
 // with the name the MCP server is configured under.
-const opencodeSendTool = "crabswarm-mcp_chat_send"
+const opencodeSendTool = "crabswarm-mcp-shared_chat_send"
 
 // The cmdman status lines the replica's reports become.
 const (
@@ -329,7 +329,7 @@ func startOpenCodeServe(
 	writeFile(t, filepath.Join(configDir, "opencode.json"), fmt.Sprintf(`{
   "$schema": "https://opencode.ai/config.json",
   "plugin": ["./skills/crabswarm-mcp-shared/opencode.ts"],
-  "mcp": {"crabswarm-mcp": {"type": "remote", "url": %q, "enabled": true}},
+  "mcp": {"crabswarm-mcp-shared": {"type": "remote", "url": %q, "enabled": true}},
   "model": "mock/mock",
   "provider": {
     "mock": {

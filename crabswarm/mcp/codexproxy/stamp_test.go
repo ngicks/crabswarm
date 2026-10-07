@@ -9,7 +9,8 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-const headerKey = "mcp_servers.crabswarm-mcp.http_headers.X-Crabswarm-Token"
+// headerKey is the key the proxy stamps for [DefaultServer].
+const headerKey = "mcp_servers.crabswarm-mcp-shared.http_headers.X-Crabswarm-Token"
 
 // The recorded proxy stamped each thread request with an env key. Taking that
 // key out gives the request as the TUI sent it; stamping that has to give the
@@ -189,7 +190,7 @@ func TestStamper_Rewrite(t *testing.T) {
 	assert.Equal(t, len(out), 2)
 	assert.Equal(t, string(out[1]),
 		`{"jsonrpc":"2.0","id":"crabswarm-proxy-1","method":"mcpServer/tool/call",`+
-			`"params":{"server":"crabswarm-mcp","threadId":"t1",`+
+			`"params":{"server":"crabswarm-mcp-shared","threadId":"t1",`+
 			`"tool":"crabswarm_focus","arguments":{}}}`)
 
 	s = &stamper{logger: logger, server: "other", token: "tok"}

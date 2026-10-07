@@ -31,7 +31,7 @@ const DELIVERED_MID_TURN =
 // MCP_ENTRY is the name the crabswarm MCP server is configured under. OpenCode
 // names that server's tools `<entry>_<tool>`, replacing every character outside
 // [a-zA-Z0-9_-] with "_", which leaves this name as it is.
-const MCP_ENTRY = "crabswarm-mcp"
+const MCP_ENTRY = "crabswarm-mcp-shared"
 const TOOL_PREFIX = `${MCP_ENTRY}_`
 
 // SESSION_ARG is the argument the MCP server takes the calling session from. It

@@ -94,9 +94,11 @@ names the server plugin as `"./.agents/skills/crabswarm-mcp-shared/opencode.ts"`
 OpenCode installs the plugins' dependency package from npm the first time it
 starts with a plugin configured, which makes that first start slower.
 
-The server entry has to be named `crabswarm-mcp`. Both plugins look the server
-up under that name, and `crabswarm mcp codex-proxy` stamps its header on the
-Codex entry of that name unless `--server-name` names another.
+The server entry has to be named `crabswarm-mcp-shared`. Both plugins look the
+server up under that name, and `crabswarm mcp codex-proxy` stamps its header on
+the Codex entry of that name unless `--server-name` names another. apm treats
+two packages declaring a server of the same name as one server, so the name
+differs from the `crabswarm-mcp` package's own.
 
 `apm.yml` declares the server as a *self-defined* one (`registry: false`), and
 apm trusts one of those only at depth one. A project that reaches this package

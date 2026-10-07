@@ -43,7 +43,7 @@ import (
 
 // codexSharedServer is the name the app server declares crabswarm's MCP server
 // under, which is the name the proxy stamps a thread's header for.
-const codexSharedServer = "crabswarm-mcp"
+const codexSharedServer = "crabswarm-mcp-shared"
 
 // codexSharedHeaderKey begins every per-thread config key that sets a request
 // header on the sessions of that server.

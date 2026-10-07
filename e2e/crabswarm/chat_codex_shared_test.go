@@ -74,7 +74,8 @@ func codexSharedFrame(t *testing.T, fixture, method string, nth int) []byte {
 }
 
 // codexSharedOnThread is frame addressed to thread instead of the thread it
-// was recorded against.
+// was recorded against. A frame naming an MCP server names codexSharedServer
+// instead: the recordings predate the shared package's own entry name.
 func codexSharedOnThread(t *testing.T, frame []byte, thread string) []byte {
 	t.Helper()
 	var msg, params map[string]json.RawMessage
@@ -87,6 +88,11 @@ func codexSharedOnThread(t *testing.T, frame []byte, thread string) []byte {
 	var err error
 	if params["threadId"], err = json.Marshal(thread); err != nil {
 		t.Fatalf("encode a thread id: %v", err)
+	}
+	if _, ok := params["server"]; ok {
+		if params["server"], err = json.Marshal(codexSharedServer); err != nil {
+			t.Fatalf("encode a server name: %v", err)
+		}
 	}
 	if msg["params"], err = json.Marshal(params); err != nil {
 		t.Fatalf("encode params: %v", err)
