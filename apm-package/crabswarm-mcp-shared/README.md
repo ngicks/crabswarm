@@ -196,6 +196,12 @@ under the runtime directory the daemon socket is derived from:
 `$XDG_RUNTIME_DIR`, else `/run/user/<uid>` when it exists, else `/tmp`.
 `crabswarm config` prints the resolved directory.
 
+The proxy starts the TUI only after the app server answers `account/read`. A
+remote Codex TUI calls `account/read` while it boots and exits when the call
+fails. An app server that is still discovering its workspace routing refuses
+the call. The proxy retries every second for up to `--ready-timeout` (default
+`1m`) and then starts the TUI anyway. `--ready-timeout 0` skips the wait.
+
 OpenCode runs one `opencode serve` and one `opencode attach` per replica. The
 server listens beyond loopback here, so it takes a password, and every TUI
 sends the same one:

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -11,8 +12,9 @@ import (
 
 func mcpCodexProxyCmd(parent *cobra.Command, flagConfig *string) {
 	var (
-		flagToken      string
-		flagServerName string
+		flagToken        string
+		flagServerName   string
+		flagReadyTimeout time.Duration
 	)
 
 	cmd := &cobra.Command{
@@ -49,6 +51,13 @@ is derived from: $XDG_RUNTIME_DIR, else /run/user/<uid> when it exists, else
 /tmp. The proxy creates the directory, makes it private to its owner, and
 removes the socket when the command exits.
 
+Before the command starts, the proxy opens a session of its own on the app
+server and calls account/read until it answers with a result, for at most
+--ready-timeout. A remote Codex TUI calls account/read while it boots and exits
+when that call fails, which an app server still discovering its workspace
+routing answers with an error. Past the timeout the command starts anyway. A
+--ready-timeout of 0 starts it at once.
+
 The command owns the terminal: SIGINT and SIGTERM are passed on to it, and the
 proxy exits with its status. Logging goes to stderr beneath the TUI, warnings
 and above by default.`,
@@ -57,7 +66,9 @@ and above by default.`,
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: mcpCodexProxyCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMCPCodexProxy(cmd, args, *flagConfig, flagToken, flagServerName)
+			return runMCPCodexProxy(
+				cmd, args, *flagConfig, flagToken, flagServerName, flagReadyTimeout,
+			)
 		},
 	}
 
@@ -66,6 +77,9 @@ and above by default.`,
 			"else $CMDMAN_CMD_ID)")
 	cmd.Flags().StringVar(&flagServerName, "server-name", codexproxy.DefaultServer,
 		"name of the crabswarm MCP server in the app server's mcp_servers config")
+	cmd.Flags().DurationVar(&flagReadyTimeout, "ready-timeout", time.Minute,
+		"how long to wait for the app server to answer account/read before "+
+			"starting the command (0 = do not wait)")
 
 	parent.AddCommand(cmd)
 }
@@ -82,6 +96,7 @@ func mcpCodexProxyCompletion(
 
 func runMCPCodexProxy(
 	cmd *cobra.Command, args []string, flagConfig, token, serverName string,
+	readyTimeout time.Duration,
 ) error {
 	// A dash anywhere else means the command was written without "--" or mixed
 	// with this command's flags, and pflag may have taken a Codex flag as ours.
@@ -94,9 +109,10 @@ func runMCPCodexProxy(
 		return err
 	}
 	return codexproxy.Run(cmd.Context(), commandLogger(cmd), codexproxy.Config{
-		Token:   token,
-		Argv:    args,
-		Server:  serverName,
-		SockDir: cfg.MCP.CodexProxySockDir,
+		Token:        token,
+		Argv:         args,
+		Server:       serverName,
+		SockDir:      cfg.MCP.CodexProxySockDir,
+		ReadyTimeout: readyTimeout,
 	})
 }

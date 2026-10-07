@@ -56,6 +56,9 @@ type Config struct {
 	// config derives its default from a runtime directory that also probes
 	// /run/user/<uid>, so a caller holding that config passes its value here.
 	SockDir string
+	// ReadyTimeout bounds how long Run waits, before it starts the TUI, for the
+	// app server to answer account/read. Zero or less starts the TUI at once.
+	ReadyTimeout time.Duration
 }
 
 // ExitError reports that the command ran and exited unsuccessfully. Code is
@@ -78,7 +81,8 @@ func (e *ExitError) ExitStatus() int { return e.Code }
 // after asking it to, before killing it.
 const childWaitDelay = 5 * time.Second
 
-// Run serves a private socket, runs cfg.Argv with its --remote address
+// Run waits for the app server as [Config.ReadyTimeout] says, serves a private
+// socket, runs cfg.Argv with its --remote address
 // replaced by that socket, and relays every connection the command makes to
 // the app server it named. It returns once the command exits: nil for a
 // status of zero, an [*ExitError] for any other.
@@ -105,6 +109,13 @@ func Run(ctx context.Context, logger *slog.Logger, cfg Config) error {
 		logger.Warn("codex proxy: threads start without a chat identity", "err", err)
 	} else {
 		r.token = token
+	}
+
+	if cfg.ReadyTimeout > 0 {
+		r.waitReady(ctx, cfg.ReadyTimeout)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 	}
 
 	sock, err := socketPath(cfg.SockDir)

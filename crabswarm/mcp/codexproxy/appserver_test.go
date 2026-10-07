@@ -67,6 +67,9 @@ type fakeAppServer struct {
 	conns []*websocket.Conn
 	// ended is how each connection's read loop ended.
 	ended []error
+	// refuseAccountRead is how many account/read calls still get the error an
+	// app server discovering its workspace routing answers with.
+	refuseAccountRead int
 }
 
 func startFakeAppServer(t *testing.T) *fakeAppServer {
@@ -117,8 +120,50 @@ func (f *fakeAppServer) serve(w http.ResponseWriter, r *http.Request) {
 		if json.Unmarshal(data, &req) != nil || len(req.Id) == 0 || req.Method == "" {
 			continue
 		}
-		_ = conn.Write(context.Background(), websocket.MessageText, answerTo(req.Id, req.Method))
+		answer := answerTo(req.Id, req.Method)
+		f.mu.Lock()
+		if req.Method == "account/read" && f.refuseAccountRead > 0 {
+			f.refuseAccountRead--
+			answer = refusalTo(req.Id)
+		}
+		f.mu.Unlock()
+		_ = conn.Write(context.Background(), websocket.MessageText, answer)
 	}
+}
+
+// refusalTo is the error the fake writes to an account/read it refuses.
+func refusalTo(id json.RawMessage) []byte {
+	b, err := json.Marshal(map[string]any{"id": id, "error": map[string]any{
+		"code":    -32603,
+		"message": "account/read failed: workspace routing discovery timed out",
+	}})
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// refuse makes the fake refuse the next n account/read calls.
+func (f *fakeAppServer) refuse(n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.refuseAccountRead = n
+}
+
+// methods is the method of every request the fake was sent, in order.
+func (f *fakeAppServer) methods() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []string
+	for _, fr := range f.got {
+		var req struct {
+			Method string `json:"method"`
+		}
+		if json.Unmarshal(fr.Data, &req) == nil && req.Method != "" {
+			out = append(out, req.Method)
+		}
+	}
+	return out
 }
 
 // answerTo is the answer the fake writes to the request id calling method.

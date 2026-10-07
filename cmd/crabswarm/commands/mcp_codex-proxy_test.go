@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
 
@@ -83,7 +84,7 @@ func TestMCPCodexProxyCmd_RunsTheCommand(t *testing.T) {
 	t.Setenv("CODEXPROXY_TEST_SOCKET", out)
 
 	assert.NilError(t, runMCPCmd(t.Context(),
-		"codex-proxy", "--token", "tok", "--server-name", "cs",
+		"codex-proxy", "--token", "tok", "--server-name", "cs", "--ready-timeout", "0",
 		"--", sh, "-c",
 		`if test -S "${2#unix://}"; then echo served; else echo missing; fi `+
 			`> "$CODEXPROXY_TEST_SOCKET"; exit 0`,
@@ -112,7 +113,7 @@ func TestMCPCodexProxyCmd_ServesInTheConfiguredSockDir(t *testing.T) {
 			chatHermeticEnv(t)
 			proxyRuntimeDir(t)
 			sockDir := filepath.Join(proxyShortDir(t), "configured")
-			args := []string{"codex-proxy"}
+			args := []string{"codex-proxy", "--ready-timeout", "0"}
 			if tc.fromFile {
 				conf := filepath.Join(t.TempDir(), "config.json")
 				raw, err := json.Marshal(map[string]any{
@@ -141,6 +142,29 @@ printf '%s\n' "$2" > "$CODEXPROXY_TEST_REMOTE"`,
 	}
 }
 
+// --ready-timeout bounds the wait for an app server that never answers, and
+// the command runs once it passes.
+func TestMCPCodexProxyCmd_StartsTheCommandPastTheReadyTimeout(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh to run a command with")
+	}
+	chatHermeticEnv(t)
+	proxyRuntimeDir(t)
+	ran := filepath.Join(t.TempDir(), "ran")
+	t.Setenv("CODEXPROXY_TEST_RAN", ran)
+
+	start := time.Now()
+	assert.NilError(t, runMCPCmd(t.Context(),
+		"codex-proxy", "--token", "tok", "--ready-timeout", "300ms",
+		"--", sh, "-c", `touch "$CODEXPROXY_TEST_RAN"`,
+		"sh", "--remote", "unix:///nowhere.sock"))
+
+	assert.Assert(t, time.Since(start) >= 300*time.Millisecond, "the proxy did not wait")
+	_, err = os.Stat(ran)
+	assert.NilError(t, err)
+}
+
 // A command that exits unsuccessfully makes the command return an error
 // carrying that status, which the process then exits with.
 func TestMCPCodexProxyCmd_ReturnsTheCommandsStatus(t *testing.T) {
@@ -152,7 +176,7 @@ func TestMCPCodexProxyCmd_ReturnsTheCommandsStatus(t *testing.T) {
 	proxyRuntimeDir(t)
 
 	err = runMCPCmd(t.Context(),
-		"codex-proxy", "--token", "tok",
+		"codex-proxy", "--token", "tok", "--ready-timeout", "0",
 		"--", sh, "-c", "exit 7", "sh", "--remote", "unix:///nowhere.sock")
 
 	exitErr, ok := errors.AsType[*codexproxy.ExitError](err)

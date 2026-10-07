@@ -58,7 +58,7 @@ func TestMCPCodexProxy_ServesInTheConfiguredSockDir(t *testing.T) {
 			}
 
 			proxy := exec.Command(crabswarmBin, append(global,
-				"mcp", "codex-proxy", "--", sh, "-c",
+				"mcp", "codex-proxy", "--ready-timeout", "0", "--", sh, "-c",
 				`test -S "${2#unix://}" || exit 99
 printf '%s\n' "$2" > "$E2E_CODEX_PROXY_REMOTE"`,
 				"sh", "--remote", "unix:///nowhere.sock")...)
