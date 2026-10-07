@@ -106,6 +106,7 @@ character limit in the scope rules applies to comma-joined scopes.
 | `crabswarm-mcp`        | `apm-package/crabswarm-mcp/` Claude Code wiring: skill, plugin         |
 | `crabswarm-mcp-shared` | `apm-package/crabswarm-mcp-shared/` Codex and OpenCode wiring          |
 | `crabswarm-issues-lint`| `apm-package/crabswarm-issues-lint/`                                   |
+| `mods`                 | `mods/` Claude Code mods                                               |
 | `instructions`         | `.apm/instructions/` (the AGENTS.md source) and `.claude/rules/`       |
 | `hk`                   | `hk.pkl`, `.hk/` hook wiring                                           |
 | `plan`                 | beads plan and backlog text (`bd`), `doc/plan/` history                |
