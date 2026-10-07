@@ -20,6 +20,7 @@ func utilSupervisedCmd(parent *cobra.Command) {
 		flagPollStartPeriod time.Duration
 		flagPollInterval    time.Duration
 		flagPollRetries     int
+		flagPollHTTP        pollHTTPFlags
 	)
 
 	cmd := &cobra.Command{
@@ -41,6 +42,13 @@ need a moment is left alone until it elapses; --poll-interval and
 --poll-retries carry the meaning the Docker healthcheck flags of the same names
 have, and every failed probe counts toward --poll-retries.
 
+--poll-method, --poll-header, --poll-payload or --poll-file, and --poll-status
+shape an HTTP probe the way --method, --header, --payload, --file and --status
+do for "crabswarm util poll wait": GET is the default, HEAD is the cheapest
+probe for an endpoint that handles it, and --poll-status names the codes (204)
+and classes (2xx) that count as ready. They are refused before COMMAND starts
+when --poll names no http(s) target.
+
 COMMAND must follow "--", so its own flags are never parsed as this command's.`,
 		Example: `  crabswarm util supervised -- npm run dev
   crabswarm util supervised --name web --poll http://127.0.0.1:5173 -- npm run dev
@@ -51,7 +59,7 @@ COMMAND must follow "--", so its own flags are never parsed as this command's.`,
 			return runUtilSupervised(
 				cmd, args,
 				flagSupervisor, flagName, flagPoll,
-				flagPollStartPeriod, flagPollInterval, flagPollRetries,
+				flagPollStartPeriod, flagPollInterval, flagPollRetries, &flagPollHTTP,
 			)
 		},
 	}
@@ -71,6 +79,7 @@ COMMAND must follow "--", so its own flags are never parsed as this command's.`,
 	f.IntVar(&flagPollRetries, "poll-retries", 10,
 		"Consecutive failed probes at which the wait gives up (0 also means 10, "+
 			"negative retries until cancelled)")
+	flagPollHTTP.register(cmd, "poll-")
 
 	parent.AddCommand(cmd)
 }
@@ -90,6 +99,7 @@ func runUtilSupervised(
 	cmd *cobra.Command, args []string,
 	supervisorName, name, pollTarget string,
 	pollStartPeriod, pollInterval time.Duration, pollRetries int,
+	pollHTTP *pollHTTPFlags,
 ) error {
 	// A dash at any other position means the command was written without "--"
 	// or mixed with our own flags; either way pflag may have eaten a flag meant
@@ -110,6 +120,10 @@ func runUtilSupervised(
 		return fmt.Errorf("unsupported supervisor %q", supervisorName)
 	}
 
+	httpOpt, err := pollHTTP.option(cmd, cmd.InOrStdin())
+	if err != nil {
+		return err
+	}
 	opt := supervisor.StartOption{
 		Name:    name,
 		Command: args,
@@ -117,6 +131,7 @@ func runUtilSupervised(
 			StartPeriod: pollStartPeriod,
 			Interval:    pollInterval,
 			Retries:     pollRetries,
+			HTTP:        httpOpt,
 		},
 	}
 	if pollTarget != "" {
@@ -125,6 +140,11 @@ func runUtilSupervised(
 			return err
 		}
 		opt.Poll = &target
+	}
+	// poll.Wait refuses these too, but only once COMMAND is already running.
+	if !httpOpt.IsZero() && (opt.Poll == nil || opt.Poll.Kind != poll.KindHTTP) {
+		return errors.New("the --poll-method, --poll-status, --poll-header, " +
+			"--poll-payload and --poll-file flags need an http(s) --poll target")
 	}
 
 	return supervisor.Start(cmd.Context(), commandLogger(cmd), sup, opt)

@@ -120,7 +120,8 @@ Tools to swarm claude(, codex and others!)
 │   ├── filetype    filetype detection config consumed by hook exec.
 │   └── util        Behind `crabswarm util`, independent of the rest of crabswarm: poll/ (`util poll wait URI` probes a unix socket,
 │                   file:// path or http(s) URL; --start-period delays the first probe, --interval and --retries carry their
-│                   Docker-healthcheck meaning).
+│                   Docker-healthcheck meaning; --method (default GET), --header, --payload/--file and --status (default
+│                   2xx) shape an HTTP probe, and `util supervised` takes them as --poll-*).
 └── web             Preact SPA for `crabswarm preview`, embedded via go:embed as seekable-zstd tar (dist.tar.zst committed).
     └── src
         ├── app.tsx        The shell and the routes: /roots/{rootId}/{path...} is the file browser, /issues/{sourceId} the Issues tab.

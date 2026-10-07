@@ -13,6 +13,7 @@ func utilPollWaitCmd(parent *cobra.Command) {
 		flagStartPeriod time.Duration
 		flagInterval    time.Duration
 		flagRetries     int
+		flagHTTP        pollHTTPFlags
 	)
 
 	cmd := &cobra.Command{
@@ -25,7 +26,15 @@ The scheme selects the probe:
 
   <path> or unix://<path>   the unix socket accepts a connection
   file://<path>             the path exists on disk
-  http://... https://...    a GET answers 2xx
+  http://... https://...    a request answers 2xx, or what --status accepts
+
+An HTTP probe is shaped by --method, --header, --payload or --file, and
+--status. HEAD is the cheapest probe and GET, the default, is the one every
+endpoint handles; try HEAD first and fall back to GET for an endpoint that
+answers HEAD wrongly. Any other method, such as QUERY, is sent upper-cased,
+with the body --payload or --file names. --status lists the codes (204) and classes
+(2xx) that count as ready, 2xx by default. These flags are refused for a
+socket or file target.
 
 --interval and --retries carry the meaning the Docker healthcheck flags of the
 same names have: probes follow one another every --interval, and --retries
@@ -35,11 +44,16 @@ probe. Nothing is probed until it elapses, and every failed probe counts toward
 		Example: `  crabswarm util poll wait /run/user/1000/crabswarm/host/default.sock
   crabswarm util poll wait unix://./run/daemon.sock --interval 200ms
   crabswarm util poll wait file://./dist/index.html
-  crabswarm util poll wait http://127.0.0.1:6419/healthz --start-period 5s`,
+  crabswarm util poll wait http://127.0.0.1:6419/healthz --start-period 5s
+  crabswarm util poll wait http://127.0.0.1:6419/healthz --method HEAD --status 2xx,401
+  crabswarm util poll wait http://127.0.0.1:8080/rpc --method POST \
+    --header 'Content-Type: application/json' --payload '{"method":"ping"}'`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: utilPollWaitCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUtilPollWait(cmd, args, flagStartPeriod, flagInterval, flagRetries)
+			return runUtilPollWait(
+				cmd, args, flagStartPeriod, flagInterval, flagRetries, &flagHTTP,
+			)
 		},
 	}
 
@@ -50,6 +64,7 @@ probe. Nothing is probed until it elapses, and every failed probe counts toward
 	cmd.Flags().IntVar(&flagRetries, "retries", 10,
 		"consecutive failed probes at which the wait gives up; "+
 			"0 selects the default, negative means unlimited, waiting until interrupted")
+	flagHTTP.register(cmd, "")
 
 	parent.AddCommand(cmd)
 }
@@ -73,8 +88,13 @@ func runUtilPollWait(
 	args []string,
 	startPeriod, interval time.Duration,
 	retries int,
+	httpFlags *pollHTTPFlags,
 ) error {
 	target, err := poll.ParseTarget(args[0])
+	if err != nil {
+		return err
+	}
+	httpOpt, err := httpFlags.option(cmd, cmd.InOrStdin())
 	if err != nil {
 		return err
 	}
@@ -82,5 +102,6 @@ func runUtilPollWait(
 		StartPeriod: startPeriod,
 		Interval:    interval,
 		Retries:     retries,
+		HTTP:        httpOpt,
 	})
 }

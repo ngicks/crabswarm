@@ -3,6 +3,7 @@ package crabswarm_test
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -162,6 +163,49 @@ func TestUtilPollWaitHTTPStartPeriod(t *testing.T) {
 	}
 }
 
+// The HTTP flags shape every probe: the method, the headers, the body --file
+// names, and the statuses --status counts as ready. The endpoint answers 503
+// until its second probe and 401 from then on, and 401 is what --status
+// accepts, so exit 0 means the wait went past a refused probe and stopped on
+// the accepted one.
+func TestUtilPollWaitHTTPRequest(t *testing.T) {
+	type probe struct{ method, contentType, body string }
+	var (
+		mu     sync.Mutex
+		probes []probe
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		probes = append(probes, probe{r.Method, r.Header.Get("Content-Type"), string(b)})
+		n := len(probes)
+		mu.Unlock()
+		if n < 2 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	payload := filepath.Join(t.TempDir(), "payload.json")
+	writeFile(t, payload, `{"method":"ping"}`)
+
+	stdout, stderr, code := runUtil(t, nil, 15*time.Second,
+		"poll", "wait", srv.URL+"/rpc", "--interval", "20ms",
+		"--method", "POST", "--header", "Content-Type: application/json",
+		"--file", payload, "--status", "2xx,401")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	want := probe{"POST", "application/json", `{"method":"ping"}`}
+	if len(probes) != 2 || probes[0] != want || probes[1] != want {
+		t.Errorf("probes = %+v, want two of %+v", probes, want)
+	}
+}
+
 // A target that never appears exhausts the retry budget and fails, naming how
 // many probes were spent so a script's log says why the wait gave up.
 func TestUtilPollWaitRetriesExhausted(t *testing.T) {
@@ -299,6 +343,72 @@ func TestUtilSupervisedAlreadyRunning(t *testing.T) {
 	}
 	if len(calls) != 1 || !strings.HasPrefix(calls[0], "inspect ") {
 		t.Errorf("cmdman calls = %q, want the inspect alone", calls)
+	}
+}
+
+// HTTP probe flags given with a --poll target that is no http(s) URL are
+// refused before cmdman starts anything, since the wait would refuse them only
+// once the command already runs.
+func TestUtilSupervisedRefusesHTTPFlagsOnOtherTargets(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "cmdman.log")
+	readyPath := filepath.Join(dir, "ready")
+	env := fakeBinEnv(t, map[string]string{
+		"cmdman": fakeCmdmanRecorder(logPath, readyPath, "exit 1"),
+	})
+
+	for name, poll := range map[string][]string{
+		"file target": {"--poll", "file://" + readyPath},
+		"no target":   nil,
+	} {
+		t.Run(name, func(t *testing.T) {
+			args := append([]string{"supervised", "--name", "web"}, poll...)
+			args = append(args, "--poll-method", "HEAD", "--", "some", "command")
+			stdout, stderr, code := runUtil(t, env, 15*time.Second, args...)
+			if code == 0 {
+				t.Fatalf("exit code = 0, want non-zero\nstdout:\n%s\nstderr:\n%s", stdout, stderr)
+			}
+			if !strings.Contains(stderr, "need an http(s) --poll target") {
+				t.Errorf("stderr does not explain the refusal; got:\n%s", stderr)
+			}
+			if calls := cmdmanCalls(t, logPath); calls != nil {
+				t.Errorf("cmdman was called: %q", calls)
+			}
+		})
+	}
+}
+
+// --poll-method and --poll-status shape the readiness probe of a supervised
+// command the way --method and --status do for poll wait.
+func TestUtilSupervisedPollsWithHTTPFlags(t *testing.T) {
+	var (
+		mu      sync.Mutex
+		methods []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		methods = append(methods, r.Method)
+		mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	dir := t.TempDir()
+	env := fakeBinEnv(t, map[string]string{
+		"cmdman": fakeCmdmanRecorder(
+			filepath.Join(dir, "cmdman.log"), filepath.Join(dir, "ready"), "exit 1"),
+	})
+
+	stdout, stderr, code := runUtil(t, env, 15*time.Second,
+		"supervised", "--name", "web", "--poll", srv.URL,
+		"--poll-method", "HEAD", "--poll-status", "204", "--poll-retries", "1",
+		"--", "some", "command")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(methods) != 1 || methods[0] != http.MethodHead {
+		t.Errorf("probe methods = %q, want one HEAD", methods)
 	}
 }
 

@@ -1,5 +1,6 @@
 // Package poll waits until a target becomes ready: a unix socket accepts a
-// connection, a file exists on disk, or an HTTP endpoint answers 2xx.
+// connection, a file exists on disk, or an HTTP endpoint answers with an
+// accepted status, 2xx unless [HTTPOption] says otherwise.
 package poll
 
 import (
@@ -16,7 +17,8 @@ const (
 	KindUnix Kind = iota
 	// KindFile is a path that exists on disk.
 	KindFile
-	// KindHTTP is a URL that answers 2xx to a GET.
+	// KindHTTP is a URL that answers the request [HTTPOption] describes with a
+	// status it accepts.
 	KindHTTP
 )
 

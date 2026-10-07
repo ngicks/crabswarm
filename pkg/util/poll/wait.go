@@ -3,7 +3,6 @@ package poll
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -36,6 +35,9 @@ type WaitOption struct {
 	// ProbeTimeout bounds a single probe attempt, so one stalled dial cannot eat
 	// the whole budget. Zero selects two seconds.
 	ProbeTimeout time.Duration
+	// HTTP shapes the probes of a KindHTTP target. Any other target refuses a
+	// non-zero one.
+	HTTP HTTPOption
 }
 
 // Wait probes target until it is ready, ctx ends, or the retry budget runs
@@ -51,6 +53,10 @@ func Wait(ctx context.Context, logger *slog.Logger, target Target, opts WaitOpti
 		// A bad Kind is a caller bug, so report it now instead of spending the
 		// whole retry budget failing the same way.
 		return fmt.Errorf("unsupported target kind %d", int(target.Kind))
+	}
+	if target.Kind != KindHTTP && !opts.HTTP.IsZero() {
+		return fmt.Errorf("%s is no http(s) target, so it takes no HTTP request options",
+			target.describe())
 	}
 
 	w := newWaiter(target, opts)
@@ -118,6 +124,7 @@ type waiter struct {
 	interval     time.Duration
 	probeTimeout time.Duration
 	retries      int
+	http         HTTPOption
 }
 
 func newWaiter(target Target, opts WaitOption) waiter {
@@ -127,6 +134,7 @@ func newWaiter(target Target, opts WaitOption) waiter {
 		interval:     opts.Interval,
 		probeTimeout: opts.ProbeTimeout,
 		retries:      opts.Retries,
+		http:         opts.HTTP,
 	}
 	if w.interval <= 0 {
 		w.interval = defaultInterval
@@ -154,7 +162,7 @@ func (w waiter) probe(ctx context.Context) error {
 	case KindFile:
 		return statFile(w.target.Addr)
 	case KindHTTP:
-		return getHTTP(ctx, w.client, w.target.Addr)
+		return probeHTTP(ctx, w.client, w.target.Addr, w.http)
 	}
 	return fmt.Errorf("unsupported target kind %d", int(w.target.Kind))
 }
@@ -176,24 +184,4 @@ func dialUnix(ctx context.Context, path string) error {
 func statFile(path string) error {
 	_, err := os.Stat(path)
 	return err
-}
-
-// getHTTP reports whether the URL answers a GET with 2xx.
-func getHTTP(ctx context.Context, client *http.Client, url string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	// Drain the body so the connection goes back to the pool for the next probe.
-	_, _ = io.Copy(io.Discard, resp.Body)
-
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("unexpected status %s", resp.Status)
-	}
-	return nil
 }
