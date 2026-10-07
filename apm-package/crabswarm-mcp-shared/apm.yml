@@ -7,7 +7,7 @@ repository: https://github.com/ngicks/crabswarm
 dependencies:
   apm: []
   mcp:
-  - name: crabswarm-mcp
+  - name: crabswarm-mcp-shared
     registry: false
     # The server is not started by the harness: the launcher runs
     # `crabswarm mcp --transport http --listen <host>:47300` beside the harness
