@@ -15,4 +15,4 @@ package libver
 //
 // Edit by hand only when the release tool is unavailable (e.g. cherry-pick
 // of a release commit).
-const Version = "v0.2.0"
+const Version = "v0.2.1-devel"
