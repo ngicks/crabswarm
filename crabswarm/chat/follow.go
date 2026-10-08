@@ -18,7 +18,8 @@ const followPage = 100
 
 // follow serves one Follow stream of room: Followed first, carrying the room's
 // newest seq; then the stored messages past since when since is set; then each
-// message as it is appended. A zero since starts live.
+// message as it is appended. A nil since starts live, and a zero one replays
+// the room from its first message.
 //
 // viewer is the role mentioned_you is measured for. Nil follows as nobody,
 // which is how the operator follows, and marks nothing.
@@ -35,12 +36,12 @@ func follow(
 	store *Store,
 	stream grpc.ServerStreamingServer[chatv1.FollowEvent],
 	room string,
-	since int64,
+	since *int64,
 	viewer *Sender,
 ) error {
-	if since < 0 {
+	if since != nil && *since < 0 {
 		return status.Errorf(codes.InvalidArgument,
-			"since %d names no seq: seqs start at 1, and 0 starts live", since)
+			"since %d names no seq: seqs start at 1, and 0 replays the whole room", *since)
 	}
 
 	// Subscribed before anything is read: a message appended between the read
@@ -59,8 +60,8 @@ func follow(
 	}
 
 	f := follower{store: store, stream: stream, room: room, viewer: viewer, last: newest}
-	if since > 0 {
-		f.last = since
+	if since != nil {
+		f.last = *since
 		if err := f.catchUp(ctx, newest+1); err != nil {
 			return err
 		}

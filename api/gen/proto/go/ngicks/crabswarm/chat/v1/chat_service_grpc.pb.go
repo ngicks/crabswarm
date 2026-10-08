@@ -68,9 +68,9 @@ type ChatServiceClient interface {
 	// only safe to deliver while the harness is idle.
 	ReportState(ctx context.Context, in *ReportStateRequest, opts ...grpc.CallOption) (*ReportStateResponse, error)
 	// Follow streams the caller's room. The first event is Followed; then
-	// come the messages past since when since is set, and from then on each
-	// message as it is appended. Following is not attendance: it puts nobody
-	// in the room, and it moves no read position.
+	// come the stored messages past since when since is set, zero included,
+	// and from then on each message as it is appended. Following is not
+	// attendance: it puts nobody in the room, and it moves no read position.
 	//
 	// The stream element is shared with the admin Follow, so it is named for
 	// what it is rather than for either RPC.
@@ -215,9 +215,9 @@ type ChatServiceServer interface {
 	// only safe to deliver while the harness is idle.
 	ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error)
 	// Follow streams the caller's room. The first event is Followed; then
-	// come the messages past since when since is set, and from then on each
-	// message as it is appended. Following is not attendance: it puts nobody
-	// in the room, and it moves no read position.
+	// come the stored messages past since when since is set, zero included,
+	// and from then on each message as it is appended. Following is not
+	// attendance: it puts nobody in the room, and it moves no read position.
 	//
 	// The stream element is shared with the admin Follow, so it is named for
 	// what it is rather than for either RPC.

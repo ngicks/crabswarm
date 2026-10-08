@@ -159,13 +159,13 @@ type fakeOpen struct {
 }
 
 // fakeOpener answers each open with the next of opens and records the since it
-// was asked for.
+// was asked for, nil for a stream opened live.
 type fakeOpener struct {
 	opens  []fakeOpen
-	sinces []int64
+	sinces []*int64
 }
 
-func (f *fakeOpener) open(_ context.Context, since int64) (FollowStream, error) {
+func (f *fakeOpener) open(_ context.Context, since *int64) (FollowStream, error) {
 	f.sinces = append(f.sinces, since)
 	if len(f.opens) == 0 {
 		return nil, status.Error(codes.Internal, "the test opened more streams than it scripted")
@@ -227,7 +227,7 @@ func TestFollowInto_ResumesAfterTheLastMessage(t *testing.T) {
 	var out bytes.Buffer
 	assert.NilError(t, followInto(ctx, nil, &out, opener.open, sleep.sleep))
 
-	assert.DeepEqual(t, opener.sinces, []int64{0, 7})
+	assert.DeepEqual(t, opener.sinces, []*int64{nil, new(int64(7))})
 	assert.DeepEqual(t, sleep.pauses, []time.Duration{time.Second})
 	assert.DeepEqual(t, summary(decodeLines(t, out.String())), []string{
 		"status: following /work/proj",
@@ -276,7 +276,8 @@ func TestFollowInto_ResumesAfterTheFirstFollowedAndAnnouncesEachOutageOnce(t *te
 	var out bytes.Buffer
 	assert.NilError(t, followInto(ctx, nil, &out, opener.open, sleep.sleep))
 
-	assert.DeepEqual(t, opener.sinces, []int64{0, 5, 5, 5, 6})
+	assert.DeepEqual(t, opener.sinces,
+		[]*int64{nil, new(int64(5)), new(int64(5)), new(int64(5)), new(int64(6))})
 	assert.DeepEqual(t, sleep.pauses,
 		[]time.Duration{time.Second, 2 * time.Second, time.Second, time.Second})
 	assert.DeepEqual(t, summary(decodeLines(t, out.String())), []string{
@@ -289,6 +290,46 @@ func TestFollowInto_ResumesAfterTheFirstFollowedAndAnnouncesEachOutageOnce(t *te
 		"status: reconnecting to the daemon",
 		"status: following /r",
 		"message 7",
+	})
+}
+
+// A room that was empty when the first stream opened is resumed after zero, so
+// what was said while the stream was lost is written once it is back. Until a
+// stream has opened there is nothing to resume after, and the stream opens
+// live.
+func TestFollowInto_ResumesAnEmptyRoomAfterZero(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	opener := &fakeOpener{opens: []fakeOpen{
+		{err: errUnavailable},
+		{stream: &fakeFollowStream{
+			events: []*chatv1.FollowEvent{followedEv("/r", 0)},
+			err:    errUnavailable,
+		}},
+		{err: errUnavailable},
+		{stream: &fakeFollowStream{
+			events: []*chatv1.FollowEvent{
+				followedEv("/r", 2),
+				messageEv(1, "one", false),
+				messageEv(2, "two", true),
+			},
+			onEnd: cancel,
+			err:   status.Error(codes.Canceled, "context canceled"),
+		}},
+	}}
+	sleep := &fakeSleep{}
+
+	var out bytes.Buffer
+	assert.NilError(t, followInto(ctx, nil, &out, opener.open, sleep.sleep))
+
+	assert.DeepEqual(t, opener.sinces, []*int64{nil, nil, new(int64(0)), new(int64(0))})
+	assert.DeepEqual(t, summary(decodeLines(t, out.String())), []string{
+		"status: reconnecting to the daemon",
+		"status: following /r",
+		"status: reconnecting to the daemon",
+		"status: following /r",
+		"message 1",
+		"message 2",
 	})
 }
 
@@ -436,7 +477,7 @@ type fakeFollowService struct {
 
 	mu      sync.Mutex
 	answers []fakeFollowAnswer
-	sinces  []int64
+	sinces  []*int64
 }
 
 type fakeFollowAnswer struct {
@@ -449,7 +490,7 @@ func (f *fakeFollowService) Follow(
 	stream grpc.ServerStreamingServer[chatv1.FollowEvent],
 ) error {
 	f.mu.Lock()
-	f.sinces = append(f.sinces, req.GetSince())
+	f.sinces = append(f.sinces, req.Since)
 	var answer fakeFollowAnswer
 	if len(f.answers) > 0 {
 		answer, f.answers = f.answers[0], f.answers[1:]
@@ -465,12 +506,17 @@ func (f *fakeFollowService) Follow(
 
 // Through the real client, a stream the daemon could not serve is followed
 // again, and a refusal ends the follow in the daemon's own words. The token
-// rides on every stream.
+// rides on every stream. A stream opened live carries no since, and a resume of
+// a room that was empty carries a since of zero.
 func TestClient_FollowInto(t *testing.T) {
 	fake := &fakeFollowService{answers: []fakeFollowAnswer{
 		{err: status.Error(codes.Unavailable, "draining")},
 		{
-			events: []*chatv1.FollowEvent{followedEv("/work/proj", 3), messageEv(4, "four", true)},
+			events: []*chatv1.FollowEvent{followedEv("/work/proj", 0)},
+			err:    status.Error(codes.Unavailable, "draining"),
+		},
+		{
+			events: []*chatv1.FollowEvent{followedEv("/work/proj", 1), messageEv(1, "one", true)},
 			err:    status.Error(codes.Unauthenticated, "no team information for this token"),
 		},
 	}}
@@ -479,19 +525,21 @@ func TestClient_FollowInto(t *testing.T) {
 
 	var out bytes.Buffer
 	err := followInto(t.Context(), nil, &out,
-		func(ctx context.Context, since int64) (FollowStream, error) {
+		func(ctx context.Context, since *int64) (FollowStream, error) {
 			return d.client.Follow(ctx, "tok-a", since)
 		}, sleep.sleep)
 	assert.Error(t, err, "no team information for this token")
 	assert.Equal(t, status.Code(err), codes.Unauthenticated)
 
-	assert.DeepEqual(t, fake.sinces, []int64{0, 0})
-	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a", "tok-a"})
-	assert.DeepEqual(t, sleep.pauses, []time.Duration{time.Second})
+	assert.DeepEqual(t, fake.sinces, []*int64{nil, nil, new(int64(0))})
+	assert.DeepEqual(t, d.seenTokens(), []string{"tok-a", "tok-a", "tok-a"})
+	assert.DeepEqual(t, sleep.pauses, []time.Duration{time.Second, time.Second})
 	assert.DeepEqual(t, summary(decodeLines(t, out.String())), []string{
 		"status: reconnecting to the daemon",
 		"status: following /work/proj",
-		"message 4",
+		"status: reconnecting to the daemon",
+		"status: following /work/proj",
+		"message 1",
 	})
 }
 
@@ -529,7 +577,7 @@ func TestAdminClient_Follow(t *testing.T) {
 	}
 	d := serveTestDaemon(t, nil, fake)
 
-	stream, err := d.client.Admin(path).Follow(t.Context(), "/work/proj", 7)
+	stream, err := d.client.Admin(path).Follow(t.Context(), "/work/proj", new(int64(7)))
 	assert.NilError(t, err)
 	ev, err := stream.Recv()
 	assert.NilError(t, err)
@@ -541,7 +589,7 @@ func TestAdminClient_Follow(t *testing.T) {
 	assert.DeepEqual(t, fake.bearers, []string{"nonce-abc123"})
 	assert.Equal(t, len(fake.follows), 1)
 	assert.Equal(t, fake.follows[0].GetRoom(), "/work/proj")
-	assert.Equal(t, fake.follows[0].GetSince(), int64(7))
+	assert.DeepEqual(t, fake.follows[0].Since, new(int64(7)))
 	// Admin calls carry no identity token.
 	assert.DeepEqual(t, d.seenTokens(), []string{"", ""})
 }

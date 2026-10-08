@@ -22,7 +22,7 @@ func TestAdminService_FollowMentionsNobody(t *testing.T) {
 	svc, id := newTestAdminService(t)
 	ana := senderOf(seedConversation(t, svc, 3))
 
-	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, 1)
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, new(int64(1)))
 	assert.Equal(t, f.next(t), "followed:/work/repo:3")
 	assert.Equal(t, f.next(t), "message:2:alpha/ana:note-1")
 	assert.Equal(t, f.next(t), "message:3:alpha/ana:note-2")
@@ -38,7 +38,7 @@ func TestAdminService_FollowMentionsNobody(t *testing.T) {
 func TestAdminService_FollowARoomNobodyUsedYet(t *testing.T) {
 	svc, id := newTestAdminService(t)
 
-	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, "/work/later", 0)
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, "/work/later", nil)
 	assert.Equal(t, f.next(t), "followed:/work/later:0")
 
 	ana := senderOf(attend(t, svc.store, "tok-a", "/work/later", "alpha", "ana"))
@@ -46,29 +46,43 @@ func TestAdminService_FollowARoomNobodyUsedYet(t *testing.T) {
 	assert.Equal(t, f.next(t), "message:1:alpha/ana:first")
 }
 
+// A since of zero replays an operator's stream from the room's first message,
+// as it does a member's.
+func TestAdminService_FollowSinceZeroReplaysFromTheFirstMessage(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	seedConversation(t, svc, 2)
+
+	ctx := adminCtx(t, adminNonce(t, svc, id))
+	f := newFollowStream(t, ctx).admin(svc, testRoom, new(int64(0)))
+	assert.Equal(t, f.next(t), "followed:/work/repo:2")
+	assert.Equal(t, f.next(t), "message:1:alpha/ana:note-0")
+	assert.Equal(t, f.next(t), "message:2:alpha/ana:note-1")
+}
+
 func TestAdminService_FollowRefuses(t *testing.T) {
 	t.Run("a call carrying no credential", func(t *testing.T) {
 		svc, _ := newTestAdminService(t)
-		f := newFollowStream(t, t.Context()).admin(svc, testRoom, 0)
+		f := newFollowStream(t, t.Context()).admin(svc, testRoom, nil)
 		assert.Equal(t, status.Code(f.wait(t)), codes.PermissionDenied)
 	})
 
 	t.Run("a daemon with no way to recognise its operator", func(t *testing.T) {
 		store, _ := newTestStore(t)
 		svc := NewAdminService(store, nil, nil, nil)
-		f := newFollowStream(t, adminCtx(t, "anything")).admin(svc, testRoom, 0)
+		f := newFollowStream(t, adminCtx(t, "anything")).admin(svc, testRoom, nil)
 		assert.Equal(t, status.Code(f.wait(t)), codes.FailedPrecondition)
 	})
 
 	t.Run("an empty room", func(t *testing.T) {
 		svc, id := newTestAdminService(t)
-		f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, "", 0)
+		f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, "", nil)
 		assert.Equal(t, status.Code(f.wait(t)), codes.InvalidArgument)
 	})
 
 	t.Run("a since below zero", func(t *testing.T) {
 		svc, id := newTestAdminService(t)
-		f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, -1)
+		ctx := adminCtx(t, adminNonce(t, svc, id))
+		f := newFollowStream(t, ctx).admin(svc, testRoom, new(int64(-1)))
 		assert.Equal(t, status.Code(f.wait(t)), codes.InvalidArgument)
 	})
 }

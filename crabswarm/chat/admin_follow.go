@@ -31,5 +31,5 @@ func (a *AdminService) Follow(
 	if req.GetRoom() == "" {
 		return status.Error(codes.InvalidArgument, "empty room")
 	}
-	return follow(ctx, a.store, stream, req.GetRoom(), req.GetSince(), nil)
+	return follow(ctx, a.store, stream, req.GetRoom(), req.Since, nil)
 }

@@ -106,7 +106,7 @@ func runChatFollow(
 	defer client.Close()
 
 	return chatcli.FollowInto(cmd.Context(), commandLogger(cmd), cmd.OutOrStdout(),
-		func(ctx context.Context, since int64) (chatcli.FollowStream, error) {
+		func(ctx context.Context, since *int64) (chatcli.FollowStream, error) {
 			return client.Follow(ctx, token, since)
 		})
 }
@@ -128,7 +128,7 @@ func runChatFollowAdmin(cmd *cobra.Command, flags *chatFlags, room string) error
 		return err
 	}
 	return chatcli.FollowInto(cmd.Context(), commandLogger(cmd), cmd.OutOrStdout(),
-		func(ctx context.Context, since int64) (chatcli.FollowStream, error) {
+		func(ctx context.Context, since *int64) (chatcli.FollowStream, error) {
 			return admin.Follow(ctx, room, since)
 		})
 }

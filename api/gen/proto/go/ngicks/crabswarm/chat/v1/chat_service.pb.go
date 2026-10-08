@@ -1478,9 +1478,12 @@ func (*ReportStateResponse) Descriptor() ([]byte, []int) {
 
 type FollowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Since is the seq to resume after, exclusive. Zero starts live: the
-	// stream carries only messages appended after it opened.
-	Since         int64 `protobuf:"varint,1,opt,name=since,proto3" json:"since,omitempty"`
+	// Since is the seq to resume after, exclusive. Unset starts live: the
+	// stream carries only messages appended after it opened. Set, zero
+	// included, the stream first replays every stored message past it, so a
+	// follower that first saw an empty room resumes after zero and misses
+	// nothing.
+	Since         *int64 `protobuf:"varint,1,opt,name=since,proto3,oneof" json:"since,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1516,8 +1519,8 @@ func (*FollowRequest) Descriptor() ([]byte, []int) {
 }
 
 func (x *FollowRequest) GetSince() int64 {
-	if x != nil {
-		return x.Since
+	if x != nil && x.Since != nil {
+		return *x.Since
 	}
 	return 0
 }
@@ -2499,8 +2502,9 @@ type AdminFollowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Room is the room to follow.
 	Room string `protobuf:"bytes,1,opt,name=room,proto3" json:"room,omitempty"`
-	// Since is the seq to resume after, as on FollowRequest.
-	Since         int64 `protobuf:"varint,2,opt,name=since,proto3" json:"since,omitempty"`
+	// Since is the seq to resume after, as on FollowRequest: unset starts
+	// live, and set, zero included, replays every stored message past it.
+	Since         *int64 `protobuf:"varint,2,opt,name=since,proto3,oneof" json:"since,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2543,8 +2547,8 @@ func (x *AdminFollowRequest) GetRoom() string {
 }
 
 func (x *AdminFollowRequest) GetSince() int64 {
-	if x != nil {
-		return x.Since
+	if x != nil && x.Since != nil {
+		return *x.Since
 	}
 	return 0
 }
@@ -2706,9 +2710,10 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\amembers\x18\x01 \x03(\v2 .ngicks.crabswarm.chat.v1.MemberR\amembers\"R\n" +
 	"\x12ReportStateRequest\x12<\n" +
 	"\x05state\x18\x01 \x01(\x0e2&.ngicks.crabswarm.chat.v1.HarnessStateR\x05state\"\x15\n" +
-	"\x13ReportStateResponse\"%\n" +
-	"\rFollowRequest\x12\x14\n" +
-	"\x05since\x18\x01 \x01(\x03R\x05since\"\xbc\x01\n" +
+	"\x13ReportStateResponse\"4\n" +
+	"\rFollowRequest\x12\x19\n" +
+	"\x05since\x18\x01 \x01(\x03H\x00R\x05since\x88\x01\x01B\b\n" +
+	"\x06_since\"\xbc\x01\n" +
 	"\vFollowEvent\x12@\n" +
 	"\bfollowed\x18\x01 \x01(\v2\".ngicks.crabswarm.chat.v1.FollowedH\x00R\bfollowed\x12=\n" +
 	"\amessage\x18\x02 \x01(\v2!.ngicks.crabswarm.chat.v1.MessageH\x00R\amessage\x12#\n" +
@@ -2761,10 +2766,11 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x04room\x18\x01 \x01(\tR\x04room\x12<\n" +
 	"\x06filter\x18\x04 \x01(\v2$.ngicks.crabswarm.chat.v1.ReadFilterR\x06filterJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"[\n" +
 	"\x14AdminHistoryResponse\x12=\n" +
-	"\bmessages\x18\x02 \x03(\v2!.ngicks.crabswarm.chat.v1.MessageR\bmessagesJ\x04\b\x01\x10\x02\">\n" +
+	"\bmessages\x18\x02 \x03(\v2!.ngicks.crabswarm.chat.v1.MessageR\bmessagesJ\x04\b\x01\x10\x02\"M\n" +
 	"\x12AdminFollowRequest\x12\x12\n" +
-	"\x04room\x18\x01 \x01(\tR\x04room\x12\x14\n" +
-	"\x05since\x18\x02 \x01(\x03R\x05since\"'\n" +
+	"\x04room\x18\x01 \x01(\tR\x04room\x12\x19\n" +
+	"\x05since\x18\x02 \x01(\x03H\x00R\x05since\x88\x01\x01B\b\n" +
+	"\x06_since\"'\n" +
 	"\x11DeleteRoomRequest\x12\x12\n" +
 	"\x04room\x18\x01 \x01(\tR\x04room\"?\n" +
 	"\x12DeleteRoomResponse\x12)\n" +
@@ -2966,6 +2972,7 @@ func file_ngicks_crabswarm_chat_v1_chat_service_proto_init() {
 		(*Target_Everyone)(nil),
 		(*Target_Roles)(nil),
 	}
+	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[20].OneofWrappers = []any{}
 	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[21].OneofWrappers = []any{
 		(*FollowEvent_Followed)(nil),
 		(*FollowEvent_Message)(nil),
@@ -2977,6 +2984,7 @@ func file_ngicks_crabswarm_chat_v1_chat_service_proto_init() {
 		(*RoomEvent_MemberLeft)(nil),
 		(*RoomEvent_MessageAppended)(nil),
 	}
+	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[38].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

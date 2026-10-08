@@ -287,3 +287,36 @@ func TestChatFollow_ReconnectsAcrossADaemonRestart(t *testing.T) {
 		t.Errorf("chat follow printed %q after the last message, want nothing", rest)
 	}
 }
+
+// A follow of a room nothing had been said in when it opened has no message to
+// resume after. It resumes after the seq the room stood at, zero, and so still
+// prints the message sent while it was waiting to reconnect, once.
+func TestChatFollow_ReconnectsAcrossADaemonRestartFromAnEmptyRoom(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := writeChatConfig(t, 0, defaultStubCommands(), recipient)
+	serve := startChatServe(t, cfg)
+	send := func(text string) {
+		t.Helper()
+		runChat(t, cfg, "", "admin", "send", chatRoom, "everyone", text, "--identity", identity)
+	}
+
+	f := startChatFollow(t, "", "--config", cfg, "follow", "--token", "tok-ana")
+	f.expectStatus(t, "following "+chatRoom)
+
+	stopProcess(t, serve)
+	f.expectStatus(t, "reconnecting to the daemon")
+	startChatServe(t, cfg)
+	send("while the follow was away")
+
+	f.expectStatus(t, "following "+chatRoom)
+	away := f.expectMessage(t, "admin: while the follow was away", true)
+	send("after the reconnect")
+	after := f.expectMessage(t, "admin: after the reconnect", true)
+	if away.Seq != 1 || after.Seq != 2 {
+		t.Errorf("seqs = %d, %d, want 1, 2", away.Seq, after.Seq)
+	}
+
+	if rest := f.stop(t); len(rest) != 0 {
+		t.Errorf("chat follow printed %q after the last message, want nothing", rest)
+	}
+}

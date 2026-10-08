@@ -70,7 +70,8 @@ func newFollowStream(t *testing.T, ctx context.Context) *followStream {
 }
 
 // member starts [Service.Follow] on the stream and returns it, still running.
-func (s *followStream) member(svc *Service, since int64) *followStream {
+// A nil since starts it live.
+func (s *followStream) member(svc *Service, since *int64) *followStream {
 	go func() {
 		s.done <- svc.Follow(&chatv1.FollowRequest{Since: since}, s)
 	}()
@@ -78,8 +79,8 @@ func (s *followStream) member(svc *Service, since int64) *followStream {
 }
 
 // admin starts [AdminService.Follow] on the stream and returns it, still
-// running.
-func (s *followStream) admin(svc *AdminService, room string, since int64) *followStream {
+// running. A nil since starts it live.
+func (s *followStream) admin(svc *AdminService, room string, since *int64) *followStream {
 	go func() {
 		s.done <- svc.Follow(&chatv1.AdminFollowRequest{Room: room, Since: since}, s)
 	}()
@@ -162,7 +163,7 @@ func TestFollow_RepairsAnOutOfOrderAnnouncement(t *testing.T) {
 	svc, id := newTestAdminService(t)
 	ana := senderOf(attend(t, svc.store, "tok-a", testRoom, "alpha", "ana"))
 
-	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, 0)
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, nil)
 	assert.Equal(t, f.next(t), "followed:/work/repo:0")
 
 	first := send(t, svc.store, ana, Target{}, "first")
@@ -188,7 +189,7 @@ func TestFollow_DropsWhatItAlreadySent(t *testing.T) {
 		held = append(held, send(t, svc.store, ana, Target{}, fmt.Sprintf("note-%d", i)))
 	}
 
-	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, 2)
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, new(int64(2)))
 	assert.Equal(t, f.next(t), "followed:/work/repo:4")
 	assert.Equal(t, f.next(t), "message:3:alpha/ana:note-2")
 	assert.Equal(t, f.next(t), "message:4:alpha/ana:note-3")
@@ -210,7 +211,7 @@ func TestFollow_ReplaysPastOnePage(t *testing.T) {
 		send(t, svc.store, ana, Target{}, fmt.Sprintf("note-%d", i))
 	}
 
-	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, 1)
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, new(int64(1)))
 	assert.Equal(t, f.next(t), fmt.Sprintf("followed:/work/repo:%d", total))
 	for seq := 2; seq <= total; seq++ {
 		assert.Equal(t, f.next(t), fmt.Sprintf("message:%d:alpha/ana:note-%d", seq, seq-1))
@@ -223,7 +224,7 @@ func TestFollow_CarriesMessagesOnly(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.vouchNamed("tok-f", testRoom, "alpha", "fay")
 
-	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, 0)
+	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, nil)
 	assert.Equal(t, f.next(t), "followed:/work/repo:0")
 
 	bob := agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
@@ -252,7 +253,7 @@ func TestFollow_SlowFollowerIsDropped(t *testing.T) {
 
 	stalled := newFollowStream(t, callCtx(t, "tok-f"))
 	stalled.release = make(chan struct{})
-	stalled.member(svc, 0)
+	stalled.member(svc, nil)
 	assert.Equal(t, stalled.next(t), "followed:/work/repo:0")
 
 	// Two past the buffer: the stream holds at most one message in the Send it

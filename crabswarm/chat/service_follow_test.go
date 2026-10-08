@@ -34,7 +34,7 @@ func TestService_FollowOpensOnTheNewestSeqThenGoesLive(t *testing.T) {
 		say(t, svc.deliver, bob, Target{}, fmt.Sprintf("old-%d", i))
 	}
 
-	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, 0)
+	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, nil)
 	assert.Equal(t, f.next(t), "followed:/work/repo:3")
 
 	say(t, svc.deliver, bob, Target{}, "new-0")
@@ -53,13 +53,33 @@ func TestService_FollowSinceReplaysThenGoesLive(t *testing.T) {
 		say(t, svc.deliver, bob, Target{}, fmt.Sprintf("note-%d", i))
 	}
 
-	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, 3)
+	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, new(int64(3)))
 	assert.Equal(t, f.next(t), "followed:/work/repo:5")
 	assert.Equal(t, f.next(t), "message:4:alpha/bob:note-3")
 	assert.Equal(t, f.next(t), "message:5:alpha/bob:note-4")
 
 	say(t, svc.deliver, bob, Target{}, "live")
 	assert.Equal(t, f.next(t), "message:6:alpha/bob:live")
+}
+
+// A since of zero is a seq like any other: it replays the room from its first
+// message. A follower that first saw the room empty resumes after zero this way
+// and misses nothing said while it was away.
+func TestService_FollowSinceZeroReplaysFromTheFirstMessage(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	provider.vouchNamed("tok-f", testRoom, "alpha", "fay")
+	bob := senderOf(attend(t, svc.store, "tok-b", testRoom, "alpha", "bob"))
+	for i := range 2 {
+		say(t, svc.deliver, bob, Target{}, fmt.Sprintf("note-%d", i))
+	}
+
+	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, new(int64(0)))
+	assert.Equal(t, f.next(t), "followed:/work/repo:2")
+	assert.Equal(t, f.next(t), "message:1:alpha/bob:note-0")
+	assert.Equal(t, f.next(t), "message:2:alpha/bob:note-1")
+
+	say(t, svc.deliver, bob, Target{}, "live")
+	assert.Equal(t, f.next(t), "message:3:alpha/bob:live")
 }
 
 // mentioned_you says whether a message is for the follower: addressed to it or
@@ -72,7 +92,7 @@ func TestService_FollowMarksWhatIsForTheFollower(t *testing.T) {
 	attend(t, svc.store, "tok-c", testRoom, "alpha", "carol")
 	ana := Sender{Name: "ana", Team: "alpha", Room: testRoom}
 
-	f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, 0)
+	f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, nil)
 	assert.Equal(t, f.next(t), "followed:/work/repo:0")
 
 	say(t, svc.deliver, bob, Target{Kind: TargetEveryone}, "all")
@@ -99,7 +119,7 @@ func TestService_FollowMarksTheReplayToo(t *testing.T) {
 	say(t, svc.deliver, bob, toRoles(role("alpha", "ana")), "you")
 	say(t, svc.deliver, bob, Target{}, "post")
 
-	f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, 1)
+	f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, new(int64(1)))
 	assert.Equal(t, f.next(t), "followed:/work/repo:3")
 	assert.Equal(t, f.next(t), "message:2:alpha/bob:you (mentioned)")
 	assert.Equal(t, f.next(t), "message:3:alpha/bob:post")
@@ -116,7 +136,7 @@ func TestService_FollowIsNotAttendance(t *testing.T) {
 	ana := Sender{Name: "ana", Team: "alpha", Room: testRoom}
 	before := readPosition(t, svc.store, testRoom, "alpha", "ana")
 
-	f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, 0)
+	f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, nil)
 	assert.Equal(t, f.next(t), "followed:/work/repo:0")
 	noMoreEvents(t, olga.sent)
 
@@ -145,7 +165,7 @@ func TestService_FollowSeedsNoReadPosition(t *testing.T) {
 	svc, provider, _ := newTestService(t)
 	provider.vouchNamed("tok-f", testRoom, "alpha", "fay")
 
-	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, 0)
+	f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, nil)
 	assert.Equal(t, f.next(t), "followed:/work/repo:0")
 	assert.Equal(t, countRows(t, svc.store,
 		`SELECT COUNT(*) FROM read_positions WHERE room = ? AND team = ? AND name = ?`,
@@ -155,20 +175,20 @@ func TestService_FollowSeedsNoReadPosition(t *testing.T) {
 func TestService_FollowRefuses(t *testing.T) {
 	t.Run("a call carrying no token", func(t *testing.T) {
 		svc, _, _ := newTestService(t)
-		f := newFollowStream(t, t.Context()).member(svc, 0)
+		f := newFollowStream(t, t.Context()).member(svc, nil)
 		assert.Equal(t, status.Code(f.wait(t)), codes.Unauthenticated)
 	})
 
 	t.Run("a token nothing places", func(t *testing.T) {
 		svc, _, _ := newTestService(t)
-		f := newFollowStream(t, callCtx(t, "tok-nobody")).member(svc, 0)
+		f := newFollowStream(t, callCtx(t, "tok-nobody")).member(svc, nil)
 		assert.Equal(t, status.Code(f.wait(t)), codes.Unauthenticated)
 	})
 
 	t.Run("a provider that could not be asked", func(t *testing.T) {
 		svc, provider, _ := newTestService(t)
 		provider.err = errors.New("cmdman: connection refused")
-		f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, 0)
+		f := newFollowStream(t, callCtx(t, "tok-a")).member(svc, nil)
 		err := f.wait(t)
 		assert.Equal(t, status.Code(err), codes.Unavailable)
 		assert.Assert(t,
@@ -178,7 +198,7 @@ func TestService_FollowRefuses(t *testing.T) {
 	t.Run("a since below zero", func(t *testing.T) {
 		svc, provider, _ := newTestService(t)
 		provider.vouchNamed("tok-f", testRoom, "alpha", "fay")
-		f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, -1)
+		f := newFollowStream(t, callCtx(t, "tok-f")).member(svc, new(int64(-1)))
 		assert.Equal(t, status.Code(f.wait(t)), codes.InvalidArgument)
 	})
 }
@@ -258,7 +278,7 @@ func TestService_FollowNamesTheFollowerTheWayAttendWould(t *testing.T) {
 			bob := senderOf(attend(t, svc.store, "tok-b", testRoom, "alpha", "bob"))
 			team, name, _ := strings.Cut(tc.follow, "/")
 
-			f := newFollowStream(t, callCtx(t, "tok-long-enough")).member(svc, 0)
+			f := newFollowStream(t, callCtx(t, "tok-long-enough")).member(svc, nil)
 			assert.Equal(t, f.next(t), "followed:/work/repo:0")
 
 			say(t, svc.deliver, bob, toRoles(role(team, name)), "you")

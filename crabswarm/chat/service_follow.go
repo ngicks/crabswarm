@@ -14,9 +14,10 @@ import (
 )
 
 // Follow streams the caller's room as a conversation: Followed first, then the
-// messages past since when since is set, then each message as it is appended,
-// every one of them once and in seq order. A client that lost its stream
-// follows again from the last seq it saw and misses nothing.
+// messages past since when since is set, zero included, then each message as it
+// is appended, every one of them once and in seq order. A client that lost its
+// stream follows again from the last seq it saw, or from zero when it saw an
+// empty room, and misses nothing.
 //
 // Following is not attending. It puts nobody in the room, announces nothing and
 // moves no read position, so a program watching the room beside an agent takes
@@ -35,7 +36,7 @@ func (s *Service) Follow(
 	if err != nil {
 		return err
 	}
-	return follow(ctx, s.store, stream, viewer.Room, req.GetSince(), &viewer)
+	return follow(ctx, s.store, stream, viewer.Room, req.Since, &viewer)
 }
 
 // followerRole is the role the request's token stands for.

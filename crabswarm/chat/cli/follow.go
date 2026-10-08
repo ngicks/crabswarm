@@ -27,16 +27,17 @@ type FollowStream interface {
 	Recv() (*chatv1.FollowEvent, error)
 }
 
-// FollowOpener opens a Follow stream resuming after since, where zero starts
-// live. [FollowInto] calls it again for every reconnect.
-type FollowOpener func(ctx context.Context, since int64) (FollowStream, error)
+// FollowOpener opens a Follow stream resuming after since. A nil since starts
+// live, and a zero one replays the room from its first message. [FollowInto]
+// calls it again for every reconnect.
+type FollowOpener func(ctx context.Context, since *int64) (FollowStream, error)
 
 // Follow opens a Follow stream of the room token stands for. Following is not
 // attendance and moves no read position, so a token nobody attends under
 // follows as well as one that does.
 //
 // The stream is lazy: a refusal surfaces on the first Recv rather than here.
-func (c *Client) Follow(ctx context.Context, token string, since int64) (FollowStream, error) {
+func (c *Client) Follow(ctx context.Context, token string, since *int64) (FollowStream, error) {
 	stream, err := c.chat.Follow(withToken(ctx, token), &chatv1.FollowRequest{Since: since})
 	if err != nil {
 		return nil, callError(err)
@@ -49,7 +50,7 @@ func (c *Client) Follow(ctx context.Context, token string, since int64) (FollowS
 //
 // It takes its own challenge, as every admin call does; the daemon spends the
 // nonce once, when the stream opens.
-func (a *AdminClient) Follow(ctx context.Context, room string, since int64) (FollowStream, error) {
+func (a *AdminClient) Follow(ctx context.Context, room string, since *int64) (FollowStream, error) {
 	nonce, err := a.client.nonce(ctx, a.identity)
 	if err != nil {
 		return nil, err
@@ -113,11 +114,8 @@ const statusReconnecting = "reconnecting to the daemon"
 // outage writes {"type":"status","message":"reconnecting to the daemon"} and
 // logs its cause; the retries after it write nothing. Following again resumes
 // after the last message written, or after the seq the room stood at when the
-// stream first opened, so no message is written twice or skipped. The one
-// exception is a room that was empty when the first stream opened and whose
-// stream was lost before it carried a message: there is no seq to resume after,
-// since zero means live, so what was sent while the stream was lost is not
-// written.
+// stream first opened, zero for an empty room, so no message is written twice
+// or skipped.
 //
 // Any other failure is returned. ctx ending returns nil: being stopped is how
 // following ends.
@@ -195,9 +193,11 @@ func followRetryable(err error) bool {
 type following struct {
 	w io.Writer
 	// since is what the next stream resumes after: the seq of the last message
-	// written, else the seq the room stood at when the first stream opened, and
-	// zero, which starts live, until a stream has opened at all.
+	// written, else the seq the room stood at when the first stream opened.
 	since int64
+	// resume is set by the first Followed. Until then there is no seq to resume
+	// after, and a stream opens live rather than replaying the room from zero.
+	resume bool
 	// delay is the pause before the next attempt.
 	delay time.Duration
 	// reconnecting is set from the first loss of an outage to the next
@@ -207,7 +207,11 @@ type following struct {
 
 // session opens one stream and writes what it carries until it fails.
 func (f *following) session(ctx context.Context, open FollowOpener) error {
-	stream, err := open(ctx, f.since)
+	var since *int64
+	if f.resume {
+		since = new(f.since)
+	}
+	stream, err := open(ctx, since)
 	if err != nil {
 		return err
 	}
@@ -221,8 +225,9 @@ func (f *following) session(ctx context.Context, open FollowOpener) error {
 			// A stream that resumed reports the room's newest seq, but the
 			// messages up to it are still to come, so only the first stream
 			// takes its starting point from here.
-			if f.since == 0 {
+			if !f.resume {
 				f.since = e.Followed.GetLastSeq()
+				f.resume = true
 			}
 			f.delay = followRetryMin
 			f.reconnecting = false
