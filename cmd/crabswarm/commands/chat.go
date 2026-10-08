@@ -65,6 +65,7 @@ token. Attending no room, its verbs name the room they act on.`,
 
 	chatSendCmd(cmd, flags)
 	chatReadCmd(cmd, flags)
+	chatFollowCmd(cmd, flags)
 	chatMembersCmd(cmd, flags)
 	chatReportStateCmd(cmd, flags)
 	chatAdminCmd(cmd, flags)

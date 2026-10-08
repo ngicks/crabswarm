@@ -52,7 +52,7 @@ func TestChatCmd_Subcommands(t *testing.T) {
 		names[c.Name()] = true
 	}
 	for _, want := range []string{
-		"send", "read", "members", "report-state", "admin",
+		"send", "read", "follow", "members", "report-state", "admin",
 	} {
 		assert.Assert(t, names[want], "chat has no %q subcommand", want)
 	}
@@ -89,6 +89,7 @@ func TestChatMemberVerbs_RequireAToken(t *testing.T) {
 		{"members"},
 		{"send", "alice", "hi"},
 		{"report-state", "done"},
+		{"follow"},
 	} {
 		t.Run(args[0], func(t *testing.T) {
 			chatHermeticEnv(t)
@@ -156,6 +157,43 @@ func TestChatRead_SkipZeroIsAPlainRead(t *testing.T) {
 	assert.ErrorIs(t, err, chatcli.ErrDaemonUnreachable)
 }
 
+// A member follows the room its token stands for, and jsonl is the only format,
+// so --room without --admin and any other --format are refused before the
+// daemon is dialed: the socket here is absent, so getting as far as dialing
+// would fail differently.
+func TestChatFollow_RefusesBeforeDialing(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--room", "/work"}, "--room"},
+		{[]string{"--format", "json"}, "--format"},
+		{[]string{"--admin", "--format", "text"}, "--format"},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			chatHermeticEnv(t)
+			t.Setenv(chatcli.TokenEnvVar, "tok-a")
+
+			args := append([]string{"follow", "--sock", t.TempDir() + "/absent.sock"}, tc.args...)
+			stdout, _, err := runChatCmd(t, args...)
+			assert.ErrorContains(t, err, tc.want)
+			assert.Assert(t, !errors.Is(err, chatcli.ErrDaemonUnreachable))
+			assert.Equal(t, stdout, "")
+		})
+	}
+}
+
+// --format is accepted, so a reader can pin what it parses, but hidden while
+// it has one value.
+func TestChatFollow_FormatIsHidden(t *testing.T) {
+	follow, _, err := rootCmd().Find([]string{"chat", "follow"})
+	assert.NilError(t, err)
+	format := follow.Flags().Lookup("format")
+	assert.Assert(t, format != nil)
+	assert.Assert(t, format.Hidden)
+	assert.Equal(t, format.DefValue, "jsonl")
+}
+
 // The admin verbs are gated by the age identity file, not by a token, so they
 // fail on a missing --identity even when a perfectly good token is exported.
 func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
@@ -166,6 +204,8 @@ func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
 		{"admin", "log", "/work"},
 		{"admin", "delete-room", "/work"},
 		{"admin", "tui", "--room", "/work"},
+		{"follow", "--admin", "--room", "/work"},
+		{"follow", "--admin"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			chatHermeticEnv(t)
@@ -228,6 +268,7 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 			"admin tui takes no arguments",
 			[]string{"admin", "tui", "--room", "/work", "extra"},
 		},
+		{"follow takes no arguments", []string{"follow", "extra"}},
 		{"report-state needs a state", []string{"report-state"}},
 		// An unknown state is rejected by the command itself, so a typo never
 		// reaches the daemon as a report.
