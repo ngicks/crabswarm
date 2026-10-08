@@ -1,4 +1,4 @@
-import type { EngineInterface, PluginOptions, Register } from 'claude-code'
+import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 import { ackRecords } from './ack'
 import { type Run, type Spawn, anyEnvSet } from './host'
 import { actionOf } from './protocol'
@@ -17,6 +17,11 @@ function strings(v: PluginOptions[string] | undefined): readonly string[] {
 // a line in the debug log each time, so the first failure of a run is logged,
 // then one in every WARN_EVERY.
 const WARN_EVERY = 100
+
+// A status line entry is cleared this long after it was shown. A source
+// reports a moment rather than a lasting state, and an entry left in place
+// reads as current long after it stopped being true.
+const STATUS_HOLD_MS = 5000
 
 function throttledLog($: EngineInterface, counted: string) {
   let failures = 0
@@ -56,7 +61,12 @@ export const register: Register = (on, options) => {
     const drops = throttledLog($, 'drops')
     const ackFailures = throttledLog($, 'ack failures')
     const restarts = throttledLog($, 'restarts')
-    const status = (text: string | undefined) => $.ui.status(text)
+    let clearing: Timer | undefined
+    const status = (text: string | undefined) => {
+      clearing?.cancel()
+      clearing = text === undefined ? undefined : $.clock.after(STATUS_HOLD_MS, () => void $.ui.status(undefined))
+      void $.ui.status(text)
+    }
 
     const q = injectQueue({
       prefix,

@@ -103,6 +103,24 @@ describe('handle-events', () => {
     expect(w.statuses).toEqual(['following room', undefined])
   })
 
+  test('clears a status a few seconds after it was shown, timed from the latest one', async ($, on) => {
+    const w = world({ CMDMAN_CMD_ID: 'tok' })
+    const clock = engine(on, w)
+    await $.session.start(start)
+    await clock.settle()
+    w.sources[0]?.print({ type: 'status', message: 'one' })
+    await clock.settle()
+    await clock.advance(4000)
+    w.sources[0]?.print({ type: 'status', message: 'two' })
+    await clock.settle()
+    await clock.advance(4999)
+    expect(w.statuses).toEqual(['one', 'two'])
+    await clock.advance(1)
+    expect(w.statuses).toEqual(['one', 'two', undefined])
+    await clock.advance(60_000)
+    expect(w.statuses).toEqual(['one', 'two', undefined])
+  })
+
   test('submits a flagged message at once while idle, then acks it', async ($, on) => {
     const w = world({ CRABSWARM_CHAT_TOKEN: 'tok' })
     const clock = engine(on, w)
@@ -228,7 +246,12 @@ describe('handle-events', () => {
 
     w.sources[2]?.print({ type: 'status', message: 'following room' })
     await clock.settle()
-    expect(w.statuses.slice(-2)).toEqual([undefined, 'following room'])
+    expect(w.statuses).toEqual([
+      'handle-events: source exited with code 1; restarting in 1s',
+      'handle-events: source exited with code 1; restarting in 2s',
+      undefined,
+      'following room',
+    ])
   })
 
   test('stays quiet when no required variable is set', async ($, on) => {

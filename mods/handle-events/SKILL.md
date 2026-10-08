@@ -16,7 +16,7 @@ The source prints one JSON object per line on standard output.
 
 | Record | Effect |
 | --- | --- |
-| `type: status` | `message` becomes the status line; an empty one clears it |
+| `type: status` | `message` becomes the status line for 5 seconds; an empty one clears it |
 | `type: message`, `inject: true` | queued for injection |
 | `type: message`, any other `inject` | ignored |
 | any other `type` | ignored |
@@ -48,7 +48,7 @@ The source prints one JSON object per line on standard output.
 
 - A source that exits is restarted after 1 second, doubling up to 30 seconds.
 - A run that printed a valid record or lasted 30 seconds resets the pause.
-- The status line says the source is restarting until the next valid record.
+- The status line says the source is restarting, for 5 seconds or until the next valid record.
 
 ## Options
 

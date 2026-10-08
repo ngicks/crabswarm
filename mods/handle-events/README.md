@@ -14,7 +14,7 @@ The defaults follow a [crabswarm](https://github.com/ngicks/crabswarm) chat room
 
 - The source writes one JSON object per line to standard output, UTF-8, each line ended with `\n` and flushed as soon as it is written.
 - Every record carries a string `type` and a string `message`.
-- `{"type":"status","message":"..."}` sets the mod's status line to `message`. An empty `message` clears it.
+- `{"type":"status","message":"..."}` sets the mod's status line to `message`. An empty `message` clears it. The mod clears the status line itself 5 seconds after the latest entry.
 - `{"type":"message","message":"...","inject":true}` is injected. A message whose `inject` is anything but `true` is ignored.
 - Other types and other fields are ignored. The ack command reads fields by name.
 - A line that is not such an object is dropped and logged to the debug log.
@@ -37,7 +37,7 @@ The defaults follow a [crabswarm](https://github.com/ngicks/crabswarm) chat room
 
 - The mod restarts it after a pause of 1 second, doubled after each restart up to 30 seconds.
 - A run that printed a valid record or lasted 30 seconds resets the pause to 1 second.
-- While it restarts, the status line says why the source ended and how long the restart waits. The next valid record clears it.
+- When it restarts, the status line says why the source ended and how long the restart waits. The next valid record clears it, and so does the 5-second hold.
 
 ## Options
 
