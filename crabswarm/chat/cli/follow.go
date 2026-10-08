@@ -63,6 +63,39 @@ func (a *AdminClient) Follow(ctx context.Context, room string, since *int64) (Fo
 	return followStream{stream}, nil
 }
 
+// AdminFollower lists the rooms and opens an operator's Follow stream of one.
+// [AdminClient] is one.
+type AdminFollower interface {
+	RoomLister
+	Follow(ctx context.Context, room string, since *int64) (FollowStream, error)
+}
+
+// AdminFollowOpener returns the [FollowOpener] of an operator's follow of the
+// room [RoomToFollow] picks from room and getwd.
+//
+// The room is picked on the first open rather than before following starts,
+// and kept for every open after it. A listing that fails because the daemon is
+// not there yet is then one more failed open: [FollowInto] waits it out on the
+// backoff and announces it with the status line it gives a lost stream, the way
+// a member's follow waits for a daemon that is not there yet.
+func AdminFollowOpener(
+	admin AdminFollower,
+	room string,
+	getwd func() (string, error),
+) FollowOpener {
+	var picked string
+	return func(ctx context.Context, since *int64) (FollowStream, error) {
+		if picked == "" {
+			found, err := RoomToFollow(ctx, admin, room, getwd)
+			if err != nil {
+				return nil, err
+			}
+			picked = found
+		}
+		return admin.Follow(ctx, picked, since)
+	}
+}
+
 // followStream maps a stream's failures onto the errors the CLI reports. io.EOF
 // is left as it is: callError passes on anything that is not a gRPC status.
 type followStream struct {
@@ -117,6 +150,11 @@ const statusReconnecting = "reconnecting to the daemon"
 // stream first opened, zero for an empty room, so no message is written twice
 // or skipped.
 //
+// A Followed whose seq is below the one following resumes after means the
+// room's numbering started over: the room was deleted, or the daemon's
+// database was replaced. Following goes on after that seq instead, so the
+// restarted room's messages are written, and the change is logged.
+//
 // Any other failure is returned. ctx ending returns nil: being stopped is how
 // following ends.
 //
@@ -149,7 +187,7 @@ func followInto(
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	f := &following{w: w, delay: followRetryMin}
+	f := &following{w: w, logger: logger, delay: followRetryMin}
 	for {
 		err := f.session(ctx, open)
 		if ctx.Err() != nil {
@@ -191,7 +229,8 @@ func followRetryable(err error) bool {
 
 // following is how far FollowInto has got across every stream it opened.
 type following struct {
-	w io.Writer
+	w      io.Writer
+	logger *slog.Logger
 	// since is what the next stream resumes after: the seq of the last message
 	// written, else the seq the room stood at when the first stream opened.
 	since int64
@@ -225,9 +264,21 @@ func (f *following) session(ctx context.Context, open FollowOpener) error {
 			// A stream that resumed reports the room's newest seq, but the
 			// messages up to it are still to come, so only the first stream
 			// takes its starting point from here.
-			if !f.resume {
-				f.since = e.Followed.GetLastSeq()
+			last := e.Followed.GetLastSeq()
+			switch {
+			case !f.resume:
+				f.since = last
 				f.resume = true
+			case last < f.since:
+				// The room's numbering started over: it was deleted, or the
+				// daemon's database was replaced. Its messages now carry seqs
+				// at or below the old since, which would drop every one of
+				// them.
+				f.logger.WarnContext(ctx, "the followed room's numbering started over",
+					slog.String("room", e.Followed.GetRoom()),
+					slog.Int64("resume_after_was", f.since),
+					slog.Int64("resume_after", last))
+				f.since = last
 			}
 			f.delay = followRetryMin
 			f.reconnecting = false

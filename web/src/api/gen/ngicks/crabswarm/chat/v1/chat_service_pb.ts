@@ -612,6 +612,12 @@ export type FollowRequest = Message$1<"ngicks.crabswarm.chat.v1.FollowRequest"> 
    * follower that first saw an empty room resumes after zero and misses
    * nothing.
    *
+   * A negative since names no seq and is refused with InvalidArgument. A
+   * since past the room's newest seq starts from the newest: only a room
+   * whose numbering started over, deleted or its database replaced, hands a
+   * follower such a since, and the messages said from then on still reach
+   * it.
+   *
    * @generated from field: optional int64 since = 1;
    */
   since?: bigint | undefined;
@@ -665,7 +671,10 @@ export const FollowEventSchema: GenMessage<FollowEvent> = /*@__PURE__*/
   messageDesc(file_ngicks_crabswarm_chat_v1_chat_service, 21);
 
 /**
- * Followed is the first event of a Follow stream.
+ * Followed is the first event of a Follow stream. It comes again, with
+ * last_seq zero, when the room is deleted under the open stream and spoken in
+ * again: the room's numbering starts over from one, and the restarted room's
+ * messages follow from its first.
  *
  * @generated from message ngicks.crabswarm.chat.v1.Followed
  */
@@ -679,7 +688,7 @@ export type Followed = Message$1<"ngicks.crabswarm.chat.v1.Followed"> & {
 
   /**
    * LastSeq is the room's newest seq when the stream opened, zero for a room
-   * with no messages.
+   * with no messages. On a Followed that marks a restart it is zero.
    *
    * @generated from field: int64 last_seq = 2;
    */
@@ -1067,7 +1076,9 @@ export type AdminFollowRequest = Message$1<"ngicks.crabswarm.chat.v1.AdminFollow
 
   /**
    * Since is the seq to resume after, as on FollowRequest: unset starts
-   * live, and set, zero included, replays every stored message past it.
+   * live, set, zero included, replays every stored message past it, a
+   * negative one is InvalidArgument, and one past the room's newest seq
+   * starts from the newest.
    *
    * @generated from field: optional int64 since = 2;
    */
@@ -1395,8 +1406,10 @@ export const ChatService: GenService<{
   /**
    * Follow streams the caller's room. The first event is Followed; then
    * come the stored messages past since when since is set, zero included,
-   * and from then on each message as it is appended. Following is not
-   * attendance: it puts nobody in the room, and it moves no read position.
+   * and from then on each message as it is appended. A room deleted under
+   * the stream and spoken in again sends Followed once more before its
+   * restarted messages. Following is not attendance: it puts nobody in the
+   * room, and it moves no read position.
    *
    * The stream element is shared with the admin Follow, so it is named for
    * what it is rather than for either RPC.

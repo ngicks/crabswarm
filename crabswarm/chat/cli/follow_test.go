@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -333,6 +334,66 @@ func TestFollowInto_ResumesAnEmptyRoomAfterZero(t *testing.T) {
 	})
 }
 
+// A Followed below the seq following resumes after says the room's numbering
+// started over, whether a reconnect finds it so or the room is deleted under an
+// open stream. Following goes on after that seq, so the restarted room's small
+// seqs are written rather than dropped as repeats, and each restart is logged
+// once.
+func TestFollowInto_FollowsARoomWhoseNumberingStartedOver(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	opener := &fakeOpener{opens: []fakeOpen{
+		{stream: &fakeFollowStream{
+			events: []*chatv1.FollowEvent{
+				followedEv("/r", 5),
+				messageEv(6, "six", false),
+				messageEv(7, "seven", false),
+			},
+			err: errUnavailable,
+		}},
+		{stream: &fakeFollowStream{
+			events: []*chatv1.FollowEvent{
+				// The daemon came back on a room that started over and holds
+				// one message: it starts from there rather than after 7.
+				followedEv("/r", 1),
+				messageEv(2, "two", false),
+				messageEv(3, "three", false),
+				// The room is deleted under the open stream and spoken in again.
+				followedEv("/r", 0),
+				messageEv(1, "one", true),
+			},
+			onEnd: cancel,
+			err:   status.Error(codes.Canceled, "context canceled"),
+		}},
+	}}
+	sleep := &fakeSleep{}
+	var log bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&log, nil))
+
+	var out bytes.Buffer
+	assert.NilError(t, followInto(ctx, logger, &out, opener.open, sleep.sleep))
+
+	assert.DeepEqual(t, opener.sinces, []*int64{nil, new(int64(7))})
+	assert.DeepEqual(t, summary(decodeLines(t, out.String())), []string{
+		"status: following /r",
+		"message 6",
+		"message 7",
+		"status: reconnecting to the daemon",
+		"status: following /r",
+		"message 2",
+		"message 3",
+		"status: following /r",
+		"message 1",
+	})
+	assert.Equal(
+		t,
+		strings.Count(log.String(), "numbering started over"),
+		2,
+		"log:\n%s",
+		log.String(),
+	)
+}
+
 // A daemon that stays away is tried less and less often, down to once every
 // thirty seconds.
 func TestFollowInto_BackoffIsCapped(t *testing.T) {
@@ -635,5 +696,115 @@ func TestRoomToFollow(t *testing.T) {
 		wdErr := errors.New("no cwd")
 		_, err = RoomToFollow(t.Context(), &fakeLister{}, "", (&fakeGetwd{err: wdErr}).getwd)
 		assert.ErrorIs(t, err, wdErr)
+	})
+}
+
+// fakeAdminFollower fails its first listings with listErrs and lists rooms
+// after them. It opens streams the way fakeOpener does and records the room
+// each was opened on.
+type fakeAdminFollower struct {
+	fakeOpener
+	listErrs []error
+	rooms    []string
+	listings int
+	followed []string
+}
+
+func (f *fakeAdminFollower) Rooms(context.Context) ([]*chatv1.Room, error) {
+	f.listings++
+	if len(f.listErrs) > 0 {
+		err := f.listErrs[0]
+		f.listErrs = f.listErrs[1:]
+		return nil, err
+	}
+	listed := make([]*chatv1.Room, len(f.rooms))
+	for i, name := range f.rooms {
+		listed[i] = &chatv1.Room{Name: name}
+	}
+	return listed, nil
+}
+
+func (f *fakeAdminFollower) Follow(
+	ctx context.Context,
+	room string,
+	since *int64,
+) (FollowStream, error) {
+	f.followed = append(f.followed, room)
+	return f.open(ctx, since)
+}
+
+// An operator's follow started while the daemon is away waits for it the way a
+// lost stream does: one status line, the same backoff, and the room picked once
+// the daemon lists it. Later reconnects keep that room.
+func TestAdminFollowOpener(t *testing.T) {
+	t.Run("waits for the daemon to pick the room", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		admin := &fakeAdminFollower{
+			listErrs: []error{errUnavailable, errUnavailable},
+			rooms:    []string{"/work/other", "/work/proj"},
+			fakeOpener: fakeOpener{opens: []fakeOpen{
+				{stream: &fakeFollowStream{
+					events: []*chatv1.FollowEvent{followedEv("/work/proj", 0)},
+					err:    errUnavailable,
+				}},
+				{stream: &fakeFollowStream{
+					events: []*chatv1.FollowEvent{
+						followedEv("/work/proj", 1),
+						messageEv(1, "one", false),
+					},
+					onEnd: cancel,
+					err:   status.Error(codes.Canceled, "context canceled"),
+				}},
+			}},
+		}
+		wd := &fakeGetwd{dir: "/work/proj/src"}
+		sleep := &fakeSleep{}
+
+		var out bytes.Buffer
+		open := AdminFollowOpener(admin, "", wd.getwd)
+		assert.NilError(t, followInto(ctx, nil, &out, open, sleep.sleep))
+
+		assert.Equal(t, admin.listings, 3)
+		assert.DeepEqual(t, admin.followed, []string{"/work/proj", "/work/proj"})
+		assert.DeepEqual(t, admin.sinces, []*int64{nil, new(int64(0))})
+		assert.DeepEqual(t, sleep.pauses,
+			[]time.Duration{time.Second, 2 * time.Second, time.Second})
+		assert.DeepEqual(t, summary(decodeLines(t, out.String())), []string{
+			"status: reconnecting to the daemon",
+			"status: following /work/proj",
+			"status: reconnecting to the daemon",
+			"status: following /work/proj",
+			"message 1",
+		})
+	})
+
+	t.Run("a named room lists nothing", func(t *testing.T) {
+		admin := &fakeAdminFollower{fakeOpener: fakeOpener{opens: []fakeOpen{
+			{stream: &fakeFollowStream{err: status.Error(codes.PermissionDenied, "refused")}},
+		}}}
+		wd := &fakeGetwd{dir: "/work/proj"}
+
+		var out bytes.Buffer
+		err := followInto(t.Context(), nil, &out,
+			AdminFollowOpener(admin, "/work/named", wd.getwd), (&fakeSleep{}).sleep)
+		assert.Equal(t, status.Code(err), codes.PermissionDenied)
+		assert.Equal(t, admin.listings, 0)
+		assert.Equal(t, wd.calls, 0)
+		assert.DeepEqual(t, admin.followed, []string{"/work/named"})
+	})
+
+	t.Run("a failure that would recur ends it", func(t *testing.T) {
+		wdErr := errors.New("no cwd")
+		admin := &fakeAdminFollower{}
+		sleep := &fakeSleep{}
+
+		var out bytes.Buffer
+		err := followInto(t.Context(), nil, &out,
+			AdminFollowOpener(admin, "", (&fakeGetwd{err: wdErr}).getwd), sleep.sleep)
+		assert.ErrorIs(t, err, wdErr)
+		assert.Equal(t, len(sleep.pauses), 0)
+		assert.Equal(t, len(admin.followed), 0)
+		assert.Equal(t, out.String(), "")
 	})
 }

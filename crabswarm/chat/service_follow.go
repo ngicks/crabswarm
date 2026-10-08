@@ -19,6 +19,12 @@ import (
 // stream follows again from the last seq it saw, or from zero when it saw an
 // empty room, and misses nothing.
 //
+// A negative since names no seq and is InvalidArgument. A since past the
+// room's newest seq starts from the newest, so a client holding a seq from
+// before the room's numbering started over still gets the messages said after
+// it. A room whose numbering starts over under an open stream sends Followed
+// again, carrying zero, ahead of the restarted room's messages.
+//
 // Following is not attending. It puts nobody in the room, announces nothing and
 // moves no read position, so a program watching the room beside an agent takes
 // nothing the agent has yet to read. It needs no attendance either: a client

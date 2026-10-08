@@ -1483,6 +1483,12 @@ type FollowRequest struct {
 	// included, the stream first replays every stored message past it, so a
 	// follower that first saw an empty room resumes after zero and misses
 	// nothing.
+	//
+	// A negative since names no seq and is refused with InvalidArgument. A
+	// since past the room's newest seq starts from the newest: only a room
+	// whose numbering started over, deleted or its database replaced, hands a
+	// follower such a since, and the messages said from then on still reach
+	// it.
 	Since         *int64 `protobuf:"varint,1,opt,name=since,proto3,oneof" json:"since,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1619,13 +1625,16 @@ func (*FollowEvent_Followed) isFollowEvent_Event() {}
 
 func (*FollowEvent_Message) isFollowEvent_Event() {}
 
-// Followed is the first event of a Follow stream.
+// Followed is the first event of a Follow stream. It comes again, with
+// last_seq zero, when the room is deleted under the open stream and spoken in
+// again: the room's numbering starts over from one, and the restarted room's
+// messages follow from its first.
 type Followed struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Room is the room being followed.
 	Room string `protobuf:"bytes,1,opt,name=room,proto3" json:"room,omitempty"`
 	// LastSeq is the room's newest seq when the stream opened, zero for a room
-	// with no messages.
+	// with no messages. On a Followed that marks a restart it is zero.
 	LastSeq       int64 `protobuf:"varint,2,opt,name=last_seq,json=lastSeq,proto3" json:"last_seq,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2503,7 +2512,9 @@ type AdminFollowRequest struct {
 	// Room is the room to follow.
 	Room string `protobuf:"bytes,1,opt,name=room,proto3" json:"room,omitempty"`
 	// Since is the seq to resume after, as on FollowRequest: unset starts
-	// live, and set, zero included, replays every stored message past it.
+	// live, set, zero included, replays every stored message past it, a
+	// negative one is InvalidArgument, and one past the room's newest seq
+	// starts from the newest.
 	Since         *int64 `protobuf:"varint,2,opt,name=since,proto3,oneof" json:"since,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

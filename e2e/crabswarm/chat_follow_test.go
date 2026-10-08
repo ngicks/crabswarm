@@ -253,6 +253,61 @@ func TestChatFollow_AdminFollowsTheRoomOfItsDirectory(t *testing.T) {
 	g.stop(t)
 }
 
+// An operator's follow started before the daemon picks its room once the daemon
+// answers, waiting the way a lost stream does rather than giving up.
+func TestChatFollow_AdminWaitsForTheDaemonToPickItsRoom(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := writeChatConfig(t, 0, defaultStubCommands(), recipient)
+	dir := realTempDir(t)
+
+	f := startChatFollow(t, dir, "--config", cfg, "follow", "--admin", "--identity", identity)
+	f.expectStatus(t, "reconnecting to the daemon")
+	startChatServe(t, cfg)
+	f.expectStatus(t, "following "+dir)
+
+	if rest := f.stop(t); len(rest) != 0 {
+		t.Errorf("chat follow printed %q after following, want nothing", rest)
+	}
+}
+
+// A room nobody attends can be deleted under an operator's follow, and the
+// messages said in it afterwards number from one again. The follow opens over
+// on the restarted room and prints them, rather than holding each one back as
+// a seq it already printed.
+func TestChatFollow_FollowsARoomDeletedUnderIt(t *testing.T) {
+	identity, recipient := newChatIdentityFile(t)
+	cfg := startChatDaemonWith(t, defaultStubCommands(), recipient)
+	send := func(text string) {
+		t.Helper()
+		runChat(t, cfg, "", "admin", "send", chatRoom, "everyone", text, "--identity", identity)
+	}
+	send("said before the follow")
+	send("also said before the follow")
+
+	f := startChatFollow(t, "", "--config", cfg,
+		"follow", "--admin", "--identity", identity, "--room", chatRoom)
+	f.expectStatus(t, "following "+chatRoom)
+	send("before the delete")
+	if before := f.expectMessage(t, "admin: before the delete", false); before.Seq != 3 {
+		t.Errorf("seq before the delete = %d, want 3", before.Seq)
+	}
+
+	runChat(t, cfg, "", "admin", "delete-room", chatRoom, "--identity", identity)
+	send("after the delete")
+	f.expectStatus(t, "following "+chatRoom)
+	if after := f.expectMessage(t, "admin: after the delete", false); after.Seq != 1 {
+		t.Errorf("seq after the delete = %d, want 1", after.Seq)
+	}
+	send("and again")
+	if again := f.expectMessage(t, "admin: and again", false); again.Seq != 2 {
+		t.Errorf("seq of the next message = %d, want 2", again.Seq)
+	}
+
+	if rest := f.stop(t); len(rest) != 0 {
+		t.Errorf("chat follow printed %q after the last message, want nothing", rest)
+	}
+}
+
 // A follow outlives a daemon restart: it says it is reconnecting, follows the
 // room again once the daemon is back, and prints every message once — the
 // ones sent while it was waiting to reconnect included.

@@ -243,6 +243,79 @@ func TestFollow_CarriesMessagesOnly(t *testing.T) {
 	assert.Equal(t, f.next(t), "message:2:alpha/bob:after")
 }
 
+// A follower resuming after a seq the room no longer reaches holds one from
+// before the room's numbering started over. The stream starts from the room's
+// newest seq, so the messages said from then on reach it.
+func TestFollow_SincePastTheNewestStartsFromTheNewest(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	host := adminSender(testRoom)
+	for i := range 3 {
+		say(t, svc.deliver, host, Target{}, fmt.Sprintf("old-%d", i))
+	}
+	_, err := svc.store.DeleteRoom(t.Context(), testRoom)
+	assert.NilError(t, err)
+	say(t, svc.deliver, host, Target{}, "restarted")
+
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, new(int64(3)))
+	assert.Equal(t, f.next(t), "followed:/work/repo:1")
+
+	say(t, svc.deliver, host, Target{}, "next")
+	assert.Equal(t, f.next(t), "message:2:/"+adminName+":next")
+}
+
+// A room deleted under an open stream and spoken in again numbers from one
+// again. The stream opens over with a Followed carrying zero and carries the
+// restarted room from its first message.
+func TestFollow_StartsOverWithARoomDeletedUnderIt(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	host := adminSender(testRoom)
+
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, nil)
+	assert.Equal(t, f.next(t), "followed:/work/repo:0")
+	say(t, svc.deliver, host, Target{}, "old-1")
+	say(t, svc.deliver, host, Target{}, "old-2")
+	assert.Equal(t, f.next(t), "message:1:/"+adminName+":old-1")
+	assert.Equal(t, f.next(t), "message:2:/"+adminName+":old-2")
+
+	_, err := svc.store.DeleteRoom(t.Context(), testRoom)
+	assert.NilError(t, err)
+	say(t, svc.deliver, host, Target{}, "new-1")
+	assert.Equal(t, f.next(t), "followed:/work/repo:0")
+	assert.Equal(t, f.next(t), "message:1:/"+adminName+":new-1")
+
+	say(t, svc.deliver, host, Target{}, "new-2")
+	assert.Equal(t, f.next(t), "message:2:/"+adminName+":new-2")
+}
+
+// A restarted room that grew back past the stream's seq before its first
+// message was announced holds a message at that seq the stream never sent,
+// which tells the restart apart from a late announcement.
+func TestFollow_StartsOverWithARoomThatGrewBackPastIt(t *testing.T) {
+	svc, id := newTestAdminService(t)
+	host := adminSender(testRoom)
+
+	f := newFollowStream(t, adminCtx(t, adminNonce(t, svc, id))).admin(svc, testRoom, nil)
+	assert.Equal(t, f.next(t), "followed:/work/repo:0")
+	say(t, svc.deliver, host, Target{}, "old-1")
+	say(t, svc.deliver, host, Target{}, "old-2")
+	assert.Equal(t, f.next(t), "message:1:/"+adminName+":old-1")
+	assert.Equal(t, f.next(t), "message:2:/"+adminName+":old-2")
+
+	_, err := svc.store.DeleteRoom(t.Context(), testRoom)
+	assert.NilError(t, err)
+	var regrown []Sent
+	for i := range 3 {
+		regrown = append(regrown, send(t, svc.store, host, Target{}, fmt.Sprintf("new-%d", i+1)))
+	}
+	announce(svc.store, regrown[0])
+	announce(svc.store, regrown[2])
+
+	assert.Equal(t, f.next(t), "followed:/work/repo:0")
+	assert.Equal(t, f.next(t), "message:1:/"+adminName+":new-1")
+	assert.Equal(t, f.next(t), "message:2:/"+adminName+":new-2")
+	assert.Equal(t, f.next(t), "message:3:/"+adminName+":new-3")
+}
+
 // A follower that stops reading is dropped rather than served a conversation
 // with holes in it, and the sends that dropped it were never held up. The answer
 // is to follow again from the last seq it saw.

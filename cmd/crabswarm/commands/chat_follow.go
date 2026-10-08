@@ -122,13 +122,6 @@ func runChatFollowAdmin(cmd *cobra.Command, flags *chatFlags, room string) error
 	}
 	defer client.Close()
 
-	admin := client.Admin(identity)
-	room, err = chatcli.RoomToFollow(cmd.Context(), admin, room, os.Getwd)
-	if err != nil {
-		return err
-	}
 	return chatcli.FollowInto(cmd.Context(), commandLogger(cmd), cmd.OutOrStdout(),
-		func(ctx context.Context, since *int64) (chatcli.FollowStream, error) {
-			return admin.Follow(ctx, room, since)
-		})
+		chatcli.AdminFollowOpener(client.Admin(identity), room, os.Getwd))
 }
