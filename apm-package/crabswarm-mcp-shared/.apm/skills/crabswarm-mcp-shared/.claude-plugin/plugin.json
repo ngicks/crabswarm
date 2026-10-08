@@ -1,0 +1,10 @@
+{
+  "name": "crabswarm-mcp-shared",
+  "version": "0.1.0",
+  "description": "Teaches the chat tools of the shared crabswarm MCP server, which one `crabswarm mcp --transport http` serves for every session of a compose session.",
+  "author": {
+    "name": "ngicks"
+  },
+  "repository": "https://github.com/ngicks/crabswarm",
+  "license": "Unlicense"
+}

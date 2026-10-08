@@ -221,9 +221,8 @@ func TestMCPPackage_TheDeclaredCommandExists(t *testing.T) {
 	runCrabswarmHelp(t, declaredMCPServer(t, stdioMCPPackage).Args...)
 }
 
-// What apm needs to render the shared server into Codex's and OpenCode's
-// config, pinned field by field. The package targets those two alone, since
-// Claude Code keeps its stdio server.
+// What apm needs to render the shared server into Claude Code's, Codex's and
+// OpenCode's config, pinned field by field.
 //
 // A remote entry names a URL and nothing to start. apm's Codex adapter writes a
 // plain http URL only for a loopback host and skips the server otherwise, and
@@ -235,7 +234,7 @@ func TestMCPPackage_TheDeclaredCommandExists(t *testing.T) {
 // that name by default. An entry renamed here alone is one none of them finds.
 func TestMCPPackage_SharedDeclaresTheHTTPServer(t *testing.T) {
 	targets := readApmManifest(t, sharedMCPPackage).Targets
-	if want := []string{"codex", "opencode"}; !slices.Equal(targets, want) {
+	if want := []string{"claude", "codex", "opencode"}; !slices.Equal(targets, want) {
 		t.Errorf("targets = %v, want %v", targets, want)
 	}
 

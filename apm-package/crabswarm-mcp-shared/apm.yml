@@ -18,6 +18,7 @@ dependencies:
     transport: streamable-http
     url: http://127.0.0.1:47300/mcp
 targets:
+- claude
 - codex
 - opencode
 includes: auto

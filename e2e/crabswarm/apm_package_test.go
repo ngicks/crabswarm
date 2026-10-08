@@ -96,6 +96,7 @@ var apmSkillFiles = map[string][]string{
 		"SKILL.md",
 	},
 	"crabswarm-mcp-shared": {
+		".claude-plugin/plugin.json",
 		"SKILL.md",
 		"opencode-tui.ts",
 		"opencode.ts",
