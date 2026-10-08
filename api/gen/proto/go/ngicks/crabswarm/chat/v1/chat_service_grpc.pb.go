@@ -25,6 +25,7 @@ const (
 	ChatService_CountUnread_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/CountUnread"
 	ChatService_ListMembers_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
 	ChatService_ReportState_FullMethodName = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
+	ChatService_Follow_FullMethodName      = "/ngicks.crabswarm.chat.v1.ChatService/Follow"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -54,7 +55,9 @@ type ChatServiceClient interface {
 	Send(ctx context.Context, in *SendRequest, opts ...grpc.CallOption) (*SendResponse, error)
 	// Read returns messages of the caller's room from a cursor and moves the
 	// caller's read position to the newest one shown. By default the first
-	// ten unread mentions.
+	// ten unread mentions. A skip read shows nothing and moves the read
+	// position through the seq it names, stopping at the room's newest seq and
+	// never moving it backward.
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
 	// CountUnread reports how many unread messages mention the caller. It
 	// moves nothing; the caller asks before it wakes its agent.
@@ -65,6 +68,18 @@ type ChatServiceClient interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(ctx context.Context, in *ReportStateRequest, opts ...grpc.CallOption) (*ReportStateResponse, error)
+	// Follow streams the caller's room. The first event is Followed; then
+	// come the stored messages past since when since is set, zero included,
+	// and from then on each message as it is appended. A room deleted under
+	// the stream and spoken in again sends Followed once more before its
+	// restarted messages. Following is not attendance: it puts nobody in the
+	// room, and it moves no read position.
+	//
+	// The stream element is shared with the admin Follow, so it is named for
+	// what it is rather than for either RPC.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FollowEvent], error)
 }
 
 type chatServiceClient struct {
@@ -144,6 +159,25 @@ func (c *chatServiceClient) ReportState(ctx context.Context, in *ReportStateRequ
 	return out, nil
 }
 
+func (c *chatServiceClient) Follow(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FollowEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[1], ChatService_Follow_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FollowRequest, FollowEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_FollowClient = grpc.ServerStreamingClient[FollowEvent]
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -171,7 +205,9 @@ type ChatServiceServer interface {
 	Send(context.Context, *SendRequest) (*SendResponse, error)
 	// Read returns messages of the caller's room from a cursor and moves the
 	// caller's read position to the newest one shown. By default the first
-	// ten unread mentions.
+	// ten unread mentions. A skip read shows nothing and moves the read
+	// position through the seq it names, stopping at the room's newest seq and
+	// never moving it backward.
 	Read(context.Context, *ReadRequest) (*ReadResponse, error)
 	// CountUnread reports how many unread messages mention the caller. It
 	// moves nothing; the caller asks before it wakes its agent.
@@ -182,6 +218,18 @@ type ChatServiceServer interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error)
+	// Follow streams the caller's room. The first event is Followed; then
+	// come the stored messages past since when since is set, zero included,
+	// and from then on each message as it is appended. A room deleted under
+	// the stream and spoken in again sends Followed once more before its
+	// restarted messages. Following is not attendance: it puts nobody in the
+	// room, and it moves no read position.
+	//
+	// The stream element is shared with the admin Follow, so it is named for
+	// what it is rather than for either RPC.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(*FollowRequest, grpc.ServerStreamingServer[FollowEvent]) error
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -209,6 +257,9 @@ func (UnimplementedChatServiceServer) ListMembers(context.Context, *ListMembersR
 }
 func (UnimplementedChatServiceServer) ReportState(context.Context, *ReportStateRequest) (*ReportStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReportState not implemented")
+}
+func (UnimplementedChatServiceServer) Follow(*FollowRequest, grpc.ServerStreamingServer[FollowEvent]) error {
+	return status.Error(codes.Unimplemented, "method Follow not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -332,6 +383,17 @@ func _ChatService_ReportState_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_Follow_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FollowRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ChatServiceServer).Follow(m, &grpc.GenericServerStream[FollowRequest, FollowEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_FollowServer = grpc.ServerStreamingServer[FollowEvent]
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -366,6 +428,11 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _ChatService_Attend_Handler,
 			ServerStreams: true,
 		},
+		{
+			StreamName:    "Follow",
+			Handler:       _ChatService_Follow_Handler,
+			ServerStreams: true,
+		},
 	},
 	Metadata: "ngicks/crabswarm/chat/v1/chat_service.proto",
 }
@@ -377,6 +444,7 @@ const (
 	ChatAdminService_Send_FullMethodName           = "/ngicks.crabswarm.chat.v1.ChatAdminService/Send"
 	ChatAdminService_History_FullMethodName        = "/ngicks.crabswarm.chat.v1.ChatAdminService/History"
 	ChatAdminService_DeleteRoom_FullMethodName     = "/ngicks.crabswarm.chat.v1.ChatAdminService/DeleteRoom"
+	ChatAdminService_Follow_FullMethodName         = "/ngicks.crabswarm.chat.v1.ChatAdminService/Follow"
 )
 
 // ChatAdminServiceClient is the client API for ChatAdminService service.
@@ -384,9 +452,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // ChatAdminService carries the host-side operations that participants must not
-// be able to perform: inspecting every room, sending into any room without
-// attending it, deleting rooms, and minting tokens for humans who have no
-// provider entry.
+// be able to perform: inspecting and following every room, sending into any
+// room without attending it, deleting rooms, and minting tokens for humans who
+// have no provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -418,6 +486,11 @@ type ChatAdminServiceClient interface {
 	// DeleteRoom deletes a room's messages and read positions. Refused with
 	// FailedPrecondition while somebody attends it.
 	DeleteRoom(ctx context.Context, in *DeleteRoomRequest, opts ...grpc.CallOption) (*DeleteRoomResponse, error)
+	// Follow streams a named room the way the member Follow streams the
+	// caller's own, without the caller attending it.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(ctx context.Context, in *AdminFollowRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FollowEvent], error)
 }
 
 type chatAdminServiceClient struct {
@@ -488,14 +561,33 @@ func (c *chatAdminServiceClient) DeleteRoom(ctx context.Context, in *DeleteRoomR
 	return out, nil
 }
 
+func (c *chatAdminServiceClient) Follow(ctx context.Context, in *AdminFollowRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FollowEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChatAdminService_ServiceDesc.Streams[0], ChatAdminService_Follow_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[AdminFollowRequest, FollowEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatAdminService_FollowClient = grpc.ServerStreamingClient[FollowEvent]
+
 // ChatAdminServiceServer is the server API for ChatAdminService service.
 // All implementations must embed UnimplementedChatAdminServiceServer
 // for forward compatibility.
 //
 // ChatAdminService carries the host-side operations that participants must not
-// be able to perform: inspecting every room, sending into any room without
-// attending it, deleting rooms, and minting tokens for humans who have no
-// provider entry.
+// be able to perform: inspecting and following every room, sending into any
+// room without attending it, deleting rooms, and minting tokens for humans who
+// have no provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -527,6 +619,11 @@ type ChatAdminServiceServer interface {
 	// DeleteRoom deletes a room's messages and read positions. Refused with
 	// FailedPrecondition while somebody attends it.
 	DeleteRoom(context.Context, *DeleteRoomRequest) (*DeleteRoomResponse, error)
+	// Follow streams a named room the way the member Follow streams the
+	// caller's own, without the caller attending it.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(*AdminFollowRequest, grpc.ServerStreamingServer[FollowEvent]) error
 	mustEmbedUnimplementedChatAdminServiceServer()
 }
 
@@ -554,6 +651,9 @@ func (UnimplementedChatAdminServiceServer) History(context.Context, *AdminHistor
 }
 func (UnimplementedChatAdminServiceServer) DeleteRoom(context.Context, *DeleteRoomRequest) (*DeleteRoomResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRoom not implemented")
+}
+func (UnimplementedChatAdminServiceServer) Follow(*AdminFollowRequest, grpc.ServerStreamingServer[FollowEvent]) error {
+	return status.Error(codes.Unimplemented, "method Follow not implemented")
 }
 func (UnimplementedChatAdminServiceServer) mustEmbedUnimplementedChatAdminServiceServer() {}
 func (UnimplementedChatAdminServiceServer) testEmbeddedByValue()                          {}
@@ -684,6 +784,17 @@ func _ChatAdminService_DeleteRoom_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatAdminService_Follow_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AdminFollowRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ChatAdminServiceServer).Follow(m, &grpc.GenericServerStream[AdminFollowRequest, FollowEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatAdminService_FollowServer = grpc.ServerStreamingServer[FollowEvent]
+
 // ChatAdminService_ServiceDesc is the grpc.ServiceDesc for ChatAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -716,6 +827,12 @@ var ChatAdminService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatAdminService_DeleteRoom_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Follow",
+			Handler:       _ChatAdminService_Follow_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "ngicks/crabswarm/chat/v1/chat_service.proto",
 }

@@ -43,6 +43,95 @@ func TestStore_ReadUnreadMovesThePosition(t *testing.T) {
 	assert.Equal(t, readPosition(t, s, testRoom, "beta", "bob"), 3)
 }
 
+// A skip is a read that hands nothing over: the position moves through the seq
+// it names, inclusive, and what it leaves is what the next read starts from.
+func TestStore_SkipMovesThePositionThroughTheSeq(t *testing.T) {
+	s, _ := newTestStore(t)
+	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
+	bob := attend(t, s, "tok-b", testRoom, "beta", "bob")
+
+	for _, text := range []string{"one", "two", "three"} {
+		send(t, s, senderOf(alice), toRoles(role("beta", "bob")), text)
+	}
+
+	remaining, err := s.Skip(t.Context(), senderOf(bob), 2)
+	assert.NilError(t, err)
+	assert.Equal(t, remaining, 1)
+	assert.Equal(t, readPosition(t, s, testRoom, "beta", "bob"), 2)
+
+	// The same skip again, or one through an earlier seq, moves nothing and
+	// answers the same: a client marks each delivered message by its own seq,
+	// and they need not arrive in order.
+	for _, seq := range []int64{2, 1} {
+		remaining, err = s.Skip(t.Context(), senderOf(bob), seq)
+		assert.NilError(t, err)
+		assert.Equal(t, remaining, 1)
+		assert.Equal(t, readPosition(t, s, testRoom, "beta", "bob"), 2)
+	}
+
+	msgs, remaining, err := s.Read(t.Context(), senderOf(bob), ReadFilter{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, texts(msgs), []string{"three"})
+	assert.Equal(t, remaining, 0)
+}
+
+// The position is one number per role, so a skip through a later seq marks
+// the earlier unread mentions read too, shown or not.
+func TestStore_SkipMarksEarlierMentionsRead(t *testing.T) {
+	s, _ := newTestStore(t)
+	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
+	bob := attend(t, s, "tok-b", testRoom, "beta", "bob")
+
+	for _, text := range []string{"one", "two", "three"} {
+		send(t, s, senderOf(alice), toRoles(role("beta", "bob")), text)
+	}
+
+	remaining, err := s.Skip(t.Context(), senderOf(bob), 3)
+	assert.NilError(t, err)
+	assert.Equal(t, remaining, 0)
+	unread, err := s.CountUnread(t.Context(), senderOf(bob))
+	assert.NilError(t, err)
+	assert.Equal(t, unread, 0)
+}
+
+// A seq past the newest reads through the newest and no further, so a message
+// sent afterwards is still unread.
+func TestStore_SkipStopsAtTheNewestSeq(t *testing.T) {
+	s, _ := newTestStore(t)
+	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
+	bob := attend(t, s, "tok-b", testRoom, "beta", "bob")
+
+	send(t, s, senderOf(alice), toRoles(role("beta", "bob")), "one")
+	send(t, s, senderOf(alice), toRoles(role("beta", "bob")), "two")
+
+	remaining, err := s.Skip(t.Context(), senderOf(bob), 99)
+	assert.NilError(t, err)
+	assert.Equal(t, remaining, 0)
+	assert.Equal(t, readPosition(t, s, testRoom, "beta", "bob"), 2)
+
+	send(t, s, senderOf(alice), toRoles(role("beta", "bob")), "three")
+	msgs, _, err := s.Read(t.Context(), senderOf(bob), ReadFilter{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, texts(msgs), []string{"three"})
+}
+
+func TestStore_SkipRefusesWhatItCannotMove(t *testing.T) {
+	s, _ := newTestStore(t)
+	alice := attend(t, s, "tok-a", testRoom, "alpha", "alice")
+	send(t, s, senderOf(alice), Target{Kind: TargetEveryone}, "one")
+
+	// A role the room never had has no position to move.
+	_, err := s.Skip(t.Context(), Sender{Room: testRoom, Team: "beta", Name: "ghost"}, 1)
+	assert.ErrorIs(t, err, ErrUnknownRole)
+
+	// Seqs start at one, so zero and below name no message.
+	for _, seq := range []int64{0, -1} {
+		_, err = s.Skip(t.Context(), senderOf(alice), seq)
+		assert.ErrorIs(t, err, ErrInvalidArgument)
+	}
+	assert.Equal(t, readPosition(t, s, testRoom, "alpha", "alice"), 0)
+}
+
 // Counting is asking without taking: it answers what a read would leave behind
 // and moves the position nowhere, so the same question asked twice answers
 // twice the same and the messages are still there to be read.

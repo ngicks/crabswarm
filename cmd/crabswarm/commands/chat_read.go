@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -31,19 +32,30 @@ is the last ten of the room. --to keeps only the messages naming any of the
 given roles, written the way ` + "`chat send`" + ` writes a target, and --since
 and --until bound the stretch by the sequence number each line begins with.
 
-The two remaining flags are for harness hooks rather than for typing. --quiet
+The next two flags are for harness hooks rather than for typing. --quiet
 drops the line an empty read prints, so a hook can tell messages from none by
 whether the output is empty at all. --done-when-empty additionally reports this
 member done when the read handed nothing over, which is what re-arms the
 daemon's terminal nudge for a member whose turn is ending. They belong to the
 same process as the read on purpose: hooks wired to one event run concurrently,
 so a separate report-state entry would race the delivering path and mark a
-continuing turn done.`,
+continuing turn done.
+
+--skip SEQ marks messages read without printing them, for a client that already
+showed them to its agent some other way. It moves the read position through
+SEQ, inclusive, and prints how many unread mentions are left; --quiet drops that
+line. The read position is one sequence number per room, so --skip marks
+everything up to SEQ read, earlier unread mentions included, whether or not they
+were ever shown. A SEQ at or before the position moves nothing, so the same
+skip may be sent twice, and a SEQ past the room's newest message stops there.
+--skip shows no messages, so it takes none of --cursor, --range, --to, --since,
+--until and --done-when-empty.`,
 		Example: `  crabswarm chat read
   crabswarm chat read --range 5
   crabswarm chat read --cursor tail
   crabswarm chat read --cursor head --range 20 --to everyone
-  crabswarm chat read --cursor head --since 120 --until 180 --range 100`,
+  crabswarm chat read --cursor head --since 120 --until 180 --range 100
+  crabswarm chat read --skip 42 --quiet`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -67,6 +79,8 @@ continuing turn done.`,
 		"print nothing at all when the read hands nothing over")
 	f.BoolVar(&opts.DoneWhenEmpty, "done-when-empty", false,
 		"report this member done when the read handed nothing over")
+	f.Uint64Var(&opts.Skip, "skip", 0,
+		"mark every message through this sequence number read without printing any")
 	// Fails only on a flag name this file does not declare, which the flag
 	// above rules out.
 	_ = cmd.RegisterFlagCompletionFunc("cursor",
@@ -82,11 +96,24 @@ func runChatRead(
 	read chatcli.ReadFlags,
 	opts chatcli.ReadOptions,
 ) error {
-	filter, err := read.Filter()
-	if err != nil {
-		return err
+	if opts.Skip != 0 {
+		// The filter is not built at all: --cursor defaults to unread, so a
+		// built filter is never empty and the daemon would refuse every skip.
+		for _, name := range []string{
+			"cursor", "range", "to", "since", "until", "done-when-empty",
+		} {
+			if cmd.Flags().Changed(name) {
+				return fmt.Errorf("--skip marks messages read without showing any, "+
+					"so it takes no --%s", name)
+			}
+		}
+	} else {
+		filter, err := read.Filter()
+		if err != nil {
+			return err
+		}
+		opts.Filter = filter
 	}
-	opts.Filter = filter
 	client, token, err := dialChatAsMember(cmd, flags)
 	if err != nil {
 		return err

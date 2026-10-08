@@ -1125,7 +1125,17 @@ type ReadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// A member read moves the caller's read position to the newest message it
 	// shows, whichever cursor and filter were used.
-	Filter        *ReadFilter `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
+	Filter *ReadFilter `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
+	// Skip, when non-zero, moves the caller's read position through this seq
+	// inclusive and returns no messages. A seq past the room's newest moves the
+	// position to the newest, and a seq at or before the position moves
+	// nothing: the position never moves backward. A negative skip names no
+	// message and is refused with InvalidArgument.
+	//
+	// An empty filter beside a skip is accepted, since it narrows nothing. A
+	// filter with any field set asks for messages the skip does not show and is
+	// refused with InvalidArgument.
+	Skip          int64 `protobuf:"varint,2,opt,name=skip,proto3" json:"skip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1165,6 +1175,13 @@ func (x *ReadRequest) GetFilter() *ReadFilter {
 		return x.Filter
 	}
 	return nil
+}
+
+func (x *ReadRequest) GetSkip() int64 {
+	if x != nil {
+		return x.Skip
+	}
+	return 0
 }
 
 type ReadResponse struct {
@@ -1465,6 +1482,214 @@ func (*ReportStateResponse) Descriptor() ([]byte, []int) {
 	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{19}
 }
 
+type FollowRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Since is the seq to resume after, exclusive. Unset starts live: the
+	// stream carries only messages appended after it opened. Set, zero
+	// included, the stream first replays every stored message past it, so a
+	// follower that first saw an empty room resumes after zero and misses
+	// nothing.
+	//
+	// A negative since names no seq and is refused with InvalidArgument. A
+	// since past the room's newest seq starts from the newest: only a room
+	// whose numbering started over, deleted or its database replaced, hands a
+	// follower such a since, and the messages said from then on still reach
+	// it.
+	Since         *int64 `protobuf:"varint,1,opt,name=since,proto3,oneof" json:"since,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FollowRequest) Reset() {
+	*x = FollowRequest{}
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FollowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FollowRequest) ProtoMessage() {}
+
+func (x *FollowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FollowRequest.ProtoReflect.Descriptor instead.
+func (*FollowRequest) Descriptor() ([]byte, []int) {
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *FollowRequest) GetSince() int64 {
+	if x != nil && x.Since != nil {
+		return *x.Since
+	}
+	return 0
+}
+
+// FollowEvent is a single notification on a Follow stream.
+type FollowEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Event:
+	//
+	//	*FollowEvent_Followed
+	//	*FollowEvent_Message
+	Event isFollowEvent_Event `protobuf_oneof:"event"`
+	// MentionedYou is set on a message that targets the follower or everyone
+	// and was not sent by it. It ignores the read position, which following
+	// does not move. Always false on an admin stream, which follows as nobody.
+	MentionedYou  bool `protobuf:"varint,3,opt,name=mentioned_you,json=mentionedYou,proto3" json:"mentioned_you,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FollowEvent) Reset() {
+	*x = FollowEvent{}
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FollowEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FollowEvent) ProtoMessage() {}
+
+func (x *FollowEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FollowEvent.ProtoReflect.Descriptor instead.
+func (*FollowEvent) Descriptor() ([]byte, []int) {
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *FollowEvent) GetEvent() isFollowEvent_Event {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+func (x *FollowEvent) GetFollowed() *Followed {
+	if x != nil {
+		if x, ok := x.Event.(*FollowEvent_Followed); ok {
+			return x.Followed
+		}
+	}
+	return nil
+}
+
+func (x *FollowEvent) GetMessage() *Message {
+	if x != nil {
+		if x, ok := x.Event.(*FollowEvent_Message); ok {
+			return x.Message
+		}
+	}
+	return nil
+}
+
+func (x *FollowEvent) GetMentionedYou() bool {
+	if x != nil {
+		return x.MentionedYou
+	}
+	return false
+}
+
+type isFollowEvent_Event interface {
+	isFollowEvent_Event()
+}
+
+type FollowEvent_Followed struct {
+	Followed *Followed `protobuf:"bytes,1,opt,name=followed,proto3,oneof"`
+}
+
+type FollowEvent_Message struct {
+	Message *Message `protobuf:"bytes,2,opt,name=message,proto3,oneof"`
+}
+
+func (*FollowEvent_Followed) isFollowEvent_Event() {}
+
+func (*FollowEvent_Message) isFollowEvent_Event() {}
+
+// Followed is the first event of a Follow stream. It comes again, with
+// last_seq zero, when the room is deleted under the open stream and spoken in
+// again: the room's numbering starts over from one, and the restarted room's
+// messages follow from its first.
+type Followed struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Room is the room being followed.
+	Room string `protobuf:"bytes,1,opt,name=room,proto3" json:"room,omitempty"`
+	// LastSeq is the room's newest seq when the stream opened, zero for a room
+	// with no messages. On a Followed that marks a restart it is zero.
+	LastSeq       int64 `protobuf:"varint,2,opt,name=last_seq,json=lastSeq,proto3" json:"last_seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Followed) Reset() {
+	*x = Followed{}
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Followed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Followed) ProtoMessage() {}
+
+func (x *Followed) ProtoReflect() protoreflect.Message {
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Followed.ProtoReflect.Descriptor instead.
+func (*Followed) Descriptor() ([]byte, []int) {
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *Followed) GetRoom() string {
+	if x != nil {
+		return x.Room
+	}
+	return ""
+}
+
+func (x *Followed) GetLastSeq() int64 {
+	if x != nil {
+		return x.LastSeq
+	}
+	return 0
+}
+
 // MemberStateChanged signals that a member reported a new harness state.
 type MemberStateChanged struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1478,7 +1703,7 @@ type MemberStateChanged struct {
 
 func (x *MemberStateChanged) Reset() {
 	*x = MemberStateChanged{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[20]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1490,7 +1715,7 @@ func (x *MemberStateChanged) String() string {
 func (*MemberStateChanged) ProtoMessage() {}
 
 func (x *MemberStateChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[20]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1503,7 +1728,7 @@ func (x *MemberStateChanged) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberStateChanged.ProtoReflect.Descriptor instead.
 func (*MemberStateChanged) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{20}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *MemberStateChanged) GetMember() *Member {
@@ -1530,7 +1755,7 @@ type MemberJoined struct {
 
 func (x *MemberJoined) Reset() {
 	*x = MemberJoined{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[21]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1542,7 +1767,7 @@ func (x *MemberJoined) String() string {
 func (*MemberJoined) ProtoMessage() {}
 
 func (x *MemberJoined) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[21]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1555,7 +1780,7 @@ func (x *MemberJoined) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberJoined.ProtoReflect.Descriptor instead.
 func (*MemberJoined) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{21}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *MemberJoined) GetMember() *Member {
@@ -1575,7 +1800,7 @@ type MemberLeft struct {
 
 func (x *MemberLeft) Reset() {
 	*x = MemberLeft{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[22]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1587,7 +1812,7 @@ func (x *MemberLeft) String() string {
 func (*MemberLeft) ProtoMessage() {}
 
 func (x *MemberLeft) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[22]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1600,7 +1825,7 @@ func (x *MemberLeft) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberLeft.ProtoReflect.Descriptor instead.
 func (*MemberLeft) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{22}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *MemberLeft) GetMember() *Member {
@@ -1620,7 +1845,7 @@ type MessageAppended struct {
 
 func (x *MessageAppended) Reset() {
 	*x = MessageAppended{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[23]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1632,7 +1857,7 @@ func (x *MessageAppended) String() string {
 func (*MessageAppended) ProtoMessage() {}
 
 func (x *MessageAppended) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[23]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1645,7 +1870,7 @@ func (x *MessageAppended) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageAppended.ProtoReflect.Descriptor instead.
 func (*MessageAppended) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{23}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *MessageAppended) GetMessage() *Message {
@@ -1672,7 +1897,7 @@ type RoomEvent struct {
 
 func (x *RoomEvent) Reset() {
 	*x = RoomEvent{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[24]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1684,7 +1909,7 @@ func (x *RoomEvent) String() string {
 func (*RoomEvent) ProtoMessage() {}
 
 func (x *RoomEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[24]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1697,7 +1922,7 @@ func (x *RoomEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoomEvent.ProtoReflect.Descriptor instead.
 func (*RoomEvent) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{24}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *RoomEvent) GetEvent() isRoomEvent_Event {
@@ -1794,7 +2019,7 @@ type GetNonceRequest struct {
 
 func (x *GetNonceRequest) Reset() {
 	*x = GetNonceRequest{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[25]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1806,7 +2031,7 @@ func (x *GetNonceRequest) String() string {
 func (*GetNonceRequest) ProtoMessage() {}
 
 func (x *GetNonceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[25]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1819,7 +2044,7 @@ func (x *GetNonceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNonceRequest.ProtoReflect.Descriptor instead.
 func (*GetNonceRequest) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{25}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{28}
 }
 
 type GetNonceResponse struct {
@@ -1836,7 +2061,7 @@ type GetNonceResponse struct {
 
 func (x *GetNonceResponse) Reset() {
 	*x = GetNonceResponse{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[26]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1848,7 +2073,7 @@ func (x *GetNonceResponse) String() string {
 func (*GetNonceResponse) ProtoMessage() {}
 
 func (x *GetNonceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[26]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1861,7 +2086,7 @@ func (x *GetNonceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNonceResponse.ProtoReflect.Descriptor instead.
 func (*GetNonceResponse) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{26}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GetNonceResponse) GetEncryptedNonce() []byte {
@@ -1886,7 +2111,7 @@ type ListRoomsRequest struct {
 
 func (x *ListRoomsRequest) Reset() {
 	*x = ListRoomsRequest{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[27]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1898,7 +2123,7 @@ func (x *ListRoomsRequest) String() string {
 func (*ListRoomsRequest) ProtoMessage() {}
 
 func (x *ListRoomsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[27]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1911,7 +2136,7 @@ func (x *ListRoomsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoomsRequest.ProtoReflect.Descriptor instead.
 func (*ListRoomsRequest) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{27}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{30}
 }
 
 type ListRoomsResponse struct {
@@ -1923,7 +2148,7 @@ type ListRoomsResponse struct {
 
 func (x *ListRoomsResponse) Reset() {
 	*x = ListRoomsResponse{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[28]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1935,7 +2160,7 @@ func (x *ListRoomsResponse) String() string {
 func (*ListRoomsResponse) ProtoMessage() {}
 
 func (x *ListRoomsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[28]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1948,7 +2173,7 @@ func (x *ListRoomsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoomsResponse.ProtoReflect.Descriptor instead.
 func (*ListRoomsResponse) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{28}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListRoomsResponse) GetRooms() []*Room {
@@ -1972,7 +2197,7 @@ type RegisterMemberRequest struct {
 
 func (x *RegisterMemberRequest) Reset() {
 	*x = RegisterMemberRequest{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[29]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1984,7 +2209,7 @@ func (x *RegisterMemberRequest) String() string {
 func (*RegisterMemberRequest) ProtoMessage() {}
 
 func (x *RegisterMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[29]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1997,7 +2222,7 @@ func (x *RegisterMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMemberRequest.ProtoReflect.Descriptor instead.
 func (*RegisterMemberRequest) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{29}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RegisterMemberRequest) GetRoom() string {
@@ -2034,7 +2259,7 @@ type RegisterMemberResponse struct {
 
 func (x *RegisterMemberResponse) Reset() {
 	*x = RegisterMemberResponse{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[30]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2046,7 +2271,7 @@ func (x *RegisterMemberResponse) String() string {
 func (*RegisterMemberResponse) ProtoMessage() {}
 
 func (x *RegisterMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[30]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2059,7 +2284,7 @@ func (x *RegisterMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMemberResponse.ProtoReflect.Descriptor instead.
 func (*RegisterMemberResponse) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{30}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RegisterMemberResponse) GetMember() *Member {
@@ -2090,7 +2315,7 @@ type AdminSendRequest struct {
 
 func (x *AdminSendRequest) Reset() {
 	*x = AdminSendRequest{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[31]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2102,7 +2327,7 @@ func (x *AdminSendRequest) String() string {
 func (*AdminSendRequest) ProtoMessage() {}
 
 func (x *AdminSendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[31]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2115,7 +2340,7 @@ func (x *AdminSendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminSendRequest.ProtoReflect.Descriptor instead.
 func (*AdminSendRequest) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{31}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *AdminSendRequest) GetRoom() string {
@@ -2149,7 +2374,7 @@ type AdminSendResponse struct {
 
 func (x *AdminSendResponse) Reset() {
 	*x = AdminSendResponse{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[32]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2161,7 +2386,7 @@ func (x *AdminSendResponse) String() string {
 func (*AdminSendResponse) ProtoMessage() {}
 
 func (x *AdminSendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[32]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2174,7 +2399,7 @@ func (x *AdminSendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminSendResponse.ProtoReflect.Descriptor instead.
 func (*AdminSendResponse) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{32}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *AdminSendResponse) GetMentioned() []*Member {
@@ -2202,7 +2427,7 @@ type AdminHistoryRequest struct {
 
 func (x *AdminHistoryRequest) Reset() {
 	*x = AdminHistoryRequest{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[33]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2214,7 +2439,7 @@ func (x *AdminHistoryRequest) String() string {
 func (*AdminHistoryRequest) ProtoMessage() {}
 
 func (x *AdminHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[33]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2227,7 +2452,7 @@ func (x *AdminHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminHistoryRequest.ProtoReflect.Descriptor instead.
 func (*AdminHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{33}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *AdminHistoryRequest) GetRoom() string {
@@ -2253,7 +2478,7 @@ type AdminHistoryResponse struct {
 
 func (x *AdminHistoryResponse) Reset() {
 	*x = AdminHistoryResponse{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[34]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2265,7 +2490,7 @@ func (x *AdminHistoryResponse) String() string {
 func (*AdminHistoryResponse) ProtoMessage() {}
 
 func (x *AdminHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[34]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2278,7 +2503,7 @@ func (x *AdminHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminHistoryResponse.ProtoReflect.Descriptor instead.
 func (*AdminHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{34}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *AdminHistoryResponse) GetMessages() []*Message {
@@ -2286,6 +2511,63 @@ func (x *AdminHistoryResponse) GetMessages() []*Message {
 		return x.Messages
 	}
 	return nil
+}
+
+type AdminFollowRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Room is the room to follow.
+	Room string `protobuf:"bytes,1,opt,name=room,proto3" json:"room,omitempty"`
+	// Since is the seq to resume after, as on FollowRequest: unset starts
+	// live, set, zero included, replays every stored message past it, a
+	// negative one is InvalidArgument, and one past the room's newest seq
+	// starts from the newest.
+	Since         *int64 `protobuf:"varint,2,opt,name=since,proto3,oneof" json:"since,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminFollowRequest) Reset() {
+	*x = AdminFollowRequest{}
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminFollowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminFollowRequest) ProtoMessage() {}
+
+func (x *AdminFollowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminFollowRequest.ProtoReflect.Descriptor instead.
+func (*AdminFollowRequest) Descriptor() ([]byte, []int) {
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *AdminFollowRequest) GetRoom() string {
+	if x != nil {
+		return x.Room
+	}
+	return ""
+}
+
+func (x *AdminFollowRequest) GetSince() int64 {
+	if x != nil && x.Since != nil {
+		return *x.Since
+	}
+	return 0
 }
 
 type DeleteRoomRequest struct {
@@ -2297,7 +2579,7 @@ type DeleteRoomRequest struct {
 
 func (x *DeleteRoomRequest) Reset() {
 	*x = DeleteRoomRequest{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[35]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2309,7 +2591,7 @@ func (x *DeleteRoomRequest) String() string {
 func (*DeleteRoomRequest) ProtoMessage() {}
 
 func (x *DeleteRoomRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[35]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2322,7 +2604,7 @@ func (x *DeleteRoomRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoomRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRoomRequest) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{35}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *DeleteRoomRequest) GetRoom() string {
@@ -2341,7 +2623,7 @@ type DeleteRoomResponse struct {
 
 func (x *DeleteRoomResponse) Reset() {
 	*x = DeleteRoomResponse{}
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[36]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2353,7 +2635,7 @@ func (x *DeleteRoomResponse) String() string {
 func (*DeleteRoomResponse) ProtoMessage() {}
 
 func (x *DeleteRoomResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[36]
+	mi := &file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2366,7 +2648,7 @@ func (x *DeleteRoomResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoomResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRoomResponse) Descriptor() ([]byte, []int) {
-	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{36}
+	return file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DeleteRoomResponse) GetDeletedMessages() int64 {
@@ -2430,9 +2712,10 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x05range\x18\x02 \x01(\x05R\x05range\x120\n" +
 	"\x02to\x18\x03 \x01(\v2 .ngicks.crabswarm.chat.v1.TargetR\x02to\x12\x14\n" +
 	"\x05since\x18\x04 \x01(\x03R\x05since\x12\x14\n" +
-	"\x05until\x18\x05 \x01(\x03R\x05until\"K\n" +
+	"\x05until\x18\x05 \x01(\x03R\x05until\"_\n" +
 	"\vReadRequest\x12<\n" +
-	"\x06filter\x18\x01 \x01(\v2$.ngicks.crabswarm.chat.v1.ReadFilterR\x06filter\"x\n" +
+	"\x06filter\x18\x01 \x01(\v2$.ngicks.crabswarm.chat.v1.ReadFilterR\x06filter\x12\x12\n" +
+	"\x04skip\x18\x02 \x01(\x03R\x04skip\"x\n" +
 	"\fReadResponse\x12=\n" +
 	"\bmessages\x18\x01 \x03(\v2!.ngicks.crabswarm.chat.v1.MessageR\bmessages\x12)\n" +
 	"\x10remaining_unread\x18\x02 \x01(\x05R\x0fremainingUnread\"\x14\n" +
@@ -2444,7 +2727,18 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\amembers\x18\x01 \x03(\v2 .ngicks.crabswarm.chat.v1.MemberR\amembers\"R\n" +
 	"\x12ReportStateRequest\x12<\n" +
 	"\x05state\x18\x01 \x01(\x0e2&.ngicks.crabswarm.chat.v1.HarnessStateR\x05state\"\x15\n" +
-	"\x13ReportStateResponse\"\x8c\x01\n" +
+	"\x13ReportStateResponse\"4\n" +
+	"\rFollowRequest\x12\x19\n" +
+	"\x05since\x18\x01 \x01(\x03H\x00R\x05since\x88\x01\x01B\b\n" +
+	"\x06_since\"\xbc\x01\n" +
+	"\vFollowEvent\x12@\n" +
+	"\bfollowed\x18\x01 \x01(\v2\".ngicks.crabswarm.chat.v1.FollowedH\x00R\bfollowed\x12=\n" +
+	"\amessage\x18\x02 \x01(\v2!.ngicks.crabswarm.chat.v1.MessageH\x00R\amessage\x12#\n" +
+	"\rmentioned_you\x18\x03 \x01(\bR\fmentionedYouB\a\n" +
+	"\x05event\"9\n" +
+	"\bFollowed\x12\x12\n" +
+	"\x04room\x18\x01 \x01(\tR\x04room\x12\x19\n" +
+	"\blast_seq\x18\x02 \x01(\x03R\alastSeq\"\x8c\x01\n" +
 	"\x12MemberStateChanged\x128\n" +
 	"\x06member\x18\x01 \x01(\v2 .ngicks.crabswarm.chat.v1.MemberR\x06member\x12<\n" +
 	"\x05state\x18\x02 \x01(\x0e2&.ngicks.crabswarm.chat.v1.HarnessStateR\x05state\"H\n" +
@@ -2489,7 +2783,11 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x04room\x18\x01 \x01(\tR\x04room\x12<\n" +
 	"\x06filter\x18\x04 \x01(\v2$.ngicks.crabswarm.chat.v1.ReadFilterR\x06filterJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"[\n" +
 	"\x14AdminHistoryResponse\x12=\n" +
-	"\bmessages\x18\x02 \x03(\v2!.ngicks.crabswarm.chat.v1.MessageR\bmessagesJ\x04\b\x01\x10\x02\"'\n" +
+	"\bmessages\x18\x02 \x03(\v2!.ngicks.crabswarm.chat.v1.MessageR\bmessagesJ\x04\b\x01\x10\x02\"M\n" +
+	"\x12AdminFollowRequest\x12\x12\n" +
+	"\x04room\x18\x01 \x01(\tR\x04room\x12\x19\n" +
+	"\x05since\x18\x02 \x01(\x03H\x00R\x05since\x88\x01\x01B\b\n" +
+	"\x06_since\"'\n" +
 	"\x11DeleteRoomRequest\x12\x12\n" +
 	"\x04room\x18\x01 \x01(\tR\x04room\"?\n" +
 	"\x12DeleteRoomResponse\x12)\n" +
@@ -2519,14 +2817,15 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x17READ_CURSOR_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12READ_CURSOR_UNREAD\x10\x01\x12\x14\n" +
 	"\x10READ_CURSOR_HEAD\x10\x02\x12\x14\n" +
-	"\x10READ_CURSOR_TAIL\x10\x032\xd9\x04\n" +
+	"\x10READ_CURSOR_TAIL\x10\x032\xb5\x05\n" +
 	"\vChatService\x12X\n" +
 	"\x06Attend\x12'.ngicks.crabswarm.chat.v1.AttendRequest\x1a#.ngicks.crabswarm.chat.v1.RoomEvent0\x01\x12U\n" +
 	"\x04Send\x12%.ngicks.crabswarm.chat.v1.SendRequest\x1a&.ngicks.crabswarm.chat.v1.SendResponse\x12U\n" +
 	"\x04Read\x12%.ngicks.crabswarm.chat.v1.ReadRequest\x1a&.ngicks.crabswarm.chat.v1.ReadResponse\x12j\n" +
 	"\vCountUnread\x12,.ngicks.crabswarm.chat.v1.CountUnreadRequest\x1a-.ngicks.crabswarm.chat.v1.CountUnreadResponse\x12j\n" +
 	"\vListMembers\x12,.ngicks.crabswarm.chat.v1.ListMembersRequest\x1a-.ngicks.crabswarm.chat.v1.ListMembersResponse\x12j\n" +
-	"\vReportState\x12,.ngicks.crabswarm.chat.v1.ReportStateRequest\x1a-.ngicks.crabswarm.chat.v1.ReportStateResponse2\x84\x05\n" +
+	"\vReportState\x12,.ngicks.crabswarm.chat.v1.ReportStateRequest\x1a-.ngicks.crabswarm.chat.v1.ReportStateResponse\x12Z\n" +
+	"\x06Follow\x12'.ngicks.crabswarm.chat.v1.FollowRequest\x1a%.ngicks.crabswarm.chat.v1.FollowEvent0\x012\xe5\x05\n" +
 	"\x10ChatAdminService\x12a\n" +
 	"\bGetNonce\x12).ngicks.crabswarm.chat.v1.GetNonceRequest\x1a*.ngicks.crabswarm.chat.v1.GetNonceResponse\x12d\n" +
 	"\tListRooms\x12*.ngicks.crabswarm.chat.v1.ListRoomsRequest\x1a+.ngicks.crabswarm.chat.v1.ListRoomsResponse\x12s\n" +
@@ -2534,7 +2833,8 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x04Send\x12*.ngicks.crabswarm.chat.v1.AdminSendRequest\x1a+.ngicks.crabswarm.chat.v1.AdminSendResponse\x12h\n" +
 	"\aHistory\x12-.ngicks.crabswarm.chat.v1.AdminHistoryRequest\x1a..ngicks.crabswarm.chat.v1.AdminHistoryResponse\x12g\n" +
 	"\n" +
-	"DeleteRoom\x12+.ngicks.crabswarm.chat.v1.DeleteRoomRequest\x1a,.ngicks.crabswarm.chat.v1.DeleteRoomResponseB\x81\x02\n" +
+	"DeleteRoom\x12+.ngicks.crabswarm.chat.v1.DeleteRoomRequest\x1a,.ngicks.crabswarm.chat.v1.DeleteRoomResponse\x12_\n" +
+	"\x06Follow\x12,.ngicks.crabswarm.chat.v1.AdminFollowRequest\x1a%.ngicks.crabswarm.chat.v1.FollowEvent0\x01B\x81\x02\n" +
 	"\x1ccom.ngicks.crabswarm.chat.v1B\x10ChatServiceProtoP\x01ZLgithub.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1;chatv1\xa2\x02\x03NCC\xaa\x02\x18Ngicks.Crabswarm.Chat.V1\xca\x02\x18Ngicks\\Crabswarm\\Chat\\V1\xe2\x02$Ngicks\\Crabswarm\\Chat\\V1\\GPBMetadata\xea\x02\x1bNgicks::Crabswarm::Chat::V1b\x06proto3"
 
 var (
@@ -2550,7 +2850,7 @@ func file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDescGZIP() []byte {
 }
 
 var file_ngicks_crabswarm_chat_v1_chat_service_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_ngicks_crabswarm_chat_v1_chat_service_proto_goTypes = []any{
 	(HarnessState)(0),              // 0: ngicks.crabswarm.chat.v1.HarnessState
 	(MemberKind)(0),                // 1: ngicks.crabswarm.chat.v1.MemberKind
@@ -2577,24 +2877,28 @@ var file_ngicks_crabswarm_chat_v1_chat_service_proto_goTypes = []any{
 	(*ListMembersResponse)(nil),    // 22: ngicks.crabswarm.chat.v1.ListMembersResponse
 	(*ReportStateRequest)(nil),     // 23: ngicks.crabswarm.chat.v1.ReportStateRequest
 	(*ReportStateResponse)(nil),    // 24: ngicks.crabswarm.chat.v1.ReportStateResponse
-	(*MemberStateChanged)(nil),     // 25: ngicks.crabswarm.chat.v1.MemberStateChanged
-	(*MemberJoined)(nil),           // 26: ngicks.crabswarm.chat.v1.MemberJoined
-	(*MemberLeft)(nil),             // 27: ngicks.crabswarm.chat.v1.MemberLeft
-	(*MessageAppended)(nil),        // 28: ngicks.crabswarm.chat.v1.MessageAppended
-	(*RoomEvent)(nil),              // 29: ngicks.crabswarm.chat.v1.RoomEvent
-	(*GetNonceRequest)(nil),        // 30: ngicks.crabswarm.chat.v1.GetNonceRequest
-	(*GetNonceResponse)(nil),       // 31: ngicks.crabswarm.chat.v1.GetNonceResponse
-	(*ListRoomsRequest)(nil),       // 32: ngicks.crabswarm.chat.v1.ListRoomsRequest
-	(*ListRoomsResponse)(nil),      // 33: ngicks.crabswarm.chat.v1.ListRoomsResponse
-	(*RegisterMemberRequest)(nil),  // 34: ngicks.crabswarm.chat.v1.RegisterMemberRequest
-	(*RegisterMemberResponse)(nil), // 35: ngicks.crabswarm.chat.v1.RegisterMemberResponse
-	(*AdminSendRequest)(nil),       // 36: ngicks.crabswarm.chat.v1.AdminSendRequest
-	(*AdminSendResponse)(nil),      // 37: ngicks.crabswarm.chat.v1.AdminSendResponse
-	(*AdminHistoryRequest)(nil),    // 38: ngicks.crabswarm.chat.v1.AdminHistoryRequest
-	(*AdminHistoryResponse)(nil),   // 39: ngicks.crabswarm.chat.v1.AdminHistoryResponse
-	(*DeleteRoomRequest)(nil),      // 40: ngicks.crabswarm.chat.v1.DeleteRoomRequest
-	(*DeleteRoomResponse)(nil),     // 41: ngicks.crabswarm.chat.v1.DeleteRoomResponse
-	(*timestamppb.Timestamp)(nil),  // 42: google.protobuf.Timestamp
+	(*FollowRequest)(nil),          // 25: ngicks.crabswarm.chat.v1.FollowRequest
+	(*FollowEvent)(nil),            // 26: ngicks.crabswarm.chat.v1.FollowEvent
+	(*Followed)(nil),               // 27: ngicks.crabswarm.chat.v1.Followed
+	(*MemberStateChanged)(nil),     // 28: ngicks.crabswarm.chat.v1.MemberStateChanged
+	(*MemberJoined)(nil),           // 29: ngicks.crabswarm.chat.v1.MemberJoined
+	(*MemberLeft)(nil),             // 30: ngicks.crabswarm.chat.v1.MemberLeft
+	(*MessageAppended)(nil),        // 31: ngicks.crabswarm.chat.v1.MessageAppended
+	(*RoomEvent)(nil),              // 32: ngicks.crabswarm.chat.v1.RoomEvent
+	(*GetNonceRequest)(nil),        // 33: ngicks.crabswarm.chat.v1.GetNonceRequest
+	(*GetNonceResponse)(nil),       // 34: ngicks.crabswarm.chat.v1.GetNonceResponse
+	(*ListRoomsRequest)(nil),       // 35: ngicks.crabswarm.chat.v1.ListRoomsRequest
+	(*ListRoomsResponse)(nil),      // 36: ngicks.crabswarm.chat.v1.ListRoomsResponse
+	(*RegisterMemberRequest)(nil),  // 37: ngicks.crabswarm.chat.v1.RegisterMemberRequest
+	(*RegisterMemberResponse)(nil), // 38: ngicks.crabswarm.chat.v1.RegisterMemberResponse
+	(*AdminSendRequest)(nil),       // 39: ngicks.crabswarm.chat.v1.AdminSendRequest
+	(*AdminSendResponse)(nil),      // 40: ngicks.crabswarm.chat.v1.AdminSendResponse
+	(*AdminHistoryRequest)(nil),    // 41: ngicks.crabswarm.chat.v1.AdminHistoryRequest
+	(*AdminHistoryResponse)(nil),   // 42: ngicks.crabswarm.chat.v1.AdminHistoryResponse
+	(*AdminFollowRequest)(nil),     // 43: ngicks.crabswarm.chat.v1.AdminFollowRequest
+	(*DeleteRoomRequest)(nil),      // 44: ngicks.crabswarm.chat.v1.DeleteRoomRequest
+	(*DeleteRoomResponse)(nil),     // 45: ngicks.crabswarm.chat.v1.DeleteRoomResponse
+	(*timestamppb.Timestamp)(nil),  // 46: google.protobuf.Timestamp
 }
 var file_ngicks_crabswarm_chat_v1_chat_service_proto_depIdxs = []int32{
 	0,  // 0: ngicks.crabswarm.chat.v1.Member.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
@@ -2607,7 +2911,7 @@ var file_ngicks_crabswarm_chat_v1_chat_service_proto_depIdxs = []int32{
 	10, // 7: ngicks.crabswarm.chat.v1.Roles.roles:type_name -> ngicks.crabswarm.chat.v1.MemberTarget
 	5,  // 8: ngicks.crabswarm.chat.v1.Message.from:type_name -> ngicks.crabswarm.chat.v1.Member
 	7,  // 9: ngicks.crabswarm.chat.v1.Message.target:type_name -> ngicks.crabswarm.chat.v1.Target
-	42, // 10: ngicks.crabswarm.chat.v1.Message.sent_at:type_name -> google.protobuf.Timestamp
+	46, // 10: ngicks.crabswarm.chat.v1.Message.sent_at:type_name -> google.protobuf.Timestamp
 	1,  // 11: ngicks.crabswarm.chat.v1.AttendRequest.kind:type_name -> ngicks.crabswarm.chat.v1.MemberKind
 	2,  // 12: ngicks.crabswarm.chat.v1.AttendRequest.harness:type_name -> ngicks.crabswarm.chat.v1.Harness
 	3,  // 13: ngicks.crabswarm.chat.v1.AttendRequest.nudge:type_name -> ngicks.crabswarm.chat.v1.NudgeDelivery
@@ -2621,53 +2925,59 @@ var file_ngicks_crabswarm_chat_v1_chat_service_proto_depIdxs = []int32{
 	11, // 21: ngicks.crabswarm.chat.v1.ReadResponse.messages:type_name -> ngicks.crabswarm.chat.v1.Message
 	5,  // 22: ngicks.crabswarm.chat.v1.ListMembersResponse.members:type_name -> ngicks.crabswarm.chat.v1.Member
 	0,  // 23: ngicks.crabswarm.chat.v1.ReportStateRequest.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
-	5,  // 24: ngicks.crabswarm.chat.v1.MemberStateChanged.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	0,  // 25: ngicks.crabswarm.chat.v1.MemberStateChanged.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
-	5,  // 26: ngicks.crabswarm.chat.v1.MemberJoined.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	5,  // 27: ngicks.crabswarm.chat.v1.MemberLeft.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	11, // 28: ngicks.crabswarm.chat.v1.MessageAppended.message:type_name -> ngicks.crabswarm.chat.v1.Message
-	13, // 29: ngicks.crabswarm.chat.v1.RoomEvent.attended:type_name -> ngicks.crabswarm.chat.v1.Attended
-	25, // 30: ngicks.crabswarm.chat.v1.RoomEvent.member_state_changed:type_name -> ngicks.crabswarm.chat.v1.MemberStateChanged
-	26, // 31: ngicks.crabswarm.chat.v1.RoomEvent.member_joined:type_name -> ngicks.crabswarm.chat.v1.MemberJoined
-	27, // 32: ngicks.crabswarm.chat.v1.RoomEvent.member_left:type_name -> ngicks.crabswarm.chat.v1.MemberLeft
-	28, // 33: ngicks.crabswarm.chat.v1.RoomEvent.message_appended:type_name -> ngicks.crabswarm.chat.v1.MessageAppended
-	42, // 34: ngicks.crabswarm.chat.v1.GetNonceResponse.expires_at:type_name -> google.protobuf.Timestamp
-	6,  // 35: ngicks.crabswarm.chat.v1.ListRoomsResponse.rooms:type_name -> ngicks.crabswarm.chat.v1.Room
-	5,  // 36: ngicks.crabswarm.chat.v1.RegisterMemberResponse.member:type_name -> ngicks.crabswarm.chat.v1.Member
-	7,  // 37: ngicks.crabswarm.chat.v1.AdminSendRequest.target:type_name -> ngicks.crabswarm.chat.v1.Target
-	5,  // 38: ngicks.crabswarm.chat.v1.AdminSendResponse.mentioned:type_name -> ngicks.crabswarm.chat.v1.Member
-	5,  // 39: ngicks.crabswarm.chat.v1.AdminSendResponse.absent:type_name -> ngicks.crabswarm.chat.v1.Member
-	16, // 40: ngicks.crabswarm.chat.v1.AdminHistoryRequest.filter:type_name -> ngicks.crabswarm.chat.v1.ReadFilter
-	11, // 41: ngicks.crabswarm.chat.v1.AdminHistoryResponse.messages:type_name -> ngicks.crabswarm.chat.v1.Message
-	12, // 42: ngicks.crabswarm.chat.v1.ChatService.Attend:input_type -> ngicks.crabswarm.chat.v1.AttendRequest
-	14, // 43: ngicks.crabswarm.chat.v1.ChatService.Send:input_type -> ngicks.crabswarm.chat.v1.SendRequest
-	17, // 44: ngicks.crabswarm.chat.v1.ChatService.Read:input_type -> ngicks.crabswarm.chat.v1.ReadRequest
-	19, // 45: ngicks.crabswarm.chat.v1.ChatService.CountUnread:input_type -> ngicks.crabswarm.chat.v1.CountUnreadRequest
-	21, // 46: ngicks.crabswarm.chat.v1.ChatService.ListMembers:input_type -> ngicks.crabswarm.chat.v1.ListMembersRequest
-	23, // 47: ngicks.crabswarm.chat.v1.ChatService.ReportState:input_type -> ngicks.crabswarm.chat.v1.ReportStateRequest
-	30, // 48: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:input_type -> ngicks.crabswarm.chat.v1.GetNonceRequest
-	32, // 49: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:input_type -> ngicks.crabswarm.chat.v1.ListRoomsRequest
-	34, // 50: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:input_type -> ngicks.crabswarm.chat.v1.RegisterMemberRequest
-	36, // 51: ngicks.crabswarm.chat.v1.ChatAdminService.Send:input_type -> ngicks.crabswarm.chat.v1.AdminSendRequest
-	38, // 52: ngicks.crabswarm.chat.v1.ChatAdminService.History:input_type -> ngicks.crabswarm.chat.v1.AdminHistoryRequest
-	40, // 53: ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom:input_type -> ngicks.crabswarm.chat.v1.DeleteRoomRequest
-	29, // 54: ngicks.crabswarm.chat.v1.ChatService.Attend:output_type -> ngicks.crabswarm.chat.v1.RoomEvent
-	15, // 55: ngicks.crabswarm.chat.v1.ChatService.Send:output_type -> ngicks.crabswarm.chat.v1.SendResponse
-	18, // 56: ngicks.crabswarm.chat.v1.ChatService.Read:output_type -> ngicks.crabswarm.chat.v1.ReadResponse
-	20, // 57: ngicks.crabswarm.chat.v1.ChatService.CountUnread:output_type -> ngicks.crabswarm.chat.v1.CountUnreadResponse
-	22, // 58: ngicks.crabswarm.chat.v1.ChatService.ListMembers:output_type -> ngicks.crabswarm.chat.v1.ListMembersResponse
-	24, // 59: ngicks.crabswarm.chat.v1.ChatService.ReportState:output_type -> ngicks.crabswarm.chat.v1.ReportStateResponse
-	31, // 60: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:output_type -> ngicks.crabswarm.chat.v1.GetNonceResponse
-	33, // 61: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:output_type -> ngicks.crabswarm.chat.v1.ListRoomsResponse
-	35, // 62: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:output_type -> ngicks.crabswarm.chat.v1.RegisterMemberResponse
-	37, // 63: ngicks.crabswarm.chat.v1.ChatAdminService.Send:output_type -> ngicks.crabswarm.chat.v1.AdminSendResponse
-	39, // 64: ngicks.crabswarm.chat.v1.ChatAdminService.History:output_type -> ngicks.crabswarm.chat.v1.AdminHistoryResponse
-	41, // 65: ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom:output_type -> ngicks.crabswarm.chat.v1.DeleteRoomResponse
-	54, // [54:66] is the sub-list for method output_type
-	42, // [42:54] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	27, // 24: ngicks.crabswarm.chat.v1.FollowEvent.followed:type_name -> ngicks.crabswarm.chat.v1.Followed
+	11, // 25: ngicks.crabswarm.chat.v1.FollowEvent.message:type_name -> ngicks.crabswarm.chat.v1.Message
+	5,  // 26: ngicks.crabswarm.chat.v1.MemberStateChanged.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	0,  // 27: ngicks.crabswarm.chat.v1.MemberStateChanged.state:type_name -> ngicks.crabswarm.chat.v1.HarnessState
+	5,  // 28: ngicks.crabswarm.chat.v1.MemberJoined.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	5,  // 29: ngicks.crabswarm.chat.v1.MemberLeft.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	11, // 30: ngicks.crabswarm.chat.v1.MessageAppended.message:type_name -> ngicks.crabswarm.chat.v1.Message
+	13, // 31: ngicks.crabswarm.chat.v1.RoomEvent.attended:type_name -> ngicks.crabswarm.chat.v1.Attended
+	28, // 32: ngicks.crabswarm.chat.v1.RoomEvent.member_state_changed:type_name -> ngicks.crabswarm.chat.v1.MemberStateChanged
+	29, // 33: ngicks.crabswarm.chat.v1.RoomEvent.member_joined:type_name -> ngicks.crabswarm.chat.v1.MemberJoined
+	30, // 34: ngicks.crabswarm.chat.v1.RoomEvent.member_left:type_name -> ngicks.crabswarm.chat.v1.MemberLeft
+	31, // 35: ngicks.crabswarm.chat.v1.RoomEvent.message_appended:type_name -> ngicks.crabswarm.chat.v1.MessageAppended
+	46, // 36: ngicks.crabswarm.chat.v1.GetNonceResponse.expires_at:type_name -> google.protobuf.Timestamp
+	6,  // 37: ngicks.crabswarm.chat.v1.ListRoomsResponse.rooms:type_name -> ngicks.crabswarm.chat.v1.Room
+	5,  // 38: ngicks.crabswarm.chat.v1.RegisterMemberResponse.member:type_name -> ngicks.crabswarm.chat.v1.Member
+	7,  // 39: ngicks.crabswarm.chat.v1.AdminSendRequest.target:type_name -> ngicks.crabswarm.chat.v1.Target
+	5,  // 40: ngicks.crabswarm.chat.v1.AdminSendResponse.mentioned:type_name -> ngicks.crabswarm.chat.v1.Member
+	5,  // 41: ngicks.crabswarm.chat.v1.AdminSendResponse.absent:type_name -> ngicks.crabswarm.chat.v1.Member
+	16, // 42: ngicks.crabswarm.chat.v1.AdminHistoryRequest.filter:type_name -> ngicks.crabswarm.chat.v1.ReadFilter
+	11, // 43: ngicks.crabswarm.chat.v1.AdminHistoryResponse.messages:type_name -> ngicks.crabswarm.chat.v1.Message
+	12, // 44: ngicks.crabswarm.chat.v1.ChatService.Attend:input_type -> ngicks.crabswarm.chat.v1.AttendRequest
+	14, // 45: ngicks.crabswarm.chat.v1.ChatService.Send:input_type -> ngicks.crabswarm.chat.v1.SendRequest
+	17, // 46: ngicks.crabswarm.chat.v1.ChatService.Read:input_type -> ngicks.crabswarm.chat.v1.ReadRequest
+	19, // 47: ngicks.crabswarm.chat.v1.ChatService.CountUnread:input_type -> ngicks.crabswarm.chat.v1.CountUnreadRequest
+	21, // 48: ngicks.crabswarm.chat.v1.ChatService.ListMembers:input_type -> ngicks.crabswarm.chat.v1.ListMembersRequest
+	23, // 49: ngicks.crabswarm.chat.v1.ChatService.ReportState:input_type -> ngicks.crabswarm.chat.v1.ReportStateRequest
+	25, // 50: ngicks.crabswarm.chat.v1.ChatService.Follow:input_type -> ngicks.crabswarm.chat.v1.FollowRequest
+	33, // 51: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:input_type -> ngicks.crabswarm.chat.v1.GetNonceRequest
+	35, // 52: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:input_type -> ngicks.crabswarm.chat.v1.ListRoomsRequest
+	37, // 53: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:input_type -> ngicks.crabswarm.chat.v1.RegisterMemberRequest
+	39, // 54: ngicks.crabswarm.chat.v1.ChatAdminService.Send:input_type -> ngicks.crabswarm.chat.v1.AdminSendRequest
+	41, // 55: ngicks.crabswarm.chat.v1.ChatAdminService.History:input_type -> ngicks.crabswarm.chat.v1.AdminHistoryRequest
+	44, // 56: ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom:input_type -> ngicks.crabswarm.chat.v1.DeleteRoomRequest
+	43, // 57: ngicks.crabswarm.chat.v1.ChatAdminService.Follow:input_type -> ngicks.crabswarm.chat.v1.AdminFollowRequest
+	32, // 58: ngicks.crabswarm.chat.v1.ChatService.Attend:output_type -> ngicks.crabswarm.chat.v1.RoomEvent
+	15, // 59: ngicks.crabswarm.chat.v1.ChatService.Send:output_type -> ngicks.crabswarm.chat.v1.SendResponse
+	18, // 60: ngicks.crabswarm.chat.v1.ChatService.Read:output_type -> ngicks.crabswarm.chat.v1.ReadResponse
+	20, // 61: ngicks.crabswarm.chat.v1.ChatService.CountUnread:output_type -> ngicks.crabswarm.chat.v1.CountUnreadResponse
+	22, // 62: ngicks.crabswarm.chat.v1.ChatService.ListMembers:output_type -> ngicks.crabswarm.chat.v1.ListMembersResponse
+	24, // 63: ngicks.crabswarm.chat.v1.ChatService.ReportState:output_type -> ngicks.crabswarm.chat.v1.ReportStateResponse
+	26, // 64: ngicks.crabswarm.chat.v1.ChatService.Follow:output_type -> ngicks.crabswarm.chat.v1.FollowEvent
+	34, // 65: ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce:output_type -> ngicks.crabswarm.chat.v1.GetNonceResponse
+	36, // 66: ngicks.crabswarm.chat.v1.ChatAdminService.ListRooms:output_type -> ngicks.crabswarm.chat.v1.ListRoomsResponse
+	38, // 67: ngicks.crabswarm.chat.v1.ChatAdminService.RegisterMember:output_type -> ngicks.crabswarm.chat.v1.RegisterMemberResponse
+	40, // 68: ngicks.crabswarm.chat.v1.ChatAdminService.Send:output_type -> ngicks.crabswarm.chat.v1.AdminSendResponse
+	42, // 69: ngicks.crabswarm.chat.v1.ChatAdminService.History:output_type -> ngicks.crabswarm.chat.v1.AdminHistoryResponse
+	45, // 70: ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom:output_type -> ngicks.crabswarm.chat.v1.DeleteRoomResponse
+	26, // 71: ngicks.crabswarm.chat.v1.ChatAdminService.Follow:output_type -> ngicks.crabswarm.chat.v1.FollowEvent
+	58, // [58:72] is the sub-list for method output_type
+	44, // [44:58] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_ngicks_crabswarm_chat_v1_chat_service_proto_init() }
@@ -2679,20 +2989,26 @@ func file_ngicks_crabswarm_chat_v1_chat_service_proto_init() {
 		(*Target_Everyone)(nil),
 		(*Target_Roles)(nil),
 	}
-	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[24].OneofWrappers = []any{
+	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[20].OneofWrappers = []any{}
+	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[21].OneofWrappers = []any{
+		(*FollowEvent_Followed)(nil),
+		(*FollowEvent_Message)(nil),
+	}
+	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[27].OneofWrappers = []any{
 		(*RoomEvent_Attended)(nil),
 		(*RoomEvent_MemberStateChanged)(nil),
 		(*RoomEvent_MemberJoined)(nil),
 		(*RoomEvent_MemberLeft)(nil),
 		(*RoomEvent_MessageAppended)(nil),
 	}
+	file_ngicks_crabswarm_chat_v1_chat_service_proto_msgTypes[38].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc), len(file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   37,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

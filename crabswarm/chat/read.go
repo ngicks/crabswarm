@@ -95,6 +95,87 @@ func (s *Store) Read(ctx context.Context, role Sender, f ReadFilter) ([]Message,
 	return messages, int(remaining), nil
 }
 
+// Skip moves role's read position through seq, inclusive, without handing any
+// message over, and reports how many unread mentions role has left afterwards.
+//
+// It is for a caller that already showed those messages some other way and
+// would otherwise have to read them a second time only to mark them read. The
+// position is one number per role and room, so skipping through seq also marks
+// every earlier unread mention read, whether or not it was ever shown.
+//
+// The position never moves backward, so skipping through a seq at or before it
+// changes nothing and a repeated skip answers the same. A seq past the room's
+// newest reads through the newest: the position never runs ahead of the room,
+// where it would swallow messages nobody has sent yet.
+//
+// A seq below one names no message and is [ErrInvalidArgument]. A role that has
+// never attended the room has no position to move and is [ErrUnknownRole].
+func (s *Store) Skip(ctx context.Context, role Sender, seq int64) (int, error) {
+	if role.Room == "" {
+		return 0, fmt.Errorf("skipping chat: empty room")
+	}
+	if err := validateName(role.Team, role.Name); err != nil {
+		return 0, fmt.Errorf("skipping chat: %w", err)
+	}
+	if seq < 1 {
+		return 0, fmt.Errorf("skipping room %q through seq %d: seqs start at 1: %w",
+			role.Room, seq, ErrInvalidArgument)
+	}
+
+	var remaining int64
+	err := s.tx(ctx, func(q *db.Queries) error {
+		position, err := q.ReadPosition(ctx, db.ReadPositionParams{
+			Room: role.Room,
+			Team: role.Team,
+			Name: role.Name,
+		})
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("skipping room %q as %q: %w",
+				role.Room, role.Team+"/"+role.Name, ErrUnknownRole)
+		}
+		if err != nil {
+			return fmt.Errorf("reading position of %q in room %q: %w",
+				role.Team+"/"+role.Name, role.Room, err)
+		}
+
+		last, err := q.RoomLastSeq(ctx, role.Room)
+		if err != nil {
+			return fmt.Errorf("reading the newest seq of room %q: %w", role.Room, err)
+		}
+
+		moved := position
+		if through := min(seq, last); through > moved {
+			moved = through
+			err := q.AdvanceReadPosition(ctx, db.AdvanceReadPositionParams{
+				LastSeq: moved,
+				Room:    role.Room,
+				Team:    role.Team,
+				Name:    role.Name,
+			})
+			if err != nil {
+				return fmt.Errorf("moving read position of %q in room %q: %w",
+					role.Team+"/"+role.Name, role.Room, err)
+			}
+		}
+
+		remaining, err = q.CountUnreadMentions(ctx, db.CountUnreadMentionsParams{
+			Room:     role.Room,
+			After:    moved,
+			RoleTeam: role.Team,
+			RoleName: role.Name,
+		})
+		if err != nil {
+			return fmt.Errorf("counting unread of %q in room %q: %w",
+				role.Team+"/"+role.Name, role.Room, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(remaining), nil
+}
+
 // CountUnread reports how many messages past role's read position mention it:
 // the same count [Store.Read] leaves behind, asked for on its own.
 //
@@ -215,18 +296,39 @@ func mentions(m Message, role Sender, position int64) bool {
 	if m.Seq <= position {
 		return false
 	}
-	if m.From.Team == role.Team && m.From.Name == role.Name {
+	return addressedTo(m.From, m.Target, role)
+}
+
+// addressedTo reports whether a message from from, written to target, is for
+// role: addressed to it or to everyone, and not sent by it. It is [mentions]
+// with no read position, for a follower, which moves none.
+func addressedTo(from Sender, target Target, role Sender) bool {
+	if from.Team == role.Team && from.Name == role.Name {
 		return false
 	}
-	switch m.Target.Kind {
+	switch target.Kind {
 	case TargetEveryone:
 		return true
 	case TargetRoles:
-		for _, r := range m.Target.Roles {
+		for _, r := range target.Roles {
 			if r.Team == role.Team && r.Name == role.Name {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// newestSeq reports the newest seq room has handed out. A room nothing has been
+// said in has none, and neither does one that does not exist yet, which is zero
+// for both: a follower may well open its stream before anybody arrives.
+func (s *Store) newestSeq(ctx context.Context, room string) (int64, error) {
+	last, err := s.q.RoomLastSeq(ctx, room)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("reading the newest seq of room %q: %w", room, err)
+	}
+	return last, nil
 }

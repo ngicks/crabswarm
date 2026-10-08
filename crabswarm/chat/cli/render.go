@@ -54,6 +54,19 @@ func RenderRead(w io.Writer, resp *chatv1.ReadResponse) error {
 	return err
 }
 
+// RenderSkipped reports what a skip left unread, in the trailer [RenderRead]
+// ends a read with. A skip looked at no messages, so it prints no empty-read
+// line; with nothing left it says so rather than printing nothing, for the same
+// reason an empty read does. [ReadOptions.Quiet] is what removes it.
+func RenderSkipped(w io.Writer, resp *chatv1.ReadResponse) error {
+	if remaining := resp.GetRemainingUnread(); remaining > 0 {
+		_, err := fmt.Fprintf(w, "%d more unread\n", remaining)
+		return err
+	}
+	_, err := fmt.Fprintln(w, "no more unread")
+	return err
+}
+
 // RenderHistory prints a room's conversation, which is the same transcript a
 // read prints: an operator comparing what a room shows its members with what it
 // shows the host should be reading one text, not two.

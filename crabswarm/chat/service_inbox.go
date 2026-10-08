@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
@@ -53,6 +54,11 @@ func (s *Service) Send(
 // The cursor defaults to unread, which keeps only what the caller has not been
 // shown. A range running against its cursor is InvalidArgument: nothing lies
 // before the head or after the tail, and unread counts forward only.
+//
+// A non-zero skip shows nothing: it moves the read position through that seq
+// and reports what is left, for a caller that already showed those messages
+// some other way. A negative skip names no message, and a filter beside a skip
+// asks for messages the skip does not show; both are InvalidArgument.
 func (s *Service) Read(
 	ctx context.Context,
 	req *chatv1.ReadRequest,
@@ -60,6 +66,19 @@ func (s *Service) Read(
 	caller, err := s.caller(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if skip := req.GetSkip(); skip != 0 {
+		// An empty filter narrows nothing, so it is accepted beside a skip: a
+		// client that always allocates one is not asking for anything.
+		if f := req.GetFilter(); f != nil && proto.Size(f) > 0 {
+			return nil, status.Error(codes.InvalidArgument,
+				"a skip shows no messages, so it takes no filter")
+		}
+		remaining, err := s.store.Skip(ctx, senderOf(caller), skip)
+		if err != nil {
+			return nil, storeStatus(err)
+		}
+		return &chatv1.ReadResponse{RemainingUnread: int32(remaining)}, nil
 	}
 	filter, err := readFilterOf(req.GetFilter())
 	if err != nil {

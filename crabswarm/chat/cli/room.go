@@ -36,6 +36,35 @@ func OpeningRoom(
 	return ResolveRoom(ctx, lister, dir)
 }
 
+// RoomToFollow returns the room an operator's follow streams: room when named,
+// else the room [ResolveRoom] finds for the working directory getwd reports.
+//
+// A directory under no room is followed itself rather than refused. The daemon
+// follows a room nobody has used yet, and the agents that make it one may start
+// in that directory after the follow did.
+func RoomToFollow(
+	ctx context.Context,
+	lister RoomLister,
+	room string,
+	getwd func() (string, error),
+) (string, error) {
+	if room != "" {
+		return room, nil
+	}
+	dir, err := getwd()
+	if err != nil {
+		return "", fmt.Errorf("reading the working directory: %w", err)
+	}
+	found, _, err := ResolveRoom(ctx, lister, dir)
+	if err != nil {
+		return "", err
+	}
+	if found == "" {
+		return dir, nil
+	}
+	return found, nil
+}
+
 // ResolveRoom lists the rooms once and returns the one an operator standing in
 // dir means, by [RoomForDir].
 //

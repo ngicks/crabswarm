@@ -1,0 +1,4 @@
+{
+  "description": "Follows an event source and turns its records into status line updates and prompts injected between turns.",
+  "modules": ["./register.tsx"]
+}

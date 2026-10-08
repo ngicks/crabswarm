@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -335,6 +336,77 @@ func TestClient_ReadIntoDoneWhenEmpty(t *testing.T) {
 			// The report rides on the read's own credential; nothing about the
 			// caller is re-resolved on the way.
 			assert.DeepEqual(t, d.seenTokens(), []string{"tok-b", "tok-b"})
+		})
+	}
+}
+
+// A skip carries the seq and nothing else: a filter beside it is a request the
+// daemon refuses.
+func TestClient_Skip(t *testing.T) {
+	fake := &fakeChatService{remaining: 2}
+	d := serveTestDaemon(t, fake, nil)
+
+	resp, err := d.client.Skip(t.Context(), "tok-b", 7)
+	assert.NilError(t, err)
+	assert.Equal(t, resp.GetRemainingUnread(), int32(2))
+	assert.Equal(t, fake.read.GetSkip(), int64(7))
+	assert.Assert(t, fake.read.GetFilter() == nil)
+	assert.DeepEqual(t, d.seenTokens(), []string{"tok-b"})
+}
+
+func TestClient_ReadIntoSkip(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		opts      ReadOptions
+		remaining int32
+		wantSkip  int64
+		want      string
+	}{
+		{"what is left", ReadOptions{Skip: 7}, 2, 7, "2 more unread\n"},
+		{"nothing left", ReadOptions{Skip: 7}, 0, 7, "no more unread\n"},
+		{"quiet", ReadOptions{Skip: 7, Quiet: true}, 2, 7, ""},
+		{
+			// Past the newest is the newest, so a seq int64 cannot hold
+			// saturates instead of wrapping negative.
+			"a seq past int64",
+			ReadOptions{Skip: math.MaxUint64},
+			0,
+			math.MaxInt64,
+			"no more unread\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeChatService{remaining: tc.remaining}
+			d := serveTestDaemon(t, fake, nil)
+
+			var out strings.Builder
+			assert.NilError(t, d.client.ReadInto(t.Context(), &out, "tok-b", tc.opts))
+			assert.Equal(t, out.String(), tc.want)
+			assert.Equal(t, fake.read.GetSkip(), tc.wantSkip)
+			assert.Assert(t, fake.read.GetFilter() == nil)
+			assert.Assert(t, fake.state == nil, "a skip reports no state")
+		})
+	}
+}
+
+// A skip hands nothing over, so there is nothing to filter and no empty read
+// to report done on; asking for either is refused before the daemon is asked.
+func TestClient_ReadIntoSkipRefusesReadOptions(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opts ReadOptions
+	}{
+		{"a filter", ReadOptions{Skip: 7, Filter: &chatv1.ReadFilter{}}},
+		{"done when empty", ReadOptions{Skip: 7, DoneWhenEmpty: true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeChatService{}
+			d := serveTestDaemon(t, fake, nil)
+
+			var out strings.Builder
+			assert.Assert(t, d.client.ReadInto(t.Context(), &out, "tok-b", tc.opts) != nil)
+			assert.Equal(t, out.String(), "")
+			assert.Assert(t, fake.read == nil)
 		})
 	}
 }

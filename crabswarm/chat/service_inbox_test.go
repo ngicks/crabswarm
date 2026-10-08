@@ -340,6 +340,66 @@ func TestService_ReadRejectsARangeAgainstItsCursor(t *testing.T) {
 	}
 }
 
+// A skip marks messages read without handing them over, for a caller that
+// already showed them another way, and reports what is left to read.
+func TestService_ReadSkipShowsNothingAndMovesThePosition(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+
+	sendAs(t, svc, "tok-a", to("bob"), "one")
+	sendAs(t, svc, "tok-a", everyone(), "two")
+	sendAs(t, svc, "tok-a", to("bob"), "three")
+
+	read, err := svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{Skip: 2})
+	assert.NilError(t, err)
+	assert.Equal(t, len(read.GetMessages()), 0)
+	assert.Equal(t, read.GetRemainingUnread(), int32(1))
+
+	// An empty filter narrows nothing, so it rides along with a skip.
+	read, err = svc.Read(callCtx(t, "tok-b"),
+		&chatv1.ReadRequest{Skip: 2, Filter: &chatv1.ReadFilter{}})
+	assert.NilError(t, err)
+	assert.Equal(t, len(read.GetMessages()), 0)
+	assert.Equal(t, read.GetRemainingUnread(), int32(1))
+
+	read, err = svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, messageTexts(read.GetMessages()), []string{"three"})
+}
+
+func TestService_ReadSkipRefusals(t *testing.T) {
+	svc, provider, _ := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+	sendAs(t, svc, "tok-a", to("bob"), "one")
+
+	for _, tc := range []struct {
+		name string
+		req  *chatv1.ReadRequest
+	}{
+		{"a negative skip names no message", &chatv1.ReadRequest{Skip: -1}},
+		{
+			// A filter asks for messages, which a skip does not show.
+			"a filter beside a skip",
+			&chatv1.ReadRequest{
+				Skip:   1,
+				Filter: &chatv1.ReadFilter{Cursor: chatv1.ReadCursor_READ_CURSOR_TAIL},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.Read(callCtx(t, "tok-b"), tc.req)
+			assert.Equal(t, status.Code(err), codes.InvalidArgument)
+		})
+	}
+
+	// Neither refusal moved anything.
+	read, err := svc.Read(callCtx(t, "tok-b"), &chatv1.ReadRequest{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, messageTexts(read.GetMessages()), []string{"one"})
+}
+
 // The message is already in the room by the time the nudge is attempted, so a
 // terminal that could not be typed into costs its reader a late read.
 func TestService_NotifierFailureDoesNotFailSend(t *testing.T) {

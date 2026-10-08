@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	"google.golang.org/grpc"
 
@@ -159,6 +161,25 @@ func (c *Client) Read(
 	return resp, nil
 }
 
+// Skip moves the caller's read position through seq, inclusive, and hands no
+// message over. It is for a caller that already showed those messages some
+// other way: marking them read by reading them again would fetch every one a
+// second time. A seq at or before the position moves nothing, so the same skip
+// may be sent twice.
+//
+// The answer carries no messages, only how many unread mentions are left.
+func (c *Client) Skip(
+	ctx context.Context,
+	token string,
+	seq int64,
+) (*chatv1.ReadResponse, error) {
+	resp, err := c.chat.Read(withToken(ctx, token), &chatv1.ReadRequest{Skip: seq})
+	if err != nil {
+		return nil, callError(err)
+	}
+	return resp, nil
+}
+
 // CountUnread reports how many unread messages mention the caller. It shows
 // none of them and moves the caller's read position nowhere, so a caller may
 // ask as often as it likes and get the same answer until it reads.
@@ -200,6 +221,11 @@ type ReadOptions struct {
 	// the daemon that would hear the report is the one that just did not
 	// answer.
 	DoneWhenEmpty bool
+	// Skip, when non-zero, makes the read a [Client.Skip] through this seq:
+	// nothing is shown, and [RenderSkipped] prints what is left. A skip takes
+	// no Filter and no DoneWhenEmpty, since it hands nothing over to filter and
+	// has no empty read to report done on.
+	Skip uint64
 }
 
 // ReadInto reads and prints, which is what the `chat read` verb and the bridge
@@ -215,6 +241,9 @@ func (c *Client) ReadInto(
 	token string,
 	opts ReadOptions,
 ) error {
+	if opts.Skip != 0 {
+		return c.skipInto(ctx, w, token, opts)
+	}
 	resp, err := c.Read(ctx, token, opts.Filter)
 	if err != nil {
 		return err
@@ -231,6 +260,31 @@ func (c *Client) ReadInto(
 		}
 	}
 	return RenderRead(w, resp)
+}
+
+// skipInto is [Client.ReadInto] for [ReadOptions.Skip].
+func (c *Client) skipInto(
+	ctx context.Context,
+	w io.Writer,
+	token string,
+	opts ReadOptions,
+) error {
+	if opts.Filter != nil || opts.DoneWhenEmpty {
+		return errors.New(
+			"a skip shows no messages, so it takes no filter and reports no done state")
+	}
+	// Saturating rather than converting: a seq past the room's newest reads
+	// through the newest, so the largest int64 means what any larger value
+	// would, where a plain conversion would wrap to a negative seq the daemon
+	// refuses.
+	resp, err := c.Skip(ctx, token, int64(min(opts.Skip, math.MaxInt64)))
+	if err != nil {
+		return err
+	}
+	if opts.Quiet {
+		return nil
+	}
+	return RenderSkipped(w, resp)
 }
 
 // ListMembers prints everyone attending the caller's room.
