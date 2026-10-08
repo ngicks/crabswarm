@@ -1,20 +1,23 @@
 # crabswarm-mcp-shared
 
-Wires Codex and OpenCode into their `crabswarm chat` room, packaged for
-[apm](https://github.com/microsoft/apm). One `crabswarm mcp --transport http`
-process serves every Codex thread and every OpenCode session of a compose
-session. A Codex app server or an `opencode serve` may host several agents at
-once, and each of them still attends as a member of its own: its own name, its
-own state and its own mentions.
+Wires Claude Code, Codex and OpenCode into their `crabswarm chat` room,
+packaged for [apm](https://github.com/microsoft/apm). One
+`crabswarm mcp --transport http` process serves every Claude Code session,
+every Codex thread and every OpenCode session of a compose session. A Codex app
+server or an `opencode serve` may host several agents at once, and each of them
+still attends as a member of its own: its own name, its own state and its own
+mentions.
 
-Claude Code is wired by [`crabswarm-mcp`](../crabswarm-mcp/README.md), which
-keeps one stdio `crabswarm mcp` per Claude Code session.
+[`crabswarm-mcp`](../crabswarm-mcp/README.md) is the alternative for Claude
+Code: one stdio `crabswarm mcp` per session, with hooks. Install one of the
+two for Claude Code, never both.
 
 The package ships:
 
-- the MCP server declaration: a remote server named `crabswarm-mcp` at
+- the MCP server declaration: a remote server named `crabswarm-mcp-shared` at
   `http://127.0.0.1:47300/mcp`, which apm writes into Codex's `config.toml` and
   a project's `opencode.json`;
+- the Claude Code entry for the same server, in the skill's `.mcp.json`;
 - the [`crabswarm-mcp-shared`](.apm/skills/crabswarm-mcp-shared/SKILL.md) skill,
   which teaches the chat tools and the etiquette;
 - two OpenCode plugins beside the skill: `opencode.ts` runs inside
@@ -48,7 +51,27 @@ or `apm install -g` to wire every session on the host.
 
 `apm` deploys the package per target:
 
-- **Codex** gets the server as an `[mcp_servers.crabswarm-mcp]` table carrying
+- **Claude Code** gets the skill directory at
+  `~/.claude/skills/crabswarm-mcp-shared/` at user scope. Claude Code loads it
+  as a plugin and reads the server from its `.mcp.json`:
+
+  ```json
+  {
+    "mcpServers": {
+      "crabswarm-mcp-shared": {
+        "type": "http",
+        "url": "${CRABSWARM_CLAUDE_MCP_SERVER:-http://127.0.0.1:47300/mcp}",
+        "headers": { "X-Crabswarm-Token": "${CMDMAN_CMD_ID:-}" }
+      }
+    }
+  }
+  ```
+
+  Set `CRABSWARM_CLAUDE_MCP_SERVER` when the server is not on the replica's
+  loopback. Claude Code gets no hooks from this package. The `handle-events`
+  mod under `mods/` delivers mentions between turns, and the daemon's screen
+  poller reads each replica's state.
+- **Codex** gets the server as an `[mcp_servers.crabswarm-mcp-shared]` table carrying
   `url = "http://127.0.0.1:47300/mcp"`, in `.codex/config.toml` at project
   scope or in `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) at
   user scope, and the skill at `.agents/skills/crabswarm-mcp-shared/`. The
@@ -65,7 +88,7 @@ or `apm install -g` to wire every session on the host.
   ```json
   {
     "mcp": {
-      "crabswarm-mcp": {
+      "crabswarm-mcp-shared": {
         "type": "remote",
         "url": "http://127.0.0.1:47300/mcp",
         "enabled": true
@@ -132,7 +155,9 @@ else `/tmp`.
   reads each replica's state from. One server serves one app server. Without
   the variable, Codex replicas still attend and serve their tools, and the
   daemon types each mention into the replica's terminal.
-- **Identity.** A Codex thread's MCP session names its member in the
+- **Identity.** A Claude Code session names its member in the
+  `X-Crabswarm-Token` header the plugin's `.mcp.json` fills from the replica's
+  `CMDMAN_CMD_ID`. A Codex thread's MCP session names its member in the
   `X-Crabswarm-Token` request header, which `crabswarm mcp codex-proxy` puts on
   every thread its TUI starts. A session with no header acts as nobody, and its
   tools say so. An `opencode serve` opens one MCP session for every TUI, so its
@@ -355,10 +380,12 @@ Each OpenCode plugin opens what it hands over with a notice of its own:
 
 ```
 apm-package/crabswarm-mcp-shared/
-├── apm.yml                             package metadata (targets: codex, opencode)
-│                                       and the remote crabswarm-mcp server
+├── apm.yml                             package metadata (targets: claude, codex, opencode)
+│                                       and the remote crabswarm-mcp-shared server
 └── .apm/
     └── skills/crabswarm-mcp-shared/
+        ├── .claude-plugin/plugin.json  makes Claude Code load the directory as a plugin
+        ├── .mcp.json                   Claude Code's entry for the shared server
         ├── SKILL.md
         ├── opencode.ts                 OpenCode server plugin, for opencode serve
         └── opencode-tui.ts             OpenCode TUI plugin, for opencode attach

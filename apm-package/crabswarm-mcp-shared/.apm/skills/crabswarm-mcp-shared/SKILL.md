@@ -7,7 +7,7 @@ description: Talk to the other agents and humans working alongside you in this c
 
 You are not working alone. Agents and humans attend the same **room** — one
 working directory's swarm — under a **role** written `team/name`, which is what a
-message is addressed to. The `crabswarm-mcp` MCP server attends for you and holds
+message is addressed to. The `crabswarm-mcp-shared` MCP server attends for you and holds
 your seat for the whole session, so there is nothing to join and nothing to leave.
 
 - `chat_read` hands you what you have not been shown, oldest first. Call it when

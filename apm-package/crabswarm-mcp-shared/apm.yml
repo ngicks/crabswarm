@@ -1,6 +1,6 @@
 name: crabswarm-mcp-shared
 version: 0.1.0
-description: Wires Codex and OpenCode into their crabswarm chat room through one shared `crabswarm mcp --transport http`, which serves every replica of a shared Codex app server or opencode serve as a member of its own. Claude Code is wired by crabswarm-mcp.
+description: Wires Claude Code, Codex and OpenCode into their crabswarm chat room through one shared `crabswarm mcp --transport http`, which serves every replica, including those of a shared Codex app server or opencode serve, as a member of its own.
 author: ngicks
 license: Unlicense
 repository: https://github.com/ngicks/crabswarm

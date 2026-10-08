@@ -26,8 +26,8 @@ import (
 //
 // Two packages declare it, one per transport, because apm declares one
 // transport for every target of a package. crabswarm-mcp is Claude Code's: a
-// stdio `crabswarm mcp` each session spawns. crabswarm-mcp-shared is Codex's
-// and OpenCode's: a remote entry pointing at the one
+// stdio `crabswarm mcp` each session spawns. crabswarm-mcp-shared serves Claude
+// Code, Codex and OpenCode: a remote entry pointing at the one
 // `crabswarm mcp --transport http` a compose session runs beside its harness
 // servers.
 const (
@@ -283,6 +283,42 @@ func TestMCPPackage_SharedDeclaresTheHTTPServer(t *testing.T) {
 		if want := `const MCP_ENTRY = "` + server.Name + `"`; !strings.Contains(string(b), want) {
 			t.Errorf("%s does not carry %s; it looks the server up by that name", plugin, want)
 		}
+	}
+}
+
+// The shared plugin's `.mcp.json` is Claude Code's entry for the shared server.
+// apm writes the apm.yml declaration nowhere Claude Code reads at user scope,
+// and it carries no header. Each Claude Code replica is a client of its own,
+// so the entry names its member in the token header, where Codex replicas have
+// `codex-proxy` stamp it. The URL defaults to the declared one and gives way to
+// CRABSWARM_CLAUDE_MCP_SERVER for a replica in another network namespace.
+func TestMCPPackage_SharedPluginDeclaresTheHTTPServer(t *testing.T) {
+	declared := declaredMCPServer(t, sharedMCPPackage)
+	var file struct {
+		Servers map[string]struct {
+			Type    string            `json:"type"`
+			URL     string            `json:"url"`
+			Headers map[string]string `json:"headers"`
+		} `json:"mcpServers"`
+	}
+	readJSONFile(t, filepath.Join(apmSkillPluginDir(sharedMCPPackage), ".mcp.json"), &file)
+	if len(file.Servers) != 1 {
+		t.Fatalf("plugin declares %d MCP server(s), want exactly the shared one: %v",
+			len(file.Servers), file.Servers)
+	}
+	server, ok := file.Servers[declared.Name]
+	if !ok {
+		t.Fatalf("plugin server is not named %s: %v", declared.Name, file.Servers)
+	}
+	if server.Type != "http" {
+		t.Errorf("type = %q, want http", server.Type)
+	}
+	if want := "${CRABSWARM_CLAUDE_MCP_SERVER:-" + declared.URL + "}"; server.URL != want {
+		t.Errorf("url = %q, want %q", server.URL, want)
+	}
+	want := map[string]string{crabmcp.TokenHeader: "${CMDMAN_CMD_ID:-}"}
+	if !maps.Equal(server.Headers, want) {
+		t.Errorf("headers = %v, want %v", server.Headers, want)
 	}
 }
 

@@ -20,8 +20,8 @@ import (
 // and Claude Code loads a skill directory carrying `.claude-plugin/plugin.json`
 // as a plugin, reading whatever hooks and MCP servers the directory holds
 // instead of settings.json. A Codex hook is a merged hooks file, routed to
-// Codex alone by its `codex-` stem. crabswarm-mcp-shared targets Codex and
-// OpenCode only, and ships its skill with the OpenCode plugins beside it. All
+// Codex alone by its `codex-` stem. crabswarm-mcp-shared ships its skill with
+// Claude Code's server entry and the OpenCode plugins beside it. All
 // of it is text apm copies as written, so its shape is pinned here rather than
 // discovered on a consumer's machine.
 var apmPackages = []string{"crabswarm-mcp", "crabswarm-mcp-shared", "crabswarm-issues-lint"}
@@ -97,6 +97,7 @@ var apmSkillFiles = map[string][]string{
 	},
 	"crabswarm-mcp-shared": {
 		".claude-plugin/plugin.json",
+		".mcp.json",
 		"SKILL.md",
 		"opencode-tui.ts",
 		"opencode.ts",
