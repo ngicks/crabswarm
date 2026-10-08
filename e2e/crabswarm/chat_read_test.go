@@ -137,6 +137,83 @@ func TestChatRead_TurnEndReadIsSilentWithNothingToHandOver(t *testing.T) {
 	}
 }
 
+// chatMailSeq reads the sequence number of the message [startChatRoomWithMail]
+// leaves, as bob: the tail read moves bob's position and leaves ana's alone.
+func chatMailSeq(t *testing.T, cfgPath string) string {
+	t.Helper()
+	out := runChat(t, cfgPath, "tok-bob", "read", "--cursor", "tail", "--range", "-1")
+	for _, l := range lines(out) {
+		if strings.Contains(l, chatBridgeBob+" -> "+chatBridgeAna) {
+			return strings.Fields(l)[0]
+		}
+	}
+	t.Fatalf("bob's tail read does not show the mail:\n%s", out)
+	return ""
+}
+
+// A client that already showed ana her mention another way marks it read by
+// its sequence number. The skip prints what is left, a repeat of it changes
+// nothing, and the next read hands over only what came after.
+func TestChatRead_SkipMarksTheMentionRead(t *testing.T) {
+	cfg := startChatRoomWithMail(t)
+	seq := chatMailSeq(t, cfg)
+	runChat(t, cfg, "tok-bob", "send", chatBridgeAna, "a later one")
+
+	for range 2 {
+		if got := runChat(t, cfg, "tok-ana", "read", "--skip", seq); got != "1 more unread\n" {
+			t.Errorf("read --skip %s = %q, want %q", seq, got, "1 more unread\n")
+		}
+	}
+
+	got := runChat(t, cfg, "tok-ana", "read")
+	if strings.Contains(got, chatMailLine) {
+		t.Errorf("read after the skip = %q, want the skipped mail left out", got)
+	}
+	if !strings.Contains(got, "a later one") {
+		t.Errorf("read after the skip = %q, want the later message", got)
+	}
+
+	// A seq past the newest stops at the newest, and --quiet drops the line.
+	if got := runChat(t, cfg, "tok-ana", "read", "--skip", "1000"); got != "no more unread\n" {
+		t.Errorf("read --skip 1000 = %q, want %q", got, "no more unread\n")
+	}
+	if got := runChat(t, cfg, "tok-ana", "read", "--skip", "1000", "--quiet"); got != "" {
+		t.Errorf("read --skip 1000 --quiet = %q, want nothing", got)
+	}
+}
+
+// A skip beside a flag that shapes a shown read is refused before it reaches
+// the daemon, so the mail it would have marked is still there to read.
+func TestChatRead_SkipRefusesTheReadFlags(t *testing.T) {
+	cfg := startChatRoomWithMail(t)
+
+	for _, extra := range [][]string{
+		{"--cursor", "tail"},
+		{"--range", "5"},
+		{"--to", "everyone"},
+		{"--since", "1"},
+		{"--until", "9"},
+		{"--done-when-empty"},
+	} {
+		args := append([]string{"read", "--skip", "1000"}, extra...)
+		stdout, stderr, err := execChat(t, cfg, "tok-ana", args...)
+		if err == nil {
+			t.Errorf("read %s succeeded; want a refusal", strings.Join(args, " "))
+		}
+		if stdout != "" {
+			t.Errorf("read %s stdout = %q, want nothing", strings.Join(args, " "), stdout)
+		}
+		if !strings.Contains(stderr, extra[0]) {
+			t.Errorf("read %s stderr = %q, want it to name %s",
+				strings.Join(args, " "), stderr, extra[0])
+		}
+	}
+
+	if got := runChat(t, cfg, "tok-ana", "read"); !strings.Contains(got, chatMailLine) {
+		t.Errorf("read after the refusals = %q, want the mail still unread", got)
+	}
+}
+
 // No daemon to ask: the read fails, and says why on stderr alone. The plugin
 // tells a failed read from an empty one by the exit status, so a chat nobody
 // is hosting never passes for a turn with nothing waiting, and the hint never

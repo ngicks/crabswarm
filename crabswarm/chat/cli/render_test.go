@@ -152,6 +152,26 @@ func TestRenderRead_EmptyWithRemainingUnread(t *testing.T) {
 	assert.Equal(t, got, "no pending messages\n2 more unread\n")
 }
 
+// A skip looked at nothing, so it reports only what is left, and says so when
+// nothing is.
+func TestRenderSkipped(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		remaining int32
+		want      string
+	}{
+		{"mentions left", 2, "2 more unread\n"},
+		{"nothing left", 0, "no more unread\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := render(t, func(b *strings.Builder) error {
+				return RenderSkipped(b, &chatv1.ReadResponse{RemainingUnread: tc.remaining})
+			})
+			assert.Equal(t, got, tc.want)
+		})
+	}
+}
+
 // A message with no stamp still fills the field, in one word: a reader cutting
 // the line on spaces would otherwise find the sender where the time should be.
 func TestRenderRead_MissingTimestamp(t *testing.T) {

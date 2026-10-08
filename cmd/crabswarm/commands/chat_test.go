@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -115,6 +116,46 @@ func TestChatCmd_TokenFlagOutranksEnv(t *testing.T) {
 	assert.ErrorIs(t, err, chatcli.ErrDaemonUnreachable)
 }
 
+// --skip shows no messages, so a flag that shapes or follows up a shown read is
+// refused beside it, and the refusal comes before the daemon is dialed: the
+// socket here is absent, so getting as far as dialing would fail differently.
+func TestChatRead_SkipRefusesTheReadFlags(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--cursor", "tail"},
+		// Explicitly set to its default is still set.
+		{"--cursor", "unread"},
+		{"--range", "5"},
+		{"--to", "everyone"},
+		{"--since", "1"},
+		{"--until", "9"},
+		{"--done-when-empty"},
+	} {
+		t.Run(strings.Join(extra, " "), func(t *testing.T) {
+			chatHermeticEnv(t)
+			t.Setenv(chatcli.TokenEnvVar, "tok-a")
+
+			args := append([]string{
+				"read", "--skip", "3", "--sock", t.TempDir() + "/absent.sock",
+			}, extra...)
+			stdout, _, err := runChatCmd(t, args...)
+			assert.ErrorContains(t, err, extra[0])
+			assert.Assert(t, !errors.Is(err, chatcli.ErrDaemonUnreachable))
+			assert.Equal(t, stdout, "")
+		})
+	}
+}
+
+// --skip 0 is no skip at all, so the read flags beside it make a plain read,
+// which gets as far as dialing the absent daemon.
+func TestChatRead_SkipZeroIsAPlainRead(t *testing.T) {
+	chatHermeticEnv(t)
+	t.Setenv(chatcli.TokenEnvVar, "tok-a")
+
+	_, _, err := runChatCmd(t, "read", "--skip", "0", "--cursor", "tail",
+		"--sock", t.TempDir()+"/absent.sock")
+	assert.ErrorIs(t, err, chatcli.ErrDaemonUnreachable)
+}
+
 // The admin verbs are gated by the age identity file, not by a token, so they
 // fail on a missing --identity even when a perfectly good token is exported.
 func TestChatAdminVerbs_RequireAnIdentity(t *testing.T) {
@@ -161,6 +202,7 @@ func TestChatCmd_ArgumentShapes(t *testing.T) {
 		{"read takes no arguments", []string{"read", "extra"}},
 		{"read rejects an unknown cursor", []string{"read", "--cursor", "newest"}},
 		{"read rejects a malformed --to", []string{"read", "--to", "backend/"}},
+		{"read rejects a negative --skip", []string{"read", "--skip", "-1"}},
 		{"admin send needs three arguments", []string{"admin", "send", "/work", "backend/alice"}},
 		{"admin log needs a room", []string{"admin", "log"}},
 		{"admin log takes no second argument", []string{"admin", "log", "/work", "extra"}},
