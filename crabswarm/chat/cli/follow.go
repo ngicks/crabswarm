@@ -137,9 +137,11 @@ const statusReconnecting = "reconnecting to the daemon"
 //
 // and a message writes the message's protojson, field names as in the schema,
 // with "type" set to "message", "message" to "<sender>: <text>", and "inject"
-// and "mentioned_you" both to whether the message is for the follower. "seq" is
-// a JSON number rather than the string the proto JSON mapping makes of an
-// int64: a reader compares it and hands it back to `chat read --skip`.
+// and "mentioned_you" both to whether the message is for the follower. The
+// sender is its [Address]: team/name, or the name alone for a sender with no
+// team, such as the operator. "seq" is a JSON number rather than the string
+// the proto JSON mapping makes of an int64: a reader compares it and hands it
+// back to `chat read --skip`.
 //
 // A stream lost to Unavailable, ResourceExhausted or an end the daemon gave
 // while ctx is alive is followed again after a pause that starts at a second

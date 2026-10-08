@@ -30,7 +30,8 @@ service ChatService {
   // Read returns messages of the caller's room from a cursor and moves the
   // caller's read position to the newest one shown. By default the first
   // ten unread mentions. A skip read shows nothing and moves the read
-  // position to the seq it names.
+  // position through the seq it names, stopping at the room's newest seq and
+  // never moving it backward.
   rpc Read(ReadRequest) returns (ReadResponse);
   // CountUnread reports how many unread messages mention the caller. It
   // moves nothing; the caller asks before it wakes its agent.
@@ -310,8 +311,14 @@ message ReadRequest {
   // shows, whichever cursor and filter were used.
   ReadFilter filter = 1;
   // Skip, when non-zero, moves the caller's read position through this seq
-  // inclusive and returns no messages. A filter set beside it is refused with
-  // InvalidArgument.
+  // inclusive and returns no messages. A seq past the room's newest moves the
+  // position to the newest, and a seq at or before the position moves
+  // nothing: the position never moves backward. A negative skip names no
+  // message and is refused with InvalidArgument.
+  //
+  // An empty filter beside a skip is accepted, since it narrows nothing. A
+  // filter with any field set asks for messages the skip does not show and is
+  // refused with InvalidArgument.
   int64 skip = 2;
 }
 

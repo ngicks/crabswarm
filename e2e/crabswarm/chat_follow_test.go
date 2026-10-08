@@ -308,9 +308,38 @@ func TestChatFollow_FollowsARoomDeletedUnderIt(t *testing.T) {
 	}
 }
 
+// sendWhileUnreachable sends text to everyone in chatRoom through a second
+// daemon that shares cfgPath's database but listens on a socket of its own,
+// then stops that daemon. A follower dialing cfgPath's socket cannot reach it,
+// so the message can reach the follower only later, replayed by the resume
+// after the last seq the follower saw.
+func sendWhileUnreachable(t *testing.T, cfgPath, identity, text string) {
+	t.Helper()
+	raw, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("read the daemon config: %v", err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("decode the daemon config: %v", err)
+	}
+	other := filepath.Join(t.TempDir(), "config.json")
+	cfg["sock"] = chatSock(other)
+	moved, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("encode the second daemon config: %v", err)
+	}
+	writeFile(t, other, string(moved))
+
+	serve := startChatServe(t, other)
+	runChat(t, other, "", "admin", "send", chatRoom, "everyone", text, "--identity", identity)
+	stopProcess(t, serve)
+}
+
 // A follow outlives a daemon restart: it says it is reconnecting, follows the
 // room again once the daemon is back, and prints every message once — the
-// ones sent while it was waiting to reconnect included.
+// ones sent while it could not reach any daemon included, which only the
+// resume after the last seq it printed can bring it.
 func TestChatFollow_ReconnectsAcrossADaemonRestart(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := writeChatConfig(t, 0, defaultStubCommands(), recipient)
@@ -327,8 +356,8 @@ func TestChatFollow_ReconnectsAcrossADaemonRestart(t *testing.T) {
 
 	stopProcess(t, serve)
 	f.expectStatus(t, "reconnecting to the daemon")
+	sendWhileUnreachable(t, cfg, identity, "while the follow was away")
 	startChatServe(t, cfg)
-	send("while the follow was away")
 
 	f.expectStatus(t, "following "+chatRoom)
 	away := f.expectMessage(t, "admin: while the follow was away", true)
@@ -345,7 +374,7 @@ func TestChatFollow_ReconnectsAcrossADaemonRestart(t *testing.T) {
 
 // A follow of a room nothing had been said in when it opened has no message to
 // resume after. It resumes after the seq the room stood at, zero, and so still
-// prints the message sent while it was waiting to reconnect, once.
+// prints the message sent while it could not reach any daemon, once.
 func TestChatFollow_ReconnectsAcrossADaemonRestartFromAnEmptyRoom(t *testing.T) {
 	identity, recipient := newChatIdentityFile(t)
 	cfg := writeChatConfig(t, 0, defaultStubCommands(), recipient)
@@ -360,8 +389,8 @@ func TestChatFollow_ReconnectsAcrossADaemonRestartFromAnEmptyRoom(t *testing.T) 
 
 	stopProcess(t, serve)
 	f.expectStatus(t, "reconnecting to the daemon")
+	sendWhileUnreachable(t, cfg, identity, "while the follow was away")
 	startChatServe(t, cfg)
-	send("while the follow was away")
 
 	f.expectStatus(t, "following "+chatRoom)
 	away := f.expectMessage(t, "admin: while the follow was away", true)

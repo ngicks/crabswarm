@@ -56,7 +56,8 @@ type ChatServiceClient interface {
 	// Read returns messages of the caller's room from a cursor and moves the
 	// caller's read position to the newest one shown. By default the first
 	// ten unread mentions. A skip read shows nothing and moves the read
-	// position to the seq it names.
+	// position through the seq it names, stopping at the room's newest seq and
+	// never moving it backward.
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
 	// CountUnread reports how many unread messages mention the caller. It
 	// moves nothing; the caller asks before it wakes its agent.
@@ -205,7 +206,8 @@ type ChatServiceServer interface {
 	// Read returns messages of the caller's room from a cursor and moves the
 	// caller's read position to the newest one shown. By default the first
 	// ten unread mentions. A skip read shows nothing and moves the read
-	// position to the seq it names.
+	// position through the seq it names, stopping at the room's newest seq and
+	// never moving it backward.
 	Read(context.Context, *ReadRequest) (*ReadResponse, error)
 	// CountUnread reports how many unread messages mention the caller. It
 	// moves nothing; the caller asks before it wakes its agent.

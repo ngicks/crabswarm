@@ -1127,8 +1127,14 @@ type ReadRequest struct {
 	// shows, whichever cursor and filter were used.
 	Filter *ReadFilter `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Skip, when non-zero, moves the caller's read position through this seq
-	// inclusive and returns no messages. A filter set beside it is refused with
-	// InvalidArgument.
+	// inclusive and returns no messages. A seq past the room's newest moves the
+	// position to the newest, and a seq at or before the position moves
+	// nothing: the position never moves backward. A negative skip names no
+	// message and is refused with InvalidArgument.
+	//
+	// An empty filter beside a skip is accepted, since it narrows nothing. A
+	// filter with any field set asks for messages the skip does not show and is
+	// refused with InvalidArgument.
 	Skip          int64 `protobuf:"varint,2,opt,name=skip,proto3" json:"skip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

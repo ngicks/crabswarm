@@ -29,14 +29,17 @@ ending in a newline and flushed as soon as it is written. stderr is free-form
 logging and carries no part of the protocol. Every line has a "type":
 
   {"type":"status","message":"following <room>"}
-      The stream opened on <room>.
+      The stream opened on <room>, or <room> started its numbering over under
+      the open stream.
   {"type":"status","message":"reconnecting to the daemon"}
       The stream was lost. It is written once per outage, however many attempts
       the outage takes, and the next "following" line ends it.
-  {"type":"message","message":"<team>/<name>: <text>","inject":true,...}
-      A message. "message" is the line to show, "inject" whether the message is
-      for the follower: it names the follower or everyone, and the follower did
-      not send it. The rest is the message as the schema names it: "id", "seq"
+  {"type":"message","message":"<sender>: <text>","inject":true,...}
+      A message. "message" is the line to show. <sender> is the sender's
+      address: <team>/<name>, or the name alone for a sender with no team, as
+      the operator's "admin". "inject" says whether the message is for the
+      follower: it names the follower or everyone, and the follower did not
+      send it. The rest is the message as the schema names it: "id", "seq"
       (a number), "from", "target", "text", "sent_at", and "mentioned_you",
       which repeats "inject".
 
@@ -48,6 +51,11 @@ A stream lost to the daemon going away is opened again after a pause that
 starts at a second and doubles up to thirty, and it resumes after the last
 message printed, so every message is printed once. A refused token or identity
 ends the command with the refusal.
+
+A room deleted while it is followed, or a daemon started on a new database,
+numbers its messages from one again. The follow then prints another
+"following" line, with no "reconnecting" line before it when the stream stayed
+open, and prints the restarted room's messages from there.
 
 A reader that shows a message to its agent can mark it read with
 ` + "`chat read --skip SEQ`" + `. The read position is one sequence number per room,

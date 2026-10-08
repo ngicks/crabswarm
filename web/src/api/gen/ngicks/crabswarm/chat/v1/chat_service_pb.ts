@@ -465,8 +465,14 @@ export type ReadRequest = Message$1<"ngicks.crabswarm.chat.v1.ReadRequest"> & {
 
   /**
    * Skip, when non-zero, moves the caller's read position through this seq
-   * inclusive and returns no messages. A filter set beside it is refused with
-   * InvalidArgument.
+   * inclusive and returns no messages. A seq past the room's newest moves the
+   * position to the newest, and a seq at or before the position moves
+   * nothing: the position never moves backward. A negative skip names no
+   * message and is refused with InvalidArgument.
+   *
+   * An empty filter beside a skip is accepted, since it narrows nothing. A
+   * filter with any field set asks for messages the skip does not show and is
+   * refused with InvalidArgument.
    *
    * @generated from field: int64 skip = 2;
    */
@@ -1361,7 +1367,8 @@ export const ChatService: GenService<{
    * Read returns messages of the caller's room from a cursor and moves the
    * caller's read position to the newest one shown. By default the first
    * ten unread mentions. A skip read shows nothing and moves the read
-   * position to the seq it names.
+   * position through the seq it names, stopping at the room's newest seq and
+   * never moving it backward.
    *
    * @generated from rpc ngicks.crabswarm.chat.v1.ChatService.Read
    */
