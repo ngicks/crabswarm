@@ -1,0 +1,47 @@
+{
+  "name": "handle-events",
+  "version": "0.1.0",
+  "description": "Follows a command that prints events as JSON lines, shows status events on the status line, and injects flagged messages as a prompt between turns.",
+  "author": {
+    "name": "ngicks"
+  },
+  "license": "Unlicense",
+  "repository": "https://github.com/ngicks/crabswarm",
+  "skills": ["./"],
+  "userConfig": {
+    "source": {
+      "type": "string",
+      "multiple": true,
+      "title": "Source command",
+      "description": "The command and its arguments, one per item, run for the whole session. It prints one JSON record per line and is restarted when it exits. Empty turns the mod off.",
+      "default": ["crabswarm", "chat", "follow"]
+    },
+    "mapper": {
+      "type": "string",
+      "multiple": true,
+      "title": "Mapper command",
+      "description": "The command and its arguments, one per item, run once per source line with the line on its standard input. Each non-empty line it prints is a record; a non-zero exit drops the line. Empty reads the source lines as records.",
+      "default": []
+    },
+    "prefix": {
+      "type": "string",
+      "title": "Prompt prefix",
+      "description": "The text put before each injected message, separated by a space. Empty puts nothing.",
+      "default": "[crabswarm chat]"
+    },
+    "ack": {
+      "type": "string",
+      "multiple": true,
+      "title": "Ack command",
+      "description": "The command and its arguments, one per item, run once per injected record after the prompt entered. An item written {name} is replaced by the record's field name. Empty acks nothing.",
+      "default": ["crabswarm", "chat", "read", "--skip", "{seq}"]
+    },
+    "requireEnv": {
+      "type": "string",
+      "multiple": true,
+      "title": "Required environment",
+      "description": "Variable names. The mod runs only when the session's environment sets at least one of them. Empty always runs.",
+      "default": ["CRABSWARM_CHAT_TOKEN", "CMDMAN_CMD_ID"]
+    }
+  }
+}
