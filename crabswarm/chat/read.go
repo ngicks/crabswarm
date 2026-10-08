@@ -296,18 +296,39 @@ func mentions(m Message, role Sender, position int64) bool {
 	if m.Seq <= position {
 		return false
 	}
-	if m.From.Team == role.Team && m.From.Name == role.Name {
+	return addressedTo(m.From, m.Target, role)
+}
+
+// addressedTo reports whether a message from from, written to target, is for
+// role: addressed to it or to everyone, and not sent by it. It is [mentions]
+// with no read position, for a follower, which moves none.
+func addressedTo(from Sender, target Target, role Sender) bool {
+	if from.Team == role.Team && from.Name == role.Name {
 		return false
 	}
-	switch m.Target.Kind {
+	switch target.Kind {
 	case TargetEveryone:
 		return true
 	case TargetRoles:
-		for _, r := range m.Target.Roles {
+		for _, r := range target.Roles {
 			if r.Team == role.Team && r.Name == role.Name {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// newestSeq reports the newest seq room has handed out. A room nothing has been
+// said in has none, and neither does one that does not exist yet, which is zero
+// for both: a follower may well open its stream before anybody arrives.
+func (s *Store) newestSeq(ctx context.Context, room string) (int64, error) {
+	last, err := s.q.RoomLastSeq(ctx, room)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("reading the newest seq of room %q: %w", room, err)
+	}
+	return last, nil
 }
