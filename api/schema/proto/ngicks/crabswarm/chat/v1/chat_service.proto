@@ -29,7 +29,8 @@ service ChatService {
   rpc Send(SendRequest) returns (SendResponse);
   // Read returns messages of the caller's room from a cursor and moves the
   // caller's read position to the newest one shown. By default the first
-  // ten unread mentions.
+  // ten unread mentions. A skip read shows nothing and moves the read
+  // position to the seq it names.
   rpc Read(ReadRequest) returns (ReadResponse);
   // CountUnread reports how many unread messages mention the caller. It
   // moves nothing; the caller asks before it wakes its agent.
@@ -40,12 +41,22 @@ service ChatService {
   // driven by harness hooks and gates keystroke-injection nudges, which are
   // only safe to deliver while the harness is idle.
   rpc ReportState(ReportStateRequest) returns (ReportStateResponse);
+  // Follow streams the caller's room. The first event is Followed; then
+  // come the messages past since when since is set, and from then on each
+  // message as it is appended. Following is not attendance: it puts nobody
+  // in the room, and it moves no read position.
+  //
+  // The stream element is shared with the admin Follow, so it is named for
+  // what it is rather than for either RPC.
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+  rpc Follow(FollowRequest) returns (stream FollowEvent);
 }
 
 // ChatAdminService carries the host-side operations that participants must not
-// be able to perform: inspecting every room, sending into any room without
-// attending it, deleting rooms, and minting tokens for humans who have no
-// provider entry.
+// be able to perform: inspecting and following every room, sending into any
+// room without attending it, deleting rooms, and minting tokens for humans who
+// have no provider entry.
 //
 // Access is proven per call by a credential the caller sends as the standard
 // "authorization: Bearer <credential>" metadata, never as a request field, so a
@@ -77,6 +88,11 @@ service ChatAdminService {
   // DeleteRoom deletes a room's messages and read positions. Refused with
   // FailedPrecondition while somebody attends it.
   rpc DeleteRoom(DeleteRoomRequest) returns (DeleteRoomResponse);
+  // Follow streams a named room the way the member Follow streams the
+  // caller's own, without the caller attending it.
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+  rpc Follow(AdminFollowRequest) returns (stream FollowEvent);
 }
 
 // HarnessState is the state of the CLI harness a member runs under, as
@@ -291,6 +307,10 @@ message ReadRequest {
   // A member read moves the caller's read position to the newest message it
   // shows, whichever cursor and filter were used.
   ReadFilter filter = 1;
+  // Skip, when non-zero, moves the caller's read position through this seq
+  // inclusive and returns no messages. A filter set beside it is refused with
+  // InvalidArgument.
+  int64 skip = 2;
 }
 
 message ReadResponse {
@@ -321,6 +341,33 @@ message ReportStateRequest {
 }
 
 message ReportStateResponse {}
+
+message FollowRequest {
+  // Since is the seq to resume after, exclusive. Zero starts live: the
+  // stream carries only messages appended after it opened.
+  int64 since = 1;
+}
+
+// FollowEvent is a single notification on a Follow stream.
+message FollowEvent {
+  oneof event {
+    Followed followed = 1;
+    Message message = 2;
+  }
+  // MentionedYou is set on a message that targets the follower or everyone
+  // and was not sent by it. It ignores the read position, which following
+  // does not move. Always false on an admin stream, which follows as nobody.
+  bool mentioned_you = 3;
+}
+
+// Followed is the first event of a Follow stream.
+message Followed {
+  // Room is the room being followed.
+  string room = 1;
+  // LastSeq is the room's newest seq when the stream opened, zero for a room
+  // with no messages.
+  int64 last_seq = 2;
+}
 
 // MemberStateChanged signals that a member reported a new harness state.
 message MemberStateChanged {
@@ -416,6 +463,13 @@ message AdminHistoryRequest {
 message AdminHistoryResponse {
   repeated Message messages = 2;
   reserved 1;
+}
+
+message AdminFollowRequest {
+  // Room is the room to follow.
+  string room = 1;
+  // Since is the seq to resume after, as on FollowRequest.
+  int64 since = 2;
 }
 
 message DeleteRoomRequest {

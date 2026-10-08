@@ -47,6 +47,8 @@ const (
 	ChatServiceListMembersProcedure = "/ngicks.crabswarm.chat.v1.ChatService/ListMembers"
 	// ChatServiceReportStateProcedure is the fully-qualified name of the ChatService's ReportState RPC.
 	ChatServiceReportStateProcedure = "/ngicks.crabswarm.chat.v1.ChatService/ReportState"
+	// ChatServiceFollowProcedure is the fully-qualified name of the ChatService's Follow RPC.
+	ChatServiceFollowProcedure = "/ngicks.crabswarm.chat.v1.ChatService/Follow"
 	// ChatAdminServiceGetNonceProcedure is the fully-qualified name of the ChatAdminService's GetNonce
 	// RPC.
 	ChatAdminServiceGetNonceProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/GetNonce"
@@ -64,6 +66,8 @@ const (
 	// ChatAdminServiceDeleteRoomProcedure is the fully-qualified name of the ChatAdminService's
 	// DeleteRoom RPC.
 	ChatAdminServiceDeleteRoomProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/DeleteRoom"
+	// ChatAdminServiceFollowProcedure is the fully-qualified name of the ChatAdminService's Follow RPC.
+	ChatAdminServiceFollowProcedure = "/ngicks.crabswarm.chat.v1.ChatAdminService/Follow"
 )
 
 // ChatServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatService service.
@@ -84,7 +88,8 @@ type ChatServiceClient interface {
 	Send(context.Context, *connect.Request[v1.SendRequest]) (*connect.Response[v1.SendResponse], error)
 	// Read returns messages of the caller's room from a cursor and moves the
 	// caller's read position to the newest one shown. By default the first
-	// ten unread mentions.
+	// ten unread mentions. A skip read shows nothing and moves the read
+	// position to the seq it names.
 	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
 	// CountUnread reports how many unread messages mention the caller. It
 	// moves nothing; the caller asks before it wakes its agent.
@@ -95,6 +100,16 @@ type ChatServiceClient interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
+	// Follow streams the caller's room. The first event is Followed; then
+	// come the messages past since when since is set, and from then on each
+	// message as it is appended. Following is not attendance: it puts nobody
+	// in the room, and it moves no read position.
+	//
+	// The stream element is shared with the admin Follow, so it is named for
+	// what it is rather than for either RPC.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(context.Context, *connect.Request[v1.FollowRequest]) (*connect.ServerStreamForClient[v1.FollowEvent], error)
 }
 
 // NewChatServiceClient constructs a client for the ngicks.crabswarm.chat.v1.ChatService service. By
@@ -144,6 +159,12 @@ func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(chatServiceMethods.ByName("ReportState")),
 			connect.WithClientOptions(opts...),
 		),
+		follow: connect.NewClient[v1.FollowRequest, v1.FollowEvent](
+			httpClient,
+			baseURL+ChatServiceFollowProcedure,
+			connect.WithSchema(chatServiceMethods.ByName("Follow")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -155,6 +176,7 @@ type chatServiceClient struct {
 	countUnread *connect.Client[v1.CountUnreadRequest, v1.CountUnreadResponse]
 	listMembers *connect.Client[v1.ListMembersRequest, v1.ListMembersResponse]
 	reportState *connect.Client[v1.ReportStateRequest, v1.ReportStateResponse]
+	follow      *connect.Client[v1.FollowRequest, v1.FollowEvent]
 }
 
 // Attend calls ngicks.crabswarm.chat.v1.ChatService.Attend.
@@ -187,6 +209,11 @@ func (c *chatServiceClient) ReportState(ctx context.Context, req *connect.Reques
 	return c.reportState.CallUnary(ctx, req)
 }
 
+// Follow calls ngicks.crabswarm.chat.v1.ChatService.Follow.
+func (c *chatServiceClient) Follow(ctx context.Context, req *connect.Request[v1.FollowRequest]) (*connect.ServerStreamForClient[v1.FollowEvent], error) {
+	return c.follow.CallServerStream(ctx, req)
+}
+
 // ChatServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatService service.
 type ChatServiceHandler interface {
 	// Attend declares attendance and holds it for as long as the stream is
@@ -205,7 +232,8 @@ type ChatServiceHandler interface {
 	Send(context.Context, *connect.Request[v1.SendRequest]) (*connect.Response[v1.SendResponse], error)
 	// Read returns messages of the caller's room from a cursor and moves the
 	// caller's read position to the newest one shown. By default the first
-	// ten unread mentions.
+	// ten unread mentions. A skip read shows nothing and moves the read
+	// position to the seq it names.
 	Read(context.Context, *connect.Request[v1.ReadRequest]) (*connect.Response[v1.ReadResponse], error)
 	// CountUnread reports how many unread messages mention the caller. It
 	// moves nothing; the caller asks before it wakes its agent.
@@ -216,6 +244,16 @@ type ChatServiceHandler interface {
 	// driven by harness hooks and gates keystroke-injection nudges, which are
 	// only safe to deliver while the harness is idle.
 	ReportState(context.Context, *connect.Request[v1.ReportStateRequest]) (*connect.Response[v1.ReportStateResponse], error)
+	// Follow streams the caller's room. The first event is Followed; then
+	// come the messages past since when since is set, and from then on each
+	// message as it is appended. Following is not attendance: it puts nobody
+	// in the room, and it moves no read position.
+	//
+	// The stream element is shared with the admin Follow, so it is named for
+	// what it is rather than for either RPC.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(context.Context, *connect.Request[v1.FollowRequest], *connect.ServerStream[v1.FollowEvent]) error
 }
 
 // NewChatServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -261,6 +299,12 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(chatServiceMethods.ByName("ReportState")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatServiceFollowHandler := connect.NewServerStreamHandler(
+		ChatServiceFollowProcedure,
+		svc.Follow,
+		connect.WithSchema(chatServiceMethods.ByName("Follow")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ngicks.crabswarm.chat.v1.ChatService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChatServiceAttendProcedure:
@@ -275,6 +319,8 @@ func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption
 			chatServiceListMembersHandler.ServeHTTP(w, r)
 		case ChatServiceReportStateProcedure:
 			chatServiceReportStateHandler.ServeHTTP(w, r)
+		case ChatServiceFollowProcedure:
+			chatServiceFollowHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -308,6 +354,10 @@ func (UnimplementedChatServiceHandler) ReportState(context.Context, *connect.Req
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.ReportState is not implemented"))
 }
 
+func (UnimplementedChatServiceHandler) Follow(context.Context, *connect.Request[v1.FollowRequest], *connect.ServerStream[v1.FollowEvent]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatService.Follow is not implemented"))
+}
+
 // ChatAdminServiceClient is a client for the ngicks.crabswarm.chat.v1.ChatAdminService service.
 type ChatAdminServiceClient interface {
 	// GetNonce issues a challenge for the caller to answer, when the daemon
@@ -328,6 +378,11 @@ type ChatAdminServiceClient interface {
 	// DeleteRoom deletes a room's messages and read positions. Refused with
 	// FailedPrecondition while somebody attends it.
 	DeleteRoom(context.Context, *connect.Request[v1.DeleteRoomRequest]) (*connect.Response[v1.DeleteRoomResponse], error)
+	// Follow streams a named room the way the member Follow streams the
+	// caller's own, without the caller attending it.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(context.Context, *connect.Request[v1.AdminFollowRequest]) (*connect.ServerStreamForClient[v1.FollowEvent], error)
 }
 
 // NewChatAdminServiceClient constructs a client for the ngicks.crabswarm.chat.v1.ChatAdminService
@@ -377,6 +432,12 @@ func NewChatAdminServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(chatAdminServiceMethods.ByName("DeleteRoom")),
 			connect.WithClientOptions(opts...),
 		),
+		follow: connect.NewClient[v1.AdminFollowRequest, v1.FollowEvent](
+			httpClient,
+			baseURL+ChatAdminServiceFollowProcedure,
+			connect.WithSchema(chatAdminServiceMethods.ByName("Follow")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -388,6 +449,7 @@ type chatAdminServiceClient struct {
 	send           *connect.Client[v1.AdminSendRequest, v1.AdminSendResponse]
 	history        *connect.Client[v1.AdminHistoryRequest, v1.AdminHistoryResponse]
 	deleteRoom     *connect.Client[v1.DeleteRoomRequest, v1.DeleteRoomResponse]
+	follow         *connect.Client[v1.AdminFollowRequest, v1.FollowEvent]
 }
 
 // GetNonce calls ngicks.crabswarm.chat.v1.ChatAdminService.GetNonce.
@@ -420,6 +482,11 @@ func (c *chatAdminServiceClient) DeleteRoom(ctx context.Context, req *connect.Re
 	return c.deleteRoom.CallUnary(ctx, req)
 }
 
+// Follow calls ngicks.crabswarm.chat.v1.ChatAdminService.Follow.
+func (c *chatAdminServiceClient) Follow(ctx context.Context, req *connect.Request[v1.AdminFollowRequest]) (*connect.ServerStreamForClient[v1.FollowEvent], error) {
+	return c.follow.CallServerStream(ctx, req)
+}
+
 // ChatAdminServiceHandler is an implementation of the ngicks.crabswarm.chat.v1.ChatAdminService
 // service.
 type ChatAdminServiceHandler interface {
@@ -441,6 +508,11 @@ type ChatAdminServiceHandler interface {
 	// DeleteRoom deletes a room's messages and read positions. Refused with
 	// FailedPrecondition while somebody attends it.
 	DeleteRoom(context.Context, *connect.Request[v1.DeleteRoomRequest]) (*connect.Response[v1.DeleteRoomResponse], error)
+	// Follow streams a named room the way the member Follow streams the
+	// caller's own, without the caller attending it.
+	// buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+	// buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
+	Follow(context.Context, *connect.Request[v1.AdminFollowRequest], *connect.ServerStream[v1.FollowEvent]) error
 }
 
 // NewChatAdminServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -486,6 +558,12 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 		connect.WithSchema(chatAdminServiceMethods.ByName("DeleteRoom")),
 		connect.WithHandlerOptions(opts...),
 	)
+	chatAdminServiceFollowHandler := connect.NewServerStreamHandler(
+		ChatAdminServiceFollowProcedure,
+		svc.Follow,
+		connect.WithSchema(chatAdminServiceMethods.ByName("Follow")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ngicks.crabswarm.chat.v1.ChatAdminService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChatAdminServiceGetNonceProcedure:
@@ -500,6 +578,8 @@ func NewChatAdminServiceHandler(svc ChatAdminServiceHandler, opts ...connect.Han
 			chatAdminServiceHistoryHandler.ServeHTTP(w, r)
 		case ChatAdminServiceDeleteRoomProcedure:
 			chatAdminServiceDeleteRoomHandler.ServeHTTP(w, r)
+		case ChatAdminServiceFollowProcedure:
+			chatAdminServiceFollowHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -531,4 +611,8 @@ func (UnimplementedChatAdminServiceHandler) History(context.Context, *connect.Re
 
 func (UnimplementedChatAdminServiceHandler) DeleteRoom(context.Context, *connect.Request[v1.DeleteRoomRequest]) (*connect.Response[v1.DeleteRoomResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.DeleteRoom is not implemented"))
+}
+
+func (UnimplementedChatAdminServiceHandler) Follow(context.Context, *connect.Request[v1.AdminFollowRequest], *connect.ServerStream[v1.FollowEvent]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("ngicks.crabswarm.chat.v1.ChatAdminService.Follow is not implemented"))
 }
