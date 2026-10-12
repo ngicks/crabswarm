@@ -37,6 +37,12 @@ func tokenKey(server string) string {
 	return "mcp_servers." + server + ".http_headers." + mcp.TokenHeader
 }
 
+// nudgeKey is [tokenKey] for the header that declares how a mention wakes the
+// member.
+func nudgeKey(server string) string {
+	return "mcp_servers." + server + ".http_headers." + mcp.NudgeHeader
+}
+
 // threadRequest is the method of msg when it is one of the thread requests,
 // and "" for anything else, JSON or not.
 func threadRequest(msg []byte) string {

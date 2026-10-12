@@ -38,6 +38,10 @@ type Config struct {
 	// Token is the identity token to stamp, resolved with [cli.ResolveToken]:
 	// empty falls back to $CRABSWARM_CHAT_TOKEN, then $CMDMAN_CMD_ID.
 	Token string
+	// Nudge is how a mention wakes this TUI's member, stamped beside the token
+	// as the [mcp.NudgeHeader] of every thread: "terminal", "native" or "none".
+	// Empty stamps nothing, which leaves it to the harness.
+	Nudge string
 	// Argv is the TUI command line. It names the app server with
 	// `--remote unix://PATH` or `--remote=unix://PATH`.
 	Argv []string
@@ -94,6 +98,12 @@ func Run(ctx context.Context, logger *slog.Logger, cfg Config) error {
 	if err != nil {
 		return err
 	}
+	// Checked here rather than left to the MCP server: a value it refuses would
+	// leave every thread acting as nobody, and only the server's log would say
+	// why.
+	if _, err := mcp.ParseNudge(cfg.Nudge); err != nil {
+		return fmt.Errorf("nudge: %w", err)
+	}
 	upstream, err := unixSocketPath(remote.addr)
 	if err != nil {
 		return err
@@ -109,6 +119,7 @@ func Run(ctx context.Context, logger *slog.Logger, cfg Config) error {
 		logger.Warn("codex proxy: threads start without a chat identity", "err", err)
 	} else {
 		r.token = token
+		r.nudge = cfg.Nudge
 	}
 
 	if cfg.ReadyTimeout > 0 {

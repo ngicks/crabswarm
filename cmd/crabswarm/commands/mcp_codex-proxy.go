@@ -13,6 +13,7 @@ import (
 func mcpCodexProxyCmd(parent *cobra.Command, flagConfig *string) {
 	var (
 		flagToken        string
+		flagNudge        string
 		flagServerName   string
 		flagReadyTimeout time.Duration
 	)
@@ -31,6 +32,11 @@ with two exceptions. A thread/start, thread/resume or thread/fork request gets
 the identity token as the per-thread config key
 mcp_servers.<server-name>.http_headers.X-Crabswarm-Token, which is the header
 the thread's "crabswarm mcp --transport http" session names its member with.
+With --nudge the same request also gets the key
+mcp_servers.<server-name>.http_headers.X-Crabswarm-Nudge, which declares how a
+mention wakes that member: "terminal" has the daemon type into this TUI,
+"native" has the MCP server deliver through the app server, and "none" wakes
+it by neither. Without --nudge the member is native.
 After a thread/resume the proxy also calls the server's crabswarm_focus tool on
 the resumed thread, since resuming a thread that is still loaded opens no new
 session, and it keeps the answer to that call from the TUI.
@@ -67,7 +73,7 @@ and above by default.`,
 		ValidArgsFunction: mcpCodexProxyCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runMCPCodexProxy(
-				cmd, args, *flagConfig, flagToken, flagServerName, flagReadyTimeout,
+				cmd, args, *flagConfig, flagToken, flagNudge, flagServerName, flagReadyTimeout,
 			)
 		},
 	}
@@ -75,6 +81,9 @@ and above by default.`,
 	cmd.Flags().StringVar(&flagToken, "token", "",
 		"identity token stamped on every thread (default $CRABSWARM_CHAT_TOKEN, "+
 			"else $CMDMAN_CMD_ID)")
+	cmd.Flags().StringVar(&flagNudge, "nudge", "",
+		"how a mention wakes this TUI's member: terminal, native or none "+
+			"(default: the harness's own, native)")
 	cmd.Flags().StringVar(&flagServerName, "server-name", codexproxy.DefaultServer,
 		"name of the crabswarm MCP server in the app server's mcp_servers config")
 	cmd.Flags().DurationVar(&flagReadyTimeout, "ready-timeout", time.Minute,
@@ -95,7 +104,7 @@ func mcpCodexProxyCompletion(
 }
 
 func runMCPCodexProxy(
-	cmd *cobra.Command, args []string, flagConfig, token, serverName string,
+	cmd *cobra.Command, args []string, flagConfig, token, nudge, serverName string,
 	readyTimeout time.Duration,
 ) error {
 	// A dash anywhere else means the command was written without "--" or mixed
@@ -110,6 +119,7 @@ func runMCPCodexProxy(
 	}
 	return codexproxy.Run(cmd.Context(), commandLogger(cmd), codexproxy.Config{
 		Token:        token,
+		Nudge:        nudge,
 		Argv:         args,
 		Server:       serverName,
 		SockDir:      cfg.MCP.CodexProxySockDir,

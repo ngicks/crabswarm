@@ -311,3 +311,23 @@ func TestListen_ReplacesOnlyASocketNobodyServes(t *testing.T) {
 	_, err = listen(path)
 	assert.ErrorContains(t, err, "serving the proxy socket")
 }
+
+// A nudge the MCP server would refuse is refused before the command runs.
+// Stamped as it is, every thread would act as nobody and only the server's log
+// would say why.
+func TestRun_RefusesAnUnknownNudge(t *testing.T) {
+	t.Setenv("XDG_RUNTIME_DIR", shortDir(t))
+	ran := filepath.Join(shortDir(t), "ran")
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh to run a command with")
+	}
+
+	err = Run(t.Context(), testLogger(t), Config{
+		Nudge: "off",
+		Argv:  []string{sh, "-c", `touch "` + ran + `"`, "sh", "--remote", "unix:///nowhere.sock"},
+	})
+	assert.ErrorContains(t, err, "nudge")
+	_, err = os.Stat(ran)
+	assert.Assert(t, errors.Is(err, fs.ErrNotExist), "the command ran")
+}
