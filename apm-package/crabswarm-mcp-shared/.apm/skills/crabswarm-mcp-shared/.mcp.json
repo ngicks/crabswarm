@@ -4,7 +4,9 @@
       "type": "http",
       "url": "${CRABSWARM_CLAUDE_MCP_SERVER:-http://127.0.0.1:47300/mcp}",
       "headers": {
-        "X-Crabswarm-Token": "${CMDMAN_CMD_ID:-}"
+        "X-Crabswarm-Token": "${CMDMAN_CMD_ID:-}",
+        "X-Crabswarm-Nudge": "${CRABSWARM_NUDGE:-}",
+        "X-Crabswarm-Channel": "${CRABSWARM_CHANNEL:-}"
       }
     }
   }
