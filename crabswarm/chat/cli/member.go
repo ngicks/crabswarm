@@ -43,7 +43,8 @@ type Attendance struct {
 // harness, and an agent that names no delivery is typed at through its
 // terminal. A caller whose own server delivers its mentions says so with
 // [chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE], and the daemon then types
-// nothing at it.
+// nothing at it. A caller that wants no waking at all says
+// [chatv1.NudgeDelivery_NUDGE_DELIVERY_NONE].
 //
 // The stream is lazy: nothing is sent until the first event is waited for, so a
 // refusal — an unknown token, a role already attending — surfaces here rather

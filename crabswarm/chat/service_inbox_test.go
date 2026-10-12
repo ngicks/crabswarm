@@ -131,6 +131,31 @@ func TestService_SendSkipsTheAgentsDeliveringTheirOwnMentions(t *testing.T) {
 	assert.Equal(t, len(read.GetMessages()), 2)
 }
 
+// An agent that declared no waking at all is mentioned and typed at by
+// nothing, for a named role and for the whole room alike. The message waits
+// for it to read, and the roster says why nothing woke it.
+func TestService_SendSkipsTheAgentsThatAskedNotToBeWoken(t *testing.T) {
+	svc, provider, notifier := newTestService(t)
+	agent(t, svc, provider, "tok-a", testRoom, "alpha", "ana")
+	agent(t, svc, provider, "tok-b", testRoom, "alpha", "bob")
+	provider.vouch("tok-q", testRoom, "alpha")
+	quiet := newSession(t, "tok-q")
+	quiet.nudge = chatv1.NudgeDelivery_NUDGE_DELIVERY_NONE
+	quiet = awaitAttended(t, quiet.run(svc, "quinn", chatv1.MemberKind_MEMBER_KIND_AGENT))
+	assert.Equal(t, quiet.self.GetNudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NONE)
+
+	res := sendAs(t, svc, "tok-a", to("bob", "quinn"), "both of you")
+	assert.DeepEqual(t, addresses(res.GetMentioned()), []string{"alpha/bob", "alpha/quinn"})
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob"})
+
+	sendAs(t, svc, "tok-a", everyone(), "deploying")
+	assert.DeepEqual(t, notifier.nudged(), []string{"alpha/bob", "alpha/bob"})
+
+	read, err := svc.Read(callCtx(t, "tok-q"), &chatv1.ReadRequest{})
+	assert.NilError(t, err)
+	assert.Equal(t, len(read.GetMessages()), 2)
+}
+
 // A board post is addressed to nobody: it sits in the room for whoever comes
 // looking, and interrupts no one on the way.
 func TestService_SendPostNudgesNobody(t *testing.T) {

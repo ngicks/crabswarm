@@ -43,4 +43,9 @@ const (
 	// harness's own channel. The daemon records the message, announces it to the
 	// room and types nothing: the server is watching the same feed.
 	NudgeNative NudgeDelivery = "native"
+	// NudgeNone has nothing wake the agent. The daemon types nothing and its
+	// MCP server delivers nothing; the agent finds its mentions when it reads.
+	// It is what an agent declares when something else of its own — a mod
+	// polling between turns — already tells it about the room.
+	NudgeNone NudgeDelivery = "none"
 )

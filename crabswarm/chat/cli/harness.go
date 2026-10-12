@@ -31,8 +31,8 @@ func HarnessName(h chatv1.Harness) string {
 }
 
 // NudgeDeliveryName spells how a mention reaches a member: typed into its
-// terminal by the daemon, or pushed to it by its own server through the
-// harness's notification channel.
+// terminal by the daemon, pushed to it by its own server through the harness's
+// notification channel, or not at all for an agent that declared none.
 //
 // A member with no delivery at all is one nothing is ever pushed to, which is
 // what a human is — they read their room when they choose to.
@@ -42,6 +42,8 @@ func NudgeDeliveryName(n chatv1.NudgeDelivery) string {
 		return "terminal"
 	case chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE:
 		return "native"
+	case chatv1.NudgeDelivery_NUDGE_DELIVERY_NONE:
+		return "none"
 	default:
 		return unnamedValue
 	}
