@@ -290,8 +290,11 @@ func TestMCPPackage_SharedDeclaresTheHTTPServer(t *testing.T) {
 // apm writes the apm.yml declaration nowhere Claude Code reads at user scope,
 // and it carries no header. Each Claude Code replica is a client of its own,
 // so the entry names its member in the token header, where Codex replicas have
-// `codex-proxy` stamp it. The URL defaults to the declared one and gives way to
-// CRABSWARM_CLAUDE_MCP_SERVER for a replica in another network namespace.
+// `codex-proxy` stamp it. It forwards the replica's CRABSWARM_NUDGE and
+// CRABSWARM_CHANNEL as the nudge and channel headers too; either one unset
+// arrives empty, which the server reads as the harness's own default. The URL
+// defaults to the declared one and gives way to CRABSWARM_CLAUDE_MCP_SERVER for
+// a replica in another network namespace.
 func TestMCPPackage_SharedPluginDeclaresTheHTTPServer(t *testing.T) {
 	declared := declaredMCPServer(t, sharedMCPPackage)
 	var file struct {
@@ -316,7 +319,11 @@ func TestMCPPackage_SharedPluginDeclaresTheHTTPServer(t *testing.T) {
 	if want := "${CRABSWARM_CLAUDE_MCP_SERVER:-" + declared.URL + "}"; server.URL != want {
 		t.Errorf("url = %q, want %q", server.URL, want)
 	}
-	want := map[string]string{crabmcp.TokenHeader: "${CMDMAN_CMD_ID:-}"}
+	want := map[string]string{
+		crabmcp.TokenHeader:   "${CMDMAN_CMD_ID:-}",
+		crabmcp.NudgeHeader:   "${CRABSWARM_NUDGE:-}",
+		crabmcp.ChannelHeader: "${CRABSWARM_CHANNEL:-}",
+	}
 	if !maps.Equal(server.Headers, want) {
 		t.Errorf("headers = %v, want %v", server.Headers, want)
 	}
