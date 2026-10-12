@@ -9,12 +9,6 @@ dependencies:
   mcp:
   - name: crabswarm-mcp-shared
     registry: false
-    # The server is not started by the harness: the launcher runs
-    # `crabswarm mcp --transport http --listen <host>:47300` beside the harness
-    # servers, and every replica's session reaches that one process. apm's
-    # Codex adapter accepts a plain http URL only on a loopback host, so the URL
-    # names 127.0.0.1 and the listener has to share the harness servers' network
-    # namespace.
     transport: streamable-http
     url: http://127.0.0.1:47300/mcp
 targets:
