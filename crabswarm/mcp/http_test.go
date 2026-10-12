@@ -301,7 +301,9 @@ func TestHTTPServer_DeliversThroughTheLatestSessionsHarness(t *testing.T) {
 	fake := &fakeChatService{self: self, events: make(chan *chatv1.RoomEvent)}
 	srv := newTestHTTP(t, fake)
 	byClient := map[string]*countingHarness{"first": {}, "second": {}}
-	srv.host.detect = func(client string, _ func(string) string) harnessctl.Harness {
+	srv.host.detect = func(
+		client string, _ func(string) string, _ harnessctl.Options,
+	) harnessctl.Harness {
 		return byClient[client]
 	}
 	endpoint := serveHTTP(t, srv).endpoint

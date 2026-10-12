@@ -11,30 +11,47 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 )
 
-// The Claude Code channel contract, as the official fakechat plugin serves it.
+// The Claude Code channel contracts.
 //
-// A channel is something Claude Code lets push a turn into a running session. A
-// session launched with `--channels plugin:fakechat@claude-plugins-official`
-// runs that plugin's loopback HTTP server beside itself, and everything the
-// server is posted reaches the model as a <channel> element it starts a turn on
-// when it is idle. This process is not the channel; it is only the sender.
+// A channel is something Claude Code lets push a turn into a running session,
+// and a session can be reached through one of two:
+//
+//   - fakechat: a session launched with
+//     `--channels plugin:fakechat@claude-plugins-official` runs that plugin's
+//     loopback HTTP server beside itself, and everything the server is posted
+//     reaches the model as a <channel> element it starts a turn on when it is
+//     idle. This process is not the channel; it is only the sender.
+//   - direct: a session launched with this server itself registered as a
+//     channel listens for [claudeChannelMethod] notifications on the MCP
+//     session it spawned the server on. The server declares
+//     [ClaudeChannelCapability] and pushes the notice down that session.
+//
+// Registration is decided at launch and nothing in the MCP session reports it,
+// so this server cannot tell a registered session from an ordinary one. The
+// launcher declares which channel it registered: in the environment for a
+// server it spawned per session (see [ClaudeChannelFromEnv]), and in a request
+// header for a session of a shared server (see [ParseClaudeChannel]). Without
+// the declaration the notices would go somewhere no model reads and the member
+// would wait on a delivery nobody could make.
 const (
-	// ClaudeChannelEnv is set to "1" by whoever launched Claude Code with the
-	// plugin registered as a channel.
-	//
-	// Registration is decided at launch and nothing in the MCP session reports
-	// it, so this server cannot tell a session carrying the plugin from an
-	// ordinary one. The launcher sets this beside the flag, which makes the
-	// variable the only honest answer available: without it the uploads would
-	// go somewhere no model reads and the member would wait on a delivery
-	// nobody could make.
+	// ClaudeChannelEnv declares the channel of the Claude Code session that
+	// spawned this server: "1" or "fakechat" for the fakechat plugin on
+	// [FakechatPortEnv], "direct" for this server registered as the channel.
 	ClaudeChannelEnv = "CRABSWARM_CLAUDE_CHANNEL"
+
+	// ClaudeChannelCapability is the experimental capability a direct channel
+	// server declares. Declaring it is what makes Claude Code listen.
+	ClaudeChannelCapability = "claude/channel"
+
+	// claudeChannelMethod carries one direct channel event.
+	claudeChannelMethod = "notifications/claude/channel"
 
 	// FakechatPortEnv names the loopback port the plugin's server listens on.
 	// The launcher sets it beside the channel flag and the plugin reads the
@@ -77,28 +94,141 @@ const fakechatTitle = "<title>fakechat</title>"
 // entry carries the pid of the process that spawned this server.
 const ClaudeSessionEnv = "CLAUDE_CODE_SESSION_ID"
 
-// ClaudeChannelEnabled reports whether this process was launched beside a
-// Claude Code session that registered the fakechat plugin as a channel.
-func ClaudeChannelEnabled(getenv func(string) string) bool {
-	return getenv(ClaudeChannelEnv) == "1"
+// ClaudeChannelKind names which channel a Claude Code session registered.
+type ClaudeChannelKind int
+
+const (
+	// ClaudeChannelNone is a session that registered no channel. It is woken
+	// through its terminal.
+	ClaudeChannelNone ClaudeChannelKind = iota
+	// ClaudeChannelFakechat is the fakechat plugin's loopback server.
+	ClaudeChannelFakechat
+	// ClaudeChannelDirect is this server registered as the channel itself.
+	ClaudeChannelDirect
+)
+
+// ClaudeChannel is the channel a Claude Code session registered, and where it
+// listens. Port is set for [ClaudeChannelFakechat] alone.
+type ClaudeChannel struct {
+	Kind ClaudeChannelKind
+	Port string
 }
 
-// newClaudeCode builds the Claude Code harness: the fakechat channel, when this
-// server was launched beside a session that registered the plugin, and the
-// state feed, when the environment names the session to follow. It answers nil
-// when it has neither, and the member is then a terminal one with nothing
-// Claude-specific about it.
+// The spellings of a [ClaudeChannel], shared by [ParseClaudeChannel] and
+// [ClaudeChannelFromEnv].
+const (
+	claudeChannelFakechat = "fakechat"
+	claudeChannelDirect   = "direct"
+	fakechatPortParam     = "port"
+)
+
+// ParseClaudeChannel reads a channel declaration in the form a request header
+// carries it: "direct", or "fakechat;port=N". The empty string is
+// [ClaudeChannelNone].
 //
-// The two halves are independent. The channel needs the launcher's variable,
-// and a session that registered no plugin has to be woken through its
+// The fakechat port is mandatory here, unlike in [ClaudeChannelFromEnv]. The
+// declaration comes from one session among the many a shared server serves,
+// and two sessions defaulting to one port would post each other's notices into
+// whichever session holds it.
+func ParseClaudeChannel(s string) (ClaudeChannel, error) {
+	kind, params, _ := strings.Cut(strings.TrimSpace(s), ";")
+	switch strings.TrimSpace(kind) {
+	case "":
+		if params != "" {
+			return ClaudeChannel{}, fmt.Errorf("channel %q names parameters but no channel", s)
+		}
+		return ClaudeChannel{}, nil
+	case claudeChannelDirect:
+		if strings.TrimSpace(params) != "" {
+			return ClaudeChannel{}, fmt.Errorf("channel %q: direct takes no parameters", s)
+		}
+		return ClaudeChannel{Kind: ClaudeChannelDirect}, nil
+	case claudeChannelFakechat:
+		var port string
+		for param := range strings.SplitSeq(params, ";") {
+			key, value, _ := strings.Cut(param, "=")
+			switch key = strings.TrimSpace(key); key {
+			case "":
+			case fakechatPortParam:
+				port = strings.TrimSpace(value)
+			default:
+				return ClaudeChannel{}, fmt.Errorf("channel %q: unknown parameter %q", s, key)
+			}
+		}
+		if port == "" {
+			return ClaudeChannel{}, fmt.Errorf(
+				"channel %q: fakechat needs the plugin's port, as fakechat;port=N", s)
+		}
+		if err := validPort(port); err != nil {
+			return ClaudeChannel{}, fmt.Errorf("channel %q: %w", s, err)
+		}
+		return ClaudeChannel{Kind: ClaudeChannelFakechat, Port: port}, nil
+	default:
+		return ClaudeChannel{}, fmt.Errorf(
+			"unknown channel %q: want %s or %s;%s=N",
+			s, claudeChannelDirect, claudeChannelFakechat, fakechatPortParam)
+	}
+}
+
+// validPort refuses anything but a TCP port number. The port lands in a URL, and
+// a value that could carry a host or a path would point the channel at
+// something other than the loopback plugin.
+func validPort(port string) error {
+	n, err := strconv.ParseUint(port, 10, 16)
+	if err != nil || n == 0 {
+		return fmt.Errorf("port %q is not a TCP port number", port)
+	}
+	return nil
+}
+
+// ClaudeChannelFromEnv reads the channel the launcher declared in the
+// environment of a server it spawned for one Claude Code session.
+//
+// "1" and "fakechat" name the plugin on [FakechatPortEnv], which defaults to
+// the plugin's own default; "direct" names this server. Anything else set is
+// an error rather than no channel, since a misspelled declaration would leave
+// the member typed at while its launcher believes otherwise.
+func ClaudeChannelFromEnv(getenv func(string) string) (ClaudeChannel, error) {
+	switch v := getenv(ClaudeChannelEnv); v {
+	case "":
+		return ClaudeChannel{}, nil
+	case "1", claudeChannelFakechat:
+		port := getenv(FakechatPortEnv)
+		if port == "" {
+			port = fakechatDefaultPort
+		}
+		if err := validPort(port); err != nil {
+			return ClaudeChannel{}, fmt.Errorf("%s: %w", FakechatPortEnv, err)
+		}
+		return ClaudeChannel{Kind: ClaudeChannelFakechat, Port: port}, nil
+	case claudeChannelDirect:
+		return ClaudeChannel{Kind: ClaudeChannelDirect}, nil
+	default:
+		return ClaudeChannel{}, fmt.Errorf("%s=%q: want 1, %s or %s",
+			ClaudeChannelEnv, v, claudeChannelFakechat, claudeChannelDirect)
+	}
+}
+
+// newClaudeCode builds the Claude Code harness: the channel the session
+// registered, and the state feed, when the environment names the session to
+// follow. It answers nil when it has neither, and the member is then a terminal
+// one with nothing Claude-specific about it.
+//
+// The two halves are independent. The channel needs the launcher's
+// declaration, and a session that registered none has to be woken through its
 // terminal. The feed needs only the session id, which Claude Code sets itself,
 // so a session launched without the channel still reports its state.
 //
-// A member with the channel comes back as a [Prober], since the channel is a
-// server somewhere other than this session and can be asked whether it is
-// there; a member without one is asked nothing, which is why the two are two
-// types rather than one with a probe that always says yes.
-func newClaudeCode(getenv func(string) string) Harness {
+// A direct channel needs session, the MCP session it pushes through; with none
+// it is no channel at all, since one with nowhere to push would claim a
+// delivery it could never make.
+//
+// A member with the fakechat channel comes back as a [Prober], since the
+// plugin is a server somewhere other than this session and can be asked
+// whether it is there. A direct channel is the session itself and is asked
+// nothing, which is why the two are two types rather than one with a probe
+// that always says yes.
+func newClaudeCode(getenv func(string) string, ch ClaudeChannel, session Session) Harness {
 	c := claudeCode{
 		sessionID: getenv(ClaudeSessionEnv),
 		pid:       os.Getppid(),
@@ -106,13 +236,16 @@ func newClaudeCode(getenv func(string) string) Harness {
 		interval:  claudeAgentsInterval,
 		logger:    slog.Default(),
 	}
-	if ClaudeChannelEnabled(getenv) {
-		port := getenv(FakechatPortEnv)
-		if port == "" {
-			port = fakechatDefaultPort
+	switch ch.Kind {
+	case ClaudeChannelFakechat:
+		f := &fakechat{port: ch.Port, timeout: fakechatTimeout}
+		c.channel = f
+		return channelledClaudeCode{claudeCode: c, plugin: f}
+	case ClaudeChannelDirect:
+		if session != nil {
+			c.channel = directChannel{session: session}
+			return c
 		}
-		c.channel = &fakechat{port: port, timeout: fakechatTimeout}
-		return channelledClaudeCode{c}
 	}
 	if c.sessionID == "" {
 		return nil
@@ -120,12 +253,17 @@ func newClaudeCode(getenv func(string) string) Harness {
 	return c
 }
 
-// claudeCode delivers a notice through the fakechat plugin the session
-// registered, when it registered one, and reports what the session is doing off
-// the agents listing.
+// claudeChannel is what a Claude Code session is pushed a notice through.
+type claudeChannel interface {
+	Deliver(ctx context.Context, n Notice) error
+}
+
+// claudeCode delivers a notice through the channel the session registered,
+// when it registered one, and reports what the session is doing off the agents
+// listing.
 type claudeCode struct {
-	// channel is the plugin's server, nil for a session that registered none.
-	channel *fakechat
+	// channel is nil for a session that registered none.
+	channel claudeChannel
 
 	// sessionID is the session the feed follows, empty for a feed that has
 	// nothing to follow.
@@ -162,11 +300,57 @@ func (c claudeCode) Deliver(ctx context.Context, n Notice) error {
 // which is the one that can be asked whether its channel is there.
 type channelledClaudeCode struct {
 	claudeCode
+	plugin *fakechat
 }
 
 // Probe asks the plugin's server, see [fakechat.Probe].
 func (c channelledClaudeCode) Probe(ctx context.Context) error {
-	return c.channel.Probe(ctx)
+	return c.plugin.Probe(ctx)
+}
+
+// directChannel pushes a notice as a channel event of the MCP session the
+// server already holds with Claude Code. There is no second connection: the
+// harness spawned this server, and the stream it spawned it on is the channel.
+type directChannel struct {
+	session Session
+}
+
+// The meta keys one direct channel event carries. Claude Code renders them as
+// attributes of the <channel> element the model reads, and accepts
+// [A-Za-z0-9_] in a key.
+const (
+	claudeMetaFrom = "from"
+	claudeMetaRoom = "room"
+)
+
+// claudeChannelParams is one direct channel event: the line the model reads,
+// and the keys Claude Code renders around it.
+type claudeChannelParams struct {
+	Content string            `json:"content"`
+	Meta    map[string]string `json:"meta,omitzero"`
+}
+
+// Deliver pushes the notice into the session as a channel event.
+func (d directChannel) Deliver(ctx context.Context, n Notice) error {
+	params := claudeChannelParams{Content: n.Text}
+	// Only the keys there is something to say with: a notice about how much
+	// waits names no sender, and an empty value would render as from="" in the
+	// element the model reads.
+	put := func(key, value string) {
+		if value == "" {
+			return
+		}
+		if params.Meta == nil {
+			params.Meta = map[string]string{}
+		}
+		params.Meta[key] = value
+	}
+	put(claudeMetaFrom, n.From)
+	put(claudeMetaRoom, n.Room)
+	if err := d.session.Notify(ctx, claudeChannelMethod, params); err != nil {
+		return fmt.Errorf("pushing a %s notification: %w", claudeChannelMethod, err)
+	}
+	return nil
 }
 
 // fakechat delivers a notice by posting it to the loopback server the fakechat

@@ -23,7 +23,7 @@ func TestOpenCode_ASessionAloneIsTerminal(t *testing.T) {
 			return "http://127.0.0.1:1/nudge"
 		}
 		return ""
-	})
+	}, Options{})
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_OPENCODE)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 }

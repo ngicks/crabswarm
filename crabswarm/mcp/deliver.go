@@ -108,9 +108,8 @@ func (m *Member) deliver(ctx context.Context, n harnessctl.Notice) bool {
 // deliver. They are not before the handshake has landed: nothing has said what
 // the harness is, and there is no attendance yet either.
 func (m *Member) deliversNatively() bool {
-	harness := m.currentHarness()
-	return harness != nil &&
-		harness.Nudge() == chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
+	harness, nudge, _ := m.reachNow()
+	return harness != nil && nudge == chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
 }
 
 // claimArrival reports whether a mention that just arrived may be delivered

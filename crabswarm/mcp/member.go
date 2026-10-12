@@ -51,8 +51,11 @@ type Member struct {
 	// when it opens, and opens again when the member is seen in a session whose
 	// harness declares something else.
 	harness harnessctl.Harness
-	// retargeted is closed when harness is replaced, and replaced with it, so
-	// whatever follows the harness can wait for the next one.
+	// nudge is how that session declared a mention reaches the member, which
+	// the attendance declares in place of harness's own when it is specified.
+	nudge chatv1.NudgeDelivery
+	// retargeted is closed when harness or nudge is replaced, and replaced with
+	// them, so whatever follows the harness can wait for the next one.
 	retargeted chan struct{}
 	// attended says whether the attendance stream is open right now.
 	attended bool
@@ -157,19 +160,23 @@ func (m *Member) run(ctx context.Context) {
 }
 
 // retarget makes harness the one a mention reaches the member through from
-// here on. The first one is also what lets the attendance open.
+// here on, by the delivery nudge its session declared. The first one is also
+// what lets the attendance open.
 //
 // A later one replaces it rather than being ignored: several sessions share one
 // token when a harness server hosts one agent in several windows, and the
 // server hands over the harness of the session the agent was last seen in. The
-// same harness handed over again changes nothing.
-func (m *Member) retarget(harness harnessctl.Harness) {
+// same harness and nudge handed over again change nothing.
+//
+// An unspecified nudge is the harness's own, see [harnessctl.Harness.Nudge].
+func (m *Member) retarget(harness harnessctl.Harness, nudge chatv1.NudgeDelivery) {
 	if harness == nil {
 		return
 	}
 	m.mu.Lock()
-	if !sameHarness(m.harness, harness) {
+	if !sameHarness(m.harness, harness) || m.nudge != nudge {
 		m.harness = harness
+		m.nudge = nudge
 		close(m.retargeted)
 		m.retargeted = make(chan struct{})
 	}
@@ -203,6 +210,29 @@ func (m *Member) harnessNow() (harnessctl.Harness, <-chan struct{}) {
 	defer m.mu.Unlock()
 	return m.harness, m.retargeted
 }
+
+// reachNow is the current harness, the delivery the member declares through
+// it, and the channel closed once either is replaced.
+func (m *Member) reachNow() (harnessctl.Harness, chatv1.NudgeDelivery, <-chan struct{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.harness, declaredNudge(m.harness, m.nudge), m.retargeted
+}
+
+// declaredNudge is nudge, or harness's own when nudge is unspecified.
+func declaredNudge(harness harnessctl.Harness, nudge chatv1.NudgeDelivery) chatv1.NudgeDelivery {
+	if nudge != chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED || harness == nil {
+		return nudge
+	}
+	return harness.Nudge()
+}
+
+// errNativeWithoutChannel refuses to attend a member whose session declared
+// native delivery through a harness that has no channel. Attending as native
+// would stop the daemon typing at it with nothing delivering in its place.
+var errNativeWithoutChannel = errors.New("the session declared native delivery, " +
+	"but its harness has no channel to deliver a mention through; " +
+	"declare the channel it registered, or another delivery")
 
 // How long a member waits before opening the attendance stream again. The
 // first retries are quick, for the ordinary case of one that started while the
@@ -306,10 +336,10 @@ func (m *Member) attend(ctx context.Context) {
 		case landed && errors.Is(err, errRedeclared):
 			backoff = m.pace.attendBackoffBase
 			failures = 0
-			harness := m.currentHarness()
+			harness, nudge, _ := m.reachNow()
 			m.logger.Info("attending again to declare the harness the member was last seen in",
 				"harness", cli.HarnessName(harness.Kind()),
-				"nudge", cli.NudgeDeliveryName(harness.Nudge()))
+				"nudge", cli.NudgeDeliveryName(nudge))
 		case landed:
 			backoff = m.pace.attendBackoffBase
 			failures = 0
@@ -344,7 +374,12 @@ func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// One harness for the whole attempt: what is probed is what is declared. A
 	// harness that declares something else ends the attempt once it is held,
 	// and the next opening declares it.
-	harness, retargeted := m.harnessNow()
+	harness, nudge, retargeted := m.reachNow()
+	native := nudge == chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
+	if native && harness.Nudge() != chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE {
+		m.attendanceEnded(errNativeWithoutChannel)
+		return false, errNativeWithoutChannel
+	}
 	// A harness whose channel is somewhere other than this session is asked
 	// whether it is there before the member attends, and the member stays out of
 	// the room for as long as the answer is no.
@@ -360,7 +395,12 @@ func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// beside this process may well come up after it, and then this is the loop
 	// that picks it up. It is asked again for as long as the stream is held, for
 	// the same reason in the other direction — see [Member.reprobe].
+	//
+	// A member that declared another delivery is asked nothing: its channel is
+	// not what reaches it, and gating it on one would keep it out of the room
+	// for a plugin it opted out of.
 	prober, probed := harness.(harnessctl.Prober)
+	probed = probed && native
 	if probed {
 		if err := prober.Probe(ctx); err != nil {
 			m.attendanceEnded(err)
@@ -393,14 +433,14 @@ func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error
 	// Always as an agent: this server is started by a harness and serves
 	// nothing else, so the terminal behind it is one a nudge belongs in.
 	//
-	// The harness and the delivery are what the handshake said: a harness whose
-	// channel this server can push a mention through attends as native, and the
-	// daemon then types nothing at it, leaving the waking to the deliverer
-	// below.
+	// The harness and the delivery are what the handshake said, unless the
+	// session declared a delivery of its own: a harness whose channel this
+	// server can push a mention through attends as native, and the daemon then
+	// types nothing at it, leaving the waking to the deliverer below.
 	attendance, err := m.client.Attend(gctx, m.token, "",
 		chatv1.MemberKind_MEMBER_KIND_AGENT,
 		harness.Kind(),
-		harness.Nudge())
+		nudge)
 	if !opening.Stop() && err != nil {
 		err = errors.New("the daemon did not answer the attendance within " +
 			attendTimeout.String())
@@ -435,10 +475,12 @@ func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error
 			return nil
 		})
 	})
-	if probed {
-		g.Go(func() error { return m.reprobe(gctx, prober) })
+	// Every native attendance is reprobed, probed at its opening or not: the
+	// member may move to a session whose channel is a plugin.
+	if native {
+		g.Go(func() error { return m.reprobe(gctx) })
 	}
-	g.Go(func() error { return m.redeclare(gctx, harness, retargeted) })
+	g.Go(func() error { return m.redeclare(gctx, harness.Kind(), nudge, retargeted) })
 	err = g.Wait()
 	m.attendanceEnded(err)
 	return true, err
@@ -449,16 +491,24 @@ func (m *Member) holdAttendance(ctx context.Context, reopened bool) (bool, error
 // the attendance declared.
 var errRedeclared = errors.New("the member is reached through another harness now")
 
-// redeclare answers with errRedeclared once the member's harness declares
-// something other than declared, and with nil once ctx is done.
+// redeclare answers with errRedeclared once the member is reached through a
+// harness of another kind than declared, or declares another delivery than
+// nudge, and with nil once ctx is done.
 //
 // What an attendance declares is what the daemon reads for as long as it is
 // held: whether to type at the member, and what the roster shows it runs. A
 // member now reached through a harness that says otherwise has to attend again
 // to say so. One that declares the same is followed where it is: the
 // deliveries and the state feed read the current harness themselves.
+//
+// A native attendance also ends when the new harness has no channel of its
+// own. The opening is what refuses a native declaration without one, and a
+// session of the same kind declaring native may carry none.
 func (m *Member) redeclare(
-	ctx context.Context, declared harnessctl.Harness, retargeted <-chan struct{},
+	ctx context.Context,
+	kind chatv1.Harness,
+	nudge chatv1.NudgeDelivery,
+	retargeted <-chan struct{},
 ) error {
 	for {
 		select {
@@ -467,8 +517,13 @@ func (m *Member) redeclare(
 		case <-retargeted:
 		}
 		var now harnessctl.Harness
-		now, retargeted = m.harnessNow()
-		if now.Kind() != declared.Kind() || now.Nudge() != declared.Nudge() {
+		var nowNudge chatv1.NudgeDelivery
+		now, nowNudge, retargeted = m.reachNow()
+		if now.Kind() != kind || nowNudge != nudge {
+			return errRedeclared
+		}
+		if nudge == chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE &&
+			now.Nudge() != chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE {
 			return errRedeclared
 		}
 	}
@@ -483,7 +538,11 @@ func (m *Member) redeclare(
 // while a plugin that is genuinely gone is caught here within the interval
 // anyway. Wiring one into the other would buy a few seconds at the price of a
 // path that only ever runs when something is already broken.
-func (m *Member) reprobe(ctx context.Context, prober harnessctl.Prober) error {
+//
+// The channel asked is the current harness's, not the one the attendance
+// opened on: a member seen in another session of the same kind keeps its
+// attendance, and a dead channel there must end it all the same.
+func (m *Member) reprobe(ctx context.Context) error {
 	ticker := time.NewTicker(m.pace.reprobeInterval)
 	defer ticker.Stop()
 	for {
@@ -494,6 +553,11 @@ func (m *Member) reprobe(ctx context.Context, prober harnessctl.Prober) error {
 			// in front of it as the reason.
 			return nil
 		case <-ticker.C:
+			harness, _, _ := m.reachNow()
+			prober, ok := harness.(harnessctl.Prober)
+			if !ok {
+				continue
+			}
 			if err := prober.Probe(ctx); err != nil {
 				return err
 			}
