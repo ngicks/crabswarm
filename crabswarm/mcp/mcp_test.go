@@ -618,7 +618,9 @@ func (h *feedingHarness) says(t *testing.T, state chatv1.HarnessState) {
 // runsOn has the server serve h whatever name the client handshakes under,
 // which is how a case plays a CLI this process cannot start.
 func runsOn(bridge *Server, h harnessctl.Harness) {
-	bridge.host.detect = func(string, func(string) string) harnessctl.Harness { return h }
+	bridge.host.detect = func(string, func(string) string, harnessctl.Options) harnessctl.Harness {
+		return h
+	}
 }
 
 // waitReported blocks until the member has reported exactly want, so a case

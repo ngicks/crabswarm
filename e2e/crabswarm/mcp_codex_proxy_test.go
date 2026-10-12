@@ -93,3 +93,32 @@ printf '%s\n' "$2" > "$E2E_CODEX_PROXY_REMOTE"`,
 		})
 	}
 }
+
+// A --nudge the MCP server would refuse stops `crabswarm mcp codex-proxy`
+// before the TUI starts. Stamped as given, every thread would act as nobody and
+// only the shared server's log would say why.
+func TestMCPCodexProxy_RefusesAnUnknownNudge(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh to run a command with")
+	}
+	ran := filepath.Join(t.TempDir(), "ran")
+	proxy := exec.Command(crabswarmBin,
+		"mcp", "codex-proxy", "--nudge", "off", "--ready-timeout", "0", "--",
+		sh, "-c", `touch "$E2E_CODEX_PROXY_RAN"`, "sh", "--remote", "unix:///nowhere.sock")
+	proxy.Env = append(chatEnviron(),
+		"XDG_RUNTIME_DIR="+shortSocketDir(t),
+		"XDG_CONFIG_HOME="+t.TempDir(),
+		"E2E_CODEX_PROXY_RAN="+ran,
+	)
+	out, err := proxy.CombinedOutput()
+	if err == nil {
+		t.Fatalf("crabswarm mcp codex-proxy --nudge off succeeded:\n%s", out)
+	}
+	if !strings.Contains(string(out), "nudge") {
+		t.Errorf("the refusal does not name the nudge:\n%s", out)
+	}
+	if _, err := os.Stat(ran); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the command ran: %v", err)
+	}
+}

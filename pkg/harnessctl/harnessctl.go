@@ -139,11 +139,33 @@ const SinkEnv = "CRABSWARM_HARNESS_SINK"
 // other: the server is serving something, and saying so is more use to whoever
 // reads a roster than leaving the field blank.
 //
+// opts carries what the session declared beside the environment. See
+// [Options].
+//
 // Every call builds its harness afresh. A server detecting the harness of
 // several sessions uses a [Detector], so the sessions hosted by one app server
 // share it.
-func Detect(clientName string, getenv func(string) string) Harness {
-	return NewDetector(nil, nil).Detect(clientName, getenv)
+func Detect(clientName string, getenv func(string) string, opts Options) Harness {
+	return NewDetector(nil, nil).Detect(clientName, getenv, opts)
+}
+
+// Options is what a server knows about one session beyond its environment.
+type Options struct {
+	// ClaudeChannel is the channel a Claude Code session registered. Other
+	// harnesses ignore it. The caller reads it — off the environment of a
+	// server spawned per session, off a request header on a shared one —
+	// since only the caller knows which of the two declares it.
+	ClaudeChannel ClaudeChannel
+	// Session is the MCP session the server holds with the harness, which a
+	// direct Claude Code channel pushes its events through. Nil is a server
+	// that cannot push a notification of its own.
+	Session Session
+}
+
+// Session is the MCP session the server holds with its harness, as far as a
+// channel needs it: a way to send the harness a notification of its own.
+type Session interface {
+	Notify(ctx context.Context, method string, params any) error
 }
 
 // Detector is [Detect] for a server that serves several sessions at once. The
@@ -177,7 +199,7 @@ func NewDetector(logger *slog.Logger, turnStarted func(thread string)) *Detector
 }
 
 // Detect is [Detect], sharing what the sessions of one app server share.
-func (d *Detector) Detect(clientName string, getenv func(string) string) Harness {
+func (d *Detector) Detect(clientName string, getenv func(string) string, opts Options) Harness {
 	kind := kindOf(clientName)
 	if getenv == nil {
 		getenv = os.Getenv
@@ -185,7 +207,7 @@ func (d *Detector) Detect(clientName string, getenv func(string) string) Harness
 	if path := getenv(SinkEnv); path != "" {
 		return sink{kind: kind, path: path}
 	}
-	if h := d.native(kind, getenv); h != nil {
+	if h := d.native(kind, getenv, opts); h != nil {
 		return h
 	}
 	return terminal{kind: kind}
@@ -196,10 +218,10 @@ func (d *Detector) Detect(clientName string, getenv func(string) string) Harness
 // without the variable that points at it — and the member then attends as a
 // terminal one, which is always a working way to be woken. Each constructor
 // lives in the file of its harness.
-func (d *Detector) native(kind chatv1.Harness, getenv func(string) string) Harness {
+func (d *Detector) native(kind chatv1.Harness, getenv func(string) string, opts Options) Harness {
 	switch kind {
 	case chatv1.Harness_HARNESS_CLAUDE_CODE:
-		return newClaudeCode(getenv)
+		return newClaudeCode(getenv, opts.ClaudeChannel, opts.Session)
 	case chatv1.Harness_HARNESS_CODEX:
 		return d.newCodex(getenv)
 	default:

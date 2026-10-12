@@ -87,6 +87,8 @@ func nudgeOf(n chatv1.NudgeDelivery) (NudgeDelivery, error) {
 		return NudgeTerminal, nil
 	case chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE:
 		return NudgeNative, nil
+	case chatv1.NudgeDelivery_NUDGE_DELIVERY_NONE:
+		return NudgeNone, nil
 	default:
 		return "", status.Errorf(codes.InvalidArgument, "unknown nudge delivery %q", n)
 	}
@@ -152,6 +154,8 @@ func nudgeProto(n NudgeDelivery) chatv1.NudgeDelivery {
 		return chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL
 	case NudgeNative:
 		return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE
+	case NudgeNone:
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_NONE
 	default:
 		return chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED
 	}

@@ -5,6 +5,7 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
@@ -62,7 +63,9 @@ func (s *HTTPServer) retarget(a *attendee) {
 		poke(sc.threads.changed)
 	}
 	if a.streams > 0 {
-		a.member.retarget(a.openCode)
+		// An OpenCode TUI declares nothing over its notice stream, so the
+		// delivery is the stream's own.
+		a.member.retarget(a.openCode, chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 		return
 	}
 	if last == nil {
@@ -72,7 +75,7 @@ func (s *HTTPServer) retarget(a *attendee) {
 	if base, ok := harness.(harnessctl.ThreadScoper); ok {
 		harness = s.scope(a, base)
 	}
-	a.member.retarget(harness)
+	a.member.retarget(harness, last.nudge)
 }
 
 // scope is the harness a is reached through on the harness server base stands

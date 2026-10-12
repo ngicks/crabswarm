@@ -39,7 +39,9 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
 
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
+	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
 
 // serverName identifies the server to the harness, which lists it beside every
@@ -69,6 +71,14 @@ type Server struct {
 	// life, and a member cannot change what it attends as without attending
 	// again.
 	handshake sync.Once
+
+	// claudeChannel is the channel the launcher declared the Claude Code
+	// session registered, read off the environment once.
+	claudeChannel harnessctl.ClaudeChannel
+	// channel is the transport a direct channel pushes its events through. It
+	// is set by [Server.Serve] before the session starts, and only for a
+	// direct channel.
+	channel *channel
 }
 
 // New dials sockPath and prepares the MCP server. Attendance is declared from
@@ -97,21 +107,79 @@ func New(logger *slog.Logger, sockPath, token string) (*Server, error) {
 func newServer(
 	logger *slog.Logger, sockPath, token string, getenv func(string) string,
 ) (*Server, error) {
-	// Nothing is pinged: the one session ends with the harness's end of stdio,
-	// which closes as the harness exits however it exits.
-	h, err := newHost(logger, sockPath, getenv, 0)
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	ch, err := harnessctl.ClaudeChannelFromEnv(getenv)
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{host: h, token: token}
+	// Nothing is pinged: the one session ends with the harness's end of stdio,
+	// which closes as the harness exits however it exits.
+	h, err := newHost(logger, sockPath, getenv, 0, func(opts *mcpsdk.ServerOptions) {
+		switch ch.Kind {
+		case harnessctl.ClaudeChannelFakechat:
+			opts.Instructions = claudeChannelInstructions
+		case harnessctl.ClaudeChannelDirect:
+			opts.Capabilities = claudeChannelCapabilities()
+			opts.Instructions = claudeDirectChannelInstructions
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	s := &Server{host: h, token: token, claudeChannel: ch}
 	// The reserved calls are answered and learn nothing here: a stdio server
 	// serves one session, and the thread a delivery goes to is the one a person
 	// used last on the app server — see [harnessctl.Detect]. The OpenCode
 	// session a call names is taken off it for the same reason: the one member
 	// this server attends as is who every call acts as.
-	h.mcp.AddReceivingMiddleware(s.readsHandshake, answersReservedCalls(nil), takesOpenCodeSession)
+	middleware := []mcpsdk.Middleware{
+		s.readsHandshake,
+		answersReservedCalls(nil),
+		takesOpenCodeSession,
+	}
+	if ch.Kind == harnessctl.ClaudeChannelDirect {
+		middleware = append(middleware, refusesTheNewerHandshake)
+	}
+	h.mcp.AddReceivingMiddleware(middleware...)
 	return s, nil
 }
+
+// claudeChannelCapabilities declares the channel Claude Code registers a
+// listener for.
+//
+// It is declared only for a session that was launched as a direct channel: the
+// capability is what makes Claude Code listen, and a listener on a server that
+// was never registered would be one nothing ever reaches.
+//
+// Logging is spelled out because setting any capability at all replaces the
+// SDK's default set, and the default is logging alone; leaving it out would
+// quietly take logging away from a channel session and no other. Everything
+// else the server offers is inferred from what the families registered.
+func claudeChannelCapabilities() *mcpsdk.ServerCapabilities {
+	return &mcpsdk.ServerCapabilities{
+		//nolint:staticcheck // deprecated only from the revision above the cap this server offers
+		Logging: &mcpsdk.LoggingCapabilities{},
+		Experimental: map[string]any{
+			harnessctl.ClaudeChannelCapability: map[string]any{},
+		},
+	}
+}
+
+// claudeDirectChannelInstructions tells the model what a direct channel event
+// from this server is and what to do about it.
+//
+// The harness shows the model an event and nothing else — no tool call, no
+// transcript entry saying where it came from — so without this the first one
+// reads as a line that appeared from nowhere. It also says not to answer down
+// the channel: the channel carries one direction, and a reply written into it
+// would go nowhere while the room waited.
+const claudeDirectChannelInstructions = "Events from " + serverName +
+	` arrive as <channel source="` + serverName +
+	`" from="<team/name>" room="<room>">. Each one says a chat message is ` +
+	"waiting for you: read it with the chat_read tool and answer with " +
+	"chat_send. Do not reply through the channel."
 
 // claudeChannelInstructions tells the model what the event a room notice reaches
 // it as is, and which tool answers it.
@@ -160,9 +228,15 @@ func (s *Server) handshook(session *mcpsdk.ServerSession) {
 		return
 	}
 	s.handshake.Do(func() {
-		harness := s.host.harnessOf(params)
+		opts := harnessctl.Options{ClaudeChannel: s.claudeChannel}
+		// Assigned only when set: a nil *channel in the interface would read as
+		// a session to push through.
+		if s.channel != nil {
+			opts.Session = s.channel
+		}
+		harness := s.host.harnessOf(params, opts)
 		if s.member != nil {
-			s.member.retarget(harness)
+			s.member.retarget(harness, chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED)
 		}
 	})
 }
@@ -224,6 +298,15 @@ func (s *Server) Run(ctx context.Context) error {
 // session over something other than the process's own stdio.
 func (s *Server) Serve(ctx context.Context, transport mcpsdk.Transport) error {
 	defer func() { _ = s.host.client.Close() }()
+
+	// A direct channel pushes its events down the transport the session runs
+	// on, so the transport is wrapped to keep hold of its connection, and to cap
+	// the protocol revision Claude Code still delivers channel events on. Set
+	// before the session starts: the handshake is what hands it to the harness.
+	if s.claudeChannel.Kind == harnessctl.ClaudeChannelDirect {
+		s.channel = newChannel(transport)
+		transport = s.channel
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

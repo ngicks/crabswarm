@@ -35,7 +35,9 @@ type host struct {
 	// feed of its own speaks to a CLI this process cannot start, so a test hands
 	// the server one that plays the part. Both constructors take
 	// [harnessctl.Detect].
-	detect func(clientName string, getenv func(string) string) harnessctl.Harness
+	detect func(
+		clientName string, getenv func(string) string, opts harnessctl.Options,
+	) harnessctl.Harness
 
 	// subscribable are the resource URIs a family registered, which are the ones
 	// a harness may ask to be told about. Written while the families register
@@ -51,9 +53,14 @@ type host struct {
 
 // newHost dials sockPath and prepares the SDK server. getenv nil reads the
 // process environment. A keepAlive above zero pings every session that often
-// and closes one that stopped answering; zero pings nothing.
+// and closes one that stopped answering; zero pings nothing. declare sets what
+// the server declares about itself in the handshake, nil for nothing.
 func newHost(
-	logger *slog.Logger, sockPath string, getenv func(string) string, keepAlive time.Duration,
+	logger *slog.Logger,
+	sockPath string,
+	getenv func(string) string,
+	keepAlive time.Duration,
+	declare func(*mcpsdk.ServerOptions),
 ) (*host, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
@@ -83,8 +90,8 @@ func newHost(
 	// What the server declares about itself is settled here, because the
 	// handshake carries it and the handshake is what tells the server which
 	// harness it is serving — the answer arrives after the question.
-	if harnessctl.ClaudeChannelEnabled(h.getenv) {
-		opts.Instructions = claudeChannelInstructions
+	if declare != nil {
+		declare(opts)
 	}
 	h.mcp = mcpsdk.NewServer(
 		&mcpsdk.Implementation{Name: serverName, Version: libver.Version},
@@ -104,14 +111,18 @@ func (h *host) newMember(token string) *Member {
 	return newMember(h.logger, h.client, token, h.announceRoster, h.pace)
 }
 
-// harnessOf reads the harness off the handshake a session made. A session
-// names one client for its whole life, so its caller asks once per session.
-func (h *host) harnessOf(params *mcpsdk.InitializeParams) harnessctl.Harness {
+// harnessOf reads the harness off the handshake a session made, with what the
+// session declared beside it. A session names one client for its whole life,
+// so its caller asks once per session.
+func (h *host) harnessOf(
+	params *mcpsdk.InitializeParams,
+	opts harnessctl.Options,
+) harnessctl.Harness {
 	var client string
 	if params.ClientInfo != nil {
 		client = params.ClientInfo.Name
 	}
-	harness := h.detect(client, h.getenv)
+	harness := h.detect(client, h.getenv, opts)
 	h.logger.Info("the harness named itself",
 		"client", client,
 		"harness", cli.HarnessName(harness.Kind()),

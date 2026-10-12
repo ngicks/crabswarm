@@ -204,6 +204,9 @@ const (
 	// Native: the member's MCP server delivers through the harness's own
 	// channel; the daemon never types at it.
 	NudgeDelivery_NUDGE_DELIVERY_NATIVE NudgeDelivery = 2
+	// None: nothing wakes the member. The daemon never types at it and its MCP
+	// server delivers nothing; the agent learns of a mention when it reads.
+	NudgeDelivery_NUDGE_DELIVERY_NONE NudgeDelivery = 3
 )
 
 // Enum value maps for NudgeDelivery.
@@ -212,11 +215,13 @@ var (
 		0: "NUDGE_DELIVERY_UNSPECIFIED",
 		1: "NUDGE_DELIVERY_TERMINAL",
 		2: "NUDGE_DELIVERY_NATIVE",
+		3: "NUDGE_DELIVERY_NONE",
 	}
 	NudgeDelivery_value = map[string]int32{
 		"NUDGE_DELIVERY_UNSPECIFIED": 0,
 		"NUDGE_DELIVERY_TERMINAL":    1,
 		"NUDGE_DELIVERY_NATIVE":      2,
+		"NUDGE_DELIVERY_NONE":        3,
 	}
 )
 
@@ -2807,11 +2812,12 @@ const file_ngicks_crabswarm_chat_v1_chat_service_proto_rawDesc = "" +
 	"\x13HARNESS_CLAUDE_CODE\x10\x01\x12\x11\n" +
 	"\rHARNESS_CODEX\x10\x02\x12\x14\n" +
 	"\x10HARNESS_OPENCODE\x10\x03\x12\x11\n" +
-	"\rHARNESS_OTHER\x10\x04*g\n" +
+	"\rHARNESS_OTHER\x10\x04*\x80\x01\n" +
 	"\rNudgeDelivery\x12\x1e\n" +
 	"\x1aNUDGE_DELIVERY_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17NUDGE_DELIVERY_TERMINAL\x10\x01\x12\x19\n" +
-	"\x15NUDGE_DELIVERY_NATIVE\x10\x02*m\n" +
+	"\x15NUDGE_DELIVERY_NATIVE\x10\x02\x12\x17\n" +
+	"\x13NUDGE_DELIVERY_NONE\x10\x03*m\n" +
 	"\n" +
 	"ReadCursor\x12\x1b\n" +
 	"\x17READ_CURSOR_UNSPECIFIED\x10\x00\x12\x16\n" +

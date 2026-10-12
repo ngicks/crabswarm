@@ -61,7 +61,11 @@ or `apm install -g` to wire every session on the host.
       "crabswarm-mcp-shared": {
         "type": "http",
         "url": "${CRABSWARM_CLAUDE_MCP_SERVER:-http://127.0.0.1:47300/mcp}",
-        "headers": { "X-Crabswarm-Token": "${CMDMAN_CMD_ID:-}" }
+        "headers": {
+          "X-Crabswarm-Token": "${CMDMAN_CMD_ID:-}",
+          "X-Crabswarm-Nudge": "${CRABSWARM_NUDGE:-}",
+          "X-Crabswarm-Channel": "${CRABSWARM_CHANNEL:-}"
+        }
       }
     }
   }
@@ -329,6 +333,37 @@ session's containers alone.
 `crabswarm chat members` prints one line per member as
 `<address> <kind> <state> <harness> <nudge>`. A replica served here reads
 `native` in the last column when the server can deliver to it itself.
+
+A session declares how a mention wakes its replica in two request headers:
+
+- **`X-Crabswarm-Nudge`** takes `terminal`, `native` or `none`. `terminal` has
+  the daemon type each mention into the replica's terminal. `native` has the
+  server deliver it through the harness's channel, and a session whose harness
+  has no channel never attends with it. `none` wakes the replica by neither,
+  and the replica finds its mentions when it reads. An absent or empty header
+  leaves the choice to the harness, as described below.
+- **`X-Crabswarm-Channel`** names the channel a Claude Code session registered.
+  `fakechat;port=N` names the fakechat plugin on loopback port `N`. The port is
+  mandatory. Other harnesses ignore a valid declaration, and the server
+  refuses a malformed one whatever the harness. The server refuses `direct`,
+  because it cannot push a notification of its own down an HTTP session. Use
+  the stdio [`crabswarm-mcp`](../crabswarm-mcp/README.md) for a direct channel.
+
+The server refuses a session whose header value does not parse. That session
+acts as nobody, and its tools say which header is wrong. The Claude Code entry
+fills the headers from `CRABSWARM_NUDGE` and `CRABSWARM_CHANNEL` in the
+replica's environment. A Codex replica declares `X-Crabswarm-Nudge` with
+`crabswarm mcp codex-proxy --nudge`, which stamps it beside the token on every
+thread. OpenCode sessions declare neither header.
+
+The server sends every session the instructions that name the fakechat event,
+whatever harness it serves. The handshake carries the instructions before the
+server knows which harness asked.
+
+- **Claude Code.** A session that declares `X-Crabswarm-Channel:
+  fakechat;port=N` is native. The server probes the plugin before the replica
+  attends and posts each mention to it. A session without the header is
+  terminal.
 
 - **Codex.** The server holds one connection to the app server that
   `CRABSWARM_CODEX_APP_SERVER` names. A mention becomes a turn of its own on

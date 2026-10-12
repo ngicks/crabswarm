@@ -187,10 +187,17 @@ attending through something other than this server.
 The channel variables are set by whoever launches the session, in the
 environment Claude Code starts the server in, beside the flag that makes the
 channel exist. Nothing in an MCP session reports that the flag was passed, so a
-variable is the only honest answer the server has. Claude Code's channel takes
-`CRABSWARM_CLAUDE_CHANNEL=1` and `FAKECHAT_PORT`, with the session hosting the
-official `fakechat` plugin as a channel. Install the plugin once, from a Claude
-Code session:
+variable is the only honest answer the server has. `CRABSWARM_CLAUDE_CHANNEL`
+names the channel:
+
+- `1` or `fakechat` is the official `fakechat` plugin, hosted by the session
+  as a channel, on `FAKECHAT_PORT`.
+- `direct` is this server itself, registered as the session's channel. See
+  [Direct channel](#direct-channel).
+- Unset or empty is no channel. The server refuses to start with any other
+  value.
+
+Install the fakechat plugin once, from a Claude Code session:
 
 ```
 /plugin install fakechat@claude-plugins-official
@@ -258,6 +265,32 @@ with fakechat's `reply` tool, which reaches a browser tab nobody in the room is
 watching. Two things keep the answer in the room instead: the notice names
 `chat_send`, and this server's instructions say never to answer a
 `[crabswarm chat]` event with that reply tool.
+
+#### Direct channel
+
+With `CRABSWARM_CLAUDE_CHANNEL=direct` this server is the channel. It declares
+the experimental `claude/channel` capability and pushes each notice as a
+`notifications/claude/channel` notification down the session Claude Code
+spawned it on. The model reads it as a
+`<channel source="crabswarm-mcp" from="<team/name>" room="<room>">` event.
+Launch the session with this server registered as a development channel. The
+recorded launch in `e2e/crabswarm/testdata/harness/claude-channel-launch.md`
+names a server from `--mcp-config` as `server:<name>`:
+
+```console
+CRABSWARM_CLAUDE_CHANNEL=direct claude --mcp-config <file> --dangerously-load-development-channels server:crabswarm-mcp
+```
+
+The flag is variadic, so a positional prompt goes before it. Claude Code opens
+a "Loading development channels" confirmation dialog at startup, which one
+Enter confirms. A `claude --bg` session drops every channel event, so a direct
+channel needs an interactive session.
+
+The server caps the MCP protocol revision it offers at `2025-11-25` and refuses
+`server/discover`, because Claude Code drops the channel events of a server on
+a newer revision. The member attends as `native` with no probe: the channel is
+the session itself. The shared HTTP server cannot push a notification of its
+own, so the direct channel is served here only.
 
 A delivered notice is still not an obeyed one: a recorded session read the
 injected line, called it a prompt injection and declined it, so the skill and

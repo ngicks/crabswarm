@@ -200,3 +200,23 @@ func TestStamper_Rewrite(t *testing.T) {
 	assert.Equal(t, config["mcp_servers.other.http_headers.X-Crabswarm-Token"], "tok")
 	assert.Equal(t, decoded(t, out[1])["params"].(map[string]any)["server"], "other")
 }
+
+// A TUI that declared how its member is woken has the declaration stamped
+// beside the token on every thread request, and one that declared nothing has
+// only the token. An absent header leaves the delivery to the harness.
+func TestStamper_StampsTheNudgeBesideTheToken(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+	start := []byte(`{"id":1,"method":"thread/start","params":{}}`)
+	nudgeKey := "mcp_servers.crabswarm-mcp-shared.http_headers.X-Crabswarm-Nudge"
+
+	s := &stamper{logger: logger, server: DefaultServer, token: "tok", nudge: "none"}
+	out := s.rewrite(websocket.MessageText, start)
+	assert.Equal(t, len(out), 1)
+	config := decoded(t, out[0])["params"].(map[string]any)["config"].(map[string]any)
+	assert.DeepEqual(t, config, map[string]any{headerKey: "tok", nudgeKey: "none"})
+
+	s = &stamper{logger: logger, server: DefaultServer, token: "tok"}
+	out = s.rewrite(websocket.MessageText, start)
+	config = decoded(t, out[0])["params"].(map[string]any)["config"].(map[string]any)
+	assert.DeepEqual(t, config, map[string]any{headerKey: "tok"})
+}

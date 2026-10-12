@@ -62,9 +62,10 @@ func (d deliverer) send(
 // terminal may be typed into right now is the notifier's call, made from the
 // state the member last reported.
 //
-// An agent that attended declaring [NudgeNative] is left out too: its own MCP
-// server watches the room's feed and delivers the mention through the harness's
-// notification channel, so typing at it as well would wake it twice.
+// An agent that attended declaring anything but [NudgeTerminal] is left out
+// too. A [NudgeNative] one has its own MCP server deliver the mention through
+// the harness's notification channel, so typing at it as well would wake it
+// twice, and a [NudgeNone] one asked not to be woken at all.
 func (d deliverer) nudged(ctx context.Context, from Sender, sent Sent) []Member {
 	switch sent.Message.Target.Kind {
 	case TargetRoles:
@@ -73,7 +74,7 @@ func (d deliverer) nudged(ctx context.Context, from Sender, sent Sent) []Member 
 			// The absent need no filtering of their own: a role nobody attends
 			// under comes back carrying no kind at all, so it is not an agent and
 			// falls out here. Their mention waits at their read position.
-			if m.Kind != KindAgent || m.Nudge == NudgeNative {
+			if m.Kind != KindAgent || m.Nudge != NudgeTerminal {
 				continue
 			}
 			// A sender that named its own role is left out: its own message is
@@ -94,8 +95,8 @@ func (d deliverer) nudged(ctx context.Context, from Sender, sent Sent) []Member 
 }
 
 // attendingAgents is every agent attending from's room but from itself, and but
-// those whose own server delivers their mentions: an agent announcing something
-// already knows it, and the echo would cost it a nudge and a read.
+// those the daemon does not type at: an agent announcing something already
+// knows it, and the echo would cost it a nudge and a read.
 //
 // The sender is matched by role rather than by token, since the host operator
 // sends into a room without holding one. One session per role makes that exact.
@@ -110,7 +111,7 @@ func (d deliverer) attendingAgents(ctx context.Context, from Sender) []Member {
 	}
 	var nudged []Member
 	for _, m := range members {
-		if m.Kind != KindAgent || m.Nudge == NudgeNative {
+		if m.Kind != KindAgent || m.Nudge != NudgeTerminal {
 			continue
 		}
 		if m.Team == from.Team && m.Name == from.Name {

@@ -43,6 +43,17 @@ func fakechatEnv(channel, port string) func(string) string {
 	}
 }
 
+// fakechatOn is what a session that registered the plugin on port declares.
+func fakechatOn(port string) Options {
+	return Options{ClaudeChannel: ClaudeChannel{Kind: ClaudeChannelFakechat, Port: port}}
+}
+
+// fakechatHarness is the Claude Code harness of a session that registered the
+// plugin on port.
+func fakechatHarness(port string) Harness {
+	return newClaudeCode(noEnv, ClaudeChannel{Kind: ClaudeChannelFakechat, Port: port}, nil)
+}
+
 // recordedFakechatPage is the page the real plugin answered GET / with, byte for
 // byte as its own server wrote it.
 //
@@ -198,28 +209,41 @@ func closedPort(t *testing.T) string {
 	return port
 }
 
-// Whether the session registered the plugin is decided at launch and never said
+// Whether the session registered a channel is decided at launch and never said
 // again, so the variable the launcher sets beside the flag is the whole of what
-// this server has to go on. Anything but the launcher's own value leaves the
-// member terminal, where the daemon still reaches it.
-func TestNewClaudeCode_TakesTheChannelOnlyFromItsLauncher(t *testing.T) {
-	for _, value := range []string{"", "0", "true", "yes", "2"} {
-		t.Run(value, func(t *testing.T) {
-			assert.Assert(t, newClaudeCode(fakechatEnv(value, "1234")) == nil)
+// a server spawned per session has to go on. A value the launcher would not
+// write is refused rather than read as no channel.
+func TestClaudeChannelFromEnv_TakesTheChannelOnlyFromItsLauncher(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		want  ClaudeChannel
+	}{
+		{"", ClaudeChannel{}},
+		{"1", ClaudeChannel{Kind: ClaudeChannelFakechat, Port: "1234"}},
+		{"fakechat", ClaudeChannel{Kind: ClaudeChannelFakechat, Port: "1234"}},
+		{"direct", ClaudeChannel{Kind: ClaudeChannelDirect}},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			got, err := ClaudeChannelFromEnv(fakechatEnv(tc.value, "1234"))
+			assert.NilError(t, err)
+			assert.Equal(t, got, tc.want)
 		})
 	}
-
-	h := newClaudeCode(fakechatEnv("1", "1234"))
-	assert.Assert(t, h != nil)
-	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CLAUDE_CODE)
-	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
+	for _, value := range []string{"0", "true", "yes", "2"} {
+		t.Run(value, func(t *testing.T) {
+			_, err := ClaudeChannelFromEnv(fakechatEnv(value, "1234"))
+			assert.ErrorContains(t, err, ClaudeChannelEnv)
+		})
+	}
+	_, err := ClaudeChannelFromEnv(fakechatEnv("1", "localhost:80"))
+	assert.ErrorContains(t, err, FakechatPortEnv)
 }
 
 // A launcher that named no port and one that exported an empty one arrive here
 // as the same thing, and both mean the port the plugin binds on its own. The
 // URL is read rather than called: a host running this suite may well have a
 // plugin of its own on that port.
-func TestNewClaudeCode_FallsBackToThePortThePluginBindsItself(t *testing.T) {
+func TestClaudeChannelFromEnv_FallsBackToThePortThePluginBindsItself(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		getenv func(string) string
@@ -233,8 +257,49 @@ func TestNewClaudeCode_FallsBackToThePortThePluginBindsItself(t *testing.T) {
 		{"empty", fakechatEnv("1", "")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newClaudeCode(tc.getenv)
-			assert.Equal(t, h.(channelledClaudeCode).channel.url("/"), "http://127.0.0.1:8787/")
+			ch, err := ClaudeChannelFromEnv(tc.getenv)
+			assert.NilError(t, err)
+			h := newClaudeCode(noEnv, ch, nil)
+			assert.Equal(t, h.(channelledClaudeCode).plugin.url("/"), "http://127.0.0.1:8787/")
+		})
+	}
+}
+
+// A shared server reads the channel off one session's header among many, so the
+// fakechat port has no default there: two sessions falling back to one port
+// would post each other's notices.
+func TestParseClaudeChannel(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		want  ClaudeChannel
+	}{
+		{"", ClaudeChannel{}},
+		{"direct", ClaudeChannel{Kind: ClaudeChannelDirect}},
+		{"fakechat;port=8788", ClaudeChannel{Kind: ClaudeChannelFakechat, Port: "8788"}},
+		{" fakechat ; port = 8788 ", ClaudeChannel{Kind: ClaudeChannelFakechat, Port: "8788"}},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			got, err := ParseClaudeChannel(tc.value)
+			assert.NilError(t, err)
+			assert.Equal(t, got, tc.want)
+		})
+	}
+	for _, tc := range []struct {
+		value string
+		want  string
+	}{
+		{"fakechat", "needs the plugin's port"},
+		{"fakechat;port=", "needs the plugin's port"},
+		{"fakechat;port=0", "not a TCP port"},
+		{"fakechat;port=70000", "not a TCP port"},
+		{"fakechat;port=1/x", "not a TCP port"},
+		{"fakechat;port=8788;host=example.com", `unknown parameter "host"`},
+		{"direct;port=8788", "takes no parameters"},
+		{"telegram", "unknown channel"},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			_, err := ParseClaudeChannel(tc.value)
+			assert.ErrorContains(t, err, tc.want)
 		})
 	}
 }
@@ -245,7 +310,7 @@ func TestNewClaudeCode_FallsBackToThePortThePluginBindsItself(t *testing.T) {
 func TestDetect_TheClaudeChannelIsAskedBeforeItAttends(t *testing.T) {
 	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusNoContent, "")
 
-	h := Detect("claude-code", fakechatEnv("1", plugin.port(t)))
+	h := Detect("claude-code", noEnv, fakechatOn(plugin.port(t)))
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CLAUDE_CODE)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 
@@ -260,7 +325,7 @@ func TestDetect_TheClaudeChannelIsAskedBeforeItAttends(t *testing.T) {
 func TestFakechat_ProbeRefusesAPortNothingAnswersOn(t *testing.T) {
 	port := closedPort(t)
 
-	err := newClaudeCode(fakechatEnv("1", port)).(Prober).Probe(t.Context())
+	err := fakechatHarness(port).(Prober).Probe(t.Context())
 	assert.ErrorContains(t, err, port)
 }
 
@@ -279,7 +344,7 @@ func TestFakechat_ProbeRefusesWhateverElseHoldsThePort(t *testing.T) {
 			plugin := startFakePlugin(t, tc.page, http.StatusNoContent, "")
 			port := plugin.port(t)
 
-			err := newClaudeCode(fakechatEnv("1", port)).(Prober).Probe(t.Context())
+			err := fakechatHarness(port).(Prober).Probe(t.Context())
 			assert.ErrorContains(t, err, port)
 		})
 	}
@@ -292,7 +357,7 @@ func TestFakechat_PostsTheNoticeAsAnUpload(t *testing.T) {
 	recorded := recordedFakechatUpload(t)
 	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusNoContent, "")
 
-	h := Detect("claude-code", fakechatEnv("1", plugin.port(t)))
+	h := Detect("claude-code", noEnv, fakechatOn(plugin.port(t)))
 	text := "[crabswarm chat] new message from team/bob"
 	assert.NilError(t, h.Deliver(t.Context(), Notice{
 		From: "team/bob",
@@ -318,7 +383,7 @@ func TestFakechat_PostsTheNoticeAsAnUpload(t *testing.T) {
 func TestFakechat_GivesEachUploadAnIDOfItsOwn(t *testing.T) {
 	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusNoContent, "")
 
-	h := Detect("claude-code", fakechatEnv("1", plugin.port(t)))
+	h := Detect("claude-code", noEnv, fakechatOn(plugin.port(t)))
 	assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "first"}))
 	assert.NilError(t, h.Deliver(t.Context(), Notice{Text: "second"}))
 
@@ -336,7 +401,7 @@ func TestFakechat_GivesEachUploadAnIDOfItsOwn(t *testing.T) {
 func TestFakechat_ARefusedUploadIsNotDelivered(t *testing.T) {
 	plugin := startFakePlugin(t, recordedFakechatPage(t), http.StatusBadRequest, "missing id")
 
-	err := Detect("claude-code", fakechatEnv("1", plugin.port(t))).
+	err := Detect("claude-code", noEnv, fakechatOn(plugin.port(t))).
 		Deliver(t.Context(), Notice{Text: "hi"})
 	assert.ErrorContains(t, err, "400")
 	assert.ErrorContains(t, err, "missing id")

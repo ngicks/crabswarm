@@ -7,12 +7,14 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
 
+	chatv1 "github.com/ngicks/crabswarm/api/gen/proto/go/ngicks/crabswarm/chat/v1"
 	"github.com/ngicks/crabswarm/crabswarm/chat/cli"
 	"github.com/ngicks/crabswarm/pkg/harnessctl"
 )
@@ -21,6 +23,17 @@ import (
 // identity in. A launcher that runs one harness server for several agents sets
 // it per agent, which is what makes each of them a member of its own.
 const TokenHeader = "X-Crabswarm-Token"
+
+// NudgeHeader is the request header an MCP session declares how a mention
+// wakes its member in: "terminal", "native" or "none". Absent or empty is the
+// harness's own default. See [ParseNudge].
+const NudgeHeader = "X-Crabswarm-Nudge"
+
+// ChannelHeader is the request header a Claude Code session declares the
+// channel it registered in: "fakechat;port=N". Absent or empty is no channel.
+// See [harnessctl.ParseClaudeChannel]. A shared server cannot push a direct
+// channel event, so "direct" is refused here.
+const ChannelHeader = "X-Crabswarm-Channel"
 
 // SharedServerName is the name a harness's configuration declares
 // [HTTPServer] under, which is the name a call through the harness server
@@ -133,9 +146,16 @@ type scopedHarness struct {
 }
 
 // binding is what one session acts as. A nil attendee is a session that named
-// no identity.
+// no identity, or declared something this server cannot honour.
 type binding struct {
 	attendee *attendee
+	// refused is why a session that named an identity acts as nobody: what it
+	// declared in [NudgeHeader] or [ChannelHeader] did not parse. Its tools
+	// answer with it.
+	refused error
+	// nudge and channel are what the session declared in its request headers.
+	nudge   chatv1.NudgeDelivery
+	channel harnessctl.ClaudeChannel
 	// handshook says the session's harness has been read off its handshake.
 	handshook bool
 	// harness is the harness the handshake named, nil before it landed.
@@ -175,7 +195,12 @@ func newHTTP(
 	getenv func(string) string,
 	keepAlive time.Duration,
 ) (*HTTPServer, error) {
-	h, err := newHost(logger, sockPath, getenv, keepAlive)
+	// The fakechat instructions are declared for every session: the server
+	// answers the handshake before it knows which harness asked, and any Claude
+	// Code session among those it serves may have declared the plugin.
+	h, err := newHost(logger, sockPath, getenv, keepAlive, func(opts *mcpsdk.ServerOptions) {
+		opts.Instructions = claudeChannelInstructions
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +258,8 @@ func (s *HTTPServer) MemberOf(ctx context.Context, session *mcpsdk.ServerSession
 		return nil, errNotAttending
 	case b.servesOpenCode():
 		return s.openCodeCaller(ctx)
+	case b.refused != nil:
+		return nil, b.refused
 	case b.attendee == nil:
 		return nil, errNoTokenHeader
 	default:
@@ -275,10 +302,16 @@ func (s *HTTPServer) bindsSessions(next mcpsdk.MethodHandler) mcpsdk.MethodHandl
 // bind ties session to the member the token in extra names, making that member
 // when it is the token's first session, and watches the session for its end.
 // A session already bound keeps what it was bound to.
+//
+// A session whose declaration does not parse acts as nobody, and its tools say
+// why. Attending it with the declaration dropped would wake it in a way its
+// launcher said not to.
 func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestExtra) {
 	var token string
+	b := &binding{}
 	if extra != nil {
 		token = extra.Header.Get(TokenHeader)
+		b.nudge, b.channel, b.refused = parseDeclaration(extra.Header)
 	}
 
 	s.mu.Lock()
@@ -289,8 +322,7 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 	if _, ok := s.sessions[session]; ok {
 		return
 	}
-	b := &binding{}
-	if token != "" {
+	if token != "" && b.refused == nil {
 		a := s.attendeeOf(token)
 		a.sessions++
 		b.attendee = a
@@ -306,6 +338,49 @@ func (s *HTTPServer) bind(session *mcpsdk.ServerSession, extra *mcpsdk.RequestEx
 		s.release(session)
 		return nil
 	})
+}
+
+// ParseNudge reads a delivery declaration in the form [NudgeHeader] carries
+// it. The empty string is unspecified, which leaves the delivery to the
+// harness.
+func ParseNudge(s string) (chatv1.NudgeDelivery, error) {
+	switch strings.TrimSpace(s) {
+	case "":
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED, nil
+	case "terminal":
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL, nil
+	case "native":
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE, nil
+	case "none":
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_NONE, nil
+	default:
+		return chatv1.NudgeDelivery_NUDGE_DELIVERY_UNSPECIFIED,
+			fmt.Errorf("unknown delivery %q: want terminal, native or none", s)
+	}
+}
+
+// parseDeclaration reads what a session declared in [NudgeHeader] and
+// [ChannelHeader], naming the header in what it refuses.
+func parseDeclaration(
+	header http.Header,
+) (chatv1.NudgeDelivery, harnessctl.ClaudeChannel, error) {
+	nudge, err := ParseNudge(header.Get(NudgeHeader))
+	if err != nil {
+		return 0, harnessctl.ClaudeChannel{}, fmt.Errorf("%s: %w", NudgeHeader, err)
+	}
+	ch, err := harnessctl.ParseClaudeChannel(header.Get(ChannelHeader))
+	if err != nil {
+		return 0, harnessctl.ClaudeChannel{}, fmt.Errorf("%s: %w", ChannelHeader, err)
+	}
+	if ch.Kind == harnessctl.ClaudeChannelDirect {
+		// The SDK's HTTP handler builds each session's transport itself and
+		// keeps its connection to itself, so this server has nothing to push a
+		// notification of its own down.
+		return 0, harnessctl.ClaudeChannel{}, fmt.Errorf(
+			"%s: the direct channel is served by the stdio crabswarm mcp only; "+
+				"declare fakechat;port=N here", ChannelHeader)
+	}
+	return nudge, ch, nil
 }
 
 // attendeeOf is the member attending as token, made and started when it is the
@@ -366,13 +441,26 @@ func (s *HTTPServer) handshook(session *mcpsdk.ServerSession) {
 	if !first {
 		return
 	}
-	harness := s.host.harnessOf(params)
+	// The declaration is read without the lock: bind wrote it before the
+	// binding was registered, and nothing writes it after.
+	harness := s.host.harnessOf(params, harnessctl.Options{ClaudeChannel: b.channel})
+	if b.channel.Kind != harnessctl.ClaudeChannelNone &&
+		harness.Kind() != chatv1.Harness_HARNESS_CLAUDE_CODE {
+		s.host.logger.Warn("an MCP session declared a Claude Code channel for another harness; "+
+			"it is ignored",
+			"session", session.ID(), "header", ChannelHeader,
+			"harness", cli.HarnessName(harness.Kind()))
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	b.harness = harness
 	switch {
 	case b.attendee != nil:
 		s.retarget(b.attendee)
+	case b.refused != nil:
+		s.host.logger.Warn("an MCP session declared what this server cannot honour; "+
+			"its tools will report it",
+			"session", session.ID(), "error", b.refused)
 	case !b.servesOpenCode():
 		// An OpenCode session names no identity by design: its calls name one
 		// each. Any other harness was meant to send the header.

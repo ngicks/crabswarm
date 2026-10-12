@@ -68,7 +68,8 @@ func (f *family) addResources() {
 			"reported: working, waiting or done, and unknown where the daemon " +
 			"reported none, the harness it runs, and how a mention reaches it: " +
 			"terminal for one the daemon types at, native for one its own " +
-			"server delivers to. Subscribe to be told when somebody starts or " +
+			"server delivers to, none for one nothing wakes. " +
+			"Subscribe to be told when somebody starts or " +
 			"stops attending, or changes state.",
 	}, f.readMembers)
 	f.server.AnnounceOnRosterChange(membersURI)

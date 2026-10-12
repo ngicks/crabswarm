@@ -393,7 +393,7 @@ func TestNewClaudeCode_TakesTheFeedFromTheSessionId(t *testing.T) {
 		}
 		return ""
 	}
-	h := newClaudeCode(env)
+	h := newClaudeCode(env, ClaudeChannel{}, nil)
 	assert.Assert(t, h != nil)
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CLAUDE_CODE)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
@@ -410,17 +410,12 @@ func TestNewClaudeCode_TakesTheFeedFromTheSessionId(t *testing.T) {
 // native and followed at once.
 func TestNewClaudeCode_TakesTheChannelAndTheFeedTogether(t *testing.T) {
 	env := func(name string) string {
-		switch name {
-		case ClaudeChannelEnv:
-			return "1"
-		case FakechatPortEnv:
-			return "1234"
-		case ClaudeSessionEnv:
+		if name == ClaudeSessionEnv {
 			return "7eda2488-ab16-4b7a-98cc-b8b8b314a225"
 		}
 		return ""
 	}
-	h := newClaudeCode(env)
+	h := newClaudeCode(env, ClaudeChannel{Kind: ClaudeChannelFakechat, Port: "1234"}, nil)
 	assert.Assert(t, h != nil)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 	_, ok := h.(StateSource)
@@ -429,7 +424,7 @@ func TestNewClaudeCode_TakesTheChannelAndTheFeedTogether(t *testing.T) {
 	assert.Assert(t, ok, "a Claude Code with the channel cannot be asked whether it is there")
 	c := h.(channelledClaudeCode)
 	assert.Equal(t, c.sessionID, "7eda2488-ab16-4b7a-98cc-b8b8b314a225")
-	assert.Equal(t, c.channel.url("/"), "http://127.0.0.1:1234/")
+	assert.Equal(t, c.plugin.url("/"), "http://127.0.0.1:1234/")
 }
 
 // A Claude Code that knows no session says so on its stderr: the daemon reads
@@ -456,7 +451,7 @@ func TestDetect_ClaudeCodeWithASessionIsAStateSource(t *testing.T) {
 		}
 		return ""
 	}
-	h := Detect("claude-code", env)
+	h := Detect("claude-code", env, Options{})
 	assert.Equal(t, h.Kind(), chatv1.Harness_HARNESS_CLAUDE_CODE)
 	assert.Equal(t, h.Nudge(), chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 	_, ok := h.(StateSource)

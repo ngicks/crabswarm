@@ -433,9 +433,9 @@ func TestCodex_TheHubHandsOnEveryTurnStart(t *testing.T) {
 // own.
 func TestDetector_SharesOneHarnessPerAppServer(t *testing.T) {
 	d := NewDetector(nil, nil)
-	first := d.Detect("codex-mcp-client", codexEnv("unix:///tmp/one.sock"))
-	again := d.Detect("codex-mcp-client", codexEnv("unix:///tmp/one.sock"))
-	other := d.Detect("codex-mcp-client", codexEnv("unix:///tmp/other.sock"))
+	first := d.Detect("codex-mcp-client", codexEnv("unix:///tmp/one.sock"), Options{})
+	again := d.Detect("codex-mcp-client", codexEnv("unix:///tmp/one.sock"), Options{})
+	other := d.Detect("codex-mcp-client", codexEnv("unix:///tmp/other.sock"), Options{})
 	assert.Assert(t, first == again, "one app server was given two harnesses")
 	assert.Assert(t, first != other, "two app servers were given one harness")
 

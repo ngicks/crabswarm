@@ -26,6 +26,8 @@ type relay struct {
 	server string
 	// token is the identity to stamp. Empty forwards every message unchanged.
 	token string
+	// nudge is the delivery to stamp beside token. Empty stamps none.
+	nudge string
 
 	// mu orders a connection's bridge being started against serve waiting for
 	// every bridge, so none starts after the wait began.
@@ -122,7 +124,7 @@ func (r *relay) bridge(ctx context.Context, tui *websocket.Conn, uri string) {
 	defer func() { _ = server.CloseNow() }()
 	server.SetReadLimit(-1)
 
-	s := &stamper{logger: r.logger, server: r.server, token: r.token}
+	s := &stamper{logger: r.logger, server: r.server, token: r.token, nudge: r.nudge}
 	var g errgroup.Group
 	g.Go(func() error { return pipe(ctx, tui, server, s.rewrite) })
 	g.Go(func() error { return pipe(ctx, server, tui, r.dropOwnAnswer) })
@@ -182,6 +184,7 @@ type stamper struct {
 	logger *slog.Logger
 	server string
 	token  string
+	nudge  string
 	// focused counts the focus calls this connection made, which numbers the
 	// next one's id.
 	focused int
@@ -201,6 +204,9 @@ func (s *stamper) rewrite(typ websocket.MessageType, msg []byte) [][]byte {
 		return [][]byte{msg}
 	}
 	stamped, err := stamp(msg, tokenKey(s.server), s.token)
+	if err == nil && s.nudge != "" {
+		stamped, err = stamp(stamped, nudgeKey(s.server), s.nudge)
+	}
 	if err != nil {
 		s.logger.Warn("codex proxy: forwarding a thread request without the chat identity",
 			"method", method, "err", err)

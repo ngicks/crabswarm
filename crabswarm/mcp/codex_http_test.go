@@ -705,7 +705,9 @@ func TestHTTPServer_FollowsTheHarnessTheMemberWasLastSeenIn(t *testing.T) {
 	native := newFeedHarness(chatv1.NudgeDelivery_NUDGE_DELIVERY_NATIVE)
 	typed := newFeedHarness(chatv1.NudgeDelivery_NUDGE_DELIVERY_TERMINAL)
 	byClient := map[string]harnessctl.Harness{"native": native, "typed": typed}
-	srv.host.detect = func(client string, _ func(string) string) harnessctl.Harness {
+	srv.host.detect = func(
+		client string, _ func(string) string, _ harnessctl.Options,
+	) harnessctl.Harness {
 		return byClient[client]
 	}
 	endpoint := serveHTTP(t, srv).endpoint

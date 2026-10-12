@@ -143,6 +143,9 @@ enum NudgeDelivery {
   // Native: the member's MCP server delivers through the harness's own
   // channel; the daemon never types at it.
   NUDGE_DELIVERY_NATIVE = 2;
+  // None: nothing wakes the member. The daemon never types at it and its MCP
+  // server delivers nothing; the agent learns of a mention when it reads.
+  NUDGE_DELIVERY_NONE = 3;
 }
 
 // Member is one participant of a room.
