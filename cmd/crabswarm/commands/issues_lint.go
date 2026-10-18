@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -24,6 +25,10 @@ Each refused diagram is reported on one line:
 
 The position is counted inside that text, from its first line. The command
 exits 1 when anything was refused, so it can gate a turn as a hook.
+
+A directory governed by no beads database holds no backlog to lint: the
+command exits 0 without running mermaid-lint, so the hook installed
+user-wide passes in a repository that keeps no issues.
 
 mermaid-lint runs with the directory bd was run from as its working
 directory, so a repository's own mermaid-lint configuration governs its
@@ -75,7 +80,19 @@ func runIssuesLint(
 		return err
 	}
 
-	client := issues.NewClient(abs, issues.WithLogger(commandLogger(cmd)))
+	logger := commandLogger(cmd)
+	// The lint is wired as a Stop hook that may be installed user-wide, so a
+	// project keeping no issues is the ordinary shape of "nothing to lint"
+	// rather than a failure that would block every turn there.
+	if _, err := issues.Where(cmd.Context(), abs); err != nil {
+		if errors.Is(err, issues.ErrNoBeads) {
+			logger.Debug("issues lint: no beads database, nothing to lint", "dir", abs)
+			return nil
+		}
+		return err
+	}
+
+	client := issues.NewClient(abs, issues.WithLogger(logger))
 	findings, err := mermaidlint.Sweep(
 		cmd.Context(),
 		client,

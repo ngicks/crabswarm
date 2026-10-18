@@ -2,8 +2,8 @@
 
 Guards the mermaid diagrams written into a beads backlog, packaged for
 [apm](https://github.com/microsoft/apm): a `Stop` hook runs
-`crabswarm hook exec 'crabswarm issues lint'`, so a turn that left a broken
-mermaid fence in an open issue is blocked until the issue text is fixed.
+`crabswarm issues lint` through `crabswarm hook exec`, so a turn that left a
+broken mermaid fence in an open issue is blocked until the issue text is fixed.
 The [`crabswarm-issues-lint`](.apm/skills/crabswarm-issues-lint/SKILL.md)
 skill tells the agent how to read a finding and repair the issue.
 
@@ -67,8 +67,24 @@ and the `apm-hooks.json` beside them once after upgrading.
 
 ## What the hook does
 
-`crabswarm issues lint` runs `bd` in the working directory and hands every
+The hook runs
+
+```
+crabswarm hook exec 'crabswarm issues lint -C {{ quote (or (env "CLAUDE_PROJECT_DIR") .Cwd) }}'
+```
+
+`-C` names the project directory: `$CLAUDE_PROJECT_DIR` under Claude Code,
+and the `cwd` of the hook input under Codex, which sets no such variable. The
+hook process itself starts in the session's current shell directory. An agent
+that changed directory into a temporary directory leaves it there, and `bd`
+finds no beads database from it.
+
+`crabswarm issues lint` runs `bd` in that directory and hands every
 mermaid fence in the open issues to mermaid-lint. It prints one line per refused
 diagram and exits 1 when anything was refused. `crabswarm hook exec` with no
 output template turns a non-zero exit into a blocked turn whose reason is the
 captured output, so the agent sees the findings and can fix the issue text.
+
+A project no beads database governs has no backlog to lint. There the command
+exits 0 without running mermaid-lint, so the hook installed user-wide allows
+every turn in a repository that keeps no issues.

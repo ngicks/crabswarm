@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "crabswarm hook exec 'crabswarm issues lint'",
+            "command": "crabswarm hook exec 'crabswarm issues lint -C {{ quote (or (env \"CLAUDE_PROJECT_DIR\") .Cwd) }}'",
             "timeout": 120
           }
         ]
