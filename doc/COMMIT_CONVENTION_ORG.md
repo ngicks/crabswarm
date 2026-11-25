@@ -58,7 +58,7 @@ The scope names the module, package, skill, or directory the change touches.
 | a few modules                               | comma-separated, no spaces                | `📝(cc-workers,nggoal): ask availability`    |
 | cross-cutting, or scopes exceed ~16 chars   | omit the parentheses entirely             | `📝: all instructions non-conditional`       |
 | no meaningful scope (repo root, misc files) | omit the parentheses entirely             | `🐛: fix typo`                               |
-| not in the **Scopes** table                 | add a row first, in its own 📝 commit     | `📝(doc): add scope for new-skill`           |
+| not in the **Scopes** table                 | omit the parentheses entirely             | `✨: add new-skill`                          |
 
 - Use the name as it appears in the tree (directory or package name),
   not a description of it.
@@ -69,16 +69,14 @@ The scope names the module, package, skill, or directory the change touches.
 ## Scopes
 
 This table lists every scope this repository uses.  
-It is project-specific: fill it when this document is created, and add a row
-whenever a new module, package, skill, or directory appears.
+It starts with the scopes already used in the commit history, and is empty
+when the history uses none. Only the project maintainers add rows.
 
 A single scope uses the tree name as-is, even when it is long. The ~16
 character limit in the scope rules applies to comma-joined scopes.
 
-| scope     | covers                                                     |
-| :-------- | :--------------------------------------------------------- |
-| `doc`     | `doc/`, including this document                            |
-| `<name>`  | one row per module / package / skill, named as in the tree |
+| scope | covers |
+| :---- | :----- |
 
 Guidelines for rows:
 
@@ -93,6 +91,14 @@ When context matters (why, not what), add one after a blank line:
 
 - Keep it short — around 2-3 lines.
 - If the change is significant, going longer is fine.
+
+## Merge commits
+
+Merge commits keep the message git generates (`Merge branch 'feature'`).
+The subject rules above do not apply to them.
+
+- Accept the generated message as-is, e.g. with `git merge --no-edit`.
+- Do not add an emoji, a scope, or a rewritten description.
 
 ## Examples
 
