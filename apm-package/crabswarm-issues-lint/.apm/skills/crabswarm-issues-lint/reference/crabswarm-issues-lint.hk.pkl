@@ -1,0 +1,19 @@
+// Pre-commit step linting the mermaid diagrams in the beads backlog with
+// `crabswarm issues lint`.
+//
+// Installed by `scripts/hk-init.sh`, which copies this file to
+// `.hk/crabswarm-issues-lint.pkl` at the worktree root and rewrites the hk
+// version below to the project's pin, so do not edit the copy by hand: rerun
+// the script. `hk.pkl` spreads `steps` into its pre-commit hook.
+import "package://github.com/jdx/hk/releases/download/v2.2.0/hk@2.2.0#/Config.pkl"
+
+steps: Mapping<String, Config.Step> = new {
+  // No glob: the issue text lives in the beads database, not in the staged
+  // files, so the step runs on every commit. `--changed` makes the command
+  // skip the lint itself while the beads commit stays where the last clean
+  // lint left it. No fix either: mermaid-lint cannot write a repaired diagram
+  // back into an issue.
+  ["crabswarm-issues-lint"] {
+    check = "crabswarm issues lint --changed"
+  }
+}

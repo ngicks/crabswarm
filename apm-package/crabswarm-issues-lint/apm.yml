@@ -1,6 +1,6 @@
 name: issues-mermaid-lint
-version: 0.2.0
-description: Stop hook that refuses a turn when an open beads issue holds a mermaid fence mermaid-lint rejects (runs `crabswarm issues lint` through `crabswarm hook exec`).
+version: 0.3.0
+description: Skill that scaffolds an hk pre-commit hook refusing a commit when an open beads issue holds a mermaid fence mermaid-lint rejects (runs `crabswarm issues lint`).
 author: ngicks
 targets:
   - claude

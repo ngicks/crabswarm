@@ -60,7 +60,7 @@ func (s *SourceStore) Add(ctx context.Context, dir string) (Source, bool, error)
 	}
 	beads := filepath.Clean(loc.BeadsPath)
 
-	id := sourceID(beads)
+	id := SourceID(beads)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if existing, ok := s.sources[id]; ok {
@@ -112,10 +112,14 @@ func (s *SourceStore) Remove(id string) (Source, bool) {
 	return src, true
 }
 
-// sourceID derives a stable, short, URL-safe identifier from the absolute
+// SourceID derives a stable, short, URL-safe identifier from the absolute
 // .beads path: the first 8 bytes of its SHA-256 digest, base64url-encoded
-// (11 chars, no padding), the same scheme the previewer uses for roots.
-func sourceID(beadsPath string) string {
-	sum := sha256.Sum256([]byte(beadsPath))
+// (11 chars, no padding), the same scheme the previewer uses for roots. It is
+// the [Source.ID] a [SourceStore] gives the database, and anything else keyed
+// by database uses it so that the two agree.
+func SourceID(beadsPath string) string {
+	// Cleaned here rather than trusted from the caller: "/a/.beads/" and
+	// "/a/.beads" name one database and must not hash apart.
+	sum := sha256.Sum256([]byte(filepath.Clean(beadsPath)))
 	return base64.RawURLEncoding.EncodeToString(sum[:8])
 }

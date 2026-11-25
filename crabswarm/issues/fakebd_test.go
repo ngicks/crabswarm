@@ -28,6 +28,7 @@ import (
 //     sequence reports no change.
 //   - show --id=<id> -> show.json for the one recorded issue, else
 //     show_not_found.json with exit 1.
+//   - vc status      -> vc_status.json.
 //
 // FAKE_BD_EXCLUSIVE names a lock directory that turns the fake into a stand-in
 // for the real bd's one-process-per-database rule: the invocation creates the
@@ -92,6 +93,9 @@ show)
     echo "Error fetching $id: no issue found matching \"$id\"" >&2
     exit 1
   fi
+  ;;
+vc)
+  cat "$FAKE_BD_TESTDATA/vc_status.json"
   ;;
 *)
   echo "fake bd: unknown subcommand $sub" >&2

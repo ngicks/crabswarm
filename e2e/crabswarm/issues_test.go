@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -22,16 +22,31 @@ const fakeBdWhereEnvelope = `{"data":{"path":"/fake/.beads","prefix":"e2e",` +
 const fakeBdNoBeadsEnvelope = `{"data":{"error":"no_beads_directory",` +
 	`"message":"No active beads workspace found."},"schema_version":1}`
 
+// fakeBdVcStatus answers `bd vc status --json` with the commit in
+// FAKE_BD_COMMIT, or fails the way bd fails to open its database when
+// FAKE_BD_VC_FAIL is set. It is a case arm of the fake bd scripts.
+const fakeBdVcStatus = `vc)
+  if [ -n "$FAKE_BD_VC_FAIL" ]; then echo "Error: database is locked" >&2; exit 1; fi
+  printf '{"branch":"main","commit":"%s","schema_version":1}\n' "${FAKE_BD_COMMIT:-e2e-commit}"
+  ;;
+`
+
+// fakeBdRecordCall appends the subcommand of every fake bd invocation to the
+// file FAKE_BD_CALLS names, when it names one.
+const fakeBdRecordCall = `if [ -n "$FAKE_BD_CALLS" ]; then echo "$1" >> "$FAKE_BD_CALLS"; fi
+`
+
 // fakeBdListScript is a stand-in for bd that answers `bd where --json` as a
-// governed directory and `bd list --json` with the recorded listing in
-// FAKE_BD_LIST, and refuses everything else. Those two are the whole
-// conversation `issues lint` has with bd as long as no issue carries
-// comments, so a case that needs none can stop here.
+// governed directory, `bd list --json` with the recorded listing in
+// FAKE_BD_LIST and `bd vc status --json` with the commit in FAKE_BD_COMMIT,
+// and refuses everything else. Those three are the whole conversation
+// `issues lint` has with bd as long as no issue carries comments, so a case
+// that needs none can stop here.
 const fakeBdListScript = `#!/bin/sh
-case "$1" in
+` + fakeBdRecordCall + `case "$1" in
 where) echo '` + fakeBdWhereEnvelope + `' ;;
 list) cat "$FAKE_BD_LIST" ;;
-*) echo "fake bd: unsupported subcommand $*" >&2; exit 2 ;;
+` + fakeBdVcStatus + `*) echo "fake bd: unsupported subcommand $*" >&2; exit 2 ;;
 esac
 `
 
@@ -83,12 +98,29 @@ const bdListWithoutFences = `[
 // script on PATH answering with listing, from a temp directory so no
 // mermaid-lint configuration around the checkout reaches the run. A
 // non-zero exit is the command reporting findings, so only a failure to run
-// at all is fatal.
+// at all is fatal. The run keeps any record under a state directory of its
+// own, never under the real ~/.local/state.
 func runIssuesLint(
 	ctx context.Context,
 	t *testing.T,
 	script string,
 	listing string,
+	args ...string,
+) hookResult {
+	t.Helper()
+	stateHome := "XDG_STATE_HOME=" + t.TempDir()
+	return runIssuesLintEnv(ctx, t, script, listing, []string{stateHome}, args...)
+}
+
+// runIssuesLintEnv is [runIssuesLint] with env added to the run's
+// environment. A case running the command several times passes its own
+// XDG_STATE_HOME, so that the runs share one record.
+func runIssuesLintEnv(
+	ctx context.Context,
+	t *testing.T,
+	script string,
+	listing string,
+	env []string,
 	args ...string,
 ) hookResult {
 	t.Helper()
@@ -107,6 +139,7 @@ func runIssuesLint(
 		"PATH="+bdDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"FAKE_BD_LIST="+listPath,
 	)
+	cmd.Env = append(cmd.Env, env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -132,7 +165,7 @@ func requireMermaidLint(t *testing.T) {
 }
 
 // A broken diagram in an issue is one line on stdout and exit 1 — which is
-// what lets the command gate a turn as a Stop hook. The diagram that parses
+// what lets the command gate a commit as a pre-commit step. The diagram that parses
 // is not reported.
 func TestIssuesLintReportsBrokenFence(t *testing.T) {
 	requireMermaidLint(t)
@@ -199,12 +232,12 @@ func TestIssuesLintSkipsWithoutBeads(t *testing.T) {
 	}
 }
 
-// fakeBdProjectScript is a stand-in for bd that answers `bd where --json`
-// and `bd list --json` (with FAKE_BD_LIST) only when run from
-// FAKE_BD_PROJECT. Anywhere else it answers the way real bd does in a
-// directory no beads database governs.
+// fakeBdProjectScript is a stand-in for bd that answers `bd where --json`,
+// `bd list --json` (with FAKE_BD_LIST) and `bd vc status --json` (with
+// FAKE_BD_COMMIT) only when run from FAKE_BD_PROJECT. Anywhere else it
+// answers the way real bd does in a directory no beads database governs.
 const fakeBdProjectScript = `#!/bin/sh
-if [ "$(pwd -P)" != "$FAKE_BD_PROJECT" ]; then
+` + fakeBdRecordCall + `if [ "$(pwd -P)" != "$FAKE_BD_PROJECT" ]; then
   if [ "$1" = where ]; then
     echo '` + fakeBdNoBeadsEnvelope + `'
     exit 1
@@ -216,64 +249,67 @@ fi
 case "$1" in
 where) echo '` + fakeBdWhereEnvelope + `' ;;
 list) cat "$FAKE_BD_LIST" ;;
-*) echo "fake bd: unsupported subcommand $*" >&2; exit 2 ;;
+` + fakeBdVcStatus + `*) echo "fake bd: unsupported subcommand $*" >&2; exit 2 ;;
 esac
 `
 
-// stopHookCommand is the one Stop command a hooks file of the
-// crabswarm-issues-lint package declares.
-func stopHookCommand(t *testing.T, path string) string {
+// hkStepCheck matches the `check` of the one step the fragment declares.
+var hkStepCheck = regexp.MustCompile(`(?m)^\s*check = "([^"]+)"$`)
+
+// preCommitCheck is the command the pre-commit step of the
+// crabswarm-issues-lint package runs, read out of the fragment hk-init.sh
+// copies into a repository.
+func preCommitCheck(t *testing.T) string {
 	t.Helper()
-	var file struct {
-		Hooks struct {
-			Stop []struct {
-				Hooks []struct {
-					Command string `json:"command"`
-				} `json:"hooks"`
-			} `json:"Stop"`
-		} `json:"hooks"`
+	path := filepath.Join(
+		apmSkillPluginDir("crabswarm-issues-lint"),
+		"reference",
+		"crabswarm-issues-lint.hk.pkl",
+	)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read the fragment: %v", err)
 	}
-	readJSONFile(t, path, &file)
-	if len(file.Hooks.Stop) != 1 || len(file.Hooks.Stop[0].Hooks) != 1 {
-		t.Fatalf("%s: want exactly one Stop command, got %+v", path, file.Hooks.Stop)
+	matches := hkStepCheck.FindAllSubmatch(b, -1)
+	if len(matches) != 1 {
+		t.Fatalf("%s: want exactly one check, got %d", path, len(matches))
 	}
-	return file.Hooks.Stop[0].Hooks[0].Command
+	return string(matches[0][1])
 }
 
-// The Stop hook lints the project, not whatever directory the session's
-// shell was left in. An agent that changed into a temporary directory leaves
-// the hook process there, where bd finds no beads database. Claude Code names
-// the project in $CLAUDE_PROJECT_DIR; Codex sets no such variable and its hook
-// input's cwd is the project.
+// The pre-commit step runs its check from the worktree root, the way hk does,
+// and git reads nothing but its exit code: 0 lets the commit through, anything
+// else refuses it and shows what the check printed.
 //
-// The package is also installed user-wide, so the hook runs in projects that
-// keep no issues at all. There bd finds no database from the project either,
-// and the hook still allows the turn.
-func TestIssuesLintStopHookLintsProjectDir(t *testing.T) {
+// A repository that keeps no issues still gets the step when its hk.pkl
+// spreads the fragment. There bd finds no database, and the commit goes
+// through.
+//
+// Each case commits twice with the backlog standing still. The second commit
+// of a clean backlog skips the listing; a broken diagram is listed and
+// reported again.
+func TestIssuesLintPreCommitCheck(t *testing.T) {
 	requireMermaidLint(t)
 
-	claudeHooks := filepath.Join(
-		apmSkillPluginDir("crabswarm-issues-lint"),
-		"hooks",
-		"hooks.json",
-	)
-	codexHooks := filepath.Join(
-		apmPackageDir("crabswarm-issues-lint"),
-		".apm",
-		"hooks",
-		"codex-hooks.json",
-	)
 	cases := []struct {
-		name       string
-		hooksFile  string
-		projectEnv bool
-		// noBeads makes bd answer as if no database governs the project.
-		noBeads bool
+		name    string
+		listing string
+		// noBeads makes bd answer as if no database governs the repository.
+		noBeads  bool
+		wantExit int
+		wantOut  string
+		// wantLists is how many of the two runs listed the backlog.
+		wantLists int
 	}{
-		{name: "claude", hooksFile: claudeHooks, projectEnv: true},
-		{name: "codex", hooksFile: codexHooks},
-		{name: "claude no beads", hooksFile: claudeHooks, projectEnv: true, noBeads: true},
-		{name: "codex no beads", hooksFile: codexHooks, noBeads: true},
+		{name: "clean backlog", listing: bdListWithoutFences, wantLists: 1},
+		{
+			name:      "broken diagram",
+			listing:   bdListWithFences,
+			wantExit:  1,
+			wantOut:   "e2e-002 description:3:4: ",
+			wantLists: 2,
+		},
+		{name: "no beads", listing: bdListWithFences, noBeads: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -281,8 +317,7 @@ func TestIssuesLintStopHookLintsProjectDir(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			drifted := t.TempDir()
-			// The fake bd answers only from governed, so a project without
+			// The fake bd answers only from governed, so a repository without
 			// beads is one bd does not recognise.
 			governed := project
 			if tc.noBeads {
@@ -295,48 +330,44 @@ func TestIssuesLintStopHookLintsProjectDir(t *testing.T) {
 				t.Fatalf("make fake bd executable: %v", err)
 			}
 			listPath := filepath.Join(bdDir, "list.json")
-			writeFile(t, listPath, bdListWithoutFences)
+			writeFile(t, listPath, tc.listing)
+			calls := filepath.Join(bdDir, "calls")
 
-			inputCwd := drifted
-			var env []string
-			for _, kv := range os.Environ() {
-				if !strings.HasPrefix(kv, "CLAUDE_PROJECT_DIR=") {
-					env = append(env, kv)
-				}
-			}
-			env = append(env,
+			command := preCommitCheck(t)
+			env := append(os.Environ(),
 				"PATH="+bdDir+string(os.PathListSeparator)+
 					filepath.Dir(crabswarmBin)+string(os.PathListSeparator)+os.Getenv("PATH"),
 				"FAKE_BD_LIST="+listPath,
 				"FAKE_BD_PROJECT="+governed,
+				"FAKE_BD_CALLS="+calls,
+				"XDG_STATE_HOME="+t.TempDir(),
 			)
-			if tc.projectEnv {
-				env = append(env, "CLAUDE_PROJECT_DIR="+project)
-			} else {
-				inputCwd = project
+			for run := 1; run <= 2; run++ {
+				cmd := exec.CommandContext(t.Context(), "sh", "-c", command)
+				cmd.Dir = project
+				cmd.Env = env
+				var stdout, stderr bytes.Buffer
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+				if err := cmd.Run(); err != nil {
+					if _, ok := errors.AsType[*exec.ExitError](err); !ok {
+						t.Fatalf("run %d: %s: %v\nstdout:\n%s\nstderr:\n%s",
+							run, command, err, stdout.String(), stderr.String())
+					}
+				}
+				if got := cmd.ProcessState.ExitCode(); got != tc.wantExit {
+					t.Fatalf("run %d: exit code = %d, want %d\nstdout:\n%s\nstderr:\n%s",
+						run, got, tc.wantExit, stdout.String(), stderr.String())
+				}
+				switch out := stdout.String(); {
+				case tc.wantOut == "" && out != "":
+					t.Errorf("run %d: stdout = %q, want empty", run, out)
+				case !strings.HasPrefix(out, tc.wantOut):
+					t.Errorf("run %d: stdout = %q, want it to start with %q", run, out, tc.wantOut)
+				}
 			}
-
-			command := stopHookCommand(t, tc.hooksFile)
-			cmd := exec.CommandContext(t.Context(), "sh", "-c", command)
-			cmd.Dir = drifted
-			cmd.Env = env
-			cmd.Stdin = strings.NewReader(`{"hook_event_name":"Stop","session_id":"e2e",` +
-				`"cwd":` + strconv.Quote(inputCwd) + `,` +
-				`"transcript_path":"/dev/null","stop_hook_active":false}`)
-			var stdout, stderr bytes.Buffer
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-			if err := cmd.Run(); err != nil {
-				t.Fatalf(
-					"%s: %v\nstdout:\n%s\nstderr:\n%s",
-					command,
-					err,
-					stdout.String(),
-					stderr.String(),
-				)
-			}
-			if stdout.String() != "" {
-				t.Errorf("hook output = %q, want none (allow)", stdout.String())
+			if got := countCalls(t, calls, "list"); got != tc.wantLists {
+				t.Errorf("bd list ran %d times, want %d", got, tc.wantLists)
 			}
 		})
 	}

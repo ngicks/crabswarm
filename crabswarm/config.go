@@ -224,6 +224,21 @@ func LoadConfig(flagPath string) (Config, error) {
 	return cfg, nil
 }
 
+// IssuesLintRecordDir is the directory `issues lint --changed` keeps its
+// record of each beads database's last clean lint in: issues-lint/ under the
+// same state directory as the chat database. It returns "" when no state
+// directory is resolvable.
+//
+// It sits outside Config because the records are a cache the command rebuilds
+// on its own, not something a person points elsewhere.
+func IssuesLintRecordDir() string {
+	dir := stateDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "issues-lint")
+}
+
 // unmarshalConfigFile only reads + decodes; it never merges. It decodes into a
 // fresh zero PartialConfig (all nil) and returns the zero value when the file
 // does not exist. A non-ENOENT read error or a JSON parse error aborts.
@@ -329,20 +344,31 @@ func isDir(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// defaultChatDbPath derives the chat database path from $XDG_STATE_HOME,
-// falling back to the XDG default $HOME/.local/state when it is unset. It
-// returns "" when no home dir is resolvable either, leaving the field empty.
-// This is default derivation (see DefaultConfig), not a config override.
+// defaultChatDbPath derives the chat database path from the state directory.
+// It returns "" when no state directory is resolvable, leaving the field
+// empty. This is default derivation (see DefaultConfig), not a config
+// override.
 func defaultChatDbPath() string {
-	stateDir := os.Getenv("XDG_STATE_HOME")
-	if stateDir == "" {
+	dir := stateDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "chat.db")
+}
+
+// stateDir derives crabswarm's state directory from $XDG_STATE_HOME, falling
+// back to the XDG default $HOME/.local/state when it is unset. It returns ""
+// when no home dir is resolvable either.
+func stateDir() string {
+	base := os.Getenv("XDG_STATE_HOME")
+	if base == "" {
 		home, err := os.UserHomeDir()
 		if err != nil || home == "" {
 			return ""
 		}
-		stateDir = filepath.Join(home, ".local", "state")
+		base = filepath.Join(home, ".local", "state")
 	}
-	return filepath.Join(stateDir, "crabswarm", "chat.db")
+	return filepath.Join(base, "crabswarm")
 }
 
 // defaultGitRepoBaseDir derives $HOME/gitrepo via the platform-native home dir.
