@@ -25,21 +25,24 @@ Tools to swarm claude(, codex and others!)
   records nothing means plain allow, even on failure). Never standalone
   shell scripts or jq unless a template genuinely cannot express it; if a
   two-step behavior doesn't fit, extend the CLI with a flag instead. Model:
-  the hooks packages in apm_modules/ngicks/agents-package/hooks/ and this
-  repo's own apm-package/.
-- Mermaid in the backlog is guarded at Stop. `crabswarm issues lint` runs
+  the hooks packages in apm_modules/ngicks/agents-package/hooks/.
+- Mermaid in the backlog is guarded at commit. `crabswarm issues lint` runs
   mermaid-lint over every `` ```mermaid `` fence in bead text — description,
   design, acceptance criteria, notes and comments — and reports one line per
   refused diagram (`<issue-id> <field>[#<comment-n>]:<line>:<col>: <message>`),
   exiting 1 when anything was refused, and 0 without running anything in a
   directory no beads database governs. `apm-package/crabswarm-issues-lint` (a
   package this repo publishes and consumes back as a git dependency in
-  apm.yml) wires it as the Stop hook
-  `crabswarm hook exec 'crabswarm issues lint'`, so a broken diagram in a bead
-  blocks the turn until the bead text is fixed. Flags: `--all` (closed issues
-  too), `--limit N` (most recently updated first), `--json`, `-C/--dir` — bd
-  and mermaid-lint both run in that directory, so the repository's own
-  mermaid-lint configuration governs its issue text.
+  apm.yml) ships it as an hk pre-commit step: the skill's `scripts/hk-init.sh`
+  copies `reference/crabswarm-issues-lint.hk.pkl` to
+  `.hk/crabswarm-issues-lint.pkl`, and `hk.pkl` spreads its steps into
+  `pre-commit`, so a broken diagram in a bead refuses the commit until the bead
+  text is fixed. Edit the fragment under `apm-package/`, then rerun the script;
+  never edit the `.hk/` copy. Flags: `--changed` (skips the lint while the
+  beads commit and scope match the last clean lint; the step runs with it),
+  `--all` (closed issues too), `--limit N` (most recently updated first),
+  `--json`, `-C/--dir` — bd and mermaid-lint both run in that directory, so the
+  repository's own mermaid-lint configuration governs its issue text.
 - Before reporting "tool X cannot do Y" (apm, buf, cmdman, ...), read the
   tool's --help or source and try a second layout/config; one failing
   attempt is an observation, not a limitation.
@@ -51,7 +54,7 @@ Tools to swarm claude(, codex and others!)
 │   ├── schema/proto/ngicks/crabswarm/{chat,hook,issues,preview,sdktypes}/v1   *.proto (edit these)
 │   ├── gen/proto                                                              buf output (Go + connect); TS lands in web/src/api/gen
 │   └── buf.gen.yaml, generate.go                                              `go generate ./api/...` regenerates both sides
-├── apm-package     APM packages this repo publishes, and consumes back through git dependencies in its own apm.yml. A package that targets Claude Code ships its
+├── apm-package     APM packages this repo publishes, and consumes back through git dependencies in its own apm.yml. A package with wiring for Claude Code ships that
 │   │               wiring as a skills-directory plugin (`.apm/skills/<name>/` carrying `.claude-plugin/plugin.json` and whichever of `hooks/hooks.json` and `.mcp.json` the package needs),
 │   │               which apm copies to `~/.claude/skills/<name>/` and Claude Code loads without touching settings.json. A package that hooks Codex ships `.apm/hooks/codex-hooks.json`, which apm merges.
 │   ├── crabswarm-mcp          wires Claude Code alone into its chat room: skill + the stdio `crabswarm mcp` server, with no hooks and no `.apm/hooks/`.
@@ -60,7 +63,7 @@ Tools to swarm claude(, codex and others!)
 │   ├── crabswarm-mcp-shared   wires Codex and OpenCode: skill + a remote `crabswarm-mcp` entry at `http://127.0.0.1:47300/mcp`, served by the one `crabswarm mcp --transport http` a compose session runs; no hooks.
 │   │                          The skill dir also holds the OpenCode plugins: `opencode.ts` runs in `opencode serve` (names the calling session on every tool call, appends mid-turn messages to tool results),
 │   │                          `opencode-tui.ts` runs in each `opencode attach` (holds the notice stream, registers the session the TUI shows, and in a session the TUI owns reports state and prompts notices and what arrived when a turn ends).
-│   └── crabswarm-issues-lint  the Stop hook above running `crabswarm hook exec 'crabswarm issues lint'`, plus a skill on fixing a finding.
+│   └── crabswarm-issues-lint  the hk pre-commit step above running `crabswarm issues lint`: a skill that scaffolds it (`reference/*.hk.pkl` + `scripts/hk-init.sh`) and tells how to fix a finding. No plugin, no hooks.
 ├── bin             git-ignore'd bin dir.
 ├── cmd
 │   └── crabswarm
