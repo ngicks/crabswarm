@@ -630,6 +630,26 @@ func TestLoadConfig_ChatDbDefaultFallsBackToHome(t *testing.T) {
 	)
 }
 
+// The issues lint records sit beside the chat database.
+func TestIssuesLintRecordDir(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("XDG_STATE_HOME", "/state")
+	assert.Equal(t, IssuesLintRecordDir(), filepath.Join("/state", "crabswarm", "issues-lint"))
+
+	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv("HOME", "/home/someone")
+	assert.Equal(
+		t,
+		IssuesLintRecordDir(),
+		filepath.Join("/home/someone", ".local", "state", "crabswarm", "issues-lint"),
+	)
+
+	// Without a home dir there is nowhere to keep records, and a relative
+	// path would land them in the working directory.
+	t.Setenv("HOME", "")
+	assert.Equal(t, IssuesLintRecordDir(), "")
+}
+
 // A chat section in the file overrides the derived default.
 func TestLoadConfig_ChatFromFile(t *testing.T) {
 	baseEnv(t)

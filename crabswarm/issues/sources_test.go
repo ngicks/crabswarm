@@ -21,7 +21,7 @@ func TestSourceStoreAdd(t *testing.T) {
 	assert.Equal(t, src.BeadsPath, fixtureBeadsPath)
 	assert.Equal(t, src.Prefix, "crabswarm")
 	assert.Equal(t, src.Dir, dir)
-	assert.Equal(t, src.ID, sourceID(fixtureBeadsPath))
+	assert.Equal(t, src.ID, SourceID(fixtureBeadsPath))
 
 	inv := invocations()
 	assert.Equal(t, len(inv), 1)

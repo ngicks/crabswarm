@@ -7,6 +7,10 @@
 // temp file, runs mermaid-lint once over the whole set and maps its report
 // back to the issue, field, comment and line the text came from. One
 // parser therefore judges diagrams in files and diagrams in issues alike.
+//
+// [Sweep] reads a whole backlog through bd and lints it. [Ledger] skips a
+// sweep of a backlog whose beads commit has not moved since its last clean
+// sweep.
 package mermaidlint
 
 import (

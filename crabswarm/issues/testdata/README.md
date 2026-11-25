@@ -22,6 +22,18 @@ Recorded 2026-09-07 by running bd in the repository worktree.
 issue differs: its `updated_at` was moved forward and its title changed, so the
 diff between the two listings names that one issue and nothing else.
 
+## Recorded with bd 1.3.4
+
+Recorded 2026-11-25 by running bd in the repository worktree.
+
+```
+bd version 1.3.4 (7ef2fd05e)
+```
+
+| File | Command |
+| --- | --- |
+| `vc_status.json` | `bd vc status --json` |
+
 ## Kept from earlier recordings
 
 These were not re-recorded, so the commands below are the ones each fixture

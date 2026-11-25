@@ -352,3 +352,26 @@ func (c *Client) Get(ctx context.Context, id string) (*Issue, error) {
 	}
 	return &issues[0], nil
 }
+
+// Commit returns the hash of the dolt commit the beads database stands at.
+// Under bd's default dolt.auto-commit policy every backlog write is a commit
+// of its own, so the hash moves whenever an issue changes and stays put
+// otherwise.
+func (c *Client) Commit(ctx context.Context) (string, error) {
+	out, err := c.run(ctx, "vc", "status", "--json")
+	if err != nil {
+		return "", err
+	}
+	var status struct {
+		Commit string `json:"commit"`
+	}
+	if err := json.Unmarshal(out, &status); err != nil {
+		return "", fmt.Errorf("decoding bd vc status: %w", err)
+	}
+	// A caller compares hashes to tell whether the backlog moved, and two
+	// empty hashes would compare equal forever.
+	if status.Commit == "" {
+		return "", errors.New("bd vc status reported no commit")
+	}
+	return status.Commit, nil
+}

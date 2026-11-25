@@ -211,6 +211,40 @@ func TestClientGetFlagLikeID(t *testing.T) {
 	assert.Equal(t, inv[0].args, "show --id=-C --json --include-comments")
 }
 
+func TestClientCommit(t *testing.T) {
+	invocations := installFakeBd(t)
+	dir := t.TempDir()
+
+	got, err := NewClient(dir).Commit(t.Context())
+	assert.NilError(t, err)
+	assert.Equal(t, got, "ek0b0t1fscncm4vleju8c6cou1b5clsk")
+
+	inv := invocations()
+	assert.Equal(t, len(inv), 1)
+	assert.Equal(t, inv[0].args, "vc status --json")
+	assert.Equal(t, inv[0].dir, dir)
+}
+
+func TestClientCommitMissing(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		script string
+	}{
+		{name: "no commit field", script: "#!/bin/sh\necho '{\"branch\":\"main\"}'\n"},
+		{name: "not json", script: "#!/bin/sh\necho 'Branch: main'\n"},
+		{name: "bd fails", script: "#!/bin/sh\necho 'Error: no beads database found' >&2\nexit 1\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bin := filepath.Join(t.TempDir(), "bd")
+			assert.NilError(t, os.WriteFile(bin, []byte(tc.script), 0o755))
+
+			got, err := NewClient(t.TempDir(), WithBinary(bin)).Commit(t.Context())
+			assert.Assert(t, err != nil)
+			assert.Equal(t, got, "")
+		})
+	}
+}
+
 func TestClientRunSharesOneRun(t *testing.T) {
 	invocations := installFakeBd(t)
 	requireExclusiveFakeBd(t)

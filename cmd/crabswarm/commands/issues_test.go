@@ -14,7 +14,7 @@ func TestIssuesCmd_Lint(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, lint.Name(), "lint")
 
-	for _, name := range []string{"dir", "all", "limit", "json"} {
+	for _, name := range []string{"dir", "all", "limit", "json", "changed"} {
 		assert.Assert(t, lint.Flags().Lookup(name) != nil, "flag --%s missing", name)
 	}
 	shorthand := lint.Flags().ShorthandLookup("C")
