@@ -8,8 +8,8 @@ import (
 )
 
 // `crabswarm hook exec` fed what a harness hands a hook besides the PostToolUse
-// envelope the cases in main_test.go use: the Stop envelope
-// crabswarm-issues-lint is wired to, an event no shipped file wires, and stdin
+// envelope the cases in main_test.go use: the Stop envelope, an event no shipped file wires, and
+// stdin
 // that is no envelope at all. The hook files the apm packages ship are pinned
 // at the end: every entry in them runs through `hook exec`.
 
@@ -62,8 +62,9 @@ func commandRan(marker string) bool {
 	return err == nil
 }
 
-// The shape crabswarm-issues-lint ships: a Stop hook with a command and no
-// output template. A command that succeeds lets the turn end, and one that
+// A Stop hook wired with a command and no output template. A command that succeeds lets the turn
+// end, and
+// one that
 // fails blocks it with the failure as the reason, which keeps the turn going
 // until the command is satisfied.
 func TestHookExec_StopBlocksOnFailure(t *testing.T) {

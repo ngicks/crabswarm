@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -21,7 +22,9 @@ import (
 // as a plugin, reading whatever hooks and MCP servers the directory holds
 // instead of settings.json. A Codex hook is a merged hooks file, routed to
 // Codex alone by its `codex-` stem. crabswarm-mcp-shared ships its skill with
-// Claude Code's server entry and the OpenCode plugins beside it. All
+// Claude Code's server entry and the OpenCode plugins beside it.
+// crabswarm-issues-lint wires no harness at all: its skill carries an hk
+// pre-commit fragment and the script that copies it into a repository. All
 // of it is text apm copies as written, so its shape is pinned here rather than
 // discovered on a consumer's machine.
 var apmPackages = []string{"crabswarm-mcp", "crabswarm-mcp-shared", "crabswarm-issues-lint"}
@@ -103,9 +106,9 @@ var apmSkillFiles = map[string][]string{
 		"opencode.ts",
 	},
 	"crabswarm-issues-lint": {
-		".claude-plugin/plugin.json",
 		"SKILL.md",
-		"hooks/hooks.json",
+		"reference/crabswarm-issues-lint.hk.pkl",
+		"scripts/hk-init.sh",
 	},
 }
 
@@ -140,20 +143,26 @@ func TestApmPackages_SkillDirectoriesShipTheirFiles(t *testing.T) {
 	}
 }
 
-// apmPluginHookPackages are the packages whose Claude Code plugin ships a hook
-// file. crabswarm-issues-lint is one: its whole point is a `Stop` hook that
-// blocks a turn on a broken diagram, and Claude Code has no other way to be
-// told.
+// apmPluginPackages are the packages that ship Claude Code a plugin, which is
+// every package with something for Claude Code to load besides the skill text:
+// an MCP server entry or a hook file.
 //
-// crabswarm-mcp is not. Its member reports what the session is doing off the
+// crabswarm-issues-lint is not one. Git runs its check as a pre-commit hook, so
+// a plugin there would load nothing.
+var apmPluginPackages = []string{"crabswarm-mcp", "crabswarm-mcp-shared"}
+
+// apmPluginHookPackages are the packages whose Claude Code plugin ships a hook
+// file. None does today.
+//
+// crabswarm-mcp's member reports what the session is doing off the
 // agents listing its own MCP server polls, and its messages arrive either as a
 // channel notification or as a line the daemon types into the terminal, so a
 // hook there would have nothing left to carry and one thing to get wrong: the
 // `Stop` read it used to ship stored `done` whenever the inbox was empty, while
 // a subagent running in the background kept the session working.
-var apmPluginHookPackages = []string{"crabswarm-issues-lint"}
+var apmPluginHookPackages []string
 
-// Every package that targets Claude Code ships a plugin. apm deploys a skill
+// A package with wiring for Claude Code ships it as a plugin. apm deploys a skill
 // directory only when a SKILL.md sits at its root, and Claude Code turns it into
 // a plugin only when the manifest is there and names the directory: a manifest
 // name that drifts from the directory is a plugin Claude Code lists under one
@@ -173,6 +182,17 @@ func TestApmPackages_ShipAClaudePlugin(t *testing.T) {
 			dir := apmSkillPluginDir(name)
 			if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err != nil {
 				t.Errorf("no SKILL.md at the skill root: %v", err)
+			}
+			if !slices.Contains(apmPluginPackages, name) {
+				_, err := os.Stat(filepath.Join(dir, ".claude-plugin"))
+				if !errors.Is(err, fs.ErrNotExist) {
+					t.Errorf(
+						"the skill carries a plugin manifest (%v); %s ships Claude Code no plugin",
+						err,
+						name,
+					)
+				}
+				return
 			}
 
 			var manifest struct {
@@ -231,14 +251,15 @@ func TestApmPackages_OpenCodePluginsAnnounceTheirDelivery(t *testing.T) {
 	}
 }
 
-// apmCodexHookPackages are the packages that hand Codex a hook file.
+// apmCodexHookPackages are the packages that hand Codex a hook file. None
+// does.
 //
 // crabswarm-mcp targets Claude Code alone. crabswarm-mcp-shared hooks Codex
 // nothing: a Codex hook runs beside the thread, inside the app server every
 // replica shares, where the identity is the app server's rather than any
 // replica's, so a chat read there would read for the wrong member. A mention
 // reaches a Codex replica as a turn the shared MCP server starts instead.
-var apmCodexHookPackages = []string{"crabswarm-issues-lint"}
+var apmCodexHookPackages []string
 
 // A package that hooks Codex ships it one file and one file only, under a
 // `codex-` stem. apm cannot hand a file to Codex's merge and keep it out of
@@ -272,25 +293,34 @@ func TestApmPackages_MergeHooksIntoCodexOnly(t *testing.T) {
 	}
 }
 
-// apmMirroredHookPackages are the packages whose two hook files are the same
-// wiring written twice, which is every package that asks the two harnesses for
-// the same thing. The other packages hook Codex nothing, and have no second
-// file to compare a plugin's against.
-var apmMirroredHookPackages = []string{"crabswarm-issues-lint"}
+// hkPackagePin matches the hk release a Pkl file imports its schema from.
+var hkPackagePin = regexp.MustCompile(`releases/download/v[^/"]+/hk@[^"#]+#`)
 
-// The two copies of a mirrored package's wiring are compared whole: a Codex
-// file that drifts from the plugin's is a check that runs on one harness and
-// silently not on the other.
-func TestApmPackages_MirrorTheHooksOntoCodex(t *testing.T) {
-	for _, name := range apmMirroredHookPackages {
-		t.Run(name, func(t *testing.T) {
-			codex := hooksObject(t, filepath.Join(
-				apmPackageDir(name), ".apm", "hooks", "codex-hooks.json"))
-			plugin := hooksObject(t, filepath.Join(apmSkillPluginDir(name), "hooks", "hooks.json"))
-			if !reflect.DeepEqual(codex, plugin) {
-				t.Errorf("codex-hooks.json and the plugin's hooks.json wire different hooks:"+
-					"\ncodex:  %v\nplugin: %v", codex, plugin)
-			}
-		})
+// This repository runs the pre-commit step it publishes. hk-init.sh writes the
+// copy under `.hk/` and rewrites only the hk release it imports, so a copy
+// that differs anywhere else is a fragment edited without rerunning the
+// script, and the checkout would lint its backlog with a step no consumer gets.
+func TestApmPackages_IssuesLintFragmentIsTheOneThisRepoRuns(t *testing.T) {
+	read := func(path string) string {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		return hkPackagePin.ReplaceAllString(string(b), "")
+	}
+	shipped := read(filepath.Join(
+		apmSkillPluginDir("crabswarm-issues-lint"), "reference", "crabswarm-issues-lint.hk.pkl"))
+	wired := read(filepath.Join(repoRoot(), ".hk", "crabswarm-issues-lint.pkl"))
+	if shipped != wired {
+		t.Errorf(".hk/crabswarm-issues-lint.pkl differs from the fragment the package ships; " +
+			"rerun the skill's scripts/hk-init.sh")
+	}
+
+	hk, err := os.ReadFile(filepath.Join(repoRoot(), "hk.pkl"))
+	if err != nil {
+		t.Fatalf("read hk.pkl: %v", err)
+	}
+	if !strings.Contains(string(hk), "...crabswarm_issues_lint.steps") {
+		t.Errorf("hk.pkl does not spread the fragment's steps into a hook")
 	}
 }
