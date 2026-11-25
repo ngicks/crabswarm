@@ -301,6 +301,10 @@ var hkPackagePin = regexp.MustCompile(`releases/download/v[^/"]+/hk@[^"#]+#`)
 // that differs anywhere else is a fragment edited without rerunning the
 // script, and the checkout would lint its backlog with a step no consumer gets.
 func TestApmPackages_IssuesLintFragmentIsTheOneThisRepoRuns(t *testing.T) {
+	copied := filepath.Join(repoRoot(), ".hk", "crabswarm-issues-lint.pkl")
+	if _, err := os.Stat(copied); errors.Is(err, fs.ErrNotExist) {
+		t.Skip("this checkout does not scaffold the step")
+	}
 	read := func(path string) string {
 		b, err := os.ReadFile(path)
 		if err != nil {

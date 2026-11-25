@@ -1,11 +1,1 @@
 amends ".hk/beads.pkl"
-
-import ".hk/crabswarm-issues-lint.pkl" as crabswarm_issues_lint
-
-hooks {
-  ["pre-commit"] {
-    steps {
-      ...crabswarm_issues_lint.steps
-    }
-  }
-}
